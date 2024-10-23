@@ -73,7 +73,7 @@ const Keyword = (props: KeywordProps) => {
       let bestPos;
       if (Object.keys(history).length > 0) {
          const historyArray = Object.keys(history).map((itemID) => ({ date: itemID, position: history[itemID] }))
-         .sort((a, b) => a.position - b.position);
+             .sort((a, b) => a.position - b.position).filter((el) => (el.position > 0));;
          if (historyArray[0]) {
             bestPos = { ...historyArray[0] };
          }
@@ -88,12 +88,12 @@ const Keyword = (props: KeywordProps) => {
       <div
       key={keyword + ID}
       style={style}
-      className={`keyword relative py-5 px-4 text-gray-600 border-b-[1px] border-gray-200 lg:py-4 lg:px-6 lg:border-0 
+      className={`keyword relative py-5 px-4 text-gray-600 border-b-[1px] border-gray-200 lg:py-4 lg:px-6 lg:border-0
       lg:flex lg:justify-between lg:items-center ${selected ? ' bg-indigo-50 keyword--selected' : ''} ${lastItem ? 'border-b-0' : ''}`}>
 
          <div className=' w-3/4 font-semibold cursor-pointer lg:flex-1 lg:basis-20 lg:w-auto lg:flex lg:items-center'>
             <button
-               className={`p-0 mr-2 leading-[0px] inline-block rounded-sm pt-0 px-[1px] pb-[3px] border 
+               className={`p-0 mr-2 leading-[0px] inline-block rounded-sm pt-0 px-[1px] pb-[3px] border
                ${selected ? ' bg-blue-700 border-blue-700 text-white' : 'text-transparent'}`}
                onClick={() => selectKeyword(ID)}
                >
@@ -145,7 +145,7 @@ const Keyword = (props: KeywordProps) => {
          </div>
 
          <div
-         className={`keyword_url inline-block mt-4 mr-5 ml-5 lg:flex-1 text-gray-400 lg:m-0 max-w-[70px] 
+         className={`keyword_url inline-block mt-4 mr-5 ml-5 lg:flex-1 text-gray-400 lg:m-0 max-w-[70px]
          overflow-hidden text-ellipsis whitespace-nowrap lg:max-w-none lg:pr-5`}>
             <a href={url} target="_blank" rel="noreferrer"><span className='mr-3 lg:hidden'>
                <Icon type="link-alt" size={14} color="#999" /></span>{turncatedURL || '-'}
@@ -209,7 +209,7 @@ const Keyword = (props: KeywordProps) => {
          </div>
 
          {lastUpdateError && lastUpdateError.date && showPositionError && (
-            <div className={`absolute p-2 bg-white z-30 border border-red-200 rounded w-[220px] left-4 shadow-sm text-xs 
+            <div className={`absolute p-2 bg-white z-30 border border-red-200 rounded w-[220px] left-4 shadow-sm text-xs
             ${index > 2 ? 'lg:bottom-12 mt-[-70px]' : ' top-12'}`}>
                Error Updating Keyword position (Tried <TimeAgo
                                                          title={dayjs(lastUpdateError.date).format('DD-MMM-YYYY, hh:mm:ss A')}
