@@ -12,21 +12,38 @@ type InsightStatsProps = {
    totalPages: number,
 }
 
-const InsightStats = ({ stats = [], totalKeywords = 0, totalPages = 0 }:InsightStatsProps) => {
+import React, { useMemo } from 'react';
+
+interface InsightStatsProps {
+    stats: { impressions: number; clicks: number; position: number }[];
+    totalKeywords?: number;
+    totalPages?: number;
+}
+
+const InsightStats = ({ stats = [], totalKeywords = 0, totalPages = 0 }: InsightStatsProps) => {
     const totalStat = useMemo(() => {
-      const totals = stats.reduce((acc, item) => {
-          return {
-            impressions: item.impressions + acc.impressions,
-            clicks: item.clicks + acc.clicks,
-            position: item.position + acc.position,
-          };
-      }, { impressions: 0, clicks: 0, position: 0 });
-    
-      return {
-          ...totals,
-          ctr: totals.impressions > 0 ? (totals.clicks / totals.impressions) * 100 : 0
-      };
+        const totals = stats.reduce(
+            (acc, item) => ({
+                impressions: acc.impressions + item.impressions,
+                clicks: acc.clicks + item.clicks,
+                position: acc.position + item.position,            }),
+            { impressions: 0, clicks: 0, position: 0 }
+        );
+
+        return {
+            ...totals,
+            ctr: totals.impressions > 0 ? (totals.clicks / totals.impressions) * 100 : 0,
+        };
     }, [stats]);
+
+    return (
+        <div>
+            {/* Render stats here as needed */}
+        </div>
+    );
+};
+
+export default InsightStats;
 
    const chartData = useMemo(() => {
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
