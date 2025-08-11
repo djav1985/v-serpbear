@@ -124,6 +124,42 @@ export const getAdwordsKeywordIdeas = async (credentials:AdwordsCredentials, adw
    const { account_id, developer_token } = credentials;
    const { country = '2840', language = '1000', keywords = [], domainUrl = '', domainSlug = '', seedType } = adwordsDomainOptions || {};
 
+   const seedKeywords = [...keywords];
+
+   // Load Keywords from Google Search Console File.
+   if (seedType === 'searchconsole' && domainSlug) {
+      const domainSCData = await readLocalSCData(domainSlug);
+      if (domainSCData && domainSCData.thirtyDays) {
+         const scKeywords = domainSCData.thirtyDays;
+         const sortedSCKeywords = scKeywords.sort((a, b) => (b.impressions > a.impressions ? 1 : -1));
+         sortedSCKeywords.slice(0, 100).forEach((sckeywrd) => {
+            if (sckeywrd.keyword && !seedKeywords.includes(sckeywrd.keyword)) {
+               seedKeywords.push(sckeywrd.keyword);
+            }
+         });
+      }
+   }
+
+   // Load all Keywords from Database
+   if (seedType === 'tracking' && domainSlug) {
+      const allKeywords:Keyword[] = await Keyword.findAll({ where: { domain: domainSlug } });
+      const currentKeywords: KeywordType[] = parseKeywords(allKeywords.map((e) => e.get({ plain: true })));
+      currentKeywords.forEach((keyword) => {
+         if (keyword.keyword && !seedKeywords.includes(keyword.keyword)) {
+            seedKeywords.push(keyword.keyword);
+         }
+      });
+   }
+
+   // Validate that we have sufficient seed data for the chosen seed type
+   if (seedType === 'tracking' && seedKeywords.length === 0) {
+      throw new Error('No tracked keywords found for this domain. Please add some keywords to track first, or try a different seed type.');
+   }
+
+   if (seedType === 'searchconsole' && seedKeywords.length === 0) {
+      throw new Error('No Search Console data found for this domain. Please ensure Search Console is connected and has data, or try a different seed type.');
+   }
+
    let accessToken = '';
 
    const cachedAccessToken:string|false|undefined = memoryCache.get('adwords_token');
@@ -137,32 +173,6 @@ export const getAdwordsKeywordIdeas = async (credentials:AdwordsCredentials, adw
 
    let fetchedKeywords:IdeaKeyword[] = [];
    if (accessToken) {
-      const seedKeywords = [...keywords];
-
-      // Load Keywords from Google Search Console File.
-      if (seedType === 'searchconsole' && domainSlug) {
-         const domainSCData = await readLocalSCData(domainSlug);
-         if (domainSCData && domainSCData.thirtyDays) {
-            const scKeywords = domainSCData.thirtyDays;
-            const sortedSCKeywords = scKeywords.sort((a, b) => (b.impressions > a.impressions ? 1 : -1));
-            sortedSCKeywords.slice(0, 100).forEach((sckeywrd) => {
-               if (sckeywrd.keyword && !seedKeywords.includes(sckeywrd.keyword)) {
-                  seedKeywords.push(sckeywrd.keyword);
-               }
-            });
-         }
-      }
-
-      // Load all Keywords from Database
-      if (seedType === 'tracking' && domainSlug) {
-         const allKeywords:Keyword[] = await Keyword.findAll({ where: { domain: domainSlug } });
-         const currentKeywords: KeywordType[] = parseKeywords(allKeywords.map((e) => e.get({ plain: true })));
-         currentKeywords.forEach((keyword) => {
-            if (keyword.keyword && !seedKeywords.includes(keyword.keyword)) {
-               seedKeywords.push(keyword.keyword);
-            }
-         });
-      }
 
       try {
          // API: https://developers.google.com/google-ads/api/rest/reference/rest/v18/customers/generateKeywordIdeas
