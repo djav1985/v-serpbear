@@ -23,7 +23,7 @@ type KeywordsInput = {
    state?:string,
 }
 
-const AddKeywords = ({ closeModal, domain, keywords, scraperName = '', allowsCity = false }: AddKeywordsProps) => {
+const AddKeywords = ({ closeModal, domain, keywords = [], scraperName = '', allowsCity = false }: AddKeywordsProps) => {
    const inputRef = useRef(null);
    const defCountry = localStorage.getItem('default_country') || 'US';
 
@@ -41,7 +41,9 @@ const AddKeywords = ({ closeModal, domain, keywords, scraperName = '', allowsCit
    const { mutate: addMutate, isLoading: isAdding } = useAddKeywords(() => closeModal(false));
 
    const existingTags: string[] = useMemo(() => {
-      const allTags = keywords.reduce((acc: string[], keyword) => [...acc, ...keyword.tags], []).filter((t) => t && t.trim() !== '');
+      const allTags = (Array.isArray(keywords) ? keywords : [])
+         .reduce((acc: string[], keyword) => [...acc, ...keyword.tags], [])
+         .filter((t) => t && t.trim() !== '');
       return [...new Set(allTags)];
    }, [keywords]);
 

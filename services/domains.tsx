@@ -39,7 +39,13 @@ export async function fetchDomainScreenshot(domain: string, screenshot_key:strin
       try {
          const screenshotURL = `https://image.thum.io/get/auth/${screenshot_key}/maxAge/96/width/200/https://${domain}`;
          const domainImageRes = await fetch(screenshotURL);
-         const domainImageBlob = domainImageRes.status === 200 ? await domainImageRes.blob() : false;
+         if (domainImageRes.status !== 200) {
+            if (domainImageRes.status === 403) {
+               toast('Unable to fetch screenshot. Check screenshot API key configuration.', { icon: '⚠️' });
+            }
+            return false;
+         }
+         const domainImageBlob = await domainImageRes.blob();
          if (domainImageBlob) {
             const reader = new FileReader();
             await new Promise((resolve, reject) => {

@@ -27,6 +27,10 @@ const Domains: NextPage = () => {
 
    const appSettings:SettingsType = appSettingsData?.settings || {};
    const { scraper_type = '' } = appSettings;
+   const hasScreenshotKey = useMemo(
+      () => typeof appSettings.screenshot_key === 'string' && appSettings.screenshot_key.trim() !== '',
+      [appSettings.screenshot_key],
+   );
 
    const totalKeywords = useMemo(() => {
       let keywords = 0;
@@ -50,7 +54,7 @@ const Domains: NextPage = () => {
    }, [domainsData]);
 
    useEffect(() => {
-      if (domainsData?.domains && domainsData.domains.length > 0 && appSettings.screenshot_key) {
+      if (domainsData?.domains && domainsData.domains.length > 0 && hasScreenshotKey) {
          const fetchAllScreenshots = async () => {
             const screenshotPromises = domainsData.domains.map(async (domain: DomainType) => {
                if (domain.domain) {
@@ -80,10 +84,10 @@ const Domains: NextPage = () => {
 
          fetchAllScreenshots();
       }
-   }, [domainsData, appSettings.screenshot_key]);
+   }, [domainsData, hasScreenshotKey, appSettings.screenshot_key]);
 
    const manuallyUpdateThumb = async (domain: string) => {
-      if (domain && appSettings.screenshot_key) {
+      if (domain && hasScreenshotKey) {
          const domainThumb = await fetchDomainScreenshot(domain, appSettings.screenshot_key, true);
          if (domainThumb) {
             toast(`${domain} Screenshot Updated Successfully!`, { icon: '✔️' });
@@ -91,6 +95,8 @@ const Domains: NextPage = () => {
          } else {
             toast(`Failed to Fetch ${domain} Screenshot!`, { icon: '⚠️' });
          }
+      } else {
+         toast('Screenshot API key is not configured', { icon: '⚠️' });
       }
    };
 
