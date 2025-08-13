@@ -110,6 +110,132 @@ export const getAdwordsAccessToken = async (credentials: AdwordsCredentials) => 
    }
 };
 
+export const seedKeywordsFromSources = async ({
+   seedType,
+   seedSCKeywords = false,
+   seedCurrentKeywords = false,
+   domainUrl = '',
+   keywords = [],
+}: {
+   seedType: IdeaSettings['seedType'],
+   seedSCKeywords?: boolean,
+   seedCurrentKeywords?: boolean,
+   domainUrl?: string,
+   keywords?: string[],
+}): Promise<string[]> => {
+   const seedKeywords = [...keywords];
+   if (!domainUrl) { return seedKeywords; }
+
+   const scPromise = (seedType === 'searchconsole' || seedSCKeywords)
+      ? readLocalSCData(domainUrl)
+      : Promise.resolve(null);
+
+   const kwPromise = (seedType === 'tracking' || seedCurrentKeywords)
+      ? Keyword.findAll({ where: { domain: domainUrl } })
+      : Promise.resolve(null);
+
+   const [domainSCData, allKeywords] = await Promise.all([scPromise, kwPromise]);
+
+   if (domainSCData && domainSCData.thirtyDays) {
+      const sortedSCKeywords = domainSCData.thirtyDays.sort((a, b) => (b.impressions > a.impressions ? 1 : -1));
+      sortedSCKeywords.slice(0, 100).forEach((sckeywrd: any) => {
+         if (sckeywrd.keyword && !seedKeywords.includes(sckeywrd.keyword)) {
+            seedKeywords.push(sckeywrd.keyword);
+         }
+      });
+   }
+
+   if (allKeywords && Array.isArray(allKeywords) && allKeywords.length > 0) {
+      const currentKeywords: KeywordType[] = parseKeywords(allKeywords.map((e: any) => e.get({ plain: true })));
+      currentKeywords.slice(0, 100).forEach((keyword) => {
+         if (keyword.keyword && !seedKeywords.includes(keyword.keyword)) {
+            seedKeywords.push(keyword.keyword);
+         }
+      });
+   }
+
+   if (['tracking', 'searchconsole'].includes(seedType) && seedKeywords.length === 0) {
+      const errMessage = seedType === 'tracking'
+         ? 'No tracked keywords found for this domain'
+         : 'No search console keywords found for this domain';
+      throw new Error(errMessage);
+   }
+
+   return seedKeywords;
+};
+
+export const buildAdwordsRequest = ({
+   seedType,
+   country,
+   language,
+   seedKeywords,
+   domainUrl = '',
+   test = false,
+}: {
+   seedType: IdeaSettings['seedType'],
+   country: string,
+   language: string,
+   seedKeywords: string[],
+   domainUrl?: string,
+   test?: boolean,
+}) => {
+   const geoTargetConstants = countries[country][3];
+   const reqPayload: Record<string, any> = {
+      geoTargetConstants: `geoTargetConstants/${geoTargetConstants}`,
+      language: `languageConstants/${language}`,
+      pageSize: test ? '1' : '1000',
+   };
+   if (['custom', 'searchconsole', 'tracking'].includes(seedType) && seedKeywords.length > 0) {
+      reqPayload.keywordSeed = { keywords: seedKeywords.slice(0, 20) };
+   }
+   if (seedType === 'auto' && domainUrl) {
+      reqPayload.siteSeed = { site: domainUrl };
+   }
+   return reqPayload;
+};
+
+export const fetchKeywordIdeas = async ({
+   customerID,
+   reqPayload,
+   developer_token,
+   accessToken,
+}: {
+   customerID: string,
+   reqPayload: Record<string, any>,
+   developer_token: string,
+   accessToken: string,
+}) => {
+   const resp = await fetch(`https://googleads.googleapis.com/v18/customers/${customerID}:generateKeywordIdeas`, {
+      method: 'POST',
+      headers: {
+         'Content-Type': 'application/json',
+         'developer-token': developer_token,
+         Authorization: `Bearer ${accessToken}`,
+         'login-customer-id': customerID,
+      },
+      body: JSON.stringify(reqPayload),
+   });
+   const ideaData = await resp.json();
+
+   if (resp.status !== 200) {
+      const errMessage = ideaData?.error?.details?.[0]?.errors?.[0]?.message || 'Failed to fetch keyword ideas';
+      console.log('[ERROR] Google Ads Response :', errMessage);
+      throw new Error(errMessage);
+   }
+
+   return ideaData;
+};
+
+export const persistIdeas = async (
+   domainSlug: string,
+   adwordsDomainOptions: IdeaSettings,
+   fetchedKeywords: IdeaKeyword[],
+   test = false,
+) => {
+   if (test || fetchedKeywords.length === 0) { return; }
+   await updateLocalKeywordIdeas(domainSlug, { keywords: fetchedKeywords, settings: adwordsDomainOptions });
+};
+
 /**
  * The function `getAdwordsKeywordIdeas` retrieves keyword ideas from Google Ads API based on
  * provided credentials and settings.
@@ -136,7 +262,6 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
    } = adwordsDomainOptions || {};
 
    let accessToken = '';
-
    const cachedAccessToken: string | false | undefined = memoryCache.get('adwords_token');
    if (cachedAccessToken && !test) {
       accessToken = cachedAccessToken;
@@ -145,92 +270,23 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
       memoryCache.delete('adwords_token');
       memoryCache.set('adwords_token', accessToken, { ttl: 3300000 });
    }
+   if (!accessToken) { return []; }
 
-   let fetchedKeywords: IdeaKeyword[] = [];
-   if (accessToken) {
-      const seedKeywords = [...keywords];
+   const seedKeywords = await seedKeywordsFromSources({ seedType, seedSCKeywords, seedCurrentKeywords, domainUrl, keywords });
 
-      // Load Keywords from Google Search Console File.
-      if ((seedType === 'searchconsole' || seedSCKeywords) && domainUrl) {
-         const domainSCData = await readLocalSCData(domainUrl);
-         if (domainSCData && domainSCData.thirtyDays) {
-            const scKeywords = domainSCData.thirtyDays;
-            const sortedSCKeywords = scKeywords.sort((a, b) => (b.impressions > a.impressions ? 1 : -1));
-            sortedSCKeywords.slice(0, 100).forEach((sckeywrd) => {
-               if (sckeywrd.keyword && !seedKeywords.includes(sckeywrd.keyword)) {
-                  seedKeywords.push(sckeywrd.keyword);
-               }
-            });
-         }
-      }
-
-      // Load all Keywords from Database
-      if ((seedType === 'tracking' || seedCurrentKeywords) && domainUrl) {
-         const allKeywords:Keyword[] = await Keyword.findAll({ where: { domain: domainUrl } });
-         const currentKeywords: KeywordType[] = parseKeywords(allKeywords.map((e) => e.get({ plain: true })));
-         // Limit to 100 keywords, similar to searchconsole
-         currentKeywords.slice(0, 100).forEach((keyword) => {
-            if (keyword.keyword && !seedKeywords.includes(keyword.keyword)) {
-               seedKeywords.push(keyword.keyword);
-            }
-         });
-      }
-
-      if (['tracking', 'searchconsole'].includes(seedType) && seedKeywords.length === 0) {
-         const errMessage = seedType === 'tracking'
-            ? 'No tracked keywords found for this domain'
-            : 'No search console keywords found for this domain';
-         throw new Error(errMessage);
-      }
-
-      try {
-         // API: https://developers.google.com/google-ads/api/rest/reference/rest/v18/customers/generateKeywordIdeas
-         const customerID = account_id.replaceAll('-', '');
-         const geoTargetConstants = countries[country][3]; // '2840';
-         const reqPayload: Record<string, any> = {
-            geoTargetConstants: `geoTargetConstants/${geoTargetConstants}`,
-            language: `languageConstants/${language}`,
-            pageSize: test ? '1' : '1000',
-         };
-         if (['custom', 'searchconsole', 'tracking'].includes(seedType) && seedKeywords.length > 0) {
-            reqPayload.keywordSeed = { keywords: seedKeywords.slice(0, 20) };
-         }
-         if (seedType === 'auto' && domainUrl) {
-            reqPayload.siteSeed = { site: domainUrl };
-         }
-
-         const resp = await fetch(`https://googleads.googleapis.com/v18/customers/${customerID}:generateKeywordIdeas`, {
-            method: 'POST',
-            headers: {
-               'Content-Type': 'application/json',
-               'developer-token': developer_token,
-               Authorization: `Bearer ${accessToken}`,
-               'login-customer-id': customerID,
-            },
-            body: JSON.stringify(reqPayload),
-         });
-         const ideaData = await resp.json();
-
-         if (resp.status !== 200) {
-            const errMessage = ideaData?.error?.details?.[0]?.errors?.[0]?.message || 'Failed to fetch keyword ideas';
-            console.log('[ERROR] Google Ads Response :', errMessage);
-            throw new Error(errMessage);
-         }
-
-         if (ideaData?.results) {
-            fetchedKeywords = extractAdwordskeywordIdeas(ideaData.results as keywordIdeasResponseItem[], { country, domain: domainSlug });
-         }
-
-         if (!test && fetchedKeywords.length > 0) {
-            await updateLocalKeywordIdeas(domainSlug, { keywords: fetchedKeywords, settings: adwordsDomainOptions });
-         }
-      } catch (error) {
-         console.log('[ERROR] Fetching Keyword Ideas from Google Ads :', error);
-         throw error;
-      }
+   try {
+      const customerID = account_id.replaceAll('-', '');
+      const reqPayload = buildAdwordsRequest({ seedType, country, language, seedKeywords, domainUrl, test });
+      const ideaData = await fetchKeywordIdeas({ customerID, reqPayload, developer_token, accessToken });
+      const fetchedKeywords: IdeaKeyword[] = ideaData?.results
+         ? extractAdwordskeywordIdeas(ideaData.results as keywordIdeasResponseItem[], { country, domain: domainSlug })
+         : [];
+      await persistIdeas(domainSlug, adwordsDomainOptions, fetchedKeywords, test);
+      return fetchedKeywords;
+   } catch (error) {
+      console.log('[ERROR] Fetching Keyword Ideas from Google Ads :', error);
+      throw error;
    }
-
-   return fetchedKeywords;
 };
 
 /**
