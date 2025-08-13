@@ -10,22 +10,32 @@ import { readLocalSCData } from './searchConsole';
  */
 const getdomainStats = async (domains:DomainType[]): Promise<DomainType[]> => {
    const finalDomains: DomainType[] = [];
-   console.log('domains: ', domains.length);
+
+   const allKeywords: Keyword[] = await Keyword.findAll({ where: { domain: domains.map((d) => d.domain) } });
+   const keywordsByDomain = allKeywords.reduce((acc: Record<string, any[]>, kw) => {
+      const key = kw.domain as string;
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(kw.get({ plain: true }));
+      return acc;
+   }, {});
 
    for (const domain of domains) {
       const domainWithStat = domain;
-
-      // First Get ALl The Keywords for this Domain
-      const allKeywords:Keyword[] = await Keyword.findAll({ where: { domain: domain.domain } });
-      const keywords: KeywordType[] = parseKeywords(allKeywords.map((e) => e.get({ plain: true })));
+      const rawKeywords = keywordsByDomain[domain.domain] || [];
+      const keywords: KeywordType[] = parseKeywords(rawKeywords);
       domainWithStat.keywordCount = keywords.length;
+      if (keywords.length === 0) {
+         domainWithStat.avgPosition = 0;
+         domainWithStat.keywordsUpdated = domain.lastUpdated;
+         finalDomains.push(domainWithStat);
+         continue;
+      }
       const keywordPositions = keywords.reduce((acc, itm) => (acc + itm.position), 0);
       const KeywordsUpdateDates: number[] = keywords.reduce((acc: number[], itm) => [...acc, new Date(itm.lastUpdated).getTime()], [0]);
       const lastKeywordUpdateDate = Math.max(...KeywordsUpdateDates);
       domainWithStat.keywordsUpdated = new Date(lastKeywordUpdateDate || new Date(domain.lastUpdated).getTime()).toJSON();
       domainWithStat.avgPosition = Math.round(keywordPositions / keywords.length);
 
-      // Then Load the SC File and read the stats and calculate the Last 7 days stats
       const localSCData = await readLocalSCData(domain.domain);
       const days = 7;
       if (localSCData && localSCData.stats && localSCData.stats.length) {

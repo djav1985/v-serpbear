@@ -1,9 +1,9 @@
 import toast from 'react-hot-toast';
 import { useMutation, useQuery, useQueryClient } from 'react-query';
+import apiFetch from './apiClient';
 
 export async function fetchSettings() {
-   const res = await fetch(`${window.location.origin}/api/settings`, { method: 'GET' });
-   return res.json();
+   return apiFetch(`${window.location.origin}/api/settings`);
 }
 
 export function useFetchSettings() {
@@ -18,11 +18,7 @@ export const useUpdateSettings = (onSuccess:Function|undefined) => {
 
       const headers = new Headers({ 'Content-Type': 'application/json', Accept: 'application/json' });
       const fetchOpts = { method: 'PUT', headers, body: JSON.stringify({ settings }) };
-      const res = await fetch(`${window.location.origin}/api/settings`, fetchOpts);
-      if (res.status >= 400 && res.status < 600) {
-         throw new Error('Bad response from server');
-      }
-      return res.json();
+      return apiFetch(`${window.location.origin}/api/settings`, fetchOpts);
    }, {
       onSuccess: async () => {
          if (onSuccess) {
@@ -43,11 +39,7 @@ export function useClearFailedQueue(onSuccess:Function) {
    return useMutation(async () => {
       const headers = new Headers({ 'Content-Type': 'application/json', Accept: 'application/json' });
       const fetchOpts = { method: 'PUT', headers };
-      const res = await fetch(`${window.location.origin}/api/clearfailed`, fetchOpts);
-      if (res.status >= 400 && res.status < 600) {
-         throw new Error('Bad response from server');
-      }
-      return res.json();
+      return apiFetch(`${window.location.origin}/api/clearfailed`, fetchOpts);
    }, {
       onSuccess: async () => {
          onSuccess();
@@ -62,8 +54,7 @@ export function useClearFailedQueue(onSuccess:Function) {
 }
 
 export async function fetchMigrationStatus() {
-   const res = await fetch(`${window.location.origin}/api/dbmigrate`, { method: 'GET' });
-   return res.json();
+   return apiFetch(`${window.location.origin}/api/dbmigrate`);
 }
 
 export function useCheckMigrationStatus() {
@@ -75,11 +66,7 @@ export const useMigrateDatabase = (onSuccess:Function|undefined) => {
 
    return useMutation(async () => {
       // console.log('settings: ', JSON.stringify(settings));
-      const res = await fetch(`${window.location.origin}/api/dbmigrate`, { method: 'POST' });
-      if (res.status >= 400 && res.status < 600) {
-         throw new Error('Bad response from server');
-      }
-      return res.json();
+      return apiFetch(`${window.location.origin}/api/dbmigrate`, { method: 'POST' });
    }, {
       onSuccess: async (res) => {
          if (onSuccess) {

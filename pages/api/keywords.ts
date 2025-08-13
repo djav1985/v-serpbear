@@ -132,10 +132,9 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
 };
 
 const deleteKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsDeleteRes>) => {
-   if (!req.query.id && typeof req.query.id !== 'string') {
-      return res.status(400).json({ error: 'keyword ID is Required!' });
+   if (!req.query.id || typeof req.query.id !== 'string') {
+      return res.status(400).json({ error: 'Invalid ID' });
    }
-   console.log('req.query.id: ', req.query.id);
 
    try {
       const keywordsToRemove = (req.query.id as string).split(',').map((item) => parseInt(item, 10));
@@ -149,8 +148,8 @@ const deleteKeywords = async (req: NextApiRequest, res: NextApiResponse<Keywords
 };
 
 const updateKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGetResponse>) => {
-   if (!req.query.id && typeof req.query.id !== 'string') {
-      return res.status(400).json({ error: 'keyword ID is Required!' });
+   if (!req.query.id || typeof req.query.id !== 'string') {
+      return res.status(400).json({ error: 'Invalid ID' });
    }
    if (req.body.sticky === undefined && req.body.tags === undefined) {
       return res.status(400).json({ error: 'keyword Payload Missing!' });
@@ -185,6 +184,6 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse<Keywords
       return res.status(400).json({ error: 'Invalid Payload!' });
    } catch (error) {
       console.log('[ERROR] Updating Keyword. ', error);
-      return res.status(200).json({ error: 'Error Updating keywords!' });
+      return res.status(500).json({ error: 'Error Updating keywords!' });
    }
 };

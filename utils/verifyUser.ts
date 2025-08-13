@@ -26,20 +26,18 @@ const verifyUser = (req: NextApiRequest, res: NextApiResponse): string => {
    ];
    const verifiedAPI = req.headers.authorization ? req.headers.authorization.substring('Bearer '.length) === process.env.APIKEY : false;
    const accessingAllowedRoute = req.url && req.method && allowedApiRoutes.includes(`${req.method}:${req.url.replace(/\?(.*)/, '')}`);
-   console.log(req.method, req.url);
 
-   let authorized: string = '';
+   let authorized: string = 'Not authorized';
    if (token && process.env.SECRET) {
-      jwt.verify(token, process.env.SECRET, (err) => {
-         // console.log(err);
-         authorized = err ? 'Not authorized' : 'authorized';
-      });
+      try {
+         jwt.verify(token, process.env.SECRET);
+         authorized = 'authorized';
+      } catch (err) {
+         authorized = 'Not authorized';
+      }
    } else if (verifiedAPI && accessingAllowedRoute) {
       authorized = 'authorized';
    } else {
-      if (!token) {
-         authorized = 'Not authorized';
-      }
       if (token && !process.env.SECRET) {
          authorized = 'Token has not been Setup.';
       }
