@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file. See [standa
 
 ### Refactoring
 * Extracted scraping helper and finalization logic in keyword refresh utility for clearer control flow.
+* Modularized Adwords keyword idea flow by extracting seeding, request, fetch, and persistence helpers.
 
 ### [2.0.8](https://github.com/djav1985/v-serpbear/compare/v2.0.7...v2.0.8) (2025-08-12)
 
