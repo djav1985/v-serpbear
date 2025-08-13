@@ -1,7 +1,6 @@
 /* eslint-disable no-new */
 const Cryptr = require('cryptr');
 const { promises } = require('fs');
-const { readFile } = require('fs');
 const { Cron } = require('croner');
 require('dotenv').config({ path: './.env.local' });
 
@@ -114,30 +113,24 @@ const runAppCronJobs = () => {
 
    // Run Failed scraping CRON (Every Hour)
    const failedCronTime = generateCronTime('hourly');
-   new Cron(failedCronTime, () => {
+   new Cron(failedCronTime, async () => {
       // console.log('### Retrying Failed Scrapes...');
-
-      readFile(`${process.cwd()}/data/failed_queue.json`, { encoding: 'utf-8' }, (err, data) => {
-         if (data) {
-            try {
-               const keywordsToRetry = data ? JSON.parse(data) : [];
-               if (keywordsToRetry.length > 0) {
-                  const fetchOpts = { method: 'POST', headers: { Authorization: `Bearer ${process.env.APIKEY}` } };
-                  fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/refresh?id=${keywordsToRetry.join(',')}`, fetchOpts)
-                  .then((res) => res.json())
-                  .then((refreshedData) => console.log(refreshedData))
-                  .catch((fetchErr) => {
-                     console.log('ERROR Making failed_queue Cron Request..');
-                     console.log(fetchErr);
-                  });
-               }
-            } catch (error) {
-               console.log('ERROR Reading Failed Scrapes Queue File..', error);
-            }
-         } else {
-            console.log('ERROR Reading Failed Scrapes Queue File..', err);
+      try {
+         const data = await promises.readFile(`${process.cwd()}/data/failed_queue.json`, { encoding: 'utf-8' });
+         const keywordsToRetry = data ? JSON.parse(data) : [];
+         if (keywordsToRetry.length > 0) {
+            const fetchOpts = { method: 'POST', headers: { Authorization: `Bearer ${process.env.APIKEY}` } };
+            fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/refresh?id=${keywordsToRetry.join(',')}`, fetchOpts)
+            .then((res) => res.json())
+            .then((refreshedData) => console.log(refreshedData))
+            .catch((fetchErr) => {
+               console.log('ERROR Making failed_queue Cron Request..');
+               console.log(fetchErr);
+            });
          }
-      });
+      } catch (error) {
+         console.log('ERROR Reading Failed Scrapes Queue File..', error);
+      }
    }, { scheduled: true });
 
    // Run Google Search Console Scraper Daily

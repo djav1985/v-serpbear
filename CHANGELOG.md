@@ -14,6 +14,9 @@ All notable changes to this project will be documented in this file. See [standa
 * Hardened JSON parsing across services and utilities to avoid crashes.
 * Updated mobile detection hook to return a boolean and adjusted consumers.
 * Ensured keyword volume updates and scraper retry queues validate IDs and await async updates.
+* Removed incorrect default values for domain and slug fields to avoid saving "true".
+* Validated Bearer prefix in API-key authorization and improved component typings.
+* Parallelized Search Console requests and switched cron file reads to async/await.
 
 ### [2.0.8](https://github.com/djav1985/v-serpbear/compare/v2.0.7...v2.0.8) (2025-08-12)
 

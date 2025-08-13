@@ -104,9 +104,10 @@ export const fetchDomainSCData = async (domain:DomainType, scAPI?: SCAPISettings
    const scDomainData:SCDomainDataType = { threeDays: [], sevenDays: [], thirtyDays: [], lastFetched: '', lastFetchError: '', stats: [] };
    if (domain.domain && scAPI) {
       const theDomain = domain;
-      for (const day of days) {
-         const items = await fetchSearchConsoleData(theDomain, day, undefined, scAPI);
-          scDomainData.lastFetched = new Date().toJSON();
+      const results = await Promise.all(days.map((day) => fetchSearchConsoleData(theDomain, day, undefined, scAPI)));
+      scDomainData.lastFetched = new Date().toJSON();
+      results.forEach((items, idx) => {
+         const day = days[idx];
          if (Array.isArray(items)) {
             if (day === 3) scDomainData.threeDays = items as SearchAnalyticsItem[];
             if (day === 7) scDomainData.sevenDays = items as SearchAnalyticsItem[];
@@ -114,7 +115,7 @@ export const fetchDomainSCData = async (domain:DomainType, scAPI?: SCAPISettings
          } else if (items.error) {
             scDomainData.lastFetchError = items.errorMsg;
          }
-      }
+      });
       const stats = await fetchSearchConsoleData(theDomain, 30, 'stat', scAPI);
       if (stats && Array.isArray(stats) && stats.length > 0) {
          scDomainData.stats = stats as SearchAnalyticsStat[];

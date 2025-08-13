@@ -4,7 +4,7 @@ import useOnKey from '../../hooks/useOnKey';
 
 type SidePanelProps = {
    children: React.ReactNode,
-   closePanel: Function,
+   closePanel: () => void,
    title?: string,
    width?: 'large' | 'medium' | 'small',
    position?: 'left' | 'right'

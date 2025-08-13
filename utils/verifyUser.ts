@@ -24,7 +24,9 @@ const verifyUser = (req: NextApiRequest, res: NextApiResponse): string => {
       'GET:/api/searchconsole',
       'GET:/api/insight',
    ];
-   const verifiedAPI = req.headers.authorization ? req.headers.authorization.substring('Bearer '.length) === process.env.APIKEY : false;
+   const authHeader = req.headers.authorization;
+   const verifiedAPI = authHeader?.startsWith('Bearer ')
+      && authHeader.slice('Bearer '.length) === process.env.APIKEY;
    const accessingAllowedRoute = req.url && req.method && allowedApiRoutes.includes(`${req.method}:${req.url.replace(/\?(.*)/, '')}`);
 
    let authorized: string = 'Not authorized';

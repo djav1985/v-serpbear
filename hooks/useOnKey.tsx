@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-const useOnKey = (key:string, onPress: Function) => {
+const useOnKey = (key:string, onPress: () => void) => {
    useEffect(() => {
       // Only run on client side
       if (typeof window !== 'undefined') {
