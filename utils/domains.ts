@@ -59,4 +59,9 @@ const getdomainStats = async (domains:DomainType[]): Promise<DomainType[]> => {
    return finalDomains;
 };
 
+export const slugToDomain = (slug: string): string => {
+   if (slug === 'research') return 'research';
+   return slug.replace(/-/g, '.');
+};
+
 export default getdomainStats;
