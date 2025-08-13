@@ -11,7 +11,7 @@ import { fetchSearchResults } from '../../services/keywords';
 
 type IdeaDetailsProps = {
    keyword: IdeaKeyword,
-   closeDetails: Function
+   closeDetails: () => void
 }
 
 const dummySearchResults = [

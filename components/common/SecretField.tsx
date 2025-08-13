@@ -4,17 +4,17 @@ import Icon from './Icon';
 type SecretFieldProps = {
    label: string;
    value: string;
-   onChange: Function;
+   onChange: (value: string) => void;
    placeholder?: string;
    classNames?: string;
    hasError?: boolean;
 }
 
-const SecretField = ({ label = '', value = '', placeholder = '', onChange, hasError = false }: SecretFieldProps) => {
+const SecretField = ({ label = '', value = '', placeholder = '', onChange, hasError = false, classNames = '' }: SecretFieldProps) => {
    const [showValue, setShowValue] = useState(false);
    const labelStyle = 'mb-2 font-semibold inline-block text-sm text-gray-700 capitalize';
    return (
-      <div className="settings__section__secret w-full relative flex justify-between items-center">
+      <div className={`settings__section__secret w-full relative flex justify-between items-center ${classNames}`}>
          <label className={labelStyle}>{label}</label>
          <span
          className="absolute top-1 right-0 px-2 py-1 cursor-pointer text-gray-400 select-none"

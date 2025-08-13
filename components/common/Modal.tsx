@@ -7,7 +7,7 @@ type ModalProps = {
    width?: string,
    title?: string,
    verticalCenter?: boolean,
-   closeModal: Function,
+   closeModal: () => void,
 }
 
 const Modal = ({ children, width = '1/2', closeModal, title, verticalCenter = false }:ModalProps) => {

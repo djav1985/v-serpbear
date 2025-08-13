@@ -10,8 +10,8 @@ import { generateTheChartData } from '../../utils/client/generateChartData';
 
 type KeywordDetailsProps = {
    keyword: KeywordType,
-   closeDetails: Function
-}
+   closeDetails: () => void
+ }
 
 const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
    const updatedDate = new Date(keyword.lastUpdated);

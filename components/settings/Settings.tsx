@@ -7,9 +7,9 @@ import useOnKey from '../../hooks/useOnKey';
 import IntegrationSettings from './IntegrationSettings';
 
 type SettingsProps = {
-   closeSettings: Function,
+   closeSettings: () => void,
    settings?: SettingsType
-}
+ }
 
 type SettingsError = {
    type: string,

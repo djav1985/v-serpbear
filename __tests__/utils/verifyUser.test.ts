@@ -39,4 +39,12 @@ describe('verifyUser', () => {
     const result = verifyUser(apiReq, res);
     expect(result).toBe('Invalid API Key Provided.');
   });
+
+  it('rejects authorization header without Bearer prefix', () => {
+    (Cookies as unknown as jest.Mock).mockImplementation(() => ({ get: () => undefined }));
+    process.env.APIKEY = 'key';
+    const apiReq = { headers: { authorization: 'key' }, method: 'GET', url: '/api/keywords' } as any;
+    const result = verifyUser(apiReq, res);
+    expect(result).toBe('Invalid API Key Provided.');
+  });
 });

@@ -1,7 +1,6 @@
 import { performance } from 'perf_hooks';
 import { setTimeout as sleep } from 'timers/promises';
 import { RefreshResult, removeFromRetryQueue, retryScrape, scrapeKeywordFromGoogle } from './scraper';
-import parseKeywords from './parseKeywords';
 import Keyword from '../database/models/keyword';
 
 /**
@@ -131,6 +130,22 @@ const refreshAndUpdateKeyword = async (keyword: Keyword, settings: SettingsType)
    }
 };
 
+const parseKeyword = (keywordRaw: Keyword): KeywordType => {
+   const plain = keywordRaw.get({ plain: true }) as any;
+   const parse = (val: string, fallback: any) => {
+      try { return JSON.parse(val); } catch { return fallback; }
+   };
+   return {
+      ...plain,
+      history: parse(plain.history, {}),
+      tags: parse(plain.tags, []),
+      lastResult: parse(plain.lastResult, []),
+      lastUpdateError: plain.lastUpdateError !== 'false' && plain.lastUpdateError.includes('{')
+         ? parse(plain.lastUpdateError, false)
+         : false,
+   };
+};
+
 /**
  * Processes the scraped data for the given keyword and updates the keyword serp position in DB.
  * @param {Keyword} keywordRaw - Keywords to Update
@@ -139,8 +154,7 @@ const refreshAndUpdateKeyword = async (keyword: Keyword, settings: SettingsType)
  * @returns {Promise<KeywordType>}
  */
 export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: RefreshResult, settings: SettingsType): Promise<KeywordType> => {
-   const keywordParsed = parseKeywords([keywordRaw.get({ plain: true })]);
-      const keyword = keywordParsed[0];
+      const keyword = parseKeyword(keywordRaw);
       // const updatedKeyword = refreshed;
       let updated = keyword;
 
