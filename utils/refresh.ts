@@ -45,52 +45,90 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
 };
 
 /**
+ * Runs the scraper and normalizes its result into data and error.
+ * @param {KeywordType} keyword - Plain keyword object
+ * @param {SettingsType} settings - The App Settings that contain the Scraper settings
+ * @returns {Promise<{ data: RefreshResult | false; error: string | false }>}
+ */
+export const scrapeKeywordSafe = async (
+   keyword: KeywordType,
+   settings: SettingsType,
+): Promise<{ data: RefreshResult | false; error: string | false }> => {
+   try {
+      const result = await scrapeKeywordFromGoogle(keyword, settings);
+      if (!result) {
+         return { data: false, error: 'Scraper returned no data' };
+      }
+      if (result.error) {
+         const err = typeof result.error === 'string'
+            ? result.error
+            : JSON.stringify(result.error);
+         return { data: result, error: err };
+      }
+      return { data: result, error: false };
+   } catch (error: any) {
+      const errMsg = error.message || error.toString() || 'Scraper failed with unknown error';
+      console.log('[ERROR] Scraper failed for keyword:', keyword.keyword, errMsg);
+      return { data: false, error: errMsg };
+   }
+};
+
+/**
+ * Ensures updating is set to false and persists any scraper error.
+ * @param {Keyword} keyword - Sequelize model instance
+ * @param {string | false} scraperError - Error captured during scraping
+ * @param {SettingsType} settings - The App Settings that contain the Scraper settings
+ * @returns {Promise<void>}
+ */
+export const finalizeKeywordUpdate = async (
+   keyword: Keyword,
+   scraperError: string | false,
+   settings: SettingsType,
+): Promise<void> => {
+   try {
+      const updateData: any = { updating: false };
+      if (scraperError) {
+         const theDate = new Date();
+         updateData.lastUpdateError = JSON.stringify({
+            date: theDate.toJSON(),
+            error: scraperError,
+            scraper: settings.scraper_type,
+         });
+      }
+      await keyword.update(updateData);
+   } catch (updateError) {
+      console.log('[ERROR] Failed to update keyword updating status:', updateError);
+   }
+};
+
+/**
  * Scrape Serp for given keyword and update the position in DB.
- * @param {Keyword} keyword - Keywords to scrape
+ * 1. Scrape Google search results for the keyword.
+ * 2. Return early if scraping failed.
+ * 3. Update the keyword position in the database.
+ * 4. Always reset the updating flag and record errors.
+ * @param {Keyword} keyword - Keyword to scrape
  * @param {SettingsType} settings - The App Settings that contain the Scraper settings
  * @returns {Promise<KeywordType>}
  */
 const refreshAndUpdateKeyword = async (keyword: Keyword, settings: SettingsType): Promise<KeywordType> => {
    const currentkeyword = keyword.get({ plain: true });
-   let refreshedkeywordData: RefreshResult | false = false;
    let scraperError: string | false = false;
 
    try {
-      refreshedkeywordData = await scrapeKeywordFromGoogle(currentkeyword, settings);
-      // If scraper returns false or has an error, capture the error
-      if (!refreshedkeywordData) {
-         scraperError = 'Scraper returned no data';
-      } else if (refreshedkeywordData.error) {
-         scraperError = typeof refreshedkeywordData.error === 'string'
-            ? refreshedkeywordData.error
-            : JSON.stringify(refreshedkeywordData.error);
-      }
-   } catch (error: any) {
-      scraperError = error.message || error.toString() || 'Scraper failed with unknown error';
-      console.log('[ERROR] Scraper failed for keyword:', currentkeyword.keyword, scraperError);
+      // 1. Scrape Google search results for the keyword
+      const { data, error } = await scrapeKeywordSafe(currentkeyword, settings);
+      scraperError = error;
+
+      // 2. Return early if scraping failed
+      if (!data) return currentkeyword;
+
+      // 3. Update the keyword position in the database
+      return await updateKeywordPosition(keyword, data, settings);
    } finally {
-      // Always ensure updating is set to false, regardless of success or failure
-      try {
-         const updateData: any = { updating: false };
-
-         // If there was an error, save it to lastUpdateError
-         if (scraperError) {
-            const theDate = new Date();
-            updateData.lastUpdateError = JSON.stringify({
-               date: theDate.toJSON(),
-               error: scraperError,
-               scraper: settings.scraper_type,
-            });
-         }
-
-         await keyword.update(updateData);
-      } catch (updateError) {
-         console.log('[ERROR] Failed to update keyword updating status:', updateError);
-      }
+      // 4. Ensure updating is set to false and errors are recorded
+      await finalizeKeywordUpdate(keyword, scraperError, settings);
    }
-
-   const updatedkeyword = refreshedkeywordData ? await updateKeywordPosition(keyword, refreshedkeywordData, settings) : currentkeyword;
-   return updatedkeyword;
 };
 
 /**
