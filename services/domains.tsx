@@ -36,7 +36,14 @@ export async function fetchDomain(router: NextRouter, domainName: string): Promi
 export async function fetchDomainScreenshot(domain: string, forceFetch = false): Promise<string | false> {
    if (typeof window === 'undefined' || !globalThis.localStorage) { return false; }
    const domainThumbsRaw = localStorage.getItem('domainThumbs');
-   const domThumbs = domainThumbsRaw ? JSON.parse(domainThumbsRaw) : {};
+   let domThumbs: Record<string, string> = {};
+   if (domainThumbsRaw) {
+      try {
+         domThumbs = JSON.parse(domainThumbsRaw);
+      } catch (err) {
+         domThumbs = {};
+      }
+   }
    if (!domThumbs[domain] || forceFetch) {
       try {
          const screenshotURL = `https://image.thum.io/get/width/200/https://${domain}`;
@@ -69,11 +76,11 @@ export async function fetchDomainScreenshot(domain: string, forceFetch = false):
 }
 
 export function useFetchDomains(router: NextRouter, withStats:boolean = false) {
-   return useQuery('domains', () => fetchDomains(router, withStats));
+   return useQuery(['domains', withStats], () => fetchDomains(router, withStats));
 }
 
 export function useFetchDomain(router: NextRouter, domainName:string, onSuccess: Function) {
-   return useQuery('domain', () => fetchDomain(router, domainName), {
+   return useQuery(['domain', domainName], () => fetchDomain(router, domainName), {
       onSuccess: async (data) => {
          console.log('Domain Loaded!!!', data.domain);
          onSuccess(data.domain);
@@ -97,7 +104,7 @@ export function useAddDomain(onSuccess:Function) {
          if (singleDomain) {
             router.push(`/domain/${newDomain[0].slug}`);
          }
-         queryClient.invalidateQueries(['domains']);
+         queryClient.invalidateQueries({ queryKey: ['domains'] });
       },
       onError: () => {
          console.log('Error Adding New Domain!!!');
@@ -117,7 +124,7 @@ export function useUpdateDomain(onSuccess:Function) {
          console.log('Settings Updated!!!');
          toast('Settings Updated!', { icon: '✔️' });
          onSuccess();
-         queryClient.invalidateQueries(['domains']);
+         queryClient.invalidateQueries({ queryKey: ['domains'] });
       },
       onError: (error) => {
          console.log('Error Updating Domain Settings!!!', error);
@@ -134,7 +141,7 @@ export function useDeleteDomain(onSuccess:Function) {
       onSuccess: async () => {
          toast('Domain Removed Successfully!', { icon: '✔️' });
          onSuccess();
-         queryClient.invalidateQueries(['domains']);
+         queryClient.invalidateQueries({ queryKey: ['domains'] });
       },
       onError: () => {
          console.log('Error Removing Domain!!!');

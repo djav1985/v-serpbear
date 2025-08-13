@@ -27,7 +27,7 @@ const useIsMobile = () => {
    }, []);
 
    // Return false during SSR to prevent hydration mismatch
-   return [isClient ? isMobile : false];
+   return isClient ? isMobile : false;
 };
 
 export default useIsMobile;

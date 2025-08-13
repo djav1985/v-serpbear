@@ -12,12 +12,12 @@ import Keyword from '../database/models/keyword';
  * @returns {Promise}
  */
 const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsType): Promise<KeywordType[]> => {
-   const keywords:KeywordType[] = rawkeyword.map((el) => el.get({ plain: true }));
    if (!rawkeyword || rawkeyword.length === 0) { return []; }
    const start = performance.now();
    const updatedKeywords: KeywordType[] = [];
 
    if (['scrapingant', 'serpapi', 'searchapi'].includes(settings.scraper_type)) {
+      const keywords:KeywordType[] = rawkeyword.map((el) => el.get({ plain: true }));
       const refreshedResults = await refreshParallel(keywords, settings);
       if (refreshedResults.length > 0) {
          for (const keyword of rawkeyword) {
@@ -33,7 +33,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
          console.log('START SCRAPE: ', keyword.keyword);
          const updatedkeyword = await refreshAndUpdateKeyword(keyword, settings);
          updatedKeywords.push(updatedkeyword);
-         if (keywords.length > 0 && settings.scrape_delay && settings.scrape_delay !== '0') {
+         if (settings.scrape_delay && settings.scrape_delay !== '0') {
             await sleep(parseInt(settings.scrape_delay, 10));
          }
       }

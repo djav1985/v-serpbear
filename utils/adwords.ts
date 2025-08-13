@@ -443,16 +443,15 @@ export const getKeywordsVolume = async (keywords: KeywordType[]): Promise<{ erro
  */
 export const updateKeywordsVolumeData = async (volumesData: false | Record<number, number>) => {
    if (volumesData === false) { return false; }
-
-   Object.keys(volumesData).forEach(async (keywordID) => {
+   for (const keywordID of Object.keys(volumesData)) {
       const keyID = parseInt(keywordID, 10);
-      const volumeData = volumesData && volumesData[keyID] ? volumesData[keyID] : 0;
+      const volumeData = volumesData[keyID] ? volumesData[keyID] : 0;
       try {
          await Keyword.update({ volume: volumeData }, { where: { ID: keyID } });
       } catch (error) {
          // Silently ignore update errors
       }
-   });
+   }
    return true;
 };
 

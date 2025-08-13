@@ -3,8 +3,11 @@ import { NextRouter } from 'next/router';
 import { useMutation, useQuery, useQueryClient } from 'react-query';
 import apiFetch from './apiClient';
 
-export const fetchKeywords = async (router: NextRouter, domain: string) => {
-   if (!domain) { return []; }
+export const fetchKeywords = async (
+   router: NextRouter,
+   domain: string,
+): Promise<{ keywords: KeywordType[] }> => {
+   if (!domain) { return { keywords: [] }; }
    return apiFetch(`${window.location.origin}/api/keywords?domain=${domain}`);
 };
 
@@ -50,7 +53,7 @@ export function useAddKeywords(onSuccess:Function) {
          console.log('Keywords Added!!!');
          toast('Keywords Added Successfully!', { icon: '✔️' });
          onSuccess();
-         queryClient.invalidateQueries(['keywords']);
+         queryClient.invalidateQueries({ queryKey: ['keywords'] });
       },
       onError: () => {
          console.log('Error Adding New Keywords!!!');
@@ -69,7 +72,7 @@ export function useDeleteKeywords(onSuccess:Function) {
          console.log('Removed Keyword!!!');
          onSuccess();
          toast('Keywords Removed Successfully!', { icon: '✔️' });
-         queryClient.invalidateQueries(['keywords']);
+         queryClient.invalidateQueries({ queryKey: ['keywords'] });
       },
       onError: () => {
          console.log('Error Removing Keyword!!!');
@@ -89,7 +92,7 @@ export function useFavKeywords(onSuccess:Function) {
          onSuccess();
          const isSticky = data.keywords[0] && data.keywords[0].sticky;
          toast(isSticky ? 'Keywords Made Favorite!' : 'Keywords Unfavorited!', { icon: '✔️' });
-         queryClient.invalidateQueries(['keywords']);
+         queryClient.invalidateQueries({ queryKey: ['keywords'] });
       },
       onError: () => {
          console.log('Error Changing Favorite Status!!!');
@@ -109,7 +112,7 @@ export function useUpdateKeywordTags(onSuccess:Function) {
       onSuccess: async () => {
          onSuccess();
          toast('Keyword Tags Updated!', { icon: '✔️' });
-         queryClient.invalidateQueries(['keywords']);
+         queryClient.invalidateQueries({ queryKey: ['keywords'] });
       },
       onError: () => {
          console.log('Error Updating Keyword Tags!!!');
@@ -130,7 +133,7 @@ export function useRefreshKeywords(onSuccess:Function) {
          console.log('Keywords Added to Refresh Queue!!!');
          onSuccess();
          toast('Keywords Added to Refresh Queue', { icon: '🔄' });
-         queryClient.invalidateQueries(['keywords']);
+         queryClient.invalidateQueries({ queryKey: ['keywords'] });
       },
       onError: () => {
          console.log('Error Refreshing Keywords!!!');
