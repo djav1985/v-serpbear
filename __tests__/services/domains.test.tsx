@@ -35,6 +35,14 @@ describe('domain services', () => {
     expect(res).toBe('image');
   });
 
+  it('fetchDomainScreenshot handles invalid cache gracefully', async () => {
+    // @ts-ignore
+    global.fetch = jest.fn().mockResolvedValue({ status: 404 });
+    localStorage.setItem('domainThumbs', 'not-json');
+    const res = await fetchDomainScreenshot('test.com');
+    expect(res).toBe(false);
+  });
+
   it('useAddDomain invalidates cache on success', async () => {
     apiFetchMock.mockResolvedValue({ domains: [dummyDomain] });
     const queryClient = new QueryClient();
@@ -45,7 +53,7 @@ describe('domain services', () => {
     await act(async () => {
       await result.current.mutateAsync(['test.com']);
     });
-    expect(invalidateSpy).toHaveBeenCalledWith(['domains']);
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['domains'] });
     expect(onSuccess).toHaveBeenCalled();
   });
 });

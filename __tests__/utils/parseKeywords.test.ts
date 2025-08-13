@@ -29,4 +29,20 @@ describe('parseKeywords', () => {
     const [parsed] = parseKeywords(input);
     expect(parsed.lastUpdateError).toEqual({ msg: 'err' });
   });
+
+  it('handles invalid json gracefully', () => {
+    const input: any = [{
+      history: 'invalid',
+      tags: 'oops',
+      lastResult: 'bad',
+      lastUpdateError: 'notjson',
+      position: 1,
+      lastUpdated: new Date().toJSON(),
+    }];
+    const [parsed] = parseKeywords(input);
+    expect(parsed.history).toEqual({});
+    expect(parsed.tags).toEqual([]);
+    expect(parsed.lastResult).toEqual([]);
+    expect(parsed.lastUpdateError).toBe(false);
+  });
 });

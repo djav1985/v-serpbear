@@ -38,10 +38,14 @@ const IdeasKeywordsTable = ({
    const [addKeywordDomain, setAddKeywordDomain] = useState('');
    const { mutate: addKeywords } = useAddKeywords(() => { if (domain && domain.slug) router.push(`/domain/${domain.slug}`); });
    const { mutate: faveKeyword, isLoading: isFaving } = useMutateFavKeywordIdeas(router);
-   const [isMobile] = useIsMobile();
+   const isMobile = useIsMobile();
    const isResearchPage = router.pathname === '/research';
 
-   const { data: domainsData } = useQuery('domains', () => fetchDomains(router, false), { enabled: selectedKeywords.length > 0, retry: false });
+   const { data: domainsData } = useQuery(
+      ['domains', false],
+      () => fetchDomains(router, false),
+      { enabled: selectedKeywords.length > 0, retry: false },
+   );
    const theDomains: DomainType[] = (domainsData && domainsData.domains) || [];
 
    useWindowResize(() => setListHeight(window.innerHeight - (isMobile ? 200 : 400)));

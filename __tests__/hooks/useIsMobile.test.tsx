@@ -18,11 +18,11 @@ describe('useIsMobile', () => {
 
   it('should detect mobile changes', () => {
     const { result } = renderHook(() => useIsMobile());
-    expect(result.current[0]).toBe(false);
+    expect(result.current).toBe(false);
     act(() => {
       mobile = true;
       listeners.forEach((cb) => cb({ matches: true } as MediaQueryListEvent));
     });
-    expect(result.current[0]).toBe(true);
+    expect(result.current).toBe(true);
   });
 });

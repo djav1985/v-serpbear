@@ -43,7 +43,7 @@ const KeywordsTable = (props: KeywordsTableProps) => {
    const { mutate: deleteMutate } = useDeleteKeywords(() => {});
    const { mutate: favoriteMutate } = useFavKeywords(() => {});
    const { mutate: refreshMutate } = useRefreshKeywords(() => {});
-   const [isMobile] = useIsMobile();
+   const isMobile = useIsMobile();
 
    useWindowResize(() => {
       setSCListHeight(window.innerHeight - (isMobile ? 200 : 400));

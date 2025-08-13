@@ -33,7 +33,7 @@ const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleInt
    const { keywordsData } = useFetchKeywords(router, domain?.domain || '');
    const addedkeywords: string[] = keywordsData?.keywords?.map((key: KeywordType) => `${key.keyword}:${key.country}:${key.device}`) || [];
    const { mutate: addKeywords } = useAddKeywords(() => { if (domain && domain.slug) router.push(`/domain/${domain.slug}`); });
-   const [isMobile] = useIsMobile();
+   const isMobile = useIsMobile();
    useWindowResize(() => setSCListHeight(window.innerHeight - (isMobile ? 200 : 400)));
 
    const finalKeywords: {[key:string] : SCKeywordType[] } = useMemo(() => {
