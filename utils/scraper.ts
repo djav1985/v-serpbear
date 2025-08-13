@@ -259,11 +259,21 @@ export const extractScrapedResult = (content: string, device: string): SearchRes
  */
 export const getSerp = (domainURL:string, result:SearchResult[]) : SERPObject => {
    if (result.length === 0 || !domainURL) { return { position: 0, url: '' }; }
-   const URLToFind = new URL(domainURL.includes('https://') ? domainURL : `https://${domainURL}`);
+   let URLToFind: URL;
+   try {
+      URLToFind = new URL(domainURL.includes('https://') ? domainURL : `https://${domainURL}`);
+   } catch {
+      return { position: 0, url: '' };
+   }
    const theURL = URLToFind.hostname + URLToFind.pathname;
    const isURL = URLToFind.pathname !== '/';
    const foundItem = result.find((item) => {
-      const itemURL = new URL(item.url.includes('https://') ? item.url : `https://${item.url}`);
+      let itemURL: URL;
+      try {
+         itemURL = new URL(item.url.includes('https://') ? item.url : `https://${item.url}`);
+      } catch {
+         return false;
+      }
       if (isURL && `${theURL}/` === itemURL.hostname + itemURL.pathname) {
          return true;
       }

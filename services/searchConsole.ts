@@ -1,17 +1,18 @@
 import { NextRouter } from 'next/router';
 import { useQuery } from 'react-query';
+import apiFetch from './apiClient';
 
 export async function fetchSCKeywords(router: NextRouter) {
    // if (!router.query.slug) { throw new Error('Invalid Domain Name'); }
-   const res = await fetch(`${window.location.origin}/api/searchconsole?domain=${router.query.slug}`, { method: 'GET' });
-   if (res.status >= 400 && res.status < 600) {
-      if (res.status === 401) {
+   try {
+      return await apiFetch(`${window.location.origin}/api/searchconsole?domain=${router.query.slug}`);
+   } catch (error: any) {
+      if (error.status === 401) {
          console.log('Unauthorized!!');
          router.push('/login');
       }
-      throw new Error('Bad response from server');
+      throw error;
    }
-   return res.json();
 }
 
 export function useFetchSCKeywords(router: NextRouter, domainLoaded: boolean = false) {
@@ -21,15 +22,15 @@ export function useFetchSCKeywords(router: NextRouter, domainLoaded: boolean = f
 
 export async function fetchSCInsight(router: NextRouter) {
    // if (!router.query.slug) { throw new Error('Invalid Domain Name'); }
-   const res = await fetch(`${window.location.origin}/api/insight?domain=${router.query.slug}`, { method: 'GET' });
-   if (res.status >= 400 && res.status < 600) {
-      if (res.status === 401) {
+   try {
+      return await apiFetch(`${window.location.origin}/api/insight?domain=${router.query.slug}`);
+   } catch (error: any) {
+      if (error.status === 401) {
          console.log('Unauthorized!!');
          router.push('/login');
       }
-      throw new Error('Bad response from server');
+      throw error;
    }
-   return res.json();
 }
 
 export function useFetchSCInsight(router: NextRouter, domainLoaded: boolean = false) {
