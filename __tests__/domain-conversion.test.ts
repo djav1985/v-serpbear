@@ -5,6 +5,7 @@
 
 // Import the functions we need to test
 import { getSafeSCDataFilePath } from '../utils/searchConsole';
+import { slugToDomain } from '../utils/domains';
 
 // Mock the path module with more realistic behavior
 jest.mock('path', () => {
@@ -53,17 +54,16 @@ describe('Domain Conversion Fixes', () => {
 
    describe('Domain slug to domain conversion for keywords', () => {
       it('should convert domain slug back to domain format', () => {
-         const convertSlugToDomain = (slug: string) => slug.replace(/-/g, '.');
-
          // Test the main case from the issue
-         expect(convertSlugToDomain('vontainment-com')).toBe('vontainment.com');
+         expect(slugToDomain('vontainment-com')).toBe('vontainment.com');
 
          // Test other formats
-         expect(convertSlugToDomain('example-org')).toBe('example.org');
-         expect(convertSlugToDomain('my-test-domain-com')).toBe('my.test.domain.com');
+         expect(slugToDomain('example-org')).toBe('example.org');
+         expect(slugToDomain('my-test-domain-com')).toBe('my.test.domain.com');
+         expect(slugToDomain('sub-domain-example-com')).toBe('sub.domain.example.com');
 
          // Test research domain (special case - no conversion needed)
-         expect(convertSlugToDomain('research')).toBe('research');
+         expect(slugToDomain('research')).toBe('research');
       });
    });
 

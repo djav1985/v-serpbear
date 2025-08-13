@@ -19,9 +19,7 @@ fetchMock.mockIf(`${window.location.origin}/api/domains`, async () => {
 describe('DomainHooks', () => {
    it('useFetchDomains should fetch the Domains', async () => {
       const { result } = renderHook(() => useFetchDomains(mockRouter), { wrapper: createWrapper() });
-      // const result = { current: { isSuccess: false, data: '' } };
-      await waitFor(() => {
-         return expect(result.current.isLoading).toBe(false);
-      });
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(result.current.data?.domains).toContainEqual(dummyDomain);
    });
 });
