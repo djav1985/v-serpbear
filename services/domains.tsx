@@ -104,7 +104,7 @@ export function useAddDomain(onSuccess:Function) {
          if (singleDomain) {
             router.push(`/domain/${newDomain[0].slug}`);
          }
-         queryClient.invalidateQueries({ queryKey: ['domains'] });
+         queryClient.invalidateQueries('domains');
       },
       onError: () => {
          console.log('Error Adding New Domain!!!');
@@ -124,7 +124,7 @@ export function useUpdateDomain(onSuccess:Function) {
          console.log('Settings Updated!!!');
          toast('Settings Updated!', { icon: '✔️' });
          onSuccess();
-         queryClient.invalidateQueries({ queryKey: ['domains'] });
+         queryClient.invalidateQueries('domains');
       },
       onError: (error) => {
          console.log('Error Updating Domain Settings!!!', error);
@@ -141,7 +141,7 @@ export function useDeleteDomain(onSuccess:Function) {
       onSuccess: async () => {
          toast('Domain Removed Successfully!', { icon: '✔️' });
          onSuccess();
-         queryClient.invalidateQueries({ queryKey: ['domains'] });
+         queryClient.invalidateQueries('domains');
       },
       onError: () => {
          console.log('Error Removing Domain!!!');
