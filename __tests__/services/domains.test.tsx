@@ -53,7 +53,7 @@ describe('domain services', () => {
     await act(async () => {
       await result.current.mutateAsync(['test.com']);
     });
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['domains'] });
+    expect(invalidateSpy).toHaveBeenCalledWith('domains');
     expect(onSuccess).toHaveBeenCalled();
   });
 });

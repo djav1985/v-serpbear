@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file. See [standa
 * Validated Bearer prefix in API-key authorization and improved component typings.
 * Parallelized Search Console requests and switched cron file reads to async/await.
 * Ensured keyword list defaults to an empty array when keyword data is unavailable.
+* Fixed invalidateQueries syntax and refreshed domain stats after keyword mutations.
 
 ### [2.0.8](https://github.com/djav1985/v-serpbear/compare/v2.0.7...v2.0.8) (2025-08-12)
 
