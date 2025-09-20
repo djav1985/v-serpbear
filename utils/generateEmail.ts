@@ -140,119 +140,164 @@ const generateEmail = async (domain:DomainType, keywords:KeywordType[], settings
 };
 
 /**
- * Generate the Email HTML for Google Search Console Data.
- * @param {string} domainName - The Domain name for which to generate the HTML.
- * @returns {Promise<string>}
+ * Helper function to get or refresh search console data for a domain
  */
-export const generateGoogleConsoleStats = async (domain:DomainType): Promise<string> => {
-      if (!domain?.domain) return '';
-
-      const initialSCData = await readLocalSCData(domain.domain);
-      let localSCData:SCDomainDataType | null = initialSCData === false ? null : initialSCData;
-      const cronTimezone = process.env.CRON_TIMEZONE || 'America/New_York';
-      const hasStats = !!(localSCData?.stats && localSCData.stats.length);
-      const lastFetched = localSCData?.lastFetched;
-      const isFresh = hasStats && isSearchConsoleDataFreshForToday(lastFetched, cronTimezone);
-      if (!isFresh) {
-         const scDomainAPI = domain.search_console ? await getSearchConsoleApiInfo(domain) : { client_email: '', private_key: '' };
-         const scGlobalAPI = await getSearchConsoleApiInfo({} as DomainType);
-         if (scDomainAPI.client_email || scGlobalAPI.client_email) {
-            const refreshed = await fetchDomainSCData(domain, scDomainAPI, scGlobalAPI);
-            if (refreshed && refreshed.stats && refreshed.stats.length) {
-               localSCData = refreshed;
-            }
+const getOrRefreshSCData = async (domain: DomainType): Promise<SCDomainDataType | null> => {
+   const initialSCData = await readLocalSCData(domain.domain);
+   let localSCData: SCDomainDataType | null = initialSCData === false ? null : initialSCData;
+   const cronTimezone = process.env.CRON_TIMEZONE || 'America/New_York';
+   const hasStats = !!(localSCData?.stats && localSCData.stats.length);
+   const lastFetched = localSCData?.lastFetched;
+   const isFresh = hasStats && isSearchConsoleDataFreshForToday(lastFetched, cronTimezone);
+   
+   if (!isFresh) {
+      const scDomainAPI = domain.search_console ? await getSearchConsoleApiInfo(domain) : { client_email: '', private_key: '' };
+      const scGlobalAPI = await getSearchConsoleApiInfo({} as DomainType);
+      if (scDomainAPI.client_email || scGlobalAPI.client_email) {
+         const refreshed = await fetchDomainSCData(domain, scDomainAPI, scGlobalAPI);
+         if (refreshed && refreshed.stats && refreshed.stats.length) {
+            localSCData = refreshed;
          }
       }
-      if (!localSCData || !localSCData.stats || !localSCData.stats.length) {
-         return '';
-      }
+   }
+   
+   return localSCData;
+};
 
-      const scData:SCStatsObject = {
-                        stats: { html: '', label: 'Performance for Last 7 Days', clicks: 0, impressions: 0 },
-                        keywords: { html: '', label: 'Top 5 Keywords' },
-                        pages: { html: '', label: 'Top 5 Pages' },
-                     };
-      const stats = Array.isArray(localSCData.stats) ? localSCData.stats : [];
-      const SCStats = [...stats].reverse().slice(0, 7);
-      const keywords = getKeywordsInsight(localSCData, 'clicks', 'sevenDays');
-      const pages = getPagesInsight(localSCData, 'clicks', 'sevenDays');
-      const genColumn = (item:SCInsightItem, firstColumKey:string):string => {
-         return `<tr class="keyword">
-                  <td>${item[firstColumKey as keyof SCInsightItem]}</td>
-                  <td>${item.clicks}</td>
-                  <td>${item.impressions}</td>
-                  <td>${Math.round(item.position)}</td>
-               </tr>`;
-      };
-      if (SCStats.length > 0) {
-         scData.stats.html = SCStats.reduce((acc, item) => acc + genColumn(item, 'date'), '');
-      }
-      if (keywords.length > 0) {
-         scData.keywords.html = keywords.slice(0, 5).reduce((acc, item) => acc + genColumn(item, 'keyword'), '');
-      }
-      if (pages.length > 0) {
-         scData.pages.html = pages.slice(0, 5).reduce((acc, item) => acc + genColumn(item, 'page'), '');
-      }
-      scData.stats.clicks = SCStats.reduce((acc, item) => acc + item.clicks, 0);
-      scData.stats.impressions = SCStats.reduce((acc, item) => acc + item.impressions, 0);
+/**
+ * Helper function to generate HTML table columns for search console data
+ */
+const generateSCColumn = (item: SCInsightItem, firstColumKey: string): string => {
+   return `<tr class="keyword">
+            <td>${item[firstColumKey as keyof SCInsightItem]}</td>
+            <td>${item.clicks}</td>
+            <td>${item.impressions}</td>
+            <td>${Math.round(item.position)}</td>
+         </tr>`;
+};
 
-      // Create Stats Start, End Date
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/**
+ * Helper function to build search console data structure with HTML content
+ */
+const buildSCDataStructure = (localSCData: SCDomainDataType): SCStatsObject => {
+   const scData: SCStatsObject = {
+      stats: { html: '', label: 'Performance for Last 7 Days', clicks: 0, impressions: 0 },
+      keywords: { html: '', label: 'Top 5 Keywords' },
+      pages: { html: '', label: 'Top 5 Pages' },
+   };
+   
+   const stats = Array.isArray(localSCData.stats) ? localSCData.stats : [];
+   const SCStats = [...stats].reverse().slice(0, 7);
+   const keywords = getKeywordsInsight(localSCData, 'clicks', 'sevenDays');
+   const pages = getPagesInsight(localSCData, 'clicks', 'sevenDays');
+   
+   if (SCStats.length > 0) {
+      scData.stats.html = SCStats.reduce((acc, item) => acc + generateSCColumn(item, 'date'), '');
+   }
+   if (keywords.length > 0) {
+      scData.keywords.html = keywords.slice(0, 5).reduce((acc, item) => acc + generateSCColumn(item, 'keyword'), '');
+   }
+   if (pages.length > 0) {
+      scData.pages.html = pages.slice(0, 5).reduce((acc, item) => acc + generateSCColumn(item, 'page'), '');
+   }
+   
+   scData.stats.clicks = SCStats.reduce((acc, item) => acc + item.clicks, 0);
+   scData.stats.impressions = SCStats.reduce((acc, item) => acc + item.impressions, 0);
+   
+   return scData;
+};
+
+/**
+ * Helper function to generate the search console header HTML
+ */
+const generateSCHeader = (localSCData: SCDomainDataType): string => {
+   const stats = Array.isArray(localSCData.stats) ? localSCData.stats : [];
+   const SCStats = [...stats].reverse().slice(0, 7);
+   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+   
+   let dateRangeText = '';
+   if (SCStats.length > 0) {
       const endDate = new Date(SCStats[0].date);
       const startDate = new Date(SCStats[SCStats.length - 1].date);
+      dateRangeText = `${startDate.getDate()} ${months[startDate.getMonth()]} -  ${endDate.getDate()} ${months[endDate.getMonth()]} (Last 7 Days)`;
+   }
+   
+   return `<table role="presentation" border="0" cellpadding="0" cellspacing="0" class="console_table">
+              <tr>
+                 <td style="font-weight:bold;">
+                 <img class="google_icon" src="${googleIcon}" alt="Google" width="13" height="13"> Google Search Console Stats</h3>
+                 </td>
+                 <td class="stat" align="right" style="font-size: 12px;">
+                 ${dateRangeText}
+                 </td>
+              </tr>
+           </table>`;
+};
 
-      // Add the SC header Title
-      let htmlWithSCStats = `<table role="presentation" border="0" cellpadding="0" cellspacing="0" class="console_table">
+/**
+ * Helper function to generate the search console data tables HTML
+ */
+const generateSCDataTables = (scData: SCStatsObject): string => {
+   let htmlWithSCStats = '';
+   
+   Object.keys(scData).forEach((itemKey) => {
+      const scItem = scData[itemKey as keyof SCStatsObject];
+      const scItemFirstColName = itemKey === 'stats' ? 'Date' : `${itemKey[0].toUpperCase()}${itemKey.slice(1)}`;
+      
+      htmlWithSCStats += `<table role="presentation" border="0" cellpadding="0" cellspacing="0" class="subhead">
                               <tr>
-                                 <td style="font-weight:bold;">
-                                 <img class="google_icon" src="${googleIcon}" alt="Google" width="13" height="13"> Google Search Console Stats</h3>
-                                 </td>
-                                 <td class="stat" align="right" style="font-size: 12px;">
-                                 ${startDate.getDate()} ${months[startDate.getMonth()]} -  ${endDate.getDate()} ${months[endDate.getMonth()]} 
-                                 (Last 7 Days)
-                                 </td>
+                                 <td style="font-weight:bold;">${scItem.label}</h3></td>
+                                 ${scItem.clicks && scItem.impressions ? (
+                                    `<td class="stat" align="right">
+                                       <strong>${scItem.clicks}</strong> Clicks | <strong>${scItem.impressions}</strong> Views
+                                    </td>`
+                                    )
+                                    : ''
+                                 }
                               </tr>
                            </table>
-                           `;
-
-      // Add the SC Data Tables
-      Object.keys(scData).forEach((itemKey) => {
-         const scItem = scData[itemKey as keyof SCStatsObject];
-         const scItemFirstColName = itemKey === 'stats' ? 'Date' : `${itemKey[0].toUpperCase()}${itemKey.slice(1)}`;
-         htmlWithSCStats += `<table role="presentation" border="0" cellpadding="0" cellspacing="0" class="subhead">
+                           <table role="presentation" class="main" style="margin-bottom:20px">
+                              <tbody>
                                  <tr>
-                                    <td style="font-weight:bold;">${scItem.label}</h3></td>
-                                    ${scItem.clicks && scItem.impressions ? (
-                                       `<td class="stat" align="right">
-                                          <strong>${scItem.clicks}</strong> Clicks | <strong>${scItem.impressions}</strong> Views
-                                       </td>`
-                                       )
-                                       : ''
-                                    }
+                                    <td class="wrapper">
+                                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="keyword_table keyword_table--sc">
+                                       <tbody>
+                                          <tr align="left">
+                                             <th>${scItemFirstColName}</th>
+                                             <th>Clicks</th>
+                                             <th>Views</th>
+                                             <th>Position</th>
+                                          </tr>
+                                          ${scItem.html}
+                                       </tbody>
+                                    </table>
+                                    </td>
                                  </tr>
-                              </table>
-                              <table role="presentation" class="main" style="margin-bottom:20px">
-                                 <tbody>
-                                    <tr>
-                                       <td class="wrapper">
-                                       <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="keyword_table keyword_table--sc">
-                                          <tbody>
-                                             <tr align="left">
-                                                <th>${scItemFirstColName}</th>
-                                                <th>Clicks</th>
-                                                <th>Views</th>
-                                                <th>Position</th>
-                                             </tr>
-                                             ${scItem.html}
-                                          </tbody>
-                                       </table>
-                                       </td>
-                                    </tr>
-                                 </tbody>
-                              </table>`;
-      });
+                              </tbody>
+                           </table>`;
+   });
+   
+   return htmlWithSCStats;
+};
 
-      return htmlWithSCStats;
+/**
+ * Generate the Email HTML for Google Search Console Data.
+ * @param {DomainType} domain - The Domain for which to generate the HTML.
+ * @returns {Promise<string>}
+ */
+export const generateGoogleConsoleStats = async (domain: DomainType): Promise<string> => {
+   if (!domain?.domain) return '';
+
+   const localSCData = await getOrRefreshSCData(domain);
+   if (!localSCData || !localSCData.stats || !localSCData.stats.length) {
+      return '';
+   }
+
+   const scData = buildSCDataStructure(localSCData);
+   const headerHtml = generateSCHeader(localSCData);
+   const dataTablesHtml = generateSCDataTables(scData);
+   
+   return headerHtml + dataTablesHtml;
 };
 
 export default generateEmail;
