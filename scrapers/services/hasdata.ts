@@ -17,7 +17,7 @@ const hasdata:ScraperSettings = {
          'x-api-key': settings.scaping_api,
       };
    },
-   scrapeURL: (keyword, settings) => {
+   scrapeURL: (keyword, _settings) => {
       const country = keyword.country || 'US';
       const countryName = countries[country][0];
       const locationParts = [keyword.city, keyword.state, countryName].filter(Boolean);

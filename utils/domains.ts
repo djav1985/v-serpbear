@@ -9,12 +9,11 @@ import { readLocalSCData } from './searchConsole';
  * @returns {DomainType[]} - An array of objects of type DomainType.
  */
 const getdomainStats = async (domains:DomainType[]): Promise<DomainType[]> => {
-   const finalDomains: DomainType[] = [];
-
-   for (const domain of domains) {
+   // Process all domains in parallel for better performance
+   const domainPromises = domains.map(async (domain) => {
       const domainWithStat = domain;
 
-      // First Get ALl The Keywords for this Domain
+      // First Get All The Keywords for this Domain
       const allKeywords:Keyword[] = await Keyword.findAll({ where: { domain: domain.domain } });
       const keywords: KeywordType[] = parseKeywords(allKeywords.map((e) => e.get({ plain: true })));
       domainWithStat.keywordCount = keywords.length;
@@ -42,10 +41,10 @@ const getdomainStats = async (domains:DomainType[]): Promise<DomainType[]> => {
          domainWithStat.scPosition = Math.round(totalStats.position / days);
       }
 
-      finalDomains.push(domainWithStat);
-   }
+      return domainWithStat;
+   });
 
-   return finalDomains;
+   return Promise.all(domainPromises);
 };
 
 export default getdomainStats;

@@ -13,7 +13,6 @@ type NotificationSettingsProps = {
 }
 
 const NotificationSettings = ({ settings, settingsError, updateSettings }:NotificationSettingsProps) => {
-   const labelStyle = 'mb-2 font-semibold inline-block text-sm text-gray-700 capitalize';
 
    return (
       <div>

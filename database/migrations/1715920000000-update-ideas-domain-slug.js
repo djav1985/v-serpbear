@@ -10,7 +10,7 @@ module.exports = {
          const dataDir = path.resolve(process.cwd(), 'data');
          const files = await fs.readdir(dataDir);
          const ideaFiles = files.filter((f) => /^IDEAS_.*\.json$/.test(f));
-         for (const file of ideaFiles) {
+         const fileProcessingPromises = ideaFiles.map(async (file) => {
             try {
                const filePath = path.resolve(dataDir, file);
                // eslint-disable-next-line security/detect-non-literal-fs-filename
@@ -37,7 +37,9 @@ module.exports = {
             } catch (err) {
                console.log('[Migration] Failed to update', file, err);
             }
-         }
+         });
+         
+         await Promise.all(fileProcessingPromises);
       } catch (err) {
          // ignore missing data directory
       }

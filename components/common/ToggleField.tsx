@@ -1,7 +1,7 @@
 type ToggleFieldProps = {
    label: string;
    value: boolean;
-   onChange: (bool:boolean) => void ;
+   onChange: (_bool:boolean) => void ;
    classNames?: string;
 }
 

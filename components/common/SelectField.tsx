@@ -27,7 +27,7 @@ const SelectField = (props: SelectFieldProps) => {
       defaultLabel = 'Select an Option',
       multiple = true,
       updateField,
-      minWidth = 180,
+      minWidth: _minWidth = 180,
       maxHeight = 96,
       fullWidth = false,
       rounded = 'rounded-3xl',

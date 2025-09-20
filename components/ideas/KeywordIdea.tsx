@@ -17,7 +17,7 @@ type KeywordIdeaProps = {
 
 const KeywordIdea = (props: KeywordIdeaProps) => {
    const { keywordData, selected, lastItem, selectKeyword, style, isFavorite = false, favoriteKeyword, showKeywordDetails } = props;
-   const { keyword, uid, position, country, monthlySearchVolumes, avgMonthlySearches, competition, competitionIndex } = keywordData;
+   const { keyword, uid, position: _position, country, monthlySearchVolumes, avgMonthlySearches, competition, competitionIndex } = keywordData;
 
    const chartData = useMemo(() => {
       const chartDataObj: { labels: string[], series: number[] } = { labels: [], series: [] };

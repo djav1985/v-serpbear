@@ -14,7 +14,7 @@ type AdWordsSettingsProps = {
    closeSettings: Function
 }
 
-const AdWordsSettings = ({ settings, settingsError, updateSettings, performUpdate, closeSettings }:AdWordsSettingsProps) => {
+const AdWordsSettings = ({ settings, settingsError: _settingsError, updateSettings, performUpdate, closeSettings }:AdWordsSettingsProps) => {
    const {
       adwords_client_id = '',
       adwords_client_secret = '',

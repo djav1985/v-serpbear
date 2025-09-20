@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from 'react-query';
 export const handlers = [
     http.get(
         '*/react-query',
-        ({ request, params }) => {
+        ({ request: _request, params: _params }) => {
             return new Response(
                 JSON.stringify({
                     name: 'mocked-react-query',

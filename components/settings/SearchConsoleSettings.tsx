@@ -12,7 +12,7 @@ type SearchConsoleSettingsProps = {
    updateSettings: Function,
 }
 
-const SearchConsoleSettings = ({ settings, settingsError, updateSettings }:SearchConsoleSettingsProps) => {
+const SearchConsoleSettings = ({ settings, settingsError: _settingsError, updateSettings }:SearchConsoleSettingsProps) => {
    const [refreshing, setRefreshing] = useState(false);
 
    const handleRefresh = async () => {

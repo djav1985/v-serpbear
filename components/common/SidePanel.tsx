@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import Icon from './Icon';
 import useOnKey from '../../hooks/useOnKey';
 
@@ -9,7 +9,7 @@ type SidePanelProps = {
    width?: 'large' | 'medium' | 'small',
    position?: 'left' | 'right'
 }
-const SidePanel = ({ children, closePanel, width, position = 'right', title = '' }:SidePanelProps) => {
+const SidePanel = ({ children, closePanel, width: _width, position = 'right', title = '' }:SidePanelProps) => {
    useOnKey('Escape', closePanel);
    const closeOnBGClick = (e:React.SyntheticEvent) => {
       e.stopPropagation();
