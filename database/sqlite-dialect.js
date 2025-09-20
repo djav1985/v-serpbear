@@ -184,26 +184,18 @@ class Database extends EventEmitter {
       let result;
       if (method === 'run') {
         fallbackToRun();
-      } else if (method === 'all') {
+      } else if (method === 'all' || method === 'get') {
         try {
-          result = applyStatement(statement, 'all', preparedBindings);
-          context.changes = Array.isArray(result) ? result.length : 0;
-        } catch (err) {
-          if (shouldFallback(err)) {
-            fallbackToRun();
-            result = [];
+          result = applyStatement(statement, method, preparedBindings);
+          if (method === 'all') {
+            context.changes = Array.isArray(result) ? result.length : 0;
           } else {
-            throw err;
+            context.changes = result ? 1 : 0;
           }
-        }
-      } else if (method === 'get') {
-        try {
-          result = applyStatement(statement, 'get', preparedBindings);
-          context.changes = result ? 1 : 0;
         } catch (err) {
           if (shouldFallback(err)) {
             fallbackToRun();
-            result = undefined;
+            result = method === 'all' ? [] : undefined;
           } else {
             throw err;
           }
