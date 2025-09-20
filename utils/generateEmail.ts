@@ -140,24 +140,43 @@ const generateEmail = async (domain:DomainType, keywords:KeywordType[], settings
 };
 
 /**
+ * Helper function to check if search console data needs refreshing
+ */
+const needsRefresh = (localSCData: SCDomainDataType | null): boolean => {
+   const cronTimezone = process.env.CRON_TIMEZONE || 'America/New_York';
+   const hasStats = !!(localSCData?.stats && localSCData.stats.length);
+   const lastFetched = localSCData?.lastFetched;
+   return !(hasStats && isSearchConsoleDataFreshForToday(lastFetched, cronTimezone));
+};
+
+/**
+ * Helper function to fetch fresh search console data
+ */
+const fetchFreshSCData = async (domain: DomainType): Promise<SCDomainDataType | null> => {
+   const scDomainAPI = domain.search_console ? await getSearchConsoleApiInfo(domain) : { client_email: '', private_key: '' };
+   const scGlobalAPI = await getSearchConsoleApiInfo({} as DomainType);
+   
+   if (scDomainAPI.client_email || scGlobalAPI.client_email) {
+      const refreshed = await fetchDomainSCData(domain, scDomainAPI, scGlobalAPI);
+      if (refreshed && refreshed.stats && refreshed.stats.length) {
+         return refreshed;
+      }
+   }
+   
+   return null;
+};
+
+/**
  * Helper function to get or refresh search console data for a domain
  */
 const getOrRefreshSCData = async (domain: DomainType): Promise<SCDomainDataType | null> => {
    const initialSCData = await readLocalSCData(domain.domain);
    let localSCData: SCDomainDataType | null = initialSCData === false ? null : initialSCData;
-   const cronTimezone = process.env.CRON_TIMEZONE || 'America/New_York';
-   const hasStats = !!(localSCData?.stats && localSCData.stats.length);
-   const lastFetched = localSCData?.lastFetched;
-   const isFresh = hasStats && isSearchConsoleDataFreshForToday(lastFetched, cronTimezone);
    
-   if (!isFresh) {
-      const scDomainAPI = domain.search_console ? await getSearchConsoleApiInfo(domain) : { client_email: '', private_key: '' };
-      const scGlobalAPI = await getSearchConsoleApiInfo({} as DomainType);
-      if (scDomainAPI.client_email || scGlobalAPI.client_email) {
-         const refreshed = await fetchDomainSCData(domain, scDomainAPI, scGlobalAPI);
-         if (refreshed && refreshed.stats && refreshed.stats.length) {
-            localSCData = refreshed;
-         }
+   if (!localSCData || needsRefresh(localSCData)) {
+      const freshData = await fetchFreshSCData(domain);
+      if (freshData) {
+         localSCData = freshData;
       }
    }
    
