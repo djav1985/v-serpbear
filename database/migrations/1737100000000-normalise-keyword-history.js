@@ -16,7 +16,7 @@ module.exports = {
                {
                   type: SequelizeLib.DataTypes.STRING,
                   allowNull: true,
-                  defaultValue: JSON.stringify({}),
+                  defaultValue: JSON.stringify({})
                },
                { transaction }
             );
@@ -29,7 +29,7 @@ module.exports = {
                "OR TRIM(history) = ''",
                "OR history = '[]'",
                "OR LOWER(history) = 'null'",
-               "OR LOWER(history) = 'false'",
+               "OR LOWER(history) = 'false'"
             ].join(' '),
             { transaction }
          );
@@ -55,7 +55,7 @@ module.exports = {
                {
                   type: SequelizeLib.DataTypes.STRING,
                   allowNull: true,
-                  defaultValue: JSON.stringify([]),
+                  defaultValue: JSON.stringify([])
                },
                { transaction }
             );
@@ -68,12 +68,12 @@ module.exports = {
                "OR TRIM(history) = ''",
                "OR history = '{}'",
                "OR LOWER(history) = 'null'",
-               "OR LOWER(history) = 'false'",
+               "OR LOWER(history) = 'false'"
             ].join(' '),
             { transaction }
          );
 
          console.log('Reverted keyword history defaults to legacy empty arrays.');
       });
-   },
+   }
 };

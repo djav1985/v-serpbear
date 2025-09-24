@@ -33,7 +33,7 @@ if (typeof window !== 'undefined') {
       removeListener: jest.fn(), // deprecated
       addEventListener: jest.fn(),
       removeEventListener: jest.fn(),
-      dispatchEvent: jest.fn(),
+      dispatchEvent: jest.fn()
    });
 
    const locationMock = {
@@ -49,12 +49,12 @@ if (typeof window !== 'undefined') {
       assign: jest.fn((value) => { locationMock.href = value; }),
       replace: jest.fn((value) => { locationMock.href = value; }),
       reload: jest.fn(),
-      toString: () => locationMock.href,
+      toString: () => locationMock.href
    };
 
    Object.defineProperty(window, 'location', {
       configurable: true,
-      value: locationMock,
+      value: locationMock
    });
 }
 

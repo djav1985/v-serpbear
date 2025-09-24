@@ -42,7 +42,7 @@ const getAppSettings = async () => {
       smtp_server: '',
       smtp_port: '',
       smtp_username: '',
-      smtp_password: '',
+      smtp_password: ''
    };
    // console.log('process.env.SECRET: ', process.env.SECRET);
    try {
@@ -139,7 +139,7 @@ const runAppCronJobs = () => {
       if (notif_interval) {
          const cronTime = normalizeCronExpression(
             generateCronTime(notif_interval === 'daily' ? 'daily_morning' : notif_interval) || CRON_EMAIL_SCHEDULE,
-            CRON_EMAIL_SCHEDULE,
+            CRON_EMAIL_SCHEDULE
          );
          if (cronTime) {
             new Cron(cronTime, () => {

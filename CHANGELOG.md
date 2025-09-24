@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file. Releases no
 
 ### Changed
 
+* Removed trailing commas from configuration, migrations, and worker modules to align with the enforced no-trailing-commas lint rule.
 * Marked Google Ads keyword ideas that already exist in the tracker as disabled for the active device, preventing duplicate selections and covering the behaviour with component tests.
 * Added a shared `LOG_SUCCESS_EVENTS` toggle so successful authentication and middleware INFO logs can be muted without touching warnings/errors, updated API callers to surface the option, and introduced Jest coverage for the quiet mode.
 * Added a manual "Send Notifications Now" action to the Notification settings modal, surfacing success or error toasts when `/api/notify` completes so teams can validate SMTP credentials instantly.

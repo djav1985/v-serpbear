@@ -5,25 +5,25 @@ const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
   publicRuntimeConfig: {
-    version,
+    version
   },
-  
+
   // Performance optimizations
   experimental: {
-    optimizePackageImports: ['react-icons', 'react-chartjs-2', 'react-query'],
+    optimizePackageImports: ['react-icons', 'react-chartjs-2', 'react-query']
   },
-  
+
   // Compiler optimizations
   compiler: {
     // Preserve server logging by default; opt-in via NEXT_REMOVE_CONSOLE
     removeConsole:
       process.env.NEXT_REMOVE_CONSOLE === 'true'
         ? {
-            exclude: ['error'],
+            exclude: ['error']
           }
-        : false,
+        : false
   },
-  
+
   // Bundle analyzer (enable with ANALYZE=true)
   ...(process.env.ANALYZE === 'true' && {
     webpack: (config, { buildId, dev, isServer, defaultLoaders, nextRuntime, webpack }) => {
@@ -33,21 +33,21 @@ const nextConfig = {
           new BundleAnalyzerPlugin({
             analyzerMode: 'static',
             reportFilename: 'bundle-analyzer-report.html',
-            openAnalyzer: false,
+            openAnalyzer: false
           })
         );
       }
       return config;
-    },
+    }
   }),
-  
+
   // Image optimization
   images: {
     formats: ['image/webp', 'image/avif'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
-    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384]
   },
-  
+
   // Webpack optimizations
   webpack: (config, { buildId, dev, isServer, defaultLoaders, nextRuntime, webpack }) => {
     // Bundle size optimizations
@@ -58,19 +58,19 @@ const nextConfig = {
           test: /[\\/]node_modules[\\/]/,
           name: 'vendors',
           chunks: 'all',
-          priority: 10,
+          priority: 10
         },
         common: {
           name: 'common',
           minChunks: 2,
           chunks: 'all',
-          priority: 5,
-        },
+          priority: 5
+        }
       };
     }
-    
+
     return config;
-  },
+  }
 };
 
 module.exports = nextConfig;

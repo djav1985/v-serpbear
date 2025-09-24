@@ -155,7 +155,7 @@ module.exports = {
                const updates = {
                   city: parsed.city || '',
                   state: parsed.state || '',
-                  country: parsed.country || country || '',
+                  country: parsed.country || country || ''
                };
 
                await queryInterface.sequelize.query(
@@ -166,8 +166,8 @@ module.exports = {
                         id: ID,
                         city: updates.city,
                         state: updates.state,
-                        country: updates.country,
-                     },
+                        country: updates.country
+                     }
                   }
                );
             }
@@ -175,5 +175,5 @@ module.exports = {
 
          console.log('Restored keyword city/state columns from location.');
       });
-   },
+   }
 };

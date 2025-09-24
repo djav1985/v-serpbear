@@ -3,7 +3,7 @@ require('dotenv').config({ path: './.env.local' });
 
 const createJestConfig = nextJest({
   // Provide the path to your Next.js app to load next.config.js and .env files in your test environment
-  dir: './',
+  dir: './'
 });
 
 const uuidPath = require.resolve('uuid');
@@ -17,14 +17,14 @@ const customJestConfig = {
   moduleDirectories: ['node_modules', '<rootDir>/'],
   testEnvironment: '@happy-dom/jest-environment',
   transformIgnorePatterns: [
-    '/node_modules/(?!(sequelize|until-async|@bundled-es-modules|msw|uuid)/)',
+    '/node_modules/(?!(sequelize|until-async|@bundled-es-modules|msw|uuid)/)'
   ],
   moduleNameMapper: {
     '^uuid$': uuidPath,
     'better-sqlite3': '<rootDir>/__mocks__/better-sqlite3.js',
-    '^until-async$': '<rootDir>/__mocks__/until-async.js',
+    '^until-async$': '<rootDir>/__mocks__/until-async.js'
   },
-  modulePathIgnorePatterns: ['<rootDir>/.next/'],
+  modulePathIgnorePatterns: ['<rootDir>/.next/']
 };
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async

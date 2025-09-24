@@ -11,9 +11,9 @@ module.exports = {
     port: 3306,
     dialect: 'sqlite',
     storage: './data/database.sqlite',
-    dialectModulePath,
     dialectOptions: {
-      bigNumberStrings: true,
+      bigNumberStrings: true
     },
-  },
+    dialectModulePath
+  }
 };

@@ -130,7 +130,7 @@ class Database extends EventEmitter {
     try {
       const options = {
         readonly: hasFlag(flags, OPEN_READONLY) && !hasFlag(flags, OPEN_READWRITE),
-        fileMustExist: !hasFlag(flags, OPEN_CREATE),
+        fileMustExist: !hasFlag(flags, OPEN_CREATE)
       };
       this.driver = new BetterSqlite3(filename, options);
       this.open = true;
@@ -229,7 +229,7 @@ class Database extends EventEmitter {
       database: this,
       sql,
       lastID: undefined,
-      changes: 0,
+      changes: 0
     };
 
     try {
@@ -277,7 +277,7 @@ const cached = {
       }
     }
     return this.objects[resolved];
-  },
+  }
 };
 
 const sqlite = {
@@ -288,7 +288,7 @@ const sqlite = {
   cached,
   verbose() {
     return sqlite;
-  },
+  }
 };
 
 module.exports = sqlite;
