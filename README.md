@@ -51,29 +51,32 @@ SerpBear is a full-stack Next.js application that tracks where your pages rank o
 
 ## Getting started
 
+> ℹ️ **Workspace layout:** All runtime Next.js code and npm scripts live in the `./app` directory. Shared test fixtures (`__tests__/`, `__mocks__/`) and developer dotfiles stay at the repository root. Run Node.js commands from `./app`.
+
 ### Option 1 – Docker Compose
 
 ```bash
 git clone https://github.com/djav1985/v-serpbear.git
 cd v-serpbear
 cp .env.example .env
-# edit .env with your credentials and scraping provider
+# edit .env (project root) with your credentials and scraping provider
 docker compose up -d
 ```
 
-The default compose stack maps `./data` to the container so your SQLite database and cached Search Console exports persist between updates.
+The default compose stack persists the container's `/app/data` directory in a named volume so your SQLite database and cached Search Console exports survive updates.
 
 ### Option 2 – Node.js runtime
 
 1. Install Node.js **18.18+** (the project ships an `.nvmrc` pinning `20.18.0`).
-2. Install dependencies with `npm install` (or `npm ci`).
-3. Copy `.env.example` to `.env.local` and fill in the required keys.
-4. **Apply database migrations:** `npm run db:migrate` to set up the SQLite database schema.
-5. Start the development server via `npm run dev` or build and serve production assets with `npm run build && npm run start`.
+2. Change into the application workspace: `cd app`.
+3. Install dependencies with `npm install` (or `npm ci`).
+4. Copy the repository `.env.example` into the workspace (`cp ../.env.example .env.local`) and fill in the required keys.
+5. **Apply database migrations:** `npm run db:migrate` to set up the SQLite database schema.
+6. Start the development server via `npm run dev` or build and serve production assets with `npm run build && npm run start`.
 
 ### Database & migrations
 
-- **SQLite files:** Live under `./data` by default; mount that directory when running inside containers to keep your historical data.
+- **SQLite files:** Live under `./app/data` by default; mount that directory when running inside containers to keep your historical data.
 - **Docker deployments:** Database migrations run automatically from `entrypoint.sh` whenever the container starts. No manual intervention required.
 - **Local Node.js development:** Use `npm run db:migrate` to apply schema changes manually (as shown in the setup steps above). Run `npm run db:revert` to roll back the most recent migration if needed.
 - **Migration tooling:** The bundled Sequelize/Umzug tooling works for both approaches—Docker uses it internally, while local development exposes it through npm scripts.

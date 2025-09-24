@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { render, screen } from '@testing-library/react';
-import TopBar from '../../components/common/TopBar';
+import TopBar from '../../app/components/common/TopBar';
 
 jest.mock('next/router', () => ({
    useRouter: () => ({

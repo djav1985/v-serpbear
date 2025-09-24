@@ -1,9 +1,9 @@
-/// <reference path="../../types.d.ts" />
+/// <reference path="../../app/types.d.ts" />
 
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from 'react-query';
-import KeywordIdeasUpdater from '../../components/ideas/KeywordIdeasUpdater';
+import KeywordIdeasUpdater from '../../app/components/ideas/KeywordIdeasUpdater';
 
 // Mock the next/router
 jest.mock('next/router', () => ({
@@ -16,7 +16,7 @@ jest.mock('next/router', () => ({
 
 // Mock the services
 const mockMutate = jest.fn();
-jest.mock('../../services/adwords', () => ({
+jest.mock('../../app/services/adwords', () => ({
    useMutateKeywordIdeas: () => ({
       mutate: mockMutate,
       isLoading: false,

@@ -1,16 +1,16 @@
 import { writeFile, readFile } from 'fs/promises';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import getConfig from 'next/config';
-import handler from '../../pages/api/settings';
-import * as settingsApi from '../../pages/api/settings';
-import verifyUser from '../../utils/verifyUser';
+import handler from '../../app/pages/api/settings';
+import * as settingsApi from '../../app/pages/api/settings';
+import verifyUser from '../../app/utils/verifyUser';
 
-jest.mock('../../utils/verifyUser', () => ({
+jest.mock('../../app/utils/verifyUser', () => ({
   __esModule: true,
   default: jest.fn(),
 }));
 
-jest.mock('../../scrapers/index', () => ({
+jest.mock('../../app/scrapers/index', () => ({
   __esModule: true,
   default: [],
 }));
@@ -26,7 +26,7 @@ jest.mock('fs/promises', () => ({
 }));
 
 // Mock the logger to prevent console output during tests
-jest.mock('../../utils/logger', () => ({
+jest.mock('../../app/utils/logger', () => ({
   logger: {
     error: jest.fn(),
     warn: jest.fn(),
@@ -38,7 +38,7 @@ jest.mock('../../utils/logger', () => ({
 }));
 
 // Mock the API logging middleware
-jest.mock('../../utils/apiLogging', () => ({
+jest.mock('../../app/utils/apiLogging', () => ({
   withApiLogging: (handler: any) => handler,
 }));
 

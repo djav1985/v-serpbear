@@ -1,16 +1,16 @@
-import getdomainStats from '../../utils/domains';
-import Keyword from '../../database/models/keyword';
-import parseKeywords from '../../utils/parseKeywords';
-import { readLocalSCData } from '../../utils/searchConsole';
+import getdomainStats from '../../app/utils/domains';
+import Keyword from '../../app/database/models/keyword';
+import parseKeywords from '../../app/utils/parseKeywords';
+import { readLocalSCData } from '../../app/utils/searchConsole';
 
-jest.mock('../../database/models/keyword', () => ({
+jest.mock('../../app/database/models/keyword', () => ({
   __esModule: true,
   default: { findAll: jest.fn() },
 }));
 
-jest.mock('../../utils/parseKeywords', () => ({ __esModule: true, default: jest.fn() }));
+jest.mock('../../app/utils/parseKeywords', () => ({ __esModule: true, default: jest.fn() }));
 
-jest.mock('../../utils/searchConsole', () => ({
+jest.mock('../../app/utils/searchConsole', () => ({
   __esModule: true,
   readLocalSCData: jest.fn(),
 }));

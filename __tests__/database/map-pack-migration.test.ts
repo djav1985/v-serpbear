@@ -2,7 +2,7 @@
 
 import { Sequelize } from 'sequelize';
 
-const sqliteDialect = require('../../database/sqlite-dialect');
+const sqliteDialect = require('../../app/database/sqlite-dialect');
 
 describe('Map Pack Top3 Migration', () => {
   let sequelize: Sequelize;
@@ -23,7 +23,7 @@ describe('Map Pack Top3 Migration', () => {
   });
 
   test('migration adds map_pack_top3 column with proper constraints', async () => {
-    const migration = require('../../database/migrations/1737307000000-add-keyword-map-pack-flag');
+    const migration = require('../../app/database/migrations/1737307000000-add-keyword-map-pack-flag');
     const { DataTypes } = require('sequelize');
     
     // Create a mock queryInterface that succeeds
@@ -75,7 +75,7 @@ describe('Map Pack Top3 Migration', () => {
   });
 
   test('migration is idempotent - does not run UPDATE when column exists', async () => {
-    const migration = require('../../database/migrations/1737307000000-add-keyword-map-pack-flag');
+    const migration = require('../../app/database/migrations/1737307000000-add-keyword-map-pack-flag');
     const { DataTypes } = require('sequelize');
     
     // Create a mock queryInterface where column already exists
@@ -103,7 +103,7 @@ describe('Map Pack Top3 Migration', () => {
   });
 
   test('migration down removes map_pack_top3 column correctly', async () => {
-    const migration = require('../../database/migrations/1737307000000-add-keyword-map-pack-flag');
+    const migration = require('../../app/database/migrations/1737307000000-add-keyword-map-pack-flag');
     
     // Create a mock queryInterface for rollback
     const mockQueryInterface = {
@@ -128,7 +128,7 @@ describe('Map Pack Top3 Migration', () => {
   });
 
   test('migration handles errors and re-throws them', async () => {
-    const migration = require('../../database/migrations/1737307000000-add-keyword-map-pack-flag');
+    const migration = require('../../app/database/migrations/1737307000000-add-keyword-map-pack-flag');
     
     // Create a mock queryInterface that will fail
     const mockQueryInterface = {

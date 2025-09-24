@@ -1,6 +1,6 @@
 /** @jest-environment node */
 
-import sqlite from '../../database/sqlite-dialect';
+import sqlite from '../../app/database/sqlite-dialect';
 
 describe('Boolean coercion in sqlite dialect', () => {
   it('should coerce boolean values correctly with simple test', async () => {

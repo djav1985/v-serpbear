@@ -1,5 +1,5 @@
 import { readFile } from 'fs/promises';
-import generateEmail from '../../utils/generateEmail';
+import generateEmail from '../../app/utils/generateEmail';
 
 jest.mock('fs/promises', () => ({
   readFile: jest.fn(),

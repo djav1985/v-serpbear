@@ -1,9 +1,9 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import SearchConsoleSettings from '../../components/settings/SearchConsoleSettings';
+import SearchConsoleSettings from '../../app/components/settings/SearchConsoleSettings';
 import { dummySettings } from '../../__mocks__/data';
-import { refreshSearchConsoleData } from '../../services/searchConsole';
+import { refreshSearchConsoleData } from '../../app/services/searchConsole';
 
-jest.mock('../../services/searchConsole', () => ({
+jest.mock('../../app/services/searchConsole', () => ({
    refreshSearchConsoleData: jest.fn(),
 }));
 

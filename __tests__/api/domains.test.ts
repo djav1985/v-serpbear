@@ -1,25 +1,25 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import handler from '../../pages/api/domains';
-import db from '../../database/database';
-import Domain from '../../database/models/domain';
-import verifyUser from '../../utils/verifyUser';
+import handler from '../../app/pages/api/domains';
+import db from '../../app/database/database';
+import Domain from '../../app/database/models/domain';
+import verifyUser from '../../app/utils/verifyUser';
 
-jest.mock('../../database/database', () => ({
+jest.mock('../../app/database/database', () => ({
   __esModule: true,
   default: { sync: jest.fn() },
 }));
 
-jest.mock('../../database/models/domain', () => ({
+jest.mock('../../app/database/models/domain', () => ({
   __esModule: true,
   default: { findOne: jest.fn() },
 }));
 
-jest.mock('../../utils/verifyUser', () => ({
+jest.mock('../../app/utils/verifyUser', () => ({
   __esModule: true,
   default: jest.fn(),
 }));
 
-jest.mock('../../utils/apiLogging', () => ({
+jest.mock('../../app/utils/apiLogging', () => ({
   __esModule: true,
   withApiLogging: (apiHandler: any) => apiHandler,
 }));

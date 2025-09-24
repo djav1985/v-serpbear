@@ -1,4 +1,4 @@
-import { filterKeywords, matchesCountry, matchesSearch, matchesTags } from '../../../utils/client/sortFilter';
+import { filterKeywords, matchesCountry, matchesSearch, matchesTags } from '../../../app/utils/client/sortFilter';
 
 describe('filterKeywords helpers', () => {
    const createKeyword = (overrides: Partial<KeywordType> = {}): KeywordType => ({

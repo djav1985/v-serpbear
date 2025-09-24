@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import PageLoader from '../../components/common/PageLoader';
+import PageLoader from '../../app/components/common/PageLoader';
 
 describe('PageLoader', () => {
    it('renders an overlay while loading', () => {

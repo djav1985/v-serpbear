@@ -1,6 +1,6 @@
 /** @jest-environment node */
 
-import sqlite from '../../database/sqlite-dialect';
+import sqlite from '../../app/database/sqlite-dialect';
 
 // Common test constants to reduce string duplication
 const TABLE_NAMES = {

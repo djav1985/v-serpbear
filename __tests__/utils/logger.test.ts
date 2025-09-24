@@ -1,4 +1,4 @@
-import { Logger, LogLevel } from '../../utils/logger';
+import { Logger, LogLevel } from '../../app/utils/logger';
 
 // Mock console.log to prevent output during tests
 const mockConsoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});

@@ -1,18 +1,18 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Op } from 'sequelize';
-import handler from '../../pages/api/keywords';
-import db from '../../database/database';
-import Keyword from '../../database/models/keyword';
-import verifyUser from '../../utils/verifyUser';
-import { getAppSettings } from '../../pages/api/settings';
-import { getKeywordsVolume, updateKeywordsVolumeData } from '../../utils/adwords';
+import handler from '../../app/pages/api/keywords';
+import db from '../../app/database/database';
+import Keyword from '../../app/database/models/keyword';
+import verifyUser from '../../app/utils/verifyUser';
+import { getAppSettings } from '../../app/pages/api/settings';
+import { getKeywordsVolume, updateKeywordsVolumeData } from '../../app/utils/adwords';
 
-jest.mock('../../database/database', () => ({
+jest.mock('../../app/database/database', () => ({
   __esModule: true,
   default: { sync: jest.fn() },
 }));
 
-jest.mock('../../database/models/keyword', () => ({
+jest.mock('../../app/database/models/keyword', () => ({
   __esModule: true,
   default: {
     update: jest.fn(),
@@ -23,28 +23,28 @@ jest.mock('../../database/models/keyword', () => ({
   },
 }));
 
-jest.mock('../../utils/verifyUser', () => ({
+jest.mock('../../app/utils/verifyUser', () => ({
   __esModule: true,
   default: jest.fn(),
 }));
 
-jest.mock('../../utils/refresh', () => ({
+jest.mock('../../app/utils/refresh', () => ({
   __esModule: true,
   default: jest.fn(),
 }));
 
-jest.mock('../../pages/api/settings', () => ({
+jest.mock('../../app/pages/api/settings', () => ({
   __esModule: true,
   getAppSettings: jest.fn(),
 }));
 
-jest.mock('../../utils/adwords', () => ({
+jest.mock('../../app/utils/adwords', () => ({
   __esModule: true,
   getKeywordsVolume: jest.fn(),
   updateKeywordsVolumeData: jest.fn(),
 }));
 
-jest.mock('../../scrapers/index', () => ({
+jest.mock('../../app/scrapers/index', () => ({
   __esModule: true,
   default: [],
 }));

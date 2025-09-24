@@ -1,5 +1,5 @@
 import type { NextRouter } from 'next/router';
-import { fetchDomain } from '../../services/domains';
+import { fetchDomain } from '../../app/services/domains';
 
 describe('fetchDomain', () => {
    const originalFetch = global.fetch;

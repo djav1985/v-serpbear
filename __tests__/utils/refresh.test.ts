@@ -1,15 +1,15 @@
 import { readFile, writeFile } from 'fs/promises';
 import { Op } from 'sequelize';
-import Domain from '../../database/models/domain';
-import Keyword from '../../database/models/keyword';
-import refreshAndUpdateKeywords, { updateKeywordPosition } from '../../utils/refresh';
-import { removeFromRetryQueue } from '../../utils/scraper';
-import type { RefreshResult } from '../../utils/scraper';
+import Domain from '../../app/database/models/domain';
+import Keyword from '../../app/database/models/keyword';
+import refreshAndUpdateKeywords, { updateKeywordPosition } from '../../app/utils/refresh';
+import { removeFromRetryQueue } from '../../app/utils/scraper';
+import type { RefreshResult } from '../../app/utils/scraper';
 
 // Mock the dependencies
-jest.mock('../../database/models/domain');
-jest.mock('../../database/models/keyword');
-jest.mock('../../utils/scraper', () => ({
+jest.mock('../../app/database/models/domain');
+jest.mock('../../app/database/models/keyword');
+jest.mock('../../app/utils/scraper', () => ({
   removeFromRetryQueue: jest.fn(),
   retryScrape: jest.fn(),
   scrapeKeywordFromGoogle: jest.fn(),

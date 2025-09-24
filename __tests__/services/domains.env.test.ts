@@ -11,7 +11,7 @@ describe('domains service environment toggle', () => {
    it('enables screenshots by default', () => {
       let screenshotsEnabled: boolean | undefined;
       jest.isolateModules(() => {
-         const mod = require('../../services/domains');
+         const mod = require('../../app/services/domains');
          screenshotsEnabled = mod.SCREENSHOTS_ENABLED;
       });
       expect(screenshotsEnabled).toBe(true);
@@ -23,7 +23,7 @@ describe('domains service environment toggle', () => {
 
       let fetchDomainScreenshot: FetchDomainScreenshot | undefined;
       jest.isolateModules(() => {
-         const mod = require('../../services/domains');
+         const mod = require('../../app/services/domains');
          expect(mod.SCREENSHOTS_ENABLED).toBe(false);
          fetchDomainScreenshot = mod.fetchDomainScreenshot;
       });

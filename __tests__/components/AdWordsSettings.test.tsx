@@ -1,5 +1,5 @@
 import { act, render, waitFor } from '@testing-library/react';
-import AdWordsSettings from '../../components/settings/AdWordsSettings';
+import AdWordsSettings from '../../app/components/settings/AdWordsSettings';
 
 const toastMock = jest.fn();
 
@@ -10,7 +10,7 @@ jest.mock('react-hot-toast', () => ({
 
 const mutateMock = jest.fn();
 
-jest.mock('../../services/adwords', () => ({
+jest.mock('../../app/services/adwords', () => ({
    useTestAdwordsIntegration: jest.fn(() => ({ mutate: mutateMock, isLoading: false })),
    useMutateKeywordsVolume: jest.fn(() => ({ mutate: mutateMock, isLoading: false })),
 }));

@@ -9,7 +9,7 @@ RUN addgroup --system --gid 1001 nodejs \
     && adduser --system --uid 1001 nextjs
 
 FROM base AS deps
-COPY package.json package-lock.json ./
+COPY app/package.json app/package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm \
     npm ci --only=production && \
     cp -R node_modules production_node_modules && \
@@ -17,7 +17,7 @@ RUN --mount=type=cache,target=/root/.npm \
 
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY app/ ./
 # Remove unnecessary files for security and smaller image
 RUN --mount=type=cache,target=/root/.npm \
     --mount=type=cache,target=/app/.next/cache \

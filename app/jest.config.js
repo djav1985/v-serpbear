@@ -13,16 +13,17 @@ const uuidPath = require.resolve('uuid');
 const customJestConfig = {
   // Add more setup options before each test is run
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  roots: ['<rootDir>', '<rootDir>/../__tests__'],
   // if using TypeScript with a baseUrl set to the root directory then you need the below for alias' to work
-  moduleDirectories: ['node_modules', '<rootDir>/'],
+  moduleDirectories: ['node_modules', '<rootDir>/', '<rootDir>/../'],
   testEnvironment: '@happy-dom/jest-environment',
   transformIgnorePatterns: [
     '/node_modules/(?!(sequelize|until-async|@bundled-es-modules|msw|uuid)/)'
   ],
   moduleNameMapper: {
     '^uuid$': uuidPath,
-    'better-sqlite3': '<rootDir>/__mocks__/better-sqlite3.js',
-    '^until-async$': '<rootDir>/__mocks__/until-async.js'
+    'better-sqlite3': '<rootDir>/../__mocks__/better-sqlite3.js',
+    '^until-async$': '<rootDir>/../__mocks__/until-async.js'
   },
   modulePathIgnorePatterns: ['<rootDir>/.next/']
 };

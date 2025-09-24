@@ -4,7 +4,7 @@
  */
 
 // Import the functions we need to test
-import { getSafeSCDataFilePath, resolveDomainIdentifier } from '../utils/searchConsole';
+import { getSafeSCDataFilePath, resolveDomainIdentifier } from '../app/utils/searchConsole';
 
 // Mock the path module with more realistic behavior
 jest.mock('path', () => {

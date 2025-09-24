@@ -1,12 +1,12 @@
-/// <reference path="../../types.d.ts" />
+/// <reference path="../../app/types.d.ts" />
 
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from 'react-query';
-import Settings, { defaultSettings } from '../../components/settings/Settings';
-import { useClearFailedQueue, useFetchSettings, useUpdateSettings } from '../../services/settings';
+import Settings, { defaultSettings } from '../../app/components/settings/Settings';
+import { useClearFailedQueue, useFetchSettings, useUpdateSettings } from '../../app/services/settings';
 
-jest.mock('../../services/settings');
+jest.mock('../../app/services/settings');
 
 const useFetchSettingsMock = useFetchSettings as jest.Mock;
 const useUpdateSettingsMock = useUpdateSettings as jest.Mock;

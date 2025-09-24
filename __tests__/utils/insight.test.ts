@@ -1,4 +1,4 @@
-import { getCountryInsight, getKeywordsInsight, getPagesInsight } from '../../utils/insight';
+import { getCountryInsight, getKeywordsInsight, getPagesInsight } from '../../app/utils/insight';
 
 describe('Insight Functions', () => {
   const mockSCData: SCDomainDataType = {

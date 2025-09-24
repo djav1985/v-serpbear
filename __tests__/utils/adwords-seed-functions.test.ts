@@ -1,7 +1,7 @@
-import Keyword from '../../database/models/keyword';
+import Keyword from '../../app/database/models/keyword';
 
 // Mock dependencies
-jest.mock('../../database/models/keyword');
+jest.mock('../../app/database/models/keyword');
 
 describe('Adwords Seed Functions', () => {
   const mockKeywords = [
@@ -42,7 +42,7 @@ describe('Adwords Seed Functions', () => {
   describe('seedKeywordsFromTracking improvements', () => {
     // Import the function after mocks are set up
     const getFunction = async () => {
-      const adwordsModule = await import('../../utils/adwords');
+      const adwordsModule = await import('../../app/utils/adwords');
       // Access the function through the module's internal structure
       // Since it's not exported, we'll test it through integration
       return adwordsModule.getAdwordsKeywordIdeas;

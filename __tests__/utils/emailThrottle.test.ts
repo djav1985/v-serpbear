@@ -1,4 +1,4 @@
-import { canSendEmail, recordEmailSent } from '../../utils/emailThrottle';
+import { canSendEmail, recordEmailSent } from '../../app/utils/emailThrottle';
 import { writeFile, readFile } from 'fs/promises';
 import path from 'path';
 

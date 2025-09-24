@@ -1,4 +1,4 @@
-import { TOGGLE_TRACK_CLASS_NAME } from '../../components/common/toggleStyles';
+import { TOGGLE_TRACK_CLASS_NAME } from '../../app/components/common/toggleStyles';
 
 describe('Toggle Styles Utility', () => {
    it('should export a valid CSS class string', () => {

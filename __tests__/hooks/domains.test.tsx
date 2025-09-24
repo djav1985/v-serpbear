@@ -1,7 +1,7 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import mockRouter from 'next-router-mock';
 
-import { useFetchDomains } from '../../services/domains';
+import { useFetchDomains } from '../../app/services/domains';
 import { createWrapper } from '../../__mocks__/utils';
 import { dummyDomain } from '../../__mocks__/data';
 

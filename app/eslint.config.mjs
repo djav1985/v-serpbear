@@ -144,10 +144,18 @@ export default [
   },
   {
     name: "serpbear/tests",
-    files: ["**/__tests__/**/*", "**/__mocks__/**/*", "**/*.{test,spec}.*", "jest.setup.js"],
+    files: [
+      "**/__tests__/**/*",
+      "**/__mocks__/**/*",
+      "../__tests__/**/*",
+      "../__mocks__/**/*",
+      "**/*.{test,spec}.*",
+      "jest.setup.js"
+    ],
     languageOptions: { globals: { ...globals.browser, ...globals.node, ...globals.jest } },
     rules: {
       complexity: "off",
+      "import/extensions": "off",
     },
   },
   {

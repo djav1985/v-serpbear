@@ -1,8 +1,8 @@
-import { normaliseBooleanFlag } from '../../utils/client/helpers';
+import { normaliseBooleanFlag } from '../../app/utils/client/helpers';
 
 // Import the normaliseBoolean function - it's not exported but we need to test it
 // We'll import parseKeywords and test through that for now
-import parseKeywords from '../../utils/parseKeywords';
+import parseKeywords from '../../app/utils/parseKeywords';
 
 describe('Boolean Normalization Functions', () => {
   describe('normaliseBooleanFlag', () => {

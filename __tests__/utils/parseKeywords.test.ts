@@ -1,4 +1,4 @@
-import parseKeywords from '../../utils/parseKeywords';
+import parseKeywords from '../../app/utils/parseKeywords';
 
 describe('parseKeywords', () => {
    const buildKeyword = (overrides: Partial<Record<string, any>> = {}) => ({

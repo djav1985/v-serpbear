@@ -11,7 +11,7 @@ import {
    trimStringProperties,
    safeTrim,
    hasTrimmedLength
-} from '../../utils/security';
+} from '../../app/utils/security';
 
 describe('Security Utilities', () => {
    describe('sanitizeHtml', () => {

@@ -27,7 +27,7 @@ describe('fetchDomainScreenshot cache resilience', () => {
 
       let fetchDomainScreenshot: FetchDomainScreenshot | undefined;
       jest.isolateModules(() => {
-         const mod = require('../../services/domains');
+         const mod = require('../../app/services/domains');
          fetchDomainScreenshot = mod.fetchDomainScreenshot;
       });
 
@@ -57,7 +57,7 @@ describe('fetchDomainScreenshot cache resilience', () => {
 
       let fetchDomainScreenshot: FetchDomainScreenshot | undefined;
       jest.isolateModules(() => {
-         const mod = require('../../services/domains');
+         const mod = require('../../app/services/domains');
          fetchDomainScreenshot = mod.fetchDomainScreenshot;
       });
 
@@ -86,7 +86,7 @@ describe('fetchDomainScreenshot cache resilience', () => {
 
       let fetchDomainScreenshot: FetchDomainScreenshot | undefined;
       jest.isolateModules(() => {
-         const mod = require('../../services/domains');
+         const mod = require('../../app/services/domains');
          fetchDomainScreenshot = mod.fetchDomainScreenshot;
       });
 
@@ -116,7 +116,7 @@ describe('fetchDomainScreenshot cache resilience', () => {
 
       let fetchDomainScreenshot: FetchDomainScreenshot | undefined;
       jest.isolateModules(() => {
-         const mod = require('../../services/domains');
+         const mod = require('../../app/services/domains');
          fetchDomainScreenshot = mod.fetchDomainScreenshot;
       });
 
@@ -142,7 +142,7 @@ describe('fetchDomainScreenshot cache resilience', () => {
 
       let fetchDomainScreenshot: FetchDomainScreenshot | undefined;
       jest.isolateModules(() => {
-         const mod = require('../../services/domains');
+         const mod = require('../../app/services/domains');
          fetchDomainScreenshot = mod.fetchDomainScreenshot;
       });
 
@@ -168,7 +168,7 @@ describe('fetchDomainScreenshot cache resilience', () => {
 
       let fetchDomainScreenshot: FetchDomainScreenshot | undefined;
       jest.isolateModules(() => {
-         const mod = require('../../services/domains');
+         const mod = require('../../app/services/domains');
          fetchDomainScreenshot = mod.fetchDomainScreenshot;
       });
 

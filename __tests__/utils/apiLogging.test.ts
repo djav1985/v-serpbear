@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 
-jest.mock('../../utils/logger', () => ({
+jest.mock('../../app/utils/logger', () => ({
   logger: {
     info: jest.fn(),
     warn: jest.fn(),
@@ -12,7 +12,7 @@ jest.mock('../../utils/logger', () => ({
 }));
 
 describe('withApiLogging success verbosity toggle', () => {
-  const { logger } = require('../../utils/logger') as {
+  const { logger } = require('../../app/utils/logger') as {
     logger: {
       info: jest.Mock;
       warn: jest.Mock;
@@ -54,7 +54,7 @@ describe('withApiLogging success verbosity toggle', () => {
 
   it('suppresses informational logs when success logging is disabled', async () => {
     logger.isSuccessLoggingEnabled.mockReturnValue(false);
-    const { withApiLogging } = await import('../../utils/apiLogging');
+    const { withApiLogging } = await import('../../app/utils/apiLogging');
 
     const handler = jest.fn(async (_req: NextApiRequest, res: NextApiResponse) => {
       res.status(200).json({ ok: true });
@@ -78,7 +78,7 @@ describe('withApiLogging success verbosity toggle', () => {
 
   it('emits informational logs when enabled or explicitly overridden', async () => {
     logger.isSuccessLoggingEnabled.mockReturnValue(true);
-    const { withApiLogging } = await import('../../utils/apiLogging');
+    const { withApiLogging } = await import('../../app/utils/apiLogging');
 
     const handler = jest.fn(async (_req: NextApiRequest, res: NextApiResponse) => {
       res.status(200).json({ ok: true });
@@ -114,7 +114,7 @@ describe('withApiLogging success verbosity toggle', () => {
 
   it('continues to emit warnings for error responses when success logging is disabled', async () => {
     logger.isSuccessLoggingEnabled.mockReturnValue(false);
-    const { withApiLogging } = await import('../../utils/apiLogging');
+    const { withApiLogging } = await import('../../app/utils/apiLogging');
 
     const handler = jest.fn(async (_req: NextApiRequest, res: NextApiResponse) => {
       res.status(400).json({ error: 'bad request' });
@@ -137,7 +137,7 @@ describe('withApiLogging success verbosity toggle', () => {
 
   it('continues to emit errors for server errors when success logging is disabled', async () => {
     logger.isSuccessLoggingEnabled.mockReturnValue(false);
-    const { withApiLogging } = await import('../../utils/apiLogging');
+    const { withApiLogging } = await import('../../app/utils/apiLogging');
 
     const handler = jest.fn(async (_req: NextApiRequest, res: NextApiResponse) => {
       res.status(500).json({ error: 'internal server error' });

@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import Keyword from '../../components/keywords/Keyword';
+import Keyword from '../../app/components/keywords/Keyword';
 import { dummyKeywords } from '../../__mocks__/data';
 
 const keywordProps = {

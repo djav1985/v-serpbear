@@ -1,33 +1,33 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import nodeMailer from 'nodemailer';
-import handler from '../../pages/api/notify';
-import db from '../../database/database';
-import Domain from '../../database/models/domain';
-import Keyword from '../../database/models/keyword';
-import verifyUser from '../../utils/verifyUser';
-import parseKeywords from '../../utils/parseKeywords';
-import generateEmail from '../../utils/generateEmail';
-import { getAppSettings } from '../../pages/api/settings';
+import handler from '../../app/pages/api/notify';
+import db from '../../app/database/database';
+import Domain from '../../app/database/models/domain';
+import Keyword from '../../app/database/models/keyword';
+import verifyUser from '../../app/utils/verifyUser';
+import parseKeywords from '../../app/utils/parseKeywords';
+import generateEmail from '../../app/utils/generateEmail';
+import { getAppSettings } from '../../app/pages/api/settings';
 
-jest.mock('../../database/database', () => ({
+jest.mock('../../app/database/database', () => ({
   __esModule: true,
   default: { sync: jest.fn() },
 }));
 
-jest.mock('../../database/models/domain', () => ({
+jest.mock('../../app/database/models/domain', () => ({
   __esModule: true,
   default: { findAll: jest.fn(), findOne: jest.fn() },
 }));
 
-jest.mock('../../database/models/keyword', () => ({
+jest.mock('../../app/database/models/keyword', () => ({
   __esModule: true,
   default: { findAll: jest.fn() },
 }));
 
-jest.mock('../../utils/verifyUser');
-jest.mock('../../utils/parseKeywords');
-jest.mock('../../utils/generateEmail');
-jest.mock('../../utils/emailThrottle', () => ({
+jest.mock('../../app/utils/verifyUser');
+jest.mock('../../app/utils/parseKeywords');
+jest.mock('../../app/utils/generateEmail');
+jest.mock('../../app/utils/emailThrottle', () => ({
   canSendEmail: jest.fn(() => Promise.resolve({ canSend: true })),
   recordEmailSent: jest.fn(() => Promise.resolve()),
 }));
@@ -37,7 +37,7 @@ jest.mock('nodemailer', () => ({
   default: { createTransport: jest.fn() },
 }));
 
-jest.mock('../../pages/api/settings', () => ({
+jest.mock('../../app/pages/api/settings', () => ({
   __esModule: true,
   getAppSettings: jest.fn(),
 }));

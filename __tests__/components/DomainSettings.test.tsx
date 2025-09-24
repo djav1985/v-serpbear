@@ -1,11 +1,11 @@
-/// <reference path="../../types.d.ts" />
+/// <reference path="../../app/types.d.ts" />
 
 import React from 'react';
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { useRouter } from 'next/router';
-import DomainSettings from '../../components/domains/DomainSettings';
-import { useFetchDomain, useUpdateDomain, useDeleteDomain } from '../../services/domains';
+import DomainSettings from '../../app/components/domains/DomainSettings';
+import { useFetchDomain, useUpdateDomain, useDeleteDomain } from '../../app/services/domains';
 
 // Mock next/router
 jest.mock('next/router', () => ({
@@ -13,7 +13,7 @@ jest.mock('next/router', () => ({
 }));
 
 // Mock the services
-jest.mock('../../services/domains', () => ({
+jest.mock('../../app/services/domains', () => ({
    useFetchDomain: jest.fn(),
    useUpdateDomain: jest.fn(),
    useDeleteDomain: jest.fn(),

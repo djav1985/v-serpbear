@@ -1,4 +1,4 @@
-import { calculateChartBounds } from '../../../utils/client/chartBounds';
+import { calculateChartBounds } from '../../../app/utils/client/chartBounds';
 
 describe('calculateChartBounds', () => {
    it('returns default bounds when no valid points are provided', () => {

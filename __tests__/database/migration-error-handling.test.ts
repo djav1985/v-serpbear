@@ -1,6 +1,6 @@
 import { Sequelize } from 'sequelize';
 
-const sqliteDialect = require('../../database/sqlite-dialect');
+const sqliteDialect = require('../../app/database/sqlite-dialect');
 
 describe('Migration Error Handling', () => {
   let sequelize: Sequelize;
@@ -22,7 +22,7 @@ describe('Migration Error Handling', () => {
 
   test('migration functions should re-throw errors after logging', async () => {
     // Test that migration error handling works correctly by importing and testing a migration
-    const migration = require('../../database/migrations/1710000000000-add-keyword-state-field');
+    const migration = require('../../app/database/migrations/1710000000000-add-keyword-state-field');
     
     // Create a mock queryInterface that will fail
     const mockQueryInterface = {
@@ -49,7 +49,7 @@ describe('Migration Error Handling', () => {
   });
 
   test('migration down function should also re-throw errors', async () => {
-    const migration = require('../../database/migrations/1735640000000-add-database-indexes');
+    const migration = require('../../app/database/migrations/1735640000000-add-database-indexes');
     
     // Create a mock queryInterface that will fail
     const mockQueryInterface = {
@@ -75,7 +75,7 @@ describe('Migration Error Handling', () => {
   });
 
   test('successful migrations should not throw errors', async () => {
-    const migration = require('../../database/migrations/1710000000000-add-keyword-state-field');
+    const migration = require('../../app/database/migrations/1710000000000-add-keyword-state-field');
     const { DataTypes } = require('sequelize');
     
     // Create a mock queryInterface that succeeds

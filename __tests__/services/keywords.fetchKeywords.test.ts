@@ -1,4 +1,4 @@
-import { fetchKeywords } from '../../services/keywords';
+import { fetchKeywords } from '../../app/services/keywords';
 
 describe('fetchKeywords normalisation', () => {
    const originalFetch = global.fetch;

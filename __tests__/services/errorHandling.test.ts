@@ -72,7 +72,7 @@ describe('Improved Error Handling in Services', () => {
          text: jest.fn().mockResolvedValue('<!DOCTYPE html><html><head><title>Error</title></head><body><h1>Internal Server Error</h1></body></html>')
       } as any);
 
-      const { useRefreshKeywords } = require('../../services/keywords');
+      const { useRefreshKeywords } = require('../../app/services/keywords');
       
       const refreshMutation = useRefreshKeywords(() => {});
       
@@ -98,7 +98,7 @@ describe('Improved Error Handling in Services', () => {
          text: jest.fn().mockResolvedValue('<!DOCTYPE html><html><head><title>Error</title></head><body><h1>Internal Server Error</h1></body></html>')
       } as any);
 
-      const { useMutateKeywordIdeas } = require('../../services/adwords');
+      const { useMutateKeywordIdeas } = require('../../app/services/adwords');
       const mockRouter = { push: mockPush, pathname: '/test', query: { slug: 'test-domain' } };
       
       const ideasMutation = useMutateKeywordIdeas(mockRouter, () => {});
@@ -126,7 +126,7 @@ describe('Improved Error Handling in Services', () => {
          json: jest.fn().mockResolvedValue({ error: 'Invalid domain provided' })
       } as any);
 
-      const { useRefreshKeywords } = require('../../services/keywords');
+      const { useRefreshKeywords } = require('../../app/services/keywords');
       const refreshMutation = useRefreshKeywords(() => {});
       
       try {
@@ -149,7 +149,7 @@ describe('Improved Error Handling in Services', () => {
          json: jest.fn().mockRejectedValue(new Error('Unexpected token'))
       } as any);
 
-      const { useRefreshKeywords } = require('../../services/keywords');
+      const { useRefreshKeywords } = require('../../app/services/keywords');
       const refreshMutation = useRefreshKeywords(() => {});
       
       try {
@@ -171,7 +171,7 @@ describe('Improved Error Handling in Services', () => {
          text: jest.fn().mockResolvedValue(JSON.stringify({ error: 'No keywords found over the search volume minimum.' }))
       } as any);
 
-      const { useMutateKeywordIdeas } = require('../../services/adwords');
+      const { useMutateKeywordIdeas } = require('../../app/services/adwords');
       const mockRouter = { push: mockPush, pathname: '/test', query: { slug: 'test-domain' } };
 
       const ideasMutation = useMutateKeywordIdeas(mockRouter as any, () => {});
@@ -191,7 +191,7 @@ describe('Improved Error Handling in Services', () => {
          text: jest.fn().mockResolvedValue(JSON.stringify({ error: 'Session expired' }))
       } as any);
 
-      const { useMutateKeywordIdeas } = require('../../services/adwords');
+      const { useMutateKeywordIdeas } = require('../../app/services/adwords');
       const mockRouter = { push: mockPush, pathname: '/test', query: { slug: 'test-domain' } };
 
       const ideasMutation = useMutateKeywordIdeas(mockRouter as any, () => {});

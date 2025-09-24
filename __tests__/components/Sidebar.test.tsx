@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import Sidebar from '../../components/common/Sidebar';
+import Sidebar from '../../app/components/common/Sidebar';
 import { dummyDomain } from '../../__mocks__/data';
 
 const addDomainMock = jest.fn();

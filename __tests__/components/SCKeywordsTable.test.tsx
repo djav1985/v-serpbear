@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from 'react-query';
-import SCKeywordsTable from '../../components/keywords/SCKeywordsTable';
+import SCKeywordsTable from '../../app/components/keywords/SCKeywordsTable';
 
 // Mock the required hooks and services
 jest.mock('next/router', () => ({
@@ -12,7 +12,7 @@ jest.mock('next/router', () => ({
    }),
 }));
 
-jest.mock('../../services/keywords', () => ({
+jest.mock('../../app/services/keywords', () => ({
    useFetchKeywords: jest.fn(() => ({
       keywordsData: {
          keywords: [
@@ -33,18 +33,18 @@ jest.mock('../../services/keywords', () => ({
    useAddKeywords: () => ({ mutate: jest.fn() }),
 }));
 
-jest.mock('../../hooks/useIsMobile', () => () => [false]);
-jest.mock('../../hooks/useWindowResize', () => () => {});
+jest.mock('../../app/hooks/useIsMobile', () => () => [false]);
+jest.mock('../../app/hooks/useWindowResize', () => () => {});
 
 // Mock filter and sort functions
-jest.mock('../../utils/client/SCsortFilter', () => ({
+jest.mock('../../app/utils/client/SCsortFilter', () => ({
    SCfilterKeywords: (keywords: any[]) => keywords,
    SCsortKeywords: (keywords: any[]) => keywords,
    SCkeywordsByDevice: (keywords: any[], device: string) => ({ [device]: keywords }),
 }));
 
 // Mock Icon component
-jest.mock('../../components/common/Icon', () => {
+jest.mock('../../app/components/common/Icon', () => {
    const MockIcon = ({ type, title }: { type: string; title?: string }) => (
       <span data-testid={`icon-${type}`} title={title}>✓</span>
    );
@@ -54,7 +54,7 @@ jest.mock('../../components/common/Icon', () => {
 
 
 // Mock KeywordFilters component
-jest.mock('../../components/keywords/KeywordFilter', () => {
+jest.mock('../../app/components/keywords/KeywordFilter', () => {
    const MockKeywordFilters = () => <div>Keyword Filters</div>;
    MockKeywordFilters.displayName = 'MockKeywordFilters';
    return MockKeywordFilters;

@@ -1,21 +1,21 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import SCKeyword from '../../components/keywords/SCKeyword';
+import SCKeyword from '../../app/components/keywords/SCKeyword';
 
 // Mock the Icon component
-jest.mock('../../components/common/Icon', () => 
+jest.mock('../../app/components/common/Icon', () => 
    function Icon({ type, title }: { type: string; title?: string }) {
       return <span data-testid={`icon-${type}`} title={title}>✓</span>;
    }
 );
 
 // Mock countries data
-jest.mock('../../utils/countries', () => ({
+jest.mock('../../app/utils/countries', () => ({
    US: ['United States', 'us'],
 }));
 
 // Mock KeywordPosition component
-jest.mock('../../components/keywords/KeywordPosition', () => 
+jest.mock('../../app/components/keywords/KeywordPosition', () => 
    function KeywordPosition({ position }: { position: number }) {
       return <span data-testid="position">{position}</span>;
    }

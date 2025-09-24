@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import SpinnerMessage from '../../components/common/SpinnerMessage';
+import SpinnerMessage from '../../app/components/common/SpinnerMessage';
 
 describe('SpinnerMessage', () => {
    it('renders a spinner with an accessible label', () => {

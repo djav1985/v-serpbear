@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from 'react-query';
-import Home from '../../pages/index';
+import Home from '../../app/pages/index';
 
 const routerPush = jest.fn();
 jest.mock('next/router', () => ({

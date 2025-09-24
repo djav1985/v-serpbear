@@ -2,11 +2,11 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import * as ReactQuery from 'react-query';
 import { dummyDomain } from '../../__mocks__/data';
-import Domains from '../../pages/domains';
+import Domains from '../../app/pages/domains';
 import router from 'next-router-mock';
 
 // Mock the useAuth hook to always return authenticated state
-jest.mock('../../hooks/useAuth', () => ({
+jest.mock('../../app/hooks/useAuth', () => ({
   useAuth: () => ({
     isAuthenticated: true,
     isLoading: false,

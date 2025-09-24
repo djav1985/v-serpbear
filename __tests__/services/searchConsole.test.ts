@@ -4,7 +4,7 @@ import {
    fetchSCKeywords,
    useFetchSCInsight,
    useFetchSCKeywords,
-} from '../../services/searchConsole';
+} from '../../app/services/searchConsole';
 
 jest.mock('react-query', () => ({
    useQuery: jest.fn(),

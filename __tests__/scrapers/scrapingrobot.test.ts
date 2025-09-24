@@ -1,4 +1,4 @@
-import scrapingRobot from '../../scrapers/services/scrapingrobot';
+import scrapingRobot from '../../app/scrapers/services/scrapingrobot';
 
 describe('scrapingRobot scraper', () => {
   it('includes locale parameters in Google queries', () => {

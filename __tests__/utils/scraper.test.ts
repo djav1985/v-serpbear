@@ -1,6 +1,6 @@
-import { serializeError } from '../../utils/errorSerialization';
-import { extractScrapedResult, getSerp } from '../../utils/scraper';
-import { resolveCountryCode } from '../../utils/scraperHelpers';
+import { serializeError } from '../../app/utils/errorSerialization';
+import { extractScrapedResult, getSerp } from '../../app/utils/scraper';
+import { resolveCountryCode } from '../../app/utils/scraperHelpers';
 
 describe('resolveCountryCode', () => {
   it('returns the country when no allowed countries array is provided', () => {

@@ -1,10 +1,10 @@
-/// <reference path="../../types.d.ts" />
+/// <reference path="../../app/types.d.ts" />
 
 import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from 'react-query';
-import KeywordIdeasTable from '../../components/ideas/KeywordIdeasTable';
-import { useFetchKeywords } from '../../services/keywords';
+import KeywordIdeasTable from '../../app/components/ideas/KeywordIdeasTable';
+import { useFetchKeywords } from '../../app/services/keywords';
 
 jest.mock('next/router', () => ({
    useRouter: () => ({
@@ -14,19 +14,19 @@ jest.mock('next/router', () => ({
    }),
 }));
 
-jest.mock('../../hooks/useIsMobile', () => jest.fn(() => [true]));
-jest.mock('../../hooks/useWindowResize', () => jest.fn());
+jest.mock('../../app/hooks/useIsMobile', () => jest.fn(() => [true]));
+jest.mock('../../app/hooks/useWindowResize', () => jest.fn());
 
-jest.mock('../../services/keywords', () => ({
+jest.mock('../../app/services/keywords', () => ({
    useAddKeywords: () => ({ mutate: jest.fn() }),
    useFetchKeywords: jest.fn(),
 }));
 
-jest.mock('../../services/adwords', () => ({
+jest.mock('../../app/services/adwords', () => ({
    useMutateFavKeywordIdeas: () => ({ mutate: jest.fn(), isLoading: false }),
 }));
 
-jest.mock('../../services/domains', () => ({
+jest.mock('../../app/services/domains', () => ({
    fetchDomains: jest.fn().mockResolvedValue({ domains: [] }),
 }));
 

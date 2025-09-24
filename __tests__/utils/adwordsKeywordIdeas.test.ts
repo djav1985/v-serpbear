@@ -1,14 +1,14 @@
-import Keyword from '../../database/models/keyword';
-import * as scUtils from '../../utils/searchConsole';
-import * as adwordsUtils from '../../utils/adwords';
+import Keyword from '../../app/database/models/keyword';
+import * as scUtils from '../../app/utils/searchConsole';
+import * as adwordsUtils from '../../app/utils/adwords';
 
-jest.mock('../../utils/searchConsole', () => ({
+jest.mock('../../app/utils/searchConsole', () => ({
   readLocalSCData: jest.fn(),
 }));
 
 // Mock the getAdwordsCredentials function
-jest.mock('../../utils/adwords', () => ({
-  ...jest.requireActual('../../utils/adwords'),
+jest.mock('../../app/utils/adwords', () => ({
+  ...jest.requireActual('../../app/utils/adwords'),
   getAdwordsCredentials: jest.fn(),
   getAdwordsAccessToken: jest.fn(),
 }));

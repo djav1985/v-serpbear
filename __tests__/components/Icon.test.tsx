@@ -1,5 +1,5 @@
 import { render } from '@testing-library/react';
-import Icon from '../../components/common/Icon';
+import Icon from '../../app/components/common/Icon';
 
 describe('Icon Component', () => {
    it('renders without crashing', async () => {

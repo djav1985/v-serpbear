@@ -1,15 +1,15 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from 'react-query';
-import SingleDomain from '../../pages/domain/[slug]';
-import { useAddDomain, useDeleteDomain, useFetchDomain, useFetchDomains, useUpdateDomain } from '../../services/domains';
+import SingleDomain from '../../app/pages/domain/[slug]';
+import { useAddDomain, useDeleteDomain, useFetchDomain, useFetchDomains, useUpdateDomain } from '../../app/services/domains';
 import { useAddKeywords, useDeleteKeywords,
-   useFavKeywords, useFetchKeywords, useRefreshKeywords, useFetchSingleKeyword } from '../../services/keywords';
+   useFavKeywords, useFetchKeywords, useRefreshKeywords, useFetchSingleKeyword } from '../../app/services/keywords';
 import { dummyDomain, dummyKeywords, dummySettings } from '../../__mocks__/data';
-import { useFetchSettings, useUpdateSettings } from '../../services/settings';
+import { useFetchSettings, useUpdateSettings } from '../../app/services/settings';
 
-jest.mock('../../services/domains');
-jest.mock('../../services/keywords');
-jest.mock('../../services/settings');
+jest.mock('../../app/services/domains');
+jest.mock('../../app/services/keywords');
+jest.mock('../../app/services/settings');
 
 jest.mock('next/router', () => ({
    useRouter: () => ({

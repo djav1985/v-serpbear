@@ -1,11 +1,11 @@
-/// <reference path="../../../types.d.ts" />
+/// <reference path="../../../app/types.d.ts" />
 
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
-import NotificationSettings from '../../../components/settings/NotificationSettings';
-import { useSendNotifications } from '../../../services/settings';
+import NotificationSettings from '../../../app/components/settings/NotificationSettings';
+import { useSendNotifications } from '../../../app/services/settings';
 
-jest.mock('../../../services/settings');
+jest.mock('../../../app/services/settings');
 
 const useSendNotificationsMock = useSendNotifications as jest.Mock;
 

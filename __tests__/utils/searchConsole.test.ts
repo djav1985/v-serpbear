@@ -2,18 +2,18 @@ import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
 
-import { generateGoogleConsoleStats } from '../../utils/generateEmail';
+import { generateGoogleConsoleStats } from '../../app/utils/generateEmail';
 import {
   fetchDomainSCData,
   getSearchConsoleApiInfo,
   isSearchConsoleDataFreshForToday,
   readLocalSCData,
-} from '../../utils/searchConsole';
+} from '../../app/utils/searchConsole';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-jest.mock('../../utils/insight', () => ({
+jest.mock('../../app/utils/insight', () => ({
   getKeywordsInsight: jest.fn(() => [
     { keyword: 'test keyword', clicks: 5, impressions: 10, position: 2 },
   ]),
@@ -22,8 +22,8 @@ jest.mock('../../utils/insight', () => ({
   ]),
 }));
 
-jest.mock('../../utils/searchConsole', () => {
-  const actualModule = jest.requireActual('../../utils/searchConsole');
+jest.mock('../../app/utils/searchConsole', () => {
+  const actualModule = jest.requireActual('../../app/utils/searchConsole');
   return {
     ...actualModule,
     readLocalSCData: jest.fn(),

@@ -26,7 +26,13 @@
       "**/*.ts",
       "**/*.tsx",
       "types.d.ts",
-      "./jest.setup.js"
+      "./jest.setup.js",
+      "../__tests__/**/*.ts",
+      "../__tests__/**/*.tsx",
+      "../__tests__/**/*.js",
+      "../__mocks__/**/*.ts",
+      "../__mocks__/**/*.tsx",
+      "../__mocks__/**/*.js"
    ],
    "exclude": [
       "node_modules"

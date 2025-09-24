@@ -1,5 +1,5 @@
 import { renderHook, act } from '@testing-library/react';
-import { useSendNotifications } from '../../services/settings';
+import { useSendNotifications } from '../../app/services/settings';
 import { createWrapper } from '../../__mocks__/utils';
 import toast from 'react-hot-toast';
 

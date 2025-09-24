@@ -1,4 +1,4 @@
-import valueSerp from '../../scrapers/services/valueserp';
+import valueSerp from '../../app/scrapers/services/valueserp';
 
 describe('valueSerp scraper', () => {
   const settings: Partial<SettingsType> = { scraping_api: 'token-123' };

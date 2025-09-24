@@ -1,4 +1,4 @@
-import { isValidDomain } from '../../../utils/client/validators';
+import { isValidDomain } from '../../../app/utils/client/validators';
 
 describe('isValidDomain', () => {
    it('accepts common multi-label domains', () => {

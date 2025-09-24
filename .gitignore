@@ -1,18 +1,19 @@
 # dependencies
 /node_modules
-/.pnp
-.pnp.js
+app/node_modules
+app/.pnp
+app/.pnp.js
 
 # testing
-/coverage
-/.swc/
+app/coverage
+app/.swc/
 
 # next.js
-/.next/
-/out/
+app/.next/
+app/out/
 
 # production
-/build
+app/build
 
 # misc
 .DS_Store
@@ -27,21 +28,24 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # local env files
+.env
 .env*.local
+app/.env*.local
 
 # vercel
-.vercel
+app/.vercel
 
 # typescript
 *.tsbuildinfo
-next-env.d.ts
+app/next-env.d.ts
 
-
-#todo
+# todo
 TODO
 
-#database
-data/database.sqlite
-data/verify-fix.js
+# database
+app/data/database.sqlite
+app/data/verify-fix.js
+
 SARIF test files
+app/SARIF test files
 *.sarif

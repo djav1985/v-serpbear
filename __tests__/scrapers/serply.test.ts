@@ -1,4 +1,4 @@
-import serply from '../../scrapers/services/serply';
+import serply from '../../app/scrapers/services/serply';
 
 describe('serply scraper', () => {
   const settings: Partial<SettingsType> = { scraping_api: 'token-123' };

@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import ToggleField from '../../components/common/ToggleField';
+import ToggleField from '../../app/components/common/ToggleField';
 
 describe('ToggleField Component', () => {
    it('renders without crashing', () => {

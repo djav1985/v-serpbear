@@ -1,5 +1,5 @@
-import { extractScrapedResult } from '../../utils/scraper';
-import { GOOGLE_BASE_URL } from '../../utils/constants';
+import { extractScrapedResult } from '../../app/utils/scraper';
+import { GOOGLE_BASE_URL } from '../../app/utils/constants';
 
 describe('Google link filtering', () => {
   it('should filter out Google internal links properly', () => {

@@ -4,22 +4,22 @@
  */
 
 import { NextApiRequest, NextApiResponse } from 'next';
-import handler from '../../pages/api/searchconsole';
-import { fetchDomainSCData, getSearchConsoleApiInfo } from '../../utils/searchConsole';
-import Domain from '../../database/models/domain';
-import verifyUser from '../../utils/verifyUser';
+import handler from '../../app/pages/api/searchconsole';
+import { fetchDomainSCData, getSearchConsoleApiInfo } from '../../app/utils/searchConsole';
+import Domain from '../../app/database/models/domain';
+import verifyUser from '../../app/utils/verifyUser';
 
 // Mock the dependencies
-jest.mock('../../utils/searchConsole');
-jest.mock('../../database/models/domain', () => ({
+jest.mock('../../app/utils/searchConsole');
+jest.mock('../../app/database/models/domain', () => ({
   __esModule: true,
   default: { findAll: jest.fn() },
 }));
-jest.mock('../../database/database', () => ({
+jest.mock('../../app/database/database', () => ({
   __esModule: true,
   default: { sync: jest.fn() },
 }));
-jest.mock('../../utils/verifyUser');
+jest.mock('../../app/utils/verifyUser');
 
 const mockFetchDomainSCData = fetchDomainSCData as jest.MockedFunction<typeof fetchDomainSCData>;
 const mockGetSearchConsoleApiInfo = getSearchConsoleApiInfo as jest.MockedFunction<typeof getSearchConsoleApiInfo>;

@@ -1,11 +1,11 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import DomainItem from '../../components/domains/DomainItem';
+import DomainItem from '../../app/components/domains/DomainItem';
 import { dummyDomain } from '../../__mocks__/data';
 
 const toggleMutationMock = jest.fn();
 const updateThumbMock = jest.fn();
 
-jest.mock('../../services/domains', () => ({
+jest.mock('../../app/services/domains', () => ({
    useUpdateDomainToggles: jest.fn(() => ({
       mutateAsync: toggleMutationMock,
       isLoading: false,

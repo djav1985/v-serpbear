@@ -1,21 +1,21 @@
 import { readFile } from 'fs/promises';
 import { OAuth2Client } from 'google-auth-library';
 import type { NextApiRequest, NextApiResponse } from 'next';
-import db from '../../database/database';
-import handler from '../../pages/api/adwords';
-import verifyUser from '../../utils/verifyUser';
-import { getAdwordsCredentials, getAdwordsKeywordIdeas } from '../../utils/adwords';
+import db from '../../app/database/database';
+import handler from '../../app/pages/api/adwords';
+import verifyUser from '../../app/utils/verifyUser';
+import { getAdwordsCredentials, getAdwordsKeywordIdeas } from '../../app/utils/adwords';
 
 type MutableEnv = typeof process.env & {
    SECRET?: string;
 };
 
-jest.mock('../../database/database', () => ({
+jest.mock('../../app/database/database', () => ({
    __esModule: true,
    default: { sync: jest.fn() },
 }));
 
-jest.mock('../../utils/verifyUser', () => ({
+jest.mock('../../app/utils/verifyUser', () => ({
    __esModule: true,
    default: jest.fn(),
 }));
@@ -44,7 +44,7 @@ jest.mock('google-auth-library', () => ({
    })),
 }));
 
-jest.mock('../../utils/adwords', () => ({
+jest.mock('../../app/utils/adwords', () => ({
    __esModule: true,
    getAdwordsCredentials: jest.fn(),
    getAdwordsKeywordIdeas: jest.fn(),

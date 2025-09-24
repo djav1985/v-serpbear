@@ -1,36 +1,36 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Op } from 'sequelize';
-import handler from '../../pages/api/cron';
-import db from '../../database/database';
-import Domain from '../../database/models/domain';
-import Keyword from '../../database/models/keyword';
-import verifyUser from '../../utils/verifyUser';
-import refreshAndUpdateKeywords from '../../utils/refresh';
-import { getAppSettings } from '../../pages/api/settings';
+import handler from '../../app/pages/api/cron';
+import db from '../../app/database/database';
+import Domain from '../../app/database/models/domain';
+import Keyword from '../../app/database/models/keyword';
+import verifyUser from '../../app/utils/verifyUser';
+import refreshAndUpdateKeywords from '../../app/utils/refresh';
+import { getAppSettings } from '../../app/pages/api/settings';
 
-jest.mock('../../database/database', () => ({
+jest.mock('../../app/database/database', () => ({
   __esModule: true,
   default: { sync: jest.fn() },
 }));
 
-jest.mock('../../database/models/domain', () => ({
+jest.mock('../../app/database/models/domain', () => ({
   __esModule: true,
   default: { findAll: jest.fn() },
 }));
 
-jest.mock('../../database/models/keyword', () => ({
+jest.mock('../../app/database/models/keyword', () => ({
   __esModule: true,
   default: { update: jest.fn(), findAll: jest.fn() },
 }));
 
-jest.mock('../../utils/verifyUser');
+jest.mock('../../app/utils/verifyUser');
 
-jest.mock('../../pages/api/settings', () => ({
+jest.mock('../../app/pages/api/settings', () => ({
   __esModule: true,
   getAppSettings: jest.fn(),
 }));
 
-jest.mock('../../utils/refresh', () => ({
+jest.mock('../../app/utils/refresh', () => ({
   __esModule: true,
   default: jest.fn(),
 }));

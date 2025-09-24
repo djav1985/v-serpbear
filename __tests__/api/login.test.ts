@@ -1,10 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import loginHandler from '../../pages/api/login';
-import logoutHandler from '../../pages/api/logout';
-import verifyUser from '../../utils/verifyUser';
+import loginHandler from '../../app/pages/api/login';
+import logoutHandler from '../../app/pages/api/logout';
+import verifyUser from '../../app/utils/verifyUser';
 
 // Mock the logger to prevent console output during tests
-jest.mock('../../utils/logger', () => ({
+jest.mock('../../app/utils/logger', () => ({
   logger: {
     error: jest.fn(),
     warn: jest.fn(),
@@ -16,7 +16,7 @@ jest.mock('../../utils/logger', () => ({
 }));
 
 // Mock the API logging middleware
-jest.mock('../../utils/apiLogging', () => ({
+jest.mock('../../app/utils/apiLogging', () => ({
   withApiLogging: (handler: any) => handler,
 }));
 
@@ -35,7 +35,7 @@ jest.mock('cookies', () => ({
    default: jest.fn(() => ({ set: setCookieMock })),
 }));
 
-jest.mock('../../utils/verifyUser', () => ({
+jest.mock('../../app/utils/verifyUser', () => ({
    __esModule: true,
    default: jest.fn(),
 }));
