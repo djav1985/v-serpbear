@@ -59,6 +59,41 @@ describe('valueSerp scraper', () => {
     expect(parsed.toString()).toContain('q=best+coffee+beans');
   });
 
+  it('uses localized Google domains when available', () => {
+    const brazilKeyword: Partial<KeywordType> = {
+      keyword: 'cafés especiais',
+      country: 'BR',
+      device: 'desktop',
+      location: 'Sao Paulo,BR',
+    };
+
+    const brazilUrl = valueSerp.scrapeURL!(
+      brazilKeyword as KeywordType,
+      settings as SettingsType,
+      countryData
+    );
+    const brazilParams = new URL(brazilUrl).searchParams;
+
+    expect(brazilParams.get('gl')).toBe('br');
+    expect(brazilParams.get('google_domain')).toBe('google.com.br');
+
+    const ukKeyword: Partial<KeywordType> = {
+      keyword: 'best accountants',
+      country: 'GB',
+      device: 'desktop',
+    };
+
+    const ukUrl = valueSerp.scrapeURL!(
+      ukKeyword as KeywordType,
+      settings as SettingsType,
+      countryData
+    );
+    const ukParams = new URL(ukUrl).searchParams;
+
+    expect(ukParams.get('gl')).toBe('gb');
+    expect(ukParams.get('google_domain')).toBe('google.co.uk');
+  });
+
   it('has a timeout override of 35 seconds to handle longer response times', () => {
     expect(valueSerp.timeoutMs).toBe(35000);
   });
