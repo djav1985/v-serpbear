@@ -1,4 +1,5 @@
 import countries from '../../utils/countries';
+import { getGoogleDomain } from '../../utils/googleDomains';
 import { resolveCountryCode } from '../../utils/scraperHelpers';
 import { parseLocation } from '../../utils/location';
 import { computeMapPackTop3 } from '../../utils/mapPack';
@@ -21,11 +22,24 @@ const serpapi:ScraperSettings = {
       }),
    scrapeURL: (keyword, settings) => {
       const country = resolveCountryCode(keyword.country);
-      const countryName = countries[country][0];
+      const googleDomain = getGoogleDomain(country);
+      const countryName = countries[country]?.[0] ?? countries.US[0];
       const { city, state } = parseLocation(keyword.location, keyword.country);
       const locationParts = [city, state, countryName].filter(Boolean);
-      const location = city || state ? `&location=${encodeURIComponent(locationParts.join(','))}` : '';
-      return `https://serpapi.com/search?q=${encodeURIComponent(keyword.keyword)}&num=100&gl=${country}&device=${keyword.device}${location}&api_key=${settings.scraping_api}`;
+      const params = new URLSearchParams({
+         q: keyword.keyword,
+         num: '100',
+         gl: country.toLowerCase(),
+         device: keyword.device,
+         api_key: settings.scraping_api,
+         google_domain: googleDomain,
+      });
+
+      if (locationParts.length) {
+         params.set('location', locationParts.join(','));
+      }
+
+      return `https://serpapi.com/search?${params.toString()}`;
    },
    resultObjectKey: 'organic_results',
    serpExtractor: ({ result, response, keyword }) => {

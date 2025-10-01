@@ -17,7 +17,7 @@ describe('resolveCountryCode', () => {
   it('returns country when it exists in allowed countries array', () => {
     const allowedCountries = ['US', 'CA', 'GB', 'DE'];
     expect(resolveCountryCode('CA', allowedCountries)).toBe('CA');
-    expect(resolveCountryCode('ca', allowedCountries)).toBe('ca'); // case preserved
+    expect(resolveCountryCode('ca', allowedCountries)).toBe('CA');
     expect(resolveCountryCode('GB', allowedCountries)).toBe('GB');
   });
 
@@ -29,9 +29,9 @@ describe('resolveCountryCode', () => {
 
   it('supports case-insensitive matching for allowed countries', () => {
     const allowedCountries = ['US', 'CA', 'GB', 'DE'];
-    expect(resolveCountryCode('ca', allowedCountries)).toBe('ca');
-    expect(resolveCountryCode('us', allowedCountries)).toBe('us');
-    expect(resolveCountryCode('gb', allowedCountries)).toBe('gb');
+    expect(resolveCountryCode('ca', allowedCountries)).toBe('CA');
+    expect(resolveCountryCode('us', allowedCountries)).toBe('US');
+    expect(resolveCountryCode('gb', allowedCountries)).toBe('GB');
   });
 
   it('supports custom fallback country', () => {

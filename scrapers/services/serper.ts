@@ -14,9 +14,10 @@ const serper:ScraperSettings = {
    allowsCity: true,
    scrapeURL: (keyword, settings, countryData) => {
       const country = resolveCountryCode(keyword.country);
-      const lang = countryData[country][2];
-      console.log('Serper URL :', `https://google.serper.dev/search?q=${encodeURIComponent(keyword.keyword)}&gl=${country}&hl=${lang}&num=100&apiKey=${settings.scraping_api}`);
-      return `https://google.serper.dev/search?q=${encodeURIComponent(keyword.keyword)}&gl=${country}&hl=${lang}&num=100&apiKey=${settings.scraping_api}`;
+      const fallbackCountryData = countryData?.US ?? ['United States', 'Washington, D.C.', 'en'];
+      const lang = (countryData?.[country] ?? fallbackCountryData)[2];
+      console.log('Serper URL :', `https://google.serper.dev/search?q=${encodeURIComponent(keyword.keyword)}&gl=${country.toLowerCase()}&hl=${lang}&num=100&apiKey=${settings.scraping_api}`);
+      return `https://google.serper.dev/search?q=${encodeURIComponent(keyword.keyword)}&gl=${country.toLowerCase()}&hl=${lang}&num=100&apiKey=${settings.scraping_api}`;
    },
    resultObjectKey: 'organic',
    supportsMapPack: true,

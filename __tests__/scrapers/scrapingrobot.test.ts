@@ -22,9 +22,10 @@ describe('scrapingRobot scraper', () => {
     // Decode and parse the Google URL to verify its parameters
     const googleUrlDecoded = decodeURIComponent(googleUrlEncoded!);
     const googleUrlParsed = new URL(googleUrlDecoded);
+    expect(googleUrlParsed.hostname).toBe('google.com');
     expect(googleUrlParsed.searchParams.get('num')).toBe('100');
     expect(googleUrlParsed.searchParams.get('hl')).toBe('en');
-    expect(googleUrlParsed.searchParams.get('gl')).toBe('US');
+    expect(googleUrlParsed.searchParams.get('gl')).toBe('us');
     expect(googleUrlParsed.searchParams.get('q')).toBe(keyword.keyword);
   });
 });

@@ -4,6 +4,8 @@ describe('valueSerp scraper', () => {
   const settings: Partial<SettingsType> = { scraping_api: 'token-123' };
   const countryData = {
     US: ['United States', 'Washington, D.C.', 'en', 2840],
+    BR: ['Brazil', 'Brasilia', 'pt', 2064],
+    GB: ['United Kingdom', 'London', 'en', 2828],
   } as any;
 
   it('does not log API key to console when generating URL', () => {
@@ -45,14 +47,53 @@ describe('valueSerp scraper', () => {
     expect(parsed.origin).toBe('https://api.valueserp.com');
     expect(parsed.pathname).toBe('/search');
     expect(parsed.searchParams.get('q')).toBe(keyword.keyword);
-    expect(parsed.searchParams.get('gl')).toBe('US');
+    expect(parsed.searchParams.get('gl')).toBe('us');
     expect(parsed.searchParams.get('hl')).toBe('en');
     expect(parsed.searchParams.get('device')).toBe('mobile');
     expect(parsed.searchParams.get('location')).toBe('Miami,FL,United States');
     expect(parsed.searchParams.get('output')).toBe('json');
     expect(parsed.searchParams.get('include_answer_box')).toBe('false');
     expect(parsed.searchParams.get('include_advertiser_info')).toBe('false');
+    expect(parsed.searchParams.get('google_domain')).toBe('google.com');
     expect(parsed.searchParams.has('num')).toBe(false);
+    expect(parsed.toString()).toContain('q=best+coffee+beans');
+  });
+
+  it('uses country specific google domains', () => {
+    const keyword: Partial<KeywordType> = {
+      keyword: 'churrasco recipe',
+      country: 'BR',
+      device: 'desktop',
+    };
+
+    const url = valueSerp.scrapeURL!(
+      keyword as KeywordType,
+      settings as SettingsType,
+      countryData
+    );
+    const parsed = new URL(url);
+
+    expect(parsed.searchParams.get('gl')).toBe('br');
+    expect(parsed.searchParams.get('google_domain')).toBe('google.com.br');
+    expect(parsed.searchParams.get('hl')).toBe('pt');
+  });
+
+  it('maps the United Kingdom to google.co.uk', () => {
+    const keyword: Partial<KeywordType> = {
+      keyword: 'holiday cottages',
+      country: 'GB',
+      device: 'desktop',
+    };
+
+    const url = valueSerp.scrapeURL!(
+      keyword as KeywordType,
+      settings as SettingsType,
+      countryData
+    );
+    const parsed = new URL(url);
+
+    expect(parsed.searchParams.get('gl')).toBe('gb');
+    expect(parsed.searchParams.get('google_domain')).toBe('google.co.uk');
   });
 
   it('has a timeout override of 35 seconds to handle longer response times', () => {
