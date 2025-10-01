@@ -1,6 +1,3 @@
-import { getGoogleDomain } from '../../utils/googleDomains';
-import { resolveCountryCode } from '../../utils/scraperHelpers';
-
 const proxy:ScraperSettings = {
    id: 'proxy',
    name: 'Proxy',
@@ -8,15 +5,7 @@ const proxy:ScraperSettings = {
    resultObjectKey: 'data',
    supportsMapPack: false,
    headers: () => ({ Accept: 'gzip,deflate,compress;' }),
-   scrapeURL: (keyword: KeywordType) => {
-      const country = resolveCountryCode(keyword.country);
-      const googleDomain = getGoogleDomain(country);
-      const googleUrl = new URL(`https://${googleDomain}/search`);
-      googleUrl.searchParams.set('num', '100');
-      googleUrl.searchParams.set('q', keyword.keyword);
-      googleUrl.searchParams.set('gl', country.toLowerCase());
-      return googleUrl.toString();
-   },
+   scrapeURL: (keyword: KeywordType) => `https://www.google.com/search?num=100&q=${encodeURI(keyword.keyword)}`,
 };
 
 export default proxy;

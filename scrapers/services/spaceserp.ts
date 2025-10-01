@@ -1,5 +1,4 @@
 import countries from '../../utils/countries';
-import { getGoogleDomain } from '../../utils/googleDomains';
 import { resolveCountryCode } from '../../utils/scraperHelpers';
 import { parseLocation } from '../../utils/location';
 import { computeMapPackTop3 } from '../../utils/mapPack';
@@ -18,31 +17,13 @@ const spaceSerp:ScraperSettings = {
    allowsCity: true,
    scrapeURL: (keyword, settings, countryData) => {
       const country = resolveCountryCode(keyword.country);
-      const googleDomain = getGoogleDomain(country);
-      const countryName = countries[country]?.[0] ?? countries.US[0];
+      const countryName = countries[country][0];
       const { city, state } = parseLocation(keyword.location, keyword.country);
       const locationParts = [city, state, countryName].filter(Boolean);
-      const fallbackCountryData = countryData?.US ?? ['United States', 'Washington, D.C.', 'en'];
-      const lang = (countryData?.[country] ?? fallbackCountryData)[2];
-      const params = new URLSearchParams({
-         apiKey: settings.scraping_api,
-         q: keyword.keyword,
-         pageSize: '100',
-         gl: country.toLowerCase(),
-         hl: lang,
-         google_domain: googleDomain,
-         resultBlocks: '',
-      });
-
-      if (keyword.device === 'mobile') {
-         params.set('device', 'mobile');
-      }
-
-      if (locationParts.length) {
-         params.set('location', locationParts.join(','));
-      }
-
-      return `https://api.spaceserp.com/google/search?${params.toString()}`;
+      const location = city || state ? `&location=${encodeURIComponent(locationParts.join(','))}` : '';
+      const device = keyword.device === 'mobile' ? '&device=mobile' : '';
+      const lang = countryData[country][2];
+      return `https://api.spaceserp.com/google/search?apiKey=${settings.scraping_api}&q=${encodeURIComponent(keyword.keyword)}&pageSize=100&gl=${country}&hl=${lang}${location}${device}&resultBlocks=`;
    },
    resultObjectKey: 'organic_results',
    supportsMapPack: true,

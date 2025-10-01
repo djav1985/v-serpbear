@@ -2,7 +2,6 @@ import countries from '../../utils/countries';
 import { resolveCountryCode } from '../../utils/scraperHelpers';
 import { parseLocation } from '../../utils/location';
 import { computeMapPackTop3 } from '../../utils/mapPack';
-import { getGoogleDomain } from '../../utils/googleDomains';
 
 interface ValueSerpResult {
    title: string,
@@ -19,22 +18,21 @@ const valueSerp:ScraperSettings = {
    timeoutMs: 35000, // ValueSerp responses often take longer, allow 35 seconds
    scrapeURL: (keyword, settings, countryData) => {
       const resolvedCountry = resolveCountryCode(keyword.country);
-      const countryName = countries[resolvedCountry]?.[0] ?? countries.US[0];
+      const normalizedCountry = resolvedCountry.toUpperCase();
+      const countryName = countries[normalizedCountry]?.[0] ?? countries.US[0];
       const { city, state } = parseLocation(keyword.location, keyword.country);
       const locationParts = [city, state, countryName].filter(Boolean);
       const fallbackCountryData = countryData?.US ?? ['United States', 'Washington, D.C.', 'en'];
-      const lang = (countryData?.[resolvedCountry] ?? fallbackCountryData)[2];
-      const googleDomain = getGoogleDomain(resolvedCountry);
-
+      const lang = (countryData?.[normalizedCountry] ?? fallbackCountryData)[2];
       const params = new URLSearchParams();
       params.set('api_key', settings.scraping_api ?? '');
       params.set('q', keyword.keyword);
-      params.set('gl', resolvedCountry.toLowerCase());
+      params.set('gl', normalizedCountry.toLowerCase());
       params.set('hl', lang);
       params.set('output', 'json');
       params.set('include_answer_box', 'false');
       params.set('include_advertiser_info', 'false');
-      params.set('google_domain', googleDomain);
+      params.set('google_domain', 'google.com');
 
       if (keyword.device === 'mobile') {
          params.set('device', 'mobile');

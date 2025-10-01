@@ -6,23 +6,17 @@
  * @returns {string} - resolved country code
  */
 export const resolveCountryCode = (
-   country: string = '',
-   allowedCountries?: string[],
+   country: string = '', 
+   allowedCountries?: string[], 
    fallback: string = 'US'
 ): string => {
-   const normalizedFallback = fallback.toUpperCase();
-
    if (!country) {
-      return normalizedFallback;
+      return fallback;
    }
-
-   const normalizedCountry = country.toUpperCase();
-
+   
    if (allowedCountries && allowedCountries.length > 0) {
-      return allowedCountries.includes(normalizedCountry)
-         ? normalizedCountry
-         : normalizedFallback;
+      return allowedCountries.includes(country.toUpperCase()) ? country : fallback;
    }
-
-   return normalizedCountry;
+   
+   return country;
 };
