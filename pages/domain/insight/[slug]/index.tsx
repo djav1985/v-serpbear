@@ -2,7 +2,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import type { NextPage } from 'next';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-// import { useQuery } from 'react-query';
+// import { useQuery } from '@tanstack/react-query';
 // import toast from 'react-hot-toast';
 import { CSSTransition } from 'react-transition-group';
 import Sidebar from '../../../../components/common/Sidebar';

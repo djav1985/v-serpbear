@@ -1,6 +1,6 @@
 /// <reference path="../types.d.ts" />
 
-import { auth, searchconsole_v1 } from '@googleapis/searchconsole';
+import jwt from 'jsonwebtoken';
 import Cryptr from 'cryptr';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
@@ -14,6 +14,10 @@ dayjs.extend(timezone);
 
 const DEFAULT_CRON_TIMEZONE = 'America/New_York';
 
+const GOOGLE_OAUTH_TOKEN_URL = 'https://oauth2.googleapis.com/token';
+const GOOGLE_SEARCH_CONSOLE_BASE_URL = 'https://searchconsole.googleapis.com/webmasters/v3';
+const GOOGLE_SEARCH_CONSOLE_SCOPE = 'https://www.googleapis.com/auth/webmasters.readonly';
+
 export type SCDomainFetchError = {
    error: boolean,
    errorMsg: string,
@@ -22,6 +26,99 @@ export type SCDomainFetchError = {
 type SCAPISettings = { client_email: string, private_key: string }
 
 type fetchConsoleDataResponse = SearchAnalyticsItem[] | SearchAnalyticsStat[] | SCDomainFetchError;
+
+const sanitizeServiceAccountKey = (value: string): string => value.replaceAll('\\n', '\n');
+
+type GoogleOAuthTokenResponse = {
+   access_token?: string;
+   expires_in?: number;
+   token_type?: string;
+   error?: string;
+   error_description?: string;
+};
+
+const createServiceAccountAssertion = (clientEmail: string, privateKey: string): string => {
+   const now = Math.floor(Date.now() / 1000);
+   return jwt.sign(
+      {
+         iss: clientEmail.trim(),
+         scope: GOOGLE_SEARCH_CONSOLE_SCOPE,
+         aud: GOOGLE_OAUTH_TOKEN_URL,
+         iat: now,
+         exp: now + 3600,
+      },
+      sanitizeServiceAccountKey(privateKey),
+      { algorithm: 'RS256' },
+   );
+};
+
+const fetchServiceAccountAccessToken = async (clientEmail: string, privateKey: string): Promise<string> => {
+   const assertion = createServiceAccountAssertion(clientEmail, privateKey);
+   const tokenResponse = await fetch(GOOGLE_OAUTH_TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+         grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+         assertion,
+      }),
+   });
+
+   let payload: GoogleOAuthTokenResponse | undefined;
+   try {
+      payload = await tokenResponse.json();
+   } catch (_parseError) {
+      if (tokenResponse.ok) {
+         throw new Error('Failed to parse Google OAuth token response.');
+      }
+      const rawBody = await tokenResponse.text();
+      throw new Error(rawBody || 'Failed to retrieve Google OAuth token.');
+   }
+
+   if (!tokenResponse.ok) {
+      const message = payload?.error_description || payload?.error || 'Failed to retrieve Google OAuth token.';
+      throw new Error(message);
+   }
+
+   if (!payload?.access_token) {
+      throw new Error('No access token returned from Google.');
+   }
+
+   return payload.access_token;
+};
+
+const executeSearchAnalyticsQuery = async (
+   siteUrl: string,
+   accessToken: string,
+   requestBody: Record<string, unknown>,
+): Promise<any> => {
+   const endpoint = `${GOOGLE_SEARCH_CONSOLE_BASE_URL}/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`;
+   const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+         Authorization: `Bearer ${accessToken}`,
+         'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+   });
+
+   let payload: any;
+   try {
+      payload = await response.json();
+   } catch (_parseError) {
+      if (response.ok) {
+         throw new Error('Failed to parse Google Search Console response.');
+      }
+      const rawBody = await response.text();
+      throw new Error(rawBody || 'Google Search Console request failed.');
+   }
+
+   if (!response.ok) {
+      const message = payload?.error?.message || payload?.error_description || 'Google Search Console request failed.';
+      throw new Error(message);
+   }
+
+   return payload;
+};
 
 export const isSearchConsoleDataFreshForToday = (
    lastFetched?: string | null,
@@ -56,45 +153,39 @@ const fetchSearchConsoleData = async (domain:DomainType, days:number, type?:stri
    const sCClientEmail = api?.client_email || process.env.SEARCH_CONSOLE_CLIENT_EMAIL || '';
 
    try {
-   const authClient = new auth.GoogleAuth({
-      credentials: {
-        private_key: (sCPrivateKey).replaceAll('\\n', '\n'),
-        client_email: (sCClientEmail || '').trim(),
-      },
-      scopes: [
-        'https://www.googleapis.com/auth/webmasters.readonly',
-      ],
-   });
-   const startDateRaw = new Date(new Date().setDate(new Date().getDate() - days));
-   const padDate = (num:number) => String(num).padStart(2, '0');
-   const startDate = `${startDateRaw.getFullYear()}-${padDate(startDateRaw.getMonth() + 1)}-${padDate(startDateRaw.getDate())}`;
-   const endDate = `${new Date().getFullYear()}-${padDate(new Date().getMonth() + 1)}-${padDate(new Date().getDate())}`;
-   const client = new searchconsole_v1.Searchconsole({ auth: authClient });
-   // Params: https://developers.google.com/webmaster-tools/v1/searchanalytics/query
-   let requestBody:any = {
-      startDate,
-      endDate,
-      type: 'web',
-      rowLimit: 1000,
-      dataState: 'all',
-      dimensions: ['query', 'device', 'country', 'page'],
-   };
-   if (type === 'stat') {
-      requestBody = {
-         startDate,
-         endDate,
-         dataState: 'all',
-         dimensions: ['date'],
-      };
-   }
+      const startDateRaw = new Date(new Date().setDate(new Date().getDate() - days));
+      const padDate = (num:number) => String(num).padStart(2, '0');
+      const startDate = `${startDateRaw.getFullYear()}-${padDate(startDateRaw.getMonth() + 1)}-${padDate(startDateRaw.getDate())}`;
+      const endDate = `${new Date().getFullYear()}-${padDate(new Date().getMonth() + 1)}-${padDate(new Date().getDate())}`;
 
-      const siteUrl = domainSettings.property_type === 'url' && domainSettings.url ? domainSettings.url : `sc-domain:${domainName}`;
-      const res = client.searchanalytics.query({ siteUrl, requestBody });
-      const resData:any = (await res).data;
-      let finalRows = resData.rows ? resData.rows.map((item:SearchAnalyticsRawItem) => parseSearchConsoleItem(item, domainName)) : [];
+      const siteUrl = domainSettings.property_type === 'url' && domainSettings.url
+         ? domainSettings.url
+         : `sc-domain:${domainName}`;
 
-      if (type === 'stat' && resData.rows && resData.rows.length > 0) {
-         // console.log(resData.rows);
+      const requestBody: Record<string, unknown> = type === 'stat'
+         ? {
+            startDate,
+            endDate,
+            dataState: 'all',
+            dimensions: ['date'],
+         }
+         : {
+            startDate,
+            endDate,
+            type: 'web',
+            rowLimit: 1000,
+            dataState: 'all',
+            dimensions: ['query', 'device', 'country', 'page'],
+         };
+
+      const accessToken = await fetchServiceAccountAccessToken(sCClientEmail, sCPrivateKey);
+      const resData:any = await executeSearchAnalyticsQuery(siteUrl, accessToken, requestBody);
+
+      let finalRows = Array.isArray(resData?.rows)
+         ? resData.rows.map((item:SearchAnalyticsRawItem) => parseSearchConsoleItem(item, domainName))
+         : [];
+
+      if (type === 'stat' && Array.isArray(resData?.rows) && resData.rows.length > 0) {
          finalRows = [];
          resData.rows.forEach((row:SearchAnalyticsRawItem) => {
             finalRows.push({
@@ -109,11 +200,10 @@ const fetchSearchConsoleData = async (domain:DomainType, days:number, type?:stri
 
       return finalRows;
    } catch (err:any) {
-      const qType = type === 'stats' ? '(stats)' : `(${days}days)`;
-      const errorMsg = err?.response?.status && `${err?.response?.statusText}. ${err?.response?.data?.error_description}`;
-      console.log(`[ERROR] Search Console API Error for ${domainName} ${qType} : `, errorMsg || err?.code);
-      // console.log('SC ERROR :', err);
-      return { error: true, errorMsg: errorMsg || err?.code };
+      const qType = type === 'stat' ? '(stats)' : `(${days}days)`;
+      const errorMsg = typeof err?.message === 'string' && err.message ? err.message : 'Unknown Search Console API error.';
+      console.log(`[ERROR] Search Console API Error for ${domainName} ${qType} : `, errorMsg);
+      return { error: true, errorMsg };
    }
 };
 

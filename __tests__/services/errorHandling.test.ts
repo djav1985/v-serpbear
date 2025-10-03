@@ -29,22 +29,23 @@ jest.mock('next/router', () => ({
    })
 }));
 
-// Mock react-query
+// Mock @tanstack/react-query
 const mockInvalidateQueries = jest.fn();
-jest.mock('react-query', () => ({
+jest.mock('@tanstack/react-query', () => ({
    useQueryClient: () => ({
       invalidateQueries: mockInvalidateQueries
    }),
-   useMutation: (fn: any, options: any = {}) => ({
+   useMutation: (config: any = {}) => ({
       mutate: async (data: any) => {
+         const mutationFn = config.mutationFn ?? (async () => undefined);
          try {
-            const result = await fn(data);
-            if (options.onSuccess) {
-               await options.onSuccess(result, data, undefined);
+            const result = await mutationFn(data);
+            if (config.onSuccess) {
+               await config.onSuccess(result, data, undefined);
             }
             return result;
          } catch (error) {
-            if (options.onError) options.onError(error, data, undefined);
+            if (config.onError) config.onError(error, data, undefined);
             throw error;
          }
       }
@@ -232,7 +233,7 @@ describe('Improved Error Handling in Services', () => {
 
       expect(logSpy).toHaveBeenCalledWith('Ideas Added:', { ideas: ['alpha'] });
       expect(onSuccess).toHaveBeenCalledWith(false);
-      expect(mockInvalidateQueries).toHaveBeenCalledWith('keywordIdeas-test-domain');
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['keywordIdeas', 'test-domain'] });
       expect((toast as unknown as jest.Mock)).toHaveBeenCalledWith('Keyword Ideas Loaded Successfully!', { icon: '✔️' });
 
       logSpy.mockRestore();

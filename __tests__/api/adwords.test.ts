@@ -1,5 +1,4 @@
 import { readFile } from 'fs/promises';
-import { OAuth2Client } from 'google-auth-library';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import db from '../../database/database';
 import handler from '../../pages/api/adwords';
@@ -36,14 +35,6 @@ jest.mock('cryptr', () => ({
    })),
 }));
 
-const getTokenMock = jest.fn();
-
-jest.mock('google-auth-library', () => ({
-   OAuth2Client: jest.fn().mockImplementation(() => ({
-      getToken: getTokenMock,
-   })),
-}));
-
 jest.mock('../../utils/adwords', () => ({
    __esModule: true,
    getAdwordsCredentials: jest.fn(),
@@ -52,6 +43,8 @@ jest.mock('../../utils/adwords', () => ({
 
 describe('GET /api/adwords - refresh token retrieval', () => {
    const originalEnv = process.env;
+   const originalFetch = global.fetch;
+   const fetchMock = jest.fn();
 
    beforeEach(() => {
       (process.env as MutableEnv) = { ...originalEnv, SECRET: 'secret' };
@@ -62,12 +55,18 @@ describe('GET /api/adwords - refresh token retrieval', () => {
       );
       decryptMock.mockImplementationOnce(() => 'client-id').mockImplementationOnce(() => 'client-secret');
       encryptMock.mockImplementation((value: string) => value);
-      getTokenMock.mockRejectedValue({ response: { data: {} } });
+      fetchMock.mockResolvedValue({
+         ok: false,
+         json: jest.fn().mockResolvedValue({}),
+         text: jest.fn().mockResolvedValue(''),
+      });
+      global.fetch = fetchMock as unknown as typeof fetch;
    });
 
    afterEach(() => {
       jest.clearAllMocks();
       process.env = originalEnv;
+      global.fetch = originalFetch;
    });
 
    it('logs a default error message when the Google API response lacks an error string', async () => {
@@ -90,18 +89,24 @@ describe('GET /api/adwords - refresh token retrieval', () => {
       expect(db.sync).toHaveBeenCalled();
       expect(verifyUser).toHaveBeenCalledWith(req, res);
       expect(readFile).toHaveBeenCalled();
-      expect(OAuth2Client).toHaveBeenCalledWith({
-         clientId: 'client-id',
-         clientSecret: 'client-secret',
-         redirectUri: 'http://localhost:3000/api/adwords',
-      });
-      expect(getTokenMock).toHaveBeenCalledWith('auth-code');
+      expect(fetchMock).toHaveBeenCalledWith(
+         'https://oauth2.googleapis.com/token',
+         expect.objectContaining({
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+         }),
+      );
+      const [, options] = fetchMock.mock.calls[0] as [string, { body: URLSearchParams }];
+      expect(String(options.body)).toContain('code=auth-code');
+      expect(String(options.body)).toContain(
+         `redirect_uri=${encodeURIComponent('http://localhost:3000/api/adwords')}`,
+      );
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'text/html; charset=utf-8');
       expect(res.send).toHaveBeenCalledWith(expect.stringContaining('adwordsIntegrated'));
       expect(logSpy).toHaveBeenCalledWith(
          '[Error] Getting Google Ads Refresh Token! Reason: ',
-         'Unknown error retrieving Google Ads refresh token.',
+         'Error Getting the Google Ads Refresh Token. Please Try Again!',
       );
 
       logSpy.mockRestore();

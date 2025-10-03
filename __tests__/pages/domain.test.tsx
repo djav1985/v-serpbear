@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from 'react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { DomainPage as SingleDomain } from '../../pages/domain/[slug]';
 import { useAddDomain, useDeleteDomain, useFetchDomain, useFetchDomains, useUpdateDomain } from '../../services/domains';
 import { useAddKeywords, useDeleteKeywords,

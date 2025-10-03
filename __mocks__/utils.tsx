@@ -1,11 +1,11 @@
 import { render } from '@testing-library/react';
 import { http } from 'msw';
 import * as React from 'react';
-import { QueryClient, QueryClientProvider } from 'react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 export const handlers = [
     http.get(
-        '*/react-query',
+        '*/@tanstack/react-query',
         () => new Response(
                 JSON.stringify({
                     name: 'mocked-react-query',

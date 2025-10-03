@@ -1,4 +1,4 @@
-import { Sequelize } from 'sequelize-typescript';
+import { Sequelize } from 'sequelize';
 import sqliteDialect from './sqlite-dialect';
 import Domain from './models/domain';
 import Keyword from './models/keyword';
@@ -16,8 +16,10 @@ const connection = new Sequelize({
       idle: 10000,
    },
    logging: false,
-   models: [Domain, Keyword],
    storage: './data/database.sqlite',
 });
+
+Domain.initialize(connection);
+Keyword.initialize(connection);
 
 export default connection;

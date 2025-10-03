@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from 'react-query';
-import * as ReactQuery from 'react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import * as ReactQuery from '@tanstack/react-query';
 import { dummyDomain } from '../../__mocks__/data';
 import Domains from '../../pages/domains';
 import router from 'next-router-mock';
@@ -55,7 +55,15 @@ type QueryOverrides = {
    domains?: Partial<ReturnType<typeof ReactQuery.useQuery>>;
 };
 
-const useQuerySpy = jest.spyOn(ReactQuery, 'useQuery');
+jest.mock('@tanstack/react-query', () => {
+   const actual = jest.requireActual('@tanstack/react-query');
+   return {
+      ...actual,
+      useQuery: jest.fn(),
+   };
+});
+
+const useQueryMock = ReactQuery.useQuery as jest.MockedFunction<typeof ReactQuery.useQuery>;
 
 const buildUseQueryImplementation = (overrides?: QueryOverrides) => {
    const defaultSettings = {
@@ -72,8 +80,9 @@ const buildUseQueryImplementation = (overrides?: QueryOverrides) => {
    const settingsResult = { ...defaultSettings, ...overrides?.settings };
    const domainsResult = { ...defaultDomains, ...overrides?.domains };
 
-   return (queryKey: ReactQuery.QueryKey) => {
-      if (queryKey === 'settings') {
+   return (config: any) => {
+      const queryKey = config?.queryKey;
+      if (Array.isArray(queryKey) && queryKey[0] === 'settings') {
          return settingsResult;
       }
       if (Array.isArray(queryKey) && queryKey[0] === 'domains') {
@@ -89,7 +98,6 @@ beforeAll(() => {
 
 afterAll(() => {
    global.fetch = originalFetch;
-   useQuerySpy.mockRestore();
 });
 
 beforeEach(() => {
@@ -101,7 +109,7 @@ beforeEach(() => {
       isFetching: false,
       refetch: jest.fn(),
    });
-   useQuerySpy.mockImplementation(buildUseQueryImplementation());
+   useQueryMock.mockImplementation(buildUseQueryImplementation());
    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
       const url = asUrlString(input);
       if (url.startsWith(`${window.location.origin}/api/domains`)) {
@@ -113,7 +121,7 @@ beforeEach(() => {
 
 afterEach(() => {
    fetchMock.mockReset();
-   useQuerySpy.mockReset();
+   useQueryMock.mockReset();
 });
 
 describe('Domains Page', () => {
@@ -136,7 +144,7 @@ describe('Domains Page', () => {
    });
 
    it('displays the page loader while queries resolve', () => {
-      useQuerySpy.mockImplementation(buildUseQueryImplementation({
+      useQueryMock.mockImplementation(buildUseQueryImplementation({
          settings: { isLoading: true, data: undefined },
          domains: { isLoading: true, data: undefined },
       }));

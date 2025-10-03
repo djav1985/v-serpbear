@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from 'react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import KeywordIdeasTable from '../../components/ideas/KeywordIdeasTable';
 import { useFetchKeywords } from '../../services/keywords';
 import { useEmailKeywordIdeas } from '../../services/ideas';

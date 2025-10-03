@@ -1,6 +1,6 @@
 import { useRouter } from 'next/router';
 import React, { useState, useMemo, useCallback } from 'react';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
 import { useAddKeywords, useFetchKeywords } from '../../services/keywords';
 import { useEmailKeywordIdeas } from '../../services/ideas';
@@ -82,11 +82,12 @@ const IdeasKeywordsTable = ({
 
    const isIdeaTracked = useCallback((idea: IdeaKeyword) => trackedDevicesToCheck.some((device) => trackedKeywordLookup[`${idea.keyword}:${idea.country}:${device}`]), [trackedDevicesToCheck, trackedKeywordLookup]);
 
-   const { data: domainsData } = useQuery(
-      ['domains', false],
-      () => fetchDomains(router, false),
-      { enabled: selectedKeywords.length > 0, retry: false },
-   );
+   const { data: domainsData } = useQuery({
+      queryKey: ['domains', false],
+      queryFn: () => fetchDomains(router, false),
+      enabled: selectedKeywords.length > 0,
+      retry: false,
+   });
    const theDomains: DomainType[] = (domainsData && domainsData.domains) || [];
 
    useWindowResize(() => setListHeight(window.innerHeight - (isMobile ? 200 : 400)));

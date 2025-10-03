@@ -1,72 +1,153 @@
-import { Table, Model, Column, DataType, PrimaryKey } from 'sequelize-typescript';
+import {
+   CreationOptional,
+   DataTypes,
+   InferAttributes,
+   InferCreationAttributes,
+   Model,
+   Sequelize,
+} from 'sequelize';
 
-@Table({
-  timestamps: false,
-  tableName: 'keyword',
-})
+class Keyword extends Model<InferAttributes<Keyword>, InferCreationAttributes<Keyword>> {
+   declare ID: CreationOptional<number>;
 
-class Keyword extends Model {
-   @PrimaryKey
-   @Column({ type: DataType.INTEGER, allowNull: false, primaryKey: true, autoIncrement: true })
-   ID!: number;
+   declare keyword: string;
 
-   @Column({ type: DataType.STRING, allowNull: false })
-   keyword!: string;
+   declare device: CreationOptional<string>;
 
-   @Column({ type: DataType.STRING, allowNull: true, defaultValue: 'desktop' })
-   device!: string;
+   declare country: CreationOptional<string>;
 
-   @Column({ type: DataType.STRING, allowNull: true, defaultValue: 'US' })
-   country!: string;
+   declare location: CreationOptional<string>;
 
-   @Column({ type: DataType.STRING, allowNull: true, defaultValue: '' })
-   location!: string;
+   declare domain: string;
 
-   @Column({ type: DataType.STRING, allowNull: false, defaultValue: '' })
-   domain!: string;
+   declare lastUpdated: CreationOptional<string | null>;
 
-   // @ForeignKey(() => Domain)
-   // @Column({ allowNull: false })
-   // domainID!: number;
+   declare added: CreationOptional<string | null>;
 
-   // @BelongsTo(() => Domain)
-   // domain!: Domain;
+   declare position: CreationOptional<number>;
 
-   @Column({ type: DataType.STRING, allowNull: true })
-   lastUpdated!: string;
+   declare history: CreationOptional<string>;
 
-   @Column({ type: DataType.STRING, allowNull: true })
-   added!: string;
+   declare volume: CreationOptional<number>;
 
-   @Column({ type: DataType.INTEGER, allowNull: false, defaultValue: 0 })
-   position!: number;
+   declare url: CreationOptional<string>;
 
-   @Column({ type: DataType.STRING, allowNull: true, defaultValue: JSON.stringify({}) })
-   history!: string;
+   declare tags: CreationOptional<string>;
 
-   @Column({ type: DataType.INTEGER, allowNull: false, defaultValue: 0 })
-   volume!: number;
+   declare lastResult: CreationOptional<string>;
 
-   @Column({ type: DataType.STRING, allowNull: true, defaultValue: JSON.stringify([]) })
-   url!: string;
+   declare sticky: CreationOptional<boolean | null>;
 
-   @Column({ type: DataType.STRING, allowNull: true, defaultValue: JSON.stringify([]) })
-   tags!: string;
+   declare updating: CreationOptional<boolean | null>;
 
-   @Column({ type: DataType.STRING, allowNull: true, defaultValue: JSON.stringify([]) })
-   lastResult!: string;
+   declare lastUpdateError: CreationOptional<string | null>;
 
-   @Column({ type: DataType.BOOLEAN, allowNull: true, defaultValue: true })
-   sticky!: boolean;
+   declare mapPackTop3: CreationOptional<boolean>;
 
-   @Column({ type: DataType.BOOLEAN, allowNull: true, defaultValue: false })
-   updating!: boolean;
+   static initialize(sequelize: Sequelize): typeof Keyword {
+      if (!sequelize.models.Keyword) {
+         Keyword.init(
+            {
+               ID: {
+                  type: DataTypes.INTEGER,
+                  allowNull: false,
+                  primaryKey: true,
+                  autoIncrement: true,
+               },
+               keyword: {
+                  type: DataTypes.STRING,
+                  allowNull: false,
+               },
+               device: {
+                  type: DataTypes.STRING,
+                  allowNull: true,
+                  defaultValue: 'desktop',
+               },
+               country: {
+                  type: DataTypes.STRING,
+                  allowNull: true,
+                  defaultValue: 'US',
+               },
+               location: {
+                  type: DataTypes.STRING,
+                  allowNull: true,
+                  defaultValue: '',
+               },
+               domain: {
+                  type: DataTypes.STRING,
+                  allowNull: false,
+                  defaultValue: '',
+               },
+               lastUpdated: {
+                  type: DataTypes.STRING,
+                  allowNull: true,
+               },
+               added: {
+                  type: DataTypes.STRING,
+                  allowNull: true,
+               },
+               position: {
+                  type: DataTypes.INTEGER,
+                  allowNull: false,
+                  defaultValue: 0,
+               },
+               history: {
+                  type: DataTypes.STRING,
+                  allowNull: true,
+                  defaultValue: JSON.stringify({}),
+               },
+               volume: {
+                  type: DataTypes.INTEGER,
+                  allowNull: false,
+                  defaultValue: 0,
+               },
+               url: {
+                  type: DataTypes.STRING,
+                  allowNull: true,
+                  defaultValue: JSON.stringify([]),
+               },
+               tags: {
+                  type: DataTypes.STRING,
+                  allowNull: true,
+                  defaultValue: JSON.stringify([]),
+               },
+               lastResult: {
+                  type: DataTypes.STRING,
+                  allowNull: true,
+                  defaultValue: JSON.stringify([]),
+               },
+               sticky: {
+                  type: DataTypes.BOOLEAN,
+                  allowNull: true,
+                  defaultValue: true,
+               },
+               updating: {
+                  type: DataTypes.BOOLEAN,
+                  allowNull: true,
+                  defaultValue: false,
+               },
+               lastUpdateError: {
+                  type: DataTypes.STRING,
+                  allowNull: true,
+                  defaultValue: 'false',
+               },
+               mapPackTop3: {
+                  type: DataTypes.BOOLEAN,
+                  allowNull: false,
+                  defaultValue: false,
+               },
+            },
+            {
+               sequelize,
+               tableName: 'keyword',
+               modelName: 'Keyword',
+               timestamps: false,
+            },
+         );
+      }
 
-   @Column({ type: DataType.STRING, allowNull: true, defaultValue: 'false' })
-   lastUpdateError!: string;
-
-   @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: false })
-   mapPackTop3!: boolean;
+      return Keyword;
+   }
 }
 
 export default Keyword;

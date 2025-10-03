@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from 'react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useRouter } from 'next/router';
 import DomainSettings from '../../components/domains/DomainSettings';
 import { useFetchDomain, useUpdateDomain, useDeleteDomain } from '../../services/domains';

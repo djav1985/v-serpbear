@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import type { BrandingConfig } from '../utils/branding';
 import { DEFAULT_BRANDING, getBranding } from '../utils/branding';
 
@@ -40,10 +40,12 @@ const getServerSideBranding = (): BrandingConfig | undefined => {
 export const useBranding = () => {
    const serverSideBranding = useMemo(() => getServerSideBranding(), []);
    
-   const queryResult = useQuery(BRANDING_QUERY_KEY, fetchBrandingConfig, {
+   const queryResult = useQuery({
+      queryKey: BRANDING_QUERY_KEY,
+      queryFn: fetchBrandingConfig,
       enabled: isClient,
       staleTime: Infinity,
-      cacheTime: Infinity,
+      gcTime: Infinity,
       refetchOnWindowFocus: false,
       refetchOnReconnect: false,
       refetchOnMount: false,

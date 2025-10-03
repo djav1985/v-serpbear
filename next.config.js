@@ -10,7 +10,7 @@ const nextConfig = {
 
   // Performance optimizations
   experimental: {
-    optimizePackageImports: ['react-icons', 'react-chartjs-2', 'react-query']
+    optimizePackageImports: ['react-icons', 'react-chartjs-2', '@tanstack/react-query']
   },
 
   // Compiler optimizations

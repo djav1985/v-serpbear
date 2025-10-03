@@ -1,6 +1,6 @@
 import { useRouter, NextRouter } from 'next/router';
 import toast from 'react-hot-toast';
-import { useMutation, useQuery, useQueryClient, QueryClient, QueryKey } from 'react-query';
+import { useMutation, useQuery, useQueryClient, QueryClient, QueryKey } from '@tanstack/react-query';
 import { getClientOrigin } from '../utils/client/origin';
 
 type UpdatePayload = {
@@ -215,11 +215,16 @@ export async function fetchDomainScreenshot(domain: string, forceFetch = false):
 }
 
 export function useFetchDomains(router: NextRouter, withStats:boolean = false) {
-   return useQuery(['domains', withStats], () => fetchDomains(router, withStats));
+   return useQuery({
+      queryKey: ['domains', withStats],
+      queryFn: () => fetchDomains(router, withStats),
+   });
 }
 
 export function useFetchDomain(router: NextRouter, domainName:string, onSuccess: Function) {
-   return useQuery(['domain', domainName], () => fetchDomain(router, domainName), {
+   return useQuery({
+      queryKey: ['domain', domainName],
+      queryFn: () => fetchDomain(router, domainName),
       enabled: !!domainName,
       onSuccess: async (data) => {
          console.log('Domain Loaded!!!', data.domain);
@@ -231,32 +236,33 @@ export function useFetchDomain(router: NextRouter, domainName:string, onSuccess:
 export function useAddDomain(onSuccess:Function) {
    const router = useRouter();
    const queryClient = useQueryClient();
-   return useMutation(async (domains:string[]) => {
-      const headers = new Headers({ 'Content-Type': 'application/json', Accept: 'application/json' });
-      const fetchOpts = { method: 'POST', headers, body: JSON.stringify({ domains }) };
-      const origin = getClientOrigin();
-      const res = await fetch(`${origin}/api/domains`, fetchOpts);
-      if (res.status >= 400 && res.status < 600) {
-         let errorMessage = 'Bad response from server';
-         try {
-            const contentType = res.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-               const errorData = await res.json();
-               errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
-            } else {
-               // Handle HTML error pages or other non-JSON responses
-               const textResponse = await res.text();
-               console.warn('Non-JSON error response received:', textResponse.substring(0, 200));
+   return useMutation({
+      mutationFn: async (domains:string[]) => {
+         const headers = new Headers({ 'Content-Type': 'application/json', Accept: 'application/json' });
+         const fetchOpts = { method: 'POST', headers, body: JSON.stringify({ domains }) };
+         const origin = getClientOrigin();
+         const res = await fetch(`${origin}/api/domains`, fetchOpts);
+         if (res.status >= 400 && res.status < 600) {
+            let errorMessage = 'Bad response from server';
+            try {
+               const contentType = res.headers.get('content-type');
+               if (contentType && contentType.includes('application/json')) {
+                  const errorData = await res.json();
+                  errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
+               } else {
+                  // Handle HTML error pages or other non-JSON responses
+                  const textResponse = await res.text();
+                  console.warn('Non-JSON error response received:', textResponse.substring(0, 200));
+                  errorMessage = `Server error (${res.status}): Please try again later`;
+               }
+            } catch (parseError) {
+               console.warn('Failed to parse error response:', parseError);
                errorMessage = `Server error (${res.status}): Please try again later`;
             }
-         } catch (parseError) {
-            console.warn('Failed to parse error response:', parseError);
-            errorMessage = `Server error (${res.status}): Please try again later`;
+            throw new Error(errorMessage);
          }
-         throw new Error(errorMessage);
-      }
-      return res.json();
-   }, {
+         return res.json();
+      },
       onSuccess: async (data) => {
          console.log('Domain Added!!!', data);
          const newDomain:DomainType[] = data.domains;
@@ -266,7 +272,7 @@ export function useAddDomain(onSuccess:Function) {
          if (singleDomain) {
             router.push(`/domain/${newDomain[0].slug}`);
          }
-         queryClient.invalidateQueries(['domains']);
+         queryClient.invalidateQueries({ queryKey: ['domains'] });
       },
       onError: (_error, _variables, _context) => {
          console.log('Error Adding New Domain!!!');
@@ -277,7 +283,8 @@ export function useAddDomain(onSuccess:Function) {
 
 export function useUpdateDomain(onSuccess:Function) {
    const queryClient = useQueryClient();
-   return useMutation(updateDomainRequest, {
+   return useMutation({
+      mutationFn: updateDomainRequest,
       onSuccess: async () => {
          console.log('Settings Updated!!!');
          toast('Settings Updated!', { icon: '✔️' });
@@ -299,7 +306,8 @@ type DomainToggleContext = {
 
 export function useUpdateDomainToggles() {
    const queryClient = useQueryClient();
-   return useMutation<Awaited<ReturnType<typeof updateDomainRequest>>, Error, UpdatePayload, DomainToggleContext>(updateDomainRequest, {
+   return useMutation<Awaited<ReturnType<typeof updateDomainRequest>>, Error, UpdatePayload, DomainToggleContext>({
+      mutationFn: updateDomainRequest,
       onMutate: async (variables) => {
          await Promise.all([
             queryClient.cancelQueries({ queryKey: ['domains'] }),
@@ -330,34 +338,35 @@ export function useUpdateDomainToggles() {
 
 export function useDeleteDomain(onSuccess:Function) {
    const queryClient = useQueryClient();
-   return useMutation(async (domain:DomainType) => {
-      const origin = getClientOrigin();
-      const res = await fetch(`${origin}/api/domains?domain=${domain.domain}`, { method: 'DELETE' });
-      if (res.status >= 400 && res.status < 600) {
-         let errorMessage = 'Bad response from server';
-         try {
-            const contentType = res.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-               const errorData = await res.json();
-               errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
-            } else {
-               // Handle HTML error pages or other non-JSON responses
-               const textResponse = await res.text();
-               console.warn('Non-JSON error response received:', textResponse.substring(0, 200));
+   return useMutation({
+      mutationFn: async (domain:DomainType) => {
+         const origin = getClientOrigin();
+         const res = await fetch(`${origin}/api/domains?domain=${domain.domain}`, { method: 'DELETE' });
+         if (res.status >= 400 && res.status < 600) {
+            let errorMessage = 'Bad response from server';
+            try {
+               const contentType = res.headers.get('content-type');
+               if (contentType && contentType.includes('application/json')) {
+                  const errorData = await res.json();
+                  errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
+               } else {
+                  // Handle HTML error pages or other non-JSON responses
+                  const textResponse = await res.text();
+                  console.warn('Non-JSON error response received:', textResponse.substring(0, 200));
+                  errorMessage = `Server error (${res.status}): Please try again later`;
+               }
+            } catch (parseError) {
+               console.warn('Failed to parse error response:', parseError);
                errorMessage = `Server error (${res.status}): Please try again later`;
             }
-         } catch (parseError) {
-            console.warn('Failed to parse error response:', parseError);
-            errorMessage = `Server error (${res.status}): Please try again later`;
+            throw new Error(errorMessage);
          }
-         throw new Error(errorMessage);
-      }
-      return res.json();
-   }, {
+         return res.json();
+      },
       onSuccess: async () => {
          toast('Domain Removed Successfully!', { icon: '✔️' });
          onSuccess();
-         queryClient.invalidateQueries(['domains']);
+         queryClient.invalidateQueries({ queryKey: ['domains'] });
       },
       onError: (_error, _variables, _context) => {
          console.log('Error Removing Domain!!!');

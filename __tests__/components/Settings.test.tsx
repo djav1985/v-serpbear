@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from 'react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Settings, { defaultSettings } from '../../components/settings/Settings';
 import { useClearFailedQueue, useFetchSettings, useUpdateSettings } from '../../services/settings';
 import { useBranding } from '../../hooks/useBranding';

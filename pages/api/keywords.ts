@@ -172,7 +172,7 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
       return res.status(400).json({ error: 'Too many keywords', details: 'Maximum 100 keywords can be added at once' });
    }
 
-   const keywordsToAdd: any = []; // QuickFIX for bug: https://github.com/sequelize/sequelize-typescript/issues/936
+   const keywordsToAdd: any = []; // QuickFIX retained from legacy sequelize-typescript bug: https://github.com/sequelize/sequelize-typescript/issues/936
    const validationErrors: string[] = [];
 
    keywords.forEach((kwrd: KeywordAddPayload, index: number) => {

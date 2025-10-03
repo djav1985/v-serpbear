@@ -1,4 +1,4 @@
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
    fetchSCInsight,
    fetchSCKeywords,
@@ -6,7 +6,7 @@ import {
    useFetchSCKeywords,
 } from '../../services/searchConsole';
 
-jest.mock('react-query', () => ({
+jest.mock('@tanstack/react-query', () => ({
    useQuery: jest.fn(),
 }));
 
@@ -17,6 +17,7 @@ describe('Search Console hooks', () => {
 
    beforeEach(() => {
       mockUseQuery.mockClear();
+      mockUseQuery.mockReturnValue({});
       (global as any).fetch = jest.fn().mockResolvedValue({
          status: 200,
          json: jest.fn().mockResolvedValue({ data: [] }),
@@ -33,22 +34,24 @@ describe('Search Console hooks', () => {
       useFetchSCKeywords(routerWithSlug, true, false);
 
       expect(mockUseQuery).toHaveBeenCalledTimes(1);
-      expect(mockUseQuery).toHaveBeenCalledWith(
-         ['sckeywords', 'first-slug'],
-         expect.any(Function),
-         expect.objectContaining({ enabled: true }),
-      );
+      const firstCallConfig = mockUseQuery.mock.calls[0][0];
+      expect(firstCallConfig).toMatchObject({
+         queryKey: ['sckeywords', 'first-slug'],
+         enabled: true,
+      });
+      expect(firstCallConfig.queryFn).toBeInstanceOf(Function);
 
       mockUseQuery.mockClear();
       const routerWithoutSlug = { ...baseRouter, query: {} };
 
       useFetchSCKeywords(routerWithoutSlug, true, false);
 
-      expect(mockUseQuery).toHaveBeenCalledWith(
-         ['sckeywords', ''],
-         expect.any(Function),
-         expect.objectContaining({ enabled: false }),
-      );
+      const secondCallConfig = mockUseQuery.mock.calls[0][0];
+      expect(secondCallConfig).toMatchObject({
+         queryKey: ['sckeywords', ''],
+         enabled: false,
+      });
+      expect(secondCallConfig.queryFn).toBeInstanceOf(Function);
    });
 
    it('enables keyword queries when only domain-level credentials exist', () => {
@@ -56,11 +59,12 @@ describe('Search Console hooks', () => {
 
       useFetchSCKeywords(routerWithSlug, false, true);
 
-      expect(mockUseQuery).toHaveBeenCalledWith(
-         ['sckeywords', 'domain-creds'],
-         expect.any(Function),
-         expect.objectContaining({ enabled: true }),
-      );
+      const config = mockUseQuery.mock.calls[0][0];
+      expect(config).toMatchObject({
+         queryKey: ['sckeywords', 'domain-creds'],
+         enabled: true,
+      });
+      expect(config.queryFn).toBeInstanceOf(Function);
    });
 
    it('includes the slug in the Search Console insight query key', () => {
@@ -68,22 +72,24 @@ describe('Search Console hooks', () => {
 
       useFetchSCInsight(routerWithSlug, true, false);
 
-      expect(mockUseQuery).toHaveBeenCalledWith(
-         ['scinsight', 'insight-slug'],
-         expect.any(Function),
-         expect.objectContaining({ enabled: true }),
-      );
+      const insightCall = mockUseQuery.mock.calls[0][0];
+      expect(insightCall).toMatchObject({
+         queryKey: ['scinsight', 'insight-slug'],
+         enabled: true,
+      });
+      expect(insightCall.queryFn).toBeInstanceOf(Function);
 
       mockUseQuery.mockClear();
       const routerWithoutSlug = { ...baseRouter, query: {} };
 
       useFetchSCInsight(routerWithoutSlug, true, false);
 
-      expect(mockUseQuery).toHaveBeenCalledWith(
-         ['scinsight', ''],
-         expect.any(Function),
-         expect.objectContaining({ enabled: false }),
-      );
+      const insightNoSlug = mockUseQuery.mock.calls[0][0];
+      expect(insightNoSlug).toMatchObject({
+         queryKey: ['scinsight', ''],
+         enabled: false,
+      });
+      expect(insightNoSlug.queryFn).toBeInstanceOf(Function);
    });
 
    it('enables insight queries when only domain-level credentials exist', () => {
@@ -91,11 +97,12 @@ describe('Search Console hooks', () => {
 
       useFetchSCInsight(routerWithSlug, false, true);
 
-      expect(mockUseQuery).toHaveBeenCalledWith(
-         ['scinsight', 'insight-creds'],
-         expect.any(Function),
-         expect.objectContaining({ enabled: true }),
-      );
+      const credsConfig = mockUseQuery.mock.calls[0][0];
+      expect(credsConfig).toMatchObject({
+         queryKey: ['scinsight', 'insight-creds'],
+         enabled: true,
+      });
+      expect(credsConfig.queryFn).toBeInstanceOf(Function);
    });
 
    it('refetches when the slug changes between invocations', () => {
@@ -105,18 +112,16 @@ describe('Search Console hooks', () => {
       useFetchSCKeywords(firstRouter, true, false);
       useFetchSCKeywords(secondRouter, true, false);
 
-      expect(mockUseQuery).toHaveBeenNthCalledWith(
-         1,
-         ['sckeywords', 'first'],
-         expect.any(Function),
-         expect.objectContaining({ enabled: true }),
-      );
-      expect(mockUseQuery).toHaveBeenNthCalledWith(
-         2,
-         ['sckeywords', 'second'],
-         expect.any(Function),
-         expect.objectContaining({ enabled: true }),
-      );
+      const firstKeywordCall = mockUseQuery.mock.calls[0][0];
+      const secondKeywordCall = mockUseQuery.mock.calls[1][0];
+      expect(firstKeywordCall).toMatchObject({
+         queryKey: ['sckeywords', 'first'],
+         enabled: true,
+      });
+      expect(secondKeywordCall).toMatchObject({
+         queryKey: ['sckeywords', 'second'],
+         enabled: true,
+      });
    });
 
    it('refetches insight data when the slug changes', () => {
@@ -126,18 +131,16 @@ describe('Search Console hooks', () => {
       useFetchSCInsight(firstRouter, true, false);
       useFetchSCInsight(secondRouter, true, false);
 
-      expect(mockUseQuery).toHaveBeenNthCalledWith(
-         1,
-         ['scinsight', 'alpha'],
-         expect.any(Function),
-         expect.objectContaining({ enabled: true }),
-      );
-      expect(mockUseQuery).toHaveBeenNthCalledWith(
-         2,
-         ['scinsight', 'beta'],
-         expect.any(Function),
-         expect.objectContaining({ enabled: true }),
-      );
+      const firstInsightCall = mockUseQuery.mock.calls[0][0];
+      const secondInsightCall = mockUseQuery.mock.calls[1][0];
+      expect(firstInsightCall).toMatchObject({
+         queryKey: ['scinsight', 'alpha'],
+         enabled: true,
+      });
+      expect(secondInsightCall).toMatchObject({
+         queryKey: ['scinsight', 'beta'],
+         enabled: true,
+      });
    });
 
    it('skips fetch when slug is absent for keywords', async () => {

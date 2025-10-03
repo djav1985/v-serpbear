@@ -1,5 +1,5 @@
 import toast from 'react-hot-toast';
-import { useMutation } from 'react-query';
+import { useMutation } from '@tanstack/react-query';
 import { getClientOrigin } from '../utils/client/origin';
 
 type EmailIdeaKeywordPayload = {
@@ -41,20 +41,21 @@ const parseErrorMessage = async (res: Response): Promise<string> => {
 };
 
 export function useEmailKeywordIdeas(onSuccess?: () => void) {
-   return useMutation(async (payload: EmailKeywordIdeasPayload) => {
-      const headers = new Headers({ 'Content-Type': 'application/json', Accept: 'application/json' });
-      const origin = getClientOrigin();
-      const response = await fetch(`${origin}/api/ideas/email`, {
-         method: 'POST',
-         headers,
-         body: JSON.stringify(payload),
-      });
-      if (response.status >= 400) {
-         const errorMessage = await parseErrorMessage(response);
-         throw new Error(errorMessage);
-      }
-      return response.json() as Promise<EmailKeywordIdeasResponse>;
-   }, {
+   return useMutation({
+      mutationFn: async (payload: EmailKeywordIdeasPayload) => {
+         const headers = new Headers({ 'Content-Type': 'application/json', Accept: 'application/json' });
+         const origin = getClientOrigin();
+         const response = await fetch(`${origin}/api/ideas/email`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(payload),
+         });
+         if (response.status >= 400) {
+            const errorMessage = await parseErrorMessage(response);
+            throw new Error(errorMessage);
+         }
+         return response.json() as Promise<EmailKeywordIdeasResponse>;
+      },
       onSuccess: () => {
          toast('Keyword ideas emailed successfully!', { icon: '✔️' });
          if (onSuccess) {

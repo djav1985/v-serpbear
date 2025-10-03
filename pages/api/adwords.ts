@@ -1,7 +1,6 @@
 /// <reference path="../../types.d.ts" />
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { OAuth2Client } from 'google-auth-library';
 import { readFile, writeFile } from 'fs/promises';
 import Cryptr from 'cryptr';
 import db from '../../database/database';
@@ -66,6 +65,8 @@ const respondWithIntegrationResult = (
       .send(html);
 };
 
+const GOOGLE_OAUTH_TOKEN_URL = 'https://oauth2.googleapis.com/token';
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
    await db.sync();
    const authorized = verifyUser(req, res);
@@ -94,16 +95,40 @@ const getAdwordsRefreshToken = async (req: NextApiRequest, res: NextApiResponse)
             const cryptr = new Cryptr(process.env.SECRET as string);
             const adwords_client_id = settings.adwords_client_id ? cryptr.decrypt(settings.adwords_client_id) : '';
             const adwords_client_secret = settings.adwords_client_secret ? cryptr.decrypt(settings.adwords_client_secret) : '';
-            const oAuth2Client = new OAuth2Client({
-               clientId: adwords_client_id,
-               clientSecret: adwords_client_secret,
-               redirectUri: redirectURL,
+            const tokenResponse = await fetch(GOOGLE_OAUTH_TOKEN_URL, {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+               body: new URLSearchParams({
+                  code,
+                  client_id: adwords_client_id,
+                  client_secret: adwords_client_secret,
+                  redirect_uri: redirectURL,
+                  grant_type: 'authorization_code',
+               }),
             });
-            const r = await oAuth2Client.getToken(code);
-            if (r?.tokens?.refresh_token) {
-               const adwords_refresh_token = cryptr.encrypt(r.tokens.refresh_token);
+
+            let tokenPayload: any;
+            try {
+               tokenPayload = await tokenResponse.json();
+            } catch (_parseError) {
+               if (tokenResponse.ok) {
+                  throw new Error('Failed to parse Google Ads token response.');
+               }
+               const rawBody = await tokenResponse.text();
+               throw new Error(rawBody || 'Failed to retrieve Google Ads refresh token.');
+            }
+
+            if (tokenResponse.ok && tokenPayload?.refresh_token) {
+               const adwords_refresh_token = cryptr.encrypt(tokenPayload.refresh_token);
                await writeFile(`${process.cwd()}/data/settings.json`, JSON.stringify({ ...settings, adwords_refresh_token }), { encoding: 'utf-8' });
                return respondWithIntegrationResult(req, res, { success: true, message: 'Integrated.' });
+            }
+            if (!tokenResponse.ok) {
+               const remoteError = tokenPayload?.error_description || tokenPayload?.error;
+               if (remoteError) {
+                  throw new Error(remoteError);
+               }
+               throw new Error('Error Getting the Google Ads Refresh Token. Please Try Again!');
             }
             return respondWithIntegrationResult(req, res, {
                success: false,
@@ -111,10 +136,14 @@ const getAdwordsRefreshToken = async (req: NextApiRequest, res: NextApiResponse)
                statusCode: 400,
             });
          } catch (error:any) {
-            let errorMsg = error?.response?.data?.error;
+            let errorMsg = error instanceof Error ? error.message : '';
+            if (!errorMsg && error?.response?.data?.error) {
+               errorMsg = error.response.data.error;
+            }
             if (typeof errorMsg !== 'string' || !errorMsg) {
                errorMsg = 'Unknown error retrieving Google Ads refresh token.';
-            } else if (errorMsg.includes('redirect_uri_mismatch')) {
+            }
+            if (errorMsg.includes('redirect_uri_mismatch')) {
                errorMsg += ` Redirected URL: ${redirectURL}`;
             }
             console.log('[Error] Getting Google Ads Refresh Token! Reason: ', errorMsg);

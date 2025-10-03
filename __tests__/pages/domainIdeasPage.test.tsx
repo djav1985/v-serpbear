@@ -1,7 +1,7 @@
 /// <reference path="../../types.d.ts" />
 
 import { fireEvent, render, screen } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from 'react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { DomainIdeasPage } from '../../pages/domain/ideas/[slug]';
 import { useFetchDomains } from '../../services/domains';
 import { useFetchKeywordIdeas } from '../../services/adwords';

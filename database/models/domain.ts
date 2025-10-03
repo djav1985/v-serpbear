@@ -1,55 +1,127 @@
-import { Table, Model, Column, DataType, PrimaryKey, Unique } from 'sequelize-typescript';
+import {
+   CreationOptional,
+   DataTypes,
+   InferAttributes,
+   InferCreationAttributes,
+   Model,
+   Sequelize,
+} from 'sequelize';
 
-@Table({
-  timestamps: false,
-  tableName: 'domain',
-})
+class Domain extends Model<InferAttributes<Domain>, InferCreationAttributes<Domain>> {
+   declare ID: CreationOptional<number>;
 
-class Domain extends Model {
-   @PrimaryKey
-   @Column({ type: DataType.INTEGER, allowNull: false, primaryKey: true, autoIncrement: true })
-   ID!: number;
+   declare domain: string;
 
-   @Unique
-   @Column({ type: DataType.STRING, allowNull: false, defaultValue: '', unique: true })
-   domain!: string;
+   declare slug: string;
 
-   @Unique
-   @Column({ type: DataType.STRING, allowNull: false, defaultValue: '', unique: true })
-   slug!: string;
+   declare lastUpdated: CreationOptional<string | null>;
 
-   @Column({ type: DataType.STRING, allowNull: true })
-   lastUpdated!: string;
+   declare added: CreationOptional<string | null>;
 
-   @Column({ type: DataType.STRING, allowNull: true })
-   added!: string;
+   declare tags: CreationOptional<string>;
 
-   @Column({ type: DataType.STRING, allowNull: true, defaultValue: JSON.stringify([]) })
-   tags!: string;
+   declare scrapeEnabled: CreationOptional<boolean>;
 
-   @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: true })
-   scrapeEnabled!: boolean;
+   declare notification: CreationOptional<boolean | null>;
 
-   @Column({ type: DataType.BOOLEAN, allowNull: true, defaultValue: true })
-   notification!: boolean;
+   declare notification_interval: CreationOptional<string | null>;
 
-   @Column({ type: DataType.STRING, allowNull: true, defaultValue: 'daily' })
-   notification_interval!: string;
+   declare notification_emails: CreationOptional<string | null>;
 
-   @Column({ type: DataType.STRING, allowNull: true, defaultValue: '' })
-   notification_emails!: string;
+   declare search_console: CreationOptional<string | null>;
 
-   @Column({ type: DataType.STRING, allowNull: true })
-   search_console!: string;
+   declare avgPosition: CreationOptional<number | null>;
 
-   @Column({ type: DataType.INTEGER, allowNull: true, defaultValue: 0 })
-   avgPosition!: number;
+   declare mapPackKeywords: CreationOptional<number | null>;
 
-   @Column({ type: DataType.INTEGER, allowNull: true, defaultValue: 0 })
-   mapPackKeywords!: number;
+   declare scraper_settings: CreationOptional<string | null>;
 
-   @Column({ type: DataType.TEXT, allowNull: true, defaultValue: null })
-   scraper_settings!: string | null;
+   static initialize(sequelize: Sequelize): typeof Domain {
+      if (!sequelize.models.Domain) {
+         Domain.init(
+            {
+               ID: {
+                  type: DataTypes.INTEGER,
+                  allowNull: false,
+                  primaryKey: true,
+                  autoIncrement: true,
+               },
+               domain: {
+                  type: DataTypes.STRING,
+                  allowNull: false,
+                  unique: true,
+                  defaultValue: '',
+               },
+               slug: {
+                  type: DataTypes.STRING,
+                  allowNull: false,
+                  unique: true,
+                  defaultValue: '',
+               },
+               lastUpdated: {
+                  type: DataTypes.STRING,
+                  allowNull: true,
+               },
+               added: {
+                  type: DataTypes.STRING,
+                  allowNull: true,
+               },
+               tags: {
+                  type: DataTypes.STRING,
+                  allowNull: true,
+                  defaultValue: JSON.stringify([]),
+               },
+               scrapeEnabled: {
+                  type: DataTypes.BOOLEAN,
+                  allowNull: false,
+                  defaultValue: true,
+               },
+               notification: {
+                  type: DataTypes.BOOLEAN,
+                  allowNull: true,
+                  defaultValue: true,
+               },
+               notification_interval: {
+                  type: DataTypes.STRING,
+                  allowNull: true,
+                  defaultValue: 'daily',
+               },
+               notification_emails: {
+                  type: DataTypes.STRING,
+                  allowNull: true,
+                  defaultValue: '',
+               },
+               search_console: {
+                  type: DataTypes.STRING,
+                  allowNull: true,
+               },
+               avgPosition: {
+                  type: DataTypes.INTEGER,
+                  allowNull: true,
+                  defaultValue: 0,
+               },
+               mapPackKeywords: {
+                  type: DataTypes.INTEGER,
+                  allowNull: true,
+                  defaultValue: 0,
+               },
+               scraper_settings: {
+                  type: DataTypes.TEXT,
+                  allowNull: true,
+                  defaultValue: null,
+               },
+            },
+            {
+               sequelize,
+               tableName: 'domain',
+               modelName: 'Domain',
+               timestamps: false,
+            },
+         );
+      }
+
+      return Domain;
+   }
 }
 
 export default Domain;

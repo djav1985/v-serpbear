@@ -1,6 +1,6 @@
 import { NextRouter } from 'next/router';
 import toast from 'react-hot-toast';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import { getClientOrigin } from '../utils/client/origin';
 
 const getActiveSlug = (router: NextRouter): string | undefined => {
@@ -30,9 +30,13 @@ export async function fetchSCKeywords(router: NextRouter, slugOverride?: string)
 }
 
 export function useFetchSCKeywords(router: NextRouter, domainLoaded: boolean = false, domainHasCredentials: boolean = false) {
-   const slug = getActiveSlug(router) || '';
+   const slug = getActiveSlug(router);
    const enabled = !!slug && (domainLoaded || domainHasCredentials);
-   return useQuery(['sckeywords', slug], () => fetchSCKeywords(router, slug), { enabled });
+   return useQuery({
+      queryKey: ['sckeywords', slug ?? ''],
+      queryFn: () => fetchSCKeywords(router, slug),
+      enabled,
+   });
 }
 
 export async function fetchSCInsight(router: NextRouter, slugOverride?: string) {
@@ -54,9 +58,13 @@ export async function fetchSCInsight(router: NextRouter, slugOverride?: string) 
 }
 
 export function useFetchSCInsight(router: NextRouter, domainLoaded: boolean = false, domainHasCredentials: boolean = false) {
-   const slug = getActiveSlug(router) || '';
+   const slug = getActiveSlug(router);
    const enabled = !!slug && (domainLoaded || domainHasCredentials);
-   return useQuery(['scinsight', slug], () => fetchSCInsight(router, slug), { enabled });
+   return useQuery({
+      queryKey: ['scinsight', slug ?? ''],
+      queryFn: () => fetchSCInsight(router, slug),
+      enabled,
+   });
 }
 
 export const refreshSearchConsoleData = async () => {
