@@ -101,4 +101,13 @@ describe('shareLinks utility', () => {
     process.env.APP_URL = 'https://server.example.com';
     expect(buildShareUrl('token-456')).toBe('https://server.example.com/share/token-456');
   });
+
+  it('strips trailing slashes from configured URLs', () => {
+    process.env.NEXT_PUBLIC_APP_URL = 'https://app.example.com/';
+    expect(buildShareUrl('token-789')).toBe('https://app.example.com/share/token-789');
+    
+    delete process.env.NEXT_PUBLIC_APP_URL;
+    process.env.APP_URL = 'https://server.example.com/';
+    expect(buildShareUrl('token-012')).toBe('https://server.example.com/share/token-012');
+  });
 });
