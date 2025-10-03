@@ -50,6 +50,12 @@ class Domain extends Model {
 
    @Column({ type: DataType.TEXT, allowNull: true, defaultValue: null })
    scraper_settings!: string | null;
+
+   @Column({ type: DataType.STRING, allowNull: true, defaultValue: null })
+   share_token_hash!: string | null;
+
+   @Column({ type: DataType.DATE, allowNull: true, defaultValue: null })
+   share_token_expires_at!: Date | null;
 }
 
 export default Domain;

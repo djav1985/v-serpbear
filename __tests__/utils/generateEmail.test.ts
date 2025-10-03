@@ -19,6 +19,68 @@ const createSettings = (overrides: Record<string, unknown> = {}) => ({
 }) as any;
 
 describe('generateEmail', () => {
+  const baseDomain = {
+    domain: 'example.com',
+    keywordsTracked: 3,
+    avgPosition: 2,
+    mapPackKeywords: 1,
+  } as any;
+
+  const baseKeyword = {
+    ID: 1,
+    keyword: 'test keyword',
+    device: 'desktop',
+    country: 'US',
+    domain: 'example.com',
+    lastUpdated: new Date().toISOString(),
+    added: new Date().toISOString(),
+    position: 5,
+    volume: 0,
+    sticky: false,
+    history: {},
+    lastResult: [],
+    url: '',
+    tags: [],
+    updating: false,
+    lastUpdateError: false,
+  } as any;
+
+  it('prefers generated share dashboard URL when provided', async () => {
+    const originalAppUrl = process.env.NEXT_PUBLIC_APP_URL;
+    process.env.NEXT_PUBLIC_APP_URL = 'https://app.example.com';
+
+    mockReadFile.mockResolvedValue('<html>{{shareDashboardURL}}</html>');
+
+    const html = await generateEmail(
+      baseDomain,
+      [baseKeyword],
+      createSettings(),
+      'https://share.example.com/token',
+    );
+
+    expect(html).toBe('<html>https://share.example.com/token</html>');
+
+    process.env.NEXT_PUBLIC_APP_URL = originalAppUrl;
+  });
+
+  it('falls back to app URL when share dashboard URL generation fails', async () => {
+    const originalAppUrl = process.env.NEXT_PUBLIC_APP_URL;
+    process.env.NEXT_PUBLIC_APP_URL = 'https://app.example.com';
+
+    mockReadFile.mockResolvedValue('<html>{{shareDashboardURL}}</html>');
+
+    const html = await generateEmail(
+      baseDomain,
+      [baseKeyword],
+      createSettings(),
+      undefined,
+    );
+
+    expect(html).toBe('<html>https://app.example.com</html>');
+
+    process.env.NEXT_PUBLIC_APP_URL = originalAppUrl;
+  });
+
   it('includes location details in keyword table when provided', async () => {
     mockReadFile.mockResolvedValue('<html>{{domainStats}}{{keywordsTable}}</html>');
 
