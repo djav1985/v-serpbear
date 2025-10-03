@@ -24,8 +24,11 @@ export const hashShareToken = (token: string): string => {
 };
 
 const resolveBaseUrl = (): string => {
-   const base = process.env.NEXT_PUBLIC_APP_URL || '';
-   return base.replace(/\/$/, '');
+   const envOrigin = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || '';
+   if (envOrigin) {
+      return envOrigin.replace(/\/$/, '');
+   }
+   return 'http://localhost:3000';
 };
 
 const resolveExpiryDate = (): Date => {
@@ -74,9 +77,6 @@ const ensureDomainInstance = async (domain: DomainType | Domain): Promise<Domain
 export const buildShareUrl = (token: string, pathSuffix = ''): string => {
    const baseUrl = resolveBaseUrl();
    const sanitizedSuffix = pathSuffix ? `/${pathSuffix.replace(/^\//, '')}` : '';
-   if (!baseUrl) {
-      return `/share/${token}${sanitizedSuffix}`;
-   }
    return `${baseUrl}/share/${token}${sanitizedSuffix}`;
 };
 

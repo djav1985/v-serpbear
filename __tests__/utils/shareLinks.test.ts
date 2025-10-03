@@ -90,8 +90,24 @@ describe('shareLinks utility', () => {
     expect(domain).toBeNull();
   });
 
-  it('builds relative share URL when app URL is missing', () => {
+  it('builds absolute share URL with localhost fallback when app URL is missing', () => {
     delete process.env.NEXT_PUBLIC_APP_URL;
-    expect(buildShareUrl('token-123')).toBe('/share/token-123');
+    delete process.env.APP_URL;
+    expect(buildShareUrl('token-123')).toBe('http://localhost:3000/share/token-123');
+  });
+
+  it('uses APP_URL as fallback when NEXT_PUBLIC_APP_URL is missing', () => {
+    delete process.env.NEXT_PUBLIC_APP_URL;
+    process.env.APP_URL = 'https://server.example.com';
+    expect(buildShareUrl('token-456')).toBe('https://server.example.com/share/token-456');
+  });
+
+  it('strips trailing slashes from configured URLs', () => {
+    process.env.NEXT_PUBLIC_APP_URL = 'https://app.example.com/';
+    expect(buildShareUrl('token-789')).toBe('https://app.example.com/share/token-789');
+    
+    delete process.env.NEXT_PUBLIC_APP_URL;
+    process.env.APP_URL = 'https://server.example.com/';
+    expect(buildShareUrl('token-012')).toBe('https://server.example.com/share/token-012');
   });
 });
