@@ -9,6 +9,7 @@ import parseKeywords from '../../utils/parseKeywords';
 import generateEmail from '../../utils/generateEmail';
 import { getAppSettings } from '../../pages/api/settings';
 import { getBranding } from '../../utils/branding';
+import { createDomainShareLink } from '../../utils/shareLinks';
 
 const { platformName } = getBranding();
 
@@ -33,6 +34,14 @@ jest.mock('../../utils/generateEmail');
 jest.mock('../../utils/emailThrottle', () => ({
   canSendEmail: jest.fn(() => Promise.resolve({ canSend: true })),
   recordEmailSent: jest.fn(() => Promise.resolve()),
+}));
+jest.mock('../../utils/shareLinks', () => ({
+  __esModule: true,
+  createDomainShareLink: jest.fn(() => Promise.resolve({
+    token: 'abc123',
+    url: 'https://app.example.com/share/abc123',
+    expiresAt: new Date().toISOString(),
+  })),
 }));
 
 jest.mock('nodemailer', () => ({
@@ -73,6 +82,7 @@ describe('/api/notify - authentication', () => {
     (db.sync as jest.Mock).mockResolvedValue(undefined);
     (parseKeywords as jest.Mock).mockImplementation((keywords) => keywords);
     (generateEmail as jest.Mock).mockResolvedValue('<html></html>');
+    (createDomainShareLink as jest.Mock).mockClear();
     (getAppSettings as jest.Mock).mockResolvedValue({
       smtp_server: 'smtp.test',
       smtp_port: '587',
@@ -167,6 +177,8 @@ describe('/api/notify - authentication', () => {
     expect(sendMailMock).toHaveBeenCalledWith(expect.objectContaining({
       to: 'custom@example.com',
     }));
+    expect(createDomainShareLink).toHaveBeenCalled();
+    expect(generateEmail).toHaveBeenCalledWith(expect.any(Object), expect.any(Array), expect.any(Object), 'https://app.example.com/share/abc123');
   });
 
   it('sanitizes SMTP hostnames and applies TLS overrides when provided', async () => {

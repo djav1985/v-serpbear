@@ -26,6 +26,8 @@ type DomainType = {
    search_console?: string,
    ideas_settings?: string,
    scraper_settings?: DomainScraperSettings | null,
+   share_token_hash?: string | null,
+   share_token_expires_at?: string | null,
 }
 
 type KeywordHistory = {

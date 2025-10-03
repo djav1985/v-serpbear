@@ -106,7 +106,12 @@ const calculateKeywordSummary = (items: KeywordType[]): KeywordSummary => items.
  * @param {keywords[]} keywords - Keywords to scrape
  * @returns {Promise}
  */
-const generateEmail = async (domain:DomainType, keywords:KeywordType[], settings: SettingsType) : Promise<string> => {
+const generateEmail = async (
+   domain:DomainType,
+   keywords:KeywordType[],
+   settings: SettingsType,
+   shareDashboardUrl?: string,
+) : Promise<string> => {
    const domainName = domain.domain;
    const emailTemplate = await readFile(path.join(__dirname, '..', '..', '..', '..', 'email', 'email.html'), { encoding: 'utf-8' });
    const currentDate = dayjs(new Date()).format('MMMM D, YYYY');
@@ -206,6 +211,9 @@ const generateEmail = async (domain:DomainType, keywords:KeywordType[], settings
 
    const { emailLogo, platformName: brandName } = resolveEmailBranding();
 
+   const fallbackAppUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+   const resolvedShareUrl = shareDashboardUrl || fallbackAppUrl;
+
    const updatedEmail = emailTemplate
          .replace('{{logo}}', `<img class="logo_img" src="${emailLogo}" alt="${brandName}" width="24" height="24" />`)
          .replace(/{{platformName}}/g, brandName)
@@ -214,7 +222,7 @@ const generateEmail = async (domain:DomainType, keywords:KeywordType[], settings
          .replace('{{keywordsCount}}', keywordsCount.toString())
          .replace('{{keywordsTable}}', keywordsTable)
          .replace('{{domainStats}}', domainStatsHTML)
-         .replace('{{appURL}}', process.env.NEXT_PUBLIC_APP_URL || '')
+         .replace('{{shareDashboardURL}}', resolvedShareUrl)
          .replace('{{stat}}', stat)
          .replace('{{preheader}}', stat);
 

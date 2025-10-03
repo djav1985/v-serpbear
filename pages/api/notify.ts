@@ -13,6 +13,7 @@ import { canSendEmail, recordEmailSent } from '../../utils/emailThrottle';
 import { getAppSettings } from './settings';
 import { trimStringProperties } from '../../utils/security';
 import { getBranding } from '../../utils/branding';
+import { createDomainShareLink } from '../../utils/shareLinks';
 
 type NotifyResponse = {
    success?: boolean
@@ -165,7 +166,15 @@ const sendNotificationEmail = async (domain: DomainType | Domain, settings: Sett
       const domainsWithStats = await getdomainStats([domainObj]);
       const domainWithStats = domainsWithStats[0] || domainObj;
       
-      const emailHTML = await generateEmail(domainWithStats, keywords, settings);
+      let shareDashboardUrl: string | undefined;
+      try {
+         const shareLink = await createDomainShareLink(domainObj);
+         shareDashboardUrl = shareLink.url;
+      } catch (shareError) {
+         console.error(`[EMAIL] Failed to create share link for ${domainName}:`, shareError);
+      }
+
+      const emailHTML = await generateEmail(domainWithStats, keywords, settings, shareDashboardUrl);
 
       const domainNotificationEmails = trimString(domain.notification_emails);
       const fallbackNotification = notification_email;
