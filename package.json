@@ -59,7 +59,7 @@
     "@types/cookies": "^0.9.1",
     "@types/cryptr": "^4.0.1",
     "@types/jsonwebtoken": "^8.5.9",
-    "@types/node": "18.19.127",
+    "@types/node": "18.19.130",
     "@types/nodemailer": "^6.4.6",
     "@types/react": "18.3.1",
     "@types/react-timeago": "^4.1.3",
