@@ -33,7 +33,7 @@
     "google-auth-library": "^10.3.0",
     "https-proxy-agent": "^5.0.1",
     "jsonwebtoken": "^9.0.2",
-    "next": "^15.5.3",
+    "next": "^15.5.6",
     "nodemailer": "^7.0.7",
     "react": "18.3.1",
     "react-chartjs-2": "^4.3.1",
