@@ -173,6 +173,15 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
             if (refreshedEntry) {
                const updatedkeyword = await updateKeywordPosition(keyword, refreshedEntry.result, refreshedEntry.settings);
                updatedKeywords.push(updatedkeyword);
+            } else {
+               // If no refreshed entry found, ensure updating flag is cleared
+               try {
+                  await Keyword.update({ updating: false }, { where: { ID: keyword.ID } });
+                  const currentKeyword = keyword.get({ plain: true });
+                  updatedKeywords.push(currentKeyword);
+               } catch (error) {
+                  console.log('[ERROR] Failed to clear updating flag for keyword:', keyword.ID, error);
+               }
             }
          }
       }
@@ -233,31 +242,31 @@ const refreshAndUpdateKeyword = async (
    } catch (error: any) {
       scraperError = serializeError(error);
       console.log('[ERROR] Scraper failed for keyword:', currentkeyword.keyword, scraperError);
-   } finally {
-      // Always ensure updating is set to false, regardless of success or failure
-      try {
-         const updateData: any = { updating: false };
-
-         // If there was an error, save it to lastUpdateError
-         if (scraperError) {
-            const theDate = new Date();
-            updateData.lastUpdateError = JSON.stringify({
-               date: theDate.toJSON(),
-               error: scraperError,
-               scraper: effectiveSettings.scraper_type,
-            });
-         }
-
-         await Keyword.update(updateData, { where: { ID: keyword.ID } });
-         keyword.set(updateData);
-      } catch (updateError) {
-         console.log('[ERROR] Failed to update keyword updating status:', updateError);
-      }
    }
 
+   // Update keyword position or handle error
    if (refreshedkeywordData) {
       const updatedkeyword = await updateKeywordPosition(keyword, refreshedkeywordData, effectiveSettings);
       return updatedkeyword;
+   }
+
+   // Handle error case: set updating to false and save error
+   try {
+      const updateData: any = { updating: false };
+
+      if (scraperError) {
+         const theDate = new Date();
+         updateData.lastUpdateError = JSON.stringify({
+            date: theDate.toJSON(),
+            error: scraperError,
+            scraper: effectiveSettings.scraper_type,
+         });
+      }
+
+      await Keyword.update(updateData, { where: { ID: keyword.ID } });
+      keyword.set(updateData);
+   } catch (updateError) {
+      console.log('[ERROR] Failed to update keyword error status:', updateError);
    }
 
    try {
