@@ -60,6 +60,9 @@ const parseKeywords = (allKeywords: Keyword[]) : KeywordType[] => {
       let lastResult: any[] = [];
       try { lastResult = JSON.parse(keywordData.lastResult); } catch { lastResult = []; }
 
+      let localResults: any[] = [];
+      try { localResults = JSON.parse(keywordData.localResults || '[]'); } catch { localResults = []; }
+
       let lastUpdateError: any = false;
       if (typeof keywordData.lastUpdateError === 'string' && keywordData.lastUpdateError !== 'false' && keywordData.lastUpdateError.includes('{')) {
          try { lastUpdateError = JSON.parse(keywordData.lastUpdateError); } catch { lastUpdateError = {}; }
@@ -76,6 +79,7 @@ const parseKeywords = (allKeywords: Keyword[]) : KeywordType[] => {
          history,
          tags,
          lastResult,
+         localResults,
          lastUpdateError,
          sticky,
          updating,

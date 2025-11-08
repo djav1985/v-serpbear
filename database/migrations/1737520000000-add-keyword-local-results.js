@@ -1,0 +1,50 @@
+// Migration: Adds localResults field to keyword table to store local/map pack search results
+
+module.exports = {
+   up: async function up(params = {}, legacySequelize) {
+      const queryInterface = params?.context ?? params;
+      const SequelizeLib = params?.Sequelize
+         ?? legacySequelize
+         ?? queryInterface?.sequelize?.constructor
+         ?? require('sequelize');
+
+      return queryInterface.sequelize.transaction(async (transaction) => {
+         try {
+            const keywordTableDefinition = await queryInterface.describeTable('keyword');
+
+            if (!keywordTableDefinition?.localResults) {
+               await queryInterface.addColumn(
+                  'keyword',
+                  'localResults',
+                  {
+                     type: SequelizeLib.DataTypes.STRING,
+                     allowNull: true,
+                     defaultValue: JSON.stringify([]),
+                  },
+                  { transaction }
+               );
+            }
+         } catch (error) {
+            console.log('error :', error);
+            throw error;
+         }
+      });
+   },
+
+   down: async function down(params = {}) {
+      const queryInterface = params?.context ?? params;
+
+      return queryInterface.sequelize.transaction(async (transaction) => {
+         try {
+            const keywordTableDefinition = await queryInterface.describeTable('keyword');
+
+            if (keywordTableDefinition?.localResults) {
+               await queryInterface.removeColumn('keyword', 'localResults', { transaction });
+            }
+         } catch (error) {
+            console.log('Migration rollback error:', error);
+            throw error;
+         }
+      });
+   },
+};

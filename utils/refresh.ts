@@ -178,7 +178,8 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                try {
                   await Keyword.update({ updating: false }, { where: { ID: keyword.ID } });
                   const currentKeyword = keyword.get({ plain: true });
-                  updatedKeywords.push(currentKeyword);
+                  const parsedKeyword = parseKeywords([currentKeyword])[0];
+                  updatedKeywords.push({ ...parsedKeyword, updating: false });
                } catch (error) {
                   console.log('[ERROR] Failed to clear updating flag for keyword:', keyword.ID, error);
                }
@@ -279,7 +280,9 @@ const refreshAndUpdateKeyword = async (
       console.log('[ERROR] Failed to update retry queue for keyword:', keyword.ID, queueError);
    }
 
-   return currentkeyword;
+   // Return the current keyword with updated state
+   const updatedKeywordData = { ...currentkeyword, updating: false };
+   return parseKeywords([updatedKeywordData])[0];
 };
 
 /**
@@ -328,6 +331,32 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          parsedNormalizedResult = [];
       }
 
+      const normalizeLocalResults = (results: any): string => {
+         if (results === undefined || results === null) {
+            return JSON.stringify([]);
+         }
+
+         if (typeof results === 'string') {
+            return results;
+         }
+
+         try {
+            return JSON.stringify(results);
+         } catch (error) {
+            console.warn('[WARNING] Failed to serialise local results:', error);
+            return JSON.stringify([]);
+         }
+      };
+
+      const normalizedLocalResults = normalizeLocalResults(updatedKeyword.localResults);
+      let parsedLocalResults: KeywordLocalResult[] = [];
+      try {
+         const maybeParsedLocalResults = JSON.parse(normalizedLocalResults);
+         parsedLocalResults = Array.isArray(maybeParsedLocalResults) ? maybeParsedLocalResults : [];
+      } catch {
+         parsedLocalResults = [];
+      }
+
       const hasError = Boolean(updatedKeyword.error);
       const lastUpdatedValue = hasError
          ? (typeof keyword.lastUpdated === 'string' ? keyword.lastUpdated : null)
@@ -342,6 +371,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          updating: 0,
          url: urlValue,
          lastResult: normalizedResult,
+         localResults: normalizedLocalResults,
          history: JSON.stringify(history),
          lastUpdated: lastUpdatedValue,
          lastUpdateError: lastUpdateErrorValue,
@@ -356,7 +386,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
 
       try {
          await keywordRaw.update(dbPayload);
-         console.log('[SUCCESS] Updating the Keyword: ', keyword.keyword);
+         console.log('[SUCCESS] Updating the Keyword ID:', keyword.ID, 'keyword:', keyword.keyword, 'device:', keyword.device || 'desktop', 'mapPackTop3:', dbPayload.mapPackTop3);
 
          let parsedError: false | { date: string; error: string; scraper: string } = false;
          if (dbPayload.lastUpdateError !== 'false') {
@@ -377,6 +407,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
             updating: false,
             url: dbPayload.url ?? '',
             lastResult: parsedNormalizedResult,
+            localResults: parsedLocalResults,
             history,
             lastUpdated: effectiveLastUpdated,
             lastUpdateError: parsedError,
@@ -409,6 +440,7 @@ const buildErrorResult = (keyword: KeywordType, error: unknown): RefreshResult =
    position: typeof keyword.position === 'number' ? keyword.position : 0,
    url: typeof keyword.url === 'string' ? keyword.url : '',
    result: [],
+   localResults: Array.isArray(keyword.localResults) ? keyword.localResults : [],
    mapPackTop3: keyword.mapPackTop3 === true,
    error: typeof error === 'string' ? error : serializeError(error),
 });

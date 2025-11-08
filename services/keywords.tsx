@@ -318,6 +318,7 @@ export function useFetchSingleKeyword(keywordID:number) {
          return { 
             history: result.keyword?.history || [], 
             searchResult: result.keyword?.lastResult || [], 
+            localResults: result.keyword?.localResults || [],
             mapPackTop3: result.keyword?.mapPackTop3 
          };
       } catch (error) {

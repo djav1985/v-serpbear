@@ -55,12 +55,20 @@ type KeywordType = {
    state?: string,
    city?: string,
    mapPackTop3?: boolean,
+   localResults?: KeywordLocalResult[],
 }
 
 type KeywordLastResult = {
    position: number,
    url: string,
    title: string
+}
+
+type KeywordLocalResult = {
+   position: number,
+   url?: string,
+   title?: string,
+   [key: string]: any
 }
 
 type KeywordFilters = {

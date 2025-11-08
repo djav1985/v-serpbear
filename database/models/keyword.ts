@@ -67,6 +67,9 @@ class Keyword extends Model {
 
    @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: false })
    mapPackTop3!: boolean;
+
+   @Column({ type: DataType.STRING, allowNull: true, defaultValue: JSON.stringify([]) })
+   localResults!: string;
 }
 
 export default Keyword;
