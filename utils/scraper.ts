@@ -265,7 +265,11 @@ export const scrapeKeywordFromGoogle = async (keyword:KeywordType, settings:Sett
                   : computeMapPackTop3(keyword.domain, res);
                
                // Extract local results from the response payload
-               localResults = extractLocalResultsFromPayload(res);
+               const debugMode = process.env.NODE_ENV === 'development';
+               localResults = extractLocalResultsFromPayload(res, debugMode);
+               if (debugMode && keyword.device === 'mobile') {
+                  console.log(`[MAP_PACK] Mobile keyword: ${keyword.keyword}, mapPackTop3: ${computedMapPack}, localResults count: ${localResults.length}`);
+               }
             }
 
             refreshedResults = {
@@ -278,7 +282,12 @@ export const scrapeKeywordFromGoogle = async (keyword:KeywordType, settings:Sett
                localResults,
                error: false,
             };
-            console.log(`[SERP] Success on attempt ${attempt + 1}:`, keyword.keyword, serp.position, serp.url, computedMapPack ? 'MAP' : '');
+            console.log(`[SERP] Success on attempt ${attempt + 1}:`, keyword.keyword, 
+                        `device: ${keyword.device || 'desktop'}`,
+                        `position: ${serp.position}`, 
+                        `url: ${serp.url}`, 
+                        `mapPackTop3: ${computedMapPack ? 'YES' : 'NO'}`,
+                        `localResults: ${localResults.length}`);
             return refreshedResults; // Success, return immediately
          } else {
             // Enhanced error extraction for empty results

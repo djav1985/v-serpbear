@@ -98,7 +98,7 @@ const collectLocalArrays = (source: unknown, depth: number = 0): LocalResultEntr
    return results;
 };
 
-export const extractLocalResultsFromPayload = (payload: unknown): LocalResultEntry[] => {
+export const extractLocalResultsFromPayload = (payload: unknown, debug = false): LocalResultEntry[] => {
    if (!payload || typeof payload !== 'object') {
       return [];
    }
@@ -126,13 +126,24 @@ export const extractLocalResultsFromPayload = (payload: unknown): LocalResultEnt
    register(container.places_results);
    register(container.place_results);
    register((container.results as any)?.local_results);
+   // Mobile-specific variations
+   register(container.mobile_local_results);
+   register(container.local_map);
+   register((container.local_map as any)?.places);
 
    if (directCandidates.length === 0) {
       directCandidates.push(...collectLocalArrays(container));
    }
 
    if (directCandidates.length === 0) {
+      if (debug) {
+         console.log('[MAP_PACK] No local results found in payload. Available keys:', Object.keys(container));
+      }
       return [];
+   }
+
+   if (debug) {
+      console.log('[MAP_PACK] Found', directCandidates[0].length, 'local results');
    }
 
    return directCandidates[0];
