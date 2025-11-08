@@ -254,9 +254,14 @@ export const scrapeKeywordFromGoogle = async (keyword:KeywordType, settings:Sett
          if (extraction && Array.isArray(extraction.organic)) {
             const organicResults = extraction.organic;
             const serp = getSerp(keyword.domain, organicResults);
-            const computedMapPack = typeof extraction.mapPackTop3 === 'boolean'
-               ? extraction.mapPackTop3
-               : computeMapPackTop3(keyword.domain, res);
+            
+            // Only compute map pack if the scraper supports it
+            let computedMapPack = false;
+            if (scraperObj?.supportsMapPack !== false) {
+               computedMapPack = typeof extraction.mapPackTop3 === 'boolean'
+                  ? extraction.mapPackTop3
+                  : computeMapPackTop3(keyword.domain, res);
+            }
 
             refreshedResults = {
                ID: keyword.ID,
