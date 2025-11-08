@@ -328,6 +328,32 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          parsedNormalizedResult = [];
       }
 
+      const normalizeLocalResults = (results: any): string => {
+         if (results === undefined || results === null) {
+            return JSON.stringify([]);
+         }
+
+         if (typeof results === 'string') {
+            return results;
+         }
+
+         try {
+            return JSON.stringify(results);
+         } catch (error) {
+            console.warn('[WARNING] Failed to serialise local results:', error);
+            return JSON.stringify([]);
+         }
+      };
+
+      const normalizedLocalResults = normalizeLocalResults(updatedKeyword.localResults);
+      let parsedLocalResults: KeywordLocalResult[] = [];
+      try {
+         const maybeParsedLocalResults = JSON.parse(normalizedLocalResults);
+         parsedLocalResults = Array.isArray(maybeParsedLocalResults) ? maybeParsedLocalResults : [];
+      } catch {
+         parsedLocalResults = [];
+      }
+
       const hasError = Boolean(updatedKeyword.error);
       const lastUpdatedValue = hasError
          ? (typeof keyword.lastUpdated === 'string' ? keyword.lastUpdated : null)
@@ -342,6 +368,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          updating: 0,
          url: urlValue,
          lastResult: normalizedResult,
+         localResults: normalizedLocalResults,
          history: JSON.stringify(history),
          lastUpdated: lastUpdatedValue,
          lastUpdateError: lastUpdateErrorValue,
@@ -377,6 +404,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
             updating: false,
             url: dbPayload.url ?? '',
             lastResult: parsedNormalizedResult,
+            localResults: parsedLocalResults,
             history,
             lastUpdated: effectiveLastUpdated,
             lastUpdateError: parsedError,

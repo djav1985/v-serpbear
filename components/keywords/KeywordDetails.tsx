@@ -25,6 +25,11 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
    const keywordSearchResult: KeywordLastResult[] = Array.isArray(keywordSearchResultRaw)
       ? keywordSearchResultRaw
       : fallbackResults;
+   const fallbackLocalResults = Array.isArray(keyword.localResults) ? keyword.localResults : [];
+   const keywordLocalResultsRaw = keywordData?.localResults;
+   const keywordLocalResults: KeywordLocalResult[] = Array.isArray(keywordLocalResultsRaw)
+      ? keywordLocalResultsRaw
+      : fallbackLocalResults;
    const mapPackTop3 = (keywordData?.mapPackTop3 ?? keyword.mapPackTop3) === true;
    const dateOptions = [
       { label: 'Last 7 Days', value: '7' },
@@ -98,6 +103,39 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
                      </div>
                      <div className='keywordDetails__section__chart h-64'>
                            <Chart labels={chartData.labels} series={chartData.series} />
+                     </div>
+                  </div>
+                  <div className='keywordDetails__section mt-10'>
+                     <div className="keywordDetails__section__head flex justify-between items-center pb-4 mb-4 border-b border-b-slate-200">
+                        <h3 className=' font-bold text-gray-700 lg:text-lg'>Local Search Results</h3>
+                        <span className=' text-xs text-gray-500'>{dayjs(updatedDate).format('MMMM D, YYYY')}</span>
+                     </div>
+                     <div className='keywordDetails__section__results styled-scrollbar overflow-y-auto'>
+                        {keywordLocalResults && Array.isArray(keywordLocalResults) && keywordLocalResults.length > 0 ? (
+                           keywordLocalResults.map((item, index) => {
+                              const position = item.position || index + 1;
+                              const title = item.title || item.name || `Local Result ${position}`;
+                              const url = item.url || item.website || item.link || item.business_website || item.place_link || '';
+                              
+                              return (
+                                 <div
+                                 className={`leading-6 mb-4 mr-3 p-3 text-sm break-all pr-3 rounded 
+                                 ${mapPackTop3 && index < 3 ? ' bg-green-50 border border-green-200' : ''}`}
+                                 key={url + position}>
+                                    <h4 className='font-semibold text-blue-700'>
+                                       {url ? (
+                                          <a href={url} target="_blank" rel='noreferrer'>{`${position}. ${title}`}</a>
+                                       ) : (
+                                          `${position}. ${title}`
+                                       )}
+                                    </h4>
+                                    {url && <a className=' text-green-900' href={url} target="_blank" rel='noreferrer'>{url}</a>}
+                                 </div>
+                              );
+                           })
+                        ) : (
+                           <div className='text-gray-400 text-sm'>N/A</div>
+                        )}
                      </div>
                   </div>
                   <div className='keywordDetails__section mt-10'>

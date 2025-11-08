@@ -6,7 +6,7 @@ import countries from './countries';
 import { serializeError } from './errorSerialization';
 import allScrapers from '../scrapers/index';
 import { GOOGLE_BASE_URL } from './constants';
-import { computeMapPackTop3, doesUrlMatchDomainHost, normaliseDomainHost } from './mapPack';
+import { computeMapPackTop3, doesUrlMatchDomainHost, normaliseDomainHost, extractLocalResultsFromPayload } from './mapPack';
 
 type SearchResult = {
    title: string,
@@ -26,6 +26,7 @@ export type RefreshResult = false | {
    url: string,
    result: SearchResult[],
    mapPackTop3: boolean,
+   localResults?: any[],
    error?: boolean | string
 };
 
@@ -257,10 +258,14 @@ export const scrapeKeywordFromGoogle = async (keyword:KeywordType, settings:Sett
             
             // Only compute map pack if the scraper supports it
             let computedMapPack = false;
+            let localResults: any[] = [];
             if (scraperObj?.supportsMapPack !== false) {
                computedMapPack = typeof extraction.mapPackTop3 === 'boolean'
                   ? extraction.mapPackTop3
                   : computeMapPackTop3(keyword.domain, res);
+               
+               // Extract local results from the response payload
+               localResults = extractLocalResultsFromPayload(res);
             }
 
             refreshedResults = {
@@ -270,6 +275,7 @@ export const scrapeKeywordFromGoogle = async (keyword:KeywordType, settings:Sett
                url: serp.url,
                result: organicResults,
                mapPackTop3: Boolean(computedMapPack),
+               localResults,
                error: false,
             };
             console.log(`[SERP] Success on attempt ${attempt + 1}:`, keyword.keyword, serp.position, serp.url, computedMapPack ? 'MAP' : '');
