@@ -157,4 +157,209 @@ describe('valueSerp scraper', () => {
 
     expect(parsed.searchParams.get('location')).toBe('Seattle,WA,United States');
   });
+
+  describe('map pack detection', () => {
+    it('detects map pack when domain is in local_results top 3', () => {
+      const keyword: KeywordType = {
+        ID: 1,
+        keyword: 'pizza restaurant',
+        device: 'desktop',
+        country: 'US',
+        domain: 'example.com',
+        lastUpdated: '',
+        volume: 0,
+        added: '',
+        position: 0,
+        sticky: false,
+        history: {},
+        lastResult: [],
+        url: '',
+        tags: [],
+        updating: false,
+        lastUpdateError: false,
+        mapPackTop3: false,
+        location: 'Austin,TX,US',
+      };
+
+      const mockResponse = {
+        organic_results: [
+          { title: 'Result 1', link: 'https://example.com/page1', position: 1 },
+          { title: 'Result 2', link: 'https://other.com/page2', position: 2 },
+        ],
+        local_results: [
+          { title: 'Pizza Place 1', website: 'https://example.com', position: 1 },
+          { title: 'Pizza Place 2', website: 'https://competitor.com', position: 2 },
+          { title: 'Pizza Place 3', website: 'https://another.com', position: 3 },
+        ],
+      };
+
+      const extraction = valueSerp.serpExtractor!({
+        keyword,
+        response: mockResponse,
+        result: mockResponse.organic_results,
+      });
+
+      expect(extraction.organic).toHaveLength(2);
+      expect(extraction.mapPackTop3).toBe(true);
+    });
+
+    it('returns false when domain is not in local_results', () => {
+      const keyword: KeywordType = {
+        ID: 1,
+        keyword: 'pizza restaurant',
+        device: 'desktop',
+        country: 'US',
+        domain: 'example.com',
+        lastUpdated: '',
+        volume: 0,
+        added: '',
+        position: 0,
+        sticky: false,
+        history: {},
+        lastResult: [],
+        url: '',
+        tags: [],
+        updating: false,
+        lastUpdateError: false,
+        mapPackTop3: false,
+        location: 'Austin,TX,US',
+      };
+
+      const mockResponse = {
+        organic_results: [
+          { title: 'Result 1', link: 'https://example.com/page1', position: 1 },
+        ],
+        local_results: [
+          { title: 'Pizza Place 1', website: 'https://competitor1.com', position: 1 },
+          { title: 'Pizza Place 2', website: 'https://competitor2.com', position: 2 },
+          { title: 'Pizza Place 3', website: 'https://competitor3.com', position: 3 },
+        ],
+      };
+
+      const extraction = valueSerp.serpExtractor!({
+        keyword,
+        response: mockResponse,
+        result: mockResponse.organic_results,
+      });
+
+      expect(extraction.organic).toHaveLength(1);
+      expect(extraction.mapPackTop3).toBe(false);
+    });
+
+    it('returns false when no local_results present', () => {
+      const keyword: KeywordType = {
+        ID: 1,
+        keyword: 'general query',
+        device: 'desktop',
+        country: 'US',
+        domain: 'example.com',
+        lastUpdated: '',
+        volume: 0,
+        added: '',
+        position: 0,
+        sticky: false,
+        history: {},
+        lastResult: [],
+        url: '',
+        tags: [],
+        updating: false,
+        lastUpdateError: false,
+        mapPackTop3: false,
+        location: '',
+      };
+
+      const mockResponse = {
+        organic_results: [
+          { title: 'Result 1', link: 'https://example.com/page1', position: 1 },
+          { title: 'Result 2', link: 'https://other.com/page2', position: 2 },
+        ],
+      };
+
+      const extraction = valueSerp.serpExtractor!({
+        keyword,
+        response: mockResponse,
+        result: mockResponse.organic_results,
+      });
+
+      expect(extraction.organic).toHaveLength(2);
+      expect(extraction.mapPackTop3).toBe(false);
+    });
+
+    it('handles domain matching with www prefix correctly', () => {
+      const keyword: KeywordType = {
+        ID: 1,
+        keyword: 'coffee shop',
+        device: 'desktop',
+        country: 'US',
+        domain: 'example.com',
+        lastUpdated: '',
+        volume: 0,
+        added: '',
+        position: 0,
+        sticky: false,
+        history: {},
+        lastResult: [],
+        url: '',
+        tags: [],
+        updating: false,
+        lastUpdateError: false,
+        mapPackTop3: false,
+        location: '',
+      };
+
+      const mockResponse = {
+        organic_results: [],
+        local_results: [
+          { title: 'Shop 1', website: 'https://www.example.com', position: 1 },
+        ],
+      };
+
+      const extraction = valueSerp.serpExtractor!({
+        keyword,
+        response: mockResponse,
+        result: [],
+      });
+
+      expect(extraction.mapPackTop3).toBe(true);
+    });
+
+    it('detects map pack using alternative field names', () => {
+      const keyword: KeywordType = {
+        ID: 1,
+        keyword: 'plumber near me',
+        device: 'desktop',
+        country: 'US',
+        domain: 'example.com',
+        lastUpdated: '',
+        volume: 0,
+        added: '',
+        position: 0,
+        sticky: false,
+        history: {},
+        lastResult: [],
+        url: '',
+        tags: [],
+        updating: false,
+        lastUpdateError: false,
+        mapPackTop3: false,
+        location: '',
+      };
+
+      // Test with places field instead of local_results
+      const mockResponse = {
+        organic_results: [],
+        places: [
+          { title: 'Plumber 1', link: 'https://example.com', position: 1 },
+        ],
+      };
+
+      const extraction = valueSerp.serpExtractor!({
+        keyword,
+        response: mockResponse,
+        result: [],
+      });
+
+      expect(extraction.mapPackTop3).toBe(true);
+    });
+  });
 });

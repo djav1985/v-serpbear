@@ -1,5 +1,6 @@
 import { resolveCountryCode } from "../../utils/scraperHelpers";
 import { parseLocation } from "../../utils/location";
+
 const decodeIfEncoded = (value: string): string => {
   try {
     return decodeURIComponent(value);
@@ -82,7 +83,7 @@ const serper: ScraperSettings = {
       }
     }
 
-    return { organic: extractedResult, mapPackTop3: false };
+    return { organic: extractedResult };
   },
 };
 

@@ -81,7 +81,8 @@ const collectLocalArrays = (source: unknown, depth: number = 0): LocalResultEntr
       const lowerKey = key.toLowerCase();
       const hasHint = KEY_HINTS.some((hint) => lowerKey.includes(hint));
 
-      if (Array.isArray(value) && (hasHint || value.some(isLikelyLocalResult))) {
+      // Only collect arrays if the KEY contains a hint (local, map, place)
+      if (Array.isArray(value) && hasHint) {
          const filtered = value.filter(isLikelyLocalResult);
          if (filtered.length > 0) {
             results.push(filtered);
