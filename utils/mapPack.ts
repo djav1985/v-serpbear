@@ -2,6 +2,7 @@ const URL_KEYS = [
    'website',
    'link',
    'url',
+   'site',
    'result_link',
    'data_website',
    'share_link',
@@ -65,7 +66,15 @@ export const doesUrlMatchDomainHost = (domainHost: string, value: string): boole
 const isLikelyLocalResult = (entry: unknown): entry is LocalResultEntry => {
    if (!entry || typeof entry !== 'object') { return false; }
    const candidate = entry as LocalResultEntry;
-   return 'title' in candidate || 'link' in candidate || 'website' in candidate || 'data_id' in candidate;
+   return 'title' in candidate 
+      || 'name' in candidate 
+      || 'link' in candidate 
+      || 'website' in candidate 
+      || 'url' in candidate 
+      || 'site' in candidate 
+      || 'data_id' in candidate 
+      || 'place_id' in candidate 
+      || 'cid' in candidate;
 };
 
 const collectLocalArrays = (source: unknown, depth: number = 0): LocalResultEntry[][] => {
@@ -175,7 +184,71 @@ const extractCandidateUrls = (entry: LocalResultEntry): string[] => {
       candidates.add(entry.domain.trim());
    }
 
+   // Check for nested links object (common in ValueSERP and other APIs)
+   const links = entry.links as Record<string, unknown> | undefined;
+   if (links && typeof links === 'object') {
+      for (const key of URL_KEYS) {
+         const value = links[key];
+         if (typeof value === 'string' && value.trim()) {
+            candidates.add(value.trim());
+         }
+      }
+   }
+
+   // Check for gps_coordinates object which might contain website
+   const gps = entry.gps_coordinates as Record<string, unknown> | undefined;
+   if (gps && typeof gps === 'object') {
+      for (const key of URL_KEYS) {
+         const value = gps[key];
+         if (typeof value === 'string' && value.trim()) {
+            candidates.add(value.trim());
+         }
+      }
+   }
+
    return Array.from(candidates);
+};
+
+/**
+ * Attempts to match a domain against a business title as a fallback
+ * when URL information is not available (e.g., mobile local results).
+ * Only matches when there's a strong correlation between domain and title.
+ */
+const doesTitleMatchDomain = (domainHost: string, title: unknown): boolean => {
+   if (!title || typeof title !== 'string') {
+      return false;
+   }
+   
+   const normalizedTitle = title.toLowerCase().trim();
+   const normalizedDomain = domainHost.toLowerCase();
+   
+   // Extract the main part of the domain (before first dot)
+   // e.g., "vontainment" from "vontainment.com"
+   const domainParts = normalizedDomain.split('.');
+   const mainDomainPart = domainParts[0];
+   
+   // Only match if the domain part is at least 4 characters (avoid false positives)
+   // and appears as a complete word in the title
+   if (mainDomainPart.length < 4) {
+      return false;
+   }
+   
+   // Create word boundary regex to ensure we match whole words
+   // e.g., "vontainment" matches "Vontainment" or "Vontainment Web Design"
+   // but not "Vontainments" or "Avontainment"
+   const wordBoundaryRegex = new RegExp(`\\b${mainDomainPart}\\b`, 'i');
+   
+   if (wordBoundaryRegex.test(normalizedTitle)) {
+      return true;
+   }
+   
+   // Also check if the full domain appears in the title
+   // e.g., "vontainment.com" in "Visit vontainment.com"
+   if (normalizedTitle.includes(normalizedDomain)) {
+      return true;
+   }
+   
+   return false;
 };
 
 export const computeMapPackTop3 = (domain: string, localResultsInput: unknown): boolean => {
@@ -200,8 +273,19 @@ export const computeMapPackTop3 = (domain: string, localResultsInput: unknown): 
 
    for (const { entry } of ranked) {
       const urls = extractCandidateUrls(entry);
+      
+      // First, try to match by URL (preferred method)
       for (const url of urls) {
          if (doesUrlMatchDomainHost(domainHost, url)) {
+            return true;
+         }
+      }
+      
+      // Fallback: If no URLs available (e.g., mobile local results),
+      // try matching by business title
+      if (urls.length === 0) {
+         const title = entry.title || entry.name;
+         if (doesTitleMatchDomain(domainHost, title)) {
             return true;
          }
       }
