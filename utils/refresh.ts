@@ -178,7 +178,8 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                try {
                   await Keyword.update({ updating: false }, { where: { ID: keyword.ID } });
                   const currentKeyword = keyword.get({ plain: true });
-                  updatedKeywords.push(currentKeyword);
+                  const parsedKeyword = parseKeywords([currentKeyword])[0];
+                  updatedKeywords.push({ ...parsedKeyword, updating: false });
                } catch (error) {
                   console.log('[ERROR] Failed to clear updating flag for keyword:', keyword.ID, error);
                }
@@ -279,7 +280,9 @@ const refreshAndUpdateKeyword = async (
       console.log('[ERROR] Failed to update retry queue for keyword:', keyword.ID, queueError);
    }
 
-   return currentkeyword;
+   // Return the current keyword with updated state
+   const updatedKeywordData = { ...currentkeyword, updating: false };
+   return parseKeywords([updatedKeywordData])[0];
 };
 
 /**
@@ -437,6 +440,7 @@ const buildErrorResult = (keyword: KeywordType, error: unknown): RefreshResult =
    position: typeof keyword.position === 'number' ? keyword.position : 0,
    url: typeof keyword.url === 'string' ? keyword.url : '',
    result: [],
+   localResults: Array.isArray(keyword.localResults) ? keyword.localResults : [],
    mapPackTop3: keyword.mapPackTop3 === true,
    error: typeof error === 'string' ? error : serializeError(error),
 });

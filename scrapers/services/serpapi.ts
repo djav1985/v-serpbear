@@ -50,6 +50,9 @@ const serpapi: ScraperSettings = {
     if (locationParts.length) {
       params.set("location", locationParts.join(","));
     }
+    if (keyword.device === 'mobile') {
+      params.set("device", "mobile");
+    }
     params.set("google_domain", googleDomain);
     params.set("gl", country);
     params.set("hl", countryInfo?.[2] ?? "en");
