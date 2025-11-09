@@ -1,6 +1,7 @@
 /// <reference path="../types.d.ts" />
 
-import { auth, searchconsole_v1 } from '@googleapis/searchconsole';
+import { searchconsole_v1 } from '@googleapis/searchconsole';
+import { JWT } from 'google-auth-library';
 import Cryptr from 'cryptr';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
@@ -56,11 +57,9 @@ const fetchSearchConsoleData = async (domain:DomainType, days:number, type?:stri
    const sCClientEmail = api?.client_email || process.env.SEARCH_CONSOLE_CLIENT_EMAIL || '';
 
    try {
-   const authClient = new auth.GoogleAuth({
-      credentials: {
-        private_key: (sCPrivateKey).replaceAll('\\n', '\n'),
-        client_email: (sCClientEmail || '').trim(),
-      },
+   const authClient = new JWT({
+      email: (sCClientEmail || '').trim(),
+      key: (sCPrivateKey).replaceAll('\\n', '\n'),
       scopes: [
         'https://www.googleapis.com/auth/webmasters.readonly',
       ],

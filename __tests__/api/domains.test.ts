@@ -294,6 +294,87 @@ describe('PUT /api/domains', () => {
     const updatePayload = domainInstance.set.mock.calls[domainInstance.set.mock.calls.length - 1][0];
     expect(updatePayload.scraper_settings).toBeNull();
   });
+
+  it('persists business_name when updating other scraper settings', async () => {
+    const cryptr = new Cryptr(process.env.SECRET as string);
+    domainState.scraper_settings = JSON.stringify({
+      scraper_type: 'serpapi',
+      scraping_api: cryptr.encrypt('api-key'),
+      business_name: 'My Business',
+    });
+
+    const req = {
+      method: 'PUT',
+      query: { domain: domainState.domain },
+      body: { scraper_settings: { scraper_type: 'serpapi' } },
+      headers: {},
+    } as unknown as NextApiRequest;
+
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    const updatePayload = domainInstance.set.mock.calls[domainInstance.set.mock.calls.length - 1][0];
+    expect(updatePayload.scraper_settings).toEqual(expect.any(String));
+    const persisted = JSON.parse(updatePayload.scraper_settings);
+    expect(persisted.scraper_type).toBe('serpapi');
+    expect(persisted.business_name).toBe('My Business');
+  });
+
+  it('persists business_name even when scraper_type changes', async () => {
+    const cryptr = new Cryptr(process.env.SECRET as string);
+    domainState.scraper_settings = JSON.stringify({
+      scraper_type: 'serpapi',
+      scraping_api: cryptr.encrypt('api-key'),
+      business_name: 'My Business',
+    });
+
+    const req = {
+      method: 'PUT',
+      query: { domain: domainState.domain },
+      body: { scraper_settings: { scraper_type: 'scrapingbee', scraping_api: 'new-key' } },
+      headers: {},
+    } as unknown as NextApiRequest;
+
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    const updatePayload = domainInstance.set.mock.calls[domainInstance.set.mock.calls.length - 1][0];
+    expect(updatePayload.scraper_settings).toEqual(expect.any(String));
+    const persisted = JSON.parse(updatePayload.scraper_settings);
+    expect(persisted.scraper_type).toBe('scrapingbee');
+    expect(persisted.business_name).toBe('My Business');
+  });
+
+  it('updates business_name when provided in scraper settings', async () => {
+    const cryptr = new Cryptr(process.env.SECRET as string);
+    domainState.scraper_settings = JSON.stringify({
+      scraper_type: 'serpapi',
+      scraping_api: cryptr.encrypt('api-key'),
+      business_name: 'Old Business',
+    });
+
+    const req = {
+      method: 'PUT',
+      query: { domain: domainState.domain },
+      body: { scraper_settings: { scraper_type: 'serpapi', business_name: 'New Business' } },
+      headers: {},
+    } as unknown as NextApiRequest;
+
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    const updatePayload = domainInstance.set.mock.calls[domainInstance.set.mock.calls.length - 1][0];
+    expect(updatePayload.scraper_settings).toEqual(expect.any(String));
+    const persisted = JSON.parse(updatePayload.scraper_settings);
+    expect(persisted.scraper_type).toBe('serpapi');
+    expect(persisted.business_name).toBe('New Business');
+  });
 });
 
 describe('DELETE /api/domains', () => {
