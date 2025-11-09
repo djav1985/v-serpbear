@@ -68,10 +68,14 @@ export function useFetchKeywords(
             // If yes, then refecth the keywords every 5 seconds until all the keywords position is updated by the server
             if (data.keywords && data.keywords.length > 0 && setKeywordSPollInterval) {
                const hasRefreshingKeyword = data.keywords.some((x:KeywordType) => x.updating);
+               const updatingCount = data.keywords.filter((x:KeywordType) => x.updating).length;
+               
                if (hasRefreshingKeyword) {
+                  console.log(`[POLL] ${updatingCount} keyword(s) still updating, continuing poll every 5s`);
                   setKeywordSPollInterval(5000);
                } else {
                   if (keywordSPollInterval) {
+                     console.log('[POLL] All keywords updated, stopping poll');
                      toast('Keywords Refreshed!', { icon: '✔️' });
                   }
                   setKeywordSPollInterval(undefined);
@@ -276,7 +280,7 @@ export function useRefreshKeywords(onSuccess:Function) {
       return res.json();
    }, {
       onSuccess: async () => {
-         console.log('Keywords Added to Refresh Queue!!!');
+         console.log('[REFRESH] Keywords added to refresh queue, invalidating query cache');
          onSuccess();
          toast('Keywords Added to Refresh Queue', { icon: '🔄' });
          queryClient.invalidateQueries(['keywords']);
