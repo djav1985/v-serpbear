@@ -37,7 +37,7 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
    const initialActiveState = deriveDomainActiveState(domain);
    const initialScraperType = domain?.scraper_settings?.scraper_type ?? null;
    const initialScraperHasKey = domain?.scraper_settings?.has_api_key ?? false;
-   const initialBusinessName = domain?.scraper_settings?.business_name ?? '';
+   const initialBusinessName = domain?.business_name ?? '';
    const [domainSettings, setDomainSettings] = useState<DomainSettings>(() => ({
       notification_interval: domain?.notification_interval ?? 'never',
       notification_emails: domain?.notification_emails ?? '',
@@ -49,8 +49,8 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
          scraper_type: initialScraperType,
          has_api_key: initialScraperHasKey,
          scraping_api: '',
-         business_name: initialBusinessName,
       },
+      business_name: initialBusinessName,
    }));
 
    const scraperOptions = useMemo(() => ([
@@ -79,18 +79,18 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
       const nextActive = deriveDomainActiveState(domainObj);
       const fetchedScraperSettings = domainObj.scraper_settings || null;
       setDomainSettings(prevSettings => {
-         const prevScraper = prevSettings.scraper_settings || { scraper_type: null, scraping_api: '', has_api_key: false, business_name: '' };
+         const prevScraper = prevSettings.scraper_settings || { scraper_type: null, scraping_api: '', has_api_key: false };
          const nextScraper = {
             scraper_type: fetchedScraperSettings?.scraper_type ?? null,
             scraping_api: prevScraper.scraping_api ?? '',
             has_api_key: fetchedScraperSettings?.has_api_key ?? false,
-            business_name: fetchedScraperSettings?.business_name ?? prevScraper.business_name ?? '',
          };
          return ({
             ...prevSettings,
             search_console: currentSearchConsoleSettings || prevSettings.search_console,
             scrapeEnabled: nextActive,
             scraper_settings: nextScraper,
+            business_name: domainObj.business_name ?? prevSettings.business_name ?? '',
          });
       });
    });
@@ -108,7 +108,7 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
       const nextValue = updated[0] || '__system__';
       const scraperType = nextValue === '__system__' ? null : nextValue;
       setDomainSettings(prevSettings => {
-         const prevScraper = prevSettings.scraper_settings || { scraper_type: null, scraping_api: '', has_api_key: false, business_name: '' };
+         const prevScraper = prevSettings.scraper_settings || { scraper_type: null, scraping_api: '', has_api_key: false };
          const keepExisting = prevScraper.scraper_type === scraperType;
          return ({
             ...prevSettings,
@@ -116,7 +116,6 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
                scraper_type: scraperType,
                scraping_api: keepExisting ? prevScraper.scraping_api ?? '' : '',
                has_api_key: keepExisting ? prevScraper.has_api_key === true : false,
-               business_name: prevScraper.business_name ?? '',
             },
          });
       });
@@ -135,29 +134,25 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
    const handleBusinessNameChange = (value: string) => {
       setDomainSettings(prevSettings => ({
          ...prevSettings,
-         scraper_settings: {
-            ...(prevSettings.scraper_settings || { scraper_type: null, has_api_key: false }),
-            business_name: value,
-         },
+         business_name: value,
       }));
    };
 
    const buildDomainSettingsPayload = (): Partial<DomainSettings> => {
-      const { scraper_settings, ...rest } = domainSettings;
+      const { scraper_settings, business_name, ...rest } = domainSettings;
       const payload: Partial<DomainSettings> = { ...rest };
+
+      // Handle business_name separately
+      const trimmedBusinessName = (business_name || '').trim();
+      payload.business_name = trimmedBusinessName || null;
 
       if (scraper_settings) {
          const nextType = typeof scraper_settings.scraper_type === 'string' && scraper_settings.scraper_type
             ? scraper_settings.scraper_type
             : null;
 
-         const trimmedBusinessName = (scraper_settings.business_name || '').trim();
-
          if (!nextType) {
             const systemScraperSettings: DomainScraperSettings = { scraper_type: null };
-            if (trimmedBusinessName) {
-               systemScraperSettings.business_name = trimmedBusinessName;
-            }
             payload.scraper_settings = systemScraperSettings;
          } else {
             const sanitized: DomainScraperSettings = { scraper_type: nextType };
@@ -167,9 +162,6 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
             }
             if (!trimmedKey && scraper_settings.clear_api_key) {
                sanitized.clear_api_key = true;
-            }
-            if (trimmedBusinessName) {
-               sanitized.business_name = trimmedBusinessName;
             }
             payload.scraper_settings = sanitized;
          }
@@ -361,7 +353,7 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
                            <InputField
                            label='Business Name (Optional)'
                            onChange={(value:string) => handleBusinessNameChange(value)}
-                           value={domainSettings.scraper_settings?.business_name || ''}
+                           value={domainSettings.business_name || ''}
                            placeholder='e.g., Vontainment'
                            />
                         </div>

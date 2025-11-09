@@ -25,19 +25,19 @@ describe('refreshAndUpdateKeywords - business_name handling', () => {
     process.env.SECRET = 'test-secret-for-encryption';
   });
 
-  it('passes business_name from domain scraper settings to scrapeKeywordFromGoogle', async () => {
+  it('passes business_name from domain field to scrapeKeywordFromGoogle', async () => {
     const cryptr = new Cryptr(process.env.SECRET as string);
     
-    // Setup: domain has business_name in scraper_settings
+    // Setup: domain has business_name as a separate field
     (Domain.findAll as jest.Mock).mockResolvedValue([
       {
         get: () => ({
           domain: 'vontainment.com',
           scrapeEnabled: true,
+          business_name: 'Vontainment',
           scraper_settings: JSON.stringify({
             scraper_type: 'valueserp',
             scraping_api: cryptr.encrypt('test-api-key'),
-            business_name: 'Vontainment',
           }),
         }),
       },

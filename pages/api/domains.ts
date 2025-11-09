@@ -176,6 +176,7 @@ export const updateDomain = async (req: NextApiRequest, res: NextApiResponse<Dom
       search_console,
       scrapeEnabled,
       scraper_settings,
+      business_name,
    } = payload;
 
    try {
@@ -208,6 +209,9 @@ export const updateDomain = async (req: NextApiRequest, res: NextApiResponse<Dom
       }
       if (search_console) {
          updates.search_console = JSON.stringify(search_console);
+      }
+      if (Object.prototype.hasOwnProperty.call(payload, 'business_name')) {
+         updates.business_name = business_name || null;
       }
       if (Object.prototype.hasOwnProperty.call(payload, 'scraper_settings')) {
          const existingScraperSettings = parseDomainScraperSettings(domainPlain?.scraper_settings);
