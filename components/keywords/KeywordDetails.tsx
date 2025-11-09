@@ -7,6 +7,7 @@ import SelectField from '../common/SelectField';
 import { useFetchSingleKeyword } from '../../services/keywords';
 import useOnKey from '../../hooks/useOnKey';
 import { generateTheChartData } from '../../utils/client/generateChartData';
+import { doesUrlMatchDomainHost, normaliseDomainHost } from '../../utils/mapPack';
 
 type KeywordDetailsProps = {
    keyword: KeywordType,
@@ -38,6 +39,27 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
       { label: '1 Year', value: '360' },
       { label: 'All Time', value: 'all' },
    ];
+
+   // Helper function to check if a local result item matches the tracked domain
+   const isLocalResultMatch = (item: KeywordLocalResult): boolean => {
+      if (!mapPackTop3) return false;
+      
+      const domainHost = normaliseDomainHost(keyword.domain);
+      if (!domainHost) return false;
+
+      // Check all possible URL fields
+      const urlFields = ['url', 'website', 'link', 'business_website', 'place_link'];
+      for (const field of urlFields) {
+         const url = item[field];
+         if (typeof url === 'string' && url.trim()) {
+            if (doesUrlMatchDomainHost(domainHost, url)) {
+               return true;
+            }
+         }
+      }
+
+      return false;
+   };
 
    useOnKey('Escape', closeDetails);
 
@@ -116,11 +138,12 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
                               const position = item.position || index + 1;
                               const title = item.title || item.name || `Local Result ${position}`;
                               const url = item.url || item.website || item.link || item.business_website || item.place_link || '';
+                              const isMatch = isLocalResultMatch(item);
                               
                               return (
                                  <div
                                  className={`leading-6 mb-4 mr-3 p-3 text-sm break-all pr-3 rounded 
-                                 ${mapPackTop3 && index < 3 ? ' bg-green-50 border border-green-200' : ''}`}
+                                 ${isMatch ? ' bg-green-50 border border-green-200' : ''}`}
                                  key={url + position}>
                                     <h4 className='font-semibold text-blue-700'>
                                        {url ? (
