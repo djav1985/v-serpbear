@@ -93,4 +93,98 @@ describe('Map Pack Support Flag Enforcement', () => {
     const result = computeMapPackTop3('example.com', response);
     expect(result).toBe(false);
   });
+
+  it('computeMapPackTop3 matches by business name when no URL is present', () => {
+    const response = {
+      local_results: [
+        { title: 'My Business', position: 1 },
+        { title: 'Other Business', position: 2 },
+      ],
+    };
+
+    const result = computeMapPackTop3('example.com', response, 'My Business');
+    expect(result).toBe(true);
+  });
+
+  it('computeMapPackTop3 matches by business name when URL exists but does not match', () => {
+    const response = {
+      local_results: [
+        { title: 'My Business', website: 'https://google.com/maps/some-place', position: 1 },
+        { title: 'Other Business', website: 'https://other.com', position: 2 },
+      ],
+    };
+
+    const result = computeMapPackTop3('example.com', response, 'My Business');
+    expect(result).toBe(true);
+  });
+
+  it('computeMapPackTop3 is case-insensitive for business name matching', () => {
+    const response = {
+      local_results: [
+        { title: 'MY BUSINESS', position: 1 },
+        { title: 'Other Business', position: 2 },
+      ],
+    };
+
+    const result = computeMapPackTop3('example.com', response, 'my business');
+    expect(result).toBe(true);
+  });
+
+  it('computeMapPackTop3 returns false when business name does not match any titles', () => {
+    const response = {
+      local_results: [
+        { title: 'Different Business', position: 1 },
+        { title: 'Another Business', position: 2 },
+      ],
+    };
+
+    const result = computeMapPackTop3('example.com', response, 'My Business');
+    expect(result).toBe(false);
+  });
+
+  it('computeMapPackTop3 prefers URL matching over business name matching', () => {
+    const response = {
+      local_results: [
+        { title: 'Different Name', website: 'https://example.com', position: 1 },
+        { title: 'My Business', position: 2 },
+      ],
+    };
+
+    // Should match on URL even though business name appears in position 2
+    const result = computeMapPackTop3('example.com', response, 'My Business');
+    expect(result).toBe(true);
+  });
+
+  it('computeMapPackTop3 handles trimmed business names correctly', () => {
+    const response = {
+      local_results: [
+        { title: 'My Business', position: 1 },
+      ],
+    };
+
+    const result = computeMapPackTop3('example.com', response, '  My Business  ');
+    expect(result).toBe(true);
+  });
+
+  it('computeMapPackTop3 returns false when business name is only whitespace', () => {
+    const response = {
+      local_results: [
+        { title: 'Some Business', position: 1 },
+      ],
+    };
+
+    const result = computeMapPackTop3('example.com', response, '   ');
+    expect(result).toBe(false);
+  });
+
+  it('computeMapPackTop3 returns false when business name is null', () => {
+    const response = {
+      local_results: [
+        { title: 'Some Business', position: 1 },
+      ],
+    };
+
+    const result = computeMapPackTop3('example.com', response, null);
+    expect(result).toBe(false);
+  });
 });

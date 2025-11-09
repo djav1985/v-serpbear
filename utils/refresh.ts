@@ -386,7 +386,8 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
 
       try {
          await keywordRaw.update(dbPayload);
-         console.log('[SUCCESS] Updating the Keyword ID:', keyword.ID, 'keyword:', keyword.keyword, 'device:', keyword.device || 'desktop', 'mapPackTop3:', dbPayload.mapPackTop3);
+         console.log('[SUCCESS] Updating the Keyword ID:', keyword.ID, 'keyword:', keyword.keyword, 'device:', keyword.device || 'desktop', 
+            `mapPackTop3: ${dbPayload.mapPackTop3 ? 'true (appears in top 3 of local map pack)' : 'false (not in top 3 of local map pack)'}`);
 
          let parsedError: false | { date: string; error: string; scraper: string } = false;
          if (dbPayload.lastUpdateError !== 'false') {

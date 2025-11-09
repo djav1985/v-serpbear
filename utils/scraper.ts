@@ -287,7 +287,7 @@ export const scrapeKeywordFromGoogle = async (keyword:KeywordType, settings:Sett
                         `device: ${keyword.device || 'desktop'}`,
                         `position: ${serp.position}`, 
                         `url: ${serp.url}`, 
-                        `mapPackTop3: ${computedMapPack ? 'YES' : 'NO'}`,
+                        `mapPackTop3: ${computedMapPack ? 'YES (in top 3 of local map pack)' : 'NO (not in top 3 of local map pack)'}`,
                         `localResults: ${localResults.length}`);
             return refreshedResults; // Success, return immediately
          } else {
