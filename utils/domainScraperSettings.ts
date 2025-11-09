@@ -5,7 +5,6 @@ import Cryptr from 'cryptr';
 export type PersistedDomainScraperSettings = {
    scraper_type?: string | null;
    scraping_api?: string | null;
-   business_name?: string | null;
 };
 
 const isNonEmptyString = (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0;
@@ -30,14 +29,13 @@ export const parseDomainScraperSettings = (
 
    const scraperType = isNonEmptyString(payload.scraper_type) ? payload.scraper_type.trim() : null;
    const scrapingApi = isNonEmptyString(payload.scraping_api) ? payload.scraping_api : null;
-   const businessName = isNonEmptyString(payload.business_name) ? payload.business_name.trim() : null;
 
    // Return null only if there's no meaningful data at all
-   if (!scraperType && !scrapingApi && !businessName) {
+   if (!scraperType && !scrapingApi) {
       return null;
    }
 
-   return { scraper_type: scraperType, scraping_api: scrapingApi, business_name: businessName };
+   return { scraper_type: scraperType, scraping_api: scrapingApi };
 };
 
 export const maskDomainScraperSettings = (
@@ -48,14 +46,13 @@ export const maskDomainScraperSettings = (
    }
 
    // Return null only if there's no meaningful data at all
-   if (!isNonEmptyString(raw.scraper_type) && !isNonEmptyString(raw.scraping_api) && !isNonEmptyString(raw.business_name)) {
+   if (!isNonEmptyString(raw.scraper_type) && !isNonEmptyString(raw.scraping_api)) {
       return null;
    }
 
    return {
       scraper_type: raw.scraper_type,
       has_api_key: isNonEmptyString(raw.scraping_api),
-      business_name: raw.business_name,
    };
 };
 
@@ -70,19 +67,7 @@ export const buildPersistedScraperSettings = (
 
    const nextType = isNonEmptyString(incoming.scraper_type) ? incoming.scraper_type.trim() : null;
 
-   // Handle business_name - always preserve it regardless of scraper type
-   let businessName: string | null = null;
-   if (isNonEmptyString(incoming.business_name)) {
-      businessName = incoming.business_name.trim();
-   } else if (existing && isNonEmptyString(existing.business_name)) {
-      businessName = existing.business_name;
-   }
-
    if (!nextType) {
-      // When reverting to system scraper, preserve business_name if it exists
-      if (businessName) {
-         return { scraper_type: null, scraping_api: null, business_name: businessName };
-      }
       return null;
    }
 
@@ -100,8 +85,6 @@ export const buildPersistedScraperSettings = (
    } else {
       next.scraping_api = null;
    }
-
-   next.business_name = businessName;
 
    return next;
 };
@@ -127,6 +110,5 @@ export const decryptDomainScraperSettings = (
    return {
       scraper_type: raw.scraper_type,
       scraping_api: decryptedKey,
-      business_name: raw.business_name,
    };
 };

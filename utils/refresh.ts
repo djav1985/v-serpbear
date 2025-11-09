@@ -84,7 +84,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
    if (domainNames.length > 0) {
       const domains = await Domain.findAll({
          where: { domain: domainNames },
-         attributes: ['domain', 'scrapeEnabled', 'scraper_settings'],
+         attributes: ['domain', 'scrapeEnabled', 'scraper_settings', 'business_name'],
       });
       const secret = process.env.SECRET;
       const cryptr = secret ? new Cryptr(secret) : null;
@@ -105,6 +105,17 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                   effectiveSettings.scraping_api = decryptedOverride.scraping_api;
                }
 
+               if (typeof domainPlain.business_name === 'string') {
+                  (effectiveSettings as any).business_name = domainPlain.business_name;
+               }
+
+               domainSpecificSettings.set(domainPlain.domain, effectiveSettings);
+            } else if (typeof domainPlain.business_name === 'string' && domainPlain.business_name) {
+               // No scraper override but has business_name - use global settings with business_name
+               const effectiveSettings: SettingsType = {
+                  ...settings,
+               };
+               (effectiveSettings as any).business_name = domainPlain.business_name;
                domainSpecificSettings.set(domainPlain.domain, effectiveSettings);
             }
          }

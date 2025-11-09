@@ -50,6 +50,9 @@ class Domain extends Model {
 
    @Column({ type: DataType.TEXT, allowNull: true, defaultValue: null })
    scraper_settings!: string | null;
+
+   @Column({ type: DataType.STRING, allowNull: true, defaultValue: null })
+   business_name!: string | null;
 }
 
 export default Domain;
