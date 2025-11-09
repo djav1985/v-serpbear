@@ -79,7 +79,7 @@ type KeywordFilters = {
 }
 
 type countryData = {
-   [ISO:string] : [countryName:string, cityName:string, language:string, AdWordsID: number]
+   [ISO:string] : [countryName:string, cityName:string, language:string, AdWordsID: number, googleDomain:string]
 }
 
 type countryCodeData = {
@@ -303,4 +303,10 @@ interface ScraperSettings {
     * Useful for scrapers that require longer response times (e.g., ValueSerp).
     */
    timeoutMs?: number,
+   /**
+    * Optional list of supported country codes (ISO 2-letter codes).
+    * If provided, the scraper will only be available for these countries.
+    * If not provided, all countries are supported.
+    */
+   supportedCountries?: string[],
 }

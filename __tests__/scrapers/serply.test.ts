@@ -29,7 +29,7 @@ describe('serply scraper', () => {
 
     const desktopKeyword: Partial<KeywordType> = {
       keyword: 'espresso machines',
-      country: 'ZZ',
+      country: 'JP',
       device: 'desktop',
     };
 
@@ -39,6 +39,6 @@ describe('serply scraper', () => {
     expect(mobileHeaders['X-User-Agent']).toBe('mobile');
     expect(mobileHeaders['X-Proxy-Location']).toBe('CA');
     expect(desktopHeaders['X-User-Agent']).toBe('desktop');
-    expect(desktopHeaders['X-Proxy-Location']).toBe('US');
+    expect(desktopHeaders['X-Proxy-Location']).toBe('JP');
   });
 });

@@ -36,7 +36,7 @@ describe('CSV export utilities', () => {
          keyword: 'hello, "world"',
          position: 0,
          url: 'https://example.com/path,1',
-         country: 'ZZ',
+         country: 'US',
          state: '',
          city: '',
          device: 'desktop',
@@ -62,7 +62,7 @@ describe('CSV export utilities', () => {
       expect(parsedRow[1]).toBe('hello, "world"');
       expect(parsedRow[2]).toBe('-');
       expect(parsedRow[3]).toBe('https://example.com/path,1');
-      expect(parsedRow[4]).toBe('Unknown');
+      expect(parsedRow[4]).toBe('United States');
       expect(parsedRow[10]).toBe('tag,one,tag"two');
    });
 

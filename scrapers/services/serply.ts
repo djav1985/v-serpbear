@@ -6,14 +6,14 @@ interface SerplyResult {
    link: string,
    realPosition: number,
 }
-const scraperCountries = ['US', 'CA', 'IE', 'GB', 'FR', 'DE', 'SE', 'IN', 'JP', 'KR', 'SG', 'AU', 'BR'];
 
 const serply:ScraperSettings = {
    id: 'serply',
    name: 'Serply',
    website: 'serply.io',
+   supportedCountries: ['US', 'CA', 'IE', 'GB', 'FR', 'DE', 'SE', 'IN', 'JP', 'KR', 'SG', 'AU', 'BR'],
    headers: (keyword, settings) => {
-      const country = resolveCountryCode(keyword.country, scraperCountries);
+      const country = resolveCountryCode(keyword.country, ['US', 'CA', 'IE', 'GB', 'FR', 'DE', 'SE', 'IN', 'JP', 'KR', 'SG', 'AU', 'BR']);
       return {
          'Content-Type': 'application/json',
          'X-User-Agent': keyword.device === 'mobile' ? 'mobile' : 'desktop',
@@ -22,7 +22,7 @@ const serply:ScraperSettings = {
       };
    },
    scrapeURL: (keyword) => {
-      const country = resolveCountryCode(keyword.country, scraperCountries);
+      const country = resolveCountryCode(keyword.country, ['US', 'CA', 'IE', 'GB', 'FR', 'DE', 'SE', 'IN', 'JP', 'KR', 'SG', 'AU', 'BR']);
       const searchParams = new URLSearchParams({
          q: keyword.keyword,
          num: '100',
