@@ -83,9 +83,14 @@ export const buildPersistedScraperSettings = (
       next.scraping_api = null;
    }
 
-   // Handle business_name
-   const businessName = isNonEmptyString(incoming.business_name) ? incoming.business_name.trim() : null;
-   next.business_name = businessName;
+   // Handle business_name - always preserve existing value regardless of scraper type changes
+   if (isNonEmptyString(incoming.business_name)) {
+      next.business_name = incoming.business_name.trim();
+   } else if (existing && isNonEmptyString(existing.business_name)) {
+      next.business_name = existing.business_name;
+   } else {
+      next.business_name = null;
+   }
 
    return next;
 };
