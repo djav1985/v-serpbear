@@ -105,6 +105,10 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                   effectiveSettings.scraping_api = decryptedOverride.scraping_api;
                }
 
+               if (typeof decryptedOverride.business_name === 'string') {
+                  (effectiveSettings as any).business_name = decryptedOverride.business_name;
+               }
+
                domainSpecificSettings.set(domainPlain.domain, effectiveSettings);
             }
          }
