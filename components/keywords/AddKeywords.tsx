@@ -10,6 +10,7 @@ type AddKeywordsProps = {
    keywords: KeywordType[],
    scraperName: string,
    allowsCity: boolean,
+   supportedCountries?: string[],
    closeModal: Function,
    domain: string
 }
@@ -30,6 +31,7 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
    keywords,
    scraperName = '',
    allowsCity = false,
+   supportedCountries = undefined,
 }: AddKeywordsProps, ref) => {
    const inputRef = useRef(null);
    const [error, setError] = useState<string>('');
@@ -63,6 +65,21 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
       const allTags = keywords.reduce((acc: string[], keyword) => [...acc, ...keyword.tags], []).filter((t) => t && t.trim() !== '');
       return [...new Set(allTags)];
    }, [keywords]);
+
+   const availableCountries = useMemo(() => {
+      // If supportedCountries is defined and not empty, filter countries
+      if (supportedCountries && supportedCountries.length > 0) {
+         const filtered: countryData = {};
+         supportedCountries.forEach((code) => {
+            if (countries[code]) {
+               filtered[code] = countries[code];
+            }
+         });
+         return filtered;
+      }
+      // Otherwise, return all countries
+      return countries;
+   }, [supportedCountries]);
 
    const setDeviceType = useCallback((input:string) => {
       let updatedDevice = '';
@@ -154,7 +171,7 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
                   <SelectField
                      multiple={false}
                      selected={[newKeywordsData.country]}
-                     options={Object.keys(countries).map((countryISO:string) => ({ label: countries[countryISO][0], value: countryISO }))}
+                     options={Object.keys(availableCountries).map((countryISO:string) => ({ label: availableCountries[countryISO][0], value: countryISO }))}
                      defaultLabel='All Countries'
                      updateField={(updated:string[]) => {
                         const nextCountry = updated[0];

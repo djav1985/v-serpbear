@@ -208,6 +208,7 @@ export const getAppSettings = async () : Promise<SettingsType> => {
             value: scraper.id,
             allowsCity: !!scraper.allowsCity,
             supportsMapPack: !!scraper.supportsMapPack,
+            supportedCountries: scraper.supportedCountries,
          })),
          failed_queue: failedQueue,
       };
@@ -223,6 +224,7 @@ export const getAppSettings = async () : Promise<SettingsType> => {
             value: scraper.id,
             allowsCity: !!scraper.allowsCity,
             supportsMapPack: !!scraper.supportsMapPack,
+            supportedCountries: scraper.supportedCountries,
          })),
          failed_queue: [],
          search_console_integrated: false,

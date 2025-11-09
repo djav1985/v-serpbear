@@ -114,7 +114,7 @@ type SettingsType = {
    smtp_tls_servername?: string,
    smtp_username?: string,
    smtp_password?: string,
-   available_scapers?: { label: string, value: string, allowsCity?: boolean, supportsMapPack?: boolean }[],
+   available_scapers?: { label: string, value: string, allowsCity?: boolean, supportsMapPack?: boolean, supportedCountries?: string[] }[],
    scrape_interval?: string,
    scrape_delay?: string,
    scrape_retry?: boolean,
