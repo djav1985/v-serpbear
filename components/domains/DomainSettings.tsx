@@ -151,8 +151,14 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
             ? scraper_settings.scraper_type
             : null;
 
+         const trimmedBusinessName = (scraper_settings.business_name || '').trim();
+
          if (!nextType) {
-            payload.scraper_settings = { scraper_type: null };
+            const systemScraperSettings: DomainScraperSettings = { scraper_type: null };
+            if (trimmedBusinessName) {
+               systemScraperSettings.business_name = trimmedBusinessName;
+            }
+            payload.scraper_settings = systemScraperSettings;
          } else {
             const sanitized: DomainScraperSettings = { scraper_type: nextType };
             const trimmedKey = (scraper_settings.scraping_api || '').trim();
@@ -162,7 +168,6 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
             if (!trimmedKey && scraper_settings.clear_api_key) {
                sanitized.clear_api_key = true;
             }
-            const trimmedBusinessName = (scraper_settings.business_name || '').trim();
             if (trimmedBusinessName) {
                sanitized.business_name = trimmedBusinessName;
             }

@@ -29,12 +29,13 @@ export const parseDomainScraperSettings = (
    }
 
    const scraperType = isNonEmptyString(payload.scraper_type) ? payload.scraper_type.trim() : null;
-   if (!scraperType) {
-      return null;
-   }
-
    const scrapingApi = isNonEmptyString(payload.scraping_api) ? payload.scraping_api : null;
    const businessName = isNonEmptyString(payload.business_name) ? payload.business_name.trim() : null;
+
+   // Return null only if there's no meaningful data at all
+   if (!scraperType && !scrapingApi && !businessName) {
+      return null;
+   }
 
    return { scraper_type: scraperType, scraping_api: scrapingApi, business_name: businessName };
 };
@@ -42,7 +43,12 @@ export const parseDomainScraperSettings = (
 export const maskDomainScraperSettings = (
    raw: PersistedDomainScraperSettings | null,
 ): DomainScraperSettings | null => {
-   if (!raw || !isNonEmptyString(raw.scraper_type)) {
+   if (!raw) {
+      return null;
+   }
+
+   // Return null only if there's no meaningful data at all
+   if (!isNonEmptyString(raw.scraper_type) && !isNonEmptyString(raw.scraping_api) && !isNonEmptyString(raw.business_name)) {
       return null;
    }
 
@@ -64,7 +70,19 @@ export const buildPersistedScraperSettings = (
 
    const nextType = isNonEmptyString(incoming.scraper_type) ? incoming.scraper_type.trim() : null;
 
+   // Handle business_name - always preserve it regardless of scraper type
+   let businessName: string | null = null;
+   if (isNonEmptyString(incoming.business_name)) {
+      businessName = incoming.business_name.trim();
+   } else if (existing && isNonEmptyString(existing.business_name)) {
+      businessName = existing.business_name;
+   }
+
    if (!nextType) {
+      // When reverting to system scraper, preserve business_name if it exists
+      if (businessName) {
+         return { scraper_type: null, scraping_api: null, business_name: businessName };
+      }
       return null;
    }
 
@@ -83,14 +101,7 @@ export const buildPersistedScraperSettings = (
       next.scraping_api = null;
    }
 
-   // Handle business_name - always preserve existing value regardless of scraper type changes
-   if (isNonEmptyString(incoming.business_name)) {
-      next.business_name = incoming.business_name.trim();
-   } else if (existing && isNonEmptyString(existing.business_name)) {
-      next.business_name = existing.business_name;
-   } else {
-      next.business_name = null;
-   }
+   next.business_name = businessName;
 
    return next;
 };

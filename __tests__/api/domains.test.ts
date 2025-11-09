@@ -375,6 +375,55 @@ describe('PUT /api/domains', () => {
     expect(persisted.scraper_type).toBe('serpapi');
     expect(persisted.business_name).toBe('New Business');
   });
+
+  it('persists business_name when using system scraper', async () => {
+    domainState.scraper_settings = null;
+
+    const req = {
+      method: 'PUT',
+      query: { domain: domainState.domain },
+      body: { scraper_settings: { scraper_type: null, business_name: 'Vontainment' } },
+      headers: {},
+    } as unknown as NextApiRequest;
+
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    const updatePayload = domainInstance.set.mock.calls[domainInstance.set.mock.calls.length - 1][0];
+    expect(updatePayload.scraper_settings).toEqual(expect.any(String));
+    const persisted = JSON.parse(updatePayload.scraper_settings);
+    expect(persisted.scraper_type).toBeNull();
+    expect(persisted.business_name).toBe('Vontainment');
+  });
+
+  it('preserves business_name when switching from custom scraper to system scraper', async () => {
+    const cryptr = new Cryptr(process.env.SECRET as string);
+    domainState.scraper_settings = JSON.stringify({
+      scraper_type: 'serpapi',
+      scraping_api: cryptr.encrypt('api-key'),
+      business_name: 'My Business',
+    });
+
+    const req = {
+      method: 'PUT',
+      query: { domain: domainState.domain },
+      body: { scraper_settings: { scraper_type: null } },
+      headers: {},
+    } as unknown as NextApiRequest;
+
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    const updatePayload = domainInstance.set.mock.calls[domainInstance.set.mock.calls.length - 1][0];
+    expect(updatePayload.scraper_settings).toEqual(expect.any(String));
+    const persisted = JSON.parse(updatePayload.scraper_settings);
+    expect(persisted.scraper_type).toBeNull();
+    expect(persisted.business_name).toBe('My Business');
+  });
 });
 
 describe('DELETE /api/domains', () => {
