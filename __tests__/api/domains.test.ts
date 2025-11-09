@@ -76,7 +76,7 @@ describe('GET /api/domains', () => {
 
     expect(res.status).toHaveBeenCalledWith(200);
     const payload = (res.json as jest.Mock).mock.calls[0][0];
-    expect(payload.domains[0].scraper_settings).toEqual({ scraper_type: 'serpapi', has_api_key: true });
+    expect(payload.domains[0].scraper_settings).toEqual({ scraper_type: 'serpapi', has_api_key: true, business_name: null });
   });
 });
 

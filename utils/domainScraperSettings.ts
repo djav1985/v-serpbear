@@ -5,6 +5,7 @@ import Cryptr from 'cryptr';
 export type PersistedDomainScraperSettings = {
    scraper_type?: string | null;
    scraping_api?: string | null;
+   business_name?: string | null;
 };
 
 const isNonEmptyString = (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0;
@@ -33,8 +34,9 @@ export const parseDomainScraperSettings = (
    }
 
    const scrapingApi = isNonEmptyString(payload.scraping_api) ? payload.scraping_api : null;
+   const businessName = isNonEmptyString(payload.business_name) ? payload.business_name.trim() : null;
 
-   return { scraper_type: scraperType, scraping_api: scrapingApi };
+   return { scraper_type: scraperType, scraping_api: scrapingApi, business_name: businessName };
 };
 
 export const maskDomainScraperSettings = (
@@ -47,6 +49,7 @@ export const maskDomainScraperSettings = (
    return {
       scraper_type: raw.scraper_type,
       has_api_key: isNonEmptyString(raw.scraping_api),
+      business_name: raw.business_name,
    };
 };
 
@@ -72,20 +75,18 @@ export const buildPersistedScraperSettings = (
 
    if (hasNewKey) {
       next.scraping_api = cryptr.encrypt((incoming.scraping_api as string).trim());
-      return next;
-   }
-
-   if (shouldClearKey) {
+   } else if (shouldClearKey) {
       next.scraping_api = null;
-      return next;
-   }
-
-   if (existing && existing.scraper_type === nextType && isNonEmptyString(existing.scraping_api)) {
+   } else if (existing && existing.scraper_type === nextType && isNonEmptyString(existing.scraping_api)) {
       next.scraping_api = existing.scraping_api;
-      return next;
+   } else {
+      next.scraping_api = null;
    }
 
-   next.scraping_api = null;
+   // Handle business_name
+   const businessName = isNonEmptyString(incoming.business_name) ? incoming.business_name.trim() : null;
+   next.business_name = businessName;
+
    return next;
 };
 
@@ -110,5 +111,6 @@ export const decryptDomainScraperSettings = (
    return {
       scraper_type: raw.scraper_type,
       scraping_api: decryptedKey,
+      business_name: raw.business_name,
    };
 };

@@ -232,7 +232,7 @@ export const scrapeKeywordFromGoogle = async (keyword:KeywordType, settings:Sett
             : undefined;
 
          const fallbackPayload = resultPayload ?? res?.data ?? res?.html ?? res?.results ?? res?.body ?? null;
-         const extractorInput = { keyword, response: res, result: fallbackPayload };
+         const extractorInput = { keyword, response: res, result: fallbackPayload, settings };
 
          let extraction: { organic: SearchResult[]; mapPackTop3?: boolean } | null = null;
 
@@ -260,9 +260,10 @@ export const scrapeKeywordFromGoogle = async (keyword:KeywordType, settings:Sett
             let computedMapPack = false;
             let localResults: any[] = [];
             if (scraperObj?.supportsMapPack !== false) {
+               const businessName = (settings as any).business_name ?? null;
                computedMapPack = typeof extraction.mapPackTop3 === 'boolean'
                   ? extraction.mapPackTop3
-                  : computeMapPackTop3(keyword.domain, res);
+                  : computeMapPackTop3(keyword.domain, res, businessName);
                
                // Extract local results from the response payload
                const debugMode = process.env.NODE_ENV === 'development';

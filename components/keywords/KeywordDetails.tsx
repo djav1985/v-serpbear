@@ -110,7 +110,7 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
                         <h3 className=' font-bold text-gray-700 lg:text-lg'>Local Search Results</h3>
                         <span className=' text-xs text-gray-500'>{dayjs(updatedDate).format('MMMM D, YYYY')}</span>
                      </div>
-                     <div className='keywordDetails__section__results styled-scrollbar overflow-y-auto'>
+                     <div className='keywordDetails__section__results keywordDetails__section__results--local styled-scrollbar overflow-y-auto'>
                         {keywordLocalResults && Array.isArray(keywordLocalResults) && keywordLocalResults.length > 0 ? (
                            keywordLocalResults.map((item, index) => {
                               const position = item.position || index + 1;

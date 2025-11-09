@@ -3,6 +3,7 @@ type DomainScraperSettings = {
    scraping_api?: string | null,
    has_api_key?: boolean,
    clear_api_key?: boolean,
+   business_name?: string | null,
 }
 
 type DomainType = {
@@ -260,6 +261,7 @@ type ScraperExtractorInput = {
    keyword: KeywordType,
    response: any,
    result?: unknown,
+   settings?: SettingsType,
 }
 
 type ScraperExtractorResult = {
