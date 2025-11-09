@@ -222,8 +222,8 @@ export const computeMapPackTop3 = (domain: string, localResultsInput: unknown, b
          }
       }
       
-      // If no URL match and business_name is provided, use it as fallback
-      if (urls.length === 0 && businessName && businessName.trim()) {
+      // If URL didn't match (or no URL available) and business_name is provided, use it as fallback
+      if (businessName && businessName.trim()) {
          const titles = extractCandidateTitles(entry);
          const normalizedBusinessName = businessName.trim().toLowerCase();
          for (const title of titles) {
