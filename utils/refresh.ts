@@ -33,30 +33,34 @@ const logScraperSelectionSummary = (
    globalSettings: SettingsType,
    domainSpecificSettings: Map<string, SettingsType>,
    requestedDomains: string[],
+   domainsWithScraperOverrides: Set<string>,
 ) => {
    const fallbackScraper = describeScraperType(globalSettings?.scraper_type);
    console.log(`[REFRESH] Global scraper fallback: ${fallbackScraper}`);
 
-   if (domainSpecificSettings.size === 0) {
+   if (domainsWithScraperOverrides.size === 0) {
       if (requestedDomains.length === 0) {
          console.log('[REFRESH] No domains requested for refresh.');
       } else {
          console.log('[REFRESH] No domain-specific scraper overrides configured.');
       }
    } else {
-      for (const [domain, domainSettings] of domainSpecificSettings.entries()) {
-         const overrideScraper = describeScraperType(domainSettings.scraper_type);
-         const apiState = describeScrapingApiState(domainSettings);
-         console.log(`[REFRESH] Override for ${domain}: ${overrideScraper} (${apiState})`);
+      for (const domain of domainsWithScraperOverrides) {
+         const domainSettings = domainSpecificSettings.get(domain);
+         if (domainSettings) {
+            const overrideScraper = describeScraperType(domainSettings.scraper_type);
+            const apiState = describeScrapingApiState(domainSettings);
+            console.log(`[REFRESH] Override for ${domain}: ${overrideScraper} (${apiState})`);
+         }
       }
    }
 
-   const fallbackDomains = requestedDomains.filter((domain) => !domainSpecificSettings.has(domain));
+   const fallbackDomains = requestedDomains.filter((domain) => !domainsWithScraperOverrides.has(domain));
    if (fallbackDomains.length > 0) {
       fallbackDomains.forEach((domain) => {
          console.log(`[REFRESH] Domain ${domain} using global scraper fallback: ${fallbackScraper}`);
       });
-   } else if (requestedDomains.length > 0 && domainSpecificSettings.size > 0) {
+   } else if (requestedDomains.length > 0 && domainsWithScraperOverrides.size > 0) {
       console.log('[REFRESH] All requested domains use scraper overrides.');
    }
 };
@@ -80,6 +84,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
    const domainNames = Array.from(new Set(rawkeyword.map((el) => el.domain).filter(Boolean)));
    let scrapePermissions = new Map<string, boolean>();
    const domainSpecificSettings = new Map<string, SettingsType>();
+   const domainsWithScraperOverrides = new Set<string>();
 
    if (domainNames.length > 0) {
       const domains = await Domain.findAll({
@@ -110,6 +115,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                }
 
                domainSpecificSettings.set(domainPlain.domain, effectiveSettings);
+               domainsWithScraperOverrides.add(domainPlain.domain);
             } else if (typeof domainPlain.business_name === 'string' && domainPlain.business_name) {
                // No scraper override but has business_name - use global settings with business_name
                const effectiveSettings: SettingsType = {
@@ -124,7 +130,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
       }));
    }
 
-   logScraperSelectionSummary(settings, domainSpecificSettings, domainNames);
+   logScraperSelectionSummary(settings, domainSpecificSettings, domainNames, domainsWithScraperOverrides);
 
    const skippedKeywords: Keyword[] = [];
    const eligibleKeywordModels = rawkeyword.filter((keyword) => {
