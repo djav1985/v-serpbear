@@ -65,6 +65,16 @@ export const DomainConsolePage: NextPage = () => {
       [scraper_type, available_scapers],
    );
 
+   // Determine the effective scraper for this domain (considering domain-specific override)
+   const effectiveScraper = useMemo(() => {
+      // Check if domain has a scraper override
+      if (activDomain?.scraper_settings?.scraper_type) {
+         const domainScraperType = activDomain.scraper_settings.scraper_type;
+         return available_scapers.find((scraper) => scraper.value === domainScraperType) || activeScraper;
+      }
+      return activeScraper;
+   }, [activDomain, available_scapers, activeScraper]);
+
    const theKeywords: SearchAnalyticsItem[] = useMemo(() => keywordsData?.data && keywordsData.data[scDateFilter] ? keywordsData.data[scDateFilter] : [], [keywordsData, scDateFilter]);
 
    const theKeywordsCount = useMemo(() => theKeywords.reduce<Map<string, number>>((r, o) => {
@@ -155,9 +165,10 @@ export const DomainConsolePage: NextPage = () => {
             <AddKeywords
                ref={addKeywordsNodeRef}
                domain={activDomain?.domain || ''}
-               scraperName={activeScraper?.label || ''}
+               scraperName={effectiveScraper?.label || ''}
                keywords={trackedKeywords}
-               allowsCity={!!activeScraper?.allowsCity}
+               allowsCity={!!effectiveScraper?.allowsCity}
+               scraperCountries={effectiveScraper?.scraperCountries}
                closeModal={() => setShowAddKeywords(false)}
             />
          </CSSTransition>

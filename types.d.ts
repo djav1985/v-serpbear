@@ -79,7 +79,7 @@ type KeywordFilters = {
 }
 
 type countryData = {
-   [ISO:string] : [countryName:string, cityName:string, language:string, AdWordsID: number]
+   [ISO:string] : [countryName:string, cityName:string, language:string, AdWordsID: number, googleDomain: string | null]
 }
 
 type countryCodeData = {
@@ -115,7 +115,7 @@ type SettingsType = {
    smtp_tls_servername?: string,
    smtp_username?: string,
    smtp_password?: string,
-   available_scapers?: { label: string, value: string, allowsCity?: boolean, supportsMapPack?: boolean }[],
+   available_scapers?: { label: string, value: string, allowsCity?: boolean, supportsMapPack?: boolean, scraperCountries?: string[] }[],
    scrape_interval?: string,
    scrape_delay?: string,
    scrape_retry?: boolean,
@@ -304,4 +304,10 @@ interface ScraperSettings {
     * Useful for scrapers that require longer response times (e.g., ValueSerp).
     */
    timeoutMs?: number,
+   /**
+    * Optional list of country codes that this scraper supports.
+    * If defined, only these countries will be available in the keyword-adding dropdown.
+    * If not defined, all countries with non-null googleDomain will be available.
+    */
+   scraperCountries?: string[],
 }

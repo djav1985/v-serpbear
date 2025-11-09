@@ -12,6 +12,7 @@ const serply:ScraperSettings = {
    id: 'serply',
    name: 'Serply',
    website: 'serply.io',
+   scraperCountries,
    headers: (keyword, settings) => {
       const country = resolveCountryCode(keyword.country, scraperCountries);
       return {

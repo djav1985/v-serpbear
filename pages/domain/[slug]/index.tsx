@@ -46,6 +46,16 @@ export const DomainPage: NextPage = () => {
       return active;
    }, [router.query.slug, domainsData]);
 
+   // Determine the effective scraper for this domain (considering domain-specific override)
+   const effectiveScraper = useMemo(() => {
+      // Check if domain has a scraper override
+      if (activDomain?.scraper_settings?.scraper_type) {
+         const domainScraperType = activDomain.scraper_settings.scraper_type;
+         return available_scapers.find((scraper) => scraper.value === domainScraperType) || activeScraper;
+      }
+      return activeScraper;
+   }, [activDomain, available_scapers, activeScraper]);
+
    const domainHasScAPI = useMemo(() => {
       const domainSc = activDomain?.search_console ? JSON.parse(activDomain.search_console) : {};
       return !!(domainSc?.client_email && domainSc?.private_key);
@@ -113,9 +123,10 @@ export const DomainPage: NextPage = () => {
             <AddKeywords
                ref={addKeywordsNodeRef}
                domain={activDomain?.domain || ''}
-               scraperName={activeScraper?.label || ''}
+               scraperName={effectiveScraper?.label || ''}
                keywords={theKeywords}
-               allowsCity={!!activeScraper?.allowsCity}
+               allowsCity={!!effectiveScraper?.allowsCity}
+               scraperCountries={effectiveScraper?.scraperCountries}
                closeModal={() => setShowAddKeywords(false)}
                />
          </CSSTransition>
