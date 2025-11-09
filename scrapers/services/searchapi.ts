@@ -63,7 +63,7 @@ const searchapi:ScraperSettings = {
       return `https://www.searchapi.io/api/v1/search?${params.toString()}`;
    },
   resultObjectKey: 'organic_results',
-  serpExtractor: ({ result, response, keyword }) => {
+  serpExtractor: ({ result, response, keyword, settings }) => {
      const extractedResult = [];
      let results: SearchApiResult[] = [];
      if (typeof result === 'string') {
@@ -88,7 +88,8 @@ const searchapi:ScraperSettings = {
         }
      }
 
-     const mapPackTop3 = computeMapPackTop3(keyword.domain, response);
+     const businessName = (settings as any)?.business_name ?? null;
+     const mapPackTop3 = computeMapPackTop3(keyword.domain, response, businessName);
 
      return { organic: extractedResult, mapPackTop3 };
   },

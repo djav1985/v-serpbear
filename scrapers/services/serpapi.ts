@@ -60,7 +60,7 @@ const serpapi: ScraperSettings = {
     return `https://serpapi.com/search.json?${params.toString()}`;
   },
   resultObjectKey: "organic_results",
-  serpExtractor: ({ result, response, keyword }) => {
+  serpExtractor: ({ result, response, keyword, settings }) => {
     const extractedResult = [];
     let results: SerpApiResult[] = [];
 
@@ -90,7 +90,8 @@ const serpapi: ScraperSettings = {
       }
     }
 
-    const mapPackTop3 = computeMapPackTop3(keyword.domain, response);
+    const businessName = (settings as any)?.business_name ?? null;
+    const mapPackTop3 = computeMapPackTop3(keyword.domain, response, businessName);
 
     return { organic: extractedResult, mapPackTop3 };
   },

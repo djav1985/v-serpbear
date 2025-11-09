@@ -178,7 +178,21 @@ const extractCandidateUrls = (entry: LocalResultEntry): string[] => {
    return Array.from(candidates);
 };
 
-export const computeMapPackTop3 = (domain: string, localResultsInput: unknown): boolean => {
+const extractCandidateTitles = (entry: LocalResultEntry): string[] => {
+   const candidates = new Set<string>();
+   
+   const titleKeys = ['title', 'name', 'business_name', 'place_name'];
+   for (const key of titleKeys) {
+      const value = entry[key];
+      if (typeof value === 'string' && value.trim()) {
+         candidates.add(value.trim().toLowerCase());
+      }
+   }
+   
+   return Array.from(candidates);
+};
+
+export const computeMapPackTop3 = (domain: string, localResultsInput: unknown, businessName?: string | null): boolean => {
    const domainHost = normaliseDomainHost(domain);
    if (!domainHost) {
       return false;
@@ -200,9 +214,22 @@ export const computeMapPackTop3 = (domain: string, localResultsInput: unknown): 
 
    for (const { entry } of ranked) {
       const urls = extractCandidateUrls(entry);
+      
+      // First, try to match by URL
       for (const url of urls) {
          if (doesUrlMatchDomainHost(domainHost, url)) {
             return true;
+         }
+      }
+      
+      // If no URL match and business_name is provided, use it as fallback
+      if (urls.length === 0 && businessName && businessName.trim()) {
+         const titles = extractCandidateTitles(entry);
+         const normalizedBusinessName = businessName.trim().toLowerCase();
+         for (const title of titles) {
+            if (title === normalizedBusinessName) {
+               return true;
+            }
          }
       }
    }

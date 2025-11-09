@@ -70,7 +70,7 @@ const valueSerp: ScraperSettings = {
   },
   resultObjectKey: "organic_results",
   supportsMapPack: true,
-  serpExtractor: ({ result, response, keyword }) => {
+  serpExtractor: ({ result, response, keyword, settings }) => {
     const extractedResult = [];
     let results: ValueSerpResult[] = [];
     if (typeof result === "string") {
@@ -98,7 +98,8 @@ const valueSerp: ScraperSettings = {
       }
     }
 
-    const mapPackTop3 = computeMapPackTop3(keyword.domain, response);
+    const businessName = (settings as any)?.business_name ?? null;
+    const mapPackTop3 = computeMapPackTop3(keyword.domain, response, businessName);
 
     return { organic: extractedResult, mapPackTop3 };
   },

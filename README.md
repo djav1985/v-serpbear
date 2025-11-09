@@ -199,6 +199,23 @@ SerpBear integrates with several managed APIs in addition to a "bring your own p
 
 Every domain can opt into its own scraping provider without changing the global default. Open the **Domains** page, click a domain, and switch to the **Scraper** tab in the settings modal to reveal the override controls. Use the drop-down to choose a provider or revert to **System Scraper**, then supply the API key in the masked input when the provider requires one. Stored keys are encrypted before they are persisted, and the helper keeps the latest key for the same provider unless you explicitly clear it. Domains that keep the **System Scraper** option inherit the global configuration, matching how the refresh pipeline falls back when no override exists. Because overrides change the effective scraper per domain, they also influence whether a refresh job can run keywords in parallel—the pipeline checks each domain’s final scraper settings before opting into the faster path.
 
+#### Business Name (Optional)
+
+The **Business Name** field is an optional setting in the domain scraper configuration that improves map pack detection accuracy when scraping local search results. When a scraper returns local/map pack results without website URLs (common on mobile devices), SerpBear uses the business name as a fallback to match your business against the local results by title. 
+
+**How it works:**
+1. SerpBear first attempts to match local results by website URL (the primary matching method)
+2. If no URL is present in the local result (e.g., mobile SERP responses), it falls back to comparing the business name with the result's title
+3. The comparison is case-insensitive and uses exact matching
+
+**When to use it:**
+- Your domain targets local search queries
+- You're tracking mobile keywords (mobile local results often lack direct website links)
+- Your scraper supports map pack detection (ValueSerp, SerpAPI, SearchAPI, HasData, Serply, SpaceSerp)
+- Your business name in Google My Business matches a consistent format
+
+**Example:** If your domain is `vontainment.com` and your business name in Google My Business is "Vontainment", enter "Vontainment" in this field. When mobile local results don't include a website link but show "Vontainment" as the business title, SerpBear will correctly identify it as a map pack appearance.
+
 ---
 
 ## Feature deep dive
