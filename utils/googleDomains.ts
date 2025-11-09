@@ -185,6 +185,10 @@ export const GOOGLE_DOMAINS: Record<string, string> = {
    ZA: 'google.co.za',
    ZM: 'google.co.zm',
    ZW: 'google.co.zw',
+   CAT: 'google.cat',
+   GP: 'google.gp',
+   MS: 'google.ms',
+   VG: 'google.vg', 
 };
 
 export const getGoogleDomain = (countryCode: string): string =>
