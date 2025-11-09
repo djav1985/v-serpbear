@@ -11,7 +11,8 @@ type AddKeywordsProps = {
    scraperName: string,
    allowsCity: boolean,
    closeModal: Function,
-   domain: string
+   domain: string,
+   scraperCountries?: string[],
 }
 
 type KeywordsInput = {
@@ -30,6 +31,7 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
    keywords,
    scraperName = '',
    allowsCity = false,
+   scraperCountries,
 }: AddKeywordsProps, ref) => {
    const inputRef = useRef(null);
    const [error, setError] = useState<string>('');
@@ -58,6 +60,15 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
       }
    }, []);
    const { mutate: addMutate, isLoading: isAdding } = useAddKeywords(() => closeModal(false));
+
+   const availableCountries = useMemo(() => {
+      // If scraperCountries is defined, only use those countries
+      if (scraperCountries && scraperCountries.length > 0) {
+         return scraperCountries;
+      }
+      // Otherwise, use all countries that have a non-null googleDomain
+      return Object.keys(countries).filter((countryISO) => countries[countryISO][4] !== null);
+   }, [scraperCountries]);
 
    const existingTags: string[] = useMemo(() => {
       const allTags = keywords.reduce((acc: string[], keyword) => [...acc, ...keyword.tags], []).filter((t) => t && t.trim() !== '');
@@ -154,7 +165,7 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
                   <SelectField
                      multiple={false}
                      selected={[newKeywordsData.country]}
-                     options={Object.keys(countries).map((countryISO:string) => ({ label: countries[countryISO][0], value: countryISO }))}
+                     options={availableCountries.map((countryISO:string) => ({ label: countries[countryISO][0], value: countryISO }))}
                      defaultLabel='All Countries'
                      updateField={(updated:string[]) => {
                         const nextCountry = updated[0];
