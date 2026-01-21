@@ -128,8 +128,8 @@ describe('/api/refresh', () => {
     (Keyword.findAll as jest.Mock)
       .mockResolvedValueOnce([keywordRecord1, keywordRecord2])
       .mockResolvedValueOnce([
-        createKeywordRecord(1),
-        createKeywordRecord(2, { domain: 'example.org', country: 'GB' }),
+        createKeywordRecord(1, { updating: 1 }),
+        createKeywordRecord(2, { domain: 'example.org', country: 'GB', updating: 1 }),
       ]);
 
     (Domain.findAll as jest.Mock).mockResolvedValue([
