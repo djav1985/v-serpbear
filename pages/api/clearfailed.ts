@@ -2,13 +2,14 @@ import { writeFile } from 'fs/promises';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import verifyUser from '../../utils/verifyUser';
 import { logger } from '../../utils/logger';
+import { withApiLogging } from '../../utils/apiLogging';
 
 type SettingsGetResponse = {
    cleared?: boolean,
    error?: string,
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
       return res.status(401).json({ error: authorized });
@@ -18,6 +19,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
    }
    return res.status(502).json({ error: 'Unrecognized Route.' });
 }
+
+export default withApiLogging(handler, { name: 'clearfailed' });
 
 const clearFailedQueue = async (req: NextApiRequest, res: NextApiResponse<SettingsGetResponse>) => {
    try {

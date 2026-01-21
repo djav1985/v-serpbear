@@ -10,13 +10,14 @@ import verifyUser from '../../utils/verifyUser';
 
 import refreshAndUpdateKeywords from '../../utils/refresh';
 import { logger } from '../../utils/logger';
+import { withApiLogging } from '../../utils/apiLogging';
 
 type CRONRefreshRes = {
    started: boolean
    error?: string|null,
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
    await db.sync();
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
@@ -27,6 +28,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
    }
    return res.status(502).json({ error: 'Unrecognized Route.' });
 }
+
+export default withApiLogging(handler, { name: 'cron' });
 
 const cronRefreshkeywords = async (req: NextApiRequest, res: NextApiResponse<CRONRefreshRes>) => {
    try {

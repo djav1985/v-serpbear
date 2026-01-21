@@ -6,6 +6,7 @@ import { logger } from '../../utils/logger';
 import verifyUser from '../../utils/verifyUser';
 import parseKeywords from '../../utils/parseKeywords';
 import { getKeywordsVolume, updateKeywordsVolumeData } from '../../utils/adwords';
+import { withApiLogging } from '../../utils/apiLogging';
 
 type KeywordsRefreshRes = {
    keywords?: KeywordType[]
@@ -13,7 +14,7 @@ type KeywordsRefreshRes = {
    error?: string|null,
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
    await db.sync();
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
@@ -24,6 +25,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
    }
    return res.status(502).json({ error: 'Unrecognized Route.' });
 }
+
+export default withApiLogging(handler, { name: 'volume' });
 
 const updatekeywordVolume = async (req: NextApiRequest, res: NextApiResponse<KeywordsRefreshRes>) => {
    const { keywords = [], domain = '', update = true } = req.body || {};

@@ -7,13 +7,14 @@ import Domain from '../../database/models/domain';
 import verifyUser from '../../utils/verifyUser';
 import { maskDomainScraperSettings, parseDomainScraperSettings } from '../../utils/domainScraperSettings';
 import { logger } from '../../utils/logger';
+import { withApiLogging } from '../../utils/apiLogging';
 
 type DomainGetResponse = {
    domain?: DomainType | null
    error?: string|null,
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
    const authorized = verifyUser(req, res);
    if (authorized === 'authorized' && req.method === 'GET') {
       await db.sync();
@@ -21,6 +22,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
    }
    return res.status(401).json({ error: authorized });
 }
+
+export default withApiLogging(handler, { name: 'domain' });
 
 const getDomain = async (req: NextApiRequest, res: NextApiResponse<DomainGetResponse>) => {
    if (!req.query.domain || typeof req.query.domain !== 'string') {

@@ -8,6 +8,7 @@ import db from '../../database/database';
 import verifyUser from '../../utils/verifyUser';
 import { getAdwordsCredentials, getAdwordsKeywordIdeas } from '../../utils/adwords';
 import { logger } from '../../utils/logger';
+import { withApiLogging } from '../../utils/apiLogging';
 
 type adwordsValidateResp = {
    valid: boolean
@@ -67,7 +68,7 @@ const respondWithIntegrationResult = (
       .send(html);
 };
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
    await db.sync();
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
@@ -192,3 +193,5 @@ const validateAdwordsIntegration = async (req: NextApiRequest, res: NextApiRespo
       return res.status(400).json({ valid: false, error: errMsg });
    }
 };
+
+export default withApiLogging(handler, { name: 'adwords' });

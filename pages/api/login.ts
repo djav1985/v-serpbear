@@ -5,13 +5,14 @@ import jwt from 'jsonwebtoken';
 import Cookies from 'cookies';
 import { logger } from '../../utils/logger';
 import isRequestSecure from '../../utils/api/isRequestSecure';
+import { withApiLogging } from '../../utils/apiLogging';
 
 type loginResponse = {
    success?: boolean
    error?: string|null,
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
    const startTime = Date.now();
    
    logger.info('Login API endpoint accessed', {
@@ -118,3 +119,5 @@ const loginUser = async (req: NextApiRequest, res: NextApiResponse<loginResponse
 
    return res.status(401).json({ success: false, error });
 };
+
+export default withApiLogging(handler, { name: 'login' });

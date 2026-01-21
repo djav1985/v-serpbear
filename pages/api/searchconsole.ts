@@ -6,6 +6,7 @@ import Domain from '../../database/models/domain';
 import { logger } from '../../utils/logger';
 import { fetchDomainSCData, getSearchConsoleApiInfo, readLocalSCData, resolveDomainIdentifier } from '../../utils/searchConsole';
 import verifyUser from '../../utils/verifyUser';
+import { withApiLogging } from '../../utils/apiLogging';
 
 type searchConsoleRes = {
    data: SCDomainDataType|null
@@ -17,7 +18,7 @@ type searchConsoleCRONRes = {
    error?: string|null,
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
    await db.sync();
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
@@ -99,3 +100,5 @@ const cronRefreshSearchConsoleData = async (req: NextApiRequest, res: NextApiRes
       return res.status(400).json({ status: 'failed', error: 'Error Fetching Data from Google Search Console.' });
    }
 };
+
+export default withApiLogging(handler, { name: 'searchconsole' });

@@ -7,13 +7,14 @@ import { fetchDomainSCData, getSearchConsoleApiInfo, readLocalSCData } from '../
 import verifyUser from '../../utils/verifyUser';
 import Domain from '../../database/models/domain';
 import { logger } from '../../utils/logger';
+import { withApiLogging } from '../../utils/apiLogging';
 
 type SCInsightRes = {
    data: InsightDataType | null,
    error?: string|null,
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
    await db.sync();
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
@@ -24,6 +25,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
    }
    return res.status(502).json({ error: 'Unrecognized Route.' });
 }
+
+export default withApiLogging(handler, { name: 'insight' });
 
 const getDomainSearchConsoleInsight = async (req: NextApiRequest, res: NextApiResponse<SCInsightRes>) => {
    if (!req.query.domain || typeof req.query.domain !== 'string') return res.status(400).json({ data: null, error: 'Domain is Missing.' });
