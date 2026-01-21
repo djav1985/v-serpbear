@@ -45,6 +45,10 @@ jest.mock('../../pages/api/settings', () => ({
   getAppSettings: jest.fn(),
 }));
 
+jest.mock('../../utils/apiLogging', () => ({
+  withApiLogging: (handler: any) => handler,
+}));
+
 type MockedResponse = Partial<NextApiResponse> & {
   status: jest.Mock;
   json: jest.Mock;
@@ -61,12 +65,11 @@ describe('/api/notify - authentication', () => {
       query: {},
       headers: {},
     };
+
     res = {
       status: jest.fn().mockReturnThis(),
       json: jest.fn(),
     } as MockedResponse;
-
-    jest.clearAllMocks();
 
     sendMailMock = jest.fn().mockResolvedValue(undefined);
     (nodeMailer.createTransport as jest.Mock).mockReturnValue({ sendMail: sendMailMock });
@@ -82,6 +85,10 @@ describe('/api/notify - authentication', () => {
       notification_email_from: '',
       notification_email_from_name: platformName,
     });
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
   it('returns 401 when verification fails', async () => {

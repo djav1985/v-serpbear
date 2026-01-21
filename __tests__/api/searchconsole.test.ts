@@ -20,6 +20,9 @@ jest.mock('../../database/database', () => ({
   default: { sync: jest.fn() },
 }));
 jest.mock('../../utils/verifyUser');
+jest.mock('../../utils/apiLogging', () => ({
+  withApiLogging: (handler: any) => handler,
+}));
 
 const mockFetchDomainSCData = fetchDomainSCData as jest.MockedFunction<typeof fetchDomainSCData>;
 const mockGetSearchConsoleApiInfo = getSearchConsoleApiInfo as jest.MockedFunction<typeof getSearchConsoleApiInfo>;
@@ -40,9 +43,14 @@ const mockSCDataResponse = {
   stats: [],
 };
 
+type MockedResponse = Partial<NextApiResponse> & {
+  status: jest.Mock;
+  json: jest.Mock;
+};
+
 describe('/api/searchconsole - CRON functionality', () => {
   let req: Partial<NextApiRequest>;
-  let res: Partial<NextApiResponse>;
+  let res: MockedResponse;
 
   beforeEach(() => {
     req = {
@@ -51,13 +59,14 @@ describe('/api/searchconsole - CRON functionality', () => {
         authorization: 'Bearer test-api-key',
       },
     };
-    res = {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn(),
-    };
-    // Reset all mocks
-    jest.clearAllMocks();
+    res = {} as unknown as MockedResponse;
+    res.status = jest.fn().mockImplementation(() => res);
+    res.json = jest.fn();
     (verifyUser as jest.Mock).mockReturnValue('authorized');
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
   it('should fetch search console data for all domains with proper API credentials', async () => {

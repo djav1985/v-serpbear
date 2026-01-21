@@ -35,6 +35,10 @@ jest.mock('../../utils/refresh', () => ({
   default: jest.fn(),
 }));
 
+jest.mock('../../utils/apiLogging', () => ({
+  withApiLogging: (handler: any) => handler,
+}));
+
 type MockedResponse = Partial<NextApiResponse> & {
   status: jest.Mock;
   json: jest.Mock;
@@ -49,8 +53,6 @@ describe('/api/cron', () => {
       status: jest.fn().mockReturnThis(),
       json: jest.fn(),
     } as MockedResponse;
-
-    jest.clearAllMocks();
 
     (db.sync as jest.Mock).mockResolvedValue(undefined);
     (verifyUser as jest.Mock).mockReturnValue('authorized');
@@ -91,5 +93,9 @@ describe('/api/cron', () => {
     expect(refreshAndUpdateKeywords).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({ started: false, error: 'No domains have scraping enabled.' });
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 });

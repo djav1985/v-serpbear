@@ -72,6 +72,55 @@ const resolveEffectiveSettings = (
 ): SettingsType => domainSpecificSettings.get(domain) ?? globalSettings;
 
 /**
+ * Normalizes a location string for use in cache keys to ensure consistent
+ * matching between desktop and mobile keyword pairs.
+ *
+ * - Treats undefined/null as an empty string.
+ * - Trims leading/trailing whitespace.
+ * - Collapses consecutive internal whitespace to a single space.
+ * - Converts to lowercase for case-insensitive comparison.
+ * - Attempts to decode URI-encoded strings (e.g., "New%20York") without
+ *   throwing if the string is not valid URI-encoded text.
+ */
+const normalizeLocationForCache = (location?: string | null): string => {
+   if (!location) {
+      return '';
+   }
+
+   let normalized = location.trim();
+
+   // Best-effort decode of URI-encoded locations; ignore failures.
+   try {
+      normalized = decodeURIComponent(normalized);
+   } catch {
+      // If decoding fails, fall back to the trimmed original.
+   }
+
+   // Collapse multiple whitespace characters into a single space and lowercase.
+   normalized = normalized.replace(/\s+/g, ' ').toLowerCase();
+
+   return normalized;
+};
+
+/**
+ * Normalizes a device string to either 'desktop' or 'mobile'.
+ * Treats undefined, null, or any non-'mobile' value as 'desktop'.
+ * @param {string | undefined} device - The device type
+ * @returns {'desktop' | 'mobile'} Normalized device type
+ */
+const normalizeDevice = (device?: string): 'desktop' | 'mobile' =>
+   device === 'mobile' ? 'mobile' : 'desktop';
+
+/**
+ * Generates a cache key for matching desktop and mobile keyword pairs.
+ * The key is used to store and retrieve desktop mapPackTop3 values for mobile keywords.
+ * @param {KeywordType} keyword - The keyword to generate a cache key for
+ * @returns {string} A unique cache key combining keyword, domain, country, and location
+ */
+const generateKeywordCacheKey = (keyword: KeywordType): string =>
+   `${keyword.keyword}|${keyword.domain}|${keyword.country}|${normalizeLocationForCache(keyword.location)}`;
+
+/**
  * Refreshes the Keywords position by Scraping Google Search Result by
  * Determining whether the keywords should be scraped in Parallel or not
  * @param {Keyword[]} rawkeyword - Keywords to scrape
@@ -204,10 +253,46 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
          }
       }
    } else {
-      for (const keyword of eligibleKeywordModels) {
+      // Sequential scraping: scrape desktop keywords first, then mobile
+      // This allows mobile keywords to use desktop results as fallback if needed (e.g., for valueserp)
+      const sortedKeywords = [...eligibleKeywordModels].sort((a, b) => {
+         const aDevice = normalizeDevice(a.device);
+         const bDevice = normalizeDevice(b.device);
+         // Desktop comes before mobile
+         if (aDevice === 'desktop' && bDevice === 'mobile') return -1;
+         if (aDevice === 'mobile' && bDevice === 'desktop') return 1;
+         return 0;
+      });
+
+      // Map to store desktop results for each keyword (by keyword+domain+country+location)
+      // This cache allows scrapers like valueserp to use desktop mapPackTop3 for mobile when needed
+      const desktopMapPackCache = new Map<string, boolean>();
+
+      for (const keyword of sortedKeywords) {
          console.log('START SCRAPE: ', keyword.keyword);
-         const updatedkeyword = await refreshAndUpdateKeyword(keyword, settings, domainSpecificSettings);
+         const keywordPlain = keyword.get({ plain: true });
+         const normalizedDevice = normalizeDevice(keywordPlain.device);
+         const keywordKey = generateKeywordCacheKey(keywordPlain);
+         
+         // If this is a mobile keyword, check if we have desktop mapPackTop3 cached
+         const fallbackMapPackTop3 = (normalizedDevice === 'mobile') 
+            ? desktopMapPackCache.get(keywordKey) 
+            : undefined;
+
+         // Log when mobile keyword has no desktop fallback available
+         if (normalizedDevice === 'mobile' && fallbackMapPackTop3 === undefined) {
+            console.log(`[DEBUG] Mobile keyword "${keywordPlain.keyword}" has no desktop fallback available (desktop may not have been scraped or failed)`);
+         }
+
+         const updatedkeyword = await refreshAndUpdateKeyword(keyword, settings, domainSpecificSettings, fallbackMapPackTop3);
          updatedKeywords.push(updatedkeyword);
+
+         // If this was a desktop keyword, cache its mapPackTop3
+         // Note: undefined/null device is treated as desktop for consistency
+         if (normalizedDevice === 'desktop') {
+            desktopMapPackCache.set(keywordKey, updatedkeyword.mapPackTop3 === true);
+         }
+
          if (keywords.length > 0 && settings.scrape_delay && settings.scrape_delay !== '0') {
             const delay = parseInt(settings.scrape_delay, 10);
             if (!isNaN(delay) && delay > 0) {
@@ -235,15 +320,24 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
  * Scrape Serp for given keyword and update the position in DB.
  * @param {Keyword} keyword - Keywords to scrape
  * @param {SettingsType} settings - The App Settings that contain the Scraper settings
+ * @param {Map<string, SettingsType>} domainSpecificSettings - Domain-specific settings
+ * @param {boolean} fallbackMapPackTop3 - Optional fallback mapPackTop3 value from desktop keyword (for valueserp mobile)
  * @returns {Promise<KeywordType>}
  */
 const refreshAndUpdateKeyword = async (
    keyword: Keyword,
    settings: SettingsType,
    domainSpecificSettings: Map<string, SettingsType>,
+   fallbackMapPackTop3?: boolean,
 ): Promise<KeywordType> => {
    const currentkeyword = keyword.get({ plain: true });
-   const effectiveSettings = resolveEffectiveSettings(currentkeyword.domain, settings, domainSpecificSettings);
+   const baseEffectiveSettings = resolveEffectiveSettings(currentkeyword.domain, settings, domainSpecificSettings);
+
+   // For valueserp mobile keywords, pass the fallback mapPackTop3 from desktop
+   const effectiveSettings: SettingsType & { fallback_mapPackTop3?: boolean } =
+      fallbackMapPackTop3 !== undefined && baseEffectiveSettings.scraper_type === 'valueserp'
+         ? { ...baseEffectiveSettings, fallback_mapPackTop3: fallbackMapPackTop3 }
+         : baseEffectiveSettings;
    let refreshedkeywordData: RefreshResult | false = false;
    let scraperError: string | false = false;
 

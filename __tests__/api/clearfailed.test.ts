@@ -9,6 +9,10 @@ jest.mock('fs/promises', () => ({
    writeFile: jest.fn(),
 }));
 
+jest.mock('../../utils/apiLogging', () => ({
+   withApiLogging: (handler: any) => handler,
+}));
+
 describe('/api/clearfailed', () => {
    const req = { method: 'PUT', headers: {} } as unknown as NextApiRequest;
    let res: NextApiResponse;
