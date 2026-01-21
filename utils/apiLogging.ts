@@ -28,6 +28,9 @@ export function withApiLogging(
     // Add request ID to the request object for downstream use
     (req as any).requestId = requestId;
 
+    // Always log body in DEBUG mode or when explicitly requested
+    const shouldLogBody = logBody || process.env.LOG_LEVEL === 'DEBUG' || process.env.LOG_LEVEL === 'VERBOSE';
+
     const requestMeta = {
       requestId,
       method: req.method,
@@ -36,7 +39,7 @@ export function withApiLogging(
       ip: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'unknown',
       userAgent: req.headers['user-agent'],
       contentType: req.headers['content-type'],
-      ...(logBody && req.body ? { body: req.body } : {}),
+      ...(shouldLogBody && req.body ? { body: req.body } : {}),
     };
 
     // Always log the request start
@@ -70,7 +73,7 @@ export function withApiLogging(
         url: req.url,
         statusCode,
         duration,
-        ...(logBody && responseBody ? { responseBody } : {}),
+        ...(shouldLogBody && responseBody ? { responseBody } : {}),
       };
 
       // Log based on status code
@@ -80,6 +83,9 @@ export function withApiLogging(
         logger.warn(`API Request Error${name ? ` [${name}]` : ''}`, responseMeta);
       } else if (logSuccess) {
         logger.info(`API Request Completed${name ? ` [${name}]` : ''}`, responseMeta);
+      } else {
+        // Always log at DEBUG level even if logSuccess is false
+        logger.debug(`API Request Completed${name ? ` [${name}]` : ''}`, responseMeta);
       }
 
     } catch (error) {
