@@ -373,7 +373,7 @@ const extractAdwordskeywordIdeas = (keywordIdeas: keywordIdeasResponseItem[], op
       keywordIdeas.forEach((kwRaw) => {
          const { text, keywordIdeaMetrics } = kwRaw;
          const { competition, competitionIndex = '0', avgMonthlySearches = '0', monthlySearchVolumes = [] } = keywordIdeaMetrics || {};
-         if (keywordIdeaMetrics?.avgMonthlySearches) {
+         if (keywordIdeaMetrics && text) {
             const searchVolumeTrend: Record<string, string> = {};
             const searchVolume = parseInt(avgMonthlySearches, 10);
             const compIndex = parseInt(competitionIndex, 10);
