@@ -3,13 +3,13 @@
 import { writeFile, readFile } from 'fs/promises';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import Cryptr from 'cryptr';
-import getConfig from 'next/config';
 import verifyUser from '../../utils/verifyUser';
 import allScrapers from '../../scrapers/index';
 import { withApiLogging } from '../../utils/apiLogging';
 import { logger } from '../../utils/logger';
 import { trimStringProperties } from '../../utils/security';
 import { getBranding } from '../../utils/branding';
+import packageJson from '../../package.json';
 
 const buildSettingsDefaults = (): SettingsType => {
    const { platformName } = getBranding();
@@ -76,8 +76,7 @@ const getSettings = async (req: NextApiRequest, res: NextApiResponse<SettingsGet
          return res.status(500).json({ error: 'Settings could not be loaded.' });
       }
       
-      const config = getConfig();
-      const version = config?.publicRuntimeConfig?.version;
+      const version = packageJson.version;
       
       if (isAuthenticated) {
          // Return full settings for authenticated users
