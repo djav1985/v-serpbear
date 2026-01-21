@@ -1,3 +1,5 @@
+import { logger } from './logger';
+
 const URL_KEYS = [
    'website',
    'link',

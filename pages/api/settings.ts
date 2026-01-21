@@ -3,6 +3,7 @@
 import { writeFile, readFile } from 'fs/promises';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import Cryptr from 'cryptr';
+import { logger } from '../../utils/logger';
 import verifyUser from '../../utils/verifyUser';
 import allScrapers from '../../scrapers/index';
 import { withApiLogging } from '../../utils/apiLogging';
