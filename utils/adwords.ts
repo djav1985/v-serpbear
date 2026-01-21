@@ -398,9 +398,8 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
 
          if (resp.status !== 200) {
             const errMessage = ideaData?.error?.details?.[0]?.errors?.[0]?.message || 'Failed to fetch keyword ideas';
-            logger.error('Google Ads API error response', undefined, {
+            logger.error('Google Ads API error response', new Error(errMessage), {
                status: resp.status,
-               errorMessage: errMessage,
                errorDetails: ideaData?.error,
             });
             throw new Error(errMessage);
@@ -593,7 +592,10 @@ export const getKeywordsVolume = async (keywords: KeywordType[]): Promise<{ erro
 
                if (resp.status !== 200) {
                   const errorMessage = ideaData?.error?.details[0]?.errors[0]?.message || 'Unknown error';
-                  logger.error('Google Ads Volume Request Response', new Error(errorMessage));
+                  logger.error('Google Ads Volume Request Response', new Error(errorMessage), {
+                     status: resp.status,
+                     errorDetails: ideaData?.error,
+                  });
                }
 
                if (ideaData?.results) {
