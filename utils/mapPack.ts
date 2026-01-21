@@ -137,13 +137,13 @@ export const extractLocalResultsFromPayload = (payload: unknown, debug = false):
 
    if (directCandidates.length === 0) {
       if (debug) {
-         console.log('[MAP_PACK] No local results found in payload. Available keys:', Object.keys(container));
+         logger.debug('No local results found in map pack payload', { availableKeys: Object.keys(container) });
       }
       return [];
    }
 
    if (debug) {
-      console.log('[MAP_PACK] Found', directCandidates[0].length, 'local results');
+      logger.debug(`Found ${directCandidates[0].length} local results in map pack`);
    }
 
    return directCandidates[0];

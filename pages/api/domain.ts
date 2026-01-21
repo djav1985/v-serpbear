@@ -6,6 +6,7 @@ import db from '../../database/database';
 import Domain from '../../database/models/domain';
 import verifyUser from '../../utils/verifyUser';
 import { maskDomainScraperSettings, parseDomainScraperSettings } from '../../utils/domainScraperSettings';
+import { logger } from '../../utils/logger';
 
 type DomainGetResponse = {
    domain?: DomainType | null
@@ -44,7 +45,7 @@ const getDomain = async (req: NextApiRequest, res: NextApiResponse<DomainGetResp
             scData.private_key = scData.private_key ? cryptr.decrypt(scData.private_key) : '';
             parsedDomain.search_console = JSON.stringify(scData);
          } catch {
-            console.log('[Error] Parsing Search Console Keys.');
+            logger.debug('Error parsing Search Console keys');
          }
       }
 
@@ -55,7 +56,7 @@ const getDomain = async (req: NextApiRequest, res: NextApiResponse<DomainGetResp
 
       return res.status(200).json({ domain: parsedDomain });
    } catch (error) {
-      console.log('[ERROR] Getting Domain: ', error);
+      logger.error('Getting Domain: ', error instanceof Error ? error : new Error(String(error)));
       return res.status(400).json({ error: 'Error Loading Domain' });
    }
 };

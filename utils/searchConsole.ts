@@ -9,6 +9,7 @@ import utc from 'dayjs/plugin/utc';
 import { readFile, writeFile, unlink } from 'fs/promises';
 import * as path from 'path';
 import { getCountryCodeFromAlphaThree } from './countries';
+import { logger } from './logger';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -110,7 +111,7 @@ const fetchSearchConsoleData = async (domain:DomainType, days:number, type?:stri
    } catch (err:any) {
       const qType = type === 'stats' ? '(stats)' : `(${days}days)`;
       const errorMsg = err?.response?.status && `${err?.response?.statusText}. ${err?.response?.data?.error_description}`;
-      console.log(`[ERROR] Search Console API Error for ${domainName} ${qType} : `, errorMsg || err?.code);
+      logger.error(`Search Console API error for ${domainName} ${qType}`, new Error(errorMsg || err?.code || 'Unknown error'));
       // console.log('SC ERROR :', err);
       return { error: true, errorMsg: errorMsg || err?.code };
    }
@@ -284,7 +285,7 @@ export const getSearchConsoleApiInfo = async (domain: DomainType): Promise<SCAPI
          scAPIData.client_email = settings.search_console_client_email ? cryptr.decrypt(settings.search_console_client_email) : '';
          scAPIData.private_key = settings.search_console_private_key ? cryptr.decrypt(settings.search_console_private_key) : '';
       } catch (error) {
-         console.warn('[SEARCH_CONSOLE] Unable to read app settings for credentials:', error);
+         logger.warn('Unable to read app settings for Search Console credentials', { error: error instanceof Error ? error.message : String(error) });
          // Settings file doesn't exist or is invalid, continue with environment variables
       }
    }
@@ -324,7 +325,7 @@ export const readLocalSCData = async (domain:string): Promise<SCDomainDataType|f
       const domainSCData = JSON.parse(currentQueueRaw);
       return domainSCData;
    } catch (error) {
-      console.warn('[SEARCH_CONSOLE] Failed to read local data for domain', domain, error);
+      logger.warn(`Failed to read local Search Console data for domain: ${domain}`, { error: error instanceof Error ? error.message : String(error) });
       return false;
    }
 };
@@ -342,10 +343,10 @@ export const updateLocalSCData = async (domain:string, scDomainData?:SCDomainDat
       
       const dataToWrite = scDomainData || { threeDays: [], sevenDays: [], thirtyDays: [], lastFetched: '', lastFetchError: '' };
       // eslint-disable-next-line security/detect-non-literal-fs-filename
-      await writeFile(filePath, JSON.stringify(dataToWrite), { encoding: 'utf-8' }).catch((err) => { console.log(err); });
+      await writeFile(filePath, JSON.stringify(dataToWrite), { encoding: 'utf-8' }).catch((err) => { logger.error('Error writing Search Console data', err instanceof Error ? err : new Error(String(err))); });
       return dataToWrite;
    } catch (error) {
-      console.warn('[SEARCH_CONSOLE] Failed to write local data for domain', domain, error);
+      logger.warn(`Failed to write local Search Console data for domain: ${domain}`, { error: error instanceof Error ? error.message : String(error) });
       return false;
    }
 };
@@ -363,7 +364,7 @@ export const removeLocalSCData = async (domain:string): Promise<boolean> => {
       await unlink(filePath);
       return true;
    } catch (error) {
-      console.warn('[SEARCH_CONSOLE] Failed to remove local data for domain', domain, error);
+      logger.warn(`Failed to remove local Search Console data for domain: ${domain}`, { error: error instanceof Error ? error.message : String(error) });
       return false;
    }
 };

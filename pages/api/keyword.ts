@@ -5,6 +5,7 @@ import db from '../../database/database';
 import Keyword from '../../database/models/keyword';
 import parseKeywords from '../../utils/parseKeywords';
 import verifyUser from '../../utils/verifyUser';
+import { logger } from '../../utils/logger';
 
 type KeywordGetResponse = {
    keyword?: KeywordType | null
@@ -39,7 +40,7 @@ const getKeyword = async (req: NextApiRequest, res: NextApiResponse<KeywordGetRe
       const keywords = pareseKeyword && pareseKeyword[0] ? pareseKeyword[0] : null;
       return res.status(200).json({ keyword: keywords });
    } catch (error) {
-      console.log('[ERROR] Getting Keyword: ', error);
+      logger.error('Getting Keyword: ', error instanceof Error ? error : new Error(String(error)));
       return res.status(400).json({ error: 'Error Loading Keyword' });
    }
 };

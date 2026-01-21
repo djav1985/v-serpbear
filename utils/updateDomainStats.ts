@@ -1,5 +1,6 @@
 import Keyword from '../database/models/keyword';
 import Domain from '../database/models/domain';
+import { logger } from './logger';
 
 /**
  * Updates domain statistics (avgPosition and mapPackKeywords) based on current keyword data
@@ -50,8 +51,8 @@ export const updateDomainStats = async (domainName: string): Promise<void> => {
          { where: { domain: domainName } }
       );
 
-      console.log(`[DOMAIN STATS] Updated ${domainName}: avgPosition=${avgPosition}, mapPack=${stats.mapPackKeywords}`);
+      logger.info(`Updated domain stats for ${domainName}`, { avgPosition, mapPackKeywords: stats.mapPackKeywords });
    } catch (error) {
-      console.error(`[ERROR] Failed to update domain stats for ${domainName}:`, error);
+      logger.error(`Failed to update domain stats for ${domainName}`, error instanceof Error ? error : new Error(String(error)));
    }
 };

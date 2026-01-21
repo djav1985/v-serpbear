@@ -9,8 +9,8 @@ import getdomainStats from '../../utils/domains';
 import verifyUser from '../../utils/verifyUser';
 import { checkSearchConsoleIntegration, removeLocalSCData } from '../../utils/searchConsole';
 import { withApiLogging } from '../../utils/apiLogging';
-import { logger } from '../../utils/logger';
 import { validateHostname } from '../../utils/validators/hostname';
+import { logger } from '../../utils/logger';
 import {
    buildPersistedScraperSettings,
    maskDomainScraperSettings,
@@ -90,7 +90,7 @@ export const getDomains = async (req: NextApiRequest, res: NextApiResponse<Domai
       const theDomains: DomainType[] = withStats ? await getdomainStats(formattedDomains) : formattedDomains;
       return res.status(200).json({ domains: theDomains });
    } catch (error) {
-      console.error('[ERROR] Getting Domains.', error);
+      logger.error('Getting Domains.', error instanceof Error ? error : new Error(String(error)));
       return res.status(400).json({ domains: [], error: 'Error Getting Domains.' });
    }
 };
@@ -137,7 +137,7 @@ const addDomain = async (req: NextApiRequest, res: NextApiResponse<DomainsAddRes
          const formattedDomains = newDomains.map((el) => el.get({ plain: true }));
          return res.status(201).json({ domains: formattedDomains });
       } catch (error) {
-         console.log('[ERROR] Adding New Domain ', error);
+         logger.error('Adding New Domain ', error instanceof Error ? error : new Error(String(error)));
          return res.status(400).json({ domains: [], error: 'Error Adding Domain.' });
       }
    } else {
@@ -159,7 +159,7 @@ export const deleteDomain = async (req: NextApiRequest, res: NextApiResponse<Dom
       const SCDataRemoved = await removeLocalSCData(domain as string);
       return res.status(200).json({ domainRemoved: removedDomCount, keywordsRemoved: removedKeywordCount, SCDataRemoved });
    } catch (error) {
-      console.log('[ERROR] Deleting Domain: ', req.query.domain, error);
+      logger.error(`Error deleting domain: ${req.query.domain}`, error instanceof Error ? error : new Error(String(error)));
       return res.status(400).json({ domainRemoved: 0, keywordsRemoved: 0, SCDataRemoved: false, error: 'Error Deleting Domain' });
    }
 };
@@ -224,7 +224,7 @@ export const updateDomain = async (req: NextApiRequest, res: NextApiResponse<Dom
 
       return res.status(200).json({ domain: domainToUpdate });
    } catch (error) {
-      console.log('[ERROR] Updating Domain: ', req.query.domain, error);
+      logger.error('Updating Domain: ', error instanceof Error ? error : new Error(String(error)), { context: req.query.domain });
       return res.status(400).json({ domain: null, error: 'Error Updating Domain. An Unknown Error Occurred.' });
    }
 };
@@ -232,6 +232,4 @@ export const updateDomain = async (req: NextApiRequest, res: NextApiResponse<Dom
 export default withApiLogging(handler, {
    name: 'domains',
    logBody: false,
-   // Propagate the shared success logging toggle for clarity
-   logSuccess: logger.isSuccessLoggingEnabled()
 });

@@ -9,8 +9,6 @@ import { logger } from './logger';
  * @param {NextApiRequest} req - The Next Request
  * @param {NextApiResponse} res - The Next Response.
  * @returns {string}
- *
- * Successful authentication logs respect the LOG_SUCCESS_EVENTS toggle managed by the shared logger.
  */
 const verifyUser = (req: NextApiRequest, res: NextApiResponse): string => {
    const startTime = Date.now();
@@ -31,17 +29,6 @@ const verifyUser = (req: NextApiRequest, res: NextApiResponse): string => {
    const verifiedAPI = req.headers.authorization ? req.headers.authorization.substring('Bearer '.length) === process.env.APIKEY : false;
    const accessingAllowedRoute = req.url && req.method && allowedApiRoutes.includes(`${req.method}:${req.url.replace(/\?(.*)/, '')}`);
    
-   // Enhanced logging for all requests
-   logger.verbose('Authentication check started', {
-      method: req.method,
-      url: req.url,
-      hasToken: !!token,
-      hasAuthHeader: !!req.headers.authorization,
-      userAgent: req.headers['user-agent'],
-      ip: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'unknown',
-      successLoggingEnabled: logger.isSuccessLoggingEnabled(),
-   });
-
    let authorized: string = '';
    let authMethod: string = 'none';
    let username: string | undefined;

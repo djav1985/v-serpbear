@@ -7,6 +7,7 @@ import Cryptr from 'cryptr';
 import db from '../../database/database';
 import verifyUser from '../../utils/verifyUser';
 import { getAdwordsCredentials, getAdwordsKeywordIdeas } from '../../utils/adwords';
+import { logger } from '../../utils/logger';
 
 type adwordsValidateResp = {
    valid: boolean
@@ -49,7 +50,7 @@ const respondWithIntegrationResult = (
             return;
           }
         } catch (err) {
-          console.warn('Failed to notify opener', err);
+          logger.warn('Failed to notify opener', { error: err?.message || String(err) });
         }
         if (redirectUrl) {
           window.location.replace(redirectUrl);
@@ -117,7 +118,7 @@ const getAdwordsRefreshToken = async (req: NextApiRequest, res: NextApiResponse)
             } else if (errorMsg.includes('redirect_uri_mismatch')) {
                errorMsg += ` Redirected URL: ${redirectURL}`;
             }
-            console.log('[Error] Getting Google Ads Refresh Token! Reason: ', errorMsg);
+            logger.debug('[Error] Getting Google Ads Refresh Token! Reason: ', { data: errorMsg });
             return respondWithIntegrationResult(req, res, {
                success: false,
                message: 'Error Saving the Google Ads Refresh Token. Please Try Again!',
@@ -132,7 +133,7 @@ const getAdwordsRefreshToken = async (req: NextApiRequest, res: NextApiResponse)
          statusCode: 400,
       });
    } catch (error) {
-      console.log('[ERROR] Getting Google Ads Refresh Token: ', error);
+      logger.error('Getting Google Ads Refresh Token: ', error instanceof Error ? error : new Error(String(error)));
       return respondWithIntegrationResult(req, res, {
          success: false,
          message: 'Error Getting Google Ads Refresh Token. Please Try Again!',
@@ -187,7 +188,7 @@ const validateAdwordsIntegration = async (req: NextApiRequest, res: NextApiRespo
 
       return res.status(200).json({ valid: true });
    } catch (error) {
-      console.log('[ERROR] Validating Google Ads Integration: ', error);
+      logger.error('Validating Google Ads Integration: ', error instanceof Error ? error : new Error(String(error)));
       return res.status(400).json({ valid: false, error: errMsg });
    }
 };

@@ -65,7 +65,7 @@ const getDomainSearchConsoleData = async (req: NextApiRequest, res: NextApiRespo
       }
       return res.status(400).json({ data: null, error: 'Error Fetching Data from Google Search Console.' });
    } catch (error) {
-      console.log('[ERROR] Getting Search Console Data for: ', domainname, error);
+      logger.error('Error getting Search Console data for domain', error instanceof Error ? error : new Error(String(error)), { domain: domainname });
       return res.status(400).json({ data: null, error: 'Error Fetching Data from Google Search Console.' });
    }
 };
@@ -81,20 +81,20 @@ const cronRefreshSearchConsoleData = async (req: NextApiRequest, res: NextApiRes
             if (scDomainAPI.client_email || scGlobalAPI.client_email) {
                const scData = await fetchDomainSCData(domain, scDomainAPI, scGlobalAPI);
                if (scData && scData.thirtyDays && scData.thirtyDays.length) {
-                  console.log(`[SUCCESS] Updated Search Console data for domain: ${domain.domain}`);
+                  logger.info(`Updated Search Console data for domain: ${domain.domain}`);
                } else {
-                  console.log(`[ERROR] Failed to update Search Console data for domain: ${domain.domain}`);
+                  logger.error(`Failed to update Search Console data for domain: ${domain.domain}`);
                }
             } else {
-               console.log(`[SKIP] No Search Console API credentials found for domain: ${domain.domain}`);
+               logger.debug(`No Search Console API credentials found for domain: ${domain.domain}`);
             }
          } catch (domainError) {
-            console.log(`[ERROR] Failed to update Search Console data for domain: ${domain.domain}`, domainError);
+            logger.error(`Failed to update Search Console data for domain: ${domain.domain}`, domainError instanceof Error ? domainError : new Error(String(domainError)));
          }
       }
       return res.status(200).json({ status: 'completed' });
    } catch (error) {
-      console.log('[ERROR] CRON Updating Search Console Data. ', error);
+      logger.error('Error in CRON updating Search Console data', error instanceof Error ? error : new Error(String(error)));
       return res.status(400).json({ status: 'failed', error: 'Error Fetching Data from Google Search Console.' });
    }
 };

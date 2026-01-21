@@ -7,7 +7,9 @@ import Keyword from '../../database/models/keyword';
 import Domain from '../../database/models/domain';
 import { getAppSettings } from './settings';
 import verifyUser from '../../utils/verifyUser';
+
 import refreshAndUpdateKeywords from '../../utils/refresh';
+import { logger } from '../../utils/logger';
 
 type CRONRefreshRes = {
    started: boolean
@@ -30,6 +32,7 @@ const cronRefreshkeywords = async (req: NextApiRequest, res: NextApiResponse<CRO
    try {
       const settings = await getAppSettings();
       if (!settings || (settings && settings.scraper_type === 'none')) {
+         logger.warn('Cron refresh skipped: Scraper not configured');
          return res.status(400).json({ started: false, error: 'Scraper has not been set up yet.' });
       }
       const domainToggles = await Domain.findAll({ attributes: ['domain', 'scrapeEnabled'] });
@@ -39,6 +42,7 @@ const cronRefreshkeywords = async (req: NextApiRequest, res: NextApiResponse<CRO
          .map((dom) => dom.domain);
 
       if (enabledDomains.length === 0) {
+         logger.warn('Cron refresh skipped: No domains have scraping enabled');
          return res.status(200).json({ started: false, error: 'No domains have scraping enabled.' });
       }
 
@@ -48,16 +52,13 @@ const cronRefreshkeywords = async (req: NextApiRequest, res: NextApiResponse<CRO
       );
       const keywordQueries: Keyword[] = await Keyword.findAll({ where: { domain: enabledDomains } });
 
+      logger.info(`Cron refresh started for ${enabledDomains.length} domains with ${keywordQueries.length} keywords`);
+      
       refreshAndUpdateKeywords(keywordQueries, settings);
 
       return res.status(200).json({ started: true });
    } catch (error) {
-      // Safely log error to avoid [object Object] in logs
-      const errorMessage = error instanceof Error ? error.message
-         : error?.toString()
-         || JSON.stringify(error, Object.getOwnPropertyNames(error))
-         || 'Unknown Error';
-      console.log('[ERROR] CRON Refreshing Keywords: ', errorMessage);
-      return res.status(400).json({ started: false, error: 'CRON Error refreshing keywords!' });
+      logger.error('Error starting cron refresh', error instanceof Error ? error : new Error(String(error)));
+      return res.status(500).json({ started: false, error: 'Error Starting the Cron Job' });
    }
 };

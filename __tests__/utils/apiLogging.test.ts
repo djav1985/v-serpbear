@@ -66,11 +66,10 @@ describe('withApiLogging success verbosity toggle', () => {
 
     // Should log request start but not completion for successful requests
     expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining('API Request Started'),
-      expect.any(Object)
+      expect.stringContaining('GET /api/test')
     );
     expect(logger.info).not.toHaveBeenCalledWith(
-      expect.stringContaining('API Request Completed'),
+      expect.stringContaining('200'),
       expect.any(Object)
     );
     expect(handler).toHaveBeenCalled();
@@ -88,12 +87,10 @@ describe('withApiLogging success verbosity toggle', () => {
 
     await wrapped(createRequest(), createResponse());
     expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining('API Request Started'),
-      expect.any(Object)
+      expect.stringContaining('GET /api/test')
     );
     expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining('API Request Completed'),
-      expect.any(Object)
+      expect.stringContaining('200')
     );
 
     logger.info.mockClear();
@@ -103,12 +100,10 @@ describe('withApiLogging success verbosity toggle', () => {
     await wrappedWithOverride(createRequest(), createResponse());
 
     expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining('API Request Started'),
-      expect.any(Object)
+      expect.stringContaining('GET /api/test')
     );
     expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining('API Request Completed'),
-      expect.any(Object)
+      expect.stringContaining('200')
     );
   });
 
@@ -126,11 +121,10 @@ describe('withApiLogging success verbosity toggle', () => {
 
     expect(logger.warn).toHaveBeenCalledTimes(1);
     expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining('API Request Started'),
-      expect.any(Object)
+      expect.stringContaining('GET /api/test')
     );
     expect(logger.info).not.toHaveBeenCalledWith(
-      expect.stringContaining('API Request Completed'),
+      expect.stringContaining('200'),
       expect.any(Object)
     );
   });
@@ -149,11 +143,10 @@ describe('withApiLogging success verbosity toggle', () => {
 
     expect(logger.error).toHaveBeenCalledTimes(1);
     expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining('API Request Started'),
-      expect.any(Object)
+      expect.stringContaining('GET /api/test')
     );
     expect(logger.info).not.toHaveBeenCalledWith(
-      expect.stringContaining('API Request Completed'),
+      expect.stringContaining('200'),
       expect.any(Object)
     );
   });

@@ -74,7 +74,7 @@ const updatekeywordVolume = async (req: NextApiRequest, res: NextApiResponse<Key
 
       return res.status(400).json({ keywords: [], error: 'Error Updating Keywords Volume data' });
    } catch (error) {
-      console.log('[Error] updating keywords Volume Data: ', error);
+      logger.error('Error updating keywords volume data', error instanceof Error ? error : new Error(String(error)));
       return res.status(400).json({ error: 'Error Updating Keywords Volume data' });
    }
 };
