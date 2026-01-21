@@ -114,14 +114,7 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
             const refreshed: KeywordType[] = await refreshAndUpdateKeywords(keywordsToRefresh, settings);
             keywords = refreshed;
          } else {
-            // For multiple keywords, first mark them as updating in the DB
-            // This ensures polling immediately sees the correct state
-            await Keyword.update(
-               { updating: true },
-               { where: { ID: { [Op.in]: keywordIdsToRefresh } } }
-            );
-            
-            // Then start refresh in background for progressive updates
+            // For multiple keywords, start refresh in background for progressive updates
             // This allows the dashboard to poll and see updates as they complete
             refreshAndUpdateKeywords(keywordsToRefresh, settings).catch((refreshError) => {
                const message = serializeError(refreshError);
