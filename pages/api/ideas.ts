@@ -49,7 +49,7 @@ const getKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse<keyword
       }
       return res.status(400).json({ data: null, error: 'Error Loading Keyword Ideas.' });
    } catch (error) {
-      console.log('[ERROR] Fetching Keyword Ideas: ', error);
+      logger.error('Error fetching keyword ideas', error instanceof Error ? error : new Error(String(error)));
       return res.status(400).json({ data: null, error: 'Error Loading Keyword Ideas.' });
    }
 };
@@ -176,7 +176,7 @@ const favoriteKeywords = async (req: NextApiRequest, res: NextApiResponse<keywor
 
       return res.status(400).json({ keywords: [], error: errMsg });
    } catch (error) {
-      console.log('[ERROR] Favorating Keyword Idea: ', error);
+      logger.error('Error favorating keyword idea', error instanceof Error ? error : new Error(String(error)));
       return res.status(400).json({ keywords: [], error: errMsg });
    }
 };
