@@ -36,33 +36,17 @@ const logScraperSelectionSummary = (
    requestedDomains: string[],
    domainsWithScraperOverrides: Set<string>,
 ) => {
-   const fallbackScraper = describeScraperType(globalSettings?.scraper_type);
-   logger.debug(`[REFRESH] Global scraper fallback: ${fallbackScraper}`);
-
-   if (domainsWithScraperOverrides.size === 0) {
-      if (requestedDomains.length === 0) {
-         logger.debug('[REFRESH] No domains requested for refresh.');
-      } else {
-         logger.debug('[REFRESH] No domain-specific scraper overrides configured.');
-      }
-   } else {
+   // Only log when there are overrides or in debug mode
+   if (domainsWithScraperOverrides.size > 0) {
+      const overrides: string[] = [];
       for (const domain of domainsWithScraperOverrides) {
          const domainSettings = domainSpecificSettings.get(domain);
          if (domainSettings) {
             const overrideScraper = describeScraperType(domainSettings.scraper_type);
-            const apiState = describeScrapingApiState(domainSettings);
-            logger.debug(`[REFRESH] Override for ${domain}: ${overrideScraper} (${apiState})`);
+            overrides.push(`${domain}:${overrideScraper}`);
          }
       }
-   }
-
-   const fallbackDomains = requestedDomains.filter((domain) => !domainsWithScraperOverrides.has(domain));
-   if (fallbackDomains.length > 0) {
-      fallbackDomains.forEach((domain) => {
-         logger.debug(`[REFRESH] Domain ${domain} using global scraper fallback: ${fallbackScraper}`);
-      });
-   } else if (requestedDomains.length > 0 && domainsWithScraperOverrides.size > 0) {
-      logger.debug('[REFRESH] All requested domains use scraper overrides.');
+      logger.debug('Domain scraper overrides', { overrides });
    }
 };
 
@@ -270,7 +254,6 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
       const desktopMapPackCache = new Map<string, boolean>();
 
       for (const keyword of sortedKeywords) {
-         logger.debug('START SCRAPE: ', { keyword: keyword.keyword });
          const keywordPlain = keyword.get({ plain: true });
          const normalizedDevice = normalizeDevice(keywordPlain.device);
          const keywordKey = generateKeywordCacheKey(keywordPlain);
@@ -279,11 +262,6 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
          const fallbackMapPackTop3 = (normalizedDevice === 'mobile') 
             ? desktopMapPackCache.get(keywordKey) 
             : undefined;
-
-         // Log when mobile keyword has no desktop fallback available
-         if (normalizedDevice === 'mobile' && fallbackMapPackTop3 === undefined) {
-            logger.debug(`[DEBUG] Mobile keyword "${keywordPlain.keyword}" has no desktop fallback available (desktop may not have been scraped or failed)`);
-         }
 
          const updatedkeyword = await refreshAndUpdateKeyword(keyword, settings, domainSpecificSettings, fallbackMapPackTop3);
          updatedKeywords.push(updatedkeyword);
@@ -304,7 +282,9 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
    }
 
    const end = performance.now();
-   logger.info(`time taken: ${end - start}ms`);
+   if (updatedKeywords.length > 0) {
+      logger.info('Keyword refresh completed', { count: updatedKeywords.length, duration: `${(end - start).toFixed(2)}ms` });
+   }
    
    // Update domain stats for all affected domains after keyword updates
    if (updatedKeywords.length > 0) {
@@ -498,12 +478,16 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
 
       try {
          await keywordRaw.update(dbPayload);
-         logger.info('[SUCCESS] Updating the Keyword ID:', { 
-            keywordId: keyword.ID, 
-            keyword: keyword.keyword, 
-            device: keyword.device || 'desktop',
-            mapPackTop3: dbPayload.mapPackTop3 ? 'true (appears in top 3 of local map pack)' : 'false (not in top 3 of local map pack)'
-         });
+         // Only log significant updates (errors or top 3 map pack)
+         if (dbPayload.lastUpdateError !== 'false' || dbPayload.mapPackTop3) {
+            logger.info('Keyword updated', { 
+               keywordId: keyword.ID, 
+               keyword: keyword.keyword,
+               device: keyword.device || 'desktop',
+               mapPackTop3: dbPayload.mapPackTop3,
+               hasError: dbPayload.lastUpdateError !== 'false'
+            });
+         }
 
          let parsedError: false | { date: string; error: string; scraper: string } = false;
          if (dbPayload.lastUpdateError !== 'false') {
@@ -593,7 +577,7 @@ const refreshParallel = async (
    });
 
    const resolvedResults = await Promise.all(promises);
-   logger.info('ALL DONE!!!');
+   logger.info('Parallel keyword refresh completed', { count: resolvedResults.length });
    return resolvedResults;
 };
 

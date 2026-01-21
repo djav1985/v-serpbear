@@ -284,14 +284,16 @@ export const scrapeKeywordFromGoogle = async (keyword:KeywordType, settings:Sett
                localResults,
                error: false,
             };
-            logger.info(`[SERP] Success on attempt ${attempt + 1}:`, {
-               keyword: keyword.keyword,
-               device: keyword.device || 'desktop',
-               position: serp.position,
-               url: serp.url,
-               mapPackTop3: computedMapPack ? 'YES (in top 3 of local map pack)' : 'NO (not in top 3 of local map pack)',
-               localResults: localResults.length
-            });
+            // Only log on retries or if in top 3 map pack (significant event)
+            if (attempt > 0 || computedMapPack) {
+               logger.info('Keyword scraped', {
+                  keyword: keyword.keyword,
+                  device: keyword.device || 'desktop',
+                  position: serp.position,
+                  mapPackTop3: computedMapPack,
+                  attempt: attempt + 1
+               });
+            }
             return refreshedResults; // Success, return immediately
          } else {
             // Enhanced error extraction for empty results
@@ -314,23 +316,19 @@ export const scrapeKeywordFromGoogle = async (keyword:KeywordType, settings:Sett
       } catch (error:any) {
          lastError = error;
          
-         // Log attempt information
-         logger.error(`[ERROR] Scraping Keyword attempt ${attempt + 1}/${maxRetries + 1}:`, error, { keyword: keyword.keyword });
-         
+         // Only log on final attempt to avoid spam
          if (attempt === maxRetries) {
             // Final attempt failed, process the error
             const errorMessage = handleProxyError(error, settings);
             refreshedResults.error = errorMessage;
-            logger.error('[ERROR_MESSAGE]:', undefined, { errorMessage });
-            
-            // Log additional error details if available
-            if (error && typeof error === 'object') {
-               logger.error('[ERROR_DETAILS]:', undefined, { error });
-            }
+            logger.error('Keyword scraping failed', error, { 
+               keyword: keyword.keyword,
+               attempts: maxRetries + 1,
+               errorMessage 
+            });
             break;
          } else {
-            // Not the final attempt, wait and retry
-            logger.warn(`[RETRY] Will retry after delay, attempt ${attempt + 1} failed:`, { error: serializeError(error) });
+            // Silent retry with exponential backoff
             await new Promise(resolve => setTimeout(resolve, getRetryDelay(attempt)));
             continue;
          }
@@ -358,7 +356,7 @@ export const scrapeKeywordFromGoogle = async (keyword:KeywordType, settings:Sett
 const GOOGLE_REDIRECT_PATHS = ['/url', '/interstitial', '/imgres', '/aclk', '/link'];
 const GOOGLE_REDIRECT_PARAMS = ['url', 'q', 'imgurl', 'target', 'dest', 'u', 'adurl'];
 
-const ensureAbsoluteURL = (value: string | undefined | null, base: string = GOOGLE_BASE_URL): string | null => {
+const ensureAbsoluteURL = (value: string | string, base: string = GOOGLE_BASE_URL): string | null => {
    if (!value) { return null; }
    const trimmedValue = value.trim();
    if (!trimmedValue) { return null; }
@@ -406,7 +404,7 @@ const normaliseGoogleHref = (href: string | undefined | null): string | null => 
    try {
       resolvedURL = new URL(href, GOOGLE_BASE_URL);
    } catch (error: any) {
-      logger.error('[ERROR] Unable to resolve scraped href', error, { href });
+      logger.debug('Unable to resolve SERP href', { href });
       return ensureAbsoluteURL(href);
    }
 
@@ -497,7 +495,7 @@ export const extractScrapedResult = (
    const $ = cheerio.load(content);
    const hasValidContent = [...$('body').find('#search'), ...$('body').find('#rso')];
    if (hasValidContent.length === 0) {
-      const msg = '[ERROR] Scraped search results do not adhere to expected format. Unable to parse results';
+      const msg = 'Scraped search results do not adhere to expected format. Unable to parse results';
       logger.error(msg);
       throw new Error(msg);
    }
@@ -505,7 +503,6 @@ export const extractScrapedResult = (
    const hasNumberofResult = $('body').find('#search  > div > div');
    const searchResultItems = hasNumberofResult.find('h3');
    let lastPosition = 0;
-   logger.debug('Scraped search results contain ', { count: searchResultItems.length, device: 'desktop' });
 
    for (let i = 0; i < searchResultItems.length; i += 1) {
       if (searchResultItems[i]) {
@@ -522,7 +519,6 @@ export const extractScrapedResult = (
    // Mobile Scraper
    if (extractedResult.length === 0 && device === 'mobile') {
       const items = $('body').find('#rso > div');
-      logger.debug('Scraped search results contain ', { count: items.length, device: 'mobile' });
       for (let i = 0; i < items.length; i += 1) {
          const item = $(items[i]);
          const linkDom = item.find('a[role="presentation"]');
@@ -570,7 +566,7 @@ export const getSerp = (domainURL:string, result:SearchResult[]) : SERPObject =>
    try {
       URLToFind = domainURL.includes('://') ? new URL(domainURL) : new URL(`https://${domainURL}`);
    } catch (error: any) {
-      logger.error('[ERROR] Invalid domain URL provided to getSerp', error, { domainURL });
+      logger.error('Invalid domain URL provided', error, { domainURL });
       return { position: 0, url: '' };
    }
 
@@ -607,7 +603,10 @@ export const retryScrape = async (keywordID: number) : Promise<void> => {
    let currentQueue: number[] = [];
 
    const filePath = `${process.cwd()}/data/failed_queue.json`;
-   const currentQueueRaw = await readFile(filePath, { encoding: 'utf-8' }).catch((err) => { logger.error('Failed to read retry queue', err); return '[]'; });
+   const currentQueueRaw = await readFile(filePath, { encoding: 'utf-8' }).catch((err: any) => { 
+      if (err.code !== 'ENOENT') logger.debug('Failed to read retry queue', { error: err.message }); 
+      return '[]'; 
+   });
    currentQueue = currentQueueRaw ? JSON.parse(currentQueueRaw) : [];
 
    if (!currentQueue.includes(keywordID)) {
@@ -617,7 +616,10 @@ export const retryScrape = async (keywordID: number) : Promise<void> => {
       }
    }
 
-   await writeFile(filePath, JSON.stringify(currentQueue), { encoding: 'utf-8' }).catch((err) => { logger.error('Failed to write retry queue', err); return '[]'; });
+   await writeFile(filePath, JSON.stringify(currentQueue), { encoding: 'utf-8' }).catch((err: any) => { 
+      logger.error('Failed to write retry queue', err); 
+      return '[]'; 
+   });
 };
 
 /**
@@ -630,9 +632,15 @@ export const removeFromRetryQueue = async (keywordID: number) : Promise<void> =>
    let currentQueue: number[] = [];
 
    const filePath = `${process.cwd()}/data/failed_queue.json`;
-   const currentQueueRaw = await readFile(filePath, { encoding: 'utf-8' }).catch((err) => { logger.error('Failed to read retry queue', err); return '[]'; });
+   const currentQueueRaw = await readFile(filePath, { encoding: 'utf-8' }).catch((err: any) => { 
+      if (err.code !== 'ENOENT') logger.debug('Failed to read retry queue', { error: err.message }); 
+      return '[]'; 
+   });
    currentQueue = currentQueueRaw ? JSON.parse(currentQueueRaw) : [];
    currentQueue = currentQueue.filter((item) => item !== Math.abs(keywordID) && item > 0); // Also filter out invalid IDs
 
-   await writeFile(filePath, JSON.stringify(currentQueue), { encoding: 'utf-8' }).catch((err) => { logger.error('Failed to write retry queue', err); return '[]'; });
+   await writeFile(filePath, JSON.stringify(currentQueue), { encoding: 'utf-8' }).catch((err: any) => { 
+      logger.error('Failed to write retry queue', err); 
+      return '[]'; 
+   });
 };

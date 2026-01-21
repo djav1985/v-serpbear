@@ -783,8 +783,8 @@ describe('refreshAndUpdateKeywords', () => {
     // which is not in the parallel-friendly list
     // Note: START SCRAPE is logged at DEBUG level, which may not be visible by default
     expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"level":"INFO"'));
-    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('time taken'));
-    expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('ALL DONE!!!')); // This is only logged in parallel mode
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Keyword refresh completed'));
+    expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('Parallel keyword refresh completed')); // This is only logged in parallel mode
 
     consoleSpy.mockRestore();
   });
@@ -894,7 +894,7 @@ describe('refreshAndUpdateKeywords', () => {
 
     // Should use parallel mode because both domain overrides are parallel-friendly
     expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"level":"INFO"'));
-    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('ALL DONE!!!')); // This is only logged in parallel mode
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Parallel keyword refresh completed')); // This is only logged in parallel mode
     expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('START SCRAPE:'));
 
     consoleSpy.mockRestore();
