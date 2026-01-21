@@ -366,7 +366,7 @@ const ensureAbsoluteURL = (value: string | undefined | null, base: string = GOOG
    if (trimmedValue.startsWith('//')) {
       try {
          return new URL(`https:${trimmedValue}`).toString();
-      } catch (error) {
+      } catch (error: any) {
          logger.error('[ERROR] Failed to normalise protocol-relative URL', error, { url: trimmedValue });
          return null;
       }
@@ -376,7 +376,7 @@ const ensureAbsoluteURL = (value: string | undefined | null, base: string = GOOG
    if (hasScheme) {
       try {
          return new URL(trimmedValue).toString();
-      } catch (error) {
+      } catch (error: any) {
          logger.error('[ERROR] Failed to normalise absolute URL', error, { url: trimmedValue });
          return null;
       }
@@ -385,7 +385,7 @@ const ensureAbsoluteURL = (value: string | undefined | null, base: string = GOOG
    if (trimmedValue.startsWith('/')) {
       try {
          return new URL(trimmedValue, base).toString();
-      } catch (error) {
+      } catch (error: any) {
          logger.error('[ERROR] Failed to resolve relative URL', error, { url: trimmedValue });
          return null;
       }
@@ -393,7 +393,7 @@ const ensureAbsoluteURL = (value: string | undefined | null, base: string = GOOG
 
    try {
       return new URL(`https://${trimmedValue}`).toString();
-   } catch (error) {
+   } catch (error: any) {
       logger.error('[ERROR] Failed to coerce host-only URL', error, { url: trimmedValue });
       return null;
    }
@@ -405,7 +405,7 @@ const normaliseGoogleHref = (href: string | undefined | null): string | null => 
    let resolvedURL: URL;
    try {
       resolvedURL = new URL(href, GOOGLE_BASE_URL);
-   } catch (error) {
+   } catch (error: any) {
       logger.error('[ERROR] Unable to resolve scraped href', error, { href });
       return ensureAbsoluteURL(href);
    }
@@ -556,7 +556,7 @@ const resolveResultURL = (value: string | undefined | null): URL | null => {
    } catch (_error) {
       try {
          return new URL(value, GOOGLE_BASE_URL);
-      } catch (error) {
+      } catch (error: any) {
          logger.error('[ERROR] Unable to resolve SERP result URL', error, { url: value });
          return null;
       }
@@ -569,7 +569,7 @@ export const getSerp = (domainURL:string, result:SearchResult[]) : SERPObject =>
    let URLToFind: URL;
    try {
       URLToFind = domainURL.includes('://') ? new URL(domainURL) : new URL(`https://${domainURL}`);
-   } catch (error) {
+   } catch (error: any) {
       logger.error('[ERROR] Invalid domain URL provided to getSerp', error, { domainURL });
       return { position: 0, url: '' };
    }

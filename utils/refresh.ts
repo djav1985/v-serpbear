@@ -247,8 +247,8 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                   const currentKeyword = keyword.get({ plain: true });
                   const parsedKeyword = parseKeywords([currentKeyword])[0];
                   updatedKeywords.push({ ...parsedKeyword, updating: false });
-               } catch (error) {
-                  logger.error('[ERROR] Failed to clear updating flag for keyword:', error, { keywordId: keyword.ID });
+               } catch (error: any) {
+                  logger.error('[ERROR] Failed to clear updating flag for keyword:', error as Error, { keywordId: keyword.ID });
                }
             }
          }
@@ -378,7 +378,7 @@ const refreshAndUpdateKeyword = async (
 
       await Keyword.update(updateData, { where: { ID: keyword.ID } });
       keyword.set(updateData);
-   } catch (updateError) {
+   } catch (updateError: any) {
       logger.error('[ERROR] Failed to update keyword error status:', updateError);
    }
 
@@ -388,7 +388,7 @@ const refreshAndUpdateKeyword = async (
       } else {
          await removeFromRetryQueue(keyword.ID);
       }
-   } catch (queueError) {
+   } catch (queueError: any) {
       logger.error('[ERROR] Failed to update retry queue for keyword:', queueError, { keywordId: keyword.ID });
    }
 
@@ -428,7 +428,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
 
          try {
             return JSON.stringify(result);
-         } catch (error) {
+         } catch (error: any) {
             logger.warn('[WARNING] Failed to serialise keyword result:', { error });
             return '[]';
          }
@@ -454,7 +454,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
 
          try {
             return JSON.stringify(results);
-         } catch (error) {
+         } catch (error: any) {
             logger.warn('[WARNING] Failed to serialise local results:', { error });
             return JSON.stringify([]);
          }
@@ -530,7 +530,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
             lastUpdateError: parsedError,
             mapPackTop3: dbPayload.mapPackTop3 === true,
          };
-      } catch (error) {
+      } catch (error: any) {
          logger.error('[ERROR] Updating SERP for Keyword', error, { keyword: keyword.keyword });
       }
    }
@@ -586,7 +586,7 @@ const refreshParallel = async (
          }
 
          return { keywordId: keyword.ID, result: buildErrorResult(keyword, 'Unknown scraper response'), settings: effectiveSettings };
-      } catch (error) {
+      } catch (error: any) {
          logger.error('[ERROR] Parallel scrape failed for keyword:', error, { keyword: keyword.keyword });
          return { keywordId: keyword.ID, result: buildErrorResult(keyword, error), settings: effectiveSettings };
       }
