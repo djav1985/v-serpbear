@@ -22,14 +22,6 @@ const describeScraperType = (scraperType?: SettingsType['scraper_type']): string
    return scraperType;
 };
 
-const describeScrapingApiState = (settings: SettingsType): string => {
-   if (!settings?.scraping_api) {
-      return 'scraping API not configured';
-   }
-
-   return 'scraping API configured';
-};
-
 const logScraperSelectionSummary = (
    globalSettings: SettingsType,
    domainSpecificSettings: Map<string, SettingsType>,
