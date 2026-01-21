@@ -1,5 +1,4 @@
 // Migration: Adds volume field to the keyword table.
-const { logger } = require('../../utils/logger');
 
 // CLI Migration
 module.exports = {
@@ -20,7 +19,7 @@ module.exports = {
                }
             }
          } catch (error) {
-            logger.error('error :', error);
+            console.error('error :', error);
             throw error;
          }
       });
@@ -36,7 +35,7 @@ module.exports = {
                }
             }
          } catch (error) {
-            logger.error('error :', error);
+            console.error('error :', error);
             throw error;
          }
       });

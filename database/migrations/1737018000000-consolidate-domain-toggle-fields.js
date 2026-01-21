@@ -1,5 +1,4 @@
 // Migration: Consolidates notify_enabled into scrape_enabled so there's only one toggle
-const { logger } = require('../../utils/logger');
 // for both scraping and notifications per domain.
 
 module.exports = {
@@ -45,9 +44,9 @@ module.exports = {
                await queryInterface.removeColumn('domain', 'notify_enabled', { transaction: t });
             }
 
-            logger.info('Successfully consolidated domain toggle fields');
+            console.log('Successfully consolidated domain toggle fields');
          } catch (error) {
-            logger.error('error :', error);
+            console.error('error :', error);
             throw error;
          }
       });
@@ -81,9 +80,9 @@ module.exports = {
                }
             }
 
-            logger.info('Successfully rolled back domain toggle fields consolidation');
+            console.log('Successfully rolled back domain toggle fields consolidation');
          } catch (error) {
-            logger.error('error :', error);
+            console.error('error :', error);
             throw error;
          }
       });

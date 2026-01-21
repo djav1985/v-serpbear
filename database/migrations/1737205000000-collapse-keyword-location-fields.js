@@ -1,5 +1,4 @@
 // Migration: Collapse keyword city/state metadata into a single location column.
-const { logger } = require('../../utils/logger');
 
 const buildLocationString = (city, state, country) => {
    const normalize = (value) => typeof value === 'string' ? value.trim() : '';
@@ -97,7 +96,7 @@ module.exports = {
             await queryInterface.removeColumn('keyword', 'settings', { transaction });
          }
 
-         logger.info('Collapsed keyword city/state metadata into location column.');
+         console.log('Collapsed keyword city/state metadata into location column.');
       });
    },
 
@@ -174,7 +173,7 @@ module.exports = {
             }
          }
 
-         logger.info('Restored keyword city/state columns from location.');
+         console.log('Restored keyword city/state columns from location.');
       });
    }
 };

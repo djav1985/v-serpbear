@@ -1,5 +1,4 @@
 // Migration: Add database indexes for better query performance
-const { logger } = require('../../utils/logger');
 
 module.exports = {
    up: async function up(params = {}) {
@@ -36,9 +35,9 @@ module.exports = {
                transaction: t
             });
 
-            logger.info('[MIGRATION] Added database indexes for improved performance');
+            console.log('[MIGRATION] Added database indexes for improved performance');
          } catch (error) {
-            logger.error('Migration error:', error);
+            console.error('Migration error:', error);
             throw error;
          }
       });
@@ -53,9 +52,9 @@ module.exports = {
             await queryInterface.removeIndex('keyword', 'keyword_last_updated_idx', { transaction: t });
             await queryInterface.removeIndex('keyword', 'keyword_position_idx', { transaction: t });
             await queryInterface.removeIndex('domain', 'domain_slug_idx', { transaction: t });
-            logger.info('[MIGRATION] Removed database indexes');
+            console.log('[MIGRATION] Removed database indexes');
          } catch (error) {
-            logger.error('Migration rollback error:', error);
+            console.error('Migration rollback error:', error);
             throw error;
          }
       });

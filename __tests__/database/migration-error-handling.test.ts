@@ -32,8 +32,8 @@ describe('Migration Error Handling', () => {
       describeTable: jest.fn().mockRejectedValue(new Error('Test database error')),
     };
 
-    // Mock console.log to capture error logging
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    // Mock console.error to capture error logging
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     
     try {
       // This should throw an error after logging it
@@ -42,8 +42,7 @@ describe('Migration Error Handling', () => {
     } catch (error) {
       expect(error).toBeInstanceOf(Error);
       expect(error.message).toBe('Test database error');
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"level":"ERROR"'));
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('error :'));
+      expect(consoleSpy).toHaveBeenCalledWith('error :', expect.any(Error));
     } finally {
       consoleSpy.mockRestore();
     }
@@ -60,8 +59,8 @@ describe('Migration Error Handling', () => {
       removeIndex: jest.fn().mockRejectedValue(new Error('Index removal failed')),
     };
 
-    // Mock console.log to capture error logging
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    // Mock console.error to capture error logging
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     
     try {
       await migration.down({ context: mockQueryInterface });
@@ -69,8 +68,7 @@ describe('Migration Error Handling', () => {
     } catch (error) {
       expect(error).toBeInstanceOf(Error);
       expect(error.message).toBe('Index removal failed');
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"level":"ERROR"'));
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Migration rollback error:'));
+      expect(consoleSpy).toHaveBeenCalledWith('Migration rollback error:', expect.any(Error));
     } finally {
       consoleSpy.mockRestore();
     }

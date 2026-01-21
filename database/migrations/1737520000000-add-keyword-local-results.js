@@ -1,5 +1,4 @@
 // Migration: Adds localResults field to keyword table to store local/map pack search results
-const { logger } = require('../../utils/logger');
 
 module.exports = {
    up: async function up(params = {}, legacySequelize) {
@@ -26,7 +25,7 @@ module.exports = {
                );
             }
          } catch (error) {
-            logger.error('error :', error);
+            console.error('error :', error);
             throw error;
          }
       });
@@ -43,7 +42,7 @@ module.exports = {
                await queryInterface.removeColumn('keyword', 'localResults', { transaction });
             }
          } catch (error) {
-            logger.error('Migration rollback error:', error);
+            console.error('Migration rollback error:', error);
             throw error;
          }
       });

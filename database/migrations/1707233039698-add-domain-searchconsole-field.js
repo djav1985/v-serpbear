@@ -1,5 +1,4 @@
 // Migration: Adds search_console field to domain table to assign search console property type, url and api.
-const { logger } = require('../../utils/logger');
 
 // CLI Migration
 module.exports = {
@@ -21,7 +20,7 @@ module.exports = {
             );
          }
       } catch (error) {
-         logger.error('error :', error);
+         console.error('error :', error);
          throw error;
       }
      });
@@ -35,7 +34,7 @@ module.exports = {
                await queryInterface.removeColumn('domain', 'search_console', { transaction: t });
             }
          } catch (error) {
-            logger.error('error :', error);
+            console.error('error :', error);
             throw error;
          }
       });

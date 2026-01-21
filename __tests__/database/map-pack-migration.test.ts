@@ -136,8 +136,8 @@ describe('Map Pack Top3 Migration', () => {
       describeTable: jest.fn().mockRejectedValue(new Error('Database error')),
     };
 
-    // Mock console.log to capture error logging
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    // Mock console.error to capture error logging
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     
     try {
       await migration.up({ context: mockQueryInterface });
@@ -145,8 +145,7 @@ describe('Map Pack Top3 Migration', () => {
     } catch (error) {
       expect(error).toBeInstanceOf(Error);
       expect(error.message).toBe('Database error');
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"level":"ERROR"'));
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('error :'));
+      expect(consoleSpy).toHaveBeenCalledWith('error :', expect.any(Error));
     } finally {
       consoleSpy.mockRestore();
     }

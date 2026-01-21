@@ -1,5 +1,4 @@
 // Migration: Remove keywordCount column from domain table.
-const { logger } = require('../../utils/logger');
 
 module.exports = {
    up: async function up(params = {}) {
@@ -12,7 +11,7 @@ module.exports = {
             await queryInterface.removeColumn('domain', 'keywordCount', { transaction });
          }
 
-         logger.info('Removed domain.keywordCount column.');
+         console.log('Removed domain.keywordCount column.');
       });
    },
 
@@ -35,7 +34,7 @@ module.exports = {
             );
          }
 
-         logger.info('Restored domain.keywordCount column.');
+         console.log('Restored domain.keywordCount column.');
       });
    },
 };
