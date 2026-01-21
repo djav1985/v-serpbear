@@ -409,7 +409,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          try {
             return JSON.stringify(result);
          } catch (error: any) {
-            logger.warn('[WARNING] Failed to serialise keyword result:', { error });
+            logger.debug('Failed to serialise keyword result', { error });
             return '[]';
          }
       };
@@ -435,7 +435,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          try {
             return JSON.stringify(results);
          } catch (error: any) {
-            logger.warn('[WARNING] Failed to serialise local results:', { error });
+            logger.debug('Failed to serialise local results', { error });
             return JSON.stringify([]);
          }
       };
@@ -494,7 +494,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
             try {
                parsedError = JSON.parse(dbPayload.lastUpdateError ?? 'false');
             } catch (parseError) {
-               logger.warn('[WARNING] Failed to parse lastUpdateError:', { lastUpdateError: dbPayload.lastUpdateError, parseError });
+               logger.debug('Failed to parse lastUpdateError', { lastUpdateError: dbPayload.lastUpdateError, parseError });
                parsedError = false;
             }
          }

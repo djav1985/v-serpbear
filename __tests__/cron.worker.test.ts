@@ -26,7 +26,7 @@ describe('cron worker helpers', () => {
 
     expect(global.fetch).not.toHaveBeenCalled();
     expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining('"level":"WARN"')
+      expect.stringContaining('"level":"INFO"')
     );
     expect(consoleSpy).toHaveBeenCalledWith(
       expect.stringContaining('[CRON] Skipping API call to /api/cron: API key not configured.')

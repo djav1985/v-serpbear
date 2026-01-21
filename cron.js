@@ -98,7 +98,7 @@ const generateCronTime = (interval) => {
 
 const makeCronApiCall = (apiKey, baseUrl, endpoint, successMessage) => {
    if (!apiKey) {
-      logger.warn(`[CRON] Skipping API call to ${endpoint}: API key not configured.`);
+      logger.info(`[CRON] Skipping API call to ${endpoint}: API key not configured.`);
       return Promise.resolve();
    }
 
