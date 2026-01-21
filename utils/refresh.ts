@@ -72,13 +72,44 @@ const resolveEffectiveSettings = (
 ): SettingsType => domainSpecificSettings.get(domain) ?? globalSettings;
 
 /**
+ * Normalizes a location string for use in cache keys to ensure consistent
+ * matching between desktop and mobile keyword pairs.
+ *
+ * - Treats undefined/null as an empty string.
+ * - Trims leading/trailing whitespace.
+ * - Collapses consecutive internal whitespace to a single space.
+ * - Converts to lowercase for case-insensitive comparison.
+ * - Attempts to decode URI-encoded strings (e.g., "New%20York") without
+ *   throwing if the string is not valid URI-encoded text.
+ */
+const normalizeLocationForCache = (location?: string | null): string => {
+   if (!location) {
+      return '';
+   }
+
+   let normalized = location.trim();
+
+   // Best-effort decode of URI-encoded locations; ignore failures.
+   try {
+      normalized = decodeURIComponent(normalized);
+   } catch {
+      // If decoding fails, fall back to the trimmed original.
+   }
+
+   // Collapse multiple whitespace characters into a single space and lowercase.
+   normalized = normalized.replace(/\s+/g, ' ').toLowerCase();
+
+   return normalized;
+};
+
+/**
  * Generates a cache key for matching desktop and mobile keyword pairs.
  * The key is used to store and retrieve desktop mapPackTop3 values for mobile keywords.
  * @param {KeywordType} keyword - The keyword to generate a cache key for
  * @returns {string} A unique cache key combining keyword, domain, country, and location
  */
-const generateKeywordCacheKey = (keyword: KeywordType): string => 
-   `${keyword.keyword}|${keyword.domain}|${keyword.country}|${keyword.location || ''}`;
+const generateKeywordCacheKey = (keyword: KeywordType): string =>
+   `${keyword.keyword}|${keyword.domain}|${keyword.country}|${normalizeLocationForCache(keyword.location)}`;
 
 /**
  * Refreshes the Keywords position by Scraping Google Search Result by
