@@ -111,7 +111,7 @@ const updateKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse<keyw
       });
       
       if (!adwordsCreds || !client_id || !client_secret || !developer_token || !account_id || !refresh_token) {
-         logger.error('Google Ads credentials not configured', { adwordsCreds: !!adwordsCreds });
+         logger.error('Google Ads credentials not configured', undefined, { adwordsCreds: !!adwordsCreds });
          return res.status(500).json({ keywords: [], error: 'Google Ads credentials not configured' });
       }
       const ideaOptions = { country, language, keywords, domainUrl, domainSlug, seedSCKeywords, seedCurrentKeywords, seedType };
