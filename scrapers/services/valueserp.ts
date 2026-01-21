@@ -99,7 +99,27 @@ const valueSerp: ScraperSettings = {
     }
 
     const businessName = (settings as any)?.business_name ?? null;
-    const mapPackTop3 = computeMapPackTop3(keyword.domain, response, businessName);
+    
+    // Check if this is a mobile keyword and if the API response has NO local results section at all
+    const isMobile = keyword.device === 'mobile';
+    const hasLocalResultsSection = response && (
+      response.local_results !== undefined ||
+      response.localResults !== undefined ||
+      response.local_map !== undefined ||
+      response.places !== undefined ||
+      response.places_results !== undefined
+    );
+    
+    let mapPackTop3: boolean;
+    
+    // If mobile AND no local results section in API response, use fallback from desktop
+    if (isMobile && !hasLocalResultsSection && (settings as any)?.fallback_mapPackTop3 !== undefined) {
+      mapPackTop3 = (settings as any).fallback_mapPackTop3;
+      console.log(`[VALUESERP] Mobile keyword "${keyword.keyword}" has no local results in API response, using desktop mapPackTop3: ${mapPackTop3}`);
+    } else {
+      // Otherwise compute normally
+      mapPackTop3 = computeMapPackTop3(keyword.domain, response, businessName);
+    }
 
     return { organic: extractedResult, mapPackTop3 };
   },

@@ -182,6 +182,12 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
       return parallelScrapers.includes(effectiveSettings.scraper_type);
    });
 
+   // Check if all keywords are using valueserp scraper
+   const allUsingValueSerp = keywords.every((keyword) => {
+      const effectiveSettings = resolveEffectiveSettings(keyword.domain, settings, domainSpecificSettings);
+      return effectiveSettings.scraper_type === 'valueserp';
+   });
+
    if (canScrapeInParallel) {
       const refreshedResults = await refreshParallel(keywords, settings, domainSpecificSettings);
       if (refreshedResults.length > 0) {
@@ -200,6 +206,45 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                } catch (error) {
                   console.log('[ERROR] Failed to clear updating flag for keyword:', keyword.ID, error);
                }
+            }
+         }
+      }
+   } else if (allUsingValueSerp) {
+      // Special handling for valueserp: scrape desktop first, then mobile
+      const sortedKeywords = [...eligibleKeywordModels].sort((a, b) => {
+         const aDevice = a.device || 'desktop';
+         const bDevice = b.device || 'desktop';
+         // Desktop (or non-mobile) comes before mobile
+         if (aDevice === 'mobile' && bDevice !== 'mobile') return 1;
+         if (aDevice !== 'mobile' && bDevice === 'mobile') return -1;
+         return 0;
+      });
+
+      // Map to store desktop results for each keyword (by keyword+domain+country+location)
+      const desktopMapPackCache = new Map<string, boolean>();
+
+      for (const keyword of sortedKeywords) {
+         console.log('START SCRAPE: ', keyword.keyword);
+         const keywordPlain = keyword.get({ plain: true });
+         const keywordKey = `${keywordPlain.keyword}|${keywordPlain.domain}|${keywordPlain.country}|${keywordPlain.location || ''}`;
+         
+         // If this is a mobile keyword, check if we have desktop mapPackTop3 cached
+         const fallbackMapPackTop3 = (keywordPlain.device === 'mobile') 
+            ? desktopMapPackCache.get(keywordKey) 
+            : undefined;
+
+         const updatedkeyword = await refreshAndUpdateKeyword(keyword, settings, domainSpecificSettings, fallbackMapPackTop3);
+         updatedKeywords.push(updatedkeyword);
+
+         // If this was a desktop keyword, cache its mapPackTop3
+         if (keywordPlain.device !== 'mobile') {
+            desktopMapPackCache.set(keywordKey, updatedkeyword.mapPackTop3 === true);
+         }
+
+         if (keywords.length > 0 && settings.scrape_delay && settings.scrape_delay !== '0') {
+            const delay = parseInt(settings.scrape_delay, 10);
+            if (!isNaN(delay) && delay > 0) {
+               await sleep(Math.min(delay, 30000)); // Cap delay at 30 seconds for safety
             }
          }
       }
@@ -235,15 +280,24 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
  * Scrape Serp for given keyword and update the position in DB.
  * @param {Keyword} keyword - Keywords to scrape
  * @param {SettingsType} settings - The App Settings that contain the Scraper settings
+ * @param {Map<string, SettingsType>} domainSpecificSettings - Domain-specific settings
+ * @param {boolean} fallbackMapPackTop3 - Optional fallback mapPackTop3 value from desktop keyword (for valueserp mobile)
  * @returns {Promise<KeywordType>}
  */
 const refreshAndUpdateKeyword = async (
    keyword: Keyword,
    settings: SettingsType,
    domainSpecificSettings: Map<string, SettingsType>,
+   fallbackMapPackTop3?: boolean,
 ): Promise<KeywordType> => {
    const currentkeyword = keyword.get({ plain: true });
    const effectiveSettings = resolveEffectiveSettings(currentkeyword.domain, settings, domainSpecificSettings);
+   
+   // For valueserp mobile keywords, pass the fallback mapPackTop3 from desktop
+   if (fallbackMapPackTop3 !== undefined && effectiveSettings.scraper_type === 'valueserp') {
+      (effectiveSettings as any).fallback_mapPackTop3 = fallbackMapPackTop3;
+   }
+   
    let refreshedkeywordData: RefreshResult | false = false;
    let scraperError: string | false = false;
 

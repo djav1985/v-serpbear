@@ -361,5 +361,139 @@ describe('valueSerp scraper', () => {
 
       expect(extraction.mapPackTop3).toBe(true);
     });
+
+    it('uses fallback mapPackTop3 from desktop when mobile has no local results section in API response', () => {
+      const mobileKeyword: KeywordType = {
+        ID: 1,
+        keyword: 'coffee shop',
+        device: 'mobile',
+        country: 'US',
+        domain: 'example.com',
+        lastUpdated: '',
+        volume: 0,
+        added: '',
+        position: 0,
+        sticky: false,
+        history: {},
+        lastResult: [],
+        url: '',
+        tags: [],
+        updating: false,
+        lastUpdateError: false,
+        mapPackTop3: false,
+        location: '',
+      };
+
+      // Mobile response with NO local results section at all
+      const mobileResponse = {
+        organic_results: [
+          { title: 'Result 1', link: 'https://example.com/page1', position: 1 },
+        ],
+      };
+
+      const settingsWithFallback = {
+        scraping_api: 'token-123',
+        fallback_mapPackTop3: true, // Desktop keyword had mapPackTop3 = true
+      };
+
+      const extraction = valueSerp.serpExtractor!({
+        keyword: mobileKeyword,
+        response: mobileResponse,
+        result: mobileResponse.organic_results,
+        settings: settingsWithFallback as any,
+      });
+
+      expect(extraction.organic).toHaveLength(1);
+      expect(extraction.mapPackTop3).toBe(true); // Uses desktop's mapPackTop3
+    });
+
+    it('computes mapPackTop3 normally for mobile when local results section exists even if empty', () => {
+      const mobileKeyword: KeywordType = {
+        ID: 1,
+        keyword: 'coffee shop',
+        device: 'mobile',
+        country: 'US',
+        domain: 'example.com',
+        lastUpdated: '',
+        volume: 0,
+        added: '',
+        position: 0,
+        sticky: false,
+        history: {},
+        lastResult: [],
+        url: '',
+        tags: [],
+        updating: false,
+        lastUpdateError: false,
+        mapPackTop3: false,
+        location: '',
+      };
+
+      // Mobile response WITH local results section (even if empty or domain not in it)
+      const mobileResponse = {
+        organic_results: [
+          { title: 'Result 1', link: 'https://example.com/page1', position: 1 },
+        ],
+        local_results: [], // Local results section exists but is empty
+      };
+
+      const settingsWithFallback = {
+        scraping_api: 'token-123',
+        fallback_mapPackTop3: true, // Desktop had mapPackTop3 = true
+      };
+
+      const extraction = valueSerp.serpExtractor!({
+        keyword: mobileKeyword,
+        response: mobileResponse,
+        result: mobileResponse.organic_results,
+        settings: settingsWithFallback as any,
+      });
+
+      expect(extraction.organic).toHaveLength(1);
+      expect(extraction.mapPackTop3).toBe(false); // Computes normally, not using fallback
+    });
+
+    it('does not use fallback for desktop keywords even when provided', () => {
+      const desktopKeyword: KeywordType = {
+        ID: 1,
+        keyword: 'coffee shop',
+        device: 'desktop',
+        country: 'US',
+        domain: 'example.com',
+        lastUpdated: '',
+        volume: 0,
+        added: '',
+        position: 0,
+        sticky: false,
+        history: {},
+        lastResult: [],
+        url: '',
+        tags: [],
+        updating: false,
+        lastUpdateError: false,
+        mapPackTop3: false,
+        location: '',
+      };
+
+      const desktopResponse = {
+        organic_results: [
+          { title: 'Result 1', link: 'https://example.com/page1', position: 1 },
+        ],
+      };
+
+      const settingsWithFallback = {
+        scraping_api: 'token-123',
+        fallback_mapPackTop3: true, // Should be ignored for desktop
+      };
+
+      const extraction = valueSerp.serpExtractor!({
+        keyword: desktopKeyword,
+        response: desktopResponse,
+        result: desktopResponse.organic_results,
+        settings: settingsWithFallback as any,
+      });
+
+      expect(extraction.mapPackTop3).toBe(false); // Computes normally, ignores fallback
+    });
   });
 });
