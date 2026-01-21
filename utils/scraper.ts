@@ -7,6 +7,7 @@ import { serializeError } from './errorSerialization';
 import allScrapers from '../scrapers/index';
 import { GOOGLE_BASE_URL } from './constants';
 import { computeMapPackTop3, doesUrlMatchDomainHost, normaliseDomainHost, extractLocalResultsFromPayload } from './mapPack';
+import { logger } from './logger';
 
 type SearchResult = {
    title: string,
@@ -210,9 +211,14 @@ export const scrapeKeywordFromGoogle = async (keyword:KeywordType, settings:Sett
             // Build comprehensive error object
             const scraperError = buildScraperError(res);
 
-            // Log status code and error payload for debugging
-            console.log(`[SCRAPER_ERROR] Attempt ${attempt + 1}/${maxRetries + 1} - Status:`, scraperError.status);
-            console.log(`[SCRAPER_ERROR] Payload:`, JSON.stringify(scraperError));
+            // Log error on final attempt only to avoid spam
+            if (attempt === maxRetries) {
+               const error = new Error(`Scraper error: ${scraperError.error || scraperError.body || 'Request failed'}`);
+               logger.error(`Scraper failed after ${maxRetries + 1} attempts`, error, { 
+                  status: scraperError.status,
+                  payload: scraperError
+               });
+            }
 
             const errorMessage = `[${scraperError.status}] ${scraperError.error || scraperError.body || 'Request failed'}`;
             lastError = errorMessage;
@@ -269,7 +275,7 @@ export const scrapeKeywordFromGoogle = async (keyword:KeywordType, settings:Sett
                const debugMode = process.env.NODE_ENV === 'development';
                localResults = extractLocalResultsFromPayload(res, debugMode);
                if (debugMode && keyword.device === 'mobile') {
-                  console.log(`[MAP_PACK] Mobile keyword: ${keyword.keyword}, mapPackTop3: ${computedMapPack}, localResults count: ${localResults.length}`);
+                  logger.debug(`[MAP_PACK] Mobile keyword: ${keyword.keyword}, mapPackTop3: ${computedMapPack}, localResults count: ${localResults.length}`);
                }
             }
 
@@ -283,12 +289,16 @@ export const scrapeKeywordFromGoogle = async (keyword:KeywordType, settings:Sett
                localResults,
                error: false,
             };
-            console.log(`[SERP] Success on attempt ${attempt + 1}:`, keyword.keyword, 
-                        `device: ${keyword.device || 'desktop'}`,
-                        `position: ${serp.position}`, 
-                        `url: ${serp.url}`, 
-                        `mapPackTop3: ${computedMapPack ? 'YES (in top 3 of local map pack)' : 'NO (not in top 3 of local map pack)'}`,
-                        `localResults: ${localResults.length}`);
+            // Only log on retries or if in top 3 map pack (significant event)
+            if (attempt > 0 || computedMapPack) {
+               logger.info('Keyword scraped', {
+                  keyword: keyword.keyword,
+                  device: keyword.device || 'desktop',
+                  position: serp.position,
+                  mapPackTop3: computedMapPack,
+                  attempt: attempt + 1
+               });
+            }
             return refreshedResults; // Success, return immediately
          } else {
             // Enhanced error extraction for empty results
@@ -311,23 +321,19 @@ export const scrapeKeywordFromGoogle = async (keyword:KeywordType, settings:Sett
       } catch (error:any) {
          lastError = error;
          
-         // Log attempt information
-         console.log(`[ERROR] Scraping Keyword attempt ${attempt + 1}/${maxRetries + 1}:`, keyword.keyword);
-         
+         // Only log on final attempt to avoid spam
          if (attempt === maxRetries) {
             // Final attempt failed, process the error
             const errorMessage = handleProxyError(error, settings);
             refreshedResults.error = errorMessage;
-            console.log('[ERROR_MESSAGE]:', errorMessage);
-            
-            // Log additional error details if available
-            if (error && typeof error === 'object') {
-               console.log('[ERROR_DETAILS]:', JSON.stringify(error));
-            }
+            logger.error('Keyword scraping failed', error, { 
+               keyword: keyword.keyword,
+               attempts: maxRetries + 1,
+               errorMessage 
+            });
             break;
          } else {
-            // Not the final attempt, wait and retry
-            console.log(`[RETRY] Will retry after delay, attempt ${attempt + 1} failed:`, serializeError(error));
+            // Silent retry with exponential backoff
             await new Promise(resolve => setTimeout(resolve, getRetryDelay(attempt)));
             continue;
          }
@@ -363,8 +369,8 @@ const ensureAbsoluteURL = (value: string | undefined | null, base: string = GOOG
    if (trimmedValue.startsWith('//')) {
       try {
          return new URL(`https:${trimmedValue}`).toString();
-      } catch (error) {
-         console.log('[ERROR] Failed to normalise protocol-relative URL', trimmedValue, error);
+      } catch (error: any) {
+         logger.error('[ERROR] Failed to normalise protocol-relative URL', error, { url: trimmedValue });
          return null;
       }
    }
@@ -373,8 +379,8 @@ const ensureAbsoluteURL = (value: string | undefined | null, base: string = GOOG
    if (hasScheme) {
       try {
          return new URL(trimmedValue).toString();
-      } catch (error) {
-         console.log('[ERROR] Failed to normalise absolute URL', trimmedValue, error);
+      } catch (error: any) {
+         logger.error('[ERROR] Failed to normalise absolute URL', error, { url: trimmedValue });
          return null;
       }
    }
@@ -382,16 +388,16 @@ const ensureAbsoluteURL = (value: string | undefined | null, base: string = GOOG
    if (trimmedValue.startsWith('/')) {
       try {
          return new URL(trimmedValue, base).toString();
-      } catch (error) {
-         console.log('[ERROR] Failed to resolve relative URL', trimmedValue, error);
+      } catch (error: any) {
+         logger.error('[ERROR] Failed to resolve relative URL', error, { url: trimmedValue });
          return null;
       }
    }
 
    try {
       return new URL(`https://${trimmedValue}`).toString();
-   } catch (error) {
-      console.log('[ERROR] Failed to coerce host-only URL', trimmedValue, error);
+   } catch (error: any) {
+      logger.error('[ERROR] Failed to coerce host-only URL', error, { url: trimmedValue });
       return null;
    }
 };
@@ -402,8 +408,8 @@ const normaliseGoogleHref = (href: string | undefined | null): string | null => 
    let resolvedURL: URL;
    try {
       resolvedURL = new URL(href, GOOGLE_BASE_URL);
-   } catch (error) {
-      console.log('[ERROR] Unable to resolve scraped href', href, error);
+   } catch (error: any) {
+      logger.error('Unable to resolve SERP href', error, { href });
       return ensureAbsoluteURL(href);
    }
 
@@ -494,15 +500,14 @@ export const extractScrapedResult = (
    const $ = cheerio.load(content);
    const hasValidContent = [...$('body').find('#search'), ...$('body').find('#rso')];
    if (hasValidContent.length === 0) {
-      const msg = '[ERROR] Scraped search results do not adhere to expected format. Unable to parse results';
-      console.log(msg);
+      const msg = 'Scraped search results do not adhere to expected format. Unable to parse results';
+      logger.error(msg);
       throw new Error(msg);
    }
 
    const hasNumberofResult = $('body').find('#search  > div > div');
    const searchResultItems = hasNumberofResult.find('h3');
    let lastPosition = 0;
-   console.log('Scraped search results contain ', searchResultItems.length, ' desktop results.');
 
    for (let i = 0; i < searchResultItems.length; i += 1) {
       if (searchResultItems[i]) {
@@ -519,7 +524,6 @@ export const extractScrapedResult = (
    // Mobile Scraper
    if (extractedResult.length === 0 && device === 'mobile') {
       const items = $('body').find('#rso > div');
-      console.log('Scraped search results contain ', items.length, ' mobile results.');
       for (let i = 0; i < items.length; i += 1) {
          const item = $(items[i]);
          const linkDom = item.find('a[role="presentation"]');
@@ -553,8 +557,8 @@ const resolveResultURL = (value: string | undefined | null): URL | null => {
    } catch (_error) {
       try {
          return new URL(value, GOOGLE_BASE_URL);
-      } catch (error) {
-         console.log('[ERROR] Unable to resolve SERP result URL', value, error);
+      } catch (error: any) {
+         logger.error('[ERROR] Unable to resolve SERP result URL', error, { url: value });
          return null;
       }
    }
@@ -566,8 +570,8 @@ export const getSerp = (domainURL:string, result:SearchResult[]) : SERPObject =>
    let URLToFind: URL;
    try {
       URLToFind = domainURL.includes('://') ? new URL(domainURL) : new URL(`https://${domainURL}`);
-   } catch (error) {
-      console.log('[ERROR] Invalid domain URL provided to getSerp', domainURL, error);
+   } catch (error: any) {
+      logger.error('Invalid domain URL provided', error, { domainURL });
       return { position: 0, url: '' };
    }
 
@@ -604,7 +608,10 @@ export const retryScrape = async (keywordID: number) : Promise<void> => {
    let currentQueue: number[] = [];
 
    const filePath = `${process.cwd()}/data/failed_queue.json`;
-   const currentQueueRaw = await readFile(filePath, { encoding: 'utf-8' }).catch((err) => { console.log(err); return '[]'; });
+   const currentQueueRaw = await readFile(filePath, { encoding: 'utf-8' }).catch((err: any) => { 
+      if (err.code !== 'ENOENT') logger.debug('Failed to read retry queue', { error: err.message }); 
+      return '[]'; 
+   });
    currentQueue = currentQueueRaw ? JSON.parse(currentQueueRaw) : [];
 
    if (!currentQueue.includes(keywordID)) {
@@ -614,7 +621,10 @@ export const retryScrape = async (keywordID: number) : Promise<void> => {
       }
    }
 
-   await writeFile(filePath, JSON.stringify(currentQueue), { encoding: 'utf-8' }).catch((err) => { console.log(err); return '[]'; });
+   await writeFile(filePath, JSON.stringify(currentQueue), { encoding: 'utf-8' }).catch((err: any) => { 
+      logger.error('Failed to write retry queue', err); 
+      return '[]'; 
+   });
 };
 
 /**
@@ -627,9 +637,15 @@ export const removeFromRetryQueue = async (keywordID: number) : Promise<void> =>
    let currentQueue: number[] = [];
 
    const filePath = `${process.cwd()}/data/failed_queue.json`;
-   const currentQueueRaw = await readFile(filePath, { encoding: 'utf-8' }).catch((err) => { console.log(err); return '[]'; });
+   const currentQueueRaw = await readFile(filePath, { encoding: 'utf-8' }).catch((err: any) => { 
+      if (err.code !== 'ENOENT') logger.debug('Failed to read retry queue', { error: err.message }); 
+      return '[]'; 
+   });
    currentQueue = currentQueueRaw ? JSON.parse(currentQueueRaw) : [];
    currentQueue = currentQueue.filter((item) => item !== Math.abs(keywordID) && item > 0); // Also filter out invalid IDs
 
-   await writeFile(filePath, JSON.stringify(currentQueue), { encoding: 'utf-8' }).catch((err) => { console.log(err); return '[]'; });
+   await writeFile(filePath, JSON.stringify(currentQueue), { encoding: 'utf-8' }).catch((err: any) => { 
+      logger.error('Failed to write retry queue', err); 
+      return '[]'; 
+   });
 };

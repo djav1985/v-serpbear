@@ -136,8 +136,8 @@ describe('Map Pack Top3 Migration', () => {
       describeTable: jest.fn().mockRejectedValue(new Error('Database error')),
     };
 
-    // Mock console.log to capture error logging
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    // Mock console.error to capture error logging
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     
     try {
       await migration.up({ context: mockQueryInterface });

@@ -399,7 +399,8 @@ describe('refreshAndUpdateKeywords', () => {
     // Should log non-ENOENT errors
     expect(readFile).toHaveBeenCalledTimes(1);
     expect(writeFile).not.toHaveBeenCalled();
-    expect(consoleSpy).toHaveBeenCalledWith('[ERROR] Failed to update retry queue:', permissionError);
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"level":"ERROR"'));
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('[ERROR] Failed to update retry queue:'));
 
     consoleSpy.mockRestore();
   });
@@ -780,9 +781,10 @@ describe('refreshAndUpdateKeywords', () => {
 
     // Should use sequential mode because keyword2 has a custom-scraper override
     // which is not in the parallel-friendly list
-    expect(consoleSpy).toHaveBeenCalledWith('START SCRAPE: ', 'keyword1');
-    expect(consoleSpy).toHaveBeenCalledWith('START SCRAPE: ', 'keyword2');
-    expect(consoleSpy).not.toHaveBeenCalledWith('ALL DONE!!!'); // This is only logged in parallel mode
+    // Note: START SCRAPE is logged at DEBUG level, which may not be visible by default
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"level":"INFO"'));
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Keyword refresh completed'));
+    expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('Parallel keyword refresh completed')); // This is only logged in parallel mode
 
     consoleSpy.mockRestore();
   });
@@ -891,8 +893,9 @@ describe('refreshAndUpdateKeywords', () => {
     await refreshAndUpdateKeywords([keywordModel1, keywordModel2], settings);
 
     // Should use parallel mode because both domain overrides are parallel-friendly
-    expect(consoleSpy).toHaveBeenCalledWith('ALL DONE!!!'); // This is only logged in parallel mode
-    expect(consoleSpy).not.toHaveBeenCalledWith('START SCRAPE: ', expect.anything());
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"level":"INFO"'));
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Parallel keyword refresh completed')); // This is only logged in parallel mode
+    expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('START SCRAPE:'));
 
     consoleSpy.mockRestore();
   });

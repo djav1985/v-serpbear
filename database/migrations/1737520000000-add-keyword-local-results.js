@@ -25,7 +25,7 @@ module.exports = {
                );
             }
          } catch (error) {
-            console.log('error :', error);
+            console.error('error :', error);
             throw error;
          }
       });
@@ -42,7 +42,7 @@ module.exports = {
                await queryInterface.removeColumn('keyword', 'localResults', { transaction });
             }
          } catch (error) {
-            console.log('Migration rollback error:', error);
+            console.error('Migration rollback error:', error);
             throw error;
          }
       });

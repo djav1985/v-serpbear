@@ -38,7 +38,7 @@ module.exports = {
                }
             }
          } catch (error) {
-            console.log('error :', error);
+            console.error('error :', error);
             throw error;
          }
       });
@@ -60,7 +60,7 @@ module.exports = {
                }
             }
          } catch (error) {
-            console.log('error :', error);
+            console.error('error :', error);
             throw error;
          }
       });

@@ -32,8 +32,8 @@ describe('Migration Error Handling', () => {
       describeTable: jest.fn().mockRejectedValue(new Error('Test database error')),
     };
 
-    // Mock console.log to capture error logging
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    // Mock console.error to capture error logging
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     
     try {
       // This should throw an error after logging it
@@ -59,8 +59,8 @@ describe('Migration Error Handling', () => {
       removeIndex: jest.fn().mockRejectedValue(new Error('Index removal failed')),
     };
 
-    // Mock console.log to capture error logging
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    // Mock console.error to capture error logging
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     
     try {
       await migration.down({ context: mockQueryInterface });

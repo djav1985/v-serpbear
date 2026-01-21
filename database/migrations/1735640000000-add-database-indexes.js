@@ -37,7 +37,7 @@ module.exports = {
 
             console.log('[MIGRATION] Added database indexes for improved performance');
          } catch (error) {
-            console.log('Migration error:', error);
+            console.error('Migration error:', error);
             throw error;
          }
       });
@@ -54,7 +54,7 @@ module.exports = {
             await queryInterface.removeIndex('domain', 'domain_slug_idx', { transaction: t });
             console.log('[MIGRATION] Removed database indexes');
          } catch (error) {
-            console.log('Migration rollback error:', error);
+            console.error('Migration rollback error:', error);
             throw error;
          }
       });

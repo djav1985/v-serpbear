@@ -70,7 +70,7 @@ module.exports = {
                );
             }
          } catch (error) {
-            console.log('Migration error:', error);
+            console.error('Migration error:', error);
             throw error;
          }
       });
@@ -145,7 +145,7 @@ module.exports = {
                );
             }
          } catch (error) {
-            console.log('Migration rollback error:', error);
+            console.error('Migration rollback error:', error);
             throw error;
          }
       });

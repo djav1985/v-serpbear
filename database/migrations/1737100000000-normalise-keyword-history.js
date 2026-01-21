@@ -1,3 +1,4 @@
+
 module.exports = {
    up: async function up(params = {}, legacySequelize) {
       const queryInterface = params?.context ?? params;

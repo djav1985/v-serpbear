@@ -38,6 +38,6 @@ describe('cron worker helpers', () => {
       method: 'POST',
       headers: { Authorization: 'Bearer secret' },
     });
-    expect(consoleSpy).toHaveBeenCalledWith('Success:', { ok: true });
+    expect(consoleSpy).toHaveBeenCalledWith('Success:', { data: { ok: true } });
   });
 });
