@@ -6,13 +6,14 @@ import Keyword from '../../database/models/keyword';
 import parseKeywords from '../../utils/parseKeywords';
 import verifyUser from '../../utils/verifyUser';
 import { logger } from '../../utils/logger';
+import { withApiLogging } from '../../utils/apiLogging';
 
 type KeywordGetResponse = {
    keyword?: KeywordType | null
    error?: string|null,
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
    const authorized = verifyUser(req, res);
    if (authorized === 'authorized' && req.method === 'GET') {
       await db.sync();
@@ -20,6 +21,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
    }
    return res.status(401).json({ error: authorized });
 }
+
+export default withApiLogging(handler, { name: 'keyword' });
 
 const getKeyword = async (req: NextApiRequest, res: NextApiResponse<KeywordGetResponse>) => {
    if (!req.query.id || typeof req.query.id !== 'string') {

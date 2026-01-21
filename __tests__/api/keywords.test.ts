@@ -49,6 +49,11 @@ jest.mock('../../scrapers/index', () => ({
   default: [],
 }));
 
+jest.mock('../../utils/apiLogging', () => ({
+  __esModule: true,
+  withApiLogging: (handler: any) => handler,
+}));
+
 const dbMock = db as unknown as { sync: jest.Mock };
 const keywordMock = Keyword as unknown as {
   update: jest.Mock;
@@ -118,7 +123,8 @@ describe('PUT /api/keywords error handling', () => {
       }),
     };
     keywordMock.bulkCreate.mockResolvedValue([newKeywordRecord]);
-    keywordMock.findAll.mockResolvedValue([]);
+    // Mock findAll to return the reloaded keyword with ID
+    keywordMock.findAll.mockResolvedValue([newKeywordRecord]);
     getKeywordsVolumeMock.mockResolvedValue({ volumes: { 1: 100 } });
     const volumeFailure = new Error('volume failure');
     updateKeywordsVolumeDataMock.mockRejectedValue(volumeFailure);
@@ -185,6 +191,8 @@ describe('PUT /api/keywords error handling', () => {
     }];
 
     keywordMock.bulkCreate.mockResolvedValue(bulkCreateResult);
+    // Mock findAll to return the reloaded keyword with ID
+    keywordMock.findAll.mockResolvedValue(bulkCreateResult);
     getKeywordsVolumeMock.mockResolvedValue({ volumes: false });
 
     const req = {

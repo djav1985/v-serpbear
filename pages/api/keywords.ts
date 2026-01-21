@@ -12,6 +12,7 @@ import refreshAndUpdateKeywords from '../../utils/refresh';
 import { getKeywordsVolume, updateKeywordsVolumeData } from '../../utils/adwords';
 import { formatLocation, hasValidCityStatePair, parseLocation } from '../../utils/location';
 import { logger } from '../../utils/logger';
+import { withApiLogging } from '../../utils/apiLogging';
 
 type KeywordsGetResponse = {
    keywords?: KeywordType[],
@@ -26,7 +27,7 @@ type KeywordsDeleteRes = {
    details?: string,
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
    await db.sync();
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
@@ -47,6 +48,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
    }
    return res.status(502).json({ error: 'Unrecognized Route.' });
 }
+
+export default withApiLogging(handler, {
+   name: 'keywords',
+});
 
 const getKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGetResponse>) => {
    if (!req.query.domain || typeof req.query.domain !== 'string') {
@@ -173,7 +178,23 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
       return res.status(400).json({ error: 'Too many keywords', details: 'Maximum 100 keywords can be added at once' });
    }
 
-   const keywordsToAdd: any = []; // QuickFIX for bug: https://github.com/sequelize/sequelize-typescript/issues/936
+   const keywordsToAdd: Array<{
+      keyword: string;
+      device: string;
+      domain: string;
+      country: string;
+      location: string;
+      position: number;
+      updating: boolean;
+      history: string;
+      lastResult: string;
+      url: string;
+      tags: string;
+      sticky: boolean;
+      lastUpdated: string;
+      added: string;
+      mapPackTop3: boolean;
+   }> = [];
    const validationErrors: string[] = [];
 
    keywords.forEach((kwrd: KeywordAddPayload, index: number) => {
@@ -228,13 +249,30 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
    }
 
    try {
-      const newKeywords:Keyword[] = await Keyword.bulkCreate(keywordsToAdd);
-      const formattedkeywords = newKeywords.map((el) => el.get({ plain: true }));
+      await Keyword.bulkCreate(keywordsToAdd);
+      
+      // Reload keywords from DB to ensure IDs are populated
+      // Build a query to find the just-created keywords by their unique combination of keyword+device+domain
+      const reloadConditions = keywordsToAdd.map((kw) => ({
+         [Op.and]: [
+            { keyword: kw.keyword },
+            { device: kw.device },
+            { domain: kw.domain },
+            { country: kw.country },
+            { location: kw.location },
+         ],
+      }));
+      
+      const reloadedKeywords = await Keyword.findAll({
+         where: { [Op.or]: reloadConditions },
+      });
+      
+      const formattedkeywords = reloadedKeywords.map((el) => el.get({ plain: true }));
       const keywordsParsed: KeywordType[] = parseKeywords(formattedkeywords);
 
       // Queue the SERP Scraping Process
       const settings = await getAppSettings();
-      refreshAndUpdateKeywords(newKeywords, settings);
+      refreshAndUpdateKeywords(reloadedKeywords, settings);
 
       // Update the Keyword Volume
       const { adwords_account_id, adwords_client_id, adwords_client_secret, adwords_developer_token } = settings;

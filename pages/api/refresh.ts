@@ -12,6 +12,7 @@ import parseKeywords from '../../utils/parseKeywords';
 import { scrapeKeywordFromGoogle } from '../../utils/scraper';
 import { serializeError } from '../../utils/errorSerialization';
 import { logger } from '../../utils/logger';
+import { withApiLogging } from '../../utils/apiLogging';
 
 type KeywordsRefreshRes = {
    keywords?: KeywordType[]
@@ -29,7 +30,7 @@ type KeywordSearchResultRes = {
    error?: string|null,
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
    await db.sync();
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
@@ -191,3 +192,5 @@ const getKeywordSearchResults = async (req: NextApiRequest, res: NextApiResponse
       return res.status(400).json({ error: errorMessage });
    }
 };
+
+export default withApiLogging(handler, { name: 'refresh' });

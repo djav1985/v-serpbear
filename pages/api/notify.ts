@@ -14,6 +14,7 @@ import { getAppSettings } from './settings';
 import { trimStringProperties } from '../../utils/security';
 import { getBranding } from '../../utils/branding';
 import { logger } from '../../utils/logger';
+import { withApiLogging } from '../../utils/apiLogging';
 
 type NotifyResponse = {
    success?: boolean
@@ -27,7 +28,7 @@ const sanitizeHostname = (host?: string | null): string => {
    return trimmed.replace(/\.+$/, '');
 };
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
    await db.sync();
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
@@ -38,6 +39,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
    }
    return res.status(405).json({ success: false, error: 'Invalid Method' });
 }
+
+export default withApiLogging(handler, { name: 'notify' });
 
 const notify = async (req: NextApiRequest, res: NextApiResponse<NotifyResponse>) => {
    const reqDomain = req?.query?.domain as string || '';
