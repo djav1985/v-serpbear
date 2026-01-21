@@ -135,7 +135,7 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
          }
       } catch (refreshError) {
          const message = serializeError(refreshError);
-         console.log('[REFRESH] ERROR refreshTheKeywords: ', message);
+         console.log('[REFRESH] ERROR refreshAndUpdateKeywords (single keyword): ', message);
          return res.status(500).json({ error: message });
       }
 
