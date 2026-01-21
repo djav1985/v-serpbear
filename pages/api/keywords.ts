@@ -232,7 +232,7 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
       
       // Reload keywords from DB to ensure IDs are populated
       // Build a query to find the just-created keywords by their unique combination of keyword+device+domain
-      const reloadConditions = keywordsToAdd.map((kw) => ({
+      const reloadConditions = keywordsToAdd.map((kw: any) => ({
          [Op.and]: [
             { keyword: kw.keyword },
             { device: kw.device },
