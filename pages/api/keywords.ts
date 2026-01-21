@@ -12,6 +12,7 @@ import refreshAndUpdateKeywords from '../../utils/refresh';
 import { getKeywordsVolume, updateKeywordsVolumeData } from '../../utils/adwords';
 import { formatLocation, hasValidCityStatePair, parseLocation } from '../../utils/location';
 import { logger } from '../../utils/logger';
+import { withApiLogging } from '../../utils/apiLogging';
 
 type KeywordsGetResponse = {
    keywords?: KeywordType[],
@@ -26,7 +27,7 @@ type KeywordsDeleteRes = {
    details?: string,
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
    await db.sync();
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
@@ -47,6 +48,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
    }
    return res.status(502).json({ error: 'Unrecognized Route.' });
 }
+
+export default withApiLogging(handler, {
+   name: 'keywords',
+});
 
 const getKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGetResponse>) => {
    if (!req.query.domain || typeof req.query.domain !== 'string') {

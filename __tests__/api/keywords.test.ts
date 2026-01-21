@@ -49,6 +49,11 @@ jest.mock('../../scrapers/index', () => ({
   default: [],
 }));
 
+jest.mock('../../utils/apiLogging', () => ({
+  __esModule: true,
+  withApiLogging: (handler: any) => handler,
+}));
+
 const dbMock = db as unknown as { sync: jest.Mock };
 const keywordMock = Keyword as unknown as {
   update: jest.Mock;
