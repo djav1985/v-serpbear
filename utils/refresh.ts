@@ -12,6 +12,7 @@ import Domain from '../database/models/domain';
 import { serializeError } from './errorSerialization';
 import { updateDomainStats } from './updateDomainStats';
 import { decryptDomainScraperSettings, parseDomainScraperSettings } from './domainScraperSettings';
+import { logger } from './logger';
 
 const describeScraperType = (scraperType?: SettingsType['scraper_type']): string => {
    if (!scraperType || scraperType.length === 0) {
@@ -36,13 +37,13 @@ const logScraperSelectionSummary = (
    domainsWithScraperOverrides: Set<string>,
 ) => {
    const fallbackScraper = describeScraperType(globalSettings?.scraper_type);
-   console.log(`[REFRESH] Global scraper fallback: ${fallbackScraper}`);
+   logger.debug(`[REFRESH] Global scraper fallback: ${fallbackScraper}`);
 
    if (domainsWithScraperOverrides.size === 0) {
       if (requestedDomains.length === 0) {
-         console.log('[REFRESH] No domains requested for refresh.');
+         logger.debug('[REFRESH] No domains requested for refresh.');
       } else {
-         console.log('[REFRESH] No domain-specific scraper overrides configured.');
+         logger.debug('[REFRESH] No domain-specific scraper overrides configured.');
       }
    } else {
       for (const domain of domainsWithScraperOverrides) {
@@ -50,7 +51,7 @@ const logScraperSelectionSummary = (
          if (domainSettings) {
             const overrideScraper = describeScraperType(domainSettings.scraper_type);
             const apiState = describeScrapingApiState(domainSettings);
-            console.log(`[REFRESH] Override for ${domain}: ${overrideScraper} (${apiState})`);
+            logger.debug(`[REFRESH] Override for ${domain}: ${overrideScraper} (${apiState})`);
          }
       }
    }
@@ -58,10 +59,10 @@ const logScraperSelectionSummary = (
    const fallbackDomains = requestedDomains.filter((domain) => !domainsWithScraperOverrides.has(domain));
    if (fallbackDomains.length > 0) {
       fallbackDomains.forEach((domain) => {
-         console.log(`[REFRESH] Domain ${domain} using global scraper fallback: ${fallbackScraper}`);
+         logger.debug(`[REFRESH] Domain ${domain} using global scraper fallback: ${fallbackScraper}`);
       });
    } else if (requestedDomains.length > 0 && domainsWithScraperOverrides.size > 0) {
-      console.log('[REFRESH] All requested domains use scraper overrides.');
+      logger.debug('[REFRESH] All requested domains use scraper overrides.');
    }
 };
 
@@ -212,7 +213,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
           }
         } catch (error: any) {
           if (error.code !== 'ENOENT') {
-            console.log('[ERROR] Failed to update retry queue:', error);
+            logger.error('[ERROR] Failed to update retry queue:', error);
           }
         }
       }
@@ -247,7 +248,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                   const parsedKeyword = parseKeywords([currentKeyword])[0];
                   updatedKeywords.push({ ...parsedKeyword, updating: false });
                } catch (error) {
-                  console.log('[ERROR] Failed to clear updating flag for keyword:', keyword.ID, error);
+                  logger.error('[ERROR] Failed to clear updating flag for keyword:', error, { keywordId: keyword.ID });
                }
             }
          }
@@ -269,7 +270,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
       const desktopMapPackCache = new Map<string, boolean>();
 
       for (const keyword of sortedKeywords) {
-         console.log('START SCRAPE: ', keyword.keyword);
+         logger.debug('START SCRAPE: ', { keyword: keyword.keyword });
          const keywordPlain = keyword.get({ plain: true });
          const normalizedDevice = normalizeDevice(keywordPlain.device);
          const keywordKey = generateKeywordCacheKey(keywordPlain);
@@ -281,7 +282,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
 
          // Log when mobile keyword has no desktop fallback available
          if (normalizedDevice === 'mobile' && fallbackMapPackTop3 === undefined) {
-            console.log(`[DEBUG] Mobile keyword "${keywordPlain.keyword}" has no desktop fallback available (desktop may not have been scraped or failed)`);
+            logger.debug(`[DEBUG] Mobile keyword "${keywordPlain.keyword}" has no desktop fallback available (desktop may not have been scraped or failed)`);
          }
 
          const updatedkeyword = await refreshAndUpdateKeyword(keyword, settings, domainSpecificSettings, fallbackMapPackTop3);
@@ -303,7 +304,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
    }
 
    const end = performance.now();
-   console.log(`time taken: ${end - start}ms`);
+   logger.info(`time taken: ${end - start}ms`);
    
    // Update domain stats for all affected domains after keyword updates
    if (updatedKeywords.length > 0) {
@@ -353,7 +354,7 @@ const refreshAndUpdateKeyword = async (
       }
    } catch (error: any) {
       scraperError = serializeError(error);
-      console.log('[ERROR] Scraper failed for keyword:', currentkeyword.keyword, scraperError);
+      logger.error('[ERROR] Scraper failed for keyword:', error, { keyword: currentkeyword.keyword, scraperError });
    }
 
    // Update keyword position or handle error
@@ -378,7 +379,7 @@ const refreshAndUpdateKeyword = async (
       await Keyword.update(updateData, { where: { ID: keyword.ID } });
       keyword.set(updateData);
    } catch (updateError) {
-      console.log('[ERROR] Failed to update keyword error status:', updateError);
+      logger.error('[ERROR] Failed to update keyword error status:', updateError);
    }
 
    try {
@@ -388,7 +389,7 @@ const refreshAndUpdateKeyword = async (
          await removeFromRetryQueue(keyword.ID);
       }
    } catch (queueError) {
-      console.log('[ERROR] Failed to update retry queue for keyword:', keyword.ID, queueError);
+      logger.error('[ERROR] Failed to update retry queue for keyword:', queueError, { keywordId: keyword.ID });
    }
 
    // Return the current keyword with updated state
@@ -428,7 +429,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          try {
             return JSON.stringify(result);
          } catch (error) {
-            console.warn('[WARNING] Failed to serialise keyword result:', error);
+            logger.warn('[WARNING] Failed to serialise keyword result:', { error });
             return '[]';
          }
       };
@@ -454,7 +455,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          try {
             return JSON.stringify(results);
          } catch (error) {
-            console.warn('[WARNING] Failed to serialise local results:', error);
+            logger.warn('[WARNING] Failed to serialise local results:', { error });
             return JSON.stringify([]);
          }
       };
@@ -497,15 +498,19 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
 
       try {
          await keywordRaw.update(dbPayload);
-         console.log('[SUCCESS] Updating the Keyword ID:', keyword.ID, 'keyword:', keyword.keyword, 'device:', keyword.device || 'desktop', 
-            `mapPackTop3: ${dbPayload.mapPackTop3 ? 'true (appears in top 3 of local map pack)' : 'false (not in top 3 of local map pack)'}`);
+         logger.info('[SUCCESS] Updating the Keyword ID:', { 
+            keywordId: keyword.ID, 
+            keyword: keyword.keyword, 
+            device: keyword.device || 'desktop',
+            mapPackTop3: dbPayload.mapPackTop3 ? 'true (appears in top 3 of local map pack)' : 'false (not in top 3 of local map pack)'
+         });
 
          let parsedError: false | { date: string; error: string; scraper: string } = false;
          if (dbPayload.lastUpdateError !== 'false') {
             try {
                parsedError = JSON.parse(dbPayload.lastUpdateError ?? 'false');
             } catch (parseError) {
-               console.log('[WARNING] Failed to parse lastUpdateError:', dbPayload.lastUpdateError, parseError);
+               logger.warn('[WARNING] Failed to parse lastUpdateError:', { lastUpdateError: dbPayload.lastUpdateError, parseError });
                parsedError = false;
             }
          }
@@ -526,7 +531,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
             mapPackTop3: dbPayload.mapPackTop3 === true,
          };
       } catch (error) {
-         console.log('[ERROR] Updating SERP for Keyword', keyword.keyword, error);
+         logger.error('[ERROR] Updating SERP for Keyword', error, { keyword: keyword.keyword });
       }
    }
 
@@ -582,13 +587,13 @@ const refreshParallel = async (
 
          return { keywordId: keyword.ID, result: buildErrorResult(keyword, 'Unknown scraper response'), settings: effectiveSettings };
       } catch (error) {
-         console.log('[ERROR] Parallel scrape failed for keyword:', keyword.keyword, error);
+         logger.error('[ERROR] Parallel scrape failed for keyword:', error, { keyword: keyword.keyword });
          return { keywordId: keyword.ID, result: buildErrorResult(keyword, error), settings: effectiveSettings };
       }
    });
 
    const resolvedResults = await Promise.all(promises);
-   console.log('ALL DONE!!!');
+   logger.info('ALL DONE!!!');
    return resolvedResults;
 };
 
