@@ -121,17 +121,13 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
                console.log('[REFRESH] ERROR refreshAndUpdateKeywords (background): ', message);
             });
             
-            // Fetch current state to return accurate baseline data
+            // Fetch updated state to return accurate baseline data with updating flag set
             // The refresh process will update DB as it progresses, and polling will pick it up
             const refreshedKeywordRecords = await Keyword.findAll({
                where: { ID: { [Op.in]: keywordIdsToRefresh } },
             });
             const plainKeywords = refreshedKeywordRecords.map((keyword) => keyword.get({ plain: true }));
-            // Parse keywords with proper normalization and ensure updating flag is set to true
-            keywords = parseKeywords(plainKeywords).map((keyword) => ({
-               ...keyword,
-               updating: true, // Always true since we just started the refresh
-            }));
+            keywords = parseKeywords(plainKeywords);
          }
       } catch (refreshError) {
          const message = serializeError(refreshError);
