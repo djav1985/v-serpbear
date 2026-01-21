@@ -591,7 +591,7 @@ export const getKeywordsVolume = async (keywords: KeywordType[]): Promise<{ erro
                }
 
                if (resp.status !== 200) {
-                  const errorMessage = ideaData?.error?.details[0]?.errors[0]?.message || 'Unknown error';
+                  const errorMessage = ideaData?.error?.details?.[0]?.errors?.[0]?.message || 'Unknown error';
                   logger.error('Google Ads Volume Request Response', new Error(errorMessage), {
                      status: resp.status,
                      errorDetails: ideaData?.error,
