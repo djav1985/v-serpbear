@@ -13,6 +13,7 @@ import { canSendEmail, recordEmailSent } from '../../utils/emailThrottle';
 import { getAppSettings } from './settings';
 import { trimStringProperties } from '../../utils/security';
 import { getBranding } from '../../utils/branding';
+import { logger } from '../../utils/logger';
 
 type NotifyResponse = {
    success?: boolean
@@ -71,7 +72,7 @@ const notify = async (req: NextApiRequest, res: NextApiResponse<NotifyResponse>)
                   successCount++;
                } catch (error) {
                   const domainName = domainPlain?.domain || 'unknown domain';
-                  console.error(`[EMAIL] Failed to send notification for ${domainName}:`, error);
+                  logger.error(`Failed to send notification for ${domainName}`, error instanceof Error ? error : new Error(String(error)));
                }
             }
          }
@@ -87,7 +88,7 @@ const notify = async (req: NextApiRequest, res: NextApiResponse<NotifyResponse>)
                      successCount++;
                   } catch (error) {
                      const domainName = domain?.domain || 'unknown domain';
-                     console.error(`[EMAIL] Failed to send notification for ${domainName}:`, error);
+                     logger.error(`Failed to send notification for ${domainName}`, error instanceof Error ? error : new Error(String(error)));
                   }
                }
             }
@@ -101,7 +102,7 @@ const notify = async (req: NextApiRequest, res: NextApiResponse<NotifyResponse>)
 
       return res.status(200).json({ success: true, error: null });
    } catch (error) {
-      console.log(error);
+      logger.error('Error sending notification emails', error instanceof Error ? error : new Error(String(error)));
       const message = error instanceof Error && error.message ? error.message : 'Error Sending Notification Email.';
       const isConfigError = error instanceof Error && error.message === 'Invalid SMTP host configured.';
       return res.status(isConfigError ? 400 : 500).json({ success: false, error: message });
@@ -115,7 +116,7 @@ const sendNotificationEmail = async (domain: DomainType | Domain, settings: Sett
    // Check email throttling
    const throttleCheck = await canSendEmail(domainName);
    if (!throttleCheck.canSend) {
-      console.log(`[EMAIL_THROTTLE] Skipping email for ${domainName}: ${throttleCheck.reason}`);
+      logger.info(`Skipping email for ${domainName}: ${throttleCheck.reason}`);
       return;
    }
 
@@ -179,10 +180,10 @@ const sendNotificationEmail = async (domain: DomainType | Domain, settings: Sett
       
       // Record successful email send
       await recordEmailSent(domainName);
-      console.log(`[EMAIL] Successfully sent notification for ${domainName}`);
+      logger.info(`Successfully sent notification for ${domainName}`);
       
    } catch (error:any) {
-      console.log('[ERROR] Sending Notification Email for', domainName, error?.response || error);
+      logger.error('Error sending notification email', error instanceof Error ? error : new Error(String(error)), { domain: domainName });
       throw error; // Re-throw to let caller handle
    }
 };

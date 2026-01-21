@@ -91,7 +91,7 @@ const getSettings = async (req: NextApiRequest, res: NextApiResponse<SettingsGet
          return res.status(200).json({ settings: publicSettings });
       }
    } catch (error) {
-      console.log('[ERROR] Loading App Settings. ', error);
+      logger.error('Error loading app settings', error instanceof Error ? error : new Error(String(error)));
       const message = error instanceof Error ? error.message : 'Unknown error';
       return res.status(500).json({ error: 'Failed to load settings.', details: message });
    }
@@ -132,7 +132,7 @@ const updateSettings = async (req: NextApiRequest, res: NextApiResponse<Settings
       await writeFile(`${process.cwd()}/data/settings.json`, JSON.stringify(securedSettings), { encoding: 'utf-8' });
       return res.status(200).json({ settings: normalizedSettings });
    } catch (error) {
-      console.log('[ERROR] Updating App Settings. ', error);
+      logger.error('Error updating app settings', error instanceof Error ? error : new Error(String(error)));
       const message = error instanceof Error ? error.message : 'Unknown error';
       return res.status(500).json({ error: 'Failed to update settings.', details: message });
    }
@@ -171,7 +171,7 @@ export const getAppSettings = async () : Promise<SettingsType> => {
             adwords_account_id,
          };
       } catch (error) {
-         console.log('Error Decrypting Settings API Keys!', error);
+         logger.error('Error decrypting settings API keys', error instanceof Error ? error : new Error(String(error)));
       }
 
       const { platformName } = getBranding();
@@ -187,11 +187,11 @@ export const getAppSettings = async () : Promise<SettingsType> => {
          failedQueue = failedQueueRaw ? JSON.parse(failedQueueRaw) : [];
       } catch (failedQueueError) {
          const err = failedQueueError as NodeJS.ErrnoException;
-         console.log('[SETTINGS] Failed to read failed queue file, recreating...', err?.message || err);
+         logger.warn('Failed to read failed queue file, recreating', { error: err?.message || String(err) });
          try {
             await writeFile(failedQueuePath, JSON.stringify([]), { encoding: 'utf-8' });
          } catch (writeError) {
-            console.log('[SETTINGS] Failed to recreate failed queue file:', writeError);
+            logger.error('Failed to recreate failed queue file', writeError instanceof Error ? writeError : new Error(String(writeError)));
          }
          failedQueue = [];
       }
@@ -210,7 +210,7 @@ export const getAppSettings = async () : Promise<SettingsType> => {
          failed_queue: failedQueue,
       };
    } catch (error) {
-      console.log('[ERROR] Getting App Settings. ', error);
+      logger.error('Error getting app settings', error instanceof Error ? error : new Error(String(error)));
       const defaults = { ...buildSettingsDefaults() };
       await writeFile(settingsPath, JSON.stringify(defaults), { encoding: 'utf-8' });
       await writeFile(failedQueuePath, JSON.stringify([]), { encoding: 'utf-8' });

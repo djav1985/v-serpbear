@@ -31,6 +31,19 @@ describe('Logger', () => {
       expect(mockConsoleLog).not.toHaveBeenCalled();
     });
 
+    it('should disable all logging when LOG_LEVEL is "none"', () => {
+      process.env.LOG_LEVEL = 'none';
+      
+      const logger = new Logger();
+      
+      logger.error('test error message');
+      logger.warn('test warn message');
+      logger.info('test info message');
+      logger.debug('test debug message');
+      
+      expect(mockConsoleLog).not.toHaveBeenCalled();
+    });
+
     it('should disable all logging when LOG_LEVEL is "false"', () => {
       process.env.LOG_LEVEL = 'false';
       

@@ -11,6 +11,7 @@ import { integrateKeywordSCData, readLocalSCData } from '../../utils/searchConso
 import refreshAndUpdateKeywords from '../../utils/refresh';
 import { getKeywordsVolume, updateKeywordsVolumeData } from '../../utils/adwords';
 import { formatLocation, hasValidCityStatePair, parseLocation } from '../../utils/location';
+import { logger } from '../../utils/logger';
 
 type KeywordsGetResponse = {
    keywords?: KeywordType[],
@@ -78,7 +79,7 @@ const getKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
       });
       return res.status(200).json({ keywords: processedKeywords });
    } catch (error) {
-      console.log('[ERROR] Getting Domain Keywords for ', domain, error);
+      logger.error(`Error getting domain keywords for: ${domain}`, error instanceof Error ? error : new Error(String(error)));
       const message = error instanceof Error ? error.message : 'Unknown error';
       return res.status(500).json({ error: 'Failed to load keywords for this domain.', details: message });
    }
@@ -246,7 +247,7 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
 
       return res.status(201).json({ keywords: keywordsParsed });
    } catch (error) {
-      console.log('[ERROR] Adding New Keywords ', error);
+      logger.error('Adding New Keywords ', error instanceof Error ? error : new Error(String(error)));
       const message = error instanceof Error ? error.message : 'Unknown error';
       return res.status(500).json({ error: 'Failed to add keywords.', details: message });
    }
@@ -256,7 +257,7 @@ const deleteKeywords = async (req: NextApiRequest, res: NextApiResponse<Keywords
    if (!req.query.id || typeof req.query.id !== 'string') {
       return res.status(400).json({ error: 'keyword ID is Required!' });
    }
-   console.log('req.query.id: ', req.query.id);
+   logger.debug('req.query.id: ', { data: req.query.id });
 
    try {
       const keywordsToRemove = (req.query.id as string).split(',').map((item) => {
@@ -272,7 +273,7 @@ const deleteKeywords = async (req: NextApiRequest, res: NextApiResponse<Keywords
       const removedKeywordCount: number = await Keyword.destroy(removeQuery);
       return res.status(200).json({ keywordsRemoved: removedKeywordCount });
    } catch (error) {
-      console.log('[ERROR] Removing Keyword. ', error);
+      logger.error('Removing Keyword. ', error instanceof Error ? error : new Error(String(error)));
       const message = error instanceof Error ? error.message : 'Unknown error';
       return res.status(500).json({ error: 'Failed to remove keywords.', details: message });
    }
@@ -347,7 +348,7 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse<Keywords
       }
       return res.status(400).json({ error: 'Invalid Payload!' });
    } catch (error) {
-      console.log('[ERROR] Updating Keyword. ', error);
+      logger.error('Updating Keyword. ', error instanceof Error ? error : new Error(String(error)));
       const message = error instanceof Error ? error.message : 'Unknown error';
       return res.status(500).json({ error: 'Failed to update keywords.', details: message });
    }

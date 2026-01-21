@@ -6,10 +6,10 @@
  * Docker will capture these logs and they can be viewed with: docker logs <container>
  * 
  * Log Levels:
- * - false/off/0: No logging (disabled)
- * - error: Only ERROR logs
- * - info: ERROR + WARN + INFO logs (default) - recommended for production
- * - debug: All logs including DEBUG details - use for troubleshooting
+ * - none: Disables all logging
+ * - info: Logs high-level operational messages, including key actions and success or failure states (default)
+ * - error: Logs detailed error information, including context needed for troubleshooting
+ * - debug: Logs full diagnostic output, including API requests, responses, and internal processing details
  * 
  * Example log output:
  * {"timestamp":"2026-01-21T06:00:00.000Z","level":"INFO","message":"GET /api/domains - 200 (150ms)"}
@@ -42,8 +42,8 @@ export class Logger {
     // Set log level from environment or default to INFO
     const envLogLevel = process.env.LOG_LEVEL?.toLowerCase();
     
-    // Support for disabling logging: false, 0, off
-    if (envLogLevel === 'false' || envLogLevel === '0' || envLogLevel === 'off') {
+    // Support for disabling logging: none, false, 0, off
+    if (envLogLevel === 'none' || envLogLevel === 'false' || envLogLevel === '0' || envLogLevel === 'off') {
       this.logLevel = LogLevel.NONE;
     } else if (!envLogLevel || envLogLevel === 'info') {
       // Default to INFO level when undefined or explicitly set to 'info'

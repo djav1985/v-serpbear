@@ -11,6 +11,7 @@ import verifyUser from '../../utils/verifyUser';
 import parseKeywords from '../../utils/parseKeywords';
 import { scrapeKeywordFromGoogle } from '../../utils/scraper';
 import { serializeError } from '../../utils/errorSerialization';
+import { logger } from '../../utils/logger';
 
 type KeywordsRefreshRes = {
    keywords?: KeywordType[]
@@ -55,7 +56,7 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
       return isNaN(id) ? 0 : id;
    }).filter(id => id > 0);
    const { domain } = req.query || {};
-   console.log('keywordIDs: ', keywordIDs);
+   logger.debug('keywordIDs: ', { data: keywordIDs });
 
    if (req.query.id !== 'all' && (!keywordIDs || keywordIDs.length === 0)) {
       return res.status(400).json({ error: 'No valid keyword IDs provided' });
@@ -65,7 +66,7 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
       const settings = await getAppSettings();
       
       if (!settings || (settings && settings.scraper_type === 'none')) {
-         console.log('[REFRESH] ERROR: Scraper not configured');
+         logger.debug('Scraper not configured');
          return res.status(400).json({ error: 'Scraper has not been set up yet.' });
       }
       const query = req.query.id === 'all' && domain ? { domain } : { ID: { [Op.in]: keywordIDs } };
@@ -103,7 +104,7 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
          { where: { ID: { [Op.in]: keywordIdsToRefresh } } },
       );
 
-      console.log(`[REFRESH] Processing ${keywordsToRefresh.length} keywords for ${req.query.id === 'all' ? `domain: ${domain}` :
+      logger.info(`Processing ${keywordsToRefresh.length} keywords for ${req.query.id === 'all' ? `domain: ${domain}` :
          `IDs: ${keywordIdsToRefresh.join(',')}`}`);
 
       let keywords = [];
@@ -118,7 +119,7 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
             // This allows the dashboard to poll and see updates as they complete
             refreshAndUpdateKeywords(keywordsToRefresh, settings).catch((refreshError) => {
                const message = serializeError(refreshError);
-               console.log('[REFRESH] ERROR refreshAndUpdateKeywords (background): ', message);
+               logger.debug('[REFRESH] ERROR refreshAndUpdateKeywords (background): ', { data: message });
             });
             
             // Fetch updated state to return accurate baseline data with updating flag set
@@ -131,14 +132,14 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
          }
       } catch (refreshError) {
          const message = serializeError(refreshError);
-         console.log('[REFRESH] ERROR refreshAndUpdateKeywords (single keyword): ', message);
+         logger.debug('[REFRESH] ERROR refreshAndUpdateKeywords (single keyword): ', { data: message });
          return res.status(500).json({ error: message });
       }
 
       return res.status(200).json({ keywords });
    } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      console.log('[REFRESH] ERROR refreshTheKeywords: ', errorMessage);
+      logger.debug('[REFRESH] ERROR refreshTheKeywords: ', { data: errorMessage });
       return res.status(400).json({ error: errorMessage });
    }
 };
@@ -186,7 +187,7 @@ const getKeywordSearchResults = async (req: NextApiRequest, res: NextApiResponse
       return res.status(400).json({ error: 'Error Scraping Search Results for the given keyword!' });
    } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      console.log('ERROR getKeywordSearchResults: ', errorMessage);
+      logger.debug('ERROR getKeywordSearchResults: ', { data: errorMessage });
       return res.status(400).json({ error: errorMessage });
    }
 };
