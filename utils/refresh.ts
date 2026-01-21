@@ -72,6 +72,15 @@ const resolveEffectiveSettings = (
 ): SettingsType => domainSpecificSettings.get(domain) ?? globalSettings;
 
 /**
+ * Generates a cache key for matching desktop and mobile keyword pairs.
+ * The key is used to store and retrieve desktop mapPackTop3 values for mobile keywords.
+ * @param {KeywordType} keyword - The keyword to generate a cache key for
+ * @returns {string} A unique cache key combining keyword, domain, country, and location
+ */
+const generateKeywordCacheKey = (keyword: KeywordType): string => 
+   `${keyword.keyword}|${keyword.domain}|${keyword.country}|${keyword.location || ''}`;
+
+/**
  * Refreshes the Keywords position by Scraping Google Search Result by
  * Determining whether the keywords should be scraped in Parallel or not
  * @param {Keyword[]} rawkeyword - Keywords to scrape
@@ -226,7 +235,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
       for (const keyword of sortedKeywords) {
          console.log('START SCRAPE: ', keyword.keyword);
          const keywordPlain = keyword.get({ plain: true });
-         const keywordKey = `${keywordPlain.keyword}|${keywordPlain.domain}|${keywordPlain.country}|${keywordPlain.location || ''}`;
+         const keywordKey = generateKeywordCacheKey(keywordPlain);
          
          // If this is a mobile keyword, check if we have desktop mapPackTop3 cached
          const fallbackMapPackTop3 = (keywordPlain.device === 'mobile') 

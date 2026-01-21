@@ -3,6 +3,7 @@ import { resolveCountryCode } from "../../utils/scraperHelpers";
 import { parseLocation } from "../../utils/location";
 import { computeMapPackTop3 } from "../../utils/mapPack";
 import { getGoogleDomain } from "../../utils/googleDomains";
+import { logger } from "../../utils/logger";
 
 const decodeIfEncoded = (value: string): string => {
   try {
@@ -113,9 +114,10 @@ const valueSerp: ScraperSettings = {
     let mapPackTop3: boolean;
     
     // If mobile AND no local results section in API response, use fallback from desktop
-    if (isMobile && !hasLocalResultsSection && (settings as any)?.fallback_mapPackTop3 !== undefined) {
-      mapPackTop3 = (settings as any).fallback_mapPackTop3;
-      console.log(`[VALUESERP] Mobile keyword "${keyword.keyword}" has no local results in API response, using desktop mapPackTop3: ${mapPackTop3}`);
+    const fallbackValue = (settings as any)?.fallback_mapPackTop3;
+    if (isMobile && !hasLocalResultsSection && fallbackValue !== undefined) {
+      mapPackTop3 = fallbackValue;
+      logger.debug(`[VALUESERP] Mobile keyword "${keyword.keyword}" has no local results in API response, using desktop mapPackTop3: ${mapPackTop3}`);
     } else {
       // Otherwise compute normally
       mapPackTop3 = computeMapPackTop3(keyword.domain, response, businessName);

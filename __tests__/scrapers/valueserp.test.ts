@@ -1,5 +1,14 @@
 import valueSerp from '../../scrapers/services/valueserp';
 
+jest.mock('../../utils/logger', () => ({
+  logger: {
+    debug: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  },
+}));
+
 describe('valueSerp scraper', () => {
   const settings: Partial<SettingsType> = { scraping_api: 'token-123' };
   const countryData = {
