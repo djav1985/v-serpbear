@@ -21,6 +21,22 @@ jest.mock('fs/promises', () => ({
    writeFile: jest.fn(),
 }));
 
+jest.mock('../../utils/apiLogging', () => ({
+   __esModule: true,
+   withApiLogging: (handler: any) => handler,
+}));
+
+jest.mock('../../utils/logger', () => ({
+   logger: {
+      error: jest.fn(),
+      warn: jest.fn(),
+      info: jest.fn(),
+      debug: jest.fn(),
+      verbose: jest.fn(),
+      isSuccessLoggingEnabled: jest.fn(() => true),
+   },
+}));
+
 describe('PUT /api/ideas favorites persistence', () => {
    beforeEach(() => {
       jest.clearAllMocks();
@@ -43,6 +59,8 @@ describe('PUT /api/ideas favorites persistence', () => {
       const req = {
          method: 'PUT',
          body: { keywordID: 'kw-1', domain: 'example-com' },
+         headers: {},
+         connection: {},
       } as unknown as NextApiRequest;
 
       const res = {

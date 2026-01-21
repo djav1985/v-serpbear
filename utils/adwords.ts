@@ -236,15 +236,34 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
       seedCurrentKeywords = false,
    } = adwordsDomainOptions || {};
 
+   logger.debug('getAdwordsKeywordIdeas started', {
+      country,
+      language,
+      keywordsCount: keywords.length,
+      domainUrl,
+      domainSlug,
+      seedType,
+      seedSCKeywords,
+      seedCurrentKeywords,
+      test,
+   });
+
    let accessToken = '';
 
    const cachedAccessToken: string | false | undefined = memoryCache.get('adwords_token');
    if (cachedAccessToken && !test) {
       accessToken = cachedAccessToken;
+      logger.debug('Using cached Google Ads access token');
    } else {
+      logger.debug('Fetching new Google Ads access token');
       accessToken = await getAdwordsAccessToken(credentials);
+      if (!accessToken) {
+         logger.error('Failed to get Google Ads access token');
+         throw new Error('Failed to authenticate with Google Ads API');
+      }
       memoryCache.delete('adwords_token');
       memoryCache.set('adwords_token', accessToken, { ttl: 3300000 });
+      logger.debug('Successfully obtained and cached Google Ads access token');
    }
 
    let fetchedKeywords: IdeaKeyword[] = [];
@@ -274,8 +293,14 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
          const errMessage = seedType === 'tracking'
             ? 'No tracked keywords found for this domain'
             : 'No search console keywords found for this domain';
+         logger.warn(errMessage, { seedType, domainUrl });
          throw new Error(errMessage);
       }
+
+      logger.debug('Seed keywords prepared', { 
+         seedKeywordsCount: seedKeywords.length,
+         // Note: Seed keywords not logged to avoid exposing sensitive search terms in production logs
+      });
 
       try {
          // API: https://developers.google.com/google-ads/api/rest/reference/rest/v21/customers/generateKeywordIdeas
@@ -283,8 +308,17 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
          const countryData = countries[country];
          const geoTargetConstants = countryData ? countryData[3] : undefined;
 
+         logger.debug('Google Ads API request preparation', {
+            customerID,
+            geoTargetConstants,
+            hasCountryData: !!countryData,
+         });
+
          if (!geoTargetConstants || Number(geoTargetConstants) === 0) {
-            console.warn(`[ADWORDS] Skipping keyword idea lookup for ${country}: missing geo target constant.`);
+            logger.warn('Skipping keyword idea lookup: missing geo target constant', {
+               country,
+               countryData: countryData ? 'present' : 'missing',
+            });
             return [];
          }
          const reqPayload: Record<string, any> = {
@@ -299,6 +333,20 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
             reqPayload.siteSeed = { site: domainUrl };
          }
 
+         // Note: DEBUG logging may include sensitive data (seed keywords, API tokens)
+         // Only enable DEBUG/VERBOSE mode in secure environments
+         logger.debug('Google Ads API request payload', {
+            url: `https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}/customers/${customerID}:generateKeywordIdeas`,
+            geoTargetConstants: reqPayload.geoTargetConstants,
+            language: reqPayload.language,
+            pageSize: reqPayload.pageSize,
+            hasSeedKeywords: !!reqPayload.keywordSeed,
+            seedKeywordCount: reqPayload.keywordSeed?.keywords?.length || 0,
+            hasSiteSeed: !!reqPayload.siteSeed,
+            hasDeveloperToken: !!developer_token,
+            hasAccessToken: !!accessToken,
+         });
+
          const resp = await fetch(`https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}/customers/${customerID}:generateKeywordIdeas`, {
             method: 'POST',
             headers: {
@@ -308,6 +356,12 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
                'login-customer-id': customerID,
             },
             body: JSON.stringify(reqPayload),
+         });
+
+         logger.debug('Google Ads API response received', {
+            status: resp.status,
+            statusText: resp.statusText,
+            contentType: resp.headers.get('content-type'),
          });
 
          let ideaData;
@@ -338,25 +392,45 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
 
          if (resp.status !== 200) {
             const errMessage = ideaData?.error?.details?.[0]?.errors?.[0]?.message || 'Failed to fetch keyword ideas';
-            console.log('[ERROR] Google Ads Response :', errMessage);
+            logger.error('Google Ads API error response', undefined, {
+               status: resp.status,
+               errorMessage: errMessage,
+               errorDetails: ideaData?.error,
+            });
             throw new Error(errMessage);
          }
 
          if (ideaData?.results) {
             logger.debug(`Google Ads API returned ${ideaData.results.length} results`);
             fetchedKeywords = extractAdwordskeywordIdeas(ideaData.results as keywordIdeasResponseItem[], { country, domain: domainSlug });
+            logger.info(`Processed ${fetchedKeywords.length} keywords after filtering`, {
+               rawResults: ideaData.results.length,
+               filteredResults: fetchedKeywords.length,
+            });
          } else {
-            logger.debug('Google Ads API returned no results (ideaData?.results is falsy)');
+            logger.debug('Google Ads API returned no results (ideaData?.results is falsy)', {
+               hasIdeaData: !!ideaData,
+               ideaDataKeys: ideaData ? Object.keys(ideaData) : [],
+            });
          }
 
          if (!test && fetchedKeywords.length > 0) {
             await updateLocalKeywordIdeas(domainSlug, { keywords: fetchedKeywords, settings: adwordsDomainOptions });
+            logger.debug('Updated local keyword ideas', { domainSlug, count: fetchedKeywords.length });
          }
       } catch (error) {
-         console.log('[ERROR] Fetching Keyword Ideas from Google Ads :', error);
+         logger.error('Error fetching keyword ideas from Google Ads API', error instanceof Error ? error : new Error(String(error)), {
+            errorType: error instanceof Error ? error.constructor.name : typeof error,
+            message: error instanceof Error ? error.message : String(error),
+         });
          throw error;
       }
    }
+
+   logger.debug('getAdwordsKeywordIdeas completed', {
+      fetchedKeywordsCount: fetchedKeywords.length,
+      hasAccessToken: !!accessToken,
+   });
 
    return fetchedKeywords;
 };
@@ -375,7 +449,7 @@ const extractAdwordskeywordIdeas = (keywordIdeas: keywordIdeasResponseItem[], op
    if (keywordIdeas.length > 0) {
       const { country = '', domain = '' } = options;
       logger.debug(`Processing ${keywordIdeas.length} keyword ideas from Google Ads API`);
-      keywordIdeas.forEach((kwRaw, index) => {
+      keywordIdeas.forEach((kwRaw) => {
          const { text, keywordIdeaMetrics } = kwRaw;
          if (keywordIdeaMetrics && text) {
             // Handle avgMonthlySearches which may be string, number, null, or undefined
@@ -388,15 +462,9 @@ const extractAdwordskeywordIdeas = (keywordIdeas: keywordIdeasResponseItem[], op
             const searchVolume = parseInt(avgMonthlySearches, 10);
             const compIndex = parseInt(competitionIndex, 10);
             
-            // Log first few keywords for debugging
-            if (index < 3) {
-               logger.debug(`Keyword: "${text}", avgMonthlySearches raw: ${JSON.stringify(avgMonthlySearchesRaw)}, parsed: ${searchVolume}`);
-            }
+            // Note: Detailed keyword logging disabled to prevent exposing search terms in production
             
             if (isNaN(searchVolume) || searchVolume < 0) {
-               if (index < 3) {
-                  logger.debug(`Skipping "${text}" - invalid search volume (isNaN: ${isNaN(searchVolume)}, < 0: ${searchVolume < 0})`);
-               }
                return; // Skip invalid search volume
             }
             

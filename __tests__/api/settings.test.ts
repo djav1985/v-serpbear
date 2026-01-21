@@ -1,6 +1,5 @@
 import { writeFile, readFile } from 'fs/promises';
 import type { NextApiRequest, NextApiResponse } from 'next';
-import getConfig from 'next/config';
 import handler from '../../pages/api/settings';
 import * as settingsApi from '../../pages/api/settings';
 import { getBranding } from '../../utils/branding';
@@ -16,11 +15,6 @@ jest.mock('../../utils/verifyUser', () => ({
 jest.mock('../../scrapers/index', () => ({
   __esModule: true,
   default: [],
-}));
-
-jest.mock('next/config', () => ({
-  __esModule: true,
-  default: jest.fn(),
 }));
 
 jest.mock('fs/promises', () => ({
@@ -49,7 +43,6 @@ const encryptMock = jest.fn((value: string) => value);
 const readFileMock = readFile as unknown as jest.Mock;
 const verifyUserMock = verifyUser as unknown as jest.Mock;
 const writeFileMock = writeFile as unknown as jest.Mock;
-const getConfigMock = getConfig as unknown as jest.Mock;
 const originalEnv = process.env;
 
 jest.mock('cryptr', () => ({
@@ -62,8 +55,6 @@ jest.mock('cryptr', () => ({
 describe('PUT /api/settings validation and errors', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    getConfigMock.mockReset();
-    getConfigMock.mockReturnValue({ publicRuntimeConfig: { version: '1.0.0' } });
     process.env = { ...originalEnv, SECRET: 'secret' };
     verifyUserMock.mockReturnValue('authorized');
     encryptMock.mockClear();
@@ -120,8 +111,6 @@ describe('PUT /api/settings validation and errors', () => {
 describe('GET /api/settings and configuration requirements', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    getConfigMock.mockReset();
-    getConfigMock.mockReturnValue({ publicRuntimeConfig: { version: '1.0.0' } });
     process.env = { ...originalEnv, SECRET: 'secret' };
     verifyUserMock.mockReturnValue('authorized');
     encryptMock.mockClear();
@@ -153,13 +142,12 @@ describe('GET /api/settings and configuration requirements', () => {
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       settings: expect.objectContaining({
-        version: '1.0.0',
+        version: '3.0.0',
       }),
     });
   });
 
-  it('returns settings when runtime config is missing', async () => {
-    getConfigMock.mockReturnValue(undefined);
+  it('returns settings with version from package.json', async () => {
     readFileMock.mockResolvedValueOnce(JSON.stringify({})).mockResolvedValueOnce(JSON.stringify([]));
 
     const req = {
@@ -175,11 +163,10 @@ describe('GET /api/settings and configuration requirements', () => {
 
     await handler(req, res);
 
-    expect(getConfigMock).toHaveBeenCalledTimes(1);
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       settings: expect.objectContaining({
-        version: undefined,
+        version: '3.0.0',
       }),
     });
   });
