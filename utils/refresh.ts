@@ -331,13 +331,13 @@ const refreshAndUpdateKeyword = async (
    fallbackMapPackTop3?: boolean,
 ): Promise<KeywordType> => {
    const currentkeyword = keyword.get({ plain: true });
-   const effectiveSettings = resolveEffectiveSettings(currentkeyword.domain, settings, domainSpecificSettings);
-   
+   const baseEffectiveSettings = resolveEffectiveSettings(currentkeyword.domain, settings, domainSpecificSettings);
+
    // For valueserp mobile keywords, pass the fallback mapPackTop3 from desktop
-   if (fallbackMapPackTop3 !== undefined && effectiveSettings.scraper_type === 'valueserp') {
-      (effectiveSettings as any).fallback_mapPackTop3 = fallbackMapPackTop3;
-   }
-   
+   const effectiveSettings: SettingsType & { fallback_mapPackTop3?: boolean } =
+      fallbackMapPackTop3 !== undefined && baseEffectiveSettings.scraper_type === 'valueserp'
+         ? { ...baseEffectiveSettings, fallback_mapPackTop3: fallbackMapPackTop3 }
+         : baseEffectiveSettings;
    let refreshedkeywordData: RefreshResult | false = false;
    let scraperError: string | false = false;
 
