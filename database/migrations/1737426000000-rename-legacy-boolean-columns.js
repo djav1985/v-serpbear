@@ -71,7 +71,7 @@ module.exports = {
                );
             }
          } catch (error) {
-            logger.info('Migration error:', error);
+            logger.error('Migration error:', error);
             throw error;
          }
       });
@@ -146,7 +146,7 @@ module.exports = {
                );
             }
          } catch (error) {
-            logger.info('Migration rollback error:', error);
+            logger.error('Migration rollback error:', error);
             throw error;
          }
       });

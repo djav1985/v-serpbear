@@ -47,7 +47,7 @@ module.exports = {
 
             logger.info('Successfully consolidated domain toggle fields');
          } catch (error) {
-            logger.info('error :', error);
+            logger.error('error :', error);
             throw error;
          }
       });
@@ -83,7 +83,7 @@ module.exports = {
 
             logger.info('Successfully rolled back domain toggle fields consolidation');
          } catch (error) {
-            logger.info('error :', error);
+            logger.error('error :', error);
             throw error;
          }
       });

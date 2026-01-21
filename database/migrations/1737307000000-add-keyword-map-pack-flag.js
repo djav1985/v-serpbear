@@ -47,7 +47,7 @@ module.exports = {
                );
             }
          } catch (error) {
-            logger.info('error :', error);
+            logger.error('error :', error);
             throw error;
          }
       });
@@ -64,7 +64,7 @@ module.exports = {
                await queryInterface.removeColumn('keyword', 'mapPackTop3', { transaction });
             }
          } catch (error) {
-            logger.info('Migration rollback error:', error);
+            logger.error('Migration rollback error:', error);
             throw error;
          }
       });

@@ -232,7 +232,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                   const parsedKeyword = parseKeywords([currentKeyword])[0];
                   updatedKeywords.push({ ...parsedKeyword, updating: false });
                } catch (error: any) {
-                  logger.error('[ERROR] Failed to clear updating flag for keyword:', error as Error, { keywordId: keyword.ID });
+                  logger.error('[ERROR] Failed to clear updating flag for keyword:', error, { keywordId: keyword.ID });
                }
             }
          }

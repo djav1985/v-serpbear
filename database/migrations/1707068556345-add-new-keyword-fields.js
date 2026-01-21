@@ -39,7 +39,7 @@ module.exports = {
                }
             }
          } catch (error) {
-            logger.info('error :', error);
+            logger.error('error :', error);
             throw error;
          }
       });
@@ -61,7 +61,7 @@ module.exports = {
                }
             }
          } catch (error) {
-            logger.info('error :', error);
+            logger.error('error :', error);
             throw error;
          }
       });

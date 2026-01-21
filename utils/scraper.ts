@@ -211,9 +211,14 @@ export const scrapeKeywordFromGoogle = async (keyword:KeywordType, settings:Sett
             // Build comprehensive error object
             const scraperError = buildScraperError(res);
 
-            // Log status code and error payload for debugging
-            logger.error(`[SCRAPER_ERROR] Attempt ${attempt + 1}/${maxRetries + 1} - Status:`, undefined, { status: scraperError.status });
-            logger.error(`[SCRAPER_ERROR] Payload:`, undefined, { payload: scraperError });
+            // Log error on final attempt only to avoid spam
+            if (attempt === maxRetries) {
+               const error = new Error(`Scraper error: ${scraperError.error || scraperError.body || 'Request failed'}`);
+               logger.error(`Scraper failed after ${maxRetries + 1} attempts`, error, { 
+                  status: scraperError.status,
+                  payload: scraperError
+               });
+            }
 
             const errorMessage = `[${scraperError.status}] ${scraperError.error || scraperError.body || 'Request failed'}`;
             lastError = errorMessage;
@@ -356,7 +361,7 @@ export const scrapeKeywordFromGoogle = async (keyword:KeywordType, settings:Sett
 const GOOGLE_REDIRECT_PATHS = ['/url', '/interstitial', '/imgres', '/aclk', '/link'];
 const GOOGLE_REDIRECT_PARAMS = ['url', 'q', 'imgurl', 'target', 'dest', 'u', 'adurl'];
 
-const ensureAbsoluteURL = (value: string | string, base: string = GOOGLE_BASE_URL): string | null => {
+const ensureAbsoluteURL = (value: string | undefined | null, base: string = GOOGLE_BASE_URL): string | null => {
    if (!value) { return null; }
    const trimmedValue = value.trim();
    if (!trimmedValue) { return null; }
@@ -404,7 +409,7 @@ const normaliseGoogleHref = (href: string | undefined | null): string | null => 
    try {
       resolvedURL = new URL(href, GOOGLE_BASE_URL);
    } catch (error: any) {
-      logger.debug('Unable to resolve SERP href', { href });
+      logger.error('Unable to resolve SERP href', error, { href });
       return ensureAbsoluteURL(href);
    }
 

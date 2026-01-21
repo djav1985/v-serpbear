@@ -145,7 +145,7 @@ describe('Map Pack Top3 Migration', () => {
     } catch (error) {
       expect(error).toBeInstanceOf(Error);
       expect(error.message).toBe('Database error');
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"level":"INFO"'));
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"level":"ERROR"'));
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('error :'));
     } finally {
       consoleSpy.mockRestore();

@@ -39,7 +39,7 @@ module.exports = {
                }
             }
          } catch (error) {
-            logger.info('error :', error);
+            logger.error('error :', error);
             throw error;
          }
       });
@@ -60,7 +60,7 @@ module.exports = {
                await queryInterface.removeColumn('domain', 'scrape_enabled', { transaction: t });
             }
          } catch (error) {
-            logger.info('error :', error);
+            logger.error('error :', error);
             throw error;
          }
       });
