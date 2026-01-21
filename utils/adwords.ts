@@ -7,6 +7,7 @@ import Keyword from '../database/models/keyword';
 import parseKeywords from './parseKeywords';
 import countries from './countries';
 import { readLocalSCData } from './searchConsole';
+import { logger } from './logger';
 
 export const GOOGLE_ADS_API_VERSION = 'v21';
 
@@ -342,10 +343,10 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
          }
 
          if (ideaData?.results) {
-            console.log(`[DEBUG] Google Ads API returned ${ideaData.results.length} results`);
+            logger.debug(`Google Ads API returned ${ideaData.results.length} results`);
             fetchedKeywords = extractAdwordskeywordIdeas(ideaData.results as keywordIdeasResponseItem[], { country, domain: domainSlug });
          } else {
-            console.log('[DEBUG] Google Ads API returned no results (ideaData?.results is falsy)');
+            logger.debug('Google Ads API returned no results (ideaData?.results is falsy)');
          }
 
          if (!test && fetchedKeywords.length > 0) {
@@ -373,7 +374,7 @@ const extractAdwordskeywordIdeas = (keywordIdeas: keywordIdeasResponseItem[], op
    const keywords: IdeaKeyword[] = [];
    if (keywordIdeas.length > 0) {
       const { country = '', domain = '' } = options;
-      console.log(`[DEBUG] Processing ${keywordIdeas.length} keyword ideas from Google Ads API`);
+      logger.debug(`Processing ${keywordIdeas.length} keyword ideas from Google Ads API`);
       keywordIdeas.forEach((kwRaw, index) => {
          const { text, keywordIdeaMetrics } = kwRaw;
          if (keywordIdeaMetrics && text) {
@@ -389,12 +390,12 @@ const extractAdwordskeywordIdeas = (keywordIdeas: keywordIdeasResponseItem[], op
             
             // Log first few keywords for debugging
             if (index < 3) {
-               console.log(`[DEBUG] Keyword: "${text}", avgMonthlySearches raw: ${JSON.stringify(avgMonthlySearchesRaw)}, parsed: ${searchVolume}`);
+               logger.debug(`Keyword: "${text}", avgMonthlySearches raw: ${JSON.stringify(avgMonthlySearchesRaw)}, parsed: ${searchVolume}`);
             }
             
             if (isNaN(searchVolume) || searchVolume < 0) {
                if (index < 3) {
-                  console.log(`[DEBUG] Skipping "${text}" - invalid search volume (isNaN: ${isNaN(searchVolume)}, < 0: ${searchVolume < 0})`);
+                  logger.debug(`Skipping "${text}" - invalid search volume (isNaN: ${isNaN(searchVolume)}, < 0: ${searchVolume < 0})`);
                }
                return; // Skip invalid search volume
             }
@@ -402,28 +403,25 @@ const extractAdwordskeywordIdeas = (keywordIdeas: keywordIdeasResponseItem[], op
             monthlySearchVolumes.forEach((item) => {
                searchVolumeTrend[`${item.month}-${item.year}`] = item.monthlySearches;
             });
+            
             // Accept keywords with any non-negative search volume (including 0)
             // Previously filtered out keywords with volume <= 10, but this was too aggressive
-            if (searchVolume >= 0) {
-               keywords.push({
-                  uid: `${country.toLowerCase()}:${text.replaceAll(' ', '-')}`,
-                  keyword: text,
-                  competition,
-                  competitionIndex: isNaN(compIndex) ? 0 : Math.max(0, compIndex),
-                  monthlySearchVolumes: searchVolumeTrend,
-                  avgMonthlySearches: searchVolume,
-                  added: new Date().getTime(),
-                  updated: new Date().getTime(),
-                  country,
-                  domain,
-                  position: 999,
-               });
-            } else if (index < 3) {
-               console.log(`[DEBUG] Filtering out "${text}" - search volume ${searchVolume} is negative`);
-            }
+            keywords.push({
+               uid: `${country.toLowerCase()}:${text.replaceAll(' ', '-')}`,
+               keyword: text,
+               competition,
+               competitionIndex: isNaN(compIndex) ? 0 : Math.max(0, compIndex),
+               monthlySearchVolumes: searchVolumeTrend,
+               avgMonthlySearches: searchVolume,
+               added: new Date().getTime(),
+               updated: new Date().getTime(),
+               country,
+               domain,
+               position: 999,
+            });
          }
       });
-      console.log(`[DEBUG] Returning ${keywords.length} keywords after filtering`);
+      logger.debug(`Returning ${keywords.length} keywords after filtering`);
    }
    return keywords.sort((a: IdeaKeyword, b: IdeaKeyword) => (b.avgMonthlySearches > a.avgMonthlySearches ? 1 : -1));
 };
