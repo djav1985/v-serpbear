@@ -103,12 +103,15 @@ const valueSerp: ScraperSettings = {
     
     // Check if this is a mobile keyword and if the API response has NO local results section at all
     const isMobile = keyword.device === 'mobile';
-    const hasLocalResultsSection = response && (
-      response.local_results !== undefined ||
-      response.localResults !== undefined ||
-      response.local_map !== undefined ||
-      response.places !== undefined ||
-      response.places_results !== undefined
+    const hasLocalResultsSection = !!(
+      response &&
+      (
+        Array.isArray((response as any).local_results) ||
+        Array.isArray((response as any).localResults) ||
+        (typeof (response as any).local_map === "object" && (response as any).local_map !== null) ||
+        Array.isArray((response as any).places) ||
+        Array.isArray((response as any).places_results)
+      )
     );
     
     let mapPackTop3: boolean;
