@@ -173,7 +173,23 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
       return res.status(400).json({ error: 'Too many keywords', details: 'Maximum 100 keywords can be added at once' });
    }
 
-   const keywordsToAdd: any = []; // QuickFIX for bug: https://github.com/sequelize/sequelize-typescript/issues/936
+   const keywordsToAdd: Array<{
+      keyword: string;
+      device: string;
+      domain: string;
+      country: string;
+      location: string;
+      position: number;
+      updating: boolean;
+      history: string;
+      lastResult: string;
+      url: string;
+      tags: string;
+      sticky: boolean;
+      lastUpdated: string;
+      added: string;
+      mapPackTop3: boolean;
+   }> = [];
    const validationErrors: string[] = [];
 
    keywords.forEach((kwrd: KeywordAddPayload, index: number) => {
@@ -232,13 +248,13 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
       
       // Reload keywords from DB to ensure IDs are populated
       // Build a query to find the just-created keywords by their unique combination of keyword+device+domain
-      const reloadConditions = keywordsToAdd.map((kw: any) => ({
+      const reloadConditions = keywordsToAdd.map((kw) => ({
          [Op.and]: [
             { keyword: kw.keyword },
             { device: kw.device },
             { domain: kw.domain },
             { country: kw.country },
-            { location: kw.location || '' },
+            { location: kw.location },
          ],
       }));
       
