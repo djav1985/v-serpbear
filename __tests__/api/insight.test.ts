@@ -18,6 +18,10 @@ jest.mock('../../utils/verifyUser');
 
 jest.mock('../../utils/searchConsole');
 
+jest.mock('../../utils/apiLogging', () => ({
+  withApiLogging: (handler: any) => handler,
+}));
+
 const mockDomainFindOne = Domain.findOne as jest.MockedFunction<typeof Domain.findOne>;
 const mockReadLocalSCData = readLocalSCData as jest.MockedFunction<typeof readLocalSCData>;
 const mockFetchDomainSCData = fetchDomainSCData as jest.MockedFunction<typeof fetchDomainSCData>;
@@ -28,7 +32,6 @@ describe('GET /api/insight', () => {
   let res: Partial<NextApiResponse>;
 
   beforeEach(() => {
-    jest.clearAllMocks();
     req = {
       method: 'GET',
       query: { domain: 'example.com' },
@@ -43,6 +46,10 @@ describe('GET /api/insight', () => {
     (verifyUser as jest.Mock).mockReturnValue('authorized');
     mockReadLocalSCData.mockResolvedValue(null);
     mockGetSearchConsoleApiInfo.mockResolvedValue({ client_email: 'client', private_key: 'key' });
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
   it('returns 404 when the domain does not exist', async () => {

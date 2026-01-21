@@ -6,16 +6,25 @@ import Domain from '../../database/models/domain';
 jest.mock('../../database/models/keyword');
 jest.mock('../../database/models/domain');
 
+// Mock the logger
+jest.mock('../../utils/logger', () => ({
+  logger: {
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+    verbose: jest.fn(),
+  },
+}));
+
+import { logger } from '../../utils/logger';
+
 const mockKeywordFindAll = Keyword.findAll as jest.MockedFunction<typeof Keyword.findAll>;
 const mockDomainUpdate = Domain.update as jest.MockedFunction<typeof Domain.update>;
 
 describe('updateDomainStats', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    
-    // Mock console methods to avoid cluttering test output
-    jest.spyOn(console, 'log').mockImplementation();
-    jest.spyOn(console, 'error').mockImplementation();
   });
 
   afterEach(() => {
@@ -110,8 +119,8 @@ describe('updateDomainStats', () => {
 
     await updateDomainStats('error.com');
 
-    expect(console.error).toHaveBeenCalledWith(
-      '[ERROR] Failed to update domain stats for error.com:',
+    expect(logger.error).toHaveBeenCalledWith(
+      'Failed to update domain stats for error.com',
       error
     );
     expect(mockDomainUpdate).not.toHaveBeenCalled();

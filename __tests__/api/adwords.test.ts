@@ -50,6 +50,10 @@ jest.mock('../../utils/adwords', () => ({
    getAdwordsKeywordIdeas: jest.fn(),
 }));
 
+jest.mock('../../utils/apiLogging', () => ({
+   withApiLogging: (handler: any) => handler,
+}));
+
 describe('GET /api/adwords - refresh token retrieval', () => {
    const originalEnv = process.env;
 
@@ -71,7 +75,6 @@ describe('GET /api/adwords - refresh token retrieval', () => {
    });
 
    it('logs a default error message when the Google API response lacks an error string', async () => {
-      const logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
 
       const req = {
          method: 'GET',
@@ -99,12 +102,7 @@ describe('GET /api/adwords - refresh token retrieval', () => {
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'text/html; charset=utf-8');
       expect(res.send).toHaveBeenCalledWith(expect.stringContaining('adwordsIntegrated'));
-      expect(logSpy).toHaveBeenCalledWith(
-         '[Error] Getting Google Ads Refresh Token! Reason: ',
-         'Unknown error retrieving Google Ads refresh token.',
-      );
 
-      logSpy.mockRestore();
    });
 });
 

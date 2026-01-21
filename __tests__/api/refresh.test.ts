@@ -42,6 +42,10 @@ jest.mock('../../utils/scraper', () => ({
   removeFromRetryQueue: jest.fn(),
 }));
 
+jest.mock('../../utils/apiLogging', () => ({
+  withApiLogging: (handler: any) => handler,
+}));
+
 describe('/api/refresh', () => {
   const req = { method: 'POST', query: {}, headers: {} } as unknown as NextApiRequest;
   let res: NextApiResponse;
@@ -51,8 +55,6 @@ describe('/api/refresh', () => {
       status: jest.fn().mockReturnThis(),
       json: jest.fn(),
     } as unknown as NextApiResponse;
-
-    jest.clearAllMocks();
 
     (db.sync as jest.Mock).mockResolvedValue(undefined);
     (verifyUser as jest.Mock).mockReturnValue('authorized');
@@ -182,5 +184,9 @@ describe('/api/refresh', () => {
     expect(scrapeKeywordFromGoogle).toHaveBeenCalledWith(expect.objectContaining({ device: 'mobile' }), { scraper_type: 'serpapi' });
     expect(previewRes.status).toHaveBeenCalledWith(200);
     expect(previewRes.json).toHaveBeenCalledWith({ error: '', searchResult: expect.objectContaining({ device: 'mobile' }) });
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 });

@@ -34,6 +34,10 @@ jest.mock('../../utils/adwords', () => ({
    updateKeywordsVolumeData: jest.fn(),
 }));
 
+jest.mock('../../utils/apiLogging', () => ({
+   withApiLogging: (handler: any) => handler,
+}));
+
 const dbMock = db as unknown as { sync: jest.Mock };
 const keywordModelMock = Keyword as unknown as { findAll: jest.Mock };
 const verifyUserMock = verifyUser as unknown as jest.Mock;
@@ -43,7 +47,6 @@ const updateKeywordsVolumeDataMock = updateKeywordsVolumeData as unknown as jest
 
 describe('POST /api/volume', () => {
    beforeEach(() => {
-      jest.clearAllMocks();
       dbMock.sync.mockResolvedValue(undefined);
       verifyUserMock.mockReturnValue('authorized');
       parseKeywordsMock.mockReturnValue([{ ID: 1, keyword: 'alpha', volume: 0 }]);
@@ -52,6 +55,10 @@ describe('POST /api/volume', () => {
       ]);
       getKeywordsVolumeMock.mockResolvedValue({ volumes: { 1: 25 } });
       updateKeywordsVolumeDataMock.mockResolvedValue(true);
+   });
+
+   afterEach(() => {
+      jest.clearAllMocks();
    });
 
    const createResponse = () => {
