@@ -228,13 +228,30 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
    }
 
    try {
-      const newKeywords:Keyword[] = await Keyword.bulkCreate(keywordsToAdd);
-      const formattedkeywords = newKeywords.map((el) => el.get({ plain: true }));
+      await Keyword.bulkCreate(keywordsToAdd);
+      
+      // Reload keywords from DB to ensure IDs are populated
+      // Build a query to find the just-created keywords by their unique combination of keyword+device+domain
+      const reloadConditions = keywordsToAdd.map((kw) => ({
+         [Op.and]: [
+            { keyword: kw.keyword },
+            { device: kw.device },
+            { domain: kw.domain },
+            { country: kw.country },
+            { location: kw.location || '' },
+         ],
+      }));
+      
+      const reloadedKeywords = await Keyword.findAll({
+         where: { [Op.or]: reloadConditions },
+      });
+      
+      const formattedkeywords = reloadedKeywords.map((el) => el.get({ plain: true }));
       const keywordsParsed: KeywordType[] = parseKeywords(formattedkeywords);
 
       // Queue the SERP Scraping Process
       const settings = await getAppSettings();
-      refreshAndUpdateKeywords(newKeywords, settings);
+      refreshAndUpdateKeywords(reloadedKeywords, settings);
 
       // Update the Keyword Volume
       const { adwords_account_id, adwords_client_id, adwords_client_secret, adwords_developer_token } = settings;
