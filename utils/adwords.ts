@@ -299,7 +299,7 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
 
       logger.debug('Seed keywords prepared', { 
          seedKeywordsCount: seedKeywords.length,
-         firstFewKeywords: seedKeywords.slice(0, 5),
+         // Note: Seed keywords not logged to avoid exposing sensitive search terms in production logs
       });
 
       try {
@@ -310,13 +310,12 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
 
          logger.debug('Google Ads API request preparation', {
             customerID,
-            country,
             geoTargetConstants,
             hasCountryData: !!countryData,
          });
 
          if (!geoTargetConstants || Number(geoTargetConstants) === 0) {
-            logger.warn(`Skipping keyword idea lookup for ${country}: missing geo target constant.`, {
+            logger.warn('Skipping keyword idea lookup: missing geo target constant', {
                country,
                countryData: countryData ? 'present' : 'missing',
             });
@@ -334,9 +333,16 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
             reqPayload.siteSeed = { site: domainUrl };
          }
 
+         // Note: DEBUG logging may include sensitive data (seed keywords, API tokens)
+         // Only enable DEBUG/VERBOSE mode in secure environments
          logger.debug('Google Ads API request payload', {
             url: `https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}/customers/${customerID}:generateKeywordIdeas`,
-            payload: reqPayload,
+            geoTargetConstants: reqPayload.geoTargetConstants,
+            language: reqPayload.language,
+            pageSize: reqPayload.pageSize,
+            hasSeedKeywords: !!reqPayload.keywordSeed,
+            seedKeywordCount: reqPayload.keywordSeed?.keywords?.length || 0,
+            hasSiteSeed: !!reqPayload.siteSeed,
             hasDeveloperToken: !!developer_token,
             hasAccessToken: !!accessToken,
          });
@@ -443,7 +449,7 @@ const extractAdwordskeywordIdeas = (keywordIdeas: keywordIdeasResponseItem[], op
    if (keywordIdeas.length > 0) {
       const { country = '', domain = '' } = options;
       logger.debug(`Processing ${keywordIdeas.length} keyword ideas from Google Ads API`);
-      keywordIdeas.forEach((kwRaw, index) => {
+      keywordIdeas.forEach((kwRaw) => {
          const { text, keywordIdeaMetrics } = kwRaw;
          if (keywordIdeaMetrics && text) {
             // Handle avgMonthlySearches which may be string, number, null, or undefined
@@ -456,15 +462,9 @@ const extractAdwordskeywordIdeas = (keywordIdeas: keywordIdeasResponseItem[], op
             const searchVolume = parseInt(avgMonthlySearches, 10);
             const compIndex = parseInt(competitionIndex, 10);
             
-            // Log first few keywords for debugging
-            if (index < 3) {
-               logger.debug(`Keyword: "${text}", avgMonthlySearches raw: ${JSON.stringify(avgMonthlySearchesRaw)}, parsed: ${searchVolume}`);
-            }
+            // Note: Detailed keyword logging disabled to prevent exposing search terms in production
             
             if (isNaN(searchVolume) || searchVolume < 0) {
-               if (index < 3) {
-                  logger.debug(`Skipping "${text}" - invalid search volume (isNaN: ${isNaN(searchVolume)}, < 0: ${searchVolume < 0})`);
-               }
                return; // Skip invalid search volume
             }
             
