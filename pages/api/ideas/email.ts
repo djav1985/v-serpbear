@@ -7,6 +7,7 @@ import { getAppSettings } from '../settings';
 import { trimStringProperties } from '../../../utils/security';
 import generateKeywordIdeasEmail, { KeywordIdeasEmailKeyword } from '../../../utils/generateKeywordIdeasEmail';
 import { getBranding } from '../../../utils/branding';
+import { logger } from '../../../utils/logger';
 
 type EmailKeywordIdeasRequest = {
    domain?: string;
@@ -168,9 +169,10 @@ const emailKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse<Email
          html: emailHTML,
       });
 
+      logger.info(`Sent keyword ideas email for ${domainPlain.domain}`);
       return res.status(200).json({ success: true, error: null });
    } catch (error) {
-      console.log('[ERROR] Sending keyword ideas email', error);
+      logger.error('Error sending keyword ideas email', error instanceof Error ? error : new Error(String(error)));
       const message = error instanceof Error && error.message ? error.message : 'Error sending keyword ideas email.';
       return res.status(500).json({ success: false, error: message });
    }

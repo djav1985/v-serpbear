@@ -1,6 +1,7 @@
 // Email throttling cache to prevent spam
 import { writeFile, readFile } from 'fs/promises';
 import path from 'path';
+import { logger } from './logger';
 
 interface EmailCache {
    [domain: string]: {
@@ -57,7 +58,7 @@ export const canSendEmail = async (domain: string): Promise<{ canSend: boolean; 
       
       return { canSend: true };
    } catch (error) {
-      console.log('[EMAIL_THROTTLE] Error checking cache, allowing email:', error);
+      logger.error('Error checking email throttle cache, allowing email', error instanceof Error ? error : new Error(String(error)));
       return { canSend: true };
    }
 };
@@ -89,7 +90,7 @@ export const recordEmailSent = async (domain: string): Promise<void> => {
       
       await saveEmailCache(cache);
    } catch (error) {
-      console.log('[EMAIL_THROTTLE] Error recording email sent:', error);
+      logger.error('Error recording email sent', error instanceof Error ? error : new Error(String(error)));
    }
 };
 
@@ -101,7 +102,7 @@ const getEmailCache = async (): Promise<EmailCache> => {
       const cacheData = await readFile(CACHE_FILE, 'utf-8');
       return JSON.parse(cacheData) || {};
    } catch (error) {
-      console.log('[EMAIL_THROTTLE] Error loading cache, returning empty map:', error);
+      logger.error('Error loading email throttle cache, returning empty map', error instanceof Error ? error : new Error(String(error)));
       // File doesn't exist or is invalid, return empty cache
       return {};
    }
@@ -114,6 +115,6 @@ const saveEmailCache = async (cache: EmailCache): Promise<void> => {
    try {
       await writeFile(CACHE_FILE, JSON.stringify(cache, null, 2), 'utf-8');
    } catch (error) {
-      console.log('[EMAIL_THROTTLE] Error saving cache:', error);
+      logger.error('Error saving email throttle cache', error instanceof Error ? error : new Error(String(error)));
    }
 };

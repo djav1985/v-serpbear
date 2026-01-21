@@ -4,6 +4,8 @@
  * @param {string} [sortBy=clicks] - The `sortBy` parameter determines the property by which the `items` array should be sorted.
  * @returns {SCInsightItem[]}
  */
+import { logger } from './logger';
+
 export const sortInsightItems = (items:SCInsightItem[], sortBy: string = 'clicks'): SCInsightItem[] => {
    const sortKey = sortBy as keyof SCInsightItem;
    let sortedItems = [];
@@ -34,7 +36,7 @@ export const sortInsightItems = (items:SCInsightItem[], sortBy: string = 'clicks
 export const getCountryInsight = (SCData:SCDomainDataType, sortBy:string = 'clicks', queryDate:string = 'thirtyDays') : SCInsightItem[] => {
    // Validate input data
    if (!SCData || typeof SCData !== 'object') {
-      console.warn('[INSIGHT] Invalid SCData provided to getCountryInsight');
+      logger.warn('Invalid SCData provided to getCountryInsight');
       return [];
    }
 
@@ -92,7 +94,7 @@ export const getCountryInsight = (SCData:SCDomainDataType, sortBy:string = 'clic
 export const getKeywordsInsight = (SCData:SCDomainDataType, sortBy:string = 'clicks', queryDate:string = 'thirtyDays') : SCInsightItem[] => {
    // Validate input data
    if (!SCData || typeof SCData !== 'object') {
-      console.warn('[INSIGHT] Invalid SCData provided to getKeywordsInsight');
+      logger.warn('Invalid SCData provided to getKeywordsInsight');
       return [];
    }
 
@@ -153,7 +155,7 @@ export const getKeywordsInsight = (SCData:SCDomainDataType, sortBy:string = 'cli
 export const getPagesInsight = (SCData:SCDomainDataType, sortBy:string = 'clicks', queryDate:string = 'thirtyDays') : SCInsightItem[] => {
    // Validate input data
    if (!SCData || typeof SCData !== 'object') {
-      console.warn('[INSIGHT] Invalid SCData provided to getPagesInsight');
+      logger.warn('Invalid SCData provided to getPagesInsight');
       return [];
    }
 

@@ -1,6 +1,7 @@
 /// <reference path="../types.d.ts" />
 
 import Cryptr from 'cryptr';
+import { logger } from './logger';
 
 export type PersistedDomainScraperSettings = {
    scraper_type?: string | null;
@@ -102,7 +103,7 @@ export const decryptDomainScraperSettings = (
       try {
          decryptedKey = cryptr.decrypt(raw.scraping_api);
       } catch (error) {
-         console.warn('[WARN] Failed to decrypt domain scraper API key override.', error);
+         logger.warn('Failed to decrypt domain scraper API key override', { error: error instanceof Error ? error.message : String(error) });
          decryptedKey = null;
       }
    }
