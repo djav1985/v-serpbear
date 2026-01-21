@@ -8,7 +8,6 @@ import Domain from '../../database/models/domain';
 import refreshAndUpdateKeywords from '../../utils/refresh';
 import { getAppSettings } from './settings';
 import verifyUser from '../../utils/verifyUser';
-import parseKeywords from '../../utils/parseKeywords';
 import { scrapeKeywordFromGoogle } from '../../utils/scraper';
 import { serializeError } from '../../utils/errorSerialization';
 
@@ -109,32 +108,52 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
       let keywords = [];
 
       try {
+         // For single keyword, wait for completion to return accurate data immediately
          if (keywordIdsToRefresh.length === 1) {
             const refreshed: KeywordType[] = await refreshAndUpdateKeywords(keywordsToRefresh, settings);
             keywords = refreshed;
          } else {
-            const refreshPromise = refreshAndUpdateKeywords(keywordsToRefresh, settings);
+            // For multiple keywords, start refresh in background for progressive updates
+            // This allows the dashboard to poll and see updates as they complete
+            refreshAndUpdateKeywords(keywordsToRefresh, settings).catch((refreshError) => {
+               const message = serializeError(refreshError);
+               console.log('[REFRESH] ERROR refreshAndUpdateKeywords (background): ', message);
+            });
+            
+            // Fetch current state with updating=true to return accurate baseline
+            // The refresh process will update DB as it progresses, and polling will pick it up
             const refreshedKeywordRecords = await Keyword.findAll({
                where: { ID: { [Op.in]: keywordIdsToRefresh } },
             });
-            const plainKeywords = refreshedKeywordRecords.map((keyword) => {
-               const keywordPlain = typeof keyword.get === 'function'
-                  ? keyword.get({ plain: true })
-                  : keyword;
+            keywords = refreshedKeywordRecords.map((keyword) => {
+               const keywordPlain = keyword.get({ plain: true });
                return {
-                  ...keywordPlain,
-                  updating: true,
-               } as Keyword;
-            });
-            keywords = parseKeywords(plainKeywords);
-            refreshPromise.catch((refreshError) => {
-               const message = serializeError(refreshError);
-               console.log('[REFRESH] ERROR refreshAndUpdateKeywords: ', message);
+                  ID: keywordPlain.ID,
+                  keyword: keywordPlain.keyword,
+                  domain: keywordPlain.domain,
+                  device: keywordPlain.device || 'desktop',
+                  country: keywordPlain.country || 'US',
+                  position: keywordPlain.position,
+                  url: keywordPlain.url || '',
+                  lastUpdated: keywordPlain.lastUpdated || '',
+                  lastUpdateError: keywordPlain.lastUpdateError || false,
+                  volume: keywordPlain.volume || 0,
+                  sticky: keywordPlain.sticky || false,
+                  added: keywordPlain.added || '',
+                  tags: keywordPlain.tags || [],
+                  lastResult: [],
+                  localResults: [],
+                  history: typeof keywordPlain.history === 'string' 
+                     ? JSON.parse(keywordPlain.history) 
+                     : (keywordPlain.history || {}),
+                  updating: true, // Always true since we just started the refresh
+                  mapPackTop3: keywordPlain.mapPackTop3 || false,
+               } as KeywordType;
             });
          }
       } catch (refreshError) {
          const message = serializeError(refreshError);
-         console.log('[REFRESH] ERROR refreshAndUpdateKeywords: ', message);
+         console.log('[REFRESH] ERROR refreshTheKeywords: ', message);
          return res.status(500).json({ error: message });
       }
 
