@@ -137,15 +137,16 @@ describe('extractAdwordskeywordIdeas - avgMonthlySearches handling', () => {
       );
 
       // With the bug fix, this should now process the keyword even if avgMonthlySearches is not explicitly provided
-      // The default value '0' will be used, parsed to 0, and then filtered out by the > 10 check
-      // So we expect an empty array, not a crash or false
+      // The default value '0' will be used, parsed to 0, and will be included (>= 0 check)
       expect(result).toBeDefined();
       expect(Array.isArray(result)).toBe(true);
-      // The keyword will be filtered out because searchVolume (0) is not > 10
-      expect(result.length).toBe(0);
+      // The keyword will now be included because searchVolume (0) >= 0
+      expect(result.length).toBe(1);
+      expect(result[0].keyword).toBe('keyword without explicit volume');
+      expect(result[0].avgMonthlySearches).toBe(0);
    });
 
-   it('filters out keywords with search volume <= 10', async () => {
+   it('includes keywords with all search volumes (including low volume)', async () => {
       const mockFetch = jest.fn()
          .mockResolvedValueOnce({
             json: async () => ({ access_token: 'test-token' }),
@@ -212,10 +213,12 @@ describe('extractAdwordskeywordIdeas - avgMonthlySearches handling', () => {
 
       expect(result).toBeDefined();
       expect(Array.isArray(result)).toBe(true);
-      // Only the keyword with volume 50 should be included (> 10)
-      expect(result.length).toBe(1);
+      // Both keywords should be included (volume >= 0), sorted by volume descending
+      expect(result.length).toBe(2);
       expect(result[0].keyword).toBe('medium volume keyword');
       expect(result[0].avgMonthlySearches).toBe(50);
+      expect(result[1].keyword).toBe('low volume keyword');
+      expect(result[1].avgMonthlySearches).toBe(5);
    });
 
    it('processes keywords even when avgMonthlySearches is "0" string', async () => {
@@ -266,9 +269,11 @@ describe('extractAdwordskeywordIdeas - avgMonthlySearches handling', () => {
          true,
       );
 
-      // With the fix, this should process but then filter out due to volume <= 10
+      // With the fix, this should process and include the keyword (volume 0 >= 0)
       expect(result).toBeDefined();
       expect(Array.isArray(result)).toBe(true);
-      expect(result.length).toBe(0);
+      expect(result.length).toBe(1);
+      expect(result[0].keyword).toBe('zero volume keyword');
+      expect(result[0].avgMonthlySearches).toBe(0);
    });
 });
