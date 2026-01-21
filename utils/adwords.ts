@@ -7,6 +7,7 @@ import Keyword from '../database/models/keyword';
 import parseKeywords from './parseKeywords';
 import countries from './countries';
 import { readLocalSCData } from './searchConsole';
+import { logger } from './logger';
 
 export const GOOGLE_ADS_API_VERSION = 'v21';
 
@@ -342,7 +343,10 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
          }
 
          if (ideaData?.results) {
+            logger.debug(`Google Ads API returned ${ideaData.results.length} results`);
             fetchedKeywords = extractAdwordskeywordIdeas(ideaData.results as keywordIdeasResponseItem[], { country, domain: domainSlug });
+         } else {
+            logger.debug('Google Ads API returned no results (ideaData?.results is falsy)');
          }
 
          if (!test && fetchedKeywords.length > 0) {
@@ -370,38 +374,54 @@ const extractAdwordskeywordIdeas = (keywordIdeas: keywordIdeasResponseItem[], op
    const keywords: IdeaKeyword[] = [];
    if (keywordIdeas.length > 0) {
       const { country = '', domain = '' } = options;
-      keywordIdeas.forEach((kwRaw) => {
+      logger.debug(`Processing ${keywordIdeas.length} keyword ideas from Google Ads API`);
+      keywordIdeas.forEach((kwRaw, index) => {
          const { text, keywordIdeaMetrics } = kwRaw;
-         const { competition, competitionIndex = '0', avgMonthlySearches = '0', monthlySearchVolumes = [] } = keywordIdeaMetrics || {};
          if (keywordIdeaMetrics && text) {
+            // Handle avgMonthlySearches which may be string, number, null, or undefined
+            const avgMonthlySearchesRaw = keywordIdeaMetrics.avgMonthlySearches;
+            const avgMonthlySearches = avgMonthlySearchesRaw != null ? String(avgMonthlySearchesRaw) : '0';
+            const competitionIndex = keywordIdeaMetrics.competitionIndex != null ? String(keywordIdeaMetrics.competitionIndex) : '0';
+            const { competition, monthlySearchVolumes = [] } = keywordIdeaMetrics;
+            
             const searchVolumeTrend: Record<string, string> = {};
             const searchVolume = parseInt(avgMonthlySearches, 10);
             const compIndex = parseInt(competitionIndex, 10);
             
+            // Log first few keywords for debugging
+            if (index < 3) {
+               logger.debug(`Keyword: "${text}", avgMonthlySearches raw: ${JSON.stringify(avgMonthlySearchesRaw)}, parsed: ${searchVolume}`);
+            }
+            
             if (isNaN(searchVolume) || searchVolume < 0) {
+               if (index < 3) {
+                  logger.debug(`Skipping "${text}" - invalid search volume (isNaN: ${isNaN(searchVolume)}, < 0: ${searchVolume < 0})`);
+               }
                return; // Skip invalid search volume
             }
             
             monthlySearchVolumes.forEach((item) => {
                searchVolumeTrend[`${item.month}-${item.year}`] = item.monthlySearches;
             });
-            if (searchVolume > 10) {
-               keywords.push({
-                  uid: `${country.toLowerCase()}:${text.replaceAll(' ', '-')}`,
-                  keyword: text,
-                  competition,
-                  competitionIndex: isNaN(compIndex) ? 0 : Math.max(0, compIndex),
-                  monthlySearchVolumes: searchVolumeTrend,
-                  avgMonthlySearches: searchVolume,
-                  added: new Date().getTime(),
-                  updated: new Date().getTime(),
-                  country,
-                  domain,
-                  position: 999,
-               });
-            }
+            
+            // Accept keywords with any non-negative search volume (including 0)
+            // Previously filtered out keywords with volume <= 10, but this was too aggressive
+            keywords.push({
+               uid: `${country.toLowerCase()}:${text.replaceAll(' ', '-')}`,
+               keyword: text,
+               competition,
+               competitionIndex: isNaN(compIndex) ? 0 : Math.max(0, compIndex),
+               monthlySearchVolumes: searchVolumeTrend,
+               avgMonthlySearches: searchVolume,
+               added: new Date().getTime(),
+               updated: new Date().getTime(),
+               country,
+               domain,
+               position: 999,
+            });
          }
       });
+      logger.debug(`Returning ${keywords.length} keywords after filtering`);
    }
    return keywords.sort((a: IdeaKeyword, b: IdeaKeyword) => (b.avgMonthlySearches > a.avgMonthlySearches ? 1 : -1));
 };
