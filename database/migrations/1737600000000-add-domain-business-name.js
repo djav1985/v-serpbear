@@ -1,4 +1,5 @@
 // Migration: Add business_name column to domain table as a standalone field.
+const { logger } = require('../../utils/logger');
 // This field stores the business name for map pack detection, independent of scraper settings.
 
 module.exports = {
@@ -21,7 +22,7 @@ module.exports = {
             );
          }
 
-         console.log('Added domain.business_name column.');
+         logger.info('Added domain.business_name column.');
       });
    },
 
@@ -35,7 +36,7 @@ module.exports = {
             await queryInterface.removeColumn('domain', 'business_name', { transaction });
          }
 
-         console.log('Removed domain.business_name column.');
+         logger.info('Removed domain.business_name column.');
       });
    },
 };

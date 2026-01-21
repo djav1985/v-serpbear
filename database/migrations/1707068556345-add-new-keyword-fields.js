@@ -1,4 +1,5 @@
 // Migration: Adds city, latlong and settings keyword to keyword table.
+const { logger } = require('../../utils/logger');
 
 // CLI Migration
 module.exports = {
@@ -38,7 +39,7 @@ module.exports = {
                }
             }
          } catch (error) {
-            console.log('error :', error);
+            logger.info('error :', error);
             throw error;
          }
       });
@@ -60,7 +61,7 @@ module.exports = {
                }
             }
          } catch (error) {
-            console.log('error :', error);
+            logger.info('error :', error);
             throw error;
          }
       });

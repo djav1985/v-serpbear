@@ -1,4 +1,5 @@
 // Migration: Add scraper_settings column to domain table for per-domain scraper overrides.
+const { logger } = require('../../utils/logger');
 
 module.exports = {
    up: async function up(params = {}, legacySequelize) {
@@ -20,7 +21,7 @@ module.exports = {
             );
          }
 
-         console.log('Added domain.scraper_settings column.');
+         logger.info('Added domain.scraper_settings column.');
       });
    },
 
@@ -34,7 +35,7 @@ module.exports = {
             await queryInterface.removeColumn('domain', 'scraper_settings', { transaction });
          }
 
-         console.log('Removed domain.scraper_settings column.');
+         logger.info('Removed domain.scraper_settings column.');
       });
    },
 };

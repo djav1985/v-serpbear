@@ -1,4 +1,5 @@
 // Migration: Adds mapPackTop3 field to keyword table to track whether a keyword appears in top 3 map pack results
+const { logger } = require('../../utils/logger');
 
 module.exports = {
    up: async function up(params = {}, legacySequelize) {
@@ -46,7 +47,7 @@ module.exports = {
                );
             }
          } catch (error) {
-            console.log('error :', error);
+            logger.info('error :', error);
             throw error;
          }
       });
@@ -63,7 +64,7 @@ module.exports = {
                await queryInterface.removeColumn('keyword', 'mapPackTop3', { transaction });
             }
          } catch (error) {
-            console.log('Migration rollback error:', error);
+            logger.info('Migration rollback error:', error);
             throw error;
          }
       });

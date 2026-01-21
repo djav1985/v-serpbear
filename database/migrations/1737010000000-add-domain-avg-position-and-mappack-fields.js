@@ -1,4 +1,5 @@
 // Migration: Adds avgPosition and mapPackKeywords columns to domain table
+const { logger } = require('../../utils/logger');
 // to store calculated values from keyword scraping instead of computing on demand
 
 module.exports = {
@@ -41,7 +42,7 @@ module.exports = {
                );
             }
          } catch (error) {
-            console.log('error :', error);
+            logger.info('error :', error);
             throw error;
          }
       });
@@ -62,7 +63,7 @@ module.exports = {
                await queryInterface.removeColumn('domain', 'mapPackKeywords', { transaction: t });
             }
          } catch (error) {
-            console.log('error :', error);
+            logger.info('error :', error);
             throw error;
          }
       });

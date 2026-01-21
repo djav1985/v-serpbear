@@ -1,4 +1,5 @@
 // Migration: Ensures camelCase boolean columns are authoritative and removes legacy snake_case boolean identifiers
+const { logger } = require('../../utils/logger');
 
 module.exports = {
    up: async function up(params = {}, legacySequelize) {
@@ -70,7 +71,7 @@ module.exports = {
                );
             }
          } catch (error) {
-            console.log('Migration error:', error);
+            logger.info('Migration error:', error);
             throw error;
          }
       });
@@ -145,7 +146,7 @@ module.exports = {
                );
             }
          } catch (error) {
-            console.log('Migration rollback error:', error);
+            logger.info('Migration rollback error:', error);
             throw error;
          }
       });

@@ -1,3 +1,5 @@
+const { logger } = require('../../utils/logger');
+
 module.exports = {
    up: async function up(params = {}, legacySequelize) {
       const queryInterface = params?.context ?? params;
@@ -34,7 +36,7 @@ module.exports = {
             { transaction }
          );
 
-         console.log('Normalised keyword history defaults to empty objects.');
+         logger.info('Normalised keyword history defaults to empty objects.');
       });
    },
 
@@ -73,7 +75,7 @@ module.exports = {
             { transaction }
          );
 
-         console.log('Reverted keyword history defaults to legacy empty arrays.');
+         logger.info('Reverted keyword history defaults to legacy empty arrays.');
       });
    }
 };

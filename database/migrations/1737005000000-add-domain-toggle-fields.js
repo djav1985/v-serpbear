@@ -1,4 +1,5 @@
 // Migration: Adds scrape_enabled and notify_enabled flags to the domain table so
+const { logger } = require('../../utils/logger');
 // scraping and notification behaviour can be toggled per domain.
 
 module.exports = {
@@ -38,7 +39,7 @@ module.exports = {
                }
             }
          } catch (error) {
-            console.log('error :', error);
+            logger.info('error :', error);
             throw error;
          }
       });
@@ -59,7 +60,7 @@ module.exports = {
                await queryInterface.removeColumn('domain', 'scrape_enabled', { transaction: t });
             }
          } catch (error) {
-            console.log('error :', error);
+            logger.info('error :', error);
             throw error;
          }
       });

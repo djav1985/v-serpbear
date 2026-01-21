@@ -3,7 +3,7 @@ const Cryptr = require('cryptr');
 const { promises } = require('fs');
 const { readFile } = require('fs');
 const { Cron } = require('croner');
-const { logger } = require('./utils/logger.ts');
+const { logger } = require('./utils/logger');
 require('dotenv').config({ path: './.env.local' });
 
 const stripOptionalQuotes = (value) => {

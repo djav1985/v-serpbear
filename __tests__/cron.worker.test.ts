@@ -25,7 +25,12 @@ describe('cron worker helpers', () => {
     await makeCronApiCall(undefined, 'http://localhost:3000', '/api/cron', 'ignored');
 
     expect(global.fetch).not.toHaveBeenCalled();
-    expect(consoleSpy).toHaveBeenCalledWith('[CRON] Skipping API call to /api/cron: API key not configured.');
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('"level":"WARN"')
+    );
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('[CRON] Skipping API call to /api/cron: API key not configured.')
+    );
   });
 
   it('sends the authorization header when API key is available', async () => {
@@ -38,6 +43,11 @@ describe('cron worker helpers', () => {
       method: 'POST',
       headers: { Authorization: 'Bearer secret' },
     });
-    expect(consoleSpy).toHaveBeenCalledWith('Success:', { ok: true });
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('"level":"INFO"')
+    );
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Success:')
+    );
   });
 });
