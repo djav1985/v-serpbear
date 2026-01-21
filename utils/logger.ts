@@ -2,11 +2,17 @@
  * Enhanced logging utility for SerpBear
  * Provides structured logging with different levels and Docker-friendly output
  * 
+ * All logs are output to stdout (console.log) in JSON format for Docker container logging.
+ * Docker will capture these logs and they can be viewed with: docker logs <container>
+ * 
  * Log Levels:
  * - false/off/0: No logging (disabled)
  * - error: Only ERROR logs
- * - info: ERROR + WARN + INFO logs (default)
- * - debug: All logs including DEBUG details
+ * - info: ERROR + WARN + INFO logs (default) - recommended for production
+ * - debug: All logs including DEBUG details - use for troubleshooting
+ * 
+ * Example log output:
+ * {"timestamp":"2026-01-21T06:00:00.000Z","level":"INFO","message":"GET /api/domains - 200 (150ms)"}
  */
 
 export enum LogLevel {

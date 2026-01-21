@@ -1,6 +1,7 @@
 import { writeFile } from 'fs/promises';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import verifyUser from '../../utils/verifyUser';
+import { logger } from '../../utils/logger';
 
 type SettingsGetResponse = {
    cleared?: boolean,
@@ -21,9 +22,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 const clearFailedQueue = async (req: NextApiRequest, res: NextApiResponse<SettingsGetResponse>) => {
    try {
       await writeFile(`${process.cwd()}/data/failed_queue.json`, JSON.stringify([]), { encoding: 'utf-8' });
+      logger.info('Failed queue cleared successfully');
       return res.status(200).json({ cleared: true });
    } catch (error) {
-      console.log('[ERROR] Clearing Failed Queue File.', error);
+      logger.error('Error clearing failed queue', error instanceof Error ? error : new Error(String(error)));
       const message = error instanceof Error && error.message ? error.message : 'Error Clearing Failed Queue!';
       return res.status(500).json({ error: message });
    }
