@@ -52,10 +52,9 @@ const cronRefreshkeywords = async (req: NextApiRequest, res: NextApiResponse<CRO
       );
       const keywordQueries: Keyword[] = await Keyword.findAll({ where: { domain: enabledDomains } });
 
-      const parsedKeywords = parseKeywords(keywordQueries.map((e) => e.get({ plain: true })));
-      logger.info(`Cron refresh started for ${enabledDomains.length} domains with ${parsedKeywords.length} keywords`);
+      logger.info(`Cron refresh started for ${enabledDomains.length} domains with ${keywordQueries.length} keywords`);
       
-      refreshAndUpdateKeywords(parsedKeywords, settings);
+      refreshAndUpdateKeywords(keywordQueries, settings);
 
       return res.status(200).json({ started: true });
    } catch (error) {
