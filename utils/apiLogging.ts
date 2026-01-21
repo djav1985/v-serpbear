@@ -12,7 +12,6 @@ export function withApiLogging(
     logBody?: boolean;
     skipAuth?: boolean;
     name?: string;
-    logSuccess?: boolean;
   } = {}
 ) {
   return async (req: NextApiRequest, res: NextApiResponse) => {
@@ -22,28 +21,30 @@ export function withApiLogging(
       logBody = false,
       skipAuth: _skipAuth = false,
       name,
-      logSuccess = logger.isSuccessLoggingEnabled(),
     } = options;
 
     // Add request ID to the request object for downstream use
     (req as any).requestId = requestId;
 
-    // Always log body in DEBUG mode or when explicitly requested
-    const shouldLogBody = logBody || process.env.LOG_LEVEL === 'DEBUG' || process.env.LOG_LEVEL === 'VERBOSE';
+    // Log body only in DEBUG mode or when explicitly requested
+    const shouldLogBody = logBody || process.env.LOG_LEVEL === 'debug';
 
-    const requestMeta = {
-      requestId,
-      method: req.method,
-      url: req.url,
-      query: req.query,
-      ip: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'unknown',
-      userAgent: req.headers['user-agent'],
-      contentType: req.headers['content-type'],
-      ...(shouldLogBody && req.body ? { body: req.body } : {}),
-    };
+    // INFO level: Just log the request method and URL
+    logger.info(`${req.method} ${req.url}${name ? ` [${name}]` : ''}`);
 
-    // Always log the request start
-    logger.info(`API Request Started${name ? ` [${name}]` : ''}`, requestMeta);
+    // DEBUG level: Log full request details
+    if (shouldLogBody) {
+      logger.debug(`API Request Details${name ? ` [${name}]` : ''}`, {
+        requestId,
+        method: req.method,
+        url: req.url,
+        query: req.query,
+        ip: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'unknown',
+        userAgent: req.headers['user-agent'],
+        contentType: req.headers['content-type'],
+        body: req.body,
+      });
+    }
 
     // Capture the original res.json and res.status functions to log responses
     const originalJson = res.json.bind(res);
@@ -67,34 +68,44 @@ export function withApiLogging(
 
       const duration = Date.now() - startTime;
       
-      const responseMeta = {
-        requestId,
-        method: req.method,
-        url: req.url,
-        statusCode,
-        duration,
-        ...(shouldLogBody && responseBody ? { responseBody } : {}),
-      };
-
       // Log based on status code
       if (statusCode >= 500) {
-        logger.error(`API Request Failed${name ? ` [${name}]` : ''}`, undefined, responseMeta);
+        // ERROR level: Log errors with details
+        logger.error(`${req.method} ${req.url}${name ? ` [${name}]` : ''} - ${statusCode}`, undefined, {
+          requestId,
+          statusCode,
+          duration,
+          ...(shouldLogBody && responseBody ? { responseBody } : {}),
+        });
       } else if (statusCode >= 400) {
-        logger.warn(`API Request Error${name ? ` [${name}]` : ''}`, responseMeta);
-      } else if (logSuccess) {
-        logger.info(`API Request Completed${name ? ` [${name}]` : ''}`, responseMeta);
+        // WARN level: Log client errors with moderate detail
+        logger.warn(`${req.method} ${req.url}${name ? ` [${name}]` : ''} - ${statusCode}`, {
+          requestId,
+          statusCode,
+          duration,
+          ...(shouldLogBody && responseBody ? { responseBody } : {}),
+        });
       } else {
-        // Always log at DEBUG level even if logSuccess is false
-        logger.debug(`API Request Completed${name ? ` [${name}]` : ''}`, responseMeta);
+        // INFO level: Just log success with duration
+        logger.info(`${req.method} ${req.url}${name ? ` [${name}]` : ''} - ${statusCode} (${duration}ms)`);
+        
+        // DEBUG level: Log full response details
+        if (shouldLogBody && responseBody) {
+          logger.debug(`API Response Details${name ? ` [${name}]` : ''}`, {
+            requestId,
+            statusCode,
+            duration,
+            responseBody,
+          });
+        }
       }
 
     } catch (error) {
       const duration = Date.now() - startTime;
       
-      logger.error(`API Request Exception${name ? ` [${name}]` : ''}`, error instanceof Error ? error : new Error(String(error)), {
+      // ERROR level: Log exception with full details
+      logger.error(`${req.method} ${req.url}${name ? ` [${name}]` : ''} - Exception`, error instanceof Error ? error : new Error(String(error)), {
         requestId,
-        method: req.method,
-        url: req.url,
         duration,
       });
 

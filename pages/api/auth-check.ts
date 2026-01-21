@@ -59,6 +59,4 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<AuthCheckRespon
 export default withApiLogging(handler, {
   name: 'auth-check',
   logBody: false,
-  // Successful request logs respect the shared LOG_SUCCESS_EVENTS toggle
-  logSuccess: logger.isSuccessLoggingEnabled(),
 });

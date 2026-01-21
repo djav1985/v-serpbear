@@ -1,14 +1,20 @@
 /**
  * Enhanced logging utility for SerpBear
  * Provides structured logging with different levels and Docker-friendly output
+ * 
+ * Log Levels:
+ * - false/off/0: No logging (disabled)
+ * - error: Only ERROR logs
+ * - info: ERROR + WARN + INFO logs (default)
+ * - debug: All logs including DEBUG details
  */
 
 export enum LogLevel {
+  NONE = -1,  // No logging
   ERROR = 0,
   WARN = 1,
   INFO = 2,
   DEBUG = 3,
-  VERBOSE = 4,
 }
 
 export interface LogEntry {
@@ -25,30 +31,33 @@ export interface LogEntry {
 
 export class Logger {
   private logLevel: LogLevel;
-  private logSuccessEvents: boolean;
 
   constructor() {
     // Set log level from environment or default to INFO
-    const envLogLevel = process.env.LOG_LEVEL?.toUpperCase();
-    switch (envLogLevel) {
-      case 'ERROR':
-        this.logLevel = LogLevel.ERROR;
-        break;
-      case 'WARN':
-        this.logLevel = LogLevel.WARN;
-        break;
-      case 'DEBUG':
-        this.logLevel = LogLevel.DEBUG;
-        break;
-      case 'VERBOSE':
-        this.logLevel = LogLevel.VERBOSE;
-        break;
-      default:
-        this.logLevel = LogLevel.INFO;
+    const envLogLevel = process.env.LOG_LEVEL?.toLowerCase();
+    
+    // Support for disabling logging: false, 0, off
+    if (envLogLevel === 'false' || envLogLevel === '0' || envLogLevel === 'off') {
+      this.logLevel = LogLevel.NONE;
+    } else if (!envLogLevel || envLogLevel === 'info') {
+      // Default to INFO level when undefined or explicitly set to 'info'
+      this.logLevel = LogLevel.INFO;
+    } else {
+      switch (envLogLevel) {
+        case 'error':
+          this.logLevel = LogLevel.ERROR;
+          break;
+        case 'warn':
+          this.logLevel = LogLevel.WARN;
+          break;
+        case 'debug':
+          this.logLevel = LogLevel.DEBUG;
+          break;
+        default:
+          // If invalid value, default to INFO
+          this.logLevel = LogLevel.INFO;
+      }
     }
-    // Set success event logging from environment or default to true
-    const envSuccessLogging = process.env.LOG_SUCCESS_EVENTS;
-    this.logSuccessEvents = !['false', '0', 'off'].includes(envSuccessLogging ?? '');
   }
 
   private static formatLogEntry(level: string, message: string, meta?: Record<string, any>, error?: Error): string {
@@ -96,43 +105,35 @@ export class Logger {
     this.log(LogLevel.DEBUG, 'DEBUG', message, meta);
   }
 
-  verbose(message: string, meta?: Record<string, any>): void {
-    this.log(LogLevel.VERBOSE, 'VERBOSE', message, meta);
-  }
-
-  isSuccessLoggingEnabled(): boolean {
-    return this.logSuccessEvents;
-  }
-
   // API request logging helper
   apiRequest(method: string, url: string, statusCode?: number, duration?: number, meta?: Record<string, any>): void {
-    const logMeta = {
-      method,
-      url,
-      statusCode,
-      duration,
-      ...meta,
-    };
-
     if (statusCode && statusCode >= 400) {
-      this.error(`API Request Failed: ${method} ${url}`, undefined, logMeta);
-    } else if (this.logSuccessEvents) {
-      this.info(`API Request: ${method} ${url}`, logMeta);
+      // ERROR level: Log failures with details
+      this.error(`API Request Failed: ${method} ${url} - ${statusCode}`, undefined, {
+        method,
+        url,
+        statusCode,
+        duration,
+        ...meta,
+      });
+    } else {
+      // INFO level: Just log basic success info
+      this.info(`API Request: ${method} ${url} - ${statusCode} (${duration}ms)`);
     }
   }
 
   // Authentication event logging
   authEvent(event: string, user?: string, success: boolean = true, meta?: Record<string, any>): void {
-    const logMeta = {
-      event,
-      user,
-      success,
-      ...meta,
-    };
-    if (success && this.logSuccessEvents) {
-      this.info(`Auth Event: ${event}`, logMeta);
-    } else if (!success) {
-      this.warn(`Auth Event Failed: ${event}`, logMeta);
+    if (success) {
+      // INFO level: Just log basic auth success
+      this.info(`Auth: ${event}${user ? ` [${user}]` : ''}`);
+    } else {
+      // WARN level: Log auth failures with some context
+      this.warn(`Auth Failed: ${event}`, {
+        event,
+        user,
+        ...meta,
+      });
     }
   }
 }

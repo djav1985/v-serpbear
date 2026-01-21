@@ -8,17 +8,6 @@ const nextConfig = {
     optimizePackageImports: ['react-icons', 'react-chartjs-2', 'react-query']
   },
 
-  // Compiler optimizations
-  compiler: {
-    // Preserve server logging by default; opt-in via NEXT_REMOVE_CONSOLE
-    removeConsole:
-      process.env.NEXT_REMOVE_CONSOLE === 'true'
-        ? {
-            exclude: ['error']
-          }
-        : false
-  },
-
   // Bundle analyzer (enable with ANALYZE=true)
   ...(process.env.ANALYZE === 'true' && {
     webpack: (config, { dev, isServer, defaultLoaders: _defaultLoaders, nextRuntime: _nextRuntime, webpack: _webpack }) => {

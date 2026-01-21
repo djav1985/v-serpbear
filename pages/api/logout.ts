@@ -87,6 +87,4 @@ const logout = async (req: NextApiRequest, res: NextApiResponse<logoutResponse>,
 export default withApiLogging(handler, {
    name: 'logout',
    logBody: false,
-   // Surface the shared success logging toggle for discoverability
-   logSuccess: logger.isSuccessLoggingEnabled()
 });

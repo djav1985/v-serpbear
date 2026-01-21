@@ -184,5 +184,4 @@ const favoriteKeywords = async (req: NextApiRequest, res: NextApiResponse<keywor
 export default withApiLogging(handler, {
    name: 'ideas',
    logBody: true,
-   logSuccess: logger.isSuccessLoggingEnabled(),
 });
