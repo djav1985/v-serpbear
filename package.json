@@ -24,7 +24,7 @@
     "axios": "^1.13.1",
     "better-sqlite3": "^12.2.0",
     "chart.js": "^3.9.1",
-    "cheerio": "^1.0.0",
+    "cheerio": "^1.2.0",
     "cookies": "^0.9.1",
     "croner": "^9.1.0",
     "cryptr": "^6.4.0",
