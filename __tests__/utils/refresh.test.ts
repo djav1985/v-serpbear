@@ -38,7 +38,7 @@ describe('refreshAndUpdateKeywords', () => {
       ID: 101,
       domain: 'example.com',
       keyword: 'example keyword',
-      updating: false,
+      updating: 0,
       get: jest.fn().mockReturnValue({
         ID: 101,
         domain: 'example.com',
@@ -160,8 +160,8 @@ describe('refreshAndUpdateKeywords', () => {
       location: '',
       position: 0,
       volume: 0,
-      updating: true,
-      sticky: false,
+      updating: 1,
+      sticky: 0,
       history: '{}',
       lastResult: '[]',
       lastUpdateError: 'false',
@@ -186,7 +186,7 @@ describe('refreshAndUpdateKeywords', () => {
       ID: keywordPlain.ID,
       position: 3,
       result: [],
-      mapPackTop3: false,
+      mapPackTop3: 0,
       error: false,
     } as RefreshResult);
 
@@ -213,8 +213,8 @@ describe('refreshAndUpdateKeywords', () => {
       location: '',
       position: 4,
       volume: 0,
-      updating: true,
-      sticky: false,
+      updating: 1,
+      sticky: 0,
       history: '{}',
       lastResult: '[]',
       lastUpdateError: 'false',
@@ -251,7 +251,7 @@ describe('refreshAndUpdateKeywords', () => {
       updating: 0,
       lastUpdateError: expect.stringContaining('parallel boom'),
     }));
-    expect(results[0].updating).toBe(false);
+    expect(results[0].updating).toBe(0);
   });
 
   it('uses batched retry queue removal for improved performance', async () => {
@@ -445,8 +445,8 @@ describe('refreshAndUpdateKeywords', () => {
       location: 'US',
       position: 0,
       volume: 0,
-      updating: true,
-      sticky: false,
+      updating: 1,
+      sticky: 0,
       history: '{}',
       lastResult: '[]',
       lastUpdated: '2023-01-01T00:00:00.000Z',
@@ -474,7 +474,7 @@ describe('refreshAndUpdateKeywords', () => {
       position: 7,
       url: 'https://example.com/result',
       result: undefined,
-      mapPackTop3: false,
+      mapPackTop3: 0,
       error: 'temporary failure',
     } as RefreshResult;
 
@@ -503,8 +503,8 @@ describe('refreshAndUpdateKeywords', () => {
       location: 'US',
       position: 0,
       volume: 0,
-      updating: true,
-      sticky: false,
+      updating: 1,
+      sticky: 0,
       history: '{}',
       lastResult: '[]',
       lastUpdated: '2023-01-01T00:00:00.000Z',
@@ -538,7 +538,7 @@ describe('refreshAndUpdateKeywords', () => {
       position: 1,
       url: 'https://example.com',
       result: arrayResult,
-      mapPackTop3: false,
+      mapPackTop3: 0,
       error: false,
     } as RefreshResult;
 
@@ -569,8 +569,8 @@ describe('refreshAndUpdateKeywords', () => {
       location: 'US',
       position: 11,
       volume: 0,
-      updating: true,
-      sticky: false,
+      updating: 1,
+      sticky: 0,
       history: '{}',
       lastResult: '[]',
       lastUpdated: '2023-01-01T00:00:00.000Z',
@@ -597,7 +597,7 @@ describe('refreshAndUpdateKeywords', () => {
       ID: mockPlainKeyword.ID,
       position: 5,
       result: [],
-      mapPackTop3: false,
+      mapPackTop3: 0,
       error: false,
     } as RefreshResult;
 
@@ -629,8 +629,8 @@ describe('refreshAndUpdateKeywords', () => {
       location: 'US',
       position: 8,
       volume: 0,
-      updating: true,
-      sticky: false,
+      updating: 1,
+      sticky: 0,
       history: '[]',
       lastResult: '[]',
       lastUpdated: '2023-01-01T00:00:00.000Z',
@@ -658,7 +658,7 @@ describe('refreshAndUpdateKeywords', () => {
       position: 3,
       url: 'https://example.com/result',
       result: [],
-      mapPackTop3: false,
+      mapPackTop3: 0,
       error: false,
     } as RefreshResult;
 
@@ -710,8 +710,8 @@ describe('refreshAndUpdateKeywords', () => {
       location: '',
       position: 1,
       volume: 0,
-      updating: true,
-      sticky: false,
+      updating: 1,
+      sticky: 0,
       history: '{}',
       lastResult: '[]',
       lastUpdateError: 'false',
@@ -731,8 +731,8 @@ describe('refreshAndUpdateKeywords', () => {
       location: '',
       position: 2,
       volume: 0,
-      updating: true,
-      sticky: false,
+      updating: 1,
+      sticky: 0,
       history: '{}',
       lastResult: '[]',
       lastUpdateError: 'false',
@@ -766,7 +766,7 @@ describe('refreshAndUpdateKeywords', () => {
       ID: keyword1Plain.ID,
       position: 1,
       result: [],
-      mapPackTop3: false,
+      mapPackTop3: 0,
       error: false,
     } as RefreshResult);
 
@@ -825,8 +825,8 @@ describe('refreshAndUpdateKeywords', () => {
       location: '',
       position: 1,
       volume: 0,
-      updating: true,
-      sticky: false,
+      updating: 1,
+      sticky: 0,
       history: '{}',
       lastResult: '[]',
       lastUpdateError: 'false',
@@ -846,8 +846,8 @@ describe('refreshAndUpdateKeywords', () => {
       location: '',
       position: 2,
       volume: 0,
-      updating: true,
-      sticky: false,
+      updating: 1,
+      sticky: 0,
       history: '{}',
       lastResult: '[]',
       lastUpdateError: 'false',
@@ -879,7 +879,7 @@ describe('refreshAndUpdateKeywords', () => {
       ID: keyword1Plain.ID,
       position: 1,
       result: [],
-      mapPackTop3: false,
+      mapPackTop3: 0,
       error: false,
     } as RefreshResult);
 
@@ -911,8 +911,8 @@ describe('refreshAndUpdateKeywords', () => {
       location: 'US',
       position: 5, // fallback position
       volume: 0,
-      updating: true,
-      sticky: false,
+      updating: 1,
+      sticky: 0,
       history: '{}',
       lastResult: '[]',
       lastUpdated: '2023-01-01T00:00:00.000Z',
@@ -940,7 +940,7 @@ describe('refreshAndUpdateKeywords', () => {
       ID: baseKeyword.ID,
       position: 3,
       result: [],
-      mapPackTop3: false,
+      mapPackTop3: 0,
       error: false,
     } as RefreshResult;
 
@@ -953,7 +953,7 @@ describe('refreshAndUpdateKeywords', () => {
       ID: baseKeyword.ID,
       position: '7' as any,
       result: [],
-      mapPackTop3: false,
+      mapPackTop3: 0,
       error: false,
     } as RefreshResult;
 
@@ -966,7 +966,7 @@ describe('refreshAndUpdateKeywords', () => {
       ID: baseKeyword.ID,
       position: undefined,
       result: [],
-      mapPackTop3: false,
+      mapPackTop3: 0,
       error: false,
     } as RefreshResult;
 
@@ -979,7 +979,7 @@ describe('refreshAndUpdateKeywords', () => {
       ID: baseKeyword.ID,
       position: null as any,
       result: [],
-      mapPackTop3: false,
+      mapPackTop3: 0,
       error: false,
     } as RefreshResult;
 
@@ -994,7 +994,7 @@ describe('refreshAndUpdateKeywords', () => {
       ID: baseKeyword.ID,
       position: 'invalid' as any,
       result: [],
-      mapPackTop3: false,
+      mapPackTop3: 0,
       error: false,
     } as RefreshResult;
 
@@ -1012,8 +1012,8 @@ describe('refreshAndUpdateKeywords', () => {
       location: '',
       position: 4,
       volume: 0,
-      updating: true,
-      sticky: false,
+      updating: 1,
+      sticky: 0,
       history: '{}',
       lastResult: '[]',
       lastUpdateError: 'false',
@@ -1054,9 +1054,9 @@ describe('refreshAndUpdateKeywords', () => {
       updating: 0,
     }));
 
-    // Verify the returned result has updating: false (converted for UI)
+    // Verify the returned result has updating: 0 (converted for UI)
     expect(results).toHaveLength(1);
-    expect(results[0].updating).toBe(false);
+    expect(results[0].updating).toBe(0);
   });
 
   it('handles errors gracefully during parallel refresh and ensures updating flags are cleared', async () => {
@@ -1097,9 +1097,9 @@ describe('refreshAndUpdateKeywords', () => {
     // Verify that keywords were processed despite errors
     expect(results).toHaveLength(2);
     
-    // Verify all keywords have updating: false
-    expect(results[0].updating).toBe(false);
-    expect(results[1].updating).toBe(false);
+    // Verify all keywords have updating: 0
+    expect(results[0].updating).toBe(0);
+    expect(results[1].updating).toBe(0);
 
     // Verify that update was called to clear the updating flags
     expect(keywords[0].update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0 }));
