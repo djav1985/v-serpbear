@@ -135,13 +135,13 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
       // Error: catch handler below ensures flags are cleared to prevent UI spinner getting stuck
       refreshAndUpdateKeywords(keywordsToRefresh, settings).catch((refreshError) => {
          const message = serializeError(refreshError);
-         logger.error('[REFRESH] ERROR refreshAndUpdateKeywords: ', { data: message, keywordIds: keywordIdsToRefresh });
+         logger.error('[REFRESH] ERROR refreshAndUpdateKeywords: ', refreshError instanceof Error ? refreshError : new Error(message), { keywordIds: keywordIdsToRefresh });
          // Ensure flags are cleared on error
          Keyword.update(
             { updating: 0 },
             { where: { ID: { [Op.in]: keywordIdsToRefresh } } },
          ).catch((updateError) => {
-            logger.error('[REFRESH] Failed to clear updating flags after error: ', { data: serializeError(updateError) });
+            logger.error('[REFRESH] Failed to clear updating flags after error: ', updateError instanceof Error ? updateError : new Error(String(updateError)));
          });
       });
 
