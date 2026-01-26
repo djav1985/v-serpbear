@@ -33,7 +33,7 @@ describe('refreshAndUpdateKeywords - business_name handling', () => {
       {
         get: () => ({
           domain: 'vontainment.com',
-          scrapeEnabled: true,
+          scrapeEnabled: 1,
           business_name: 'Vontainment',
           scraper_settings: JSON.stringify({
             scraper_type: 'valueserp',
@@ -115,7 +115,7 @@ describe('refreshAndUpdateKeywords - business_name handling', () => {
       {
         get: () => ({
           domain: 'example.com',
-          scrapeEnabled: true,
+          scrapeEnabled: 1,
           scraper_settings: JSON.stringify({
             scraper_type: 'valueserp',
             scraping_api: cryptr.encrypt('test-api-key'),
@@ -179,7 +179,7 @@ describe('refreshAndUpdateKeywords - business_name handling', () => {
       {
         get: () => ({
           domain: 'example.com',
-          scrapeEnabled: true,
+          scrapeEnabled: 1,
           scraper_settings: null,
         }),
       },
