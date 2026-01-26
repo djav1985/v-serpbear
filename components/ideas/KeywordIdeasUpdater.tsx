@@ -76,7 +76,6 @@ const KeywordIdeasUpdater = ({ onUpdate, settings, domain, searchConsoleConnecte
          keywordPayload = undefined;
       }
 
-      console.log('keywordPayload :', keywords, keywordPayload);
       updateKeywordIdeas({
          seedType,
          language,

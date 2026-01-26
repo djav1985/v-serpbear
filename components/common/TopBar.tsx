@@ -21,15 +21,13 @@ const TopBar = ({ showSettings, showAddModal }:TopbarProps) => {
          const fetchOpts = { method: 'POST', headers: new Headers({ 'Content-Type': 'application/json', Accept: 'application/json' }) };
          const origin = getClientOrigin();
          const res = await fetch(`${origin}/api/logout`, fetchOpts).then((result) => result.json());
-         console.log(res);
          if (!res.success) {
             toast(res.error, { icon: '⚠️' });
          } else {
             router.push('/login');
          }
-      } catch (fetchError) {
-         console.error('Failed to logout user', fetchError);
-         toast('The server.', { icon: '⚠️' });
+      } catch (_fetchError) {
+         toast('Error logging out.', { icon: '⚠️' });
       }
    };
 

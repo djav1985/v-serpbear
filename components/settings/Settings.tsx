@@ -46,7 +46,7 @@ const Settings = forwardRef<HTMLDivElement, SettingsProps>(({ closeSettings }:Se
    const [currentTab, setCurrentTab] = useState<string>('scraper');
    const [settings, setSettings] = useState<SettingsType>(defaultSettings);
    const [settingsError, setSettingsError] = useState<SettingsError|null>(null);
-   const { mutateAsync: updateMutateAsync, isLoading: isUpdating } = useUpdateSettings(() => console.log(''));
+   const { mutateAsync: updateMutateAsync, isLoading: isUpdating } = useUpdateSettings(() => {});
    const { data: appSettings, isLoading } = useFetchSettings();
    useOnKey('Escape', closeSettings);
 

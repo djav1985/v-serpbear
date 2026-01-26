@@ -75,8 +75,8 @@ const DomainItem = ({
          await updateDomainToggle({ domain, domainSettings: payload });
          const message = `${domain.domain} ${nextValue ? 'marked as Active' : 'marked as Deactive'}.`;
          toast(message, { icon: '✔️' });
-      } catch (error) {
-         console.log('Error updating domain toggle', error);
+      } catch (_error) {
+         // Error handling is done by mutation
       }
    };
    // const router = useRouter();

@@ -105,7 +105,6 @@ export async function fetchDomains(router: NextRouter, withStats:boolean): Promi
    const res = await fetch(`${origin}/api/domains${withStats ? '?withstats=true' : ''}`, { method: 'GET' });
    if (res.status >= 400 && res.status < 600) {
       if (res.status === 401) {
-         console.log('Unauthorized!!');
          router.push('/login');
       }
       let errorMessage = 'Bad response from server';
@@ -116,12 +115,10 @@ export async function fetchDomains(router: NextRouter, withStats:boolean): Promi
             errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
          } else {
             // Handle HTML error pages or other non-JSON responses
-            const textResponse = await res.text();
-            console.warn('Non-JSON error response received:', textResponse.substring(0, 200));
+            await res.text();
             errorMessage = `Server error (${res.status}): Please try again later`;
          }
-      } catch (parseError) {
-         console.warn('Failed to parse error response:', parseError);
+      } catch (_parseError) {
          errorMessage = `Server error (${res.status}): Please try again later`;
       }
       throw new Error(errorMessage);
@@ -135,7 +132,6 @@ export async function fetchDomain(router: NextRouter, domainName: string): Promi
    const res = await fetch(`${origin}/api/domain?domain=${encodedDomain}`, { method: 'GET' });
    if (res.status >= 400 && res.status < 600) {
       if (res.status === 401) {
-         console.log('Unauthorized!!');
          router.push('/login');
       }
       let errorMessage = 'Bad response from server';
@@ -146,12 +142,10 @@ export async function fetchDomain(router: NextRouter, domainName: string): Promi
             errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
          } else {
             // Handle HTML error pages or other non-JSON responses
-            const textResponse = await res.text();
-            console.warn('Non-JSON error response received:', textResponse.substring(0, 200));
+            await res.text();
             errorMessage = `Server error (${res.status}): Please try again later`;
          }
-      } catch (parseError) {
-         console.warn('Failed to parse error response:', parseError);
+      } catch (_parseError) {
          errorMessage = `Server error (${res.status}): Please try again later`;
       }
       throw new Error(errorMessage);
@@ -179,8 +173,8 @@ export async function fetchDomainScreenshot(domain: string, forceFetch = false):
          } else if (parsedThumbs) {
             throw new Error('Corrupted cache: invalid format or content');
          }
-      } catch (error) {
-         console.warn('[WARN] Invalid cached domainThumbs data detected. Clearing corrupted screenshot cache.', error);
+      } catch (_error) {
+         // Clear corrupted cache silently
          window.localStorage.removeItem('domainThumbs');
          domThumbs = {};
       }
@@ -203,8 +197,8 @@ export async function fetchDomainScreenshot(domain: string, forceFetch = false):
             return imageBase;
          }
          return false;
-        } catch (error) {
-           console.error('[DOMAINS] Failed to fetch domain screenshot.', error);
+        } catch (_error) {
+           // Silently fail screenshot fetch
            return false;
         }
    } else if (domThumbs[domain]) {
@@ -222,7 +216,6 @@ export function useFetchDomain(router: NextRouter, domainName:string, onSuccess:
    return useQuery(['domain', domainName], () => fetchDomain(router, domainName), {
       enabled: !!domainName,
       onSuccess: async (data) => {
-         console.log('Domain Loaded!!!', data.domain);
          onSuccess(data.domain);
       },
    });
@@ -245,12 +238,10 @@ export function useAddDomain(onSuccess:Function) {
                errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
             } else {
                // Handle HTML error pages or other non-JSON responses
-               const textResponse = await res.text();
-               console.warn('Non-JSON error response received:', textResponse.substring(0, 200));
+               await res.text(); errorMessage = await res.text();
                errorMessage = `Server error (${res.status}): Please try again later`;
             }
-         } catch (parseError) {
-            console.warn('Failed to parse error response:', parseError);
+         } catch (_parseError) {
             errorMessage = `Server error (${res.status}): Please try again later`;
          }
          throw new Error(errorMessage);
@@ -258,7 +249,6 @@ export function useAddDomain(onSuccess:Function) {
       return res.json();
    }, {
       onSuccess: async (data) => {
-         console.log('Domain Added!!!', data);
          const newDomain:DomainType[] = data.domains;
          const singleDomain = newDomain.length === 1;
          toast(`${singleDomain ? newDomain[0].domain : `${newDomain.length} domains`} Added Successfully!`, { icon: '✔️' });
@@ -269,7 +259,6 @@ export function useAddDomain(onSuccess:Function) {
          queryClient.invalidateQueries(['domains']);
       },
       onError: (_error, _variables, _context) => {
-         console.log('Error Adding New Domain!!!');
          toast('Error Adding New Domain');
       },
    });
@@ -279,14 +268,12 @@ export function useUpdateDomain(onSuccess:Function) {
    const queryClient = useQueryClient();
    return useMutation(updateDomainRequest, {
       onSuccess: async () => {
-         console.log('Settings Updated!!!');
          toast('Settings Updated!', { icon: '✔️' });
          onSuccess();
          queryClient.invalidateQueries({ queryKey: ['domains'] });
          queryClient.invalidateQueries({ queryKey: ['domain'] });
       },
-      onError: (error, _variables, _context) => {
-         console.log('Error Updating Domain Settings!!!', error);
+      onError: (_error, _variables, _context) => {
          toast('Error Updating Domain Settings', { icon: '⚠️' });
       },
    });
@@ -342,12 +329,10 @@ export function useDeleteDomain(onSuccess:Function) {
                errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
             } else {
                // Handle HTML error pages or other non-JSON responses
-               const textResponse = await res.text();
-               console.warn('Non-JSON error response received:', textResponse.substring(0, 200));
+               await res.text(); errorMessage = await res.text();
                errorMessage = `Server error (${res.status}): Please try again later`;
             }
-         } catch (parseError) {
-            console.warn('Failed to parse error response:', parseError);
+         } catch (_parseError) {
             errorMessage = `Server error (${res.status}): Please try again later`;
          }
          throw new Error(errorMessage);
@@ -360,7 +345,6 @@ export function useDeleteDomain(onSuccess:Function) {
          queryClient.invalidateQueries(['domains']);
       },
       onError: (_error, _variables, _context) => {
-         console.log('Error Removing Domain!!!');
          toast('Error Removing Domain', { icon: '⚠️' });
       },
    });

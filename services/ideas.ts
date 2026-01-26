@@ -34,8 +34,8 @@ const parseErrorMessage = async (res: Response): Promise<string> => {
             return text.slice(0, 200);
          }
       }
-   } catch (error) {
-      console.warn('Failed parsing email ideas error response', error);
+   } catch (_error) {
+      // Silently handle parse errors
    }
    return `Server error (${res.status}): Please try again later.`;
 };

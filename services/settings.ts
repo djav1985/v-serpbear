@@ -35,7 +35,6 @@ export const useUpdateSettings = (onSuccess:Function|undefined) => {
          queryClient.invalidateQueries(['settings']);
       },
       onError: (_error, _variables, _context) => {
-         console.log('Error Updating App Settings!!!');
          toast('Error Updating App Settings.', { icon: '⚠️' });
       },
    });
@@ -59,7 +58,6 @@ export function useClearFailedQueue(onSuccess:Function) {
          queryClient.invalidateQueries(['settings']);
       },
       onError: (_error, _variables, _context) => {
-         console.log('Error Clearing Failed Queue!!!');
          toast('Error Clearing Failed Queue.', { icon: '⚠️' });
       },
    });
@@ -74,8 +72,7 @@ export const useSendNotifications = () => useMutation(async () => {
 
       try {
          data = await res.json();
-      } catch (error) {
-         console.warn('Failed to parse notification response JSON', error);
+      } catch (_error) {
          data = null;
       }
 
