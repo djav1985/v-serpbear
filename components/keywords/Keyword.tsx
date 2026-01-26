@@ -240,7 +240,7 @@ const Keyword = (props: KeywordProps) => {
                   </li>
                   <li>
                      <a className={optionsButtonStyle}
-                     onClick={() => { favoriteKeyword({ keywordID: ID, sticky: sticky !== 1 }); setShowOptions(false); }}>
+                     onClick={() => { favoriteKeyword({ keywordID: ID, sticky: sticky === 1 ? 0 : 1 }); setShowOptions(false); }}>
                         <span className=' bg-yellow-300/30 text-yellow-500 px-1 rounded'>
                            <Icon type="star" size={14} />
                         </span> { sticky === 1 ? 'Unfavorite Keyword' : 'Favorite Keyword'}
