@@ -37,29 +37,22 @@ export const resetStaleKeywordUpdates = async ({
       whereClause.domain = domain;
    }
 
-   const staleKeywords = await Keyword.findAll({
-      where: whereClause,
-      attributes: ['ID'],
-   });
-
-   if (staleKeywords.length === 0) {
-      return 0;
-   }
-
-   const staleIds = staleKeywords.map((keyword) => keyword.ID);
    const timeoutError = JSON.stringify({
       date: new Date().toJSON(),
       error: `Refresh timed out after ${thresholdMinutes} minutes`,
       scraper: 'timeout',
    });
 
-   await Keyword.update(
+   const [affectedCount] = await Keyword.update(
       { updating: 0, lastUpdateError: timeoutError },
-      { where: { ID: { [Op.in]: staleIds } } },
+      { where: whereClause },
    );
 
-   logger.warn('Cleared stale keyword updates', { count: staleIds.length, domain, thresholdMinutes });
-   return staleIds.length;
+   if (affectedCount > 0) {
+      logger.warn('Cleared stale keyword updates', { count: affectedCount, domain, thresholdMinutes });
+   }
+
+   return affectedCount;
 };
 
 const describeScraperType = (scraperType?: SettingsType['scraper_type']): string => {
