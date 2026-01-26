@@ -1,4 +1,4 @@
-import { IdeasfilterKeywords, IdeasSortKeywords, matchesIdeaCountry, matchesIdeaSearch, matchesIdeaTags, normalizeIdeaTag } from '../../../utils/client/IdeasSortFilter';
+import { IdeasfilterKeywords, IdeasSortKeywords, matchesIdeaCountry, matchesIdeaSearch, matchesIdeaTags, normalizeIdeaTag } from '../../../utils/client/sortFilter';
 
 describe('Ideas keyword filters', () => {
    const createIdeaKeyword = (overrides: Partial<IdeaKeyword> = {}): IdeaKeyword => ({

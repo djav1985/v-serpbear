@@ -127,3 +127,49 @@ export const filterKeywords = (keywords: KeywordType[], filterParams: KeywordFil
       && matchesTags(keyword.tags, filterParams.tags)
    ))
 );
+
+export const IdeasSortKeywords = (theKeywords: IdeaKeyword[], sortBy: string): IdeaKeyword[] => {
+   const keywordsToSort = [...theKeywords];
+
+   switch (sortBy) {
+      case 'vol_asc':
+         return keywordsToSort.sort((a: IdeaKeyword, b: IdeaKeyword) => (a.avgMonthlySearches ?? 0) - (b.avgMonthlySearches ?? 0));
+      case 'vol_desc':
+         return keywordsToSort.sort((a: IdeaKeyword, b: IdeaKeyword) => (b.avgMonthlySearches ?? 0) - (a.avgMonthlySearches ?? 0));
+      case 'competition_asc':
+         return keywordsToSort.sort((a: IdeaKeyword, b: IdeaKeyword) => (a.competitionIndex ?? 0) - (b.competitionIndex ?? 0));
+      case 'competition_desc':
+         return keywordsToSort.sort((a: IdeaKeyword, b: IdeaKeyword) => (b.competitionIndex ?? 0) - (a.competitionIndex ?? 0));
+      default:
+         return [...theKeywords];
+   }
+};
+
+export const matchesIdeaCountry = (country: string, countries: string[]): boolean => (
+   countries.length === 0 || countries.includes(country)
+);
+
+export const matchesIdeaSearch = (keyword: string, search: string): boolean => matchesSearch(keyword, search);
+
+export const normalizeIdeaTag = (tag: string): string => tag.replace(/\s*\(\d+\)/, '').trim();
+
+const reversePhrase = (value: string): string => value.split(' ').reverse().join(' ');
+
+export const matchesIdeaTags = (keyword: string, tags: string[]): boolean => {
+   if (tags.length === 0) { return true; }
+   const normalizedKeyword = keyword.toLowerCase();
+   return tags.some((tag) => {
+      const normalizedTag = normalizeIdeaTag(tag).toLowerCase();
+      if (!normalizedTag) { return false; }
+      const reversedTag = reversePhrase(normalizedTag);
+      return normalizedKeyword.includes(normalizedTag) || normalizedKeyword.includes(reversedTag);
+   });
+};
+
+export const IdeasfilterKeywords = (keywords: IdeaKeyword[], filterParams: KeywordFilters): IdeaKeyword[] => (
+   keywords.filter((keywrd) => (
+      matchesIdeaCountry(keywrd.country, filterParams.countries)
+      && matchesIdeaSearch(keywrd.keyword, filterParams.search)
+      && matchesIdeaTags(keywrd.keyword, filterParams.tags)
+   ))
+);

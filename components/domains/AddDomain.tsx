@@ -2,6 +2,7 @@ import React, { forwardRef, useState } from 'react';
 import Modal from '../common/Modal';
 import { useAddDomain } from '../../services/domains';
 import { isValidUrl } from '../../utils/client/validators';
+import { normalizeHostFromString } from '../../utils/validators/hostname';
 
 type AddDomainProps = {
    domains: DomainType[],
@@ -24,11 +25,11 @@ const AddDomain = forwardRef<HTMLDivElement, AddDomainProps>(({ closeModal, doma
         const theURL = url.trim();
         if (!theURL) { return; }
         if (isValidUrl(theURL)) {
-         const domURL = new URL(theURL);
-         const isDomain = domURL.pathname === '/';
-         const cleanedURL = isDomain
-            ? domURL.host
-            : domURL.href.replace('https://', '').replace('http://', '').replace(/^\/+|\/+$/g, '');
+         const cleanedURL = normalizeHostFromString(theURL);
+         if (!cleanedURL) {
+            invalidDomains.push(theURL);
+            return;
+         }
 
          if (existingDomains.has(cleanedURL) || domainsTobeAdded.has(cleanedURL)) {
             duplicateCount += 1;

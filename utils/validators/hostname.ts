@@ -14,6 +14,28 @@ const normalizeInput = (value: string): string => {
    return withoutTrailingDot.toLowerCase();
 };
 
+export const normalizeHostFromString = (value: string): string | null => {
+   if (typeof value !== 'string') {
+      return null;
+   }
+
+   const trimmed = value.trim();
+   if (!trimmed) {
+      return null;
+   }
+
+   try {
+      const url = trimmed.includes('://') ? new URL(trimmed) : new URL(`https://${trimmed}`);
+      const normalizedHost = normalizeInput(url.hostname);
+      if (!normalizedHost) {
+         return null;
+      }
+      return normalizedHost.replace(/^www\./i, '');
+   } catch {
+      return null;
+   }
+};
+
 export const isValidHostname = (value: unknown): value is string => {
    if (typeof value !== 'string') {
       return false;

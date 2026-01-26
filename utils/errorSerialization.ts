@@ -53,17 +53,21 @@ const collectMessages = (input: unknown, seen: Set<unknown> = new Set()): string
    return [String(input)];
 };
 
+const buildMessageBody = (messages: string[]): string => {
+   const cleaned = Array.from(new Set(messages
+      .map((part) => part.trim())
+      .filter((part) => part && part !== 'null' && part !== 'undefined')));
+   return cleaned.join(' ').trim();
+};
+
 export const serializeError = (error: unknown): string => {
    if (!error) { return 'Unknown error'; }
 
    if (typeof error === 'string') { return error; }
 
    if (error instanceof Error) {
-      const messages = collectMessages(error);
-      const cleaned = Array.from(new Set(messages
-         .map((part) => part.trim())
-         .filter((part) => part && part !== 'null' && part !== 'undefined')));
-      return cleaned.length > 0 ? cleaned.join(' ').trim() : 'Unknown error';
+      const messageBody = buildMessageBody(collectMessages(error));
+      return messageBody ? messageBody : 'Unknown error';
    }
 
    if (typeof error === 'object') {
@@ -72,11 +76,7 @@ export const serializeError = (error: unknown): string => {
       const statusPrefix = (typeof status === 'number' || (typeof status === 'string' && status))
          ? `[${status}]`
          : '';
-      const messages = collectMessages(error);
-      const cleaned = Array.from(new Set(messages
-         .map((part) => part.trim())
-         .filter((part) => part && part !== 'null' && part !== 'undefined')));
-      const messageBody = cleaned.join(' ').trim();
+      const messageBody = buildMessageBody(collectMessages(error));
 
       if (statusPrefix || messageBody) {
          return [statusPrefix, messageBody].filter(Boolean).join(' ').trim();

@@ -1,4 +1,5 @@
 import { logger } from './logger';
+import { normalizeHostFromString } from './validators/hostname';
 
 const URL_KEYS = [
    'website',
@@ -33,28 +34,9 @@ const toNumber = (value: unknown): number | null => {
    return null;
 };
 
-export const normaliseDomainHost = (domain: string): string | null => {
-   if (!domain) { return null; }
-   try {
-      const url = domain.includes('://') ? new URL(domain) : new URL(`https://${domain}`);
-      return url.hostname.replace(/^www\./i, '').toLowerCase();
-   } catch {
-      return null;
-   }
-};
+export const normaliseDomainHost = (domain: string): string | null => normalizeHostFromString(domain);
 
-const normaliseCandidateHost = (value: string): string | null => {
-   if (!value || typeof value !== 'string') { return null; }
-   const trimmed = value.trim();
-   if (!trimmed) { return null; }
-
-   try {
-      const url = trimmed.includes('://') ? new URL(trimmed) : new URL(`https://${trimmed}`);
-      return url.hostname.replace(/^www\./i, '').toLowerCase();
-   } catch {
-      return null;
-   }
-};
+const normaliseCandidateHost = (value: string): string | null => normalizeHostFromString(value);
 
 export const doesUrlMatchDomainHost = (domainHost: string, value: string): boolean => {
    const candidateHost = normaliseCandidateHost(value);
@@ -238,4 +220,3 @@ export const computeMapPackTop3 = (domain: string, localResultsInput: unknown, b
 
    return false;
 };
-
