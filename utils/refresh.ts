@@ -88,6 +88,9 @@ const normalizeLocationForCache = (location?: string | null): string => {
 const normalizeDevice = (device?: string): 'desktop' | 'mobile' =>
    device === 'mobile' ? 'mobile' : 'desktop';
 
+const isEnabledFlag = (value?: number | boolean | null): boolean =>
+   value === 1 || value === true;
+
 /**
  * Generates a cache key for matching desktop and mobile keyword pairs.
  * The key is used to store and retrieve desktop mapPackTop3 values for mobile keywords.
@@ -121,7 +124,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
       const cryptr = secret ? new Cryptr(secret) : null;
       scrapePermissions = new Map(domains.map((domain) => {
          const domainPlain = domain.get({ plain: true }) as DomainType & { scraper_settings?: any };
-         const isEnabled = domainPlain.scrapeEnabled === 1;
+         const isEnabled = isEnabledFlag(domainPlain.scrapeEnabled);
 
          if (cryptr) {
             const persistedOverride = parseDomainScraperSettings(domainPlain?.scraper_settings);
@@ -527,6 +530,15 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          };
       } catch (error: any) {
          logger.error('[ERROR] Updating SERP for Keyword', error, { keyword: keyword.keyword });
+         try {
+            await Keyword.update({ updating: 0 }, { where: { ID: keyword.ID } });
+         } catch (cleanupError: any) {
+            logger.error('[ERROR] Failed to clear updating flag after update failure', cleanupError, { keywordId: keyword.ID });
+         }
+         updated = {
+            ...keyword,
+            updating: 0,
+         };
       }
    }
 
