@@ -22,7 +22,7 @@ describe('parseKeywords', () => {
       ...overrides,
    });
 
-   it('normalises falsy boolean variants to false', () => {
+   it('returns 0 for falsy integer values', () => {
       const [keyword] = parseKeywords([
          buildKeyword({ updating: 0, sticky: 0, mapPackTop3: 0 }) as any,
       ]);
