@@ -72,7 +72,7 @@ describe('/api/refresh', () => {
     expect(Keyword.findAll).not.toHaveBeenCalled();
   });
 
-  it('returns serialized scraper errors from refreshAndUpdateKeywords', async () => {
+  it('starts refresh in background and returns 202 immediately', async () => {
     req.query = { id: '1', domain: 'example.com' };
 
     const keywordRecord = { ID: 1, domain: 'example.com' };
@@ -85,15 +85,18 @@ describe('/api/refresh', () => {
 
     await handler(req, res);
 
-    expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({ error: 'scraper failed' });
+    expect(res.status).toHaveBeenCalledWith(202);
+    expect(res.json).toHaveBeenCalledWith({ 
+      message: 'Refresh started',
+      keywordCount: 1,
+    });
     expect(Keyword.update).toHaveBeenCalledWith(
       { updating: 1 },
       { where: { ID: { [Op.in]: [1] } } },
     );
   });
 
-  it('clears updating flags after bulk refresh completes', async () => {
+  it('starts bulk refresh in background and returns 202', async () => {
     req.query = { id: '1,2', domain: 'example.com' };
 
     const createKeywordRecord = (id: number, overrides: Record<string, any> = {}) => {
@@ -142,14 +145,8 @@ describe('/api/refresh', () => {
 
     await handler(req, res);
 
-    expect(Keyword.update).toHaveBeenNthCalledWith(
-      1,
+    expect(Keyword.update).toHaveBeenCalledWith(
       { updating: 1 },
-      { where: { ID: { [Op.in]: [1, 2] } } },
-    );
-    expect(Keyword.update).toHaveBeenNthCalledWith(
-      2,
-      { updating: 0 },
       { where: { ID: { [Op.in]: [1, 2] } } },
     );
     expect(Keyword.findAll).toHaveBeenCalledTimes(1);
@@ -157,13 +154,11 @@ describe('/api/refresh', () => {
       keywordRecord1,
       keywordRecord2,
     ], { scraper_type: 'serpapi' });
-    expect(res.status).toHaveBeenCalledWith(200);
-    const jsonResponse = (res.json as jest.Mock).mock.calls[0][0];
-    expect(jsonResponse.keywords).toHaveLength(2);
-    expect(jsonResponse.keywords).toEqual(expect.arrayContaining([
-      expect.objectContaining({ ID: 1, updating: 0 }),
-      expect.objectContaining({ ID: 2, updating: 0 }),
-    ]));
+    expect(res.status).toHaveBeenCalledWith(202);
+    expect(res.json).toHaveBeenCalledWith({
+      message: 'Refresh started',
+      keywordCount: 2,
+    });
   });
 
   it('passes the requested device to keyword preview scrapes', async () => {
