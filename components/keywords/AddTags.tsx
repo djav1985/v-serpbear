@@ -44,7 +44,7 @@ const AddTags = ({ keywords = [], existingTags = [], closeModal }: AddTagsProps)
             .map((t) => t.trim())
             .filter((tag) => tag.length > 0),
       ));
-      const tagsPayload:any = {};
+      const tagsPayload: Record<number, string[]> = {};
       keywords.forEach((keyword:KeywordType) => {
          tagsPayload[keyword.ID] = keywords.length === 1
             ? tagsArray

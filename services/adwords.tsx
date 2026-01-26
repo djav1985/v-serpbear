@@ -91,7 +91,7 @@ export function useMutateKeywordIdeas(router:NextRouter, onSuccess?: Function) {
       const res = await fetch(`${origin}/api/ideas`, fetchOpts);
       const isOk = typeof res.ok === 'boolean' ? res.ok : (res.status >= 200 && res.status < 300);
 
-      let responsePayload: any = null;
+      let responsePayload: unknown = null;
       try {
          responsePayload = await parseJsonResponse(res);
       } catch (error) {

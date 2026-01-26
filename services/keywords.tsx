@@ -5,17 +5,22 @@ import { getClientOrigin } from '../utils/client/origin';
 
 type KeywordsResponse = {
    keywords?: KeywordType[]
-   [key: string]: any,
+   [key: string]: unknown,
 };
 
 const normaliseKeywordFlag = (value: unknown): number => (Number(value) > 0 ? 1 : 0);
 
-const normaliseKeywordFlags = (keyword: any): KeywordType => ({
-   ...keyword,
-   updating: normaliseKeywordFlag(keyword?.updating),
-   sticky: normaliseKeywordFlag(keyword?.sticky),
-   mapPackTop3: normaliseKeywordFlag(keyword?.mapPackTop3),
-});
+const normaliseKeywordFlags = (keyword: unknown): KeywordType => {
+   if (typeof keyword !== 'object' || keyword === null) {
+      throw new Error('Invalid keyword object');
+   }
+   return {
+      ...(keyword as Record<string, unknown>),
+      updating: normaliseKeywordFlag((keyword as any)?.updating),
+      sticky: normaliseKeywordFlag((keyword as any)?.sticky),
+      mapPackTop3: normaliseKeywordFlag((keyword as any)?.mapPackTop3),
+   } as KeywordType;
+};
 
 export const fetchKeywords = async (router: NextRouter, domain: string) => {
    if (!domain) { return { keywords: [] }; }
