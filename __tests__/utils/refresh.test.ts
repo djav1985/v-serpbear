@@ -277,11 +277,11 @@ describe('refreshAndUpdateKeywords', () => {
       },
     ];
 
-    // Mock domains with scrapeEnabled: false to trigger the skipped keywords path
+    // Mock domains with scrapeEnabled: 0 to trigger the skipped keywords path
     (Domain.findAll as jest.Mock).mockResolvedValue([
-      { get: () => ({ domain: 'disabled1.com', scrapeEnabled: false }) },
-      { get: () => ({ domain: 'disabled2.com', scrapeEnabled: false }) },
-      { get: () => ({ domain: 'disabled3.com', scrapeEnabled: false }) },
+      { get: () => ({ domain: 'disabled1.com', scrapeEnabled: 0 }) },
+      { get: () => ({ domain: 'disabled2.com', scrapeEnabled: 0 }) },
+      { get: () => ({ domain: 'disabled3.com', scrapeEnabled: 0 }) },
     ]);
 
     (Keyword.update as jest.Mock).mockResolvedValue([3]);
@@ -352,7 +352,7 @@ describe('refreshAndUpdateKeywords', () => {
     ];
 
     (Domain.findAll as jest.Mock).mockResolvedValue([
-      { get: () => ({ domain: 'disabled.com', scrapeEnabled: false }) },
+      { get: () => ({ domain: 'disabled.com', scrapeEnabled: 0 }) },
     ]);
 
     (Keyword.update as jest.Mock).mockResolvedValue([1]);
@@ -383,7 +383,7 @@ describe('refreshAndUpdateKeywords', () => {
     ];
 
     (Domain.findAll as jest.Mock).mockResolvedValue([
-      { get: () => ({ domain: 'disabled.com', scrapeEnabled: false }) },
+      { get: () => ({ domain: 'disabled.com', scrapeEnabled: 0 }) },
     ]);
 
     (Keyword.update as jest.Mock).mockResolvedValue([1]);
@@ -416,7 +416,7 @@ describe('refreshAndUpdateKeywords', () => {
     ];
 
     (Domain.findAll as jest.Mock).mockResolvedValue([
-      { get: () => ({ domain: 'disabled.com', scrapeEnabled: false }) },
+      { get: () => ({ domain: 'disabled.com', scrapeEnabled: 0 }) },
     ]);
 
     (Keyword.update as jest.Mock).mockResolvedValue([1]);
@@ -555,6 +555,61 @@ describe('refreshAndUpdateKeywords', () => {
     expect(updated.lastResult).toEqual(arrayResult);
 
     consoleSpy.mockRestore();
+  });
+
+  it('clears updating flag when keyword update fails and returns cleared state', async () => {
+    const mockPlainKeyword = {
+      ID: 44,
+      keyword: 'failing update keyword',
+      domain: 'example.com',
+      device: 'desktop',
+      country: 'US',
+      location: 'US',
+      position: 2,
+      volume: 0,
+      updating: 1,
+      sticky: 0,
+      history: '{}',
+      lastResult: '[]',
+      lastUpdated: '2023-01-01T00:00:00.000Z',
+      added: '2023-01-01T00:00:00.000Z',
+      url: '',
+      tags: '[]',
+      lastUpdateError: 'false',
+    };
+
+    const keywordModel = {
+      ID: mockPlainKeyword.ID,
+      keyword: mockPlainKeyword.keyword,
+      domain: mockPlainKeyword.domain,
+      get: jest.fn().mockReturnValue(mockPlainKeyword),
+      update: jest.fn().mockRejectedValue(new Error('db update failed')),
+    } as unknown as Keyword;
+
+    (Keyword.update as jest.Mock).mockResolvedValue([1]);
+
+    const settings = {
+      scraper_type: 'serpapi',
+      scrape_retry: false,
+    } as SettingsType;
+
+    const updatedKeyword = {
+      ID: mockPlainKeyword.ID,
+      position: 4,
+      url: 'https://example.com/result',
+      result: [],
+      mapPackTop3: 0,
+      error: false,
+    } as RefreshResult;
+
+    const updated = await updateKeywordPosition(keywordModel, updatedKeyword, settings);
+
+    expect(keywordModel.update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0 }));
+    expect(Keyword.update).toHaveBeenCalledWith(
+      { updating: 0 },
+      { where: { ID: mockPlainKeyword.ID } },
+    );
+    expect(updated.updating).toBe(0);
   });
 
   it('coerces optional scalars when scrape results omit URLs', async () => {

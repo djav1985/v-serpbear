@@ -527,6 +527,15 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          };
       } catch (error: any) {
          logger.error('[ERROR] Updating SERP for Keyword', error, { keyword: keyword.keyword });
+         try {
+            await Keyword.update({ updating: 0 }, { where: { ID: keyword.ID } });
+         } catch (cleanupError: any) {
+            logger.error('[ERROR] Failed to clear updating flag after update failure', cleanupError, { keywordId: keyword.ID });
+         }
+         updated = {
+            ...keyword,
+            updating: 0,
+         };
       }
    }
 

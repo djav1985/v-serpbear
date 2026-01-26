@@ -253,8 +253,8 @@ describe('/api/notify - authentication', () => {
     const domainRecord = {
       get: () => ({
         domain: 'example.com',
-        notification: false,
-        scrapeEnabled: false,
+        notification: 0,
+        scrapeEnabled: 0,
         notification_emails: 'custom@example.com',
       }),
     };
@@ -293,8 +293,8 @@ describe('/api/notify - authentication', () => {
     const domainRecord = {
       get: () => ({
         domain: 'example.com',
-        notification: true,
-        scrapeEnabled: true,
+        notification: 1,
+        scrapeEnabled: 1,
         notification_emails: 'custom@example.com',
       }),
     };
@@ -351,8 +351,8 @@ describe('/api/notify - authentication', () => {
     const domainRecord = {
       get: () => ({
         domain: 'example.com',
-        notification: true,
-        scrapeEnabled: true,
+        notification: 1,
+        scrapeEnabled: 1,
         notification_emails: 'custom@example.com',
       }),
     };
@@ -408,8 +408,8 @@ describe('/api/notify - authentication', () => {
     const domainRecord1 = {
       get: () => ({
         domain: 'example.com',
-        notification: true,
-        scrapeEnabled: true,
+        notification: 1,
+        scrapeEnabled: 1,
         notification_emails: 'success@example.com',
       }),
     };
@@ -417,8 +417,8 @@ describe('/api/notify - authentication', () => {
     const domainRecord2 = {
       get: () => ({
         domain: 'another.com',
-        notification: true,
-        scrapeEnabled: true,
+        notification: 1,
+        scrapeEnabled: 1,
         notification_emails: 'fail@example.com',
       }),
     };
