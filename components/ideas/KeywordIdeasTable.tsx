@@ -11,7 +11,7 @@ import SpinnerMessage from '../common/SpinnerMessage';
 import KeywordIdea from './KeywordIdea';
 import useWindowResize from '../../hooks/useWindowResize';
 import useIsMobile from '../../hooks/useIsMobile';
-import { IdeasSortKeywords, IdeasfilterKeywords } from '../../utils/client/IdeasSortFilter';
+import { IdeasSortKeywords, IdeasfilterKeywords } from '../../utils/client/sortFilter';
 import IdeasFilters from './IdeasFilter';
 import { useMutateFavKeywordIdeas } from '../../services/adwords';
 import IdeaDetails from './IdeaDetails';
