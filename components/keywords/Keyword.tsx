@@ -181,7 +181,7 @@ const Keyword = (props: KeywordProps) => {
                data-testid="keyword-history-chart"
                className={`hidden cursor-pointer lg:block lg:basis-20 lg:grow-0 lg:min-w-[80px] lg:w-full lg:h-[30px] ${!tableColumns.includes('History') ? 'lg:hidden' : ''}`}
                onClick={() => showKeywordDetails()}>
-               <ChartSlim labels={chartData.labels} series={chartData.series} />
+               <ChartSlim labels={chartData.labels} series={chartData.series} fillContainer={true} />
             </div>
          )}
 

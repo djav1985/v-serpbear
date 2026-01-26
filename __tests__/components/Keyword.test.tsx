@@ -43,7 +43,7 @@ describe('Keyword Component', () => {
       // Look for the URL link by its href attribute
       expect(screen.getByRole('link', { name: '/' })).toBeInTheDocument();
    });
-   it('renders a full-width history chart container', async () => {
+   it('renders a full-width history chart container', () => {
       render(<Keyword {...keywordProps} />);
       const historyChart = screen.getByTestId('keyword-history-chart');
       expect(historyChart).toHaveClass('lg:w-full', 'lg:h-[30px]', 'lg:min-w-[80px]');
