@@ -127,7 +127,8 @@ describe('/api/notify - authentication', () => {
     const domainRecord = {
       get: () => ({
         domain: 'example.com',
-        notification: true,
+        scrapeEnabled: 1,
+        notification: 1,
         notification_emails: 'custom@example.com',
       }),
     };
@@ -193,7 +194,8 @@ describe('/api/notify - authentication', () => {
     const domainRecord = {
       get: () => ({
         domain: 'example.com',
-        notification: true,
+        scrapeEnabled: 1,
+        notification: 1,
         notification_emails: ' custom@example.com ',
       }),
     };

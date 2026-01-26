@@ -56,17 +56,17 @@ class Keyword extends Model {
    @Column({ type: DataType.STRING, allowNull: true, defaultValue: JSON.stringify([]) })
    lastResult!: string;
 
-   @Column({ type: DataType.BOOLEAN, allowNull: true, defaultValue: true })
-   sticky!: boolean;
+   @Column({ type: DataType.INTEGER, allowNull: true, defaultValue: 1 })
+   sticky!: number;
 
-   @Column({ type: DataType.BOOLEAN, allowNull: true, defaultValue: false })
-   updating!: boolean;
+   @Column({ type: DataType.INTEGER, allowNull: true, defaultValue: 0 })
+   updating!: number;
 
    @Column({ type: DataType.STRING, allowNull: true, defaultValue: 'false' })
    lastUpdateError!: string;
 
-   @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: false })
-   mapPackTop3!: boolean;
+   @Column({ type: DataType.INTEGER, allowNull: false, defaultValue: 0 })
+   mapPackTop3!: number;
 
    @Column({ type: DataType.STRING, allowNull: true, defaultValue: JSON.stringify([]) })
    localResults!: string;

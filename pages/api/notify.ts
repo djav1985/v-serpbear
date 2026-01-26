@@ -68,7 +68,7 @@ const notify = async (req: NextApiRequest, res: NextApiResponse<NotifyResponse>)
          const theDomain = await Domain.findOne({ where: { domain: reqDomain } });
          if (theDomain) {
             const domainPlain = theDomain.get({ plain: true }) as DomainType;
-            if (domainPlain.scrapeEnabled !== false && domainPlain.notification !== false) {
+            if (domainPlain.scrapeEnabled === 1 && domainPlain.notification === 1) {
                attemptCount++;
                try {
                   await sendNotificationEmail(domainPlain, normalizedSettings);
@@ -84,7 +84,7 @@ const notify = async (req: NextApiRequest, res: NextApiResponse<NotifyResponse>)
          if (allDomains && allDomains.length > 0) {
             const domains = allDomains.map((el) => el.get({ plain: true }));
             for (const domain of domains) {
-               if (domain.scrapeEnabled !== false && domain.notification !== false) {
+               if (domain.scrapeEnabled === 1 && domain.notification === 1) {
                   attemptCount++;
                   try {
                      await sendNotificationEmail(domain, normalizedSettings);

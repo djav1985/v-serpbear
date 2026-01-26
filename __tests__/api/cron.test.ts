@@ -62,8 +62,8 @@ describe('/api/cron', () => {
 
   it('only refreshes keywords for domains with scraping enabled', async () => {
     (Domain.findAll as jest.Mock).mockResolvedValue([
-      { get: () => ({ domain: 'enabled.com', scrapeEnabled: true }) },
-      { get: () => ({ domain: 'disabled.com', scrapeEnabled: false }) },
+      { get: () => ({ domain: 'enabled.com', scrapeEnabled: 1 }) },
+      { get: () => ({ domain: 'disabled.com', scrapeEnabled: 0 }) },
     ]);
 
     const keywordRecord = { domain: 'enabled.com' };
@@ -72,7 +72,7 @@ describe('/api/cron', () => {
     await handler(req, res as NextApiResponse);
 
     expect(Keyword.update).toHaveBeenCalledWith(
-      { updating: true },
+      { updating: 1 },
       { where: { domain: { [Op.in]: ['enabled.com'] } } },
     );
     expect(Keyword.findAll).toHaveBeenCalledWith({ where: { domain: ['enabled.com'] } });
@@ -83,7 +83,7 @@ describe('/api/cron', () => {
 
   it('returns early when no domains have scraping enabled', async () => {
     (Domain.findAll as jest.Mock).mockResolvedValue([
-      { get: () => ({ domain: 'disabled.com', scrapeEnabled: false }) },
+      { get: () => ({ domain: 'disabled.com', scrapeEnabled: 0 }) },
     ]);
 
     await handler(req, res as NextApiResponse);

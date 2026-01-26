@@ -24,7 +24,7 @@ type DomainSettingsError = {
 const deriveDomainActiveState = (domainData?: DomainType | null) => {
    if (!domainData) { return true; }
    const { scrapeEnabled, notification } = domainData;
-   return (scrapeEnabled !== false) && (notification !== false);
+   return scrapeEnabled === 1 && notification === 1;
 };
 
 const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
@@ -44,7 +44,7 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
       search_console: domain?.search_console ? JSON.parse(domain.search_console) : {
          property_type: 'domain', url: '', client_email: '', private_key: '',
       },
-      scrapeEnabled: initialActiveState,
+      scrapeEnabled: initialActiveState ? 1 : 0,
       scraper_settings: {
          scraper_type: initialScraperType,
          has_api_key: initialScraperHasKey,
@@ -88,7 +88,7 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
          return ({
             ...prevSettings,
             search_console: currentSearchConsoleSettings || prevSettings.search_console,
-            scrapeEnabled: nextActive,
+            scrapeEnabled: nextActive ? 1 : 0,
             scraper_settings: nextScraper,
             business_name: domainObj.business_name ?? prevSettings.business_name ?? '',
          });
@@ -98,11 +98,11 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
    const updateDomainActiveState = (next: boolean) => {
       setDomainSettings(prevSettings => ({
          ...prevSettings,
-         scrapeEnabled: next,
+         scrapeEnabled: next ? 1 : 0,
       }));
    };
 
-   const isDomainActive = domainSettings.scrapeEnabled !== false;
+   const isDomainActive = domainSettings.scrapeEnabled === 1;
 
    const handleScraperSelect = (updated: string[]) => {
       const nextValue = updated[0] || '__system__';

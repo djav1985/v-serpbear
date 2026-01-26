@@ -21,34 +21,9 @@ export const normaliseHistory = (rawHistory: unknown): KeywordHistory => {
  * @param {Keyword[]} allKeywords - Keywords to scrape
  * @returns {KeywordType[]}
  */
-const normaliseBoolean = (value: unknown): boolean => {
-   if (typeof value === 'boolean') {
-      return value;
-   }
-
-   if (typeof value === 'number') {
-      return value !== 0;
-   }
-
-   if (typeof value === 'string') {
-      const trimmed = value.trim().toLowerCase();
-      if (['', '0', 'false', 'no', 'off'].includes(trimmed)) {
-         return false;
-      }
-      if (['1', 'true', 'yes', 'on'].includes(trimmed)) {
-         return true;
-      }
-
-      return false;
-   }
-
-   return Boolean(value);
-};
-
 const parseKeywords = (allKeywords: Keyword[]) : KeywordType[] => {
    const parsedItems = allKeywords.map((keywrd:Keyword) => {
       const keywordData = keywrd as unknown as Record<string, any>;
-      const { mapPackTop3, ...keywordWithoutMapPack } = keywordData;
 
       let historyRaw: unknown;
       try { historyRaw = JSON.parse(keywordData.history); } catch { historyRaw = {}; }
@@ -68,22 +43,24 @@ const parseKeywords = (allKeywords: Keyword[]) : KeywordType[] => {
          try { lastUpdateError = JSON.parse(keywordData.lastUpdateError); } catch { lastUpdateError = {}; }
       }
 
-      const normalisedMapPackTop3 = normaliseBoolean(mapPackTop3);
-
-      const updating = normaliseBoolean(keywordData.updating);
-      const sticky = normaliseBoolean(keywordData.sticky);
+      // Integer boolean fields (1/0) are stored and returned by the SQLite dialect as-is.
+      // Validate and ensure these fields are numbers (default to 0 if invalid)
+      const validateIntegerFlag = (value: any): number => {
+         if (typeof value === 'number') return value;
+         return 0;
+      };
 
       return {
-         ...keywordWithoutMapPack,
+         ...keywordData,
          location: typeof keywordData.location === 'string' ? keywordData.location : '',
          history,
          tags,
          lastResult,
          localResults,
          lastUpdateError,
-         sticky,
-         updating,
-         mapPackTop3: normalisedMapPackTop3,
+         sticky: validateIntegerFlag(keywordData.sticky),
+         updating: validateIntegerFlag(keywordData.updating),
+         mapPackTop3: validateIntegerFlag(keywordData.mapPackTop3),
       } as KeywordType;
    });
    return parsedItems;

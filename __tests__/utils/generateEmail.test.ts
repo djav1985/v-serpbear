@@ -41,7 +41,7 @@ describe('generateEmail', () => {
         updating: false,
         lastUpdateError: false,
         location: 'Berlin,Berlin State,DE',
-        mapPackTop3: true,
+        mapPackTop3: 1,
       },
     ] as any;
 
@@ -81,7 +81,7 @@ describe('generateEmail', () => {
         updating: false,
         lastUpdateError: false,
         location: 'Munich,Bavaria,DE',
-        mapPackTop3: true,
+        mapPackTop3: 1,
       },
     ] as any;
 
@@ -219,7 +219,7 @@ describe('generateEmail', () => {
         tags: [],
         updating: false,
         lastUpdateError: false,
-        mapPackTop3: true,
+        mapPackTop3: 1,
       },
       {
         ID: 2,
@@ -238,7 +238,7 @@ describe('generateEmail', () => {
         tags: [],
         updating: false,
         lastUpdateError: false,
-        mapPackTop3: false,
+        mapPackTop3: 0,
       },
     ] as any;
 
@@ -276,7 +276,7 @@ describe('generateEmail', () => {
         tags: [],
         updating: false,
         lastUpdateError: false,
-        mapPackTop3: true,
+        mapPackTop3: 1,
       },
       {
         ID: 2,
@@ -295,7 +295,7 @@ describe('generateEmail', () => {
         tags: [],
         updating: false,
         lastUpdateError: false,
-        mapPackTop3: false,
+        mapPackTop3: 0,
       },
       {
         ID: 3,
@@ -314,7 +314,7 @@ describe('generateEmail', () => {
         tags: [],
         updating: false,
         lastUpdateError: false,
-        mapPackTop3: true,
+        mapPackTop3: 1,
       },
     ] as any;
 
@@ -354,7 +354,7 @@ describe('generateEmail', () => {
         tags: [],
         updating: false,
         lastUpdateError: false,
-        mapPackTop3: true,
+        mapPackTop3: 1,
       },
       {
         ID: 2,
@@ -373,7 +373,7 @@ describe('generateEmail', () => {
         tags: [],
         updating: false,
         lastUpdateError: false,
-        mapPackTop3: false,
+        mapPackTop3: 0,
       },
     ] as any;
 
@@ -397,7 +397,7 @@ describe('generateEmail', () => {
     expect(html).toMatch(/<span class="mini_stats__label">Keywords<\/span>\s*<span class="mini_stats__value">2<\/span>/);
     // Average should be (8+12)/2 = 10
     expect(html).toMatch(/<span class="mini_stats__label">Avg position<\/span>\s*<span class="mini_stats__value">10<\/span>/);
-    // Map pack should be 1 (only first keyword has mapPackTop3: true)
+    // Map pack should be 1 (only first keyword has mapPackTop3: 1)
     expect(html).toMatch(/<span class="mini_stats__label">Map Pack<\/span>\s*<span class="mini_stats__value">1<\/span>/);
   });
 
@@ -422,7 +422,7 @@ describe('generateEmail', () => {
         tags: [],
         updating: false,
         lastUpdateError: false,
-        mapPackTop3: true,
+        mapPackTop3: 1,
       },
       {
         ID: 2,
@@ -441,7 +441,7 @@ describe('generateEmail', () => {
         tags: [],
         updating: false,
         lastUpdateError: false,
-        mapPackTop3: true,
+        mapPackTop3: 1,
       },
     ] as any;
 
@@ -487,7 +487,7 @@ describe('generateEmail', () => {
         tags: [],
         updating: false,
         lastUpdateError: false,
-        mapPackTop3: true,
+        mapPackTop3: 1,
       },
       {
         ID: 2,
@@ -506,7 +506,7 @@ describe('generateEmail', () => {
         tags: [],
         updating: false,
         lastUpdateError: false,
-        mapPackTop3: false,
+        mapPackTop3: 0,
       },
     ] as any;
 

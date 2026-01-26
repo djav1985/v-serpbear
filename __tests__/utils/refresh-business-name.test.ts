@@ -52,8 +52,8 @@ describe('refreshAndUpdateKeywords - business_name handling', () => {
       location: '',
       position: 0,
       volume: 0,
-      updating: true,
-      sticky: false,
+      updating: 1,
+      sticky: 0,
       history: '{}',
       lastResult: '[]',
       lastUpdateError: 'false',
@@ -86,7 +86,7 @@ describe('refreshAndUpdateKeywords - business_name handling', () => {
         { position: 2, title: 'Vontainment', website: 'https://google.com/maps/place/vontainment' },
         { position: 3, title: 'Another Business', website: 'https://another.com' },
       ],
-      mapPackTop3: true,
+      mapPackTop3: 1,
       error: false,
     } as RefreshResult);
 
@@ -133,8 +133,8 @@ describe('refreshAndUpdateKeywords - business_name handling', () => {
       location: '',
       position: 0,
       volume: 0,
-      updating: true,
-      sticky: false,
+      updating: 1,
+      sticky: 0,
       history: '{}',
       lastResult: '[]',
       lastUpdateError: 'false',
@@ -160,7 +160,7 @@ describe('refreshAndUpdateKeywords - business_name handling', () => {
       position: 5,
       url: 'https://example.com/',
       result: [],
-      mapPackTop3: false,
+      mapPackTop3: 0,
       error: false,
     } as RefreshResult);
 
@@ -194,8 +194,8 @@ describe('refreshAndUpdateKeywords - business_name handling', () => {
       location: '',
       position: 0,
       volume: 0,
-      updating: true,
-      sticky: false,
+      updating: 1,
+      sticky: 0,
       history: '{}',
       lastResult: '[]',
       lastUpdateError: 'false',
@@ -221,7 +221,7 @@ describe('refreshAndUpdateKeywords - business_name handling', () => {
       position: 5,
       url: 'https://example.com/',
       result: [],
-      mapPackTop3: false,
+      mapPackTop3: 0,
       error: false,
     } as RefreshResult);
 

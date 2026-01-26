@@ -57,8 +57,7 @@ const DomainItem = ({
    } = domain;
    const { mutateAsync: updateDomainToggle, isLoading: isToggleUpdating } = useUpdateDomainToggles();
 
-   const isDomainActive = (domain.scrapeEnabled !== false)
-      && (domain.notification !== false);
+   const isDomainActive = domain.scrapeEnabled === 1 && domain.notification === 1;
 
    const renderCompactMetric = (value: number) => {
       const { numeric, unit } = formatCompactNumber(value);
@@ -71,7 +70,7 @@ const DomainItem = ({
    };
 
    const handleDomainStatusToggle = async (nextValue: boolean) => {
-      const payload: Partial<DomainSettings> = { scrapeEnabled: nextValue };
+      const payload: Partial<DomainSettings> = { scrapeEnabled: nextValue ? 1 : 0 };
       try {
          await updateDomainToggle({ domain, domainSettings: payload });
          const message = `${domain.domain} ${nextValue ? 'marked as Active' : 'marked as Deactive'}.`;

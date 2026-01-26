@@ -224,16 +224,16 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
          country,
          location,
          position: 0,
-         updating: true,
+         updating: 1,
          history: JSON.stringify({}),
          lastResult: JSON.stringify([]),
          url: '',
          tags: JSON.stringify(dedupedTags.slice(0, 10)), // Limit to 10 tags
-         sticky: false,
+         sticky: 0,
          lastUpdated: new Date().toJSON(),
          added: new Date().toJSON(),
-         mapPackTop3: false,
-      };
+         mapPackTop3: 0,
+      } as any;
       keywordsToAdd.push(newKeyword);
    });
    
@@ -249,7 +249,7 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
    }
 
    try {
-      await Keyword.bulkCreate(keywordsToAdd);
+      await Keyword.bulkCreate(keywordsToAdd as any);
       
       // Reload keywords from DB to ensure IDs are populated
       // Build a query to find the just-created keywords by their unique combination of keyword+device+domain

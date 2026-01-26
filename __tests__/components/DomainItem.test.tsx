@@ -85,16 +85,16 @@ describe('DomainItem Component', () => {
 
       expect(toggleMutationMock).toHaveBeenCalledWith({
          domain: dummyDomain,
-         domainSettings: { scrapeEnabled: false },
+         domainSettings: { scrapeEnabled: 0 },
       });
    });
 
    it('displays the deactive label when domain toggles are disabled', () => {
       const inactiveDomain = {
          ...dummyDomain,
-         scrapeEnabled: false,
+         scrapeEnabled: 0,
          notify_enabled: false,
-         notification: false,
+         notification: 0,
       };
 
       render(<DomainItem {...defaultProps} domain={inactiveDomain} />);

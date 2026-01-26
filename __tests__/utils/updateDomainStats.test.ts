@@ -36,19 +36,19 @@ describe('updateDomainStats', () => {
       {
         get: () => ({
           position: 5,
-          mapPackTop3: true,
+          mapPackTop3: 1,
         }),
       },
       {
         get: () => ({
           position: 15,
-          mapPackTop3: false,
+          mapPackTop3: 0,
         }),
       },
       {
         get: () => ({
           position: 0, // Should be excluded from average
-          mapPackTop3: true,
+          mapPackTop3: 1,
         }),
       },
     ];
@@ -62,7 +62,7 @@ describe('updateDomainStats', () => {
     expect(mockDomainUpdate).toHaveBeenCalledWith(
       {
         avgPosition: 10, // Math.round((5+15)/2) = 10
-        mapPackKeywords: 2, // Two keywords have mapPackTop3: true
+        mapPackKeywords: 2, // Two keywords have mapPackTop3: 1
       },
       { where: { domain: 'example.com' } }
     );
@@ -88,13 +88,13 @@ describe('updateDomainStats', () => {
       {
         get: () => ({
           position: 0,
-          mapPackTop3: false,
+          mapPackTop3: 0,
         }),
       },
       {
         get: () => ({
           position: 0,
-          mapPackTop3: true,
+          mapPackTop3: 1,
         }),
       },
     ];
@@ -107,7 +107,7 @@ describe('updateDomainStats', () => {
     expect(mockDomainUpdate).toHaveBeenCalledWith(
       {
         avgPosition: 0, // No valid positions to average
-        mapPackKeywords: 1, // One keyword has mapPackTop3: true
+        mapPackKeywords: 1, // One keyword has mapPackTop3: 1
       },
       { where: { domain: 'unranked.com' } }
     );
