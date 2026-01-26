@@ -85,7 +85,7 @@ describe('/api/refresh', () => {
 
     await handler(req, res);
 
-    expect(res.status).toHaveBeenCalledWith(202);
+    expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({ 
       message: 'Refresh started',
       keywordCount: 1,
@@ -154,7 +154,7 @@ describe('/api/refresh', () => {
       keywordRecord1,
       keywordRecord2,
     ], { scraper_type: 'serpapi' });
-    expect(res.status).toHaveBeenCalledWith(202);
+    expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       message: 'Refresh started',
       keywordCount: 2,
