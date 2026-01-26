@@ -88,9 +88,6 @@ const normalizeLocationForCache = (location?: string | null): string => {
 const normalizeDevice = (device?: string): 'desktop' | 'mobile' =>
    device === 'mobile' ? 'mobile' : 'desktop';
 
-const isEnabledFlag = (value?: number | boolean | null): boolean =>
-   value === 1 || value === true;
-
 /**
  * Generates a cache key for matching desktop and mobile keyword pairs.
  * The key is used to store and retrieve desktop mapPackTop3 values for mobile keywords.
@@ -124,7 +121,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
       const cryptr = secret ? new Cryptr(secret) : null;
       scrapePermissions = new Map(domains.map((domain) => {
          const domainPlain = domain.get({ plain: true }) as DomainType & { scraper_settings?: any };
-         const isEnabled = isEnabledFlag(domainPlain.scrapeEnabled);
+         const isEnabled = domainPlain.scrapeEnabled === 1;
 
          if (cryptr) {
             const persistedOverride = parseDomainScraperSettings(domainPlain?.scraper_settings);
