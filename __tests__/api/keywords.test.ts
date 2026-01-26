@@ -21,6 +21,7 @@ jest.mock('../../database/models/keyword', () => ({
     findOne: jest.fn(),
     bulkCreate: jest.fn(),
     destroy: jest.fn(),
+    count: jest.fn(),
   },
 }));
 
@@ -63,6 +64,7 @@ const keywordMock = Keyword as unknown as {
   findOne: jest.Mock;
   bulkCreate: jest.Mock;
   destroy: jest.Mock;
+  count: jest.Mock;
 };
 const verifyUserMock = verifyUser as unknown as jest.Mock;
 const getAppSettingsMock = getAppSettings as unknown as jest.Mock;
@@ -247,6 +249,7 @@ describe('PUT /api/keywords error handling', () => {
       }),
     };
 
+    keywordMock.count.mockResolvedValueOnce(1); // Indicate there are keywords with updating=1
     keywordMock.findAll.mockResolvedValueOnce([keywordRecord]);
     getAppSettingsMock.mockResolvedValue({});
 
