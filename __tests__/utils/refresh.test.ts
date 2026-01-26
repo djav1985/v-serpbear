@@ -1168,21 +1168,22 @@ describe('resetStaleKeywordUpdates', () => {
   });
 
   it('resets stale updating keywords with a timeout error', async () => {
-    (Keyword.findAll as jest.Mock).mockResolvedValueOnce([{ ID: 12 }]);
     (Keyword.update as jest.Mock).mockResolvedValueOnce([1]);
 
     const clearedCount = await resetStaleKeywordUpdates({ domain: 'example.com', thresholdMinutes: 15 });
 
-    expect(Keyword.findAll).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({ updating: 1, domain: 'example.com' }),
-      attributes: ['ID'],
-    }));
     expect(Keyword.update).toHaveBeenCalledWith(
       expect.objectContaining({
         updating: 0,
         lastUpdateError: expect.stringContaining('Refresh timed out after 15 minutes'),
       }),
-      { where: { ID: { [Op.in]: [12] } } },
+      expect.objectContaining({
+        where: expect.objectContaining({ 
+          updating: 1, 
+          domain: 'example.com',
+          updatedAt: expect.any(Object),
+        }),
+      }),
     );
     expect(clearedCount).toBe(1);
   });
