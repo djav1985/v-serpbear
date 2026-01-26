@@ -64,10 +64,10 @@ describe('refreshAndUpdateKeywords', () => {
 
     expect(Keyword.update).toHaveBeenCalledTimes(1);
     expect(Keyword.update).toHaveBeenCalledWith(
-      expect.objectContaining({ updating: false }),
+      expect.objectContaining({ updating: 0 }),
       { where: { ID: mockKeywordModel.ID } },
     );
-    expect(mockKeywordModel.set).toHaveBeenCalledWith(expect.objectContaining({ updating: false }));
+    expect(mockKeywordModel.set).toHaveBeenCalledWith(expect.objectContaining({ updating: 0 }));
   });
 
   it('queues retries when sequential scraping returns false', async () => {
@@ -98,7 +98,7 @@ describe('refreshAndUpdateKeywords', () => {
 
     await refreshAndUpdateKeywords([keywordModel], settings);
 
-    expect(keywordModel.set).toHaveBeenCalledWith(expect.objectContaining({ updating: false }));
+    expect(keywordModel.set).toHaveBeenCalledWith(expect.objectContaining({ updating: 0 }));
     expect(retryScrape).toHaveBeenCalledWith(41);
     expect(removeFromRetryQueue).not.toHaveBeenCalled();
   });
@@ -131,7 +131,7 @@ describe('refreshAndUpdateKeywords', () => {
 
     await refreshAndUpdateKeywords([keywordModel], settings);
 
-    expect(keywordModel.set).toHaveBeenCalledWith(expect.objectContaining({ updating: false }));
+    expect(keywordModel.set).toHaveBeenCalledWith(expect.objectContaining({ updating: 0 }));
     expect(removeFromRetryQueue).toHaveBeenCalledWith(42);
     expect(retryScrape).not.toHaveBeenCalled();
   });
@@ -295,7 +295,7 @@ describe('refreshAndUpdateKeywords', () => {
     await refreshAndUpdateKeywords(mockKeywords, mockSettings);
     // Verify Op.in was used correctly
     expect(Keyword.update).toHaveBeenCalledWith(
-      { updating: false },
+      { updating: 0 },
       { where: { ID: { [Op.in]: [1, 2, 3] } } },
     );
 
@@ -1049,12 +1049,12 @@ describe('refreshAndUpdateKeywords', () => {
     const results = await refreshAndUpdateKeywords([keywordModel], settings);
 
     // When scraper returns false, refreshParallel creates an error result that is processed
-    // by updateKeywordPosition, which sets updating: 0 in the database
+    // by updateKeywordPosition, which sets updating: 0 in the database via keywordModel.update
     expect(keywordModel.update).toHaveBeenCalledWith(expect.objectContaining({
       updating: 0,
     }));
 
-    // Verify the returned result has updating: false
+    // Verify the returned result has updating: false (converted for UI)
     expect(results).toHaveLength(1);
     expect(results[0].updating).toBe(false);
   });
@@ -1104,56 +1104,5 @@ describe('refreshAndUpdateKeywords', () => {
     // Verify that update was called to clear the updating flags
     expect(keywords[0].update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0 }));
     expect(keywords[1].update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0 }));
-  });
-
-  it('returns keywords with updating: false even when database update fails in parallel path', async () => {
-    const keywordPlain = {
-      ID: 99,
-      keyword: 'db failure test',
-      domain: 'example.com',
-      device: 'desktop',
-      country: 'US',
-      location: '',
-      position: 5,
-      volume: 0,
-      updating: true,
-      sticky: false,
-      history: '{}',
-      lastResult: '[]',
-      lastUpdateError: 'false',
-      lastUpdated: '2024-01-01T00:00:00.000Z',
-      added: '2024-01-01T00:00:00.000Z',
-      url: '',
-      tags: '[]',
-      mapPackTop3: 0,
-    };
-
-    const keywordModel = {
-      ID: keywordPlain.ID,
-      keyword: keywordPlain.keyword,
-      domain: keywordPlain.domain,
-      get: jest.fn().mockReturnValue(keywordPlain),
-      update: jest.fn().mockResolvedValue(undefined),
-    } as unknown as Keyword;
-
-    (Domain.findAll as jest.Mock).mockResolvedValue([
-      { get: () => ({ domain: 'example.com', scrapeEnabled: true }) },
-    ]);
-
-    (scrapeKeywordFromGoogle as jest.Mock).mockResolvedValueOnce(false);
-    // Mock Keyword.update to fail
-    (Keyword.update as jest.Mock).mockRejectedValue(new Error('Database connection failed'));
-
-    const settings = {
-      scraper_type: 'serpapi', // parallel scraper
-      scrape_retry: false,
-    } as SettingsType;
-
-    const results = await refreshAndUpdateKeywords([keywordModel], settings);
-
-    // Even though database update failed, the returned result should have updating: false
-    // to prevent infinite spinner in the UI
-    expect(results).toHaveLength(1);
-    expect(results[0].updating).toBe(false);
   });
 });

@@ -171,7 +171,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
    if (skippedKeywords.length > 0) {
       const skippedIds = skippedKeywords.map((keyword) => keyword.ID);
       await Keyword.update(
-         { updating: false },
+         { updating: 0 },
          { where: { ID: { [Op.in]: skippedIds } } },
       );
 
@@ -211,27 +211,26 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
    try {
       if (canScrapeInParallel) {
          const refreshedResults = await refreshParallel(keywords, settings, domainSpecificSettings);
-         // Process all keywords, even if refreshedResults is empty
-         for (const keyword of rawkeyword) {
-            const refreshedEntry = refreshedResults.find((entry) => entry && entry.keywordId === keyword.ID);
+         // Create a map for O(1) lookup of results by keyword ID
+         const resultsMap = new Map(
+            refreshedResults.map(entry => [entry.keywordId, entry])
+         );
+         
+         // Process all eligible keywords and update their positions
+         for (const keywordModel of eligibleKeywordModels) {
+            const refreshedEntry = resultsMap.get(keywordModel.ID);
             if (refreshedEntry) {
-               const updatedkeyword = await updateKeywordPosition(keyword, refreshedEntry.result, refreshedEntry.settings);
+               // Update position with scraped data
+               const updatedkeyword = await updateKeywordPosition(keywordModel, refreshedEntry.result, refreshedEntry.settings);
                updatedKeywords.push(updatedkeyword);
             } else {
-               // If no refreshed entry found, ensure updating flag is cleared
-               try {
-                  await Keyword.update({ updating: false }, { where: { ID: keyword.ID } });
-                  const currentKeyword = keyword.get({ plain: true });
-                  const parsedKeyword = parseKeywords([currentKeyword])[0];
-                  updatedKeywords.push({ ...parsedKeyword, updating: false });
-               } catch (error: any) {
-                  logger.error('[ERROR] Failed to clear updating flag for keyword:', error, { keywordId: keyword.ID });
-                  // Even if the database update fails, return the keyword with updating: false
-                  // to prevent infinite spinner in the UI
-                  const currentKeyword = keyword.get({ plain: true });
-                  const parsedKeyword = parseKeywords([currentKeyword])[0];
-                  updatedKeywords.push({ ...parsedKeyword, updating: false });
-               }
+               // No result found - this indicates a scraping failure
+               // The refreshParallel function already handles errors, but ensure state is consistent
+               logger.warn('No refresh result found for keyword, clearing updating flag', { keywordId: keywordModel.ID });
+               await Keyword.update({ updating: 0 }, { where: { ID: keywordModel.ID } });
+               const currentKeyword = keywordModel.get({ plain: true });
+               const parsedKeyword = parseKeywords([currentKeyword])[0];
+               updatedKeywords.push({ ...parsedKeyword, updating: false });
             }
          }
       } else {
@@ -279,12 +278,12 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
       }
    } catch (error: any) {
       logger.error('[ERROR] Unexpected error during keyword refresh:', error);
-      // Ensure all keywords have updating flag cleared even on unexpected errors
-      // Use rawkeyword to include all keywords, not just eligible ones
-      const keywordIdsToCleanup = rawkeyword.map(k => k.ID);
+      // Ensure all keywords that were marked for update have their flags cleared
+      // This prevents UI spinner from getting stuck if an unexpected error occurs
+      const keywordIdsToCleanup = eligibleKeywordModels.map(k => k.ID);
       try {
          await Keyword.update(
-            { updating: false },
+            { updating: 0 },
             { where: { ID: { [Op.in]: keywordIdsToCleanup } } }
          );
       } catch (cleanupError: any) {
@@ -357,7 +356,7 @@ const refreshAndUpdateKeyword = async (
 
    // Handle error case: set updating to false and save error
    try {
-      const updateData: any = { updating: false };
+      const updateData: any = { updating: 0 };
 
       if (scraperError) {
          const theDate = new Date();
