@@ -124,8 +124,8 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
          });
       });
 
-      // Return immediately with 202 Accepted status
-      return res.status(202).json({ 
+      // Return immediately with 200 OK status to match /api/cron pattern
+      return res.status(200).json({ 
          message: 'Refresh started',
          keywordCount: keywordsToRefresh.length,
       });
