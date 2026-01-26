@@ -53,11 +53,11 @@ describe('parseKeywords', () => {
       expect(keyword.location).toBe('');
    });
 
-   it('returns false for missing mapPackTop3 flag', () => {
+   it('returns 0 for missing mapPackTop3 flag', () => {
       const [{ mapPackTop3 }] = parseKeywords([
          buildKeyword({ mapPackTop3: undefined }) as any,
       ]);
 
-      expect(mapPackTop3).toBe(undefined);
+      expect(mapPackTop3).toBe(0);
    });
 });

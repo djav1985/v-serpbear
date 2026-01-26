@@ -247,7 +247,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
 
          // Map to store desktop results for each keyword (by keyword+domain+country+location)
          // This cache allows scrapers like valueserp to use desktop mapPackTop3 for mobile when needed
-         const desktopMapPackCache = new Map<string, boolean>();
+         const desktopMapPackCache = new Map<string, number>();
 
          for (const keyword of sortedKeywords) {
             const keywordPlain = keyword.get({ plain: true });
@@ -264,8 +264,8 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
 
             // If this was a desktop keyword, cache its mapPackTop3
             // Note: undefined/null device is treated as desktop for consistency
-            if (normalizedDevice === 'desktop') {
-               desktopMapPackCache.set(keywordKey, updatedkeyword.mapPackTop3 === 1);
+            if (normalizedDevice === 'desktop' && updatedkeyword.mapPackTop3 !== undefined) {
+               desktopMapPackCache.set(keywordKey, updatedkeyword.mapPackTop3);
             }
 
             if (keywords.length > 0 && settings.scrape_delay && settings.scrape_delay !== '0') {
@@ -320,13 +320,13 @@ const refreshAndUpdateKeyword = async (
    keyword: Keyword,
    settings: SettingsType,
    domainSpecificSettings: Map<string, SettingsType>,
-   fallbackMapPackTop3?: boolean,
+   fallbackMapPackTop3?: number,
 ): Promise<KeywordType> => {
    const currentkeyword = keyword.get({ plain: true });
    const baseEffectiveSettings = resolveEffectiveSettings(currentkeyword.domain, settings, domainSpecificSettings);
 
    // For valueserp mobile keywords, pass the fallback mapPackTop3 from desktop
-   const effectiveSettings: SettingsType & { fallback_mapPackTop3?: boolean } =
+   const effectiveSettings: SettingsType & { fallback_mapPackTop3?: number } =
       fallbackMapPackTop3 !== undefined && baseEffectiveSettings.scraper_type === 'valueserp'
          ? { ...baseEffectiveSettings, fallback_mapPackTop3: fallbackMapPackTop3 }
          : baseEffectiveSettings;
@@ -478,7 +478,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          history: JSON.stringify(history),
          lastUpdated: lastUpdatedValue,
          lastUpdateError: lastUpdateErrorValue,
-         mapPackTop3: (updatedKeyword.mapPackTop3 as any) === 1 ? 1 : 0,
+         mapPackTop3: updatedKeyword.mapPackTop3 === 1 ? 1 : 0,
       };
 
       if (updatedKeyword.error && settings?.scrape_retry) {
@@ -553,7 +553,7 @@ const buildErrorResult = (keyword: KeywordType, error: unknown): RefreshResult =
    url: typeof keyword.url === 'string' ? keyword.url : '',
    result: [],
    localResults: Array.isArray(keyword.localResults) ? keyword.localResults : [],
-   mapPackTop3: keyword.mapPackTop3 === 1,
+   mapPackTop3: keyword.mapPackTop3 ?? 0,
    error: typeof error === 'string' ? error : serializeError(error),
 });
 

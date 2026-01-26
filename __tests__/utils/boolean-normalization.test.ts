@@ -102,16 +102,16 @@ describe('Boolean Normalization Functions', () => {
       expect(keyword3.mapPackTop3).toBe(0);
     });
 
-    // Note: parseKeywords no longer normalizes unrecognized strings - they pass through as-is
-    it('passes through non-standard values without normalization', () => {
-      // These are examples of API error messages that should not be treated as true
+    // parseKeywords validates and coerces invalid values to 0 for safety
+    it('coerces non-numeric values to 0 (default)', () => {
+      // API error messages or invalid data should be coerced to safe defaults
       const [keyword1] = parseKeywords([buildKeyword({ updating: 'API Error: Invalid request' }) as any]);
       const [keyword2] = parseKeywords([buildKeyword({ sticky: 'Server error occurred' }) as any]);
       const [keyword3] = parseKeywords([buildKeyword({ mapPackTop3: 'timeout' }) as any]);
 
-      expect(keyword1.updating).toBe('API Error: Invalid request');
-      expect(keyword2.sticky).toBe('Server error occurred');
-      expect(keyword3.mapPackTop3).toBe('timeout');
+      expect(keyword1.updating).toBe(0);
+      expect(keyword2.sticky).toBe(0);
+      expect(keyword3.mapPackTop3).toBe(0);
     });
   });
 });

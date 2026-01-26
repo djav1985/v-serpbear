@@ -44,7 +44,11 @@ const parseKeywords = (allKeywords: Keyword[]) : KeywordType[] => {
       }
 
       // Integer boolean fields (1/0) are stored and returned by the SQLite dialect as-is.
-      // No need to call normaliseBoolean on these integer-backed flags.
+      // Validate and ensure these fields are numbers (default to 0 if invalid)
+      const validateIntegerFlag = (value: any): number => {
+         if (typeof value === 'number') return value;
+         return 0;
+      };
 
       return {
          ...keywordData,
@@ -54,6 +58,9 @@ const parseKeywords = (allKeywords: Keyword[]) : KeywordType[] => {
          lastResult,
          localResults,
          lastUpdateError,
+         sticky: validateIntegerFlag(keywordData.sticky),
+         updating: validateIntegerFlag(keywordData.updating),
+         mapPackTop3: validateIntegerFlag(keywordData.mapPackTop3),
       } as KeywordType;
    });
    return parsedItems;
