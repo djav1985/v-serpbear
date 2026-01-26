@@ -78,7 +78,7 @@ describe('/api/refresh', () => {
     const keywordRecord = { ID: 1, domain: 'example.com' };
     (Keyword.findAll as jest.Mock).mockResolvedValue([keywordRecord]);
     (Domain.findAll as jest.Mock).mockResolvedValue([
-      { get: () => ({ domain: 'example.com', scrapeEnabled: true }) },
+      { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
     ]);
 
     (refreshAndUpdateKeywords as jest.Mock).mockRejectedValue(new Error('scraper failed'));
@@ -88,7 +88,7 @@ describe('/api/refresh', () => {
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith({ error: 'scraper failed' });
     expect(Keyword.update).toHaveBeenCalledWith(
-      { updating: true },
+      { updating: 1 },
       { where: { ID: { [Op.in]: [1] } } },
     );
   });
@@ -135,15 +135,15 @@ describe('/api/refresh', () => {
       ]);
 
     (Domain.findAll as jest.Mock).mockResolvedValue([
-      { get: () => ({ domain: 'example.com', scrapeEnabled: true }) },
-      { get: () => ({ domain: 'example.org', scrapeEnabled: true }) },
+      { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
+      { get: () => ({ domain: 'example.org', scrapeEnabled: 1 }) },
     ]);
     (refreshAndUpdateKeywords as jest.Mock).mockResolvedValue([]);
 
     await handler(req, res);
 
     expect(Keyword.update).toHaveBeenCalledWith(
-      { updating: true },
+      { updating: 1 },
       { where: { ID: { [Op.in]: [1, 2] } } },
     );
     expect(Keyword.findAll).toHaveBeenCalledTimes(2);
@@ -155,8 +155,8 @@ describe('/api/refresh', () => {
     const jsonResponse = (res.json as jest.Mock).mock.calls[0][0];
     expect(jsonResponse.keywords).toHaveLength(2);
     expect(jsonResponse.keywords).toEqual(expect.arrayContaining([
-      expect.objectContaining({ ID: 1, updating: true }),
-      expect.objectContaining({ ID: 2, updating: true }),
+      expect.objectContaining({ ID: 1, updating: 1 }),
+      expect.objectContaining({ ID: 2, updating: 1 }),
     ]));
   });
 

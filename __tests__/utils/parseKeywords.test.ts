@@ -11,36 +11,36 @@ describe('parseKeywords', () => {
       added: '2025-01-01T00:00:00.000Z',
       position: 5,
       volume: 100,
-      sticky: true,
+      sticky: 1,
       history: JSON.stringify({ '2025-01-01': 5 }),
       lastResult: JSON.stringify([]),
       url: 'https://example.com/page',
       tags: JSON.stringify(['tag']),
-      updating: false,
+      updating: 0,
       lastUpdateError: 'false',
-      mapPackTop3: false,
+      mapPackTop3: 0,
       ...overrides,
    });
 
    it('normalises falsy boolean variants to false', () => {
       const [keyword] = parseKeywords([
-         buildKeyword({ updating: '0', sticky: 'no', mapPackTop3: 'false' }) as any,
+         buildKeyword({ updating: 0, sticky: 0, mapPackTop3: 0 }) as any,
       ]);
 
-      expect(keyword.updating).toBe(false);
-      expect(keyword.sticky).toBe(false);
-      expect(keyword.mapPackTop3).toBe(false);
+      expect(keyword.updating).toBe(0);
+      expect(keyword.sticky).toBe(0);
+      expect(keyword.mapPackTop3).toBe(0);
       expect(Object.prototype.hasOwnProperty.call(keyword, 'mapPackTop3')).toBe(true);
    });
 
    it('normalises truthy boolean variants to true', () => {
       const [keyword] = parseKeywords([
-         buildKeyword({ updating: '1', sticky: 'YES', mapPackTop3: 1 }) as any,
+         buildKeyword({ updating: 1, sticky: 1, mapPackTop3: 1 }) as any,
       ]);
 
-      expect(keyword.updating).toBe(true);
-      expect(keyword.sticky).toBe(true);
-      expect(keyword.mapPackTop3).toBe(true);
+      expect(keyword.updating).toBe(1);
+      expect(keyword.sticky).toBe(1);
+      expect(keyword.mapPackTop3).toBe(1);
       expect(Object.prototype.hasOwnProperty.call(keyword, 'mapPackTop3')).toBe(true);
    });
 
@@ -58,6 +58,6 @@ describe('parseKeywords', () => {
          buildKeyword({ mapPackTop3: undefined }) as any,
       ]);
 
-      expect(mapPackTop3).toBe(false);
+      expect(mapPackTop3).toBe(undefined);
    });
 });

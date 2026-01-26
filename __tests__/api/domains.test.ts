@@ -181,7 +181,7 @@ describe('PUT /api/domains', () => {
     DomainMock.findOne.mockResolvedValue(domainInstance);
   });
 
-  it('persists scrapeEnabled toggles and keeps notification in sync', async () => {
+   it('persists scrapeEnabled toggles and keeps notification in sync', async () => {
     const disableReq = {
       method: 'PUT',
       query: { domain: domainState.domain },
@@ -195,16 +195,16 @@ describe('PUT /api/domains', () => {
     expect(dbMock.sync).toHaveBeenCalledTimes(1);
     expect(DomainMock.findOne).toHaveBeenCalledWith({ where: { domain: domainState.domain } });
     expect(domainInstance.set).toHaveBeenCalledWith(expect.objectContaining({
-      scrapeEnabled: false,
-      notification: false,
+      scrapeEnabled: 0,
+      notification: 0,
     }));
     expect(domainInstance.save).toHaveBeenCalledTimes(1);
     expect(disableRes.status).toHaveBeenCalledWith(200);
 
     const disablePayload = (disableRes.json as jest.Mock).mock.calls[0][0];
     expect(disablePayload.domain).toBe(domainInstance);
-    expect(domainState.scrapeEnabled).toBe(false);
-    expect(domainState.notification).toBe(false);
+    expect(domainState.scrapeEnabled).toBe(0);
+    expect(domainState.notification).toBe(0);
     expect(persistedSnapshots[0]).toEqual({ scrapeEnabled: 0, notification: 0 });
 
     const enableReq = {
@@ -219,16 +219,16 @@ describe('PUT /api/domains', () => {
 
     expect(DomainMock.findOne).toHaveBeenCalledTimes(2);
     expect(domainInstance.set).toHaveBeenLastCalledWith(expect.objectContaining({
-      scrapeEnabled: true,
-      notification: true,
+      scrapeEnabled: 1,
+      notification: 1,
     }));
     expect(domainInstance.save).toHaveBeenCalledTimes(2);
     expect(enableRes.status).toHaveBeenCalledWith(200);
 
     const enablePayload = (enableRes.json as jest.Mock).mock.calls[0][0];
     expect(enablePayload.domain).toBe(domainInstance);
-    expect(domainState.scrapeEnabled).toBe(true);
-    expect(domainState.notification).toBe(true);
+    expect(domainState.scrapeEnabled).toBe(1);
+    expect(domainState.notification).toBe(1);
     expect(persistedSnapshots[1]).toEqual({ scrapeEnabled: 1, notification: 1 });
   });
 
