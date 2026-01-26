@@ -72,7 +72,7 @@ describe('/api/refresh', () => {
     expect(Keyword.findAll).not.toHaveBeenCalled();
   });
 
-  it('returns serialized scraper errors from refreshAndUpdateKeywords', async () => {
+  it('starts refresh in background and returns 202 immediately', async () => {
     req.query = { id: '1', domain: 'example.com' };
 
     const keywordRecord = { ID: 1, domain: 'example.com' };
@@ -85,15 +85,18 @@ describe('/api/refresh', () => {
 
     await handler(req, res);
 
-    expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({ error: 'scraper failed' });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ 
+      message: 'Refresh started',
+      keywordCount: 1,
+    });
     expect(Keyword.update).toHaveBeenCalledWith(
       { updating: 1 },
       { where: { ID: { [Op.in]: [1] } } },
     );
   });
 
-  it('returns multi keyword refresh response with updating flag set to true', async () => {
+  it('starts bulk refresh in background and returns 202', async () => {
     req.query = { id: '1,2', domain: 'example.com' };
 
     const createKeywordRecord = (id: number, overrides: Record<string, any> = {}) => {
@@ -128,17 +131,17 @@ describe('/api/refresh', () => {
     const keywordRecord2 = createKeywordRecord(2, { domain: 'example.org', country: 'GB' });
 
     (Keyword.findAll as jest.Mock)
-      .mockResolvedValueOnce([keywordRecord1, keywordRecord2])
-      .mockResolvedValueOnce([
-        createKeywordRecord(1, { updating: 1 }),
-        createKeywordRecord(2, { domain: 'example.org', country: 'GB', updating: 1 }),
-      ]);
+      .mockResolvedValueOnce([keywordRecord1, keywordRecord2]);
 
     (Domain.findAll as jest.Mock).mockResolvedValue([
       { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
       { get: () => ({ domain: 'example.org', scrapeEnabled: 1 }) },
     ]);
-    (refreshAndUpdateKeywords as jest.Mock).mockResolvedValue([]);
+    const refreshedKeywords = [
+      { ...keywordRecord1.get(), updating: 0 },
+      { ...keywordRecord2.get(), updating: 0 },
+    ];
+    (refreshAndUpdateKeywords as jest.Mock).mockResolvedValue(refreshedKeywords);
 
     await handler(req, res);
 
@@ -146,18 +149,16 @@ describe('/api/refresh', () => {
       { updating: 1 },
       { where: { ID: { [Op.in]: [1, 2] } } },
     );
-    expect(Keyword.findAll).toHaveBeenCalledTimes(2);
+    expect(Keyword.findAll).toHaveBeenCalledTimes(1);
     expect(refreshAndUpdateKeywords).toHaveBeenCalledWith([
       keywordRecord1,
       keywordRecord2,
     ], { scraper_type: 'serpapi' });
     expect(res.status).toHaveBeenCalledWith(200);
-    const jsonResponse = (res.json as jest.Mock).mock.calls[0][0];
-    expect(jsonResponse.keywords).toHaveLength(2);
-    expect(jsonResponse.keywords).toEqual(expect.arrayContaining([
-      expect.objectContaining({ ID: 1, updating: 1 }),
-      expect.objectContaining({ ID: 2, updating: 1 }),
-    ]));
+    expect(res.json).toHaveBeenCalledWith({
+      message: 'Refresh started',
+      keywordCount: 2,
+    });
   });
 
   it('passes the requested device to keyword preview scrapes', async () => {

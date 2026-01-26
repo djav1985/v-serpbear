@@ -3,7 +3,7 @@ import { Op } from 'sequelize';
 import Cryptr from 'cryptr';
 import Domain from '../../database/models/domain';
 import Keyword from '../../database/models/keyword';
-import refreshAndUpdateKeywords, { updateKeywordPosition } from '../../utils/refresh';
+import refreshAndUpdateKeywords, { resetStaleKeywordUpdates, updateKeywordPosition } from '../../utils/refresh';
 import { removeFromRetryQueue, retryScrape, scrapeKeywordFromGoogle } from '../../utils/scraper';
 import type { RefreshResult } from '../../utils/scraper';
 
@@ -49,7 +49,7 @@ describe('refreshAndUpdateKeywords', () => {
     };
 
     (Domain.findAll as jest.Mock).mockResolvedValue([
-      { get: () => ({ domain: 'example.com', scrapeEnabled: true }) },
+      { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
     ]);
 
     (Keyword.update as jest.Mock).mockResolvedValue([1]);
@@ -85,7 +85,7 @@ describe('refreshAndUpdateKeywords', () => {
     } as unknown as Keyword;
 
     (Domain.findAll as jest.Mock).mockResolvedValue([
-      { get: () => ({ domain: 'example.com', scrapeEnabled: true }) },
+      { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
     ]);
 
     (Keyword.update as jest.Mock).mockResolvedValue([1]);
@@ -118,7 +118,7 @@ describe('refreshAndUpdateKeywords', () => {
     } as unknown as Keyword;
 
     (Domain.findAll as jest.Mock).mockResolvedValue([
-      { get: () => ({ domain: 'example.com', scrapeEnabled: true }) },
+      { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
     ]);
 
     (Keyword.update as jest.Mock).mockResolvedValue([1]);
@@ -142,7 +142,7 @@ describe('refreshAndUpdateKeywords', () => {
       {
         get: () => ({
           domain: 'override.com',
-          scrapeEnabled: true,
+          scrapeEnabled: 1,
           scraper_settings: JSON.stringify({
             scraper_type: 'scrapingant',
             scraping_api: cryptr.encrypt('domain-key'),
@@ -234,7 +234,7 @@ describe('refreshAndUpdateKeywords', () => {
     } as unknown as Keyword;
 
     (Domain.findAll as jest.Mock).mockResolvedValue([
-      { get: () => ({ domain: 'example.com', scrapeEnabled: true }) },
+      { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
     ]);
 
     (scrapeKeywordFromGoogle as jest.Mock).mockRejectedValueOnce(new Error('parallel boom'));
@@ -330,7 +330,7 @@ describe('refreshAndUpdateKeywords', () => {
     ];
 
     (Domain.findAll as jest.Mock).mockResolvedValue([
-      { get: () => ({ domain: 'enabled.com', scrapeEnabled: true }) },
+      { get: () => ({ domain: 'enabled.com', scrapeEnabled: 1 }) },
     ]);
 
     await refreshAndUpdateKeywords(mockKeywords, mockSettings);
@@ -740,14 +740,14 @@ describe('refreshAndUpdateKeywords', () => {
       {
         get: () => ({
           domain: 'parallel.com',
-          scrapeEnabled: true,
+          scrapeEnabled: 1,
           scraper_settings: null, // No override - will use global serpapi
         }),
       },
       {
         get: () => ({
           domain: 'sequential.com',
-          scrapeEnabled: true,
+          scrapeEnabled: 1,
           scraper_settings: JSON.stringify({
             scraper_type: 'custom-scraper',
             scraping_api: cryptr.encrypt('custom-key'),
@@ -852,7 +852,7 @@ describe('refreshAndUpdateKeywords', () => {
       {
         get: () => ({
           domain: 'domain1.com',
-          scrapeEnabled: true,
+          scrapeEnabled: 1,
           scraper_settings: JSON.stringify({
             scraper_type: 'scrapingant',
             scraping_api: cryptr.encrypt('key1'),
@@ -862,7 +862,7 @@ describe('refreshAndUpdateKeywords', () => {
       {
         get: () => ({
           domain: 'domain2.com',
-          scrapeEnabled: true,
+          scrapeEnabled: 1,
           scraper_settings: JSON.stringify({
             scraper_type: 'searchapi',
             scraping_api: cryptr.encrypt('key2'),
@@ -1088,7 +1088,7 @@ describe('refreshAndUpdateKeywords', () => {
     } as unknown as Keyword;
 
     (Domain.findAll as jest.Mock).mockResolvedValue([
-      { get: () => ({ domain: 'example.com', scrapeEnabled: true }) },
+      { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
     ]);
 
     // Mock scraper to return false (failure), which creates an error result in refreshParallel
@@ -1133,7 +1133,7 @@ describe('refreshAndUpdateKeywords', () => {
     ];
 
     (Domain.findAll as jest.Mock).mockResolvedValue([
-      { get: () => ({ domain: 'example.com', scrapeEnabled: true }) },
+      { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
     ]);
 
     // Simulate errors in the scraping process
@@ -1159,5 +1159,32 @@ describe('refreshAndUpdateKeywords', () => {
     // Verify that update was called to clear the updating flags
     expect(keywords[0].update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0 }));
     expect(keywords[1].update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0 }));
+  });
+});
+
+describe('resetStaleKeywordUpdates', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('resets stale updating keywords with a timeout error', async () => {
+    (Keyword.update as jest.Mock).mockResolvedValueOnce([1]);
+
+    const clearedCount = await resetStaleKeywordUpdates({ domain: 'example.com', thresholdMinutes: 15 });
+
+    expect(Keyword.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        updating: 0,
+        lastUpdateError: expect.stringContaining('Refresh timed out after 15 minutes'),
+      }),
+      expect.objectContaining({
+        where: expect.objectContaining({ 
+          updating: 1, 
+          domain: 'example.com',
+          updatedAt: expect.any(Object),
+        }),
+      }),
+    );
+    expect(clearedCount).toBe(1);
   });
 });

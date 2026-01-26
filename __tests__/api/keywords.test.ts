@@ -6,6 +6,7 @@ import Keyword from '../../database/models/keyword';
 import verifyUser from '../../utils/verifyUser';
 import { getAppSettings } from '../../pages/api/settings';
 import { getKeywordsVolume, updateKeywordsVolumeData } from '../../utils/adwords';
+import { resetStaleKeywordUpdates } from '../../utils/refresh';
 
 jest.mock('../../database/database', () => ({
   __esModule: true,
@@ -20,6 +21,7 @@ jest.mock('../../database/models/keyword', () => ({
     findOne: jest.fn(),
     bulkCreate: jest.fn(),
     destroy: jest.fn(),
+    count: jest.fn(),
   },
 }));
 
@@ -31,6 +33,7 @@ jest.mock('../../utils/verifyUser', () => ({
 jest.mock('../../utils/refresh', () => ({
   __esModule: true,
   default: jest.fn(),
+  resetStaleKeywordUpdates: jest.fn(),
 }));
 
 jest.mock('../../pages/api/settings', () => ({
@@ -61,11 +64,13 @@ const keywordMock = Keyword as unknown as {
   findOne: jest.Mock;
   bulkCreate: jest.Mock;
   destroy: jest.Mock;
+  count: jest.Mock;
 };
 const verifyUserMock = verifyUser as unknown as jest.Mock;
 const getAppSettingsMock = getAppSettings as unknown as jest.Mock;
 const getKeywordsVolumeMock = getKeywordsVolume as unknown as jest.Mock;
 const updateKeywordsVolumeDataMock = updateKeywordsVolumeData as unknown as jest.Mock;
+const resetStaleKeywordUpdatesMock = resetStaleKeywordUpdates as unknown as jest.Mock;
 
 describe('PUT /api/keywords error handling', () => {
   beforeEach(() => {
@@ -80,6 +85,7 @@ describe('PUT /api/keywords error handling', () => {
     });
     getKeywordsVolumeMock.mockResolvedValue({ volumes: false });
     updateKeywordsVolumeDataMock.mockResolvedValue(true);
+    resetStaleKeywordUpdatesMock.mockResolvedValue(0);
   });
 
   it('returns 500 when keyword update fails', async () => {
@@ -222,6 +228,46 @@ describe('PUT /api/keywords error handling', () => {
       }),
     ]);
     expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it('invokes stale update cleanup before returning keywords', async () => {
+    const keywordRecord = {
+      get: () => ({
+        ID: 5,
+        keyword: 'alpha',
+        history: '{}',
+        tags: '[]',
+        lastResult: '[]',
+        lastUpdateError: 'false',
+        device: 'desktop',
+        domain: 'example.com',
+        country: 'US',
+        updating: 0,
+        sticky: 0,
+        mapPackTop3: 0,
+        localResults: '[]',
+      }),
+    };
+
+    keywordMock.count.mockResolvedValueOnce(1); // Indicate there are keywords with updating=1
+    keywordMock.findAll.mockResolvedValueOnce([keywordRecord]);
+    getAppSettingsMock.mockResolvedValue({});
+
+    const req = {
+      method: 'GET',
+      query: { domain: 'example.com' },
+      headers: {},
+    } as unknown as NextApiRequest;
+
+    const res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+    } as unknown as NextApiResponse;
+
+    await handler(req, res);
+
+    expect(resetStaleKeywordUpdatesMock).toHaveBeenCalledWith({ domain: 'example.com' });
+    expect(res.status).toHaveBeenCalledWith(200);
   });
 });
 

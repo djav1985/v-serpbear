@@ -14,6 +14,46 @@ import { updateDomainStats } from './updateDomainStats';
 import { decryptDomainScraperSettings, parseDomainScraperSettings } from './domainScraperSettings';
 import { logger } from './logger';
 
+const STALE_UPDATE_THRESHOLD_MINUTES = 20;
+
+export const resetStaleKeywordUpdates = async ({
+   domain,
+   thresholdMinutes = STALE_UPDATE_THRESHOLD_MINUTES,
+}: {
+   domain?: string;
+   thresholdMinutes?: number;
+} = {}): Promise<number> => {
+   const staleBefore = new Date(Date.now() - thresholdMinutes * 60 * 1000).toJSON();
+   const whereClause: Record<string, any> = {
+      updating: 1,
+      // Consider a keyword stale based on how long it has been in the "updating" state.
+      // We use `updatedAt` here because setting `updating = 1` will bump this timestamp,
+      // whereas `lastUpdated` is only updated after a successful refresh completes.
+      updatedAt: { [Op.lt]: staleBefore },
+   };
+
+   if (domain) {
+      whereClause.domain = domain;
+   }
+
+   const timeoutError = JSON.stringify({
+      date: new Date().toJSON(),
+      error: `Refresh timed out after ${thresholdMinutes} minutes`,
+      scraper: 'timeout',
+   });
+
+   const [affectedCount] = await Keyword.update(
+      { updating: 0, lastUpdateError: timeoutError },
+      { where: whereClause },
+   );
+
+   if (affectedCount > 0) {
+      logger.warn('Cleared stale keyword updates', { count: affectedCount, domain, thresholdMinutes });
+   }
+
+   return affectedCount;
+};
+
 const describeScraperType = (scraperType?: SettingsType['scraper_type']): string => {
    if (!scraperType || scraperType.length === 0) {
       return 'none';
