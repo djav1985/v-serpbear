@@ -171,6 +171,26 @@ describe('Improved Error Handling in Services', () => {
       }
    });
 
+   it('invalidates keyword cache after bulk refresh completes', async () => {
+      mockFetch.mockResolvedValueOnce({
+         status: 200,
+         ok: true,
+         headers: {
+            get: jest.fn().mockReturnValue('application/json')
+         },
+         json: jest.fn().mockResolvedValue({ keywords: [] })
+      } as any);
+
+      const { useRefreshKeywords } = require('../../services/keywords');
+      const onSuccess = jest.fn();
+      const refreshMutation = useRefreshKeywords(onSuccess);
+
+      await refreshMutation.mutate({ ids: [1, 2], domain: '' });
+
+      expect(onSuccess).toHaveBeenCalled();
+      expect(mockInvalidateQueries).toHaveBeenCalledWith(['keywords']);
+   });
+
    it('surfaces not-found keyword idea responses as warnings', async () => {
       mockFetch.mockResolvedValueOnce({
          status: 404,

@@ -14,6 +14,54 @@ import { updateDomainStats } from './updateDomainStats';
 import { decryptDomainScraperSettings, parseDomainScraperSettings } from './domainScraperSettings';
 import { logger } from './logger';
 
+const STALE_UPDATE_THRESHOLD_MINUTES = 20;
+
+export const resetStaleKeywordUpdates = async ({
+   domain,
+   thresholdMinutes = STALE_UPDATE_THRESHOLD_MINUTES,
+}: {
+   domain?: string;
+   thresholdMinutes?: number;
+} = {}): Promise<number> => {
+   const staleBefore = new Date(Date.now() - thresholdMinutes * 60 * 1000).toJSON();
+   const whereClause: Record<string, any> = {
+      updating: 1,
+      [Op.or]: [
+         { lastUpdated: { [Op.lt]: staleBefore } },
+         { lastUpdated: { [Op.is]: null } },
+         { lastUpdated: '' },
+      ],
+   };
+
+   if (domain) {
+      whereClause.domain = domain;
+   }
+
+   const staleKeywords = await Keyword.findAll({
+      where: whereClause,
+      attributes: ['ID'],
+   });
+
+   if (staleKeywords.length === 0) {
+      return 0;
+   }
+
+   const staleIds = staleKeywords.map((keyword) => keyword.ID);
+   const timeoutError = JSON.stringify({
+      date: new Date().toJSON(),
+      error: `Refresh timed out after ${thresholdMinutes} minutes`,
+      scraper: 'timeout',
+   });
+
+   await Keyword.update(
+      { updating: 0, lastUpdateError: timeoutError },
+      { where: { ID: { [Op.in]: staleIds } } },
+   );
+
+   logger.warn('Cleared stale keyword updates', { count: staleIds.length, domain, thresholdMinutes });
+   return staleIds.length;
+};
+
 const describeScraperType = (scraperType?: SettingsType['scraper_type']): string => {
    if (!scraperType || scraperType.length === 0) {
       return 'none';

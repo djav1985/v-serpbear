@@ -8,7 +8,6 @@ import Domain from '../../database/models/domain';
 import refreshAndUpdateKeywords from '../../utils/refresh';
 import { getAppSettings } from './settings';
 import verifyUser from '../../utils/verifyUser';
-import parseKeywords from '../../utils/parseKeywords';
 import { scrapeKeywordFromGoogle } from '../../utils/scraper';
 import { serializeError } from '../../utils/errorSerialization';
 import { logger } from '../../utils/logger';
@@ -111,29 +110,15 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
       let keywords = [];
 
       try {
-         // For single keyword, wait for completion to return accurate data immediately
-         if (keywordIdsToRefresh.length === 1) {
-            const refreshed: KeywordType[] = await refreshAndUpdateKeywords(keywordsToRefresh, settings);
-            keywords = refreshed;
-         } else {
-            // For multiple keywords, start refresh in background for progressive updates
-            // This allows the dashboard to poll and see updates as they complete
-            refreshAndUpdateKeywords(keywordsToRefresh, settings).catch((refreshError) => {
-               const message = serializeError(refreshError);
-               logger.debug('[REFRESH] ERROR refreshAndUpdateKeywords (background): ', { data: message });
-            });
-            
-            // Fetch updated state to return accurate baseline data with updating flag set
-            // The refresh process will update DB as it progresses, and polling will pick it up
-            const refreshedKeywordRecords = await Keyword.findAll({
-               where: { ID: { [Op.in]: keywordIdsToRefresh } },
-            });
-            const plainKeywords = refreshedKeywordRecords.map((keyword) => keyword.get({ plain: true }));
-            keywords = parseKeywords(plainKeywords);
-         }
+         const refreshed: KeywordType[] = await refreshAndUpdateKeywords(keywordsToRefresh, settings);
+         await Keyword.update(
+            { updating: 0 },
+            { where: { ID: { [Op.in]: keywordIdsToRefresh } } },
+         );
+         keywords = refreshed;
       } catch (refreshError) {
          const message = serializeError(refreshError);
-         logger.debug('[REFRESH] ERROR refreshAndUpdateKeywords (single keyword): ', { data: message });
+         logger.debug('[REFRESH] ERROR refreshAndUpdateKeywords: ', { data: message });
          return res.status(500).json({ error: message });
       }
 
