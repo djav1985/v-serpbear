@@ -1,7 +1,6 @@
 import toast from 'react-hot-toast';
 import { NextRouter } from 'next/router';
 import { useMutation, useQuery, useQueryClient } from 'react-query';
-import { normaliseBooleanFlag } from '../utils/client/helpers';
 import { getClientOrigin } from '../utils/client/origin';
 
 type KeywordsResponse = {
@@ -9,11 +8,13 @@ type KeywordsResponse = {
    [key: string]: any,
 };
 
+const normaliseKeywordFlag = (value: unknown): number => (Number(value) > 0 ? 1 : 0);
+
 const normaliseKeywordFlags = (keyword: any): KeywordType => ({
    ...keyword,
-   updating: normaliseBooleanFlag(keyword?.updating),
-   sticky: normaliseBooleanFlag(keyword?.sticky),
-   mapPackTop3: normaliseBooleanFlag(keyword?.mapPackTop3),
+   updating: normaliseKeywordFlag(keyword?.updating),
+   sticky: normaliseKeywordFlag(keyword?.sticky),
+   mapPackTop3: normaliseKeywordFlag(keyword?.mapPackTop3),
 });
 
 export const fetchKeywords = async (router: NextRouter, domain: string) => {
@@ -67,8 +68,8 @@ export function useFetchKeywords(
             // If Keywords are Manually Refreshed check if the any of the keywords position are still being fetched
             // If yes, then refecth the keywords every 5 seconds until all the keywords position is updated by the server
             if (data.keywords && data.keywords.length > 0 && setKeywordSPollInterval) {
-               const hasRefreshingKeyword = data.keywords.some((x:KeywordType) => x.updating);
-               const updatingCount = data.keywords.filter((x:KeywordType) => x.updating).length;
+               const hasRefreshingKeyword = data.keywords.some((x:KeywordType) => x.updating === 1);
+               const updatingCount = data.keywords.filter((x:KeywordType) => x.updating === 1).length;
                
                if (hasRefreshingKeyword) {
                   console.log(`[POLL] ${updatingCount} keyword(s) still updating, continuing poll every 5s`);
@@ -198,7 +199,7 @@ export function useFavKeywords(onSuccess:Function) {
    }, {
       onSuccess: async (data) => {
          onSuccess();
-         const isSticky = data.keywords[0] && data.keywords[0].sticky;
+         const isSticky = data.keywords[0]?.sticky === 1;
          toast(isSticky ? 'Keywords Made Favorite!' : 'Keywords Unfavorited!', { icon: '✔️' });
          queryClient.invalidateQueries(['keywords']);
       },
@@ -323,7 +324,7 @@ export function useFetchSingleKeyword(keywordID:number) {
             history: result.keyword?.history || [], 
             searchResult: result.keyword?.lastResult || [], 
             localResults: result.keyword?.localResults || [],
-            mapPackTop3: result.keyword?.mapPackTop3 
+            mapPackTop3: normaliseKeywordFlag(result.keyword?.mapPackTop3),
          };
       } catch (error) {
          if (error instanceof Error && error.message !== 'Error Loading Keyword Details') {

@@ -51,10 +51,10 @@ export const dummyKeywords = [
             title: 'Alternative Result',
          },
        ],
-       sticky: false,
-       updating: false,
+       sticky: 0,
+       updating: 0,
        lastUpdateError: false as false,
-       mapPackTop3: true,
+       mapPackTop3: 1,
    },
    {
        ID: 2,
@@ -83,10 +83,10 @@ export const dummyKeywords = [
             title: 'Compress Image Tool',
          },
        ],
-       sticky: false,
-       updating: false,
+       sticky: 0,
+       updating: 0,
        lastUpdateError: false as false,
-       mapPackTop3: false,
+       mapPackTop3: 0,
    },
 ];
 

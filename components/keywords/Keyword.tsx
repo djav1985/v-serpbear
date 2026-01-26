@@ -53,13 +53,13 @@ const Keyword = (props: KeywordProps) => {
         url = '',
         lastUpdated,
         country,
-        sticky,
+        sticky = 0,
         history = {},
-        updating = false,
+        updating = 0,
         lastUpdateError = false,
         volume,
         location,
-        mapPackTop3 = false,
+        mapPackTop3 = 0,
      } = keywordData;
 
    const [showOptions, setShowOptions] = useState(false);
@@ -134,7 +134,7 @@ const Keyword = (props: KeywordProps) => {
             >
                <span className="fflag-stack mr-2 flex-shrink-0">
                   <span className={`fflag fflag-${country} w-[18px] h-[12px]`} title={countries[country][0]} />
-                  {mapPackTop3 && (
+                  {mapPackTop3 === 1 && (
                      <span className="fflag fflag-map-pack w-[18px] h-[12px]" role="img" aria-label="Map pack top three" />
                   )}
                </span>
@@ -149,7 +149,7 @@ const Keyword = (props: KeywordProps) => {
                   )}
                </span>
             </a>
-            {sticky && <button className='ml-2 relative top-[2px]' title='Favorite'><Icon type="star-filled" size={16} color="#fbd346" /></button>}
+            {sticky === 1 && <button className='ml-2 relative top-[2px]' title='Favorite'><Icon type="star-filled" size={16} color="#fbd346" /></button>}
             {lastUpdateError && lastUpdateError.date
                && <button className='ml-2 relative top-[2px]' onClick={() => setPositionError(true)}>
                   <Icon type="error" size={18} color="#FF3672" />
@@ -160,7 +160,7 @@ const Keyword = (props: KeywordProps) => {
          <div
          className={`keyword_position absolute bg-[#f8f9ff] w-fit min-w-[50px] h-12 p-2 text-base mt-[-20px] rounded right-5 lg:relative
           lg:bg-transparent lg:w-auto lg:h-auto lg:mt-0 lg:p-0 lg:text-sm lg:flex-1 lg:basis-24 lg:grow-0 lg:right-0 text-center font-semibold`}>
-            <KeywordPosition position={position} updating={updating === 1} />
+            <KeywordPosition position={position} updating={updating} />
             {updating !== 1 && positionChange > 0 && <i className=' not-italic ml-1 text-xs text-[#5ed7c3]'>▲ {positionChange}</i>}
             {updating !== 1 && positionChange < 0 && <i className=' not-italic ml-1 text-xs text-red-300'>▼ {positionChange}</i>}
          </div>
@@ -240,10 +240,10 @@ const Keyword = (props: KeywordProps) => {
                   </li>
                   <li>
                      <a className={optionsButtonStyle}
-                     onClick={() => { favoriteKeyword({ keywordID: ID, sticky: !sticky }); setShowOptions(false); }}>
+                     onClick={() => { favoriteKeyword({ keywordID: ID, sticky: sticky === 1 ? 0 : 1 }); setShowOptions(false); }}>
                         <span className=' bg-yellow-300/30 text-yellow-500 px-1 rounded'>
                            <Icon type="star" size={14} />
-                        </span> { sticky ? 'Unfavorite Keyword' : 'Favorite Keyword'}
+                        </span> { sticky === 1 ? 'Unfavorite Keyword' : 'Favorite Keyword'}
                      </a>
                   </li>
                   <li><a className={optionsButtonStyle} onClick={() => { manageTags(); setShowOptions(false); }}>
