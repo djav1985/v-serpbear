@@ -1,4 +1,4 @@
-import { SCsortKeywords } from '../../../utils/client/SCsortFilter';
+import { SCfilterKeywords, SCkeywordsByDevice, SCsortKeywords } from '../../../utils/client/sortFilter';
 
 describe('SCsortKeywords', () => {
    const createKeyword = (overrides: Partial<SCKeywordType>): SCKeywordType => ({
@@ -57,5 +57,64 @@ describe('SCsortKeywords', () => {
       ];
       expect(SCsortKeywords(keywords, 'alpha_asc').map((k) => k.uid)).toEqual(['b', 'a']);
       expect(SCsortKeywords(keywords, 'alpha_desc').map((k) => k.uid)).toEqual(['a', 'b']);
+   });
+});
+
+describe('SCfilterKeywords', () => {
+   const createKeyword = (overrides: Partial<SCKeywordType>): SCKeywordType => ({
+      uid: `${Math.random()}`,
+      keyword: 'Term',
+      country: 'US',
+      device: 'desktop',
+      position: 10,
+      impressions: 10,
+      clicks: 1,
+      ctr: 0.1,
+      ...overrides,
+   });
+
+   it('filters by country and case-sensitive search text', () => {
+      const keywords = [
+         createKeyword({ uid: 'a', keyword: 'Alpha', country: 'US' }),
+         createKeyword({ uid: 'b', keyword: 'alpha', country: 'GB' }),
+         createKeyword({ uid: 'c', keyword: 'Beta', country: 'US' }),
+      ];
+
+      const filtered = SCfilterKeywords(keywords, {
+         countries: ['US'],
+         tags: [],
+         search: 'Alpha',
+      });
+
+      expect(filtered.map((k) => k.uid)).toEqual(['a']);
+   });
+});
+
+describe('SCkeywordsByDevice', () => {
+   it('returns only keywords for the selected device', () => {
+      const keywords: SCKeywordType[] = [
+         {
+            uid: 'a',
+            keyword: 'Alpha',
+            country: 'US',
+            device: 'desktop',
+            position: 1,
+            impressions: 10,
+            clicks: 1,
+            ctr: 0.1,
+         },
+         {
+            uid: 'b',
+            keyword: 'Beta',
+            country: 'US',
+            device: 'mobile',
+            position: 2,
+            impressions: 20,
+            clicks: 2,
+            ctr: 0.2,
+         },
+      ];
+
+      expect(SCkeywordsByDevice(keywords, 'desktop')).toEqual({ desktop: [keywords[0]], mobile: [] });
    });
 });

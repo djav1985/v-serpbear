@@ -37,7 +37,7 @@ jest.mock('../../hooks/useIsMobile', () => () => [false]);
 jest.mock('../../hooks/useWindowResize', () => () => {});
 
 // Mock filter and sort functions
-jest.mock('../../utils/client/SCsortFilter', () => ({
+jest.mock('../../utils/client/sortFilter', () => ({
    SCfilterKeywords: (keywords: any[]) => keywords,
    SCsortKeywords: (keywords: any[]) => keywords,
    SCkeywordsByDevice: (keywords: any[], device: string) => ({ [device]: keywords }),
