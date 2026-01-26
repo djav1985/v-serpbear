@@ -478,7 +478,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          history: JSON.stringify(history),
          lastUpdated: lastUpdatedValue,
          lastUpdateError: lastUpdateErrorValue,
-         mapPackTop3: updatedKeyword.mapPackTop3 === 1 ? 1 : 0,
+         mapPackTop3: (updatedKeyword.mapPackTop3 as any) === 1 ? 1 : 0,
       };
 
       if (updatedKeyword.error && settings?.scrape_retry) {
