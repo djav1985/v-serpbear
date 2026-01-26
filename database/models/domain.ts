@@ -27,11 +27,11 @@ class Domain extends Model {
    @Column({ type: DataType.STRING, allowNull: true, defaultValue: JSON.stringify([]) })
    tags!: string;
 
-   @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: true })
-   scrapeEnabled!: boolean;
+   @Column({ type: DataType.INTEGER, allowNull: false, defaultValue: 1 })
+   scrapeEnabled!: number;
 
-   @Column({ type: DataType.BOOLEAN, allowNull: true, defaultValue: true })
-   notification!: boolean;
+   @Column({ type: DataType.INTEGER, allowNull: true, defaultValue: 1 })
+   notification!: number;
 
    @Column({ type: DataType.STRING, allowNull: true, defaultValue: 'daily' })
    notification_interval!: string;

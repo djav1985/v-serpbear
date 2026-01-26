@@ -21,34 +21,9 @@ export const normaliseHistory = (rawHistory: unknown): KeywordHistory => {
  * @param {Keyword[]} allKeywords - Keywords to scrape
  * @returns {KeywordType[]}
  */
-const normaliseBoolean = (value: unknown): boolean => {
-   if (typeof value === 'boolean') {
-      return value;
-   }
-
-   if (typeof value === 'number') {
-      return value !== 0;
-   }
-
-   if (typeof value === 'string') {
-      const trimmed = value.trim().toLowerCase();
-      if (['', '0', 'false', 'no', 'off'].includes(trimmed)) {
-         return false;
-      }
-      if (['1', 'true', 'yes', 'on'].includes(trimmed)) {
-         return true;
-      }
-
-      return false;
-   }
-
-   return Boolean(value);
-};
-
 const parseKeywords = (allKeywords: Keyword[]) : KeywordType[] => {
    const parsedItems = allKeywords.map((keywrd:Keyword) => {
       const keywordData = keywrd as unknown as Record<string, any>;
-      const { mapPackTop3, ...keywordWithoutMapPack } = keywordData;
 
       let historyRaw: unknown;
       try { historyRaw = JSON.parse(keywordData.history); } catch { historyRaw = {}; }
@@ -68,22 +43,17 @@ const parseKeywords = (allKeywords: Keyword[]) : KeywordType[] => {
          try { lastUpdateError = JSON.parse(keywordData.lastUpdateError); } catch { lastUpdateError = {}; }
       }
 
-      const normalisedMapPackTop3 = normaliseBoolean(mapPackTop3);
-
-      const updating = normaliseBoolean(keywordData.updating);
-      const sticky = normaliseBoolean(keywordData.sticky);
+      // Boolean fields are already properly converted by SQLite dialect
+      // No need to call normaliseBoolean
 
       return {
-         ...keywordWithoutMapPack,
+         ...keywordData,
          location: typeof keywordData.location === 'string' ? keywordData.location : '',
          history,
          tags,
          lastResult,
          localResults,
          lastUpdateError,
-         sticky,
-         updating,
-         mapPackTop3: normalisedMapPackTop3,
       } as KeywordType;
    });
    return parsedItems;

@@ -24,7 +24,7 @@ type DomainSettingsError = {
 const deriveDomainActiveState = (domainData?: DomainType | null) => {
    if (!domainData) { return true; }
    const { scrapeEnabled, notification } = domainData;
-   return (scrapeEnabled !== false) && (notification !== false);
+   return scrapeEnabled === 1 && notification === 1;
 };
 
 const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
@@ -102,7 +102,7 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
       }));
    };
 
-   const isDomainActive = domainSettings.scrapeEnabled !== false;
+   const isDomainActive = domainSettings.scrapeEnabled === 1;
 
    const handleScraperSelect = (updated: string[]) => {
       const nextValue = updated[0] || '__system__';

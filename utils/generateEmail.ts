@@ -90,7 +90,7 @@ type KeywordSummary = {
 };
 
 const calculateKeywordSummary = (items: KeywordType[]): KeywordSummary => items.reduce((stats, keyword) => {
-   if (keyword.mapPackTop3 === true) {
+   if (keyword.mapPackTop3 === 1) {
       stats.mapPackKeywords += 1;
    }
    if (typeof keyword.position === 'number' && Number.isFinite(keyword.position) && keyword.position > 0) {

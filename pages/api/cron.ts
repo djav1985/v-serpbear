@@ -41,7 +41,7 @@ const cronRefreshkeywords = async (req: NextApiRequest, res: NextApiResponse<CRO
       const domainToggles = await Domain.findAll({ attributes: ['domain', 'scrapeEnabled'] });
       const enabledDomains = domainToggles
          .map((dom) => dom.get({ plain: true }))
-         .filter((dom) => dom.scrapeEnabled !== false)
+         .filter((dom) => dom.scrapeEnabled === 1)
          .map((dom) => dom.domain);
 
       if (enabledDomains.length === 0) {
@@ -50,7 +50,7 @@ const cronRefreshkeywords = async (req: NextApiRequest, res: NextApiResponse<CRO
       }
 
       await Keyword.update(
-         { updating: true },
+         { updating: 1 },
          { where: { domain: { [Op.in]: enabledDomains } } },
       );
       const keywordQueries: Keyword[] = await Keyword.findAll({ where: { domain: enabledDomains } });

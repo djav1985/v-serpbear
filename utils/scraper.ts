@@ -182,7 +182,7 @@ export const scrapeKeywordFromGoogle = async (keyword:KeywordType, settings:Sett
       position: keyword.position,
       url: keyword.url,
       result: keyword.lastResult,
-      mapPackTop3: keyword.mapPackTop3 === true,
+      mapPackTop3: keyword.mapPackTop3 === 1,
       error: true,
    };
    

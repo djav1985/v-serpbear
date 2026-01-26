@@ -81,16 +81,16 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
       const domainRecords = await Domain.findAll({ where: { domain: domainNames }, attributes: ['domain', 'scrapeEnabled'] });
       const scrapeEnabledMap = new Map(domainRecords.map((record) => {
          const plain = record.get({ plain: true }) as DomainType;
-         return [plain.domain, plain.scrapeEnabled !== false];
+         return [plain.domain, plain.scrapeEnabled];
       }));
 
-      const keywordsToRefresh = keywordQueries.filter((keyword) => scrapeEnabledMap.get(keyword.domain) !== false);
-      const skippedKeywords = keywordQueries.filter((keyword) => scrapeEnabledMap.get(keyword.domain) === false);
+      const keywordsToRefresh = keywordQueries.filter((keyword) => scrapeEnabledMap.get(keyword.domain) === 1);
+      const skippedKeywords = keywordQueries.filter((keyword) => scrapeEnabledMap.get(keyword.domain) === 0);
 
       if (skippedKeywords.length > 0) {
          const skippedIds = skippedKeywords.map((keyword) => keyword.ID);
          await Keyword.update(
-            { updating: false },
+            { updating: 0 },
             { where: { ID: { [Op.in]: skippedIds } } },
          );
       }
@@ -101,7 +101,7 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
 
       const keywordIdsToRefresh = keywordsToRefresh.map((keyword) => keyword.ID);
       await Keyword.update(
-         { updating: true },
+         { updating: 1 },
          { where: { ID: { [Op.in]: keywordIdsToRefresh } } },
       );
 
@@ -165,14 +165,14 @@ const getKeywordSearchResults = async (req: NextApiRequest, res: NextApiResponse
          volume: 0,
          added: '',
          position: 111,
-         sticky: false,
+         sticky: 0,
          history: {},
          lastResult: [],
          url: '',
          tags: [],
-         updating: false,
+         updating: 0,
          lastUpdateError: false,
-         mapPackTop3: false,
+         mapPackTop3: 0,
       };
       const scrapeResult = await scrapeKeywordFromGoogle(dummyKeyword, settings);
       if (scrapeResult && !scrapeResult.error) {
