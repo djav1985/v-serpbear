@@ -4,7 +4,7 @@ import { useRouter } from 'next/router';
 import React, { useState, useMemo, useEffect } from 'react';
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
 import { useAddKeywords, useFetchKeywords } from '../../services/keywords';
-import { SCfilterKeywords, SCkeywordsByDevice, SCsortKeywords } from '../../utils/client/SCsortFilter';
+import { SCfilterKeywords, SCkeywordsByDevice, SCsortKeywords } from '../../utils/client/sortFilter';
 import Icon from '../common/Icon';
 import SpinnerMessage from '../common/SpinnerMessage';
 import KeywordFilters from './KeywordFilter';
