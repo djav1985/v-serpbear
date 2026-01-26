@@ -32,7 +32,7 @@ jest.mock('../../pages/api/settings', () => ({
 
 jest.mock('../../utils/refresh', () => ({
   __esModule: true,
-  default: jest.fn(),
+  default: jest.fn().mockResolvedValue([]),
 }));
 
 jest.mock('../../utils/apiLogging', () => ({

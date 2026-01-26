@@ -57,7 +57,20 @@ const cronRefreshkeywords = async (req: NextApiRequest, res: NextApiResponse<CRO
 
       logger.info(`Cron refresh started for ${enabledDomains.length} domains with ${keywordQueries.length} keywords`);
       
-      refreshAndUpdateKeywords(keywordQueries, settings);
+      // Start background refresh without awaiting
+      // Success: refreshAndUpdateKeywords clears 'updating' flags internally after completion
+      // Error: catch handler below ensures flags are cleared to prevent keywords getting stuck
+      const keywordIds = keywordQueries.map((k) => k.ID);
+      refreshAndUpdateKeywords(keywordQueries, settings).catch((refreshError) => {
+         logger.error('[CRON] ERROR refreshAndUpdateKeywords: ', refreshError instanceof Error ? refreshError : new Error(String(refreshError)));
+         // Ensure flags are cleared on error
+         Keyword.update(
+            { updating: 0 },
+            { where: { ID: { [Op.in]: keywordIds } } },
+         ).catch((updateError) => {
+            logger.error('[CRON] Failed to clear updating flags after error: ', updateError instanceof Error ? updateError : new Error(String(updateError)));
+         });
+      });
 
       return res.status(200).json({ started: true });
    } catch (error) {

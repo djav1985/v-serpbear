@@ -13,11 +13,34 @@ import { serializeError } from '../../utils/errorSerialization';
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
 
-type KeywordsRefreshRes = {
-   keywords?: KeywordType[]
-   error?: string|null,
-}
+type BackgroundKeywordsRefreshRes = {
+   // 202 Accepted: background execution started, no keywords returned yet
+   message: string;
+   keywordCount: number;
+   keywords?: never;
+   error?: string | null;
+};
 
+type ImmediateKeywordsRefreshRes = {
+   // 200 OK: refresh completed immediately and returns keywords (possibly empty)
+   keywords: KeywordType[];
+   message?: string;
+   keywordCount?: number;
+   error?: string | null;
+};
+
+type KeywordsRefreshErrorRes = {
+   // Error responses (e.g., 400) that only carry an error message
+   error: string | null;
+   keywords?: never;
+   message?: never;
+   keywordCount?: never;
+};
+
+type KeywordsRefreshRes =
+   | BackgroundKeywordsRefreshRes
+   | ImmediateKeywordsRefreshRes
+   | KeywordsRefreshErrorRes;
 type KeywordSearchResultRes = {
    searchResult?: {
       results: { title: string, url: string, position: number }[],
@@ -107,22 +130,26 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
       logger.info(`Processing ${keywordsToRefresh.length} keywords for ${req.query.id === 'all' ? `domain: ${domain}` :
          `IDs: ${keywordIdsToRefresh.join(',')}`}`);
 
-      let keywords = [];
-
-      try {
-         const refreshed: KeywordType[] = await refreshAndUpdateKeywords(keywordsToRefresh, settings);
-         await Keyword.update(
+      // Start background refresh without awaiting
+      // Success: refreshAndUpdateKeywords clears 'updating' flags internally after completion
+      // Error: catch handler below ensures flags are cleared to prevent UI spinner getting stuck
+      refreshAndUpdateKeywords(keywordsToRefresh, settings).catch((refreshError) => {
+         const message = serializeError(refreshError);
+         logger.error('[REFRESH] ERROR refreshAndUpdateKeywords: ', refreshError instanceof Error ? refreshError : new Error(message), { keywordIds: keywordIdsToRefresh });
+         // Ensure flags are cleared on error
+         Keyword.update(
             { updating: 0 },
             { where: { ID: { [Op.in]: keywordIdsToRefresh } } },
-         );
-         keywords = refreshed;
-      } catch (refreshError) {
-         const message = serializeError(refreshError);
-         logger.debug('[REFRESH] ERROR refreshAndUpdateKeywords: ', { data: message });
-         return res.status(500).json({ error: message });
-      }
+         ).catch((updateError) => {
+            logger.error('[REFRESH] Failed to clear updating flags after error: ', updateError instanceof Error ? updateError : new Error(String(updateError)));
+         });
+      });
 
-      return res.status(200).json({ keywords });
+      // Return immediately with 200 OK status to match /api/cron pattern
+      return res.status(200).json({ 
+         message: 'Refresh started',
+         keywordCount: keywordsToRefresh.length,
+      });
    } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       logger.debug('[REFRESH] ERROR refreshTheKeywords: ', { data: errorMessage });
