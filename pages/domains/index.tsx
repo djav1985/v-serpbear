@@ -75,9 +75,9 @@ const Domains: NextPage = () => {
             // Use allSettled to handle individual screenshot failures gracefully
             const screenshots = await Promise.allSettled(screenshotPromises);
             const validScreenshots = screenshots
-               .filter((result): result is PromiseFulfilledResult<{ domain: string; thumb: string } | null> =>
+               .filter((result): result is PromiseFulfilledResult<{ domain: string; thumb: string }> =>
                   result.status === 'fulfilled' && result.value !== null)
-               .map((result) => result.value);
+               .map((result) => result.value as { domain: string; thumb: string });
 
             if (validScreenshots.length > 0) {
                setDomainThumbs((currentThumbs) => {

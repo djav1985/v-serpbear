@@ -111,12 +111,12 @@ export function useMutateKeywordIdeas(router:NextRouter, onSuccess?: Function) {
       if (!isOk) {
          const errorMessage = typeof responsePayload === 'string'
             ? responsePayload
-            : responsePayload?.error || responsePayload?.message || `Server error (${res.status}): Please try again later`;
+            : (responsePayload as any)?.error || (responsePayload as any)?.message || `Server error (${res.status}): Please try again later`;
          throw new Error(errorMessage);
       }
 
-      if (responsePayload?.error) {
-         throw new Error(responsePayload.error);
+      if ((responsePayload as any)?.error) {
+         throw new Error((responsePayload as any).error);
       }
 
       return responsePayload;
