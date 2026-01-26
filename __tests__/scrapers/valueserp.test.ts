@@ -402,7 +402,7 @@ describe('valueSerp scraper', () => {
 
       const settingsWithFallback = {
         scraping_api: 'token-123',
-        fallback_mapPackTop3: true, // Desktop keyword had mapPackTop3 = true
+        fallback_mapPackTop3: 1, // Desktop keyword had mapPackTop3 = 1
       };
 
       const extraction = valueSerp.serpExtractor!({
@@ -448,7 +448,7 @@ describe('valueSerp scraper', () => {
 
       const settingsWithFallback = {
         scraping_api: 'token-123',
-        fallback_mapPackTop3: true, // Desktop had mapPackTop3 = true
+        fallback_mapPackTop3: 1, // Desktop had mapPackTop3 = 1
       };
 
       const extraction = valueSerp.serpExtractor!({
@@ -492,7 +492,7 @@ describe('valueSerp scraper', () => {
 
       const settingsWithFallback = {
         scraping_api: 'token-123',
-        fallback_mapPackTop3: true, // Should be ignored for desktop
+        fallback_mapPackTop3: 1, // Should be ignored for desktop
       };
 
       const extraction = valueSerp.serpExtractor!({
@@ -545,7 +545,7 @@ describe('valueSerp scraper', () => {
         settings: settingsWithNumericFallback as any,
       });
 
-      expect(extraction.mapPackTop3).toBe(true); // 1 converted to true
+      expect(extraction.mapPackTop3).toBe(true); // 1 coerced to true
     });
 
     it('handles numeric fallback value 0 as false for mobile with no local results', () => {
@@ -588,7 +588,7 @@ describe('valueSerp scraper', () => {
         settings: settingsWithNumericFallback as any,
       });
 
-      expect(extraction.mapPackTop3).toBe(false); // 0 converted to false
+      expect(extraction.mapPackTop3).toBe(false); // 0 coerced to false
     });
   });
 });
