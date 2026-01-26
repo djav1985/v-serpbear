@@ -1,5 +1,5 @@
 import { useRouter } from 'next/router';
-import React, { useMemo, useState, useRef, forwardRef } from 'react';
+import React, { useMemo, useState, useRef, forwardRef, useEffect } from 'react';
 import Icon from '../common/Icon';
 import Modal from '../common/Modal';
 import { useDeleteDomain, useFetchDomain, useUpdateDomain } from '../../services/domains';
@@ -30,10 +30,19 @@ const deriveDomainActiveState = (domainData?: DomainType | null) => {
 const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
    ({ domain, closeModal, availableScrapers = [], systemScraperType = '' }, ref) => {
       const settingsRef = useRef<HTMLDivElement>(null);
+      const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
    const router = useRouter();
    const [currentTab, setCurrentTab] = useState<'notification'|'searchconsole'|'scraper'>('notification');
    const [showRemoveDomain, setShowRemoveDomain] = useState<boolean>(false);
    const [settingsError, setSettingsError] = useState<DomainSettingsError>({ type: '', msg: '' });
+   
+   // Cleanup timeout on unmount
+   useEffect(() => () => {
+         if (errorTimeoutRef.current) {
+            clearTimeout(errorTimeoutRef.current);
+         }
+      }, []);
+   
    const initialActiveState = deriveDomainActiveState(domain);
    const initialScraperType = domain?.scraper_settings?.scraper_type ?? null;
    const initialScraperHasKey = domain?.scraper_settings?.has_api_key ?? false;
@@ -190,12 +199,16 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
          }
       }
       if (error && error.type) {
+         if (errorTimeoutRef.current) {
+            clearTimeout(errorTimeoutRef.current);
+         }
          setSettingsError(error);
          if (error.type === 'scraper') {
             setCurrentTab('scraper');
          }
-         setTimeout(() => {
+         errorTimeoutRef.current = setTimeout(() => {
             setSettingsError({ type: '', msg: '' });
+            errorTimeoutRef.current = null;
          }, 3000);
       } else if (domain) {
          const payload = buildDomainSettingsPayload();
