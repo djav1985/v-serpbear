@@ -33,7 +33,7 @@ describe('parseKeywords', () => {
       expect(Object.prototype.hasOwnProperty.call(keyword, 'mapPackTop3')).toBe(true);
    });
 
-   it('normalises truthy boolean variants to true', () => {
+   it('returns 1 for truthy integer values', () => {
       const [keyword] = parseKeywords([
          buildKeyword({ updating: 1, sticky: 1, mapPackTop3: 1 }) as any,
       ]);
