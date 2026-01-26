@@ -43,6 +43,11 @@ describe('Keyword Component', () => {
       // Look for the URL link by its href attribute
       expect(screen.getByRole('link', { name: '/' })).toBeInTheDocument();
    });
+   it('renders a full-width history chart container', async () => {
+      render(<Keyword {...keywordProps} />);
+      const historyChart = screen.getByTestId('keyword-history-chart');
+      expect(historyChart).toHaveClass('lg:w-full', 'lg:h-[30px]', 'lg:min-w-[80px]');
+   });
    it('shows the map pack flag when the keyword is in the map pack', async () => {
       render(<Keyword {...keywordProps} />);
       expect(screen.getByLabelText('Map pack top three')).toBeInTheDocument();

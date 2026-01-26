@@ -178,7 +178,8 @@ const Keyword = (props: KeywordProps) => {
 
          {chartData.labels.length > 0 && (
             <div
-               className={`hidden basis-20 grow-0 cursor-pointer lg:block ${!tableColumns.includes('History') ? 'lg:hidden' : ''}`}
+               data-testid="keyword-history-chart"
+               className={`hidden cursor-pointer lg:block lg:basis-20 lg:grow-0 lg:min-w-[80px] lg:w-full lg:h-[30px] ${!tableColumns.includes('History') ? 'lg:hidden' : ''}`}
                onClick={() => showKeywordDetails()}>
                <ChartSlim labels={chartData.labels} series={chartData.series} />
             </div>

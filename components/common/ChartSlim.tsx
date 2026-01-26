@@ -40,9 +40,10 @@ const ChartSlim = ({ labels, series, noMaxLimit = false, reverse = true }: Chart
    };
 
    return (
-      <div className="w-[80px] h-[30px] rounded border border-gray-200">
+      <div className="w-full h-full rounded border border-gray-200">
          <Line
             datasetIdKey="XXX"
+            className="w-full h-full"
             options={options}
             data={{
                labels,
