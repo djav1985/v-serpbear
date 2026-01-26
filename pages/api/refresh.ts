@@ -13,13 +13,34 @@ import { serializeError } from '../../utils/errorSerialization';
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
 
-type KeywordsRefreshRes = {
-   keywords?: KeywordType[]
-   message?: string
-   keywordCount?: number
-   error?: string|null,
-}
+type BackgroundKeywordsRefreshRes = {
+   // 202 Accepted: background execution started, no keywords returned yet
+   message: string;
+   keywordCount: number;
+   keywords?: never;
+   error?: string | null;
+};
 
+type ImmediateKeywordsRefreshRes = {
+   // 200 OK: refresh completed immediately and returns keywords (possibly empty)
+   keywords: KeywordType[];
+   message?: string;
+   keywordCount?: number;
+   error?: string | null;
+};
+
+type KeywordsRefreshErrorRes = {
+   // Error responses (e.g., 400) that only carry an error message
+   error: string | null;
+   keywords?: never;
+   message?: never;
+   keywordCount?: never;
+};
+
+type KeywordsRefreshRes =
+   | BackgroundKeywordsRefreshRes
+   | ImmediateKeywordsRefreshRes
+   | KeywordsRefreshErrorRes;
 type KeywordSearchResultRes = {
    searchResult?: {
       results: { title: string, url: string, position: number }[],
