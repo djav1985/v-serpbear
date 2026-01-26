@@ -1001,4 +1001,159 @@ describe('refreshAndUpdateKeywords', () => {
     await updateKeywordPosition(keywordModel, updatedKeyword, settings);
     expect((keywordModel.update as jest.Mock).mock.calls[0][0].position).toBe(0); // final fallback
   });
+
+  it('ensures updating flag is cleared when parallel refresh returns empty results', async () => {
+    const keywordPlain = {
+      ID: 88,
+      keyword: 'empty result test',
+      domain: 'example.com',
+      device: 'desktop',
+      country: 'US',
+      location: '',
+      position: 4,
+      volume: 0,
+      updating: true,
+      sticky: false,
+      history: '{}',
+      lastResult: '[]',
+      lastUpdateError: 'false',
+      lastUpdated: '2024-01-01T00:00:00.000Z',
+      added: '2024-01-01T00:00:00.000Z',
+      url: '',
+      tags: '[]',
+      mapPackTop3: 0,
+    };
+
+    const keywordModel = {
+      ID: keywordPlain.ID,
+      keyword: keywordPlain.keyword,
+      domain: keywordPlain.domain,
+      get: jest.fn().mockReturnValue(keywordPlain),
+      update: jest.fn().mockResolvedValue(undefined),
+    } as unknown as Keyword;
+
+    (Domain.findAll as jest.Mock).mockResolvedValue([
+      { get: () => ({ domain: 'example.com', scrapeEnabled: true }) },
+    ]);
+
+    // Mock scraper to return false (failure), which creates an error result in refreshParallel
+    // This error result will be processed by updateKeywordPosition, which sets updating: 0
+    (scrapeKeywordFromGoogle as jest.Mock).mockResolvedValueOnce(false);
+    (Keyword.update as jest.Mock).mockResolvedValue([1]);
+
+    const settings = {
+      scraper_type: 'serpapi', // parallel scraper
+      scrape_retry: false,
+    } as SettingsType;
+
+    const results = await refreshAndUpdateKeywords([keywordModel], settings);
+
+    // When scraper returns false, refreshParallel creates an error result that is processed
+    // by updateKeywordPosition, which sets updating: 0 in the database
+    expect(keywordModel.update).toHaveBeenCalledWith(expect.objectContaining({
+      updating: 0,
+    }));
+
+    // Verify the returned result has updating: false
+    expect(results).toHaveLength(1);
+    expect(results[0].updating).toBe(false);
+  });
+
+  it('handles errors gracefully during parallel refresh and ensures updating flags are cleared', async () => {
+    const keywords = [
+      {
+        ID: 101,
+        keyword: 'keyword 1',
+        domain: 'example.com',
+        get: jest.fn().mockReturnValue({ ID: 101, keyword: 'keyword 1', domain: 'example.com' }),
+        update: jest.fn().mockResolvedValue(undefined),
+      },
+      {
+        ID: 102,
+        keyword: 'keyword 2',
+        domain: 'example.com',
+        get: jest.fn().mockReturnValue({ ID: 102, keyword: 'keyword 2', domain: 'example.com' }),
+        update: jest.fn().mockResolvedValue(undefined),
+      },
+    ];
+
+    (Domain.findAll as jest.Mock).mockResolvedValue([
+      { get: () => ({ domain: 'example.com', scrapeEnabled: true }) },
+    ]);
+
+    // Simulate errors in the scraping process
+    // refreshParallel catches these and creates error results, so no exception is thrown
+    (scrapeKeywordFromGoogle as jest.Mock).mockRejectedValue(new Error('Unexpected error'));
+    (Keyword.update as jest.Mock).mockResolvedValue([2]);
+
+    const settings = {
+      scraper_type: 'serpapi', // parallel scraper
+      scrape_retry: false,
+    } as SettingsType;
+
+    // The function should not throw - it handles errors gracefully
+    const results = await refreshAndUpdateKeywords(keywords as unknown as Keyword[], settings);
+
+    // Verify that keywords were processed despite errors
+    expect(results).toHaveLength(2);
+    
+    // Verify all keywords have updating: false
+    expect(results[0].updating).toBe(false);
+    expect(results[1].updating).toBe(false);
+
+    // Verify that update was called to clear the updating flags
+    expect(keywords[0].update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0 }));
+    expect(keywords[1].update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0 }));
+  });
+
+  it('returns keywords with updating: false even when database update fails in parallel path', async () => {
+    const keywordPlain = {
+      ID: 99,
+      keyword: 'db failure test',
+      domain: 'example.com',
+      device: 'desktop',
+      country: 'US',
+      location: '',
+      position: 5,
+      volume: 0,
+      updating: true,
+      sticky: false,
+      history: '{}',
+      lastResult: '[]',
+      lastUpdateError: 'false',
+      lastUpdated: '2024-01-01T00:00:00.000Z',
+      added: '2024-01-01T00:00:00.000Z',
+      url: '',
+      tags: '[]',
+      mapPackTop3: 0,
+    };
+
+    const keywordModel = {
+      ID: keywordPlain.ID,
+      keyword: keywordPlain.keyword,
+      domain: keywordPlain.domain,
+      get: jest.fn().mockReturnValue(keywordPlain),
+      update: jest.fn().mockResolvedValue(undefined),
+    } as unknown as Keyword;
+
+    (Domain.findAll as jest.Mock).mockResolvedValue([
+      { get: () => ({ domain: 'example.com', scrapeEnabled: true }) },
+    ]);
+
+    (scrapeKeywordFromGoogle as jest.Mock).mockResolvedValueOnce(false);
+    // Mock Keyword.update to fail
+    (Keyword.update as jest.Mock).mockRejectedValue(new Error('Database connection failed'));
+
+    const settings = {
+      scraper_type: 'serpapi', // parallel scraper
+      scrape_retry: false,
+    } as SettingsType;
+
+    const results = await refreshAndUpdateKeywords([keywordModel], settings);
+
+    // Even though database update failed, the returned result should have updating: false
+    // to prevent infinite spinner in the UI
+    expect(results).toHaveLength(1);
+    expect(results[0].updating).toBe(false);
+  });
 });

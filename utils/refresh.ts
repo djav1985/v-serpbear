@@ -208,9 +208,10 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
       return parallelScrapers.includes(effectiveSettings.scraper_type);
    });
 
-   if (canScrapeInParallel) {
-      const refreshedResults = await refreshParallel(keywords, settings, domainSpecificSettings);
-      if (refreshedResults.length > 0) {
+   try {
+      if (canScrapeInParallel) {
+         const refreshedResults = await refreshParallel(keywords, settings, domainSpecificSettings);
+         // Process all keywords, even if refreshedResults is empty
          for (const keyword of rawkeyword) {
             const refreshedEntry = refreshedResults.find((entry) => entry && entry.keywordId === keyword.ID);
             if (refreshedEntry) {
@@ -225,52 +226,70 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                   updatedKeywords.push({ ...parsedKeyword, updating: false });
                } catch (error: any) {
                   logger.error('[ERROR] Failed to clear updating flag for keyword:', error, { keywordId: keyword.ID });
+                  // Even if the database update fails, return the keyword with updating: false
+                  // to prevent infinite spinner in the UI
+                  const currentKeyword = keyword.get({ plain: true });
+                  const parsedKeyword = parseKeywords([currentKeyword])[0];
+                  updatedKeywords.push({ ...parsedKeyword, updating: false });
+               }
+            }
+         }
+      } else {
+         // Sequential scraping: scrape desktop keywords first, then mobile
+         // This allows mobile keywords to use desktop results as fallback if needed (e.g., for valueserp)
+         const sortedKeywords = [...eligibleKeywordModels].sort((a, b) => {
+            const aDevice = normalizeDevice(a.device);
+            const bDevice = normalizeDevice(b.device);
+            // Desktop comes before mobile
+            if (aDevice === 'desktop' && bDevice === 'mobile') return -1;
+            if (aDevice === 'mobile' && bDevice === 'desktop') return 1;
+            return 0;
+         });
+
+         // Map to store desktop results for each keyword (by keyword+domain+country+location)
+         // This cache allows scrapers like valueserp to use desktop mapPackTop3 for mobile when needed
+         const desktopMapPackCache = new Map<string, boolean>();
+
+         for (const keyword of sortedKeywords) {
+            const keywordPlain = keyword.get({ plain: true });
+            const normalizedDevice = normalizeDevice(keywordPlain.device);
+            const keywordKey = generateKeywordCacheKey(keywordPlain);
+            
+            // If this is a mobile keyword, check if we have desktop mapPackTop3 cached
+            const fallbackMapPackTop3 = (normalizedDevice === 'mobile') 
+               ? desktopMapPackCache.get(keywordKey) 
+               : undefined;
+
+            const updatedkeyword = await refreshAndUpdateKeyword(keyword, settings, domainSpecificSettings, fallbackMapPackTop3);
+            updatedKeywords.push(updatedkeyword);
+
+            // If this was a desktop keyword, cache its mapPackTop3
+            // Note: undefined/null device is treated as desktop for consistency
+            if (normalizedDevice === 'desktop') {
+               desktopMapPackCache.set(keywordKey, updatedkeyword.mapPackTop3 === true);
+            }
+
+            if (keywords.length > 0 && settings.scrape_delay && settings.scrape_delay !== '0') {
+               const delay = parseInt(settings.scrape_delay, 10);
+               if (!isNaN(delay) && delay > 0) {
+                  await sleep(Math.min(delay, 30000)); // Cap delay at 30 seconds for safety
                }
             }
          }
       }
-   } else {
-      // Sequential scraping: scrape desktop keywords first, then mobile
-      // This allows mobile keywords to use desktop results as fallback if needed (e.g., for valueserp)
-      const sortedKeywords = [...eligibleKeywordModels].sort((a, b) => {
-         const aDevice = normalizeDevice(a.device);
-         const bDevice = normalizeDevice(b.device);
-         // Desktop comes before mobile
-         if (aDevice === 'desktop' && bDevice === 'mobile') return -1;
-         if (aDevice === 'mobile' && bDevice === 'desktop') return 1;
-         return 0;
-      });
-
-      // Map to store desktop results for each keyword (by keyword+domain+country+location)
-      // This cache allows scrapers like valueserp to use desktop mapPackTop3 for mobile when needed
-      const desktopMapPackCache = new Map<string, boolean>();
-
-      for (const keyword of sortedKeywords) {
-         const keywordPlain = keyword.get({ plain: true });
-         const normalizedDevice = normalizeDevice(keywordPlain.device);
-         const keywordKey = generateKeywordCacheKey(keywordPlain);
-         
-         // If this is a mobile keyword, check if we have desktop mapPackTop3 cached
-         const fallbackMapPackTop3 = (normalizedDevice === 'mobile') 
-            ? desktopMapPackCache.get(keywordKey) 
-            : undefined;
-
-         const updatedkeyword = await refreshAndUpdateKeyword(keyword, settings, domainSpecificSettings, fallbackMapPackTop3);
-         updatedKeywords.push(updatedkeyword);
-
-         // If this was a desktop keyword, cache its mapPackTop3
-         // Note: undefined/null device is treated as desktop for consistency
-         if (normalizedDevice === 'desktop') {
-            desktopMapPackCache.set(keywordKey, updatedkeyword.mapPackTop3 === true);
-         }
-
-         if (keywords.length > 0 && settings.scrape_delay && settings.scrape_delay !== '0') {
-            const delay = parseInt(settings.scrape_delay, 10);
-            if (!isNaN(delay) && delay > 0) {
-               await sleep(Math.min(delay, 30000)); // Cap delay at 30 seconds for safety
-            }
-         }
+   } catch (error: any) {
+      logger.error('[ERROR] Unexpected error during keyword refresh:', error);
+      // Ensure all keywords have updating flag cleared even on unexpected errors
+      const keywordIdsToCleanup = eligibleKeywordModels.map(k => k.ID);
+      try {
+         await Keyword.update(
+            { updating: false },
+            { where: { ID: { [Op.in]: keywordIdsToCleanup } } }
+         );
+      } catch (cleanupError: any) {
+         logger.error('[ERROR] Failed to cleanup updating flags after error:', cleanupError);
       }
+      throw error; // Re-throw the original error after cleanup
    }
 
    const end = performance.now();
