@@ -119,7 +119,8 @@ const valueSerp: ScraperSettings = {
     // If mobile AND no local results section in API response, use fallback from desktop
     const fallbackValue = (settings as any)?.fallback_mapPackTop3;
     if (isMobile && !hasLocalResultsSection && fallbackValue !== undefined) {
-      mapPackTop3 = fallbackValue;
+      // Convert fallback value to boolean explicitly (handles both number 0/1 and boolean false/true)
+      mapPackTop3 = Boolean(fallbackValue);
       logger.debug(`[VALUESERP] Mobile keyword "${keyword.keyword}" has no local results in API response, using desktop mapPackTop3: ${mapPackTop3}`);
     } else {
       // Otherwise compute normally
