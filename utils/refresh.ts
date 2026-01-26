@@ -280,7 +280,8 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
    } catch (error: any) {
       logger.error('[ERROR] Unexpected error during keyword refresh:', error);
       // Ensure all keywords have updating flag cleared even on unexpected errors
-      const keywordIdsToCleanup = eligibleKeywordModels.map(k => k.ID);
+      // Use rawkeyword to include all keywords, not just eligible ones
+      const keywordIdsToCleanup = rawkeyword.map(k => k.ID);
       try {
          await Keyword.update(
             { updating: false },
