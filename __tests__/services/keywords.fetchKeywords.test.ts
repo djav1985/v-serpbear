@@ -32,7 +32,7 @@ describe('fetchKeywords normalisation', () => {
       fetchMock.mockReset();
    });
 
-   it('coerces string and numeric flags into booleans', async () => {
+   it('coerces string and numeric flags into numeric 0/1 values', async () => {
       const keywordPayload = {
          ID: 1,
          keyword: 'normalise flags',
@@ -50,7 +50,7 @@ describe('fetchKeywords normalisation', () => {
          tags: [],
          updating: 'false',
          lastUpdateError: false,
-         mapPackTop3: 'yes',
+         mapPackTop3: '1',
       } as unknown as KeywordType;
 
       fetchMock.mockResolvedValue({
@@ -69,10 +69,10 @@ describe('fetchKeywords normalisation', () => {
       expect(Array.isArray(response.keywords)).toBe(true);
 
       const [keyword] = response.keywords as KeywordType[];
-      expect(keyword.updating).toBe(false);
-      expect(typeof keyword.updating).toBe('boolean');
-      expect(keyword.sticky).toBe(false);
-      expect(keyword.mapPackTop3).toBe(true);
+      expect(keyword.updating).toBe(0);
+      expect(typeof keyword.updating).toBe('number');
+      expect(keyword.sticky).toBe(0);
+      expect(keyword.mapPackTop3).toBe(1);
       expect(Object.prototype.hasOwnProperty.call(keyword, 'mapPackTop3')).toBe(true);
    });
 
