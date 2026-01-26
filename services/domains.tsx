@@ -238,7 +238,7 @@ export function useAddDomain(onSuccess:Function) {
                errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
             } else {
                // Handle HTML error pages or other non-JSON responses
-               await res.text(); errorMessage = await res.text();
+               await res.text(); errorMessage;
                errorMessage = `Server error (${res.status}): Please try again later`;
             }
          } catch (_parseError) {
@@ -329,7 +329,7 @@ export function useDeleteDomain(onSuccess:Function) {
                errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
             } else {
                // Handle HTML error pages or other non-JSON responses
-               await res.text(); errorMessage = await res.text();
+               await res.text(); errorMessage;
                errorMessage = `Server error (${res.status}): Please try again later`;
             }
          } catch (_parseError) {
