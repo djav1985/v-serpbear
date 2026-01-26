@@ -27,7 +27,7 @@ const TopBar = ({ showSettings, showAddModal }:TopbarProps) => {
             router.push('/login');
          }
       } catch (_fetchError) {
-         toast('Error logging out.', { icon: '⚠️' });
+         toast('Failed to log out. Please try again.', { icon: '⚠️' });
       }
    };
 
