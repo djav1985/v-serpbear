@@ -10,9 +10,10 @@ type ChartProps = {
    series: number[];
    noMaxLimit?: boolean;
    reverse?: boolean;
+   fillContainer?: boolean;
 };
 
-const ChartSlim = ({ labels, series, noMaxLimit = false, reverse = true }: ChartProps) => {
+const ChartSlim = ({ labels, series, noMaxLimit = false, reverse = true, fillContainer = false }: ChartProps) => {
    const { min, max } = calculateChartBounds(series, { reverse, noMaxLimit });
    const options = {
       responsive: true,
@@ -39,10 +40,14 @@ const ChartSlim = ({ labels, series, noMaxLimit = false, reverse = true }: Chart
       },
    };
 
+   const wrapperClasses = fillContainer ? 'w-full h-full' : 'w-[80px] h-[30px]';
+   const lineClasses = fillContainer ? 'w-full h-full' : '';
+
    return (
-      <div className="w-[80px] h-[30px] rounded border border-gray-200">
+      <div className={`${wrapperClasses} rounded border border-gray-200`}>
          <Line
             datasetIdKey="XXX"
+            className={lineClasses}
             options={options}
             data={{
                labels,
