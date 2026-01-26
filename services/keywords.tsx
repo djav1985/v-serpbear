@@ -99,7 +99,7 @@ export function useAddKeywords(onSuccess:Function) {
                errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
             } else {
                // Handle HTML error pages or other non-JSON responses
-               await res.text(); errorMessage;
+               await res.text();
                errorMessage = `Server error (${res.status}): Please try again later`;
             }
          } catch (_parseError) {
@@ -135,7 +135,7 @@ export function useDeleteKeywords(onSuccess:Function) {
                errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
             } else {
                // Handle HTML error pages or other non-JSON responses
-               await res.text(); errorMessage;
+               await res.text();
                errorMessage = `Server error (${res.status}): Please try again later`;
             }
          } catch (_parseError) {
@@ -172,7 +172,7 @@ export function useFavKeywords(onSuccess:Function) {
                errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
             } else {
                // Handle HTML error pages or other non-JSON responses
-               await res.text(); errorMessage;
+               await res.text();
                errorMessage = `Server error (${res.status}): Please try again later`;
             }
          } catch (_parseError) {
@@ -211,7 +211,7 @@ export function useUpdateKeywordTags(onSuccess:Function) {
                errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
             } else {
                // Handle HTML error pages or other non-JSON responses
-               await res.text(); errorMessage;
+               await res.text();
                errorMessage = `Server error (${res.status}): Please try again later`;
             }
          } catch (_parseError) {
@@ -248,7 +248,7 @@ export function useRefreshKeywords(onSuccess:Function) {
                errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
             } else {
                // Handle HTML error pages or other non-JSON responses
-               await res.text(); errorMessage;
+               await res.text();
                errorMessage = `Server error (${res.status}): Please try again later`;
             }
          } catch (_parseError) {
@@ -285,7 +285,7 @@ export function useFetchSingleKeyword(keywordID:number) {
                   errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
                } else {
                   // Handle HTML error pages or other non-JSON responses
-                  await res.text(); errorMessage;
+                  await res.text();
                   errorMessage = `Server error (${res.status}): Please try again later`;
                }
             } catch (_parseError) {
@@ -334,7 +334,7 @@ export async function fetchSearchResults(router:NextRouter, keywordData: Record<
             errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
          } else {
             // Handle HTML error pages or other non-JSON responses
-            await res.text(); errorMessage;
+            await res.text();
             errorMessage = `Server error (${res.status}): Please try again later`;
          }
       } catch (_parseError) {

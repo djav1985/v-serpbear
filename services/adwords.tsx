@@ -152,7 +152,7 @@ export function useMutateFavKeywordIdeas(router:NextRouter, onSuccess?: Function
                errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
             } else {
                // Handle HTML error pages or other non-JSON responses
-               await res.text(); errorMessage;
+               await res.text();
                errorMessage = `Server error (${res.status}): Please try again later`;
             }
          } catch (_parseError) {
@@ -190,7 +190,7 @@ export function useMutateKeywordsVolume(onSuccess?: Function) {
                errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
             } else {
                // Handle HTML error pages or other non-JSON responses
-               await res.text(); errorMessage;
+               await res.text();
                errorMessage = `Server error (${res.status}): Please try again later`;
             }
          } catch (_parseError) {
