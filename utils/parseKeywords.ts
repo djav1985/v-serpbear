@@ -43,8 +43,8 @@ const parseKeywords = (allKeywords: Keyword[]) : KeywordType[] => {
          try { lastUpdateError = JSON.parse(keywordData.lastUpdateError); } catch { lastUpdateError = {}; }
       }
 
-      // Boolean fields are already properly converted by SQLite dialect
-      // No need to call normaliseBoolean
+      // Integer boolean fields (1/0) are stored and returned by the SQLite dialect as-is.
+      // No need to call normaliseBoolean on these integer-backed flags.
 
       return {
          ...keywordData,
