@@ -109,7 +109,9 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
       logger.info(`Processing ${keywordsToRefresh.length} keywords for ${req.query.id === 'all' ? `domain: ${domain}` :
          `IDs: ${keywordIdsToRefresh.join(',')}`}`);
 
-      // Start background refresh without awaiting - the refresh worker handles flag cleanup
+      // Start background refresh without awaiting
+      // Success: refreshAndUpdateKeywords clears 'updating' flags internally after completion
+      // Error: catch handler below ensures flags are cleared to prevent UI spinner getting stuck
       refreshAndUpdateKeywords(keywordsToRefresh, settings).catch((refreshError) => {
          const message = serializeError(refreshError);
          logger.error('[REFRESH] ERROR refreshAndUpdateKeywords: ', { data: message, keywordIds: keywordIdsToRefresh });
