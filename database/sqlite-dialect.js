@@ -143,7 +143,10 @@ class Database extends EventEmitter {
         } catch (walError) {
           // WAL mode might fail in some environments (e.g., network filesystems)
           // Log but continue - will fall back to default mode
-          console.warn('Failed to enable WAL mode:', walError.message);
+          const walMessage = walError && typeof walError.message === 'string'
+            ? walError.message
+            : String(walError);
+          console.warn('Failed to enable WAL mode:', walMessage);
         }
       }
       
