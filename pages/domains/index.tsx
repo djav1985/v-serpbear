@@ -54,8 +54,8 @@ const Domains: NextPage = () => {
       const domainsSCAPI:{ [ID:string] : boolean } = {};
       if (domainsData?.domains) {
          domainsData.domains.forEach((domain:DomainType) => {
-            const doaminSc = safeJsonParse<DomainSearchConsole | null>(domain?.search_console, null);
-            domainsSCAPI[domain.ID] = !!(doaminSc?.client_email && doaminSc?.private_key);
+            const domainSc = safeJsonParse<DomainSearchConsole | null>(domain?.search_console, null);
+            domainsSCAPI[domain.ID] = !!(domainSc?.client_email && domainSc?.private_key);
          });
       }
       return domainsSCAPI;

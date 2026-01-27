@@ -14,10 +14,6 @@ export const safeJsonParse = <T>(
       return fallback;
    }
 
-   if (typeof value === 'object') {
-      return value as T;
-   }
-
    if (typeof value !== 'string') {
       return fallback;
    }

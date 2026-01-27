@@ -184,7 +184,7 @@ export const getAppSettings = async () : Promise<SettingsType> => {
       };
 
       let failedQueue: string[] = [];
-      try {
+       try {
           const failedQueueRaw = await readFile(failedQueuePath, { encoding: 'utf-8' });
           failedQueue = safeJsonParse<string[]>(
              failedQueueRaw,
@@ -219,22 +219,21 @@ export const getAppSettings = async () : Promise<SettingsType> => {
    } catch (error) {
        logger.error('Error getting app settings', error instanceof Error ? error : new Error(String(error)));
        const defaults = { ...buildSettingsDefaults() };
-       try {
-          await readFile(settingsPath, { encoding: 'utf-8' });
-       } catch (readError) {
-          const err = readError as NodeJS.ErrnoException;
-          if (err?.code === 'ENOENT') {
-             await writeFile(settingsPath, JSON.stringify(defaults), { encoding: 'utf-8' });
+       const shouldCreateFile = async (targetPath: string, data: string) => {
+          try {
+             // eslint-disable-next-line security/detect-non-literal-fs-filename
+             await readFile(targetPath, { encoding: 'utf-8' });
+             return;
+          } catch (readError) {
+             const err = readError as NodeJS.ErrnoException;
+             if (err?.code === 'ENOENT') {
+                // eslint-disable-next-line security/detect-non-literal-fs-filename
+                await writeFile(targetPath, data, { encoding: 'utf-8' });
+             }
           }
-       }
-       try {
-          await readFile(failedQueuePath, { encoding: 'utf-8' });
-       } catch (readError) {
-          const err = readError as NodeJS.ErrnoException;
-          if (err?.code === 'ENOENT') {
-             await writeFile(failedQueuePath, JSON.stringify([]), { encoding: 'utf-8' });
-          }
-       }
+       };
+       await shouldCreateFile(settingsPath, JSON.stringify(defaults));
+       await shouldCreateFile(failedQueuePath, JSON.stringify([]));
       return {
          ...defaults,
          available_scapers: allScrapers.map((scraper) => ({

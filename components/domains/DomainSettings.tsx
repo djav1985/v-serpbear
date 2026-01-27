@@ -89,10 +89,10 @@ const defaultSearchConsoleSettings: DomainSearchConsole = {
    private_key: '',
 };
 
-const parseSearchConsoleSettings = (raw?: string | null): DomainSearchConsole | null => {
+const parseSearchConsoleSettings = (raw?: string | null): DomainSearchConsole => {
    const parsed = safeJsonParse<DomainSearchConsole | null>(raw, null);
    if (!parsed || typeof parsed !== 'object') {
-      return null;
+      return { ...defaultSearchConsoleSettings };
    }
    return { ...defaultSearchConsoleSettings, ...parsed };
 };
@@ -120,7 +120,7 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
    const [domainSettings, setDomainSettings] = useState<DomainSettings>(() => ({
       notification_interval: domain?.notification_interval ?? 'never',
       notification_emails: domain?.notification_emails ?? '',
-      search_console: parseSearchConsoleSettings(domain?.search_console) ?? { ...defaultSearchConsoleSettings },
+      search_console: parseSearchConsoleSettings(domain?.search_console),
       scrapeEnabled: initialActiveState,
       scraper_settings: {
          scraper_type: initialScraperType,
