@@ -16,6 +16,7 @@ import {
    maskDomainScraperSettings,
    parseDomainScraperSettings,
 } from '../../utils/domainScraperSettings';
+import { toDbBool } from '../../utils/dbBooleans';
 
 type DomainsGetRes = {
    domains: DomainType[]
@@ -204,9 +205,9 @@ export const updateDomain = async (req: NextApiRequest, res: NextApiResponse<Dom
       if (typeof notification_emails === 'string') { updates.notification_emails = notification_emails; }
       if (typeof scrapeEnabled === 'boolean') {
          // Convert boolean to 1/0 for database storage
-         updates.scrapeEnabled = scrapeEnabled ? 1 : 0;
+         updates.scrapeEnabled = toDbBool(scrapeEnabled);
          // Update the legacy notification field to match scrapeEnabled
-         updates.notification = scrapeEnabled ? 1 : 0;
+         updates.notification = toDbBool(scrapeEnabled);
       }
       if (search_console) {
          updates.search_console = JSON.stringify(search_console);

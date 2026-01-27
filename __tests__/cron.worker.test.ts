@@ -1,5 +1,6 @@
 describe('cron worker helpers', () => {
   let makeCronApiCall: (apiKey: string | undefined | null, baseUrl: string, endpoint: string, successMessage: string) => Promise<void>;
+  let normalizeCronExpression: (value: unknown, fallback: string) => string;
   const originalFetch = global.fetch;
 
   beforeEach(async () => {
@@ -7,6 +8,7 @@ describe('cron worker helpers', () => {
     global.fetch = jest.fn();
     const cronModule = require('../cron.js');
     makeCronApiCall = cronModule.makeCronApiCall;
+    normalizeCronExpression = cronModule.normalizeCronExpression;
   });
 
   afterEach(() => {
@@ -39,5 +41,10 @@ describe('cron worker helpers', () => {
       headers: { Authorization: 'Bearer secret' },
     });
     expect(consoleSpy).toHaveBeenCalledWith('Success:', { data: { ok: true } });
+  });
+
+  it('falls back when falsy non-string values are provided', () => {
+    expect(normalizeCronExpression(false, '0 0 0 * * *')).toBe('0 0 0 * * *');
+    expect(normalizeCronExpression(0, '0 0 0 * * *')).toBe('0 0 0 * * *');
   });
 });

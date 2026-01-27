@@ -109,7 +109,7 @@ describe('PUT /api/keywords error handling', () => {
 
     expect(dbMock.sync).toHaveBeenCalled();
     expect(verifyUserMock).toHaveBeenCalledWith(req, res);
-    expect(keywordMock.update).toHaveBeenCalledWith({ sticky: true }, { where: { ID: { [Op.in]: [1] } } });
+    expect(keywordMock.update).toHaveBeenCalledWith({ sticky: 1 }, { where: { ID: { [Op.in]: [1] } } });
     expect(keywordMock.findAll).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith({ error: 'Failed to update keywords.', details: 'update failed' });

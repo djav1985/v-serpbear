@@ -12,6 +12,7 @@ import { scrapeKeywordFromGoogle } from '../../utils/scraper';
 import { serializeError } from '../../utils/errorSerialization';
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
+import { fromDbBool, toDbBool } from '../../utils/dbBooleans';
 
 type BackgroundKeywordsRefreshRes = {
    // 202 Accepted: background execution started, no keywords returned yet
@@ -103,16 +104,16 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
       const domainRecords = await Domain.findAll({ where: { domain: domainNames }, attributes: ['domain', 'scrapeEnabled'] });
       const scrapeEnabledMap = new Map(domainRecords.map((record) => {
          const plain = record.get({ plain: true }) as DomainType;
-         return [plain.domain, plain.scrapeEnabled];
+         return [plain.domain, fromDbBool(plain.scrapeEnabled)];
       }));
 
-      const keywordsToRefresh = keywordQueries.filter((keyword) => scrapeEnabledMap.get(keyword.domain) === 1);
-      const skippedKeywords = keywordQueries.filter((keyword) => scrapeEnabledMap.get(keyword.domain) === 0);
+      const keywordsToRefresh = keywordQueries.filter((keyword) => scrapeEnabledMap.get(keyword.domain) === true);
+      const skippedKeywords = keywordQueries.filter((keyword) => scrapeEnabledMap.get(keyword.domain) === false);
 
       if (skippedKeywords.length > 0) {
          const skippedIds = skippedKeywords.map((keyword) => keyword.ID);
          await Keyword.update(
-            { updating: 0, updatingStartedAt: null },
+            { updating: toDbBool(false), updatingStartedAt: null },
             { where: { ID: { [Op.in]: skippedIds } } },
          );
       }
@@ -124,7 +125,7 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
       const keywordIdsToRefresh = keywordsToRefresh.map((keyword) => keyword.ID);
       const now = new Date().toJSON();
       await Keyword.update(
-         { updating: 1, lastUpdateError: 'false', updatingStartedAt: now },
+         { updating: toDbBool(true), lastUpdateError: 'false', updatingStartedAt: now },
          { where: { ID: { [Op.in]: keywordIdsToRefresh } } },
       );
 
@@ -139,7 +140,7 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
          logger.error('[REFRESH] ERROR refreshAndUpdateKeywords: ', refreshError instanceof Error ? refreshError : new Error(message), { keywordIds: keywordIdsToRefresh });
          // Ensure flags are cleared on error
          Keyword.update(
-            { updating: 0, updatingStartedAt: null },
+            { updating: toDbBool(false), updatingStartedAt: null },
             { where: { ID: { [Op.in]: keywordIdsToRefresh } } },
          ).catch((updateError) => {
             logger.error('[REFRESH] Failed to clear updating flags after error: ', updateError instanceof Error ? updateError : new Error(String(updateError)));

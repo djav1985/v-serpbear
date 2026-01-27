@@ -1,6 +1,7 @@
 import Keyword from '../database/models/keyword';
 import Domain from '../database/models/domain';
 import { logger } from './logger';
+import { fromDbBool } from './dbBooleans';
 
 /**
  * Updates domain statistics (avgPosition and mapPackKeywords) based on current keyword data
@@ -20,7 +21,7 @@ export const updateDomainStats = async (domainName: string): Promise<void> => {
             const keywordData = keyword.get({ plain: true });
             
             // Count mapPack keywords
-            if (keywordData.mapPackTop3 === 1) {
+            if (fromDbBool(keywordData.mapPackTop3)) {
                acc.mapPackKeywords++;
             }
             

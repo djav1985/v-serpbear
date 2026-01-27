@@ -11,6 +11,7 @@ import verifyUser from '../../utils/verifyUser';
 import refreshAndUpdateKeywords from '../../utils/refresh';
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
+import { fromDbBool, toDbBool } from '../../utils/dbBooleans';
 
 type CRONRefreshRes = {
    started: boolean
@@ -41,7 +42,7 @@ const cronRefreshkeywords = async (req: NextApiRequest, res: NextApiResponse<CRO
       const domainToggles = await Domain.findAll({ attributes: ['domain', 'scrapeEnabled'] });
       const enabledDomains = domainToggles
          .map((dom) => dom.get({ plain: true }))
-         .filter((dom) => dom.scrapeEnabled === 1)
+         .filter((dom) => fromDbBool(dom.scrapeEnabled))
          .map((dom) => dom.domain);
 
       if (enabledDomains.length === 0) {
@@ -51,7 +52,7 @@ const cronRefreshkeywords = async (req: NextApiRequest, res: NextApiResponse<CRO
 
       const now = new Date().toJSON();
       await Keyword.update(
-         { updating: 1, lastUpdateError: 'false', updatingStartedAt: now },
+         { updating: toDbBool(true), lastUpdateError: 'false', updatingStartedAt: now },
          { where: { domain: { [Op.in]: enabledDomains } } },
       );
       const keywordQueries: Keyword[] = await Keyword.findAll({ where: { domain: enabledDomains } });
@@ -66,7 +67,7 @@ const cronRefreshkeywords = async (req: NextApiRequest, res: NextApiResponse<CRO
          logger.error('[CRON] ERROR refreshAndUpdateKeywords: ', refreshError instanceof Error ? refreshError : new Error(String(refreshError)));
          // Ensure flags are cleared on error
          Keyword.update(
-            { updating: 0, updatingStartedAt: null },
+            { updating: toDbBool(false), updatingStartedAt: null },
             { where: { ID: { [Op.in]: keywordIds } } },
          ).catch((updateError) => {
             logger.error('[CRON] Failed to clear updating flags after error: ', updateError instanceof Error ? updateError : new Error(String(updateError)));

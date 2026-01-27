@@ -13,6 +13,7 @@ import { serializeError } from './errorSerialization';
 import { updateDomainStats } from './updateDomainStats';
 import { decryptDomainScraperSettings, parseDomainScraperSettings } from './domainScraperSettings';
 import { logger } from './logger';
+import { fromDbBool, toDbBool } from './dbBooleans';
 
 const STALE_UPDATE_THRESHOLD_MINUTES = 20;
 
@@ -48,7 +49,7 @@ export const resetStaleKeywordUpdates = async ({
    });
 
    const [affectedCount] = await Keyword.update(
-      { updating: 0, updatingStartedAt: null, lastUpdateError: timeoutError },
+      { updating: toDbBool(false), updatingStartedAt: null, lastUpdateError: timeoutError },
       { where: whereClause },
    );
 
@@ -166,7 +167,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
       const cryptr = secret ? new Cryptr(secret) : null;
       scrapePermissions = new Map(domains.map((domain) => {
          const domainPlain = domain.get({ plain: true }) as DomainType & { scraper_settings?: any };
-         const isEnabled = domainPlain.scrapeEnabled === 1;
+         const isEnabled = fromDbBool(domainPlain.scrapeEnabled);
 
          if (cryptr) {
             const persistedOverride = parseDomainScraperSettings(domainPlain?.scraper_settings);
@@ -216,7 +217,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
    if (skippedKeywords.length > 0) {
       const skippedIds = skippedKeywords.map((keyword) => keyword.ID);
       await Keyword.update(
-         { updating: 0, updatingStartedAt: null },
+         { updating: toDbBool(false), updatingStartedAt: null },
          { where: { ID: { [Op.in]: skippedIds } } },
       );
 
@@ -516,14 +517,14 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
 
       const dbPayload = {
          position: newPos,
-         updating: 0,
+         updating: toDbBool(false),
          url: urlValue,
          lastResult: normalizedResult,
          localResults: normalizedLocalResults,
          history: JSON.stringify(history),
          lastUpdated: lastUpdatedValue,
          lastUpdateError: lastUpdateErrorValue,
-         mapPackTop3: updatedKeyword.mapPackTop3 === 1 ? 1 : 0,
+         mapPackTop3: toDbBool(updatedKeyword.mapPackTop3),
          updatingStartedAt: null,
       };
 
@@ -537,14 +538,14 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          await keywordRaw.update(dbPayload);
          // Only log significant updates (errors or top 3 map pack)
          if (dbPayload.lastUpdateError !== 'false' || dbPayload.mapPackTop3) {
-            logger.info('Keyword updated', { 
-               keywordId: keyword.ID, 
-               keyword: keyword.keyword,
-               device: keyword.device || 'desktop',
-               mapPackTop3: dbPayload.mapPackTop3,
-               hasError: dbPayload.lastUpdateError !== 'false'
-            });
-         }
+         logger.info('Keyword updated', { 
+            keywordId: keyword.ID, 
+            keyword: keyword.keyword,
+            device: keyword.device || 'desktop',
+            mapPackTop3: fromDbBool(dbPayload.mapPackTop3),
+            hasError: dbPayload.lastUpdateError !== 'false'
+          });
+        }
 
          let parsedError: false | { date: string; error: string; scraper: string } = false;
          if (dbPayload.lastUpdateError !== 'false') {
@@ -562,7 +563,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          updated = {
             ...keyword,
             position: newPos,
-            updating: 0,
+            updating: toDbBool(false),
             updatingStartedAt: null,
             url: dbPayload.url ?? '',
             lastResult: parsedNormalizedResult,
@@ -570,18 +571,18 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
             history,
             lastUpdated: effectiveLastUpdated,
             lastUpdateError: parsedError,
-            mapPackTop3: dbPayload.mapPackTop3 === 1 ? 1 : 0,
+            mapPackTop3: dbPayload.mapPackTop3,
          };
       } catch (error: any) {
          logger.error('[ERROR] Updating SERP for Keyword', error, { keyword: keyword.keyword });
          try {
-            await Keyword.update({ updating: 0, updatingStartedAt: null }, { where: { ID: keyword.ID } });
+            await Keyword.update({ updating: toDbBool(false), updatingStartedAt: null }, { where: { ID: keyword.ID } });
          } catch (cleanupError: any) {
             logger.error('[ERROR] Failed to clear updating flag after update failure', cleanupError, { keywordId: keyword.ID });
          }
          updated = {
             ...keyword,
-            updating: 0,
+            updating: toDbBool(false),
             updatingStartedAt: null,
          };
       }
