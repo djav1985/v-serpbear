@@ -52,6 +52,9 @@ const getDomain = async (req: NextApiRequest, res: NextApiResponse<DomainGetResp
             scData.client_email = scData.client_email ? cryptr.decrypt(scData.client_email) : '';
             scData.private_key = scData.private_key ? cryptr.decrypt(scData.private_key) : '';
             parsedDomain.search_console = JSON.stringify(scData);
+         } else {
+            // Ensure malformed search_console values are not returned unchanged
+            parsedDomain.search_console = JSON.stringify({});
          }
       }
 
