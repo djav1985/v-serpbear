@@ -8,7 +8,7 @@ import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
 import { readFile, writeFile, unlink } from 'fs/promises';
 import * as path from 'path';
-import { getCountryCodeFromAlphaThree } from './countries';
+import { countryAlphaTwoCodes } from './countries';
 import { logger } from './logger';
 import { safeJsonParse } from './safeJsonParse';
 
@@ -188,7 +188,8 @@ export const parseSearchConsoleItem = (SCItem: SearchAnalyticsRawItem, domainNam
    const { clicks = 0, impressions = 0, ctr = 0, position = 0 } = SCItem;
    const keyword = SCItem.keys[0];
    const device = SCItem.keys[1] ? SCItem.keys[1].toLowerCase() : 'desktop';
-   const country = SCItem.keys[2] ? (getCountryCodeFromAlphaThree(SCItem.keys[2].toUpperCase()) || SCItem.keys[2]) : 'ZZ';
+   const countryCode = SCItem.keys[2] ? SCItem.keys[2].toUpperCase() : 'ZZ';
+   const country = countryAlphaTwoCodes[countryCode] || countryCode;
    const rawPage = SCItem.keys[3] || '';
    const normalizedDomain = domainName.toLowerCase();
    let page = '';

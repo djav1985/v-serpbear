@@ -2065,8 +2065,6 @@ export const adwordsLanguages: Record<number, string> = {
    1131: 'Telugu',
 };
 
-export const getCountryCodeFromAlphaThree = (AlphaThreeCode:string): string => countryAlphaTwoCodes[AlphaThreeCode];
-
 /**
  * Gets the Google domain for a given country code
  * @param countryCode - The ISO 2-letter country code
