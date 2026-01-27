@@ -16,7 +16,7 @@ import { logger } from './logger';
 import { fromDbBool, toDbBool } from './dbBooleans';
 import normalizeDomainBooleans from './normalizeDomain';
 
-const STALE_UPDATE_THRESHOLD_MINUTES = 20;
+const STALE_UPDATE_THRESHOLD_MINUTES = 3;
 
 export const resetStaleKeywordUpdates = async ({
    domain,
@@ -542,6 +542,13 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
 
       try {
          await keywordRaw.update(dbPayload);
+         // Log when updating flag is cleared to help debug UI issues
+         logger.debug('Keyword updating flag cleared', {
+            keywordId: keyword.ID,
+            keyword: keyword.keyword,
+            position: newPos,
+            hasError: dbPayload.lastUpdateError !== 'false',
+         });
          // Only log significant updates (errors or top 3 map pack)
          if (dbPayload.lastUpdateError !== 'false' || dbPayload.mapPackTop3) {
             logger.info('Keyword updated', {
