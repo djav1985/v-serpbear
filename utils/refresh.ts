@@ -229,8 +229,8 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
    try {
       if (canScrapeInParallel) {
          // Parallel scraping: each keyword is updated immediately upon receiving API response
-         const updatedKeywords = await refreshParallel(keywords, eligibleKeywordModels, settings, domainSpecificSettings);
-         return updatedKeywords;
+         const parallelUpdatedKeywords = await refreshParallel(keywords, eligibleKeywordModels, settings, domainSpecificSettings);
+         updatedKeywords.push(...parallelUpdatedKeywords);
       } else {
          // Sequential scraping: scrape desktop keywords first, then mobile
          // This allows mobile keywords to use desktop results as fallback if needed (e.g., for valueserp)
