@@ -10,6 +10,7 @@ import { withApiLogging } from '../../utils/apiLogging';
 import { trimStringProperties } from '../../utils/security';
 import { getBranding } from '../../utils/branding';
 import packageJson from '../../package.json';
+import { safeJsonParse } from '../../utils/safeJsonParse';
 
 const buildSettingsDefaults = (): SettingsType => {
    const { platformName } = getBranding();
@@ -145,7 +146,7 @@ export const getAppSettings = async () : Promise<SettingsType> => {
 
    try {
       const settingsRaw = await readFile(settingsPath, { encoding: 'utf-8' });
-      const settings: Partial<SettingsType> = settingsRaw ? JSON.parse(settingsRaw) : {};
+      const settings = safeJsonParse<Partial<SettingsType>>(settingsRaw, {}, { context: 'settings.json', logError: true });
       const baseSettings: SettingsType = { ...buildSettingsDefaults(), ...settings };
       let decryptedSettings: SettingsType = baseSettings;
 
@@ -184,9 +185,13 @@ export const getAppSettings = async () : Promise<SettingsType> => {
 
       let failedQueue: string[] = [];
       try {
-         const failedQueueRaw = await readFile(failedQueuePath, { encoding: 'utf-8' });
-         failedQueue = failedQueueRaw ? JSON.parse(failedQueueRaw) : [];
-      } catch (failedQueueError) {
+          const failedQueueRaw = await readFile(failedQueuePath, { encoding: 'utf-8' });
+          failedQueue = safeJsonParse<string[]>(
+             failedQueueRaw,
+             [],
+             { context: 'failed_queue.json', logError: true },
+          );
+       } catch (failedQueueError) {
          const err = failedQueueError as NodeJS.ErrnoException;
          logger.warn('Failed to read failed queue file, recreating', { error: err?.message || String(err) });
          try {
@@ -212,10 +217,24 @@ export const getAppSettings = async () : Promise<SettingsType> => {
          failed_queue: failedQueue,
       };
    } catch (error) {
-      logger.error('Error getting app settings', error instanceof Error ? error : new Error(String(error)));
-      const defaults = { ...buildSettingsDefaults() };
-      await writeFile(settingsPath, JSON.stringify(defaults), { encoding: 'utf-8' });
-      await writeFile(failedQueuePath, JSON.stringify([]), { encoding: 'utf-8' });
+       logger.error('Error getting app settings', error instanceof Error ? error : new Error(String(error)));
+       const defaults = { ...buildSettingsDefaults() };
+       try {
+          await readFile(settingsPath, { encoding: 'utf-8' });
+       } catch (readError) {
+          const err = readError as NodeJS.ErrnoException;
+          if (err?.code === 'ENOENT') {
+             await writeFile(settingsPath, JSON.stringify(defaults), { encoding: 'utf-8' });
+          }
+       }
+       try {
+          await readFile(failedQueuePath, { encoding: 'utf-8' });
+       } catch (readError) {
+          const err = readError as NodeJS.ErrnoException;
+          if (err?.code === 'ENOENT') {
+             await writeFile(failedQueuePath, JSON.stringify([]), { encoding: 'utf-8' });
+          }
+       }
       return {
          ...defaults,
          available_scapers: allScrapers.map((scraper) => ({

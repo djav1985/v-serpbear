@@ -9,6 +9,7 @@ import { TOGGLE_TRACK_CLASS_NAME } from '../common/toggleStyles';
 import { isValidEmail } from '../../utils/client/validators';
 import SecretField from '../common/SecretField';
 import { fromDbBool } from '../../utils/dbBooleans';
+import { safeJsonParse } from '../../utils/safeJsonParse';
 
 type DomainSettingsProps = {
    domain:DomainType|null,
@@ -81,6 +82,21 @@ const deriveDomainActiveState = (domainData?: DomainType | null): boolean => {
    return fromDbBool(scrapeEnabled) && fromDbBool(notification);
 };
 
+const defaultSearchConsoleSettings: DomainSearchConsole = {
+   property_type: 'domain',
+   url: '',
+   client_email: '',
+   private_key: '',
+};
+
+const parseSearchConsoleSettings = (raw?: string | null): DomainSearchConsole | null => {
+   const parsed = safeJsonParse<DomainSearchConsole | null>(raw, null);
+   if (!parsed || typeof parsed !== 'object') {
+      return null;
+   }
+   return { ...defaultSearchConsoleSettings, ...parsed };
+};
+
 const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
    ({ domain, closeModal, availableScrapers = [], systemScraperType = '' }, ref) => {
       const settingsRef = useRef<HTMLDivElement>(null);
@@ -104,9 +120,7 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
    const [domainSettings, setDomainSettings] = useState<DomainSettings>(() => ({
       notification_interval: domain?.notification_interval ?? 'never',
       notification_emails: domain?.notification_emails ?? '',
-      search_console: domain?.search_console ? JSON.parse(domain.search_console) : {
-         property_type: 'domain', url: '', client_email: '', private_key: '',
-      },
+      search_console: parseSearchConsoleSettings(domain?.search_console) ?? { ...defaultSearchConsoleSettings },
       scrapeEnabled: initialActiveState,
       scraper_settings: {
          scraper_type: initialScraperType,
@@ -137,8 +151,8 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
    const { mutate: deleteMutate } = useDeleteDomain(() => { closeModal(false); router.push('/domains'); });
 
    // Get the Full Domain Data along with the Search Console API Data.
-   useFetchDomain(router, domain?.domain || '', (domainObj:DomainType) => {
-      const currentSearchConsoleSettings = domainObj.search_console && JSON.parse(domainObj.search_console);
+    useFetchDomain(router, domain?.domain || '', (domainObj:DomainType) => {
+      const currentSearchConsoleSettings = parseSearchConsoleSettings(domainObj.search_console);
       const nextActive = deriveDomainActiveState(domainObj);
       const fetchedScraperSettings = domainObj.scraper_settings || null;
       setDomainSettings(prevSettings => {

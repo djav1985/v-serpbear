@@ -8,6 +8,7 @@ import verifyUser from '../../utils/verifyUser';
 import { maskDomainScraperSettings, parseDomainScraperSettings } from '../../utils/domainScraperSettings';
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
+import { safeJsonParse } from '../../utils/safeJsonParse';
 
 type DomainGetResponse = {
    domain?: DomainType | null
@@ -41,14 +42,16 @@ const getDomain = async (req: NextApiRequest, res: NextApiResponse<DomainGetResp
       const parsedDomain = foundDomain.get({ plain: true }) as DomainType & { scraper_settings?: any };
 
       if (parsedDomain.search_console) {
-         try {
-            const cryptr = new Cryptr(process.env.SECRET as string);
-            const scData = JSON.parse(parsedDomain.search_console);
+         const cryptr = new Cryptr(process.env.SECRET as string);
+         const scData = safeJsonParse<Record<string, string> | null>(
+            parsedDomain.search_console,
+            null,
+            { context: `domain ${parsedDomain.domain || parsedDomain.ID || ''} search_console`, logError: true },
+         );
+         if (scData) {
             scData.client_email = scData.client_email ? cryptr.decrypt(scData.client_email) : '';
             scData.private_key = scData.private_key ? cryptr.decrypt(scData.private_key) : '';
             parsedDomain.search_console = JSON.stringify(scData);
-         } catch {
-            logger.debug('Error parsing Search Console keys');
          }
       }
 

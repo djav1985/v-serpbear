@@ -304,4 +304,33 @@ describe('SingleDomain Page', () => {
       expect(screen.getByPlaceholderText('myapp@appspot.gserviceaccount.com')).toHaveValue(decryptedSearchConsole.client_email);
       expect(screen.getByPlaceholderText('-----BEGIN PRIVATE KEY-----/ssssaswdkihad....')).toHaveValue(decryptedSearchConsole.private_key);
    });
+
+   it('keeps default Search Console settings when data is malformed', async () => {
+      let hasInvokedSuccess = false;
+
+      useFetchDomainFunc.mockImplementation((routerArg, domainValue, onSuccess) => {
+         const domainResponse = {
+            ...dummyDomain,
+            search_console: '{invalid-json',
+         };
+         if (!hasInvokedSuccess && domainValue === dummyDomain.domain && typeof onSuccess === 'function') {
+            hasInvokedSuccess = true;
+            onSuccess(domainResponse);
+         }
+         return { data: { domain: domainResponse }, isLoading: false };
+      });
+
+      render(<QueryClientProvider client={queryClient}><SingleDomain /></QueryClientProvider>);
+
+      const openSettingsButton = screen.getByTestId('show_domain_settings');
+      fireEvent.click(openSettingsButton);
+
+      const settingsModal = await screen.findByTestId('domain_settings');
+      const searchConsoleTab = within(settingsModal).getByText('Search Console');
+      fireEvent.click(searchConsoleTab);
+
+      await waitFor(() => {
+         expect(screen.getByPlaceholderText('myapp@appspot.gserviceaccount.com')).toHaveValue('');
+      });
+   });
 });

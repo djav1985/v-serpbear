@@ -50,13 +50,13 @@ const createMockResponse = () => ({
 }) as unknown as NextApiResponse;
 
 describe('GET /api/domains', () => {
-  beforeEach(() => {
+   beforeEach(() => {
     jest.clearAllMocks();
     verifyUserMock.mockReturnValue('authorized');
     dbMock.sync.mockResolvedValue(undefined);
   });
 
-  it('masks scraper overrides when returning the domain list', async () => {
+   it('masks scraper overrides when returning the domain list', async () => {
     DomainMock.findAll.mockResolvedValue([
       {
         get: jest.fn().mockReturnValue({
@@ -77,7 +77,30 @@ describe('GET /api/domains', () => {
     expect(res.status).toHaveBeenCalledWith(200);
     const payload = (res.json as jest.Mock).mock.calls[0][0];
     expect(payload.domains[0].scraper_settings).toEqual({ scraper_type: 'serpapi', has_api_key: true });
-  });
+   });
+
+   it('skips malformed search console JSON without failing the response', async () => {
+     DomainMock.findAll.mockResolvedValue([
+       {
+         get: jest.fn().mockReturnValue({
+           ID: 2,
+           domain: 'broken.example',
+           slug: 'broken-example',
+           search_console: '{bad-json',
+           scraper_settings: null,
+         }),
+       },
+     ]);
+
+     const req = { method: 'GET', headers: {}, query: {} } as unknown as NextApiRequest;
+     const res = createMockResponse();
+
+     await handler(req, res);
+
+     expect(res.status).toHaveBeenCalledWith(200);
+     const payload = (res.json as jest.Mock).mock.calls[0][0];
+     expect(payload.domains[0].search_console).toBe(JSON.stringify({}));
+   });
 });
 
 describe('POST /api/domains', () => {
