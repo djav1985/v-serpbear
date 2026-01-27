@@ -13,7 +13,6 @@ import { logger } from './logger';
 class RetryQueueManager {
    private filePath: string;
    private operationQueue: Promise<void> = Promise.resolve();
-   private queueLock = false;
 
    constructor() {
       this.filePath = `${process.cwd()}/data/failed_queue.json`;
