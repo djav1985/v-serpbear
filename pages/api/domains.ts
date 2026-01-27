@@ -38,7 +38,7 @@ type DomainsDeleteRes = {
 }
 
 type DomainsUpdateRes = {
-   domain: Domain|null,
+   domain: DomainType | null,
    error?: string|null,
 }
 

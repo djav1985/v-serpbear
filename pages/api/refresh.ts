@@ -12,7 +12,8 @@ import { scrapeKeywordFromGoogle } from '../../utils/scraper';
 import { serializeError } from '../../utils/errorSerialization';
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
-import { fromDbBool, toDbBool } from '../../utils/dbBooleans';
+import { toDbBool } from '../../utils/dbBooleans';
+import normalizeDomainBooleans from '../../utils/normalizeDomain';
 
 type BackgroundKeywordsRefreshRes = {
    // 202 Accepted: background execution started, no keywords returned yet
@@ -104,7 +105,8 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
       const domainRecords = await Domain.findAll({ where: { domain: domainNames }, attributes: ['domain', 'scrapeEnabled'] });
       const scrapeEnabledMap = new Map(domainRecords.map((record) => {
          const plain = record.get({ plain: true }) as DomainType;
-         return [plain.domain, fromDbBool(plain.scrapeEnabled)];
+         const normalizedDomain = normalizeDomainBooleans(plain);
+         return [normalizedDomain.domain, normalizedDomain.scrapeEnabled];
       }));
 
       const keywordsToRefresh = keywordQueries.filter((keyword) => scrapeEnabledMap.get(keyword.domain) === true);

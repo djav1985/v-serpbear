@@ -21,6 +21,7 @@ const ChartSlim = ({ labels, series, noMaxLimit = false, reverse = true, fillCon
       animation: false as const,
       layout: {
          padding: 0,
+         autoPadding: false,
       },
       scales: {
          y: {

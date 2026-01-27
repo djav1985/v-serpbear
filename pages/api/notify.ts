@@ -15,7 +15,7 @@ import { trimStringProperties } from '../../utils/security';
 import { getBranding } from '../../utils/branding';
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
-import { fromDbBool } from '../../utils/dbBooleans';
+import normalizeDomainBooleans from '../../utils/normalizeDomain';
 
 type NotifyResponse = {
    success?: boolean
@@ -69,13 +69,14 @@ const notify = async (req: NextApiRequest, res: NextApiResponse<NotifyResponse>)
          const theDomain = await Domain.findOne({ where: { domain: reqDomain } });
          if (theDomain) {
             const domainPlain = theDomain.get({ plain: true }) as DomainType;
-            if (fromDbBool(domainPlain.scrapeEnabled) && fromDbBool(domainPlain.notification)) {
+            const normalizedDomain = normalizeDomainBooleans(domainPlain);
+            if (normalizedDomain.scrapeEnabled && normalizedDomain.notification) {
                attemptCount++;
                try {
-                  await sendNotificationEmail(domainPlain, normalizedSettings);
+                  await sendNotificationEmail(normalizedDomain, normalizedSettings);
                   successCount++;
                } catch (error) {
-                  const domainName = domainPlain?.domain || 'unknown domain';
+                  const domainName = normalizedDomain?.domain || 'unknown domain';
                   logger.error(`Failed to send notification for ${domainName}`, error instanceof Error ? error : new Error(String(error)));
                }
             }
@@ -83,9 +84,9 @@ const notify = async (req: NextApiRequest, res: NextApiResponse<NotifyResponse>)
       } else {
          const allDomains: Domain[] = await Domain.findAll();
          if (allDomains && allDomains.length > 0) {
-            const domains = allDomains.map((el) => el.get({ plain: true }));
+            const domains = allDomains.map((el) => normalizeDomainBooleans(el.get({ plain: true }) as DomainType));
             for (const domain of domains) {
-               if (fromDbBool(domain.scrapeEnabled) && fromDbBool(domain.notification)) {
+               if (domain.scrapeEnabled && domain.notification) {
                   attemptCount++;
                   try {
                      await sendNotificationEmail(domain, normalizedSettings);
