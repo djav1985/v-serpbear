@@ -8,8 +8,7 @@ const parseJsonResponse = async (res: Response) => {
    if (!text) { return {}; }
    try {
       return JSON.parse(text);
-   } catch (error) {
-      console.warn('Failed to parse JSON response from Ads service:', error);
+   } catch (_error) {
       const snippet = text.substring(0, 200) || `status ${res.status}`;
       throw new Error(res.ok ? `Unexpected response (${res.status}): ${snippet}` : snippet);
    }
@@ -30,15 +29,13 @@ export function useTestAdwordsIntegration(onSuccess?: Function) {
       }
       return responsePayload;
    }, {
-      onSuccess: async (data) => {
-         console.log('Ideas Added:', data);
+      onSuccess: async (_data) => {
          toast('Google Ads has been integrated successfully!', { icon: '✔️' });
          if (onSuccess) {
             onSuccess(false);
          }
       },
-      onError: (error, _variables, _context) => {
-         console.log('Error Loading Keyword Ideas!!!', error);
+      onError: (_error, _variables, _context) => {
          toast('Failed to connect to Google Ads. Please make sure you have provided the correct API info.', { icon: '⚠️' });
       },
    });
@@ -50,7 +47,6 @@ export async function fetchAdwordsKeywordIdeas(router: NextRouter, domainSlug: s
    const res = await fetch(`${origin}/api/ideas?domain=${domainSlug}`, { method: 'GET' });
    if (res.status >= 400 && res.status < 600) {
       if (res.status === 401) {
-         console.log('Unauthorized!!');
          router.push('/login');
       }
       let errorMessage = 'Bad response from server';
@@ -61,12 +57,10 @@ export async function fetchAdwordsKeywordIdeas(router: NextRouter, domainSlug: s
             errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
          } else {
             // Handle HTML error pages or other non-JSON responses
-            const textResponse = await res.text();
-            console.warn('Non-JSON error response received:', textResponse.substring(0, 200));
+            await res.text();
             errorMessage = `Server error (${res.status}): Please try again later`;
          }
-      } catch (parseError) {
-         console.warn('Failed to parse error response:', parseError);
+      } catch (_parseError) {
          errorMessage = `Server error (${res.status}): Please try again later`;
       }
       throw new Error(errorMessage);
@@ -97,12 +91,11 @@ export function useMutateKeywordIdeas(router:NextRouter, onSuccess?: Function) {
       const res = await fetch(`${origin}/api/ideas`, fetchOpts);
       const isOk = typeof res.ok === 'boolean' ? res.ok : (res.status >= 200 && res.status < 300);
 
-      let responsePayload: any = null;
+      let responsePayload: unknown = null;
       try {
          responsePayload = await parseJsonResponse(res);
       } catch (error) {
          if (res.status === 401) {
-            console.log('Unauthorized!!');
             router.push('/login');
          }
          if (!isOk) {
@@ -112,25 +105,23 @@ export function useMutateKeywordIdeas(router:NextRouter, onSuccess?: Function) {
       }
 
       if (res.status === 401) {
-         console.log('Unauthorized!!');
          router.push('/login');
       }
 
       if (!isOk) {
          const errorMessage = typeof responsePayload === 'string'
             ? responsePayload
-            : responsePayload?.error || responsePayload?.message || `Server error (${res.status}): Please try again later`;
+            : (responsePayload as any)?.error || (responsePayload as any)?.message || `Server error (${res.status}): Please try again later`;
          throw new Error(errorMessage);
       }
 
-      if (responsePayload?.error) {
-         throw new Error(responsePayload.error);
+      if ((responsePayload as any)?.error) {
+         throw new Error((responsePayload as any).error);
       }
 
       return responsePayload;
    }, {
-      onSuccess: async (data) => {
-         console.log('Ideas Added:', data);
+      onSuccess: async (_data) => {
          toast('Keyword Ideas Loaded Successfully!', { icon: '✔️' });
          if (onSuccess) {
             onSuccess(false);
@@ -138,7 +129,6 @@ export function useMutateKeywordIdeas(router:NextRouter, onSuccess?: Function) {
          queryClient.invalidateQueries(`keywordIdeas-${domainSlug}`);
       },
       onError: (error, _variables, _context) => {
-         console.log('Error Loading Keyword Ideas!!!', error);
          const message = (error as Error)?.message || 'Error Loading Keyword Ideas';
          toast(message, { icon: '⚠️' });
       },
@@ -162,28 +152,24 @@ export function useMutateFavKeywordIdeas(router:NextRouter, onSuccess?: Function
                errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
             } else {
                // Handle HTML error pages or other non-JSON responses
-               const textResponse = await res.text();
-               console.warn('Non-JSON error response received:', textResponse.substring(0, 200));
+               await res.text();
                errorMessage = `Server error (${res.status}): Please try again later`;
             }
-         } catch (parseError) {
-            console.warn('Failed to parse error response:', parseError);
+         } catch (_parseError) {
             errorMessage = `Server error (${res.status}): Please try again later`;
          }
          throw new Error(errorMessage);
       }
       return res.json();
    }, {
-      onSuccess: async (data) => {
-         console.log('Ideas Added:', data);
+      onSuccess: async (_data) => {
          // toast('Keyword Updated!', { icon: '✔️' });
          if (onSuccess) {
             onSuccess(false);
          }
          queryClient.invalidateQueries(`keywordIdeas-${domainSlug}`);
       },
-      onError: (error, _variables, _context) => {
-         console.log('Error Favorating Keywords', error);
+      onError: (_error, _variables, _context) => {
          toast('Error Favorating Keywords', { icon: '⚠️' });
       },
    });
@@ -204,12 +190,10 @@ export function useMutateKeywordsVolume(onSuccess?: Function) {
                errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
             } else {
                // Handle HTML error pages or other non-JSON responses
-               const textResponse = await res.text();
-               console.warn('Non-JSON error response received:', textResponse.substring(0, 200));
+               await res.text();
                errorMessage = `Server error (${res.status}): Please try again later`;
             }
-         } catch (parseError) {
-            console.warn('Failed to parse error response:', parseError);
+         } catch (_parseError) {
             errorMessage = `Server error (${res.status}): Please try again later`;
          }
          throw new Error(errorMessage);
@@ -226,7 +210,6 @@ export function useMutateKeywordsVolume(onSuccess?: Function) {
          }, 3000);
       },
       onError: (error, _variables, _context) => {
-         console.log('Error Loading Keyword Volume Data!!!', error);
          const message = (error as Error)?.message || 'Error Loading Keyword Volume Data';
          toast(message, { icon: '⚠️' });
       },

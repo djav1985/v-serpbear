@@ -21,7 +21,6 @@ export async function fetchSCKeywords(router: NextRouter, slugOverride?: string)
    const res = await fetch(`${origin}/api/searchconsole?domain=${slug}`, { method: 'GET' });
    if (res.status >= 400 && res.status < 600) {
       if (res.status === 401) {
-         console.log('Unauthorized!!');
          router.push('/login');
       }
       throw new Error('Bad response from server');
@@ -45,7 +44,6 @@ export async function fetchSCInsight(router: NextRouter, slugOverride?: string) 
    const res = await fetch(`${origin}/api/insight?domain=${slug}`, { method: 'GET' });
    if (res.status >= 400 && res.status < 600) {
       if (res.status === 401) {
-         console.log('Unauthorized!!');
          router.push('/login');
       }
       throw new Error('Bad response from server');
@@ -69,7 +67,6 @@ export const refreshSearchConsoleData = async () => {
       toast('Search Console Data Refreshed!', { icon: '✔️' });
       return res.json();
    } catch (error) {
-      console.log('Error Refreshing Search Console Data!!!', error);
       toast('Error Refreshing Search Console Data', { icon: '⚠️' });
       throw error;
    }

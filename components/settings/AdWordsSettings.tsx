@@ -46,8 +46,8 @@ const AdWordsSettings = ({ settings, settingsError, updateSettings, performUpdat
          if (data.status === 'success') {
             toast('Google Ads has been integrated successfully!', { icon: '✔️' });
             if (performUpdate) {
-               Promise.resolve(performUpdate()).catch((error) => {
-                  console.error('Failed to refresh settings after Google Ads integration', error);
+               Promise.resolve(performUpdate()).catch((_error) => {
+                  // Silently handle update errors
                });
             }
          } else {
@@ -76,8 +76,8 @@ const AdWordsSettings = ({ settings, settingsError, updateSettings, performUpdat
          if (status === 'success') {
             toast('Google Ads has been integrated successfully!', { icon: '✔️' });
             if (performUpdate) {
-               Promise.resolve(performUpdate()).catch((error) => {
-                  console.error('Failed to refresh settings after Google Ads integration', error);
+               Promise.resolve(performUpdate()).catch((_error) => {
+                  // Silently handle update errors
                });
             }
          } else {

@@ -5,17 +5,22 @@ import { getClientOrigin } from '../utils/client/origin';
 
 type KeywordsResponse = {
    keywords?: KeywordType[]
-   [key: string]: any,
+   [key: string]: unknown,
 };
 
 const normaliseKeywordFlag = (value: unknown): number => (Number(value) > 0 ? 1 : 0);
 
-const normaliseKeywordFlags = (keyword: any): KeywordType => ({
-   ...keyword,
-   updating: normaliseKeywordFlag(keyword?.updating),
-   sticky: normaliseKeywordFlag(keyword?.sticky),
-   mapPackTop3: normaliseKeywordFlag(keyword?.mapPackTop3),
-});
+const normaliseKeywordFlags = (keyword: unknown): KeywordType => {
+   if (typeof keyword !== 'object' || keyword === null) {
+      throw new Error('Invalid keyword object');
+   }
+   return {
+      ...(keyword as Record<string, unknown>),
+      updating: normaliseKeywordFlag((keyword as any)?.updating),
+      sticky: normaliseKeywordFlag((keyword as any)?.sticky),
+      mapPackTop3: normaliseKeywordFlag((keyword as any)?.mapPackTop3),
+   } as KeywordType;
+};
 
 export const fetchKeywords = async (router: NextRouter, domain: string) => {
    if (!domain) { return { keywords: [] }; }
@@ -33,12 +38,10 @@ export const fetchKeywords = async (router: NextRouter, domain: string) => {
             const errorData = await res.json();
             errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
          } else {
-            const textResponse = await res.text();
-            console.warn('Non-JSON error response received:', textResponse.substring(0, 200));
+            await res.text();
             errorMessage = `Server error (${res.status}): Please try again later`;
          }
-      } catch (parseError) {
-         console.warn('Failed to parse error response:', parseError);
+      } catch (_parseError) {
          errorMessage = `Server error (${res.status}): Please try again later`;
       }
 
@@ -69,14 +72,11 @@ export function useFetchKeywords(
             // If yes, then refecth the keywords every 5 seconds until all the keywords position is updated by the server
             if (data.keywords && data.keywords.length > 0 && setKeywordSPollInterval) {
                const hasRefreshingKeyword = data.keywords.some((x:KeywordType) => x.updating === 1);
-               const updatingCount = data.keywords.filter((x:KeywordType) => x.updating === 1).length;
                
                if (hasRefreshingKeyword) {
-                  console.log(`[POLL] ${updatingCount} keyword(s) still updating, continuing poll every 5s`);
                   setKeywordSPollInterval(5000);
                } else {
                   if (keywordSPollInterval) {
-                     console.log('[POLL] All keywords updated, stopping poll');
                      toast('Keywords Refreshed!', { icon: '✔️' });
                   }
                   setKeywordSPollInterval(undefined);
@@ -104,12 +104,10 @@ export function useAddKeywords(onSuccess:Function) {
                errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
             } else {
                // Handle HTML error pages or other non-JSON responses
-               const textResponse = await res.text();
-               console.warn('Non-JSON error response received:', textResponse.substring(0, 200));
+               await res.text();
                errorMessage = `Server error (${res.status}): Please try again later`;
             }
-         } catch (parseError) {
-            console.warn('Failed to parse error response:', parseError);
+         } catch (_parseError) {
             errorMessage = `Server error (${res.status}): Please try again later`;
          }
          throw new Error(errorMessage);
@@ -117,13 +115,11 @@ export function useAddKeywords(onSuccess:Function) {
       return res.json();
    }, {
       onSuccess: async () => {
-         console.log('Keywords Added!!!');
          toast('Keywords Added Successfully!', { icon: '✔️' });
          onSuccess();
          queryClient.invalidateQueries(['keywords']);
       },
       onError: (_error, _variables, _context) => {
-         console.log('Error Adding New Keywords!!!');
          toast('Error Adding New Keywords', { icon: '⚠️' });
       },
    });
@@ -144,12 +140,10 @@ export function useDeleteKeywords(onSuccess:Function) {
                errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
             } else {
                // Handle HTML error pages or other non-JSON responses
-               const textResponse = await res.text();
-               console.warn('Non-JSON error response received:', textResponse.substring(0, 200));
+               await res.text();
                errorMessage = `Server error (${res.status}): Please try again later`;
             }
-         } catch (parseError) {
-            console.warn('Failed to parse error response:', parseError);
+         } catch (_parseError) {
             errorMessage = `Server error (${res.status}): Please try again later`;
          }
          throw new Error(errorMessage);
@@ -157,13 +151,11 @@ export function useDeleteKeywords(onSuccess:Function) {
       return res.json();
    }, {
       onSuccess: async () => {
-         console.log('Removed Keyword!!!');
          onSuccess();
          toast('Keywords Removed Successfully!', { icon: '✔️' });
          queryClient.invalidateQueries(['keywords']);
       },
       onError: (_error, _variables, _context) => {
-         console.log('Error Removing Keyword!!!');
          toast('Error Removing the Keywords', { icon: '⚠️' });
       },
    });
@@ -185,12 +177,10 @@ export function useFavKeywords(onSuccess:Function) {
                errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
             } else {
                // Handle HTML error pages or other non-JSON responses
-               const textResponse = await res.text();
-               console.warn('Non-JSON error response received:', textResponse.substring(0, 200));
+               await res.text();
                errorMessage = `Server error (${res.status}): Please try again later`;
             }
-         } catch (parseError) {
-            console.warn('Failed to parse error response:', parseError);
+         } catch (_parseError) {
             errorMessage = `Server error (${res.status}): Please try again later`;
          }
          throw new Error(errorMessage);
@@ -204,7 +194,6 @@ export function useFavKeywords(onSuccess:Function) {
          queryClient.invalidateQueries(['keywords']);
       },
       onError: (_error, _variables, _context) => {
-         console.log('Error Changing Favorite Status!!!');
          toast('Error Changing Favorite Status.', { icon: '⚠️' });
       },
    });
@@ -227,12 +216,10 @@ export function useUpdateKeywordTags(onSuccess:Function) {
                errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
             } else {
                // Handle HTML error pages or other non-JSON responses
-               const textResponse = await res.text();
-               console.warn('Non-JSON error response received:', textResponse.substring(0, 200));
+               await res.text();
                errorMessage = `Server error (${res.status}): Please try again later`;
             }
-         } catch (parseError) {
-            console.warn('Failed to parse error response:', parseError);
+         } catch (_parseError) {
             errorMessage = `Server error (${res.status}): Please try again later`;
          }
          throw new Error(errorMessage);
@@ -245,7 +232,6 @@ export function useUpdateKeywordTags(onSuccess:Function) {
          queryClient.invalidateQueries(['keywords']);
       },
       onError: (_error, _variables, _context) => {
-         console.log('Error Updating Keyword Tags!!!');
          toast('Error Updating Keyword Tags.', { icon: '⚠️' });
       },
    });
@@ -255,7 +241,6 @@ export function useRefreshKeywords(onSuccess:Function) {
    const queryClient = useQueryClient();
    return useMutation(async ({ ids = [], domain = '' } : {ids?: number[], domain?: string}) => {
       const keywordIds = ids.join(',');
-      console.log(keywordIds);
       const origin = getClientOrigin();
       const query = ids.length === 0 && domain ? `?id=all&domain=${encodeURIComponent(domain)}` : `?id=${keywordIds}`;
       const res = await fetch(`${origin}/api/refresh${query}`, { method: 'POST' });
@@ -268,12 +253,10 @@ export function useRefreshKeywords(onSuccess:Function) {
                errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
             } else {
                // Handle HTML error pages or other non-JSON responses
-               const textResponse = await res.text();
-               console.warn('Non-JSON error response received:', textResponse.substring(0, 200));
+               await res.text();
                errorMessage = `Server error (${res.status}): Please try again later`;
             }
-         } catch (parseError) {
-            console.warn('Failed to parse error response:', parseError);
+         } catch (_parseError) {
             errorMessage = `Server error (${res.status}): Please try again later`;
          }
          throw new Error(errorMessage);
@@ -281,13 +264,11 @@ export function useRefreshKeywords(onSuccess:Function) {
       return res.json();
    }, {
       onSuccess: async () => {
-         console.log('[REFRESH] Keywords added to refresh queue, invalidating query cache');
          onSuccess();
          toast('Keywords Added to Refresh Queue', { icon: '🔄' });
          queryClient.invalidateQueries(['keywords']);
       },
       onError: (error, _variables, _context) => {
-         console.log('Error Refreshing Keywords!!!', error);
          const message = (error as Error)?.message || 'Error Refreshing Keywords.';
          toast(message, { icon: '⚠️' });
       },
@@ -309,12 +290,10 @@ export function useFetchSingleKeyword(keywordID:number) {
                   errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
                } else {
                   // Handle HTML error pages or other non-JSON responses
-                  const textResponse = await res.text();
-                  console.warn('Non-JSON error response received:', textResponse.substring(0, 200));
+                  await res.text();
                   errorMessage = `Server error (${res.status}): Please try again later`;
                }
-            } catch (parseError) {
-               console.warn('Failed to parse error response:', parseError);
+            } catch (_parseError) {
                errorMessage = `Server error (${res.status}): Please try again later`;
             }
             throw new Error(errorMessage);
@@ -334,7 +313,6 @@ export function useFetchSingleKeyword(keywordID:number) {
       }
    }, {
       onError: (_error) => {
-         console.log('Error Loading Keyword Data!!!');
          toast('Error Loading Keyword Details.', { icon: '⚠️' });
       },
    });
@@ -351,7 +329,6 @@ export async function fetchSearchResults(router:NextRouter, keywordData: Record<
    const res = await fetch(`${origin}/api/refresh${queryString ? `?${queryString}` : ''}`, { method: 'GET' });
    if (res.status >= 400 && res.status < 600) {
       if (res.status === 401) {
-         console.log('Unauthorized!!');
          router.push('/login');
       }
       let errorMessage = 'Bad response from server';
@@ -362,12 +339,10 @@ export async function fetchSearchResults(router:NextRouter, keywordData: Record<
             errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
          } else {
             // Handle HTML error pages or other non-JSON responses
-            const textResponse = await res.text();
-            console.warn('Non-JSON error response received:', textResponse.substring(0, 200));
+            await res.text();
             errorMessage = `Server error (${res.status}): Please try again later`;
          }
-      } catch (parseError) {
-         console.warn('Failed to parse error response:', parseError);
+      } catch (_parseError) {
          errorMessage = `Server error (${res.status}): Please try again later`;
       }
       throw new Error(errorMessage);

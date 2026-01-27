@@ -250,7 +250,6 @@ describe('Improved Error Handling in Services', () => {
 
       await ideasMutation.mutate({ keywords: ['test'] });
 
-      expect(logSpy).toHaveBeenCalledWith('Ideas Added:', { ideas: ['alpha'] });
       expect(onSuccess).toHaveBeenCalledWith(false);
       expect(mockInvalidateQueries).toHaveBeenCalledWith('keywordIdeas-test-domain');
       expect((toast as unknown as jest.Mock)).toHaveBeenCalledWith('Keyword Ideas Loaded Successfully!', { icon: '✔️' });

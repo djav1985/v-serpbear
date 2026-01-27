@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useUpdateKeywordTags } from '../../services/keywords';
 import Icon from '../common/Icon';
 import Modal from '../common/Modal';
@@ -15,12 +15,26 @@ const AddTags = ({ keywords = [], existingTags = [], closeModal }: AddTagsProps)
    const [showSuggestions, setShowSuggestions] = useState(false);
    const { mutate: updateMutate } = useUpdateKeywordTags(() => { setTagInput(''); });
    const inputRef = useRef(null);
+   const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+   // Cleanup timeout on unmount
+   useEffect(() => () => {
+         if (errorTimeoutRef.current) {
+            clearTimeout(errorTimeoutRef.current);
+         }
+      }, []);
 
    const addTag = () => {
       if (keywords.length === 0) { return; }
       if (!tagInput && keywords.length > 1) {
+         if (errorTimeoutRef.current) {
+            clearTimeout(errorTimeoutRef.current);
+         }
          setInputError('Please Insert a Tag!');
-         setTimeout(() => { setInputError(''); }, 3000);
+         errorTimeoutRef.current = setTimeout(() => {
+            setInputError('');
+            errorTimeoutRef.current = null;
+         }, 3000);
          return;
       }
 
@@ -30,7 +44,7 @@ const AddTags = ({ keywords = [], existingTags = [], closeModal }: AddTagsProps)
             .map((t) => t.trim())
             .filter((tag) => tag.length > 0),
       ));
-      const tagsPayload:any = {};
+      const tagsPayload: Record<number, string[]> = {};
       keywords.forEach((keyword:KeywordType) => {
          tagsPayload[keyword.ID] = keywords.length === 1
             ? tagsArray

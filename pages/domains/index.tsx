@@ -72,8 +72,12 @@ const Domains: NextPage = () => {
                return null;
             });
 
-            const screenshots = await Promise.all(screenshotPromises);
-            const validScreenshots = screenshots.filter((item): item is { domain: string; thumb: string } => Boolean(item));
+            // Use allSettled to handle individual screenshot failures gracefully
+            const screenshots = await Promise.allSettled(screenshotPromises);
+            const validScreenshots = screenshots
+               .filter((result): result is PromiseFulfilledResult<{ domain: string; thumb: string }> =>
+                  result.status === 'fulfilled' && result.value !== null)
+               .map((result) => result.value as { domain: string; thumb: string });
 
             if (validScreenshots.length > 0) {
                setDomainThumbs((currentThumbs) => {

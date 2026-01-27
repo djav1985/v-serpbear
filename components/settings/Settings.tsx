@@ -46,8 +46,16 @@ const Settings = forwardRef<HTMLDivElement, SettingsProps>(({ closeSettings }:Se
    const [currentTab, setCurrentTab] = useState<string>('scraper');
    const [settings, setSettings] = useState<SettingsType>(defaultSettings);
    const [settingsError, setSettingsError] = useState<SettingsError|null>(null);
-   const { mutateAsync: updateMutateAsync, isLoading: isUpdating } = useUpdateSettings(() => console.log(''));
+   const errorTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+   const { mutateAsync: updateMutateAsync, isLoading: isUpdating } = useUpdateSettings(() => {});
    const { data: appSettings, isLoading } = useFetchSettings();
+   
+   // Cleanup timeout on unmount
+   useEffect(() => () => {
+         if (errorTimeoutRef.current) {
+            clearTimeout(errorTimeoutRef.current);
+         }
+      }, []);
    useOnKey('Escape', closeSettings);
 
    useEffect(() => {
@@ -119,8 +127,14 @@ const Settings = forwardRef<HTMLDivElement, SettingsProps>(({ closeSettings }:Se
       }
 
       if (error) {
+         if (errorTimeoutRef.current) {
+            clearTimeout(errorTimeoutRef.current);
+         }
          setSettingsError(error);
-         setTimeout(() => { setSettingsError(null); }, 3000);
+         errorTimeoutRef.current = setTimeout(() => {
+            setSettingsError(null);
+            errorTimeoutRef.current = null;
+         }, 3000);
       } else {
          // Perform Update
          const previousScraperType = appSettings?.settings?.scraper_type;

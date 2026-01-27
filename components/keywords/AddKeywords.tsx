@@ -32,6 +32,7 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
    allowsCity = false,
 }: AddKeywordsProps, ref) => {
    const inputRef = useRef(null);
+   const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
    const [error, setError] = useState<string>('');
    const [showTagSuggestions, setShowTagSuggestions] = useState(false);
    const [newKeywordsData, setNewKeywordsData] = useState<KeywordsInput>({
@@ -43,6 +44,14 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
       city: '',
       state: '',
    });
+   
+   // Cleanup timeout on unmount
+   useEffect(() => () => {
+         if (errorTimeoutRef.current) {
+            clearTimeout(errorTimeoutRef.current);
+         }
+      }, []);
+
    useEffect(() => {
       if (typeof window === 'undefined') {
          return;
@@ -57,6 +66,19 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
          // Ignore storage access errors during SSR/tests
       }
    }, []);
+   
+   // Helper function to set error with auto-clear
+   const setErrorWithTimeout = useCallback((errorMessage: string) => {
+      if (errorTimeoutRef.current) {
+         clearTimeout(errorTimeoutRef.current);
+      }
+      setError(errorMessage);
+      errorTimeoutRef.current = setTimeout(() => {
+         setError('');
+         errorTimeoutRef.current = null;
+      }, 3000);
+   }, []);
+   
    const { mutate: addMutate, isLoading: isAdding } = useAddKeywords(() => closeModal(false));
 
    const existingTags: string[] = useMemo(() => {
@@ -91,8 +113,7 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
          const trimmedState = (nkwrds.state || '').trim();
 
          if (!hasValidCityStatePair(trimmedCity, trimmedState)) {
-            setError('City and state must be provided together.');
-            setTimeout(() => { setError(''); }, 3000);
+            setErrorWithTimeout('City and state must be provided together.');
             return;
          }
 
@@ -108,8 +129,7 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
           );
 
          if (!multiDevice && (keywordsArray.length === 1 || currentKeywords.length === keywordExist.length) && keywordExist.length > 0) {
-            setError(`Keywords ${keywordExist.join(',')} already Exist`);
-            setTimeout(() => { setError(''); }, 3000);
+            setErrorWithTimeout(`Keywords ${keywordExist.join(',')} already Exist`);
          } else {
             const newKeywords = keywordsArray.flatMap((k) =>
                devices
@@ -129,8 +149,7 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
             addMutate(newKeywords);
          }
       } else {
-         setError('Please Insert a Keyword');
-         setTimeout(() => { setError(''); }, 3000);
+         setErrorWithTimeout('Please Insert a Keyword');
       }
    };
 

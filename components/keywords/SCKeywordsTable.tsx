@@ -97,7 +97,6 @@ const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleInt
 
    const selectKeyword = (keywordID: string, isTrackedKeyword = false) => {
       if (isTrackedKeyword) { return; }
-      console.log('Select Keyword: ', keywordID);
       let updatedSelected = [...selectedKeywords, keywordID];
       if (selectedKeywords.includes(keywordID)) {
          updatedSelected = selectedKeywords.filter((keyID) => keyID !== keywordID);
