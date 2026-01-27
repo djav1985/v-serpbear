@@ -155,7 +155,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
    if (!rawkeyword || rawkeyword.length === 0) { return []; }
 
    const domainNames = Array.from(new Set(rawkeyword.map((el) => el.domain).filter(Boolean)));
-    let scrapePermissions = new Map<string, boolean | undefined>();
+    let scrapePermissions = new Map<string, boolean>();
    const domainSpecificSettings = new Map<string, SettingsType>();
    const domainsWithScraperOverrides = new Set<string>();
 
