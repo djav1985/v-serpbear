@@ -114,9 +114,10 @@ describe('POST /api/volume', () => {
          { ID: 1, keyword: 'alpha', volume: 0 },
          { ID: 2, keyword: 'beta', volume: 0 },
       ]);
-      keywordModelMock.findAll
-         .mockResolvedValueOnce([{ get: () => ({ ID: 1, keyword: 'alpha', volume: 0 }) }])
-         .mockResolvedValueOnce([{ get: () => ({ ID: 2, keyword: 'beta', volume: 0 }) }]);
+      keywordModelMock.findAll.mockResolvedValue([
+         { get: () => ({ ID: 1, keyword: 'alpha', volume: 0 }) },
+         { get: () => ({ ID: 2, keyword: 'beta', volume: 0 }) },
+      ]);
       getKeywordsVolumeMock.mockResolvedValue({ volumes: { 1: 25, 2: 50 } });
 
       const req = {
