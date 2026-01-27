@@ -90,7 +90,7 @@ export function useFetchKeywords(
          refetchInterval: keywordSPollInterval,
          refetchIntervalInBackground: true,
          staleTime: 0, // Always fetch fresh data, don't use stale cache
-         cacheTime: 0, // Don't cache the response when polling is active
+         cacheTime: 1000, // Keep a very short cache to avoid duplicate requests on quick remounts
          onSuccess: (data) => {
             // If Keywords are Manually Refreshed check if the any of the keywords position are still being fetched
             // If yes, then refecth the keywords every 5 seconds until all the keywords position is updated by the server
