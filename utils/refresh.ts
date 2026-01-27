@@ -275,7 +275,11 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                // No result found - this indicates a scraping failure
                // The refreshParallel function already handles errors, but ensure state is consistent
                logger.warn('No refresh result found for keyword, clearing updating flag', { keywordId: keywordModel.ID });
-               await Keyword.update({ updating: toDbBool(false), updatingStartedAt: null }, { where: { ID: keywordModel.ID } });
+               try {
+                  await Keyword.update({ updating: toDbBool(false), updatingStartedAt: null }, { where: { ID: keywordModel.ID } });
+               } catch (updateErr) {
+                  logger.error('[REFRESH] Failed to clear updating flag for keyword without result', updateErr instanceof Error ? updateErr : new Error(String(updateErr)), { keywordId: keywordModel.ID });
+               }
                const currentKeyword = keywordModel.get({ plain: true });
                const parsedKeyword = parseKeywords([currentKeyword])[0];
                updatedKeywords.push({ ...parsedKeyword, updating: false, updatingStartedAt: null });
