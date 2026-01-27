@@ -106,7 +106,7 @@ const emailKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse<Email
 
       const domainPlain = (domainRecord as any).get
          ? (domainRecord as any).get({ plain: true }) as DomainType
-         : (domainRecord as unknown as DomainType);
+         : domainRecord.toJSON() as DomainType;
       const normalizedDomain = normalizeDomainBooleans(domainPlain);
 
       const notificationEmails = trimString(normalizedDomain.notification_emails);
