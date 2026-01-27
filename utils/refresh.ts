@@ -275,7 +275,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                await Keyword.update({ updating: 0, updatingStartedAt: null }, { where: { ID: keywordModel.ID } });
                const currentKeyword = keywordModel.get({ plain: true });
                const parsedKeyword = parseKeywords([currentKeyword])[0];
-                updatedKeywords.push({ ...parsedKeyword, updating: 0, updatingStartedAt: null });
+               updatedKeywords.push({ ...parsedKeyword, updating: 0, updatingStartedAt: null });
             }
          }
       } else {
@@ -559,19 +559,19 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          const effectiveLastUpdated = dbPayload.lastUpdated
             ?? (typeof keyword.lastUpdated === 'string' ? keyword.lastUpdated : '');
 
-          updated = {
-             ...keyword,
-             position: newPos,
-             updating: 0,
-             updatingStartedAt: null,
-             url: dbPayload.url ?? '',
-             lastResult: parsedNormalizedResult,
-             localResults: parsedLocalResults,
-             history,
-             lastUpdated: effectiveLastUpdated,
-             lastUpdateError: parsedError,
-             mapPackTop3: dbPayload.mapPackTop3 === 1 ? 1 : 0,
-          };
+         updated = {
+            ...keyword,
+            position: newPos,
+            updating: 0,
+            updatingStartedAt: null,
+            url: dbPayload.url ?? '',
+            lastResult: parsedNormalizedResult,
+            localResults: parsedLocalResults,
+            history,
+            lastUpdated: effectiveLastUpdated,
+            lastUpdateError: parsedError,
+            mapPackTop3: dbPayload.mapPackTop3 === 1 ? 1 : 0,
+         };
       } catch (error: any) {
          logger.error('[ERROR] Updating SERP for Keyword', error, { keyword: keyword.keyword });
          try {
@@ -579,11 +579,11 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          } catch (cleanupError: any) {
             logger.error('[ERROR] Failed to clear updating flag after update failure', cleanupError, { keywordId: keyword.ID });
          }
-          updated = {
-             ...keyword,
-             updating: 0,
-             updatingStartedAt: null,
-          };
+         updated = {
+            ...keyword,
+            updating: 0,
+            updatingStartedAt: null,
+         };
       }
    }
 
