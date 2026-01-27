@@ -94,8 +94,17 @@ const loginUser = async (req: NextApiRequest, res: NextApiResponse<loginResponse
       isUsernameValid = timingSafeEqual(userNameBuffer, usernameBuffer);
       isPasswordValid = timingSafeEqual(passwordBuffer, inputPasswordBuffer);
    } catch (error) {
-      // If comparison fails, treat as invalid credentials
-      logger.debug('Timing-safe comparison failed', { error: error instanceof Error ? error.message : String(error) });
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error(
+         'Login failed: timing-safe comparison error',
+         err,
+         {
+            username,
+            duration: Date.now() - startTime,
+            ip: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'unknown'
+         }
+      );
+      return res.status(500).json({ error: 'Internal server error' });
    }
 
    if (isUsernameValid && isPasswordValid) {
