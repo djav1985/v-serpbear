@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import Icon from '../common/Icon';
 import { useUpdateDomainToggles } from '../../services/domains';
 import { TOGGLE_TRACK_CLASS_NAME } from '../common/toggleStyles';
+import { fromDbBool } from '../../utils/dbBooleans';
 
 const COMPACT_NUMBER_FORMATTER = new Intl.NumberFormat('en-US', {
    notation: 'compact',
@@ -57,7 +58,7 @@ const DomainItem = ({
    } = domain;
    const { mutateAsync: updateDomainToggle, isLoading: isToggleUpdating } = useUpdateDomainToggles();
 
-   const isDomainActive = domain.scrapeEnabled === 1 && domain.notification === 1;
+   const isDomainActive = fromDbBool(domain.scrapeEnabled) && fromDbBool(domain.notification);
 
    const renderCompactMetric = (value: number) => {
       const { numeric, unit } = formatCompactNumber(value);
@@ -70,7 +71,7 @@ const DomainItem = ({
    };
 
    const handleDomainStatusToggle = async (nextValue: boolean) => {
-      const payload: Partial<DomainSettings> = { scrapeEnabled: nextValue ? 1 : 0 };
+      const payload: Partial<DomainSettings> = { scrapeEnabled: nextValue };
       try {
          await updateDomainToggle({ domain, domainSettings: payload });
          const message = `${domain.domain} ${nextValue ? 'marked as Active' : 'marked as Deactive'}.`;

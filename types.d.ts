@@ -98,7 +98,7 @@ type DomainSettings = {
    notification_interval: string,
    notification_emails: string,
    search_console?: DomainSearchConsole,
-   scrapeEnabled?: number,
+   scrapeEnabled?: boolean | number,
    scraper_settings?: DomainScraperSettings | null,
    business_name?: string | null,
 }
