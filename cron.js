@@ -69,8 +69,8 @@ const getAppSettings = async () => {
          console.error('Error Decrypting Settings API Keys!', error);
          return {
             ...settings,
-            scraping_api: settings.scraping_api || '',
-            smtp_password: settings.smtp_password || ''
+            scraping_api: '',
+            smtp_password: ''
          };
       }
    } catch (error) {
