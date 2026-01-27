@@ -38,6 +38,17 @@ const CRON_MAIN_SCHEDULE = normalizeCronExpression(process.env.CRON_MAIN_SCHEDUL
 const CRON_EMAIL_SCHEDULE = normalizeCronExpression(process.env.CRON_EMAIL_SCHEDULE, '0 0 6 * * *');
 const CRON_FAILED_SCHEDULE = normalizeCronExpression(process.env.CRON_FAILED_SCHEDULE, '0 0 */1 * * *');
 
+/**
+ * Get application settings from data/settings.json
+ * 
+ * Error handling behavior:
+ * - ENOENT (file missing): Creates file with defaults and returns defaults
+ * - Invalid JSON: Returns defaults WITHOUT overwriting the file (to preserve recoverable data)
+ * - Decryption failure: Returns parsed settings with empty strings for encrypted fields
+ * 
+ * Note: This differs from pages/api/settings.ts which overwrites the file on ANY read error.
+ * The cron worker is more conservative to avoid data loss during automated operations.
+ */
 const getAppSettings = async () => {
    const settingsPath = `${process.cwd()}/data/settings.json`;
    const defaultSettings = {
@@ -47,7 +58,8 @@ const getAppSettings = async () => {
       smtp_server: '',
       smtp_port: '',
       smtp_username: '',
-      smtp_password: ''
+      smtp_password: '',
+      scrape_interval: '',
    };
    // console.log('process.env.SECRET: ', process.env.SECRET);
    try {

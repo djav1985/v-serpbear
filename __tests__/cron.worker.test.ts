@@ -60,6 +60,7 @@ describe('getAppSettings', () => {
     smtp_port: '',
     smtp_username: '',
     smtp_password: '',
+    scrape_interval: '',
   };
   let originalSettingsContent = '';
   const originalSecret = process.env.SECRET;
@@ -101,6 +102,8 @@ describe('getAppSettings', () => {
     expect(settings).toEqual(expect.objectContaining({
       scraper_type: 'serpapi',
       notification_interval: 'daily',
+      scraping_api: '',
+      smtp_password: '',
     }));
   });
 
@@ -117,5 +120,24 @@ describe('getAppSettings', () => {
     expect(updatedContent).toBe(invalidContent);
     expect(writeSpy).not.toHaveBeenCalled();
     writeSpy.mockRestore();
+  });
+
+  it('creates settings file with defaults when file is missing (ENOENT)', async () => {
+    const { unlink } = require('fs/promises');
+    const { getAppSettings } = require('../cron.js');
+    
+    // Ensure file doesn't exist
+    try {
+      await unlink(settingsPath);
+    } catch (_error) {
+      // File may already not exist, which is fine
+    }
+
+    const settings = await getAppSettings();
+    const createdContent = await fsPromises.readFile(settingsPath, { encoding: 'utf-8' });
+    const createdSettings = JSON.parse(createdContent);
+
+    expect(settings).toEqual(defaultSettings);
+    expect(createdSettings).toEqual(defaultSettings);
   });
 });
