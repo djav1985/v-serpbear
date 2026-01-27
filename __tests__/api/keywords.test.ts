@@ -232,7 +232,7 @@ describe('PUT /api/keywords error handling', () => {
     expect(res.status).toHaveBeenCalledWith(201);
   });
 
-  it('invokes stale update cleanup before returning keywords', async () => {
+  it('returns keywords without invoking stale update cleanup', async () => {
     const keywordRecord = {
       get: () => ({
         ID: 5,
@@ -251,7 +251,6 @@ describe('PUT /api/keywords error handling', () => {
       }),
     };
 
-    keywordMock.count.mockResolvedValueOnce(1); // Indicate there are keywords with updating=1
     keywordMock.findAll.mockResolvedValueOnce([keywordRecord]);
     getAppSettingsMock.mockResolvedValue({});
 
@@ -268,7 +267,7 @@ describe('PUT /api/keywords error handling', () => {
 
     await handler(req, res);
 
-    expect(resetStaleKeywordUpdatesMock).toHaveBeenCalledWith({ domain: 'example.com' });
+    expect(resetStaleKeywordUpdatesMock).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(200);
   });
 

@@ -16,7 +16,7 @@ import { logger } from './logger';
 import { fromDbBool, toDbBool } from './dbBooleans';
 import normalizeDomainBooleans from './normalizeDomain';
 
-const STALE_UPDATE_THRESHOLD_MINUTES = 3;
+const STALE_UPDATE_THRESHOLD_MINUTES = 30;
 
 export const resetStaleKeywordUpdates = async ({
    domain,
