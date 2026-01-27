@@ -112,9 +112,9 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
       }));
    };
 
-   const isDomainActive = typeof domainSettings.scrapeEnabled === 'boolean' 
-      ? domainSettings.scrapeEnabled 
-      : fromDbBool(domainSettings.scrapeEnabled);
+   // Always treat scrapeEnabled as boolean in component state
+   const isDomainActive = domainSettings.scrapeEnabled === true 
+      || (typeof domainSettings.scrapeEnabled === 'number' && domainSettings.scrapeEnabled === 1);
 
    const handleScraperSelect = (updated: string[]) => {
       const nextValue = updated[0] || '__system__';

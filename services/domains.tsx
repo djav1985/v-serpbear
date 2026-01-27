@@ -21,15 +21,14 @@ const normalizeDomainPatch = (
    domain?: DomainType,
 ): Partial<DomainType> => {
    const updates: Partial<DomainType> = {};
-   if (typeof patch.scrapeEnabled === 'boolean') {
-      // Convert boolean to number for cache (database representation)
-      updates.scrapeEnabled = toDbBool(patch.scrapeEnabled);
+   if (patch.scrapeEnabled !== undefined) {
+      // Convert to number for cache (database representation)
+      const dbValue = typeof patch.scrapeEnabled === 'boolean' 
+         ? toDbBool(patch.scrapeEnabled) 
+         : patch.scrapeEnabled;
+      updates.scrapeEnabled = dbValue;
       // Update the legacy notification field to match scrapeEnabled
-      updates.notification = toDbBool(patch.scrapeEnabled);
-   } else if (typeof patch.scrapeEnabled === 'number') {
-      // Already in database format
-      updates.scrapeEnabled = patch.scrapeEnabled;
-      updates.notification = patch.scrapeEnabled;
+      updates.notification = dbValue;
    }
    if (typeof patch.notification_interval === 'string') {
       updates.notification_interval = patch.notification_interval;
