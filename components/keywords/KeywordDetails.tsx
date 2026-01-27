@@ -30,7 +30,7 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
    const keywordLocalResults: KeywordLocalResult[] = Array.isArray(keywordLocalResultsRaw)
       ? keywordLocalResultsRaw
       : fallbackLocalResults;
-   const mapPackTop3 = (keywordData?.mapPackTop3 ?? keyword.mapPackTop3) === 1;
+   const mapPackTop3 = Boolean(keywordData?.mapPackTop3 ?? keyword.mapPackTop3);
    const dateOptions = [
       { label: 'Last 7 Days', value: '7' },
       { label: 'Last 30 Days', value: '30' },

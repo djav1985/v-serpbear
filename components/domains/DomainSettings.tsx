@@ -8,7 +8,6 @@ import SelectField from '../common/SelectField';
 import { TOGGLE_TRACK_CLASS_NAME } from '../common/toggleStyles';
 import { isValidEmail } from '../../utils/client/validators';
 import SecretField from '../common/SecretField';
-import { fromDbBool } from '../../utils/dbBooleans';
 import { safeJsonParse } from '../../utils/safeJsonParse';
 
 type DomainSettingsProps = {
@@ -79,7 +78,7 @@ const showSettingsError = (
 const deriveDomainActiveState = (domainData?: DomainType | null): boolean => {
    if (!domainData) { return true; }
    const { scrapeEnabled, notification } = domainData;
-   return fromDbBool(scrapeEnabled) && fromDbBool(notification);
+   return Boolean(scrapeEnabled) && Boolean(notification);
 };
 
 const defaultSearchConsoleSettings: DomainSearchConsole = {
@@ -180,8 +179,7 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
    };
 
    // Always treat scrapeEnabled as boolean in component state
-   const isDomainActive = domainSettings.scrapeEnabled === true 
-      || (typeof domainSettings.scrapeEnabled === 'number' && domainSettings.scrapeEnabled === 1);
+   const isDomainActive = Boolean(domainSettings.scrapeEnabled);
 
    const handleScraperSelect = (updated: string[]) => {
       const nextValue = updated[0] || '__system__';

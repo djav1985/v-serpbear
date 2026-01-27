@@ -80,38 +80,36 @@ describe('Boolean Normalization Functions', () => {
       ...overrides,
     });
 
-    // parseKeywords no longer normalizes booleans - values are passed through as-is
-    it('returns numeric 1 for integer 1 values', () => {
+    it('returns true for integer 1 values', () => {
       const [keyword1] = parseKeywords([buildKeyword({ updating: 1 }) as any]);
       const [keyword2] = parseKeywords([buildKeyword({ sticky: 1 }) as any]);
       const [keyword3] = parseKeywords([buildKeyword({ mapPackTop3: 1 }) as any]);
 
-      expect(keyword1.updating).toBe(1);
-      expect(keyword2.sticky).toBe(1);
-      expect(keyword3.mapPackTop3).toBe(1);
+      expect(keyword1.updating).toBe(true);
+      expect(keyword2.sticky).toBe(true);
+      expect(keyword3.mapPackTop3).toBe(true);
     });
 
     // Test numeric 0 values are preserved
-    it('returns numeric 0 for integer 0 values', () => {
+    it('returns false for integer 0 values', () => {
       const [keyword1] = parseKeywords([buildKeyword({ updating: 0 }) as any]);
       const [keyword2] = parseKeywords([buildKeyword({ sticky: 0 }) as any]);
       const [keyword3] = parseKeywords([buildKeyword({ mapPackTop3: 0 }) as any]);
 
-      expect(keyword1.updating).toBe(0);
-      expect(keyword2.sticky).toBe(0);
-      expect(keyword3.mapPackTop3).toBe(0);
+      expect(keyword1.updating).toBe(false);
+      expect(keyword2.sticky).toBe(false);
+      expect(keyword3.mapPackTop3).toBe(false);
     });
 
-    // parseKeywords validates and coerces invalid values to 0 for safety
-    it('coerces non-numeric values to 0 (default)', () => {
+    it('coerces non-numeric values to false (default)', () => {
       // API error messages or invalid data should be coerced to safe defaults
       const [keyword1] = parseKeywords([buildKeyword({ updating: 'API Error: Invalid request' }) as any]);
       const [keyword2] = parseKeywords([buildKeyword({ sticky: 'Server error occurred' }) as any]);
       const [keyword3] = parseKeywords([buildKeyword({ mapPackTop3: 'timeout' }) as any]);
 
-      expect(keyword1.updating).toBe(0);
-      expect(keyword2.sticky).toBe(0);
-      expect(keyword3.mapPackTop3).toBe(0);
+      expect(keyword1.updating).toBe(false);
+      expect(keyword2.sticky).toBe(false);
+      expect(keyword3.mapPackTop3).toBe(false);
     });
   });
 });

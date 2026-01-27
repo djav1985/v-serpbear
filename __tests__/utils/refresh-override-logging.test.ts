@@ -63,7 +63,7 @@ describe('refreshAndUpdateKeywords - scraper override logging', () => {
       added: '2024-01-01T00:00:00.000Z',
       url: '',
       tags: '[]',
-      mapPackTop3: 0,
+      mapPackTop3: false,
     };
 
     const keywordModel = {
@@ -138,7 +138,7 @@ describe('refreshAndUpdateKeywords - scraper override logging', () => {
       added: '2024-01-01T00:00:00.000Z',
       url: '',
       tags: '[]',
-      mapPackTop3: 0,
+      mapPackTop3: false,
     };
 
     const keywordModel = {
@@ -224,7 +224,7 @@ describe('refreshAndUpdateKeywords - scraper override logging', () => {
       added: '2024-01-01T00:00:00.000Z',
       url: '',
       tags: '[]',
-      mapPackTop3: 0,
+      mapPackTop3: false,
     };
 
     const keyword2Plain = {
@@ -245,7 +245,7 @@ describe('refreshAndUpdateKeywords - scraper override logging', () => {
       added: '2024-01-01T00:00:00.000Z',
       url: '',
       tags: '[]',
-      mapPackTop3: 0,
+      mapPackTop3: false,
     };
 
     const keywordModel1 = {

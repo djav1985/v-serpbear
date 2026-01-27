@@ -8,7 +8,7 @@ type KeywordsResponse = {
    [key: string]: unknown,
 };
 
-const normaliseKeywordFlag = (value: unknown): number => (Number(value) > 0 ? 1 : 0);
+const normaliseKeywordFlag = (value: unknown): boolean => Boolean(value === true || value === 1);
 
 const normaliseKeywordFlags = (keyword: unknown): KeywordType => {
    if (typeof keyword !== 'object' || keyword === null) {
@@ -71,7 +71,7 @@ export function useFetchKeywords(
             // If Keywords are Manually Refreshed check if the any of the keywords position are still being fetched
             // If yes, then refecth the keywords every 5 seconds until all the keywords position is updated by the server
             if (data.keywords && data.keywords.length > 0 && setKeywordSPollInterval) {
-               const hasRefreshingKeyword = data.keywords.some((x:KeywordType) => x.updating === 1);
+      const hasRefreshingKeyword = data.keywords.some((x:KeywordType) => x.updating);
                
                if (hasRefreshingKeyword) {
                   setKeywordSPollInterval(5000);
@@ -189,7 +189,7 @@ export function useFavKeywords(onSuccess:Function) {
    }, {
       onSuccess: async (data) => {
          onSuccess();
-         const isSticky = data.keywords[0]?.sticky === 1;
+         const isSticky = data.keywords[0]?.sticky === true;
          toast(isSticky ? 'Keywords Made Favorite!' : 'Keywords Unfavorited!', { icon: '✔️' });
          queryClient.invalidateQueries(['keywords']);
       },

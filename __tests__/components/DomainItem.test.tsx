@@ -92,9 +92,9 @@ describe('DomainItem Component', () => {
    it('displays the deactive label when domain toggles are disabled', () => {
       const inactiveDomain = {
          ...dummyDomain,
-         scrapeEnabled: 0,
+         scrapeEnabled: false,
          notify_enabled: false,
-         notification: 0,
+         notification: false,
       };
 
       render(<DomainItem {...defaultProps} domain={inactiveDomain} />);

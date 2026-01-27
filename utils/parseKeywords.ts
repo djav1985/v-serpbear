@@ -1,4 +1,5 @@
 import Keyword from '../database/models/keyword';
+import { fromDbBool } from './dbBooleans';
 
 export const normaliseHistory = (rawHistory: unknown): KeywordHistory => {
    if (!rawHistory || typeof rawHistory !== 'object' || Array.isArray(rawHistory)) {
@@ -43,13 +44,6 @@ const parseKeywords = (allKeywords: Keyword[]) : KeywordType[] => {
          try { lastUpdateError = JSON.parse(keywordData.lastUpdateError); } catch { lastUpdateError = {}; }
       }
 
-      // Integer boolean fields (1/0) are stored and returned by the SQLite dialect as-is.
-      // Validate and ensure these fields are numbers (default to 0 if invalid)
-      const validateIntegerFlag = (value: any): number => {
-         if (typeof value === 'number') return value;
-         return 0;
-      };
-
       return {
          ...keywordData,
          location: typeof keywordData.location === 'string' ? keywordData.location : '',
@@ -58,9 +52,9 @@ const parseKeywords = (allKeywords: Keyword[]) : KeywordType[] => {
          lastResult,
          localResults,
          lastUpdateError,
-         sticky: validateIntegerFlag(keywordData.sticky),
-         updating: validateIntegerFlag(keywordData.updating),
-         mapPackTop3: validateIntegerFlag(keywordData.mapPackTop3),
+         sticky: fromDbBool(keywordData.sticky),
+         updating: fromDbBool(keywordData.updating),
+         mapPackTop3: fromDbBool(keywordData.mapPackTop3),
       } as KeywordType;
    });
    return parsedItems;

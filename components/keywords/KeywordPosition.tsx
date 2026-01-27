@@ -2,12 +2,12 @@ import Icon from '../common/Icon';
 
 type KeywordPositionProps = {
    position: number,
-   updating?: number,
+   updating?: boolean,
    type?: string,
 }
 
-const KeywordPosition = ({ position = 0, type = '', updating = 0 }:KeywordPositionProps) => {
-   const isUpdating = updating === 1;
+const KeywordPosition = ({ position = 0, type = '', updating = false }:KeywordPositionProps) => {
+   const isUpdating = Boolean(updating);
 
    if (!isUpdating && position === 0) {
       return <span className='text-gray-400' title='Not in Top 100'>{'>100'}</span>;

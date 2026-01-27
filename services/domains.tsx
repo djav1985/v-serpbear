@@ -2,7 +2,6 @@ import { useRouter, NextRouter } from 'next/router';
 import toast from 'react-hot-toast';
 import { useMutation, useQuery, useQueryClient, QueryClient, QueryKey } from 'react-query';
 import { getClientOrigin } from '../utils/client/origin';
-import { toDbBool } from '../utils/dbBooleans';
 
 type UpdatePayload = {
    domainSettings: Partial<DomainSettings>,
@@ -22,13 +21,10 @@ const normalizeDomainPatch = (
 ): Partial<DomainType> => {
    const updates: Partial<DomainType> = {};
    if (patch.scrapeEnabled !== undefined) {
-      // Convert to number for cache (database representation)
-      const dbValue = typeof patch.scrapeEnabled === 'boolean' 
-         ? toDbBool(patch.scrapeEnabled) 
-         : patch.scrapeEnabled;
-      updates.scrapeEnabled = dbValue;
+      const nextValue = Boolean(patch.scrapeEnabled);
+      updates.scrapeEnabled = nextValue;
       // Update the legacy notification field to match scrapeEnabled
-      updates.notification = dbValue;
+      updates.notification = nextValue;
    }
    if (typeof patch.notification_interval === 'string') {
       updates.notification_interval = patch.notification_interval;

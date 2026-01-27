@@ -27,7 +27,7 @@ export const resetStaleKeywordUpdates = async ({
    const staleBefore = new Date(Date.now() - thresholdMinutes * 60 * 1000).toJSON();
    const legacyFallbackBefore = new Date(Date.now() - thresholdMinutes * 2 * 60 * 1000).toJSON();
    const whereClause: Record<string, any> = {
-      updating: 1,
+      updating: toDbBool(true),
       // Prefer updatingStartedAt when available; fall back to lastUpdated for legacy rows
       [Op.or]: [
          { updatingStartedAt: { [Op.lt]: staleBefore } },
@@ -273,10 +273,10 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                // No result found - this indicates a scraping failure
                // The refreshParallel function already handles errors, but ensure state is consistent
                logger.warn('No refresh result found for keyword, clearing updating flag', { keywordId: keywordModel.ID });
-               await Keyword.update({ updating: 0, updatingStartedAt: null }, { where: { ID: keywordModel.ID } });
+               await Keyword.update({ updating: toDbBool(false), updatingStartedAt: null }, { where: { ID: keywordModel.ID } });
                const currentKeyword = keywordModel.get({ plain: true });
                const parsedKeyword = parseKeywords([currentKeyword])[0];
-               updatedKeywords.push({ ...parsedKeyword, updating: 0, updatingStartedAt: null });
+               updatedKeywords.push({ ...parsedKeyword, updating: false, updatingStartedAt: null });
             }
          }
       } else {
@@ -311,7 +311,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
             // If this was a desktop keyword, cache its mapPackTop3
             // Note: undefined/null device is treated as desktop for consistency
             if (normalizedDevice === 'desktop' && updatedkeyword.mapPackTop3 !== undefined) {
-               desktopMapPackCache.set(keywordKey, updatedkeyword.mapPackTop3);
+               desktopMapPackCache.set(keywordKey, toDbBool(updatedkeyword.mapPackTop3));
             }
 
             if (keywords.length > 0 && settings.scrape_delay && settings.scrape_delay !== '0') {
@@ -329,7 +329,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
       const keywordIdsToCleanup = eligibleKeywordModels.map(k => k.ID);
       try {
          await Keyword.update(
-            { updating: 0, updatingStartedAt: null },
+            { updating: toDbBool(false), updatingStartedAt: null },
             { where: { ID: { [Op.in]: keywordIdsToCleanup } } }
          );
       } catch (cleanupError: any) {
@@ -402,7 +402,7 @@ const refreshAndUpdateKeyword = async (
 
    // Handle error case: set updating to false and save error
    try {
-      const updateData: any = { updating: 0, updatingStartedAt: null };
+      const updateData: any = { updating: toDbBool(false), updatingStartedAt: null };
 
       if (scraperError) {
          const theDate = new Date();
@@ -430,7 +430,7 @@ const refreshAndUpdateKeyword = async (
    }
 
    // Return the current keyword with updated state
-   const updatedKeywordData = { ...currentkeyword, updating: 0, updatingStartedAt: null };
+   const updatedKeywordData = { ...currentkeyword, updating: toDbBool(false), updatingStartedAt: null };
    return parseKeywords([updatedKeywordData])[0];
 };
 
@@ -563,7 +563,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          updated = {
             ...keyword,
             position: newPos,
-            updating: toDbBool(false),
+            updating: false,
             updatingStartedAt: null,
             url: dbPayload.url ?? '',
             lastResult: parsedNormalizedResult,
@@ -571,7 +571,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
             history,
             lastUpdated: effectiveLastUpdated,
             lastUpdateError: parsedError,
-            mapPackTop3: dbPayload.mapPackTop3,
+            mapPackTop3: fromDbBool(dbPayload.mapPackTop3),
          };
       } catch (error: any) {
          logger.error('[ERROR] Updating SERP for Keyword', error, { keyword: keyword.keyword });
@@ -582,7 +582,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          }
          updated = {
             ...keyword,
-            updating: toDbBool(false),
+            updating: false,
             updatingStartedAt: null,
          };
       }
@@ -611,7 +611,7 @@ const buildErrorResult = (keyword: KeywordType, error: unknown): RefreshResult =
    url: typeof keyword.url === 'string' ? keyword.url : '',
    result: [],
    localResults: Array.isArray(keyword.localResults) ? keyword.localResults : [],
-   mapPackTop3: keyword.mapPackTop3 ?? 0,
+   mapPackTop3: keyword.mapPackTop3 ?? false,
    error: typeof error === 'string' ? error : serializeError(error),
 });
 

@@ -8,7 +8,6 @@ import toast from 'react-hot-toast';
 import Icon from '../common/Icon';
 import { useUpdateDomainToggles } from '../../services/domains';
 import { TOGGLE_TRACK_CLASS_NAME } from '../common/toggleStyles';
-import { fromDbBool } from '../../utils/dbBooleans';
 
 const COMPACT_NUMBER_FORMATTER = new Intl.NumberFormat('en-US', {
    notation: 'compact',
@@ -58,7 +57,7 @@ const DomainItem = ({
    } = domain;
    const { mutateAsync: updateDomainToggle, isLoading: isToggleUpdating } = useUpdateDomainToggles();
 
-   const isDomainActive = fromDbBool(domain.scrapeEnabled) && fromDbBool(domain.notification);
+   const isDomainActive = Boolean(domain.scrapeEnabled) && Boolean(domain.notification);
 
    const renderCompactMetric = (value: number) => {
       const { numeric, unit } = formatCompactNumber(value);

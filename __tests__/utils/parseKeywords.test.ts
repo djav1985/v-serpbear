@@ -22,25 +22,25 @@ describe('parseKeywords', () => {
       ...overrides,
    });
 
-   it('returns 0 for falsy integer values', () => {
+   it('returns false for falsy integer values', () => {
       const [keyword] = parseKeywords([
          buildKeyword({ updating: 0, sticky: 0, mapPackTop3: 0 }) as any,
       ]);
 
-      expect(keyword.updating).toBe(0);
-      expect(keyword.sticky).toBe(0);
-      expect(keyword.mapPackTop3).toBe(0);
+      expect(keyword.updating).toBe(false);
+      expect(keyword.sticky).toBe(false);
+      expect(keyword.mapPackTop3).toBe(false);
       expect(Object.prototype.hasOwnProperty.call(keyword, 'mapPackTop3')).toBe(true);
    });
 
-   it('returns 1 for truthy integer values', () => {
+   it('returns true for truthy integer values', () => {
       const [keyword] = parseKeywords([
          buildKeyword({ updating: 1, sticky: 1, mapPackTop3: 1 }) as any,
       ]);
 
-      expect(keyword.updating).toBe(1);
-      expect(keyword.sticky).toBe(1);
-      expect(keyword.mapPackTop3).toBe(1);
+      expect(keyword.updating).toBe(true);
+      expect(keyword.sticky).toBe(true);
+      expect(keyword.mapPackTop3).toBe(true);
       expect(Object.prototype.hasOwnProperty.call(keyword, 'mapPackTop3')).toBe(true);
    });
 
@@ -53,11 +53,11 @@ describe('parseKeywords', () => {
       expect(keyword.location).toBe('');
    });
 
-   it('returns 0 for missing mapPackTop3 flag', () => {
+   it('returns false for missing mapPackTop3 flag', () => {
       const [{ mapPackTop3 }] = parseKeywords([
          buildKeyword({ mapPackTop3: undefined }) as any,
       ]);
 
-      expect(mapPackTop3).toBe(0);
+      expect(mapPackTop3).toBe(false);
    });
 });
