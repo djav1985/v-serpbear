@@ -31,7 +31,7 @@ describe('Footer component', () => {
 
    it('renders the default version with a Vontainment link', () => {
       render(<Footer currentVersion='' />);
-      expect(screen.getByText(footerMatcher(DEFAULT_BRANDING.platformName, '3.0.0'))).toBeVisible();
+      expect(screen.getByText(footerMatcher(DEFAULT_BRANDING.platformName, '4.0.0'))).toBeVisible();
       const link = screen.getByRole('link', { name: 'Vontainment' });
       expect(link).toHaveAttribute('href', 'https://vontainment.com');
       expect(link).toHaveAttribute('target', '_blank');

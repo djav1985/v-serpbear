@@ -28,6 +28,14 @@ All notable changes to this project will be documented in this file. Releases no
 - Tracker email summary now respects persisted Map Pack totals when available while still deriving a fallback from live keyword data for domains without the stored value.
 - Domain stats retrieval now omits average position and map-pack counts unless persisted values exist, avoiding stale recalculations from keyword snapshots.
 
+# [4.0.0](https://github.com/djav1985/v-serpbear/compare/v3.0.0...v4.0.0) (2026-01-27)
+
+### Documentation
+- Clarified README guidance that Google Ads and SMTP credentials are managed in Settings rather than environment variables, and that LOG_SUCCESS_EVENTS/NEXT_REMOVE_CONSOLE are currently unused.
+
+### Build
+- Bumped the application version to 4.0.0 across manifests, UI footer defaults, and versioned tests.
+
 # [3.0.0](https://github.com/djav1985/v-serpbear/compare/v2.0.7...v3.0.0) (2025-09-24)
 
 ### Features

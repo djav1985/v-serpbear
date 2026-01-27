@@ -59,7 +59,7 @@ const useQuerySpy = jest.spyOn(ReactQuery, 'useQuery');
 
 const buildUseQueryImplementation = (overrides?: QueryOverrides) => {
    const defaultSettings = {
-      data: { settings: { version: '3.0.0', scraper_type: 'proxy', search_console_integrated: false } },
+      data: { settings: { version: '4.0.0', scraper_type: 'proxy', search_console_integrated: false } },
       isLoading: false,
       isSuccess: true,
    };
@@ -201,7 +201,7 @@ describe('Domains Page', () => {
    });
    it('Should Display the version number in Footer.', async () => {
       render(<QueryClientProvider client={queryClient}><Domains /></QueryClientProvider>);
-      expect(screen.getByText(footerTextMatcher('3.0.0'))).toBeVisible();
+      expect(screen.getByText(footerTextMatcher('4.0.0'))).toBeVisible();
       expect(screen.queryByText(/Update to Version/i)).not.toBeInTheDocument();
    });
 });
