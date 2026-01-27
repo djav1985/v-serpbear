@@ -90,7 +90,7 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
       // If scraper defines specific countries, use only those
       if (scraperCountries && scraperCountries.length > 0) {
          return allCountryCodes
-            .filter((code) => scraperCountries.includes(code))
+            .filter((code) => scraperCountries.includes(code) && countries[code])
             .map((countryISO: string) => ({ 
                label: countries[countryISO][0], 
                value: countryISO 
@@ -99,7 +99,7 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
       
       // Otherwise, only show countries with non-null googleDomain
       return allCountryCodes
-         .filter((code) => countries[code][4] !== null)
+         .filter((code) => countries[code] && countries[code][4] !== null)
          .map((countryISO: string) => ({ 
             label: countries[countryISO][0], 
             value: countryISO 
