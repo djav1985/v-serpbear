@@ -29,9 +29,31 @@ const ChartSlim = ({ labels, series, noMaxLimit = false, reverse = true, fillCon
             reverse,
             min,
             max,
+            grid: {
+               display: false,
+               drawBorder: false,
+            },
+            ticks: {
+               display: false,
+               padding: 0,
+            },
+            border: {
+               display: false,
+            },
          },
          x: {
             display: false,
+            grid: {
+               display: false,
+               drawBorder: false,
+            },
+            ticks: {
+               display: false,
+               padding: 0,
+            },
+            border: {
+               display: false,
+            },
          },
       },
       plugins: {
