@@ -303,6 +303,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
 
          for (const keyword of sortedKeywords) {
             const keywordPlain = keyword.get({ plain: true });
+            logger.info('Processing keyword refresh', { keywordId: keywordPlain.ID, keyword: keywordPlain.keyword });
             const normalizedDevice = normalizeDevice(keywordPlain.device);
             const keywordKey = generateKeywordCacheKey(keywordPlain);
             
@@ -420,6 +421,7 @@ const refreshAndUpdateKeyword = async (
       }
 
       await Keyword.update(updateData, { where: { ID: keyword.ID } });
+      logger.info('Keyword updating flag cleared after scraper error', { keywordId: keyword.ID, error: scraperError });
       keyword.set(updateData);
    } catch (updateError: any) {
       logger.error('[ERROR] Failed to update keyword error status:', updateError);
@@ -543,7 +545,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
       try {
          await keywordRaw.update(dbPayload);
          // Log when updating flag is cleared to help debug UI issues
-         logger.debug('Keyword updating flag cleared', {
+         logger.info('Keyword updating flag cleared', {
             keywordId: keyword.ID,
             keyword: keyword.keyword,
             position: newPos,
