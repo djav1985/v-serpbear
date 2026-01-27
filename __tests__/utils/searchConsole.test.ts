@@ -152,4 +152,18 @@ describe('parseSearchConsoleItem', () => {
 
     expect(parsed.page).toBe('/www2.example.com/path');
   });
+
+  it('maps alpha-3 country codes with fallback to the original code', () => {
+    const mappedItem = {
+      ...baseItem,
+      keys: ['keyword', 'DESKTOP', 'USA', 'https://example.com/'],
+    };
+    const fallbackItem = {
+      ...baseItem,
+      keys: ['keyword', 'DESKTOP', 'XYZ', 'https://example.com/'],
+    };
+
+    expect(parseSearchConsoleItem(mappedItem, 'example.com').country).toBe('US');
+    expect(parseSearchConsoleItem(fallbackItem, 'example.com').country).toBe('XYZ');
+  });
 });

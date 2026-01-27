@@ -99,6 +99,31 @@ const normalizeDevice = (device?: string): 'desktop' | 'mobile' =>
 const generateKeywordCacheKey = (keyword: KeywordType): string =>
    `${keyword.keyword}|${keyword.domain}|${keyword.country}|${normalizeLocationForCache(keyword.location)}`;
 
+const clearKeywordUpdatingFlags = async (
+   keywordIds: number[],
+   logContext: string,
+   meta?: Record<string, unknown>,
+   onlyWhenUpdating = false,
+): Promise<void> => {
+   if (keywordIds.length === 0) {
+      return;
+   }
+   const whereClause: { ID: { [Op.in]: number[] }; updating?: number } = {
+      ID: { [Op.in]: keywordIds },
+   };
+   if (onlyWhenUpdating) {
+      whereClause.updating = toDbBool(true);
+   }
+   try {
+      await Keyword.update(
+         { updating: toDbBool(false), updatingStartedAt: null },
+         { where: whereClause },
+      );
+   } catch (error: any) {
+      logger.error(`[ERROR] Failed to clear updating flags ${logContext}`, error, meta);
+   }
+};
+
 /**
  * Refreshes the Keywords position by Scraping Google Search Result by
  * Determining whether the keywords should be scraped in Parallel or not
@@ -198,7 +223,8 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
       }
    }
 
-   if (eligibleKeywordModels.length === 0) { return []; }
+   const eligibleKeywordIds = eligibleKeywordModels.map((keyword) => keyword.ID);
+   if (eligibleKeywordIds.length === 0) { return []; }
 
    const keywords:KeywordType[] = eligibleKeywordModels.map((el) => el.get({ plain: true }));
    const start = performance.now();
@@ -288,7 +314,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
       logger.error('[ERROR] Unexpected error during keyword refresh:', error);
       // Ensure all keywords that were marked for update have their flags cleared
       // This prevents UI spinner from getting stuck if an unexpected error occurs
-      const keywordIdsToCleanup = eligibleKeywordModels.map(k => k.ID);
+      const keywordIdsToCleanup = eligibleKeywordIds;
       try {
          await Keyword.update(
             { updating: toDbBool(false), updatingStartedAt: null },
@@ -304,7 +330,9 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
    if (updatedKeywords.length > 0) {
       logger.info('Keyword refresh completed', { count: updatedKeywords.length, duration: `${(end - start).toFixed(2)}ms` });
    }
-   
+
+   await clearKeywordUpdatingFlags(eligibleKeywordIds, 'after refresh', undefined, true);
+
    // Update domain stats for all affected domains after keyword updates
    if (updatedKeywords.length > 0) {
       const affectedDomains = Array.from(new Set(updatedKeywords.map((k) => k.domain)));
