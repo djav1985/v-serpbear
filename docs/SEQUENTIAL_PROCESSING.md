@@ -1,8 +1,363 @@
-# Sequential Domain Processing with Refresh Queue
+# Parallel Domain Processing with Refresh Queue
 
 ## Overview
 
-This document describes the sequential domain processing implementation with a global refresh queue that ensures single-writer database access for all keyword scraping operations.
+SerpBear now supports **parallel domain processing** with intelligent per-domain locking and SQLite WAL mode for optimal performance and data safety.
+
+## Problem Statement
+
+**Initial Challenge**: Processing domains sequentially was safe but slow when dealing with multiple domains.
+
+**Requirements**:
+1. Process multiple domains in parallel for better performance
+2. Prevent the same domain from being refreshed simultaneously
+3. Avoid database concurrency conflicts
+4. Handle SQLite locking gracefully
+
+## Solution
+
+The implementation uses a **refresh queue with parallel processing** that:
+- Processes up to 3 domains concurrently (configurable)
+- Enforces per-domain locks to prevent duplicate refreshes
+- Uses SQLite WAL mode for concurrent database access
+- Sets busy_timeout for graceful lock handling
+
+## Architecture
+
+### Refresh Queue (`utils/refreshQueue.ts`)
+
+A sophisticated queue manager that coordinates all refresh operations:
+
+**Key Features:**
+- **Parallel Processing**: Processes multiple domains simultaneously up to `maxConcurrency` limit (default: 3)
+- **Per-Domain Locking**: Tracks active domains, prevents duplicate processing
+- **Smart Scheduling**: Automatically finds next available domain when a slot opens
+- **Error Isolation**: Domain failures don't affect other domains
+
+**Queue Behavior:**
+```typescript
+enqueue(taskId: string, task: () => Promise<void>, domain?: string)
+```
+
+- If domain not specified: Task runs as soon as a slot is available
+- If domain specified: Task runs only when that domain is not locked
+
+### SQLite Configuration (`database/sqlite-dialect.js`)
+
+**WAL Mode (Write-Ahead Logging)**:
+```javascript
+this.driver.pragma('journal_mode = WAL');
+this.driver.pragma('synchronous = NORMAL');
+```
+
+Benefits:
+- Readers don't block writers
+- Writers don't block readers  
+- Perfect for parallel domain processing (each domain touches different rows)
+- Faster than default journaling
+
+**Busy Timeout**:
+```javascript
+this.driver.pragma('busy_timeout = 5000');
+```
+
+Benefits:
+- Waits up to 5 seconds instead of failing immediately on locks
+- Handles transient lock contention gracefully
+- Prevents race conditions on shared resources
+
+### Cron Endpoint (`pages/api/cron.ts`)
+
+Enqueues each domain separately for parallel processing:
+
+```typescript
+for (const domain of enabledDomains) {
+   refreshQueue.enqueue(
+      `cron-refresh-${domain}`,
+      async () => await processSingleDomain(domain, settings),
+      domain // Per-domain locking
+   );
+}
+```
+
+### Manual Refresh (`pages/api/refresh.ts`)
+
+Passes domain for locking:
+
+```typescript
+refreshQueue.enqueue(
+   taskId,
+   async () => await refreshAndUpdateKeywords(keywords, settings),
+   refreshDomain // Per-domain locking
+);
+```
+
+## Example Scenarios
+
+### Scenario 1: Cron Triggers with 5 Domains
+
+```
+Time 0s:  Enqueue all 5 domains
+Time 0s:  [domain-a, domain-b, domain-c] start processing (3 slots filled)
+Time 90s: domain-b finishes → domain-d starts immediately
+Time 120s: domain-a finishes → domain-e starts immediately  
+Time 150s: domain-c finishes
+Time 180s: domain-d and domain-e finish
+Total: ~3 minutes (vs 7.5 minutes sequential)
+```
+
+### Scenario 2: Duplicate Domain Refresh
+
+```
+User clicks refresh on domain-a
+  → task-1 enqueued, starts processing (lock acquired)
+  
+User clicks refresh on domain-a again (quickly)
+  → task-2 enqueued, BLOCKED by domain lock
+  
+task-1 completes
+  → domain lock released
+  
+task-2 starts immediately
+  → processes with fresh data
+```
+
+### Scenario 3: Mixed Operations
+
+```
+Queue State: [cron-domain-a (processing), manual-domain-b (processing), manual-domain-a (queued)]
+
+Processing: domain-a and domain-b in parallel
+Queued: manual-domain-a waits for cron-domain-a to finish
+  
+cron-domain-a completes → manual-domain-a starts immediately
+domain-b completes independently
+```
+
+## Performance Analysis
+
+### Before: Sequential Processing
+
+| Domain | Keywords | Time |
+|--------|----------|------|
+| A | 100 | 2 min |
+| B | 50 | 1 min |
+| C | 75 | 1.5 min |
+| **Total** | **225** | **4.5 min** |
+
+### After: Parallel Processing (maxConcurrency=3)
+
+| Domain | Keywords | Time | Slot |
+|--------|----------|------|------|
+| A | 100 | 2 min | 1 |
+| B | 50 | 1 min | 2 |
+| C | 75 | 1.5 min | 3 |
+| **Total** | **225** | **2 min** | - |
+
+**Speedup: 2.25x faster** (limited by slowest domain)
+
+### Scalability
+
+With 10 domains at maxConcurrency=3:
+- **Sequential**: ~10-15 minutes
+- **Parallel (3)**: ~4-6 minutes (3x improvement)
+- **Parallel (5)**: ~3-4 minutes (4x improvement)
+
+## Configuration
+
+### Adjust Concurrency
+
+```typescript
+import { refreshQueue } from './utils/refreshQueue';
+
+// Set maximum concurrent domains
+refreshQueue.setMaxConcurrency(5);
+```
+
+**Considerations:**
+- **Lower (1-2)**: Safer for limited resources, slower
+- **Medium (3-4)**: Balanced - recommended default
+- **Higher (5+)**: Faster but more CPU/memory/network usage
+
+### Environment-Specific Settings
+
+**Development**: `maxConcurrency = 2` (lower resource usage)
+**Production**: `maxConcurrency = 3-5` (optimal performance)
+**High-Load**: `maxConcurrency = 1` (fallback to sequential if needed)
+
+## Database Safety Mechanisms
+
+### WAL Mode Protection
+
+**Row-Level Granularity**:
+- Domain A updates rows WHERE domain='A'
+- Domain B updates rows WHERE domain='B'
+- **No conflict** - different row sets
+
+**Concurrent Operations**:
+- Read keyword data (any time)
+- Write keyword updates (domain-specific)
+- Update domain stats (protected by domain lock)
+
+### Busy Timeout Protection
+
+**Handles Shared Resources**:
+- `failed_queue.json` file updates
+- Domain statistics calculations
+- Sequelize internal operations
+
+**5-Second Window**:
+- Sufficient for quick file I/O
+- Prevents immediate failures on contention
+- Logs warnings if timeout exceeded
+
+## Monitoring
+
+### Queue Status API
+
+```typescript
+const status = refreshQueue.getStatus();
+// Returns:
+{
+  queueLength: 2,           // Tasks waiting
+  activeProcesses: 3,       // Tasks running
+  activeDomains: ['a', 'b', 'c'],  // Locked domains
+  pendingTaskIds: [...],    // Queued task IDs
+  maxConcurrency: 3         // Current limit
+}
+```
+
+### Log Monitoring
+
+**Starting Tasks**:
+```
+grep "Starting refresh task" logs/app.log
+```
+
+**Completing Tasks**:
+```
+grep "Completed refresh task" logs/app.log | grep -o "(.*ms)"
+```
+
+**Domain Locks**:
+```
+grep "activeDomains" logs/app.log
+```
+
+**Parallel Execution**:
+```
+grep "Starting refresh task" logs/app.log | grep timestamp
+# Look for overlapping timestamps
+```
+
+## Testing
+
+### Unit Tests
+
+**Parallel Execution Test**:
+```typescript
+it('processes tasks in parallel up to maxConcurrency')
+```
+
+**Per-Domain Locking Test**:
+```typescript
+it('respects per-domain locking')
+```
+
+**Error Handling Test**:
+```typescript
+it('continues processing after task failure')
+```
+
+### Integration Testing
+
+1. **Trigger cron with multiple domains**
+2. **Check logs for parallel execution** (overlapping timestamps)
+3. **Verify no duplicate domain processing**
+4. **Confirm faster total execution time**
+
+## Troubleshooting
+
+### Issue: Domains Not Processing in Parallel
+
+**Check**:
+```typescript
+refreshQueue.getStatus()
+```
+
+**Possible Causes**:
+- maxConcurrency set to 1
+- All domains have same name (unlikely)
+- Queue busy with other tasks
+
+### Issue: Database Locked Errors
+
+**Check WAL Mode**:
+```sql
+PRAGMA journal_mode;  -- Should return 'wal'
+```
+
+**Possible Causes**:
+- WAL not supported on filesystem (network drives)
+- Database file permissions issue
+- busy_timeout too low
+
+**Solution**:
+- Check logs for WAL enable warnings
+- Verify file permissions
+- Increase busy_timeout if needed
+
+### Issue: Slow Performance Despite Parallelism
+
+**Check**:
+- Individual domain processing times
+- Network/API rate limits
+- Scraper type (some force sequential)
+
+**Solutions**:
+- Increase maxConcurrency if resources allow
+- Optimize scraper delays
+- Check for scraper-level bottlenecks
+
+## Best Practices
+
+### Resource Management
+
+1. **Monitor System Resources**: CPU, memory, network during parallel processing
+2. **Adjust Concurrency**: Based on observed resource usage
+3. **Use Delays Wisely**: scrape_delay applies per-domain, not globally
+
+### Error Handling
+
+1. **Log All Failures**: Queue logs failures without stopping
+2. **Monitor Failed Tasks**: Check logs for repeated failures
+3. **Clear Stuck Locks**: Queue automatically clears locks on completion/error
+
+### Production Deployment
+
+1. **Start Conservative**: Begin with maxConcurrency=2
+2. **Monitor Performance**: Track processing times and resource usage
+3. **Gradually Increase**: Bump to 3-5 based on capacity
+4. **Set Alerts**: Alert on queue backup or timeout errors
+
+## Future Enhancements
+
+Potential improvements:
+
+1. **Dynamic Concurrency**: Adjust based on system load
+2. **Priority Queue**: High-priority domains process first
+3. **Resource Quotas**: Per-domain rate limiting
+4. **Distributed Queue**: Support multi-host deployments
+5. **Queue Persistence**: Survive restarts with pending tasks
+
+## Related Files
+
+- `utils/refreshQueue.ts` - Parallel queue with per-domain locking
+- `database/sqlite-dialect.js` - WAL mode and busy_timeout configuration
+- `pages/api/cron.ts` - Cron endpoint with parallel enqueueing
+- `pages/api/refresh.ts` - Manual refresh with domain locking
+- `utils/refresh.ts` - Core keyword refresh logic with immediate DB updates
+- `__tests__/utils/refreshQueue.test.ts` - Queue functionality tests
 
 ## Problem Statement
 
