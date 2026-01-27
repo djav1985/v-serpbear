@@ -538,14 +538,14 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          await keywordRaw.update(dbPayload);
          // Only log significant updates (errors or top 3 map pack)
          if (dbPayload.lastUpdateError !== 'false' || dbPayload.mapPackTop3) {
-         logger.info('Keyword updated', { 
-            keywordId: keyword.ID, 
-            keyword: keyword.keyword,
-            device: keyword.device || 'desktop',
-            mapPackTop3: fromDbBool(dbPayload.mapPackTop3),
-            hasError: dbPayload.lastUpdateError !== 'false'
-          });
-        }
+            logger.info('Keyword updated', {
+               keywordId: keyword.ID,
+               keyword: keyword.keyword,
+               device: keyword.device || 'desktop',
+               mapPackTop3: fromDbBool(dbPayload.mapPackTop3),
+               hasError: dbPayload.lastUpdateError !== 'false',
+            });
+         }
 
          let parsedError: false | { date: string; error: string; scraper: string } = false;
          if (dbPayload.lastUpdateError !== 'false') {
