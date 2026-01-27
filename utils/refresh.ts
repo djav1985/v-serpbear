@@ -99,6 +99,24 @@ const normalizeDevice = (device?: string): 'desktop' | 'mobile' =>
 const generateKeywordCacheKey = (keyword: KeywordType): string =>
    `${keyword.keyword}|${keyword.domain}|${keyword.country}|${normalizeLocationForCache(keyword.location)}`;
 
+const clearKeywordUpdatingFlags = async (
+   keywordIds: number[],
+   logContext: string,
+   meta?: Record<string, unknown>,
+): Promise<void> => {
+   if (keywordIds.length === 0) {
+      return;
+   }
+   try {
+      await Keyword.update(
+         { updating: toDbBool(false), updatingStartedAt: null },
+         { where: { ID: { [Op.in]: keywordIds } } },
+      );
+   } catch (error: any) {
+      logger.error(`[ERROR] Failed to clear updating flags ${logContext}`, error, meta);
+   }
+};
+
 /**
  * Refreshes the Keywords position by Scraping Google Search Result by
  * Determining whether the keywords should be scraped in Parallel or not
@@ -306,14 +324,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
       logger.info('Keyword refresh completed', { count: updatedKeywords.length, duration: `${(end - start).toFixed(2)}ms` });
    }
 
-   try {
-      await Keyword.update(
-         { updating: toDbBool(false), updatingStartedAt: null },
-         { where: { ID: { [Op.in]: eligibleKeywordIds } } },
-      );
-   } catch (finalUpdateError: any) {
-      logger.error('[ERROR] Failed to finalize updating flags after refresh', finalUpdateError);
-   }
+   await clearKeywordUpdatingFlags(eligibleKeywordIds, 'after refresh');
 
    // Update domain stats for all affected domains after keyword updates
    if (updatedKeywords.length > 0) {
@@ -509,14 +520,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
 
       try {
          await keywordRaw.update(dbPayload);
-         try {
-            await Keyword.update(
-               { updating: toDbBool(false), updatingStartedAt: null },
-               { where: { ID: keyword.ID } },
-            );
-         } catch (finalUpdateError: any) {
-            logger.error('[ERROR] Failed to persist updating flag reset after keyword update', finalUpdateError, { keywordId: keyword.ID });
-         }
+         await clearKeywordUpdatingFlags([keyword.ID], 'after keyword update', { keywordId: keyword.ID });
          // Log when updating flag is cleared to help debug UI issues
          logger.info('Keyword updating flag cleared', {
             keywordId: keyword.ID,
