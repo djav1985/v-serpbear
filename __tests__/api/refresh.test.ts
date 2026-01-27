@@ -91,7 +91,7 @@ describe('/api/refresh', () => {
       keywordCount: 1,
     });
     expect(Keyword.update).toHaveBeenCalledWith(
-      { updating: 1 },
+      { updating: 1, lastUpdateError: 'false' },
       { where: { ID: { [Op.in]: [1] } } },
     );
   });
@@ -146,7 +146,7 @@ describe('/api/refresh', () => {
     await handler(req, res);
 
     expect(Keyword.update).toHaveBeenCalledWith(
-      { updating: 1 },
+      { updating: 1, lastUpdateError: 'false' },
       { where: { ID: { [Op.in]: [1, 2] } } },
     );
     expect(Keyword.findAll).toHaveBeenCalledTimes(1);

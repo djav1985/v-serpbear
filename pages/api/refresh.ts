@@ -123,7 +123,7 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
 
       const keywordIdsToRefresh = keywordsToRefresh.map((keyword) => keyword.ID);
       await Keyword.update(
-         { updating: 1 },
+         { updating: 1, lastUpdateError: 'false' },
          { where: { ID: { [Op.in]: keywordIdsToRefresh } } },
       );
 

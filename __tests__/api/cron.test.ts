@@ -72,7 +72,7 @@ describe('/api/cron', () => {
     await handler(req, res as NextApiResponse);
 
     expect(Keyword.update).toHaveBeenCalledWith(
-      { updating: 1 },
+      { updating: 1, lastUpdateError: 'false' },
       { where: { domain: { [Op.in]: ['enabled.com'] } } },
     );
     expect(Keyword.findAll).toHaveBeenCalledWith({ where: { domain: ['enabled.com'] } });

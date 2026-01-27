@@ -50,7 +50,7 @@ const cronRefreshkeywords = async (req: NextApiRequest, res: NextApiResponse<CRO
       }
 
       await Keyword.update(
-         { updating: 1 },
+         { updating: 1, lastUpdateError: 'false' },
          { where: { domain: { [Op.in]: enabledDomains } } },
       );
       const keywordQueries: Keyword[] = await Keyword.findAll({ where: { domain: enabledDomains } });
