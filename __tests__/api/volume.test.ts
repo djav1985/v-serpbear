@@ -108,4 +108,38 @@ describe('POST /api/volume', () => {
          volumes: { 1: 25 },
       });
    });
+
+   it('keeps keyword query when both keywords and domain are provided', async () => {
+      parseKeywordsMock.mockReturnValue([
+         { ID: 1, keyword: 'alpha', volume: 0 },
+         { ID: 2, keyword: 'beta', volume: 0 },
+      ]);
+      keywordModelMock.findAll
+         .mockResolvedValueOnce([{ get: () => ({ ID: 1, keyword: 'alpha', volume: 0 }) }])
+         .mockResolvedValueOnce([{ get: () => ({ ID: 2, keyword: 'beta', volume: 0 }) }]);
+      getKeywordsVolumeMock.mockResolvedValue({ volumes: { 1: 25, 2: 50 } });
+
+      const req = {
+         method: 'POST',
+         body: { keywords: [1], domain: 'example.com', update: false },
+         headers: {},
+      } as unknown as NextApiRequest;
+      const res = createResponse();
+
+      await handler(req, res);
+
+      expect(keywordModelMock.findAll).toHaveBeenCalledTimes(1);
+      expect(getKeywordsVolumeMock).toHaveBeenCalledWith([
+         { ID: 1, keyword: 'alpha', volume: 0 },
+         { ID: 2, keyword: 'beta', volume: 0 },
+      ]);
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+         keywords: [
+            { ID: 1, keyword: 'alpha', volume: 25 },
+            { ID: 2, keyword: 'beta', volume: 50 },
+         ],
+         volumes: { 1: 25, 2: 50 },
+      });
+   });
 });
