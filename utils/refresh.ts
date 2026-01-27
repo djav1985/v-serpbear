@@ -239,33 +239,9 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
 
    try {
       if (canScrapeInParallel) {
-         const refreshedResults = await refreshParallel(keywords, settings, domainSpecificSettings);
-         // Create a map for O(1) lookup of results by keyword ID
-         const resultsMap = new Map(
-            refreshedResults.map(entry => [entry.keywordId, entry])
-         );
-         
-         // Process all eligible keywords and update their positions
-         for (const keywordModel of eligibleKeywordModels) {
-            const refreshedEntry = resultsMap.get(keywordModel.ID);
-            if (refreshedEntry) {
-               // Update position with scraped data
-               const updatedkeyword = await updateKeywordPosition(keywordModel, refreshedEntry.result, refreshedEntry.settings);
-               updatedKeywords.push(updatedkeyword);
-            } else {
-               // No result found - this indicates a scraping failure
-               // The refreshParallel function already handles errors, but ensure state is consistent
-               logger.warn('No refresh result found for keyword, clearing updating flag', { keywordId: keywordModel.ID });
-               try {
-                  await Keyword.update({ updating: toDbBool(false), updatingStartedAt: null }, { where: { ID: keywordModel.ID } });
-               } catch (updateErr) {
-                  logger.error('[REFRESH] Failed to clear updating flag for keyword without result', updateErr instanceof Error ? updateErr : new Error(String(updateErr)), { keywordId: keywordModel.ID });
-               }
-               const currentKeyword = keywordModel.get({ plain: true });
-               const parsedKeyword = parseKeywords([currentKeyword])[0];
-               updatedKeywords.push({ ...parsedKeyword, updating: false, updatingStartedAt: null });
-            }
-         }
+         // Parallel scraping: each keyword is updated immediately upon receiving API response
+         const updatedKeywords = await refreshParallel(keywords, eligibleKeywordModels, settings, domainSpecificSettings);
+         return updatedKeywords;
       } else {
          // Sequential scraping: scrape desktop keywords first, then mobile
          // This allows mobile keywords to use desktop results as fallback if needed (e.g., for valueserp)
@@ -590,12 +566,6 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
 };
 
 /**
- * Scrape Google Keyword Search Result in Parallel.
- * @param {KeywordType[]} keywords - Keywords to scrape
- * @param {SettingsType} settings - The App Settings that contain the Scraper settings
- * @returns {Promise}
- */
-/**
  * Builds an error result object for a keyword that failed to scrape.
  * Preserves the keyword's existing state while capturing error details.
  * @param {KeywordType} keyword - The keyword that failed to scrape
@@ -613,39 +583,66 @@ const buildErrorResult = (keyword: KeywordType, error: unknown): RefreshResult =
    error: typeof error === 'string' ? error : serializeError(error),
 });
 
-type ParallelKeywordRefresh = {
-   keywordId: number;
-   result: RefreshResult;
-   settings: SettingsType;
-};
-
+/**
+ * Scrape Google Keyword Search Result in Parallel.
+ * Each keyword's database row is updated immediately upon receiving the API response.
+ * @param {KeywordType[]} keywords - Keywords to scrape
+ * @param {Keyword[]} keywordModels - Keyword model instances for database updates
+ * @param {SettingsType} settings - The App Settings that contain the Scraper settings
+ * @param {Map<string, SettingsType>} domainSpecificSettings - Domain-specific settings
+ * @returns {Promise<KeywordType[]>} Array of updated keywords
+ */
 const refreshParallel = async (
    keywords:KeywordType[],
+   keywordModels: Keyword[],
    settings:SettingsType,
    domainSpecificSettings: Map<string, SettingsType>,
-): Promise<ParallelKeywordRefresh[]> => {
+): Promise<KeywordType[]> => {
+   const updatedKeywords: KeywordType[] = [];
+   
+   // Create map for quick model lookup by ID
+   const modelMap = new Map(keywordModels.map(m => [m.ID, m]));
+   
+   // Start all scraping operations in parallel, but update database immediately upon each response
    const promises = keywords.map(async (keyword) => {
       const effectiveSettings = resolveEffectiveSettings(keyword.domain, settings, domainSpecificSettings);
+      const keywordModel = modelMap.get(keyword.ID);
+      
+      if (!keywordModel) {
+         logger.error('No keyword model found for ID', { keywordId: keyword.ID });
+         return keyword;
+      }
+      
       try {
+         // Scrape the keyword
          const result = await scrapeKeywordFromGoogle(keyword, effectiveSettings);
-         if (result === false) {
-            return { keywordId: keyword.ID, result: buildErrorResult(keyword, 'Scraper returned no data'), settings: effectiveSettings };
+         
+         // Immediately update the database with the result
+         if (result === false || !result) {
+            const errorResult = buildErrorResult(keyword, result === false ? 'Scraper returned no data' : 'Unknown scraper response');
+            const updatedKeyword = await updateKeywordPosition(keywordModel, errorResult, effectiveSettings);
+            return updatedKeyword;
          }
-
-         if (result) {
-            return { keywordId: keyword.ID, result, settings: effectiveSettings };
-         }
-
-         return { keywordId: keyword.ID, result: buildErrorResult(keyword, 'Unknown scraper response'), settings: effectiveSettings };
+         
+         // Update database immediately upon receiving the API response
+         const updatedKeyword = await updateKeywordPosition(keywordModel, result, effectiveSettings);
+         return updatedKeyword;
+         
       } catch (error: any) {
          logger.error('[ERROR] Parallel scrape failed for keyword:', error, { keyword: keyword.keyword });
-         return { keywordId: keyword.ID, result: buildErrorResult(keyword, error), settings: effectiveSettings };
+         const errorResult = buildErrorResult(keyword, error);
+         
+         // Update database with error immediately
+         const updatedKeyword = await updateKeywordPosition(keywordModel, errorResult, effectiveSettings);
+         return updatedKeyword;
       }
    });
 
-   const resolvedResults = await Promise.all(promises);
-   logger.info('Parallel keyword refresh completed', { count: resolvedResults.length });
-   return resolvedResults;
+   // Wait for all updates to complete
+   updatedKeywords.push(...await Promise.all(promises));
+   
+   logger.info('Parallel keyword refresh completed', { count: updatedKeywords.length });
+   return updatedKeywords;
 };
 
 export default refreshAndUpdateKeywords;
