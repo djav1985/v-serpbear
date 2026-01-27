@@ -11,6 +11,7 @@ import refreshAndUpdateKeywords from '../../utils/refresh';
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
 import { fromDbBool, toDbBool } from '../../utils/dbBooleans';
+import { refreshQueue } from '../../utils/refreshQueue';
 
 type CRONRefreshRes = {
    started: boolean
@@ -51,11 +52,12 @@ const cronRefreshkeywords = async (req: NextApiRequest, res: NextApiResponse<CRO
 
       logger.info(`Cron refresh started for ${enabledDomains.length} domains`);
       
-      // Start background refresh without awaiting - process domains sequentially
-      // Success: refreshAndUpdateKeywords clears 'updating' flags internally after completion
-      // Error: catch handler below ensures flags are cleared to prevent keywords getting stuck
-      processDomainsSequentially(enabledDomains, settings).catch((refreshError) => {
-         logger.error('[CRON] ERROR processDomainsSequentially: ', refreshError instanceof Error ? refreshError : new Error(String(refreshError)));
+      // Enqueue the cron refresh task - it will be processed sequentially with any manual refreshes
+      // This ensures only one refresh operation runs at a time across the entire system
+      refreshQueue.enqueue('cron-refresh', async () => {
+         await processDomainsSequentially(enabledDomains, settings);
+      }).catch((queueError) => {
+         logger.error('[CRON] ERROR enqueueing refresh task: ', queueError instanceof Error ? queueError : new Error(String(queueError)));
       });
 
       return res.status(200).json({ started: true });

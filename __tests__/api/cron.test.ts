@@ -38,6 +38,16 @@ jest.mock('../../utils/apiLogging', () => ({
   withApiLogging: (handler: any) => handler,
 }));
 
+jest.mock('../../utils/refreshQueue', () => ({
+  refreshQueue: {
+    enqueue: jest.fn().mockImplementation(async (_id: string, task: () => Promise<void>) => {
+      // Execute task immediately in tests
+      await task();
+    }),
+    getStatus: jest.fn().mockReturnValue({ queueLength: 0, isProcessing: false, pendingTaskIds: [] }),
+  },
+}));
+
 type MockedResponse = Partial<NextApiResponse> & {
   status: jest.Mock;
   json: jest.Mock;

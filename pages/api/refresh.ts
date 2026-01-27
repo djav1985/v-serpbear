@@ -14,6 +14,7 @@ import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
 import { toDbBool } from '../../utils/dbBooleans';
 import normalizeDomainBooleans from '../../utils/normalizeDomain';
+import { refreshQueue } from '../../utils/refreshQueue';
 
 type BackgroundKeywordsRefreshRes = {
    // 202 Accepted: background execution started, no keywords returned yet
@@ -124,25 +125,35 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
          return res.status(200).json({ keywords: [] });
       }
 
-      logger.info(`Manual refresh started for ${keywordsToRefresh.length} keywords across ${domainNames.length} domains`);
+      const keywordIdsToRefresh = keywordsToRefresh.map((keyword) => keyword.ID);
+      const now = new Date().toJSON();
+      await Keyword.update(
+         { updating: toDbBool(true), lastUpdateError: 'false', updatingStartedAt: now },
+         { where: { ID: { [Op.in]: keywordIdsToRefresh } } },
+      );
 
-      // Group keywords by domain for sequential processing
-      const keywordsByDomain = new Map<string, Keyword[]>();
-      for (const keyword of keywordsToRefresh) {
-         if (!keywordsByDomain.has(keyword.domain)) {
-            keywordsByDomain.set(keyword.domain, []);
+      const taskId = req.query.id === 'all' ? `manual-refresh-domain-${domain}` : `manual-refresh-ids-${keywordIdsToRefresh.join(',')}`;
+      logger.info(`Manual refresh enqueued: ${taskId} (${keywordsToRefresh.length} keywords)`);
+
+      // Enqueue the manual refresh task - it will be processed sequentially with cron and other manual refreshes
+      // This ensures only one refresh operation runs at a time across the entire system
+      refreshQueue.enqueue(taskId, async () => {
+         try {
+            await refreshAndUpdateKeywords(keywordsToRefresh, settings);
+         } catch (refreshError) {
+            const message = serializeError(refreshError);
+            logger.error('[REFRESH] ERROR refreshAndUpdateKeywords: ', refreshError instanceof Error ? refreshError : new Error(message), { keywordIds: keywordIdsToRefresh });
+            // Ensure flags are cleared on error
+            await Keyword.update(
+               { updating: toDbBool(false), updatingStartedAt: null },
+               { where: { ID: { [Op.in]: keywordIdsToRefresh } } },
+            ).catch((updateError) => {
+               logger.error('[REFRESH] Failed to clear updating flags after error: ', updateError instanceof Error ? updateError : new Error(String(updateError)));
+            });
+            throw refreshError; // Re-throw to be caught by queue error handler
          }
-         keywordsByDomain.get(keyword.domain)!.push(keyword);
-      }
-
-      const domainsToProcess = Array.from(keywordsByDomain.keys());
-
-      // Start background refresh without awaiting - process domains sequentially
-      // Success: refreshAndUpdateKeywords clears 'updating' flags internally after completion
-      // Error: catch handler ensures flags are cleared to prevent UI spinner getting stuck
-      processDomainsSequentiallyForRefresh(domainsToProcess, keywordsByDomain, settings).catch((refreshError) => {
-         const message = serializeError(refreshError);
-         logger.error('[REFRESH] ERROR processDomainsSequentiallyForRefresh: ', refreshError instanceof Error ? refreshError : new Error(message));
+      }).catch((queueError) => {
+         logger.error('[REFRESH] ERROR enqueueing refresh task: ', queueError instanceof Error ? queueError : new Error(String(queueError)));
       });
 
       // Return immediately with 200 OK status
@@ -155,64 +166,6 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
       logger.debug('[REFRESH] ERROR refreshTheKeywords: ', { data: errorMessage });
       return res.status(400).json({ error: errorMessage });
    }
-};
-
-/**
- * Process domains sequentially during manual refresh to ensure single-writer database access.
- * Each domain's keywords are fully processed before moving to the next domain.
- * This prevents concurrent database writes and ensures data consistency.
- */
-const processDomainsSequentiallyForRefresh = async (
-   domains: string[],
-   keywordsByDomain: Map<string, Keyword[]>,
-   settings: SettingsType
-): Promise<void> => {
-   logger.info(`Starting sequential processing of ${domains.length} domains for manual refresh`);
-   
-   for (const domain of domains) {
-      try {
-         const keywords = keywordsByDomain.get(domain);
-         if (!keywords || keywords.length === 0) {
-            logger.info(`No keywords to process for domain: ${domain}`);
-            continue;
-         }
-
-         logger.info(`Processing domain: ${domain} (${keywords.length} keywords)`);
-         
-         const keywordIds = keywords.map(k => k.ID);
-         const now = new Date().toJSON();
-         await Keyword.update(
-            { updating: toDbBool(true), lastUpdateError: 'false', updatingStartedAt: now },
-            { where: { ID: { [Op.in]: keywordIds } } },
-         );
-         
-         // Wait for this domain's keywords to complete before moving to next domain
-         await refreshAndUpdateKeywords(keywords, settings);
-         
-         logger.info(`Completed processing domain: ${domain}`);
-      } catch (domainError) {
-         logger.error(`Error processing domain: ${domain}`, domainError instanceof Error ? domainError : new Error(String(domainError)));
-         
-         // Ensure flags are cleared on error for this domain
-         const keywords = keywordsByDomain.get(domain);
-         if (keywords) {
-            const keywordIds = keywords.map(k => k.ID);
-            try {
-               await Keyword.update(
-                  { updating: toDbBool(false), updatingStartedAt: null },
-                  { where: { ID: { [Op.in]: keywordIds } } },
-               );
-            } catch (updateError) {
-               logger.error(`Failed to clear updating flags for domain: ${domain}`, updateError instanceof Error ? updateError : new Error(String(updateError)));
-            }
-         }
-         
-         // Continue to next domain even if this one failed
-         logger.info(`Continuing to next domain after error in: ${domain}`);
-      }
-   }
-   
-   logger.info(`Completed sequential processing of all ${domains.length} domains for manual refresh`);
 };
 
 const getKeywordSearchResults = async (req: NextApiRequest, res: NextApiResponse<KeywordSearchResultRes>) => {

@@ -46,6 +46,16 @@ jest.mock('../../utils/apiLogging', () => ({
   withApiLogging: (handler: any) => handler,
 }));
 
+jest.mock('../../utils/refreshQueue', () => ({
+  refreshQueue: {
+    enqueue: jest.fn().mockImplementation(async (_id: string, task: () => Promise<void>) => {
+      // Execute task immediately in tests
+      await task();
+    }),
+    getStatus: jest.fn().mockReturnValue({ queueLength: 0, isProcessing: false, pendingTaskIds: [] }),
+  },
+}));
+
 describe('/api/refresh', () => {
   const req = { method: 'POST', query: {}, headers: {} } as unknown as NextApiRequest;
   let res: NextApiResponse;
@@ -130,14 +140,13 @@ describe('/api/refresh', () => {
     };
 
     const keywordRecord1 = createKeywordRecord(1);
-    const keywordRecord2 = createKeywordRecord(2, { domain: 'example.org', country: 'GB' });
+    const keywordRecord2 = createKeywordRecord(2);
 
     (Keyword.findAll as jest.Mock)
       .mockResolvedValueOnce([keywordRecord1, keywordRecord2]);
 
     (Domain.findAll as jest.Mock).mockResolvedValue([
       { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
-      { get: () => ({ domain: 'example.org', scrapeEnabled: 1 }) },
     ]);
     const refreshedKeywords = [
       { ...keywordRecord1.get(), updating: 0 },
@@ -150,20 +159,15 @@ describe('/api/refresh', () => {
     // Wait for async processing to complete
     await jest.runAllTimersAsync();
 
-    // Sequential processing: each domain's keywords updated separately
-    expect(Keyword.update).toHaveBeenCalledTimes(2);
+    // Both keywords from same domain updated together
+    expect(Keyword.update).toHaveBeenCalledTimes(1);
     expect(Keyword.update).toHaveBeenCalledWith(
       { updating: 1, lastUpdateError: 'false', updatingStartedAt: '2024-06-01T12:00:00.000Z' },
-      { where: { ID: { [Op.in]: [1] } } },
-    );
-    expect(Keyword.update).toHaveBeenCalledWith(
-      { updating: 1, lastUpdateError: 'false', updatingStartedAt: '2024-06-01T12:00:00.000Z' },
-      { where: { ID: { [Op.in]: [2] } } },
+      { where: { ID: { [Op.in]: [1, 2] } } },
     );
     expect(Keyword.findAll).toHaveBeenCalledTimes(1);
-    expect(refreshAndUpdateKeywords).toHaveBeenCalledTimes(2);
-    expect(refreshAndUpdateKeywords).toHaveBeenNthCalledWith(1, [keywordRecord1], { scraper_type: 'serpapi' });
-    expect(refreshAndUpdateKeywords).toHaveBeenNthCalledWith(2, [keywordRecord2], { scraper_type: 'serpapi' });
+    expect(refreshAndUpdateKeywords).toHaveBeenCalledTimes(1);
+    expect(refreshAndUpdateKeywords).toHaveBeenCalledWith([keywordRecord1, keywordRecord2], { scraper_type: 'serpapi' });
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       message: 'Refresh started',
