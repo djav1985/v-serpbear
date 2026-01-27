@@ -1,6 +1,5 @@
 import axios, { AxiosResponse, CreateAxiosDefaults } from 'axios';
 import * as cheerio from 'cheerio';
-import { readFile, writeFile } from 'fs/promises';
 import HttpsProxyAgent from 'https-proxy-agent';
 import countries from './countries';
 import { serializeError } from './errorSerialization';
@@ -8,6 +7,7 @@ import allScrapers from '../scrapers/index';
 import { GOOGLE_BASE_URL } from './constants';
 import { computeMapPackTop3, doesUrlMatchDomainHost, normaliseDomainHost, extractLocalResultsFromPayload } from './mapPack';
 import { logger } from './logger';
+import { retryQueueManager } from './retryQueueManager';
 
 type SearchResult = {
    title: string,
@@ -604,27 +604,7 @@ export const getSerp = (domainURL:string, result:SearchResult[]) : SERPObject =>
  * @returns {void}
  */
 export const retryScrape = async (keywordID: number) : Promise<void> => {
-   if (!keywordID || !Number.isInteger(keywordID)) { return; }
-   let currentQueue: number[] = [];
-
-   const filePath = `${process.cwd()}/data/failed_queue.json`;
-   const currentQueueRaw = await readFile(filePath, { encoding: 'utf-8' }).catch((err: any) => { 
-      if (err.code !== 'ENOENT') logger.debug('Failed to read retry queue', { error: err.message }); 
-      return '[]'; 
-   });
-   currentQueue = currentQueueRaw ? JSON.parse(currentQueueRaw) : [];
-
-   if (!currentQueue.includes(keywordID)) {
-      const validKeywordID = Math.abs(keywordID);
-      if (validKeywordID > 0) { // Ensure it's a valid positive ID
-         currentQueue.push(validKeywordID);
-      }
-   }
-
-   await writeFile(filePath, JSON.stringify(currentQueue), { encoding: 'utf-8' }).catch((err: any) => { 
-      logger.error('Failed to write retry queue', err); 
-      return '[]'; 
-   });
+   await retryQueueManager.addToQueue(keywordID);
 };
 
 /**
@@ -633,19 +613,5 @@ export const retryScrape = async (keywordID: number) : Promise<void> => {
  * @returns {void}
  */
 export const removeFromRetryQueue = async (keywordID: number) : Promise<void> => {
-   if (!keywordID || !Number.isInteger(keywordID)) { return; }
-   let currentQueue: number[] = [];
-
-   const filePath = `${process.cwd()}/data/failed_queue.json`;
-   const currentQueueRaw = await readFile(filePath, { encoding: 'utf-8' }).catch((err: any) => { 
-      if (err.code !== 'ENOENT') logger.debug('Failed to read retry queue', { error: err.message }); 
-      return '[]'; 
-   });
-   currentQueue = currentQueueRaw ? JSON.parse(currentQueueRaw) : [];
-   currentQueue = currentQueue.filter((item) => item !== Math.abs(keywordID) && item > 0); // Also filter out invalid IDs
-
-   await writeFile(filePath, JSON.stringify(currentQueue), { encoding: 'utf-8' }).catch((err: any) => { 
-      logger.error('Failed to write retry queue', err); 
-      return '[]'; 
-   });
+   await retryQueueManager.removeFromQueue(keywordID);
 };

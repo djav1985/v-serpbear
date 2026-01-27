@@ -1,4 +1,3 @@
-import { readFile, writeFile } from 'fs/promises';
 import { Op } from 'sequelize';
 import Cryptr from 'cryptr';
 import Domain from '../../database/models/domain';
@@ -16,10 +15,14 @@ jest.mock('../../utils/scraper', () => ({
   scrapeKeywordFromGoogle: jest.fn(),
 }));
 
-// Mock fs/promises
-jest.mock('fs/promises', () => ({
-  readFile: jest.fn(),
-  writeFile: jest.fn(),
+// Mock retryQueueManager
+jest.mock('../../utils/retryQueueManager', () => ({
+  retryQueueManager: {
+    addToQueue: jest.fn().mockResolvedValue(undefined),
+    removeFromQueue: jest.fn().mockResolvedValue(undefined),
+    removeBatch: jest.fn().mockResolvedValue(undefined),
+    getQueue: jest.fn().mockResolvedValue([]),
+  },
 }));
 
 describe('refreshAndUpdateKeywords', () => {
@@ -287,33 +290,22 @@ describe('refreshAndUpdateKeywords', () => {
 
     (Keyword.update as jest.Mock).mockResolvedValue([3]);
 
-    // Mock readFile to return a queue with some existing items and the skipped IDs
-    const mockQueue = JSON.stringify([1, 2, 3, 4, 5]); // IDs 1,2,3 should be removed
-    (readFile as jest.Mock).mockResolvedValue(mockQueue);
-    (writeFile as jest.Mock).mockResolvedValue(undefined);
+    const { retryQueueManager } = require('../../utils/retryQueueManager');
 
     // Execute the function
     await refreshAndUpdateKeywords(mockKeywords, mockSettings);
+    
     // Verify Op.in was used correctly
     expect(Keyword.update).toHaveBeenCalledWith(
       { updating: 0, updatingStartedAt: null },
       { where: { ID: { [Op.in]: [1, 2, 3] } } },
     );
 
-    // Verify batched file operations
-    expect(readFile).toHaveBeenCalledTimes(1);
-    expect(readFile).toHaveBeenCalledWith(
-      `${process.cwd()}/data/failed_queue.json`,
-      { encoding: 'utf-8' }
-    );
-
-    // Verify writeFile was called with filtered queue (removing IDs 1, 2, 3)
-    expect(writeFile).toHaveBeenCalledTimes(1);
-    expect(writeFile).toHaveBeenCalledWith(
-      `${process.cwd()}/data/failed_queue.json`,
-      JSON.stringify([4, 5]), // Only IDs 4 and 5 should remain
-      { encoding: 'utf-8' }
-    );
+    // Verify batched removal was called with the correct IDs
+    expect(retryQueueManager.removeBatch).toHaveBeenCalledTimes(1);
+    const callArg = retryQueueManager.removeBatch.mock.calls[0][0];
+    expect(callArg).toBeInstanceOf(Set);
+    expect(Array.from(callArg).sort()).toEqual([1, 2, 3]);
 
     // Verify removeFromRetryQueue was NOT called (since we use batched operations now)
     expect(removeFromRetryQueue).not.toHaveBeenCalled();

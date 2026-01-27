@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import verifyUser from '../../utils/verifyUser';
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
-import { atomicWriteFile } from '../../utils/atomicWrite';
+import { retryQueueManager } from '../../utils/retryQueueManager';
 
 type SettingsGetResponse = {
    cleared?: boolean,
@@ -24,7 +24,7 @@ export default withApiLogging(handler, { name: 'clearfailed' });
 
 const clearFailedQueue = async (req: NextApiRequest, res: NextApiResponse<SettingsGetResponse>) => {
    try {
-      await atomicWriteFile(`${process.cwd()}/data/failed_queue.json`, JSON.stringify([]), 'utf-8');
+      await retryQueueManager.clearQueue();
       logger.info('Failed queue cleared successfully');
       return res.status(200).json({ cleared: true });
    } catch (error) {

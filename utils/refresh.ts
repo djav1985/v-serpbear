@@ -3,7 +3,6 @@
 import { performance } from 'perf_hooks';
 import { setTimeout as sleep } from 'timers/promises';
 import { Op } from 'sequelize';
-import { readFile, writeFile } from 'fs/promises';
 import Cryptr from 'cryptr';
 import { RefreshResult, removeFromRetryQueue, retryScrape, scrapeKeywordFromGoogle } from './scraper';
 import parseKeywords from './parseKeywords';
@@ -15,6 +14,7 @@ import { decryptDomainScraperSettings, parseDomainScraperSettings } from './doma
 import { logger } from './logger';
 import { fromDbBool, toDbBool } from './dbBooleans';
 import normalizeDomainBooleans from './normalizeDomain';
+import { retryQueueManager } from './retryQueueManager';
 
 const describeScraperType = (scraperType?: SettingsType['scraper_type']): string => {
    if (!scraperType || scraperType.length === 0) {
@@ -203,23 +203,12 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
          { where: { ID: { [Op.in]: skippedIds } } },
       );
 
+      // Use batched removal for better performance and concurrency safety
       const idsToRemove = new Set(skippedIds);
       if (idsToRemove.size > 0) {
-        const filePath = `${process.cwd()}/data/failed_queue.json`;
-        try {
-          const currentQueueRaw = await readFile(filePath, { encoding: 'utf-8' });
-          let currentQueue: number[] = JSON.parse(currentQueueRaw);
-          const initialLength = currentQueue.length;
-          currentQueue = currentQueue.filter((item) => !idsToRemove.has(item));
-
-          if (currentQueue.length < initialLength) {
-            await writeFile(filePath, JSON.stringify(currentQueue), { encoding: 'utf-8' });
-          }
-        } catch (error: any) {
-          if (error.code !== 'ENOENT') {
-            logger.error('[ERROR] Failed to update retry queue:', error);
-          }
-        }
+        await retryQueueManager.removeBatch(idsToRemove).catch((error: any) => {
+          logger.error('[ERROR] Failed to update retry queue:', error);
+        });
       }
    }
 

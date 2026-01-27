@@ -1,7 +1,6 @@
  
 const Cryptr = require('cryptr');
 const { promises } = require('fs');
-const { readFile } = require('fs');
 const { Cron } = require('croner');
 require('dotenv').config({ path: './.env.local' });
 
@@ -184,24 +183,22 @@ const runAppCronJobs = () => {
    new Cron(failedCronTime, () => {
       console.log('[CRON] Retrying Failed Scrapes...');
 
-      readFile(`${process.cwd()}/data/failed_queue.json`, { encoding: 'utf-8' }, (err, data) => {
-         if (data) {
-            try {
-               const keywordsToRetry = data ? JSON.parse(data) : [];
-               if (keywordsToRetry.length > 0) {
-                  console.log(`[CRON] Found ${keywordsToRetry.length} failed scrapes to retry`, { count: keywordsToRetry.length });
-                  // Use URLSearchParams to safely encode the keyword IDs
-                  const params = new URLSearchParams({ id: keywordsToRetry.join(',') });
-                  makeCronApiCall(process.env.APIKEY, internalApiUrl, `/api/refresh?${params.toString()}`, '[CRON] Failed Scrapes Retry Result:');
-               } else {
-                  console.log('[CRON] No failed scrapes to retry');
-               }
-            } catch (error) {
-               console.error('[CRON] ERROR Reading Failed Scrapes Queue File:', error);
+      // Use retryQueueManager for concurrency-safe access
+      import('./utils/retryQueueManager').then(({ retryQueueManager }) => {
+         retryQueueManager.getQueue().then((keywordsToRetry) => {
+            if (keywordsToRetry.length > 0) {
+               console.log(`[CRON] Found ${keywordsToRetry.length} failed scrapes to retry`, { count: keywordsToRetry.length });
+               // Use URLSearchParams to safely encode the keyword IDs
+               const params = new URLSearchParams({ id: keywordsToRetry.join(',') });
+               makeCronApiCall(process.env.APIKEY, internalApiUrl, `/api/refresh?${params.toString()}`, '[CRON] Failed Scrapes Retry Result:');
+            } else {
+               console.log('[CRON] No failed scrapes to retry');
             }
-         } else {
-            console.error('[CRON] ERROR Reading Failed Scrapes Queue File:', err);
-         }
+         }).catch((error) => {
+            console.error('[CRON] ERROR Reading Failed Scrapes Queue:', error);
+         });
+      }).catch((error) => {
+         console.error('[CRON] ERROR Loading retryQueueManager:', error);
       });
    }, cronOptions);
 

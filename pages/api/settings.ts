@@ -12,6 +12,7 @@ import { getBranding } from '../../utils/branding';
 import packageJson from '../../package.json';
 import { safeJsonParse } from '../../utils/safeJsonParse';
 import { atomicWriteFile } from '../../utils/atomicWrite';
+import { retryQueueManager } from '../../utils/retryQueueManager';
 
 const buildSettingsDefaults = (): SettingsType => {
    const { platformName } = getBranding();
@@ -184,22 +185,12 @@ export const getAppSettings = async () : Promise<SettingsType> => {
          notification_email_from_name: decryptedSettings.notification_email_from_name || platformName,
       };
 
-      let failedQueue: string[] = [];
-       try {
-          const failedQueueRaw = await readFile(failedQueuePath, { encoding: 'utf-8' });
-          failedQueue = safeJsonParse<string[]>(
-             failedQueueRaw,
-             [],
-             { context: 'failed_queue.json', logError: true },
-          );
-       } catch (failedQueueError) {
-         const err = failedQueueError as NodeJS.ErrnoException;
-         logger.warn('Failed to read failed queue file, recreating', { error: err?.message || String(err) });
-         try {
-            await atomicWriteFile(failedQueuePath, JSON.stringify([]), 'utf-8');
-         } catch (writeError) {
-            logger.error('Failed to recreate failed queue file', writeError instanceof Error ? writeError : new Error(String(writeError)));
-         }
+      // Use retryQueueManager for concurrency-safe access to failed queue
+      let failedQueue: number[] = [];
+      try {
+         failedQueue = await retryQueueManager.getQueue();
+      } catch (failedQueueError) {
+         logger.warn('Failed to read failed queue', { error: failedQueueError instanceof Error ? failedQueueError.message : String(failedQueueError) });
          failedQueue = [];
       }
 
