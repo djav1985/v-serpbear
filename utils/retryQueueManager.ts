@@ -1,44 +1,55 @@
 import { readFile } from 'fs/promises';
 import { atomicWriteFile } from './atomicWrite';
-import { logger } from './logger';
+import * as lockfile from 'proper-lockfile';
 
 /**
  * Retry Queue Manager with concurrency-safe file operations
  * 
  * This manager ensures that the failed_queue.json file is accessed safely
- * when multiple parallel domain processes are running. It uses a simple
- * in-memory lock to serialize read-modify-write operations.
+ * when multiple parallel domain processes are running. It uses a file-based
+ * lock to serialize read-modify-write operations across processes.
  */
 
 class RetryQueueManager {
    private filePath: string;
-   private operationQueue: Promise<void> = Promise.resolve();
 
    constructor() {
       this.filePath = `${process.cwd()}/data/failed_queue.json`;
    }
 
    /**
-    * Serializes operations to ensure only one read-modify-write cycle happens at a time
+    * Serializes operations to ensure only one read-modify-write cycle happens at a time,
+    * using an OS-level file lock so that multiple Node.js processes cannot interleave
+    * their read-modify-write sequences.
     */
    private async withLock<T>(operation: () => Promise<T>): Promise<T> {
-      // Chain this operation after the previous one completes
-      const previousOperation = this.operationQueue;
-      
-      let resolver: () => void;
-      this.operationQueue = new Promise<void>((resolve) => {
-         resolver = resolve;
-      });
+      let release: lockfile.Release;
 
       try {
-         // Wait for previous operation to complete
-         await previousOperation;
-         
-         // Execute this operation
+         // Acquire a cross-process file lock on the queue file with retry/backoff.
+         release = await lockfile.lock(this.filePath, {
+            retries: {
+               retries: 5,
+               factor: 2,
+               minTimeout: 50,
+               maxTimeout: 1000,
+            },
+         });
+      } catch (err: any) {
+         logger.debug('Failed to acquire retry queue file lock', { error: err?.message });
+         throw err;
+      }
+
+      try {
+         // Execute this operation while holding the file lock.
          return await operation();
       } finally {
-         // Release the lock for next operation
-         resolver!();
+         try {
+            await release();
+         } catch (err: any) {
+            // Log but do not rethrow to avoid masking the original operation error.
+            logger.debug('Failed to release retry queue file lock', { error: err?.message });
+         }
       }
    }
 
