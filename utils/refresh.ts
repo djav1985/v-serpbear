@@ -16,6 +16,25 @@ import { logger } from './logger';
 import { fromDbBool, toDbBool } from './dbBooleans';
 import normalizeDomainBooleans from './normalizeDomain';
 
+/**
+ * Maximum time a keyword is allowed to remain in the "updating" state before it is
+ * considered stuck and automatically reset.
+ *
+ * 30 minutes was chosen as a conservative upper bound based on observed scrape
+ * durations in production: most scrapes complete within a few minutes, with
+ * occasional slow runs approaching tens of minutes under peak load or with
+ * slower third‑party providers. This value balances:
+ *
+ * - Allowing legitimately slow, long‑running scrapes to finish without being
+ *   prematurely marked as timed out.
+ * - Ensuring genuinely stuck "updating" keywords are eventually unlocked and
+ *   surfaced via `lastUpdateError` within a bounded time window.
+ *
+ * If you observe scrapes regularly taking close to or more than this threshold,
+ * prefer investigating and optimizing the scraping pipeline (or provider
+ * configuration) rather than simply increasing this timeout, as raising it will
+ * also delay detection and cleanup of real failures.
+ */
 const STALE_UPDATE_THRESHOLD_MINUTES = 30;
 
 export const resetStaleKeywordUpdates = async ({
