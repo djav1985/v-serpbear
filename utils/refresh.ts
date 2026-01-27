@@ -27,7 +27,7 @@ export const resetStaleKeywordUpdates = async ({
    const staleBefore = new Date(Date.now() - thresholdMinutes * 60 * 1000).toJSON();
    const legacyFallbackBefore = new Date(Date.now() - thresholdMinutes * 2 * 60 * 1000).toJSON();
    const whereClause: Record<string, any> = {
-      updating: 1,
+      updating: toDbBool(true),
       // Prefer updatingStartedAt when available; fall back to lastUpdated for legacy rows
       [Op.or]: [
          { updatingStartedAt: { [Op.lt]: staleBefore } },
@@ -273,7 +273,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                // No result found - this indicates a scraping failure
                // The refreshParallel function already handles errors, but ensure state is consistent
                logger.warn('No refresh result found for keyword, clearing updating flag', { keywordId: keywordModel.ID });
-               await Keyword.update({ updating: 0, updatingStartedAt: null }, { where: { ID: keywordModel.ID } });
+               await Keyword.update({ updating: toDbBool(false), updatingStartedAt: null }, { where: { ID: keywordModel.ID } });
                const currentKeyword = keywordModel.get({ plain: true });
                const parsedKeyword = parseKeywords([currentKeyword])[0];
                updatedKeywords.push({ ...parsedKeyword, updating: false, updatingStartedAt: null });
@@ -329,7 +329,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
       const keywordIdsToCleanup = eligibleKeywordModels.map(k => k.ID);
       try {
          await Keyword.update(
-            { updating: 0, updatingStartedAt: null },
+            { updating: toDbBool(false), updatingStartedAt: null },
             { where: { ID: { [Op.in]: keywordIdsToCleanup } } }
          );
       } catch (cleanupError: any) {
@@ -402,7 +402,7 @@ const refreshAndUpdateKeyword = async (
 
    // Handle error case: set updating to false and save error
    try {
-      const updateData: any = { updating: 0, updatingStartedAt: null };
+      const updateData: any = { updating: toDbBool(false), updatingStartedAt: null };
 
       if (scraperError) {
          const theDate = new Date();
@@ -430,7 +430,7 @@ const refreshAndUpdateKeyword = async (
    }
 
    // Return the current keyword with updated state
-   const updatedKeywordData = { ...currentkeyword, updating: 0, updatingStartedAt: null };
+   const updatedKeywordData = { ...currentkeyword, updating: toDbBool(false), updatingStartedAt: null };
    return parseKeywords([updatedKeywordData])[0];
 };
 
