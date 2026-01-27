@@ -27,7 +27,7 @@ export function withApiLogging(
     (req as any).requestId = requestId;
 
     // Log body only in DEBUG mode or when explicitly requested
-    const shouldLogBody = logBody || process.env.LOG_LEVEL === 'debug';
+    const shouldLogBody = logBody || process.env.LOG_LEVEL?.toLowerCase() === 'debug';
 
     // INFO level: Just log the request method and URL
     logger.info(`${req.method} ${req.url}${name ? ` [${name}]` : ''}`);
@@ -49,7 +49,8 @@ export function withApiLogging(
     // Capture the original res.json and res.status functions to log responses
     const originalJson = res.json.bind(res);
     const originalStatus = res.status.bind(res);
-    let statusCode = 200;
+    const originalWriteHead = res.writeHead?.bind(res);
+    let statusCode = res.statusCode ?? 200;
     let responseBody: any;
 
     res.status = function(code: number) {
@@ -62,9 +63,17 @@ export function withApiLogging(
       return originalJson(body);
     };
 
+    if (originalWriteHead) {
+      res.writeHead = function(code: number, ...args: any[]) {
+        statusCode = code;
+        return originalWriteHead(code, ...args);
+      };
+    }
+
     try {
       // Execute the actual handler
       await handler(req, res);
+      statusCode = res.statusCode ?? statusCode;
 
       const duration = Date.now() - startTime;
       

@@ -5,19 +5,17 @@ jest.mock('../../utils/logger', () => ({
     info: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
-    verbose: jest.fn(),
     debug: jest.fn(),
-    isSuccessLoggingEnabled: jest.fn(() => false),
   },
 }));
 
-describe('withApiLogging success verbosity toggle', () => {
+describe('withApiLogging', () => {
   const { logger } = require('../../utils/logger') as {
     logger: {
       info: jest.Mock;
       warn: jest.Mock;
       error: jest.Mock;
-      isSuccessLoggingEnabled: jest.Mock;
+      debug: jest.Mock;
     };
   };
 
@@ -39,8 +37,18 @@ describe('withApiLogging success verbosity toggle', () => {
       return res as NextApiResponse;
     });
 
+    res.writeHead = jest.fn((code: number) => {
+      res.statusCode = code;
+      return res as NextApiResponse;
+    });
+
     res.json = jest.fn((body: unknown) => {
       void body;
+      res.headersSent = true;
+      return res as NextApiResponse;
+    });
+
+    res.end = jest.fn(() => {
       res.headersSent = true;
       return res as NextApiResponse;
     });
@@ -50,10 +58,15 @@ describe('withApiLogging success verbosity toggle', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    delete process.env.LOG_LEVEL;
   });
 
-  it('suppresses informational logs when success logging is disabled', async () => {
-    logger.isSuccessLoggingEnabled.mockReturnValue(false);
+  afterEach(() => {
+    delete process.env.LOG_LEVEL;
+  });
+
+  it('enables body logging when LOG_LEVEL is DEBUG (case-insensitive)', async () => {
+    process.env.LOG_LEVEL = 'DEBUG';
     const { withApiLogging } = await import('../../utils/apiLogging');
 
     const handler = jest.fn(async (_req: NextApiRequest, res: NextApiResponse) => {
@@ -64,90 +77,60 @@ describe('withApiLogging success verbosity toggle', () => {
 
     await wrapped(createRequest(), createResponse());
 
-    // Should log request start but not completion for successful requests
-    expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining('GET /api/test')
+    expect(logger.debug).toHaveBeenCalledWith(
+      expect.stringContaining('API Request Details'),
+      expect.objectContaining({
+        method: 'GET',
+        url: '/api/test',
+        body: undefined,
+      })
     );
-    expect(logger.info).not.toHaveBeenCalledWith(
-      expect.stringContaining('200'),
-      expect.any(Object)
-    );
-    expect(handler).toHaveBeenCalled();
-  });
-
-  it('emits informational logs when enabled or explicitly overridden', async () => {
-    logger.isSuccessLoggingEnabled.mockReturnValue(true);
-    const { withApiLogging } = await import('../../utils/apiLogging');
-
-    const handler = jest.fn(async (_req: NextApiRequest, res: NextApiResponse) => {
-      res.status(200).json({ ok: true });
-    });
-
-    const wrapped = withApiLogging(handler);
-
-    await wrapped(createRequest(), createResponse());
-    expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining('GET /api/test')
-    );
-    expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining('200')
-    );
-
-    logger.info.mockClear();
-    logger.isSuccessLoggingEnabled.mockReturnValue(false);
-
-    const wrappedWithOverride = withApiLogging(handler, { logSuccess: true });
-    await wrappedWithOverride(createRequest(), createResponse());
-
-    expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining('GET /api/test')
-    );
-    expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining('200')
+    expect(logger.debug).toHaveBeenCalledWith(
+      expect.stringContaining('API Response Details'),
+      expect.objectContaining({
+        statusCode: 200,
+        responseBody: { ok: true },
+      })
     );
   });
 
-  it('continues to emit warnings for error responses when success logging is disabled', async () => {
-    logger.isSuccessLoggingEnabled.mockReturnValue(false);
+  it('logs warning severity when handler sets res.statusCode directly', async () => {
     const { withApiLogging } = await import('../../utils/apiLogging');
 
     const handler = jest.fn(async (_req: NextApiRequest, res: NextApiResponse) => {
-      res.status(400).json({ error: 'bad request' });
+      res.statusCode = 404;
+      res.end();
     });
 
     const wrapped = withApiLogging(handler);
 
     await wrapped(createRequest(), createResponse());
 
-    expect(logger.warn).toHaveBeenCalledTimes(1);
-    expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining('GET /api/test')
-    );
-    expect(logger.info).not.toHaveBeenCalledWith(
-      expect.stringContaining('200'),
-      expect.any(Object)
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('GET /api/test - 404'),
+      expect.objectContaining({
+        statusCode: 404,
+      })
     );
   });
 
-  it('continues to emit errors for server errors when success logging is disabled', async () => {
-    logger.isSuccessLoggingEnabled.mockReturnValue(false);
+  it('logs warning severity when handler uses writeHead', async () => {
     const { withApiLogging } = await import('../../utils/apiLogging');
 
     const handler = jest.fn(async (_req: NextApiRequest, res: NextApiResponse) => {
-      res.status(500).json({ error: 'internal server error' });
+      res.writeHead(418);
+      res.end();
     });
 
     const wrapped = withApiLogging(handler);
 
     await wrapped(createRequest(), createResponse());
 
-    expect(logger.error).toHaveBeenCalledTimes(1);
-    expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining('GET /api/test')
-    );
-    expect(logger.info).not.toHaveBeenCalledWith(
-      expect.stringContaining('200'),
-      expect.any(Object)
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('GET /api/test - 418'),
+      expect.objectContaining({
+        statusCode: 418,
+      })
     );
   });
 });

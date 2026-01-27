@@ -22,6 +22,59 @@ type DomainSettingsError = {
    msg: string,
 }
 
+type DomainSettingsTab = 'notification' | 'searchconsole' | 'scraper';
+
+const getTabClassName = (
+   tab: DomainSettingsTab,
+   currentTab: DomainSettingsTab,
+   tabStyle: string
+): string => `${tabStyle} ${currentTab === tab ? ' bg-white text-blue-600 border-slate-200' : 'border-transparent'}`;
+
+const resolveSettingsError = (
+   domainSettings: DomainSettings,
+   hasStoredScraperKey: boolean
+): DomainSettingsError | null => {
+   if (domainSettings.notification_emails) {
+      const emailList = domainSettings.notification_emails
+         .split(',')
+         .map((email) => email.trim())
+         .filter((email) => email.length > 0);
+      const invalidEmails = emailList.find((email) => !isValidEmail(email));
+      if (invalidEmails) {
+         return { type: 'email', msg: 'Invalid Email' };
+      }
+   }
+
+   if (domainSettings.scraper_settings?.scraper_type) {
+      const hasInput = typeof domainSettings.scraper_settings.scraping_api === 'string'
+         && domainSettings.scraper_settings.scraping_api.trim().length > 0;
+      if (!hasInput && !hasStoredScraperKey) {
+         return { type: 'scraper', msg: 'API key is required for the selected scraper.' };
+      }
+   }
+
+   return null;
+};
+
+const showSettingsError = (
+   error: DomainSettingsError,
+   setSettingsError: React.Dispatch<React.SetStateAction<DomainSettingsError>>,
+   setCurrentTab: React.Dispatch<React.SetStateAction<'notification' | 'searchconsole' | 'scraper'>>,
+   errorTimeoutRef: React.MutableRefObject<NodeJS.Timeout | null>
+) => {
+   if (errorTimeoutRef.current) {
+      clearTimeout(errorTimeoutRef.current);
+   }
+   setSettingsError(error);
+   if (error.type === 'scraper') {
+      setCurrentTab('scraper');
+   }
+   errorTimeoutRef.current = setTimeout(() => {
+      setSettingsError({ type: '', msg: '' });
+      errorTimeoutRef.current = null;
+   }, 3000);
+};
+
 const deriveDomainActiveState = (domainData?: DomainType | null): boolean => {
    if (!domainData) { return true; }
    const { scrapeEnabled, notification } = domainData;
@@ -33,7 +86,7 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
       const settingsRef = useRef<HTMLDivElement>(null);
       const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
    const router = useRouter();
-   const [currentTab, setCurrentTab] = useState<'notification'|'searchconsole'|'scraper'>('notification');
+   const [currentTab, setCurrentTab] = useState<DomainSettingsTab>('notification');
    const [showRemoveDomain, setShowRemoveDomain] = useState<boolean>(false);
    const [settingsError, setSettingsError] = useState<DomainSettingsError>({ type: '', msg: '' });
    
@@ -183,37 +236,13 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
    };
 
    const updateDomain = () => {
-      let error: DomainSettingsError | null = null;
-      if (domainSettings.notification_emails) {
-         const emailList = domainSettings.notification_emails
-            .split(',')
-            .map((email) => email.trim())
-            .filter((email) => email.length > 0);
-         const invalidEmails = emailList.find((email) => !isValidEmail(email));
-         if (invalidEmails) {
-            error = { type: 'email', msg: 'Invalid Email' };
-         }
-      }
-      if (!error && domainSettings.scraper_settings?.scraper_type) {
-         const hasInput = typeof domainSettings.scraper_settings.scraping_api === 'string'
-            && domainSettings.scraper_settings.scraping_api.trim().length > 0;
-         if (!hasInput && !hasStoredScraperKey) {
-            error = { type: 'scraper', msg: 'API key is required for the selected scraper.' };
-         }
-      }
+      const error = resolveSettingsError(domainSettings, hasStoredScraperKey);
       if (error && error.type) {
-         if (errorTimeoutRef.current) {
-            clearTimeout(errorTimeoutRef.current);
-         }
-         setSettingsError(error);
-         if (error.type === 'scraper') {
-            setCurrentTab('scraper');
-         }
-         errorTimeoutRef.current = setTimeout(() => {
-            setSettingsError({ type: '', msg: '' });
-            errorTimeoutRef.current = null;
-         }, 3000);
-      } else if (domain) {
+         showSettingsError(error, setSettingsError, setCurrentTab, errorTimeoutRef);
+         return;
+      }
+
+      if (domain) {
          const payload = buildDomainSettingsPayload();
          updateMutate({ domainSettings: payload, domain });
       }
@@ -229,17 +258,17 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
                relative left-[-20px] w-[calc(100%+40px)] border-l-0 border-r-0 bg-[#f8f9ff]'>
                   <ul>
                      <li
-                     className={`${tabStyle} ${currentTab === 'notification' ? ' bg-white text-blue-600 border-slate-200' : 'border-transparent'} `}
+                     className={getTabClassName('notification', currentTab, tabStyle)}
                      onClick={() => setCurrentTab('notification')}>
                        <Icon type='email' /> Notification
                      </li>
                      <li
-                     className={`${tabStyle} ${currentTab === 'searchconsole' ? ' bg-white text-blue-600 border-slate-200' : 'border-transparent'}`}
+                     className={getTabClassName('searchconsole', currentTab, tabStyle)}
                      onClick={() => setCurrentTab('searchconsole')}>
                         <Icon type='google' /> Search Console
                      </li>
                      <li
-                     className={`${tabStyle} ${currentTab === 'scraper' ? ' bg-white text-blue-600 border-slate-200' : 'border-transparent'}`}
+                     className={getTabClassName('scraper', currentTab, tabStyle)}
                      onClick={() => setCurrentTab('scraper')}>
                         <Icon type='settings-alt' /> Scraper
                      </li>
