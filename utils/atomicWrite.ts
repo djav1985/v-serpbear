@@ -1,5 +1,6 @@
 import { writeFile, rename, unlink } from 'fs/promises';
 import { randomBytes } from 'crypto';
+import { dirname } from 'path';
 import { logger } from './logger';
 
 /**
@@ -34,10 +35,24 @@ export const atomicWriteFile = async (
          // Ignore cleanup errors - file might not exist
       }
       
-      logger.error('Atomic write failed', error instanceof Error ? error : new Error(String(error)), {
-         targetPath: filePath,
-         tempPath: tempFilePath,
-      });
+      const err = error instanceof Error ? error : new Error(String(error));
+      const nodeError = err as NodeJS.ErrnoException;
+      
+      // Provide clearer error message if directory doesn't exist
+      if (nodeError.code === 'ENOENT') {
+         const dir = dirname(filePath);
+         logger.error('Atomic write failed: parent directory does not exist', err, {
+            targetPath: filePath,
+            tempPath: tempFilePath,
+            directory: dir,
+            suggestion: 'Ensure the parent directory exists before writing',
+         });
+      } else {
+         logger.error('Atomic write failed', err, {
+            targetPath: filePath,
+            tempPath: tempFilePath,
+         });
+      }
       
       throw error;
    }

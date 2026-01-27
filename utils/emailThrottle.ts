@@ -40,8 +40,9 @@ const acquireLock = (): Promise<() => void> => {
  * Check if email can be sent based on throttling rules
  */
 export const canSendEmail = async (domain: string): Promise<{ canSend: boolean; reason?: string }> => {
-   const releaseLock = await acquireLock();
+   let releaseLock: (() => void) | undefined;
    try {
+      releaseLock = await acquireLock();
       const cache = await getEmailCache();
       const now = new Date();
       const today = now.toDateString();
@@ -84,7 +85,9 @@ export const canSendEmail = async (domain: string): Promise<{ canSend: boolean; 
       logger.error('Error checking email throttle cache, allowing email', error instanceof Error ? error : new Error(String(error)));
       return { canSend: true };
    } finally {
-      releaseLock();
+      if (releaseLock) {
+         releaseLock();
+      }
    }
 };
 
@@ -92,8 +95,9 @@ export const canSendEmail = async (domain: string): Promise<{ canSend: boolean; 
  * Record that an email was sent
  */
 export const recordEmailSent = async (domain: string): Promise<void> => {
-   const releaseLock = await acquireLock();
+   let releaseLock: (() => void) | undefined;
    try {
+      releaseLock = await acquireLock();
       const cache = await getEmailCache();
       const now = new Date();
       const today = now.toDateString();
@@ -118,7 +122,9 @@ export const recordEmailSent = async (domain: string): Promise<void> => {
    } catch (error) {
       logger.error('Error recording email sent', error instanceof Error ? error : new Error(String(error)));
    } finally {
-      releaseLock();
+      if (releaseLock) {
+         releaseLock();
+      }
    }
 };
 
