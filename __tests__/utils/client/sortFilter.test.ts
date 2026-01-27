@@ -11,12 +11,12 @@ describe('filterKeywords helpers', () => {
       added: '2024-01-01',
       position: 1,
       volume: 100,
-      sticky: 0,
+      sticky: false,
       history: {},
       lastResult: [],
       url: 'https://example.com',
       tags: ['seo'],
-      updating: 0,
+      updating: false,
       lastUpdateError: false,
       ...overrides,
    });
@@ -69,12 +69,12 @@ describe('sortKeywords', () => {
       added: '2024-01-01',
       position: 1,
       volume: 10,
-      sticky: 0,
+      sticky: false,
       history: {},
       lastResult: [],
       url: 'https://example.com',
       tags: [],
-      updating: 0,
+      updating: false,
       lastUpdateError: false,
       ...overrides,
    });
@@ -145,8 +145,8 @@ describe('sortKeywords', () => {
 
    it('keeps sticky keywords at the top after other sorts', () => {
       const keywords = [
-         buildKeyword({ ID: 1, keyword: 'bravo', sticky: 1, added: '2024-01-03' }),
-         buildKeyword({ ID: 2, keyword: 'alpha', sticky: 0, added: '2024-01-01' }),
+         buildKeyword({ ID: 1, keyword: 'bravo', sticky: true, added: '2024-01-03' }),
+         buildKeyword({ ID: 2, keyword: 'alpha', sticky: false, added: '2024-01-01' }),
       ];
 
       expect(sortKeywords(keywords, 'date_asc').map((k) => k.ID)).toEqual([1, 2]);

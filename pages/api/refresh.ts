@@ -179,14 +179,14 @@ const getKeywordSearchResults = async (req: NextApiRequest, res: NextApiResponse
          volume: 0,
          added: '',
          position: 111,
-         sticky: 0,
+         sticky: false,
          history: {},
          lastResult: [],
          url: '',
          tags: [],
-         updating: 0,
+         updating: false,
          lastUpdateError: false,
-         mapPackTop3: 0,
+         mapPackTop3: false,
       };
       const scrapeResult = await scrapeKeywordFromGoogle(dummyKeyword, settings);
       if (scrapeResult && !scrapeResult.error) {

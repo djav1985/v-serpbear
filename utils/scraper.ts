@@ -26,7 +26,7 @@ export type RefreshResult = false | {
    position:number,
    url: string,
    result: SearchResult[],
-   mapPackTop3: number,
+   mapPackTop3: boolean,
    localResults?: any[],
    error?: boolean | string
 };
@@ -182,7 +182,7 @@ export const scrapeKeywordFromGoogle = async (keyword:KeywordType, settings:Sett
       position: keyword.position,
       url: keyword.url,
       result: keyword.lastResult,
-      mapPackTop3: keyword.mapPackTop3 ?? 0,
+      mapPackTop3: keyword.mapPackTop3 ?? false,
       error: true,
    };
    
@@ -285,7 +285,7 @@ export const scrapeKeywordFromGoogle = async (keyword:KeywordType, settings:Sett
                position: serp.position,
                url: serp.url,
                result: organicResults,
-               mapPackTop3: computedMapPack ? 1 : 0,
+               mapPackTop3: computedMapPack,
                localResults,
                error: false,
             };

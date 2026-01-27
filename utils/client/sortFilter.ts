@@ -1,5 +1,3 @@
-import { fromDbBool } from '../dbBooleans';
-
 type SortDirection = 'asc' | 'desc';
 
 export const sortByNumericField = <T>(items: T[], getValue: (item: T) => number, direction: SortDirection = 'asc'): T[] => (
@@ -123,8 +121,8 @@ export const sortKeywords = (theKeywords:KeywordType[], sortBy:string, scDataTyp
 
    // Stick Favorites item to top
    sortedItems = [...sortedItems].sort((a: KeywordType, b: KeywordType) => {
-      const aSticky = fromDbBool(a.sticky);
-      const bSticky = fromDbBool(b.sticky);
+      const aSticky = Boolean(a.sticky);
+      const bSticky = Boolean(b.sticky);
       return aSticky === bSticky ? 0 : (bSticky ? 1 : -1);
    });
 

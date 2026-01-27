@@ -12,8 +12,8 @@ export const dummyDomain = {
    lastUpdated: '2022-11-11T10:00:32.243',
    added: '2022-11-11T10:00:32.244',
    tags: '',
-   scrapeEnabled: 1,
-   notification: 1,
+   scrapeEnabled: true,
+   notification: true,
    notification_interval: 'daily',
    notification_emails: '',
 };
@@ -51,10 +51,10 @@ export const dummyKeywords = [
             title: 'Alternative Result',
          },
        ],
-       sticky: 0,
-       updating: 0,
+       sticky: false,
+       updating: false,
        lastUpdateError: false as false,
-       mapPackTop3: 1,
+       mapPackTop3: true,
    },
    {
        ID: 2,
@@ -83,10 +83,10 @@ export const dummyKeywords = [
             title: 'Compress Image Tool',
          },
        ],
-       sticky: 0,
-       updating: 0,
+       sticky: false,
+       updating: false,
        lastUpdateError: false as false,
-       mapPackTop3: 0,
+       mapPackTop3: false,
    },
 ];
 

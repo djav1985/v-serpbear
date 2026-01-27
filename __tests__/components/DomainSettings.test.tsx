@@ -31,9 +31,9 @@ const mockDomain: DomainType = {
    added: '2023-01-01',
    updated: '2023-01-01',
    tags: '',
-   scrapeEnabled: 1,
+   scrapeEnabled: true,
    notify_enabled: true,
-   notification: 1,
+   notification: true,
    notification_interval: 'daily',
    notification_emails: 'test@example.com',
    search_console: JSON.stringify({

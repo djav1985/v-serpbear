@@ -169,7 +169,7 @@ describe('refreshAndUpdateKeywords', () => {
       added: '2024-01-01T00:00:00.000Z',
       url: '',
       tags: '[]',
-      mapPackTop3: 0,
+      mapPackTop3: false,
     };
 
     const keywordModel = {
@@ -186,7 +186,7 @@ describe('refreshAndUpdateKeywords', () => {
       ID: keywordPlain.ID,
       position: 3,
       result: [],
-      mapPackTop3: 0,
+      mapPackTop3: false,
       error: false,
     } as RefreshResult);
 
@@ -222,7 +222,7 @@ describe('refreshAndUpdateKeywords', () => {
       added: '2024-01-01T00:00:00.000Z',
       url: '',
       tags: '[]',
-      mapPackTop3: 0,
+      mapPackTop3: false,
     };
 
     const keywordModel = {
@@ -252,7 +252,7 @@ describe('refreshAndUpdateKeywords', () => {
       updatingStartedAt: null,
       lastUpdateError: expect.stringContaining('parallel boom'),
     }));
-    expect(results[0].updating).toBe(0);
+    expect(results[0].updating).toBe(false);
   });
 
   it('uses batched retry queue removal for improved performance', async () => {
@@ -475,7 +475,7 @@ describe('refreshAndUpdateKeywords', () => {
       position: 7,
       url: 'https://example.com/result',
       result: undefined,
-      mapPackTop3: 0,
+      mapPackTop3: false,
       error: 'temporary failure',
     } as RefreshResult;
 
@@ -539,7 +539,7 @@ describe('refreshAndUpdateKeywords', () => {
       position: 1,
       url: 'https://example.com',
       result: arrayResult,
-      mapPackTop3: 0,
+      mapPackTop3: false,
       error: false,
     } as RefreshResult;
 
@@ -599,7 +599,7 @@ describe('refreshAndUpdateKeywords', () => {
       position: 4,
       url: 'https://example.com/result',
       result: [],
-      mapPackTop3: 0,
+      mapPackTop3: false,
       error: false,
     } as RefreshResult;
 
@@ -610,7 +610,7 @@ describe('refreshAndUpdateKeywords', () => {
       { updating: 0, updatingStartedAt: null },
       { where: { ID: mockPlainKeyword.ID } },
     );
-    expect(updated.updating).toBe(0);
+    expect(updated.updating).toBe(false);
   });
 
   it('coerces optional scalars when scrape results omit URLs', async () => {
@@ -653,7 +653,7 @@ describe('refreshAndUpdateKeywords', () => {
       ID: mockPlainKeyword.ID,
       position: 5,
       result: [],
-      mapPackTop3: 0,
+      mapPackTop3: false,
       error: false,
     } as RefreshResult;
 
@@ -714,7 +714,7 @@ describe('refreshAndUpdateKeywords', () => {
       position: 3,
       url: 'https://example.com/result',
       result: [],
-      mapPackTop3: 0,
+      mapPackTop3: false,
       error: false,
     } as RefreshResult;
 
@@ -775,7 +775,7 @@ describe('refreshAndUpdateKeywords', () => {
       added: '2024-01-01T00:00:00.000Z',
       url: '',
       tags: '[]',
-      mapPackTop3: 0,
+      mapPackTop3: false,
     };
 
     const keyword2Plain = {
@@ -796,7 +796,7 @@ describe('refreshAndUpdateKeywords', () => {
       added: '2024-01-01T00:00:00.000Z',
       url: '',
       tags: '[]',
-      mapPackTop3: 0,
+      mapPackTop3: false,
     };
 
     const keywordModel1 = {
@@ -822,7 +822,7 @@ describe('refreshAndUpdateKeywords', () => {
       ID: keyword1Plain.ID,
       position: 1,
       result: [],
-      mapPackTop3: 0,
+      mapPackTop3: false,
       error: false,
     } as RefreshResult);
 
@@ -890,7 +890,7 @@ describe('refreshAndUpdateKeywords', () => {
       added: '2024-01-01T00:00:00.000Z',
       url: '',
       tags: '[]',
-      mapPackTop3: 0,
+      mapPackTop3: false,
     };
 
     const keyword2Plain = {
@@ -911,7 +911,7 @@ describe('refreshAndUpdateKeywords', () => {
       added: '2024-01-01T00:00:00.000Z',
       url: '',
       tags: '[]',
-      mapPackTop3: 0,
+      mapPackTop3: false,
     };
 
     const keywordModel1 = {
@@ -935,7 +935,7 @@ describe('refreshAndUpdateKeywords', () => {
       ID: keyword1Plain.ID,
       position: 1,
       result: [],
-      mapPackTop3: 0,
+      mapPackTop3: false,
       error: false,
     } as RefreshResult);
 
@@ -996,7 +996,7 @@ describe('refreshAndUpdateKeywords', () => {
       ID: baseKeyword.ID,
       position: 3,
       result: [],
-      mapPackTop3: 0,
+      mapPackTop3: false,
       error: false,
     } as RefreshResult;
 
@@ -1009,7 +1009,7 @@ describe('refreshAndUpdateKeywords', () => {
       ID: baseKeyword.ID,
       position: '7' as any,
       result: [],
-      mapPackTop3: 0,
+      mapPackTop3: false,
       error: false,
     } as RefreshResult;
 
@@ -1022,7 +1022,7 @@ describe('refreshAndUpdateKeywords', () => {
       ID: baseKeyword.ID,
       position: undefined,
       result: [],
-      mapPackTop3: 0,
+      mapPackTop3: false,
       error: false,
     } as RefreshResult;
 
@@ -1035,7 +1035,7 @@ describe('refreshAndUpdateKeywords', () => {
       ID: baseKeyword.ID,
       position: null as any,
       result: [],
-      mapPackTop3: 0,
+      mapPackTop3: false,
       error: false,
     } as RefreshResult;
 
@@ -1050,7 +1050,7 @@ describe('refreshAndUpdateKeywords', () => {
       ID: baseKeyword.ID,
       position: 'invalid' as any,
       result: [],
-      mapPackTop3: 0,
+      mapPackTop3: false,
       error: false,
     } as RefreshResult;
 
@@ -1077,7 +1077,7 @@ describe('refreshAndUpdateKeywords', () => {
       added: '2024-01-01T00:00:00.000Z',
       url: '',
       tags: '[]',
-      mapPackTop3: 0,
+      mapPackTop3: false,
     };
 
     const keywordModel = {
@@ -1113,7 +1113,7 @@ describe('refreshAndUpdateKeywords', () => {
 
     // Verify the returned result has updating: 0 (converted for UI)
     expect(results).toHaveLength(1);
-    expect(results[0].updating).toBe(0);
+    expect(results[0].updating).toBe(false);
   });
 
   it('handles errors gracefully during parallel refresh and ensures updating flags are cleared', async () => {
@@ -1155,8 +1155,8 @@ describe('refreshAndUpdateKeywords', () => {
     expect(results).toHaveLength(2);
     
     // Verify all keywords have updating: 0
-    expect(results[0].updating).toBe(0);
-    expect(results[1].updating).toBe(0);
+    expect(results[0].updating).toBe(false);
+    expect(results[1].updating).toBe(false);
 
     // Verify that update was called to clear the updating flags
     expect(keywords[0].update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0, updatingStartedAt: null }));

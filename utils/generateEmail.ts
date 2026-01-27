@@ -12,6 +12,10 @@ const mobileIcon = 'https://serpbear.b-cdn.net/SqXD9rd.png';
 const desktopIcon = 'https://serpbear.b-cdn.net/Dx3u0XD.png';
 const googleIcon = 'https://serpbear.b-cdn.net/Sx3u0X9.png';
 
+const normalizeMapPackTop3 = (value: boolean | number | null | undefined): boolean => (
+   typeof value === 'boolean' ? value : fromDbBool(value)
+);
+
 const resolveEmailBranding = () => {
    const brandingDetails = getBranding();
    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || '';
@@ -91,7 +95,7 @@ type KeywordSummary = {
 };
 
 const calculateKeywordSummary = (items: KeywordType[]): KeywordSummary => items.reduce((stats, keyword) => {
-   if (fromDbBool(keyword.mapPackTop3)) {
+   if (normalizeMapPackTop3(keyword.mapPackTop3)) {
       stats.mapPackKeywords += 1;
    }
    if (typeof keyword.position === 'number' && Number.isFinite(keyword.position) && keyword.position > 0) {
@@ -123,7 +127,7 @@ const generateEmail = async (domain:DomainType, keywords:KeywordType[], settings
       const deviceIconImg = keyword.device === 'desktop' ? desktopIcon : mobileIcon;
       const countryFlag = `<img class="flag" src="https://flagcdn.com/w20/${keyword.country.toLowerCase()}.png" alt="${keyword.country}" title="${keyword.country}" />`;
       const deviceIcon = `<img class="device" src="${deviceIconImg}" alt="${keyword.device}" title="${keyword.device}" width="18" height="18" />`;
-      const mapPackFlag = fromDbBool(keyword.mapPackTop3)
+      const mapPackFlag = normalizeMapPackTop3(keyword.mapPackTop3)
          ? `<span class="map-pack-flag" role="img" aria-label="Map pack top three">MP</span>`
          : '';
       const flagStack = `<span class="flag-stack">${countryFlag}${mapPackFlag}</span>`;

@@ -63,6 +63,8 @@ describe('GET /api/domains', () => {
           ID: 1,
           domain: 'example.com',
           slug: 'example-com',
+          scrapeEnabled: 1,
+          notification: 0,
           search_console: null,
           scraper_settings: JSON.stringify({ scraper_type: 'serpapi', scraping_api: 'encrypted-value' }),
         }),
@@ -77,6 +79,8 @@ describe('GET /api/domains', () => {
     expect(res.status).toHaveBeenCalledWith(200);
     const payload = (res.json as jest.Mock).mock.calls[0][0];
     expect(payload.domains[0].scraper_settings).toEqual({ scraper_type: 'serpapi', has_api_key: true });
+    expect(payload.domains[0].scrapeEnabled).toBe(true);
+    expect(payload.domains[0].notification).toBe(false);
    });
 
    it('skips malformed search console JSON without failing the response', async () => {
@@ -128,8 +132,8 @@ describe('POST /api/domains', () => {
 
   it('normalises and deduplicates hostnames before insert', async () => {
     const bulkCreateResult = [
-      { get: jest.fn().mockReturnValue({ domain: 'example.com', slug: 'example-com' }) },
-      { get: jest.fn().mockReturnValue({ domain: 'sub.domain.com', slug: 'sub-domain-com' }) },
+      { get: jest.fn().mockReturnValue({ domain: 'example.com', slug: 'example-com', scrapeEnabled: 1, notification: 1 }) },
+      { get: jest.fn().mockReturnValue({ domain: 'sub.domain.com', slug: 'sub-domain-com', scrapeEnabled: 1, notification: 0 }) },
     ];
 
     DomainMock.bulkCreate.mockResolvedValue(bulkCreateResult);
@@ -151,8 +155,8 @@ describe('POST /api/domains', () => {
     expect(res.status).toHaveBeenCalledWith(201);
     const responsePayload = (res.json as jest.Mock).mock.calls[0][0];
     expect(responsePayload.domains).toEqual([
-      { domain: 'example.com', slug: 'example-com' },
-      { domain: 'sub.domain.com', slug: 'sub-domain-com' },
+      { domain: 'example.com', slug: 'example-com', scrapeEnabled: true, notification: true },
+      { domain: 'sub.domain.com', slug: 'sub-domain-com', scrapeEnabled: true, notification: false },
     ]);
   });
 });
@@ -161,8 +165,8 @@ describe('PUT /api/domains', () => {
   let domainState: {
     domain: string;
     slug: string;
-    scrapeEnabled: boolean;
-    notification: boolean;
+    scrapeEnabled: boolean | number;
+    notification: boolean | number;
     scraper_settings: string | null;
   };
   let domainInstance: {
@@ -225,7 +229,7 @@ describe('PUT /api/domains', () => {
     expect(disableRes.status).toHaveBeenCalledWith(200);
 
     const disablePayload = (disableRes.json as jest.Mock).mock.calls[0][0];
-    expect(disablePayload.domain).toBe(domainInstance);
+    expect(disablePayload.domain).toEqual(expect.objectContaining({ scrapeEnabled: false, notification: false }));
     expect(domainState.scrapeEnabled).toBe(0);
     expect(domainState.notification).toBe(0);
     expect(persistedSnapshots[0]).toEqual({ scrapeEnabled: 0, notification: 0 });
@@ -249,7 +253,7 @@ describe('PUT /api/domains', () => {
     expect(enableRes.status).toHaveBeenCalledWith(200);
 
     const enablePayload = (enableRes.json as jest.Mock).mock.calls[0][0];
-    expect(enablePayload.domain).toBe(domainInstance);
+    expect(enablePayload.domain).toEqual(expect.objectContaining({ scrapeEnabled: true, notification: true }));
     expect(domainState.scrapeEnabled).toBe(1);
     expect(domainState.notification).toBe(1);
     expect(persistedSnapshots[1]).toEqual({ scrapeEnabled: 1, notification: 1 });

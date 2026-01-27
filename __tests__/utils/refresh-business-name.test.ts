@@ -61,7 +61,7 @@ describe('refreshAndUpdateKeywords - business_name handling', () => {
       added: '2024-01-01T00:00:00.000Z',
       url: '',
       tags: '[]',
-      mapPackTop3: 0,
+      mapPackTop3: false,
     };
 
     const keywordModel = {
@@ -86,7 +86,7 @@ describe('refreshAndUpdateKeywords - business_name handling', () => {
         { position: 2, title: 'Vontainment', website: 'https://google.com/maps/place/vontainment' },
         { position: 3, title: 'Another Business', website: 'https://another.com' },
       ],
-      mapPackTop3: 1,
+      mapPackTop3: true,
       error: false,
     } as RefreshResult);
 
@@ -142,7 +142,7 @@ describe('refreshAndUpdateKeywords - business_name handling', () => {
       added: '2024-01-01T00:00:00.000Z',
       url: '',
       tags: '[]',
-      mapPackTop3: 0,
+      mapPackTop3: false,
     };
 
     const keywordModel = {
@@ -160,7 +160,7 @@ describe('refreshAndUpdateKeywords - business_name handling', () => {
       position: 5,
       url: 'https://example.com/',
       result: [],
-      mapPackTop3: 0,
+      mapPackTop3: false,
       error: false,
     } as RefreshResult);
 
@@ -203,7 +203,7 @@ describe('refreshAndUpdateKeywords - business_name handling', () => {
       added: '2024-01-01T00:00:00.000Z',
       url: '',
       tags: '[]',
-      mapPackTop3: 0,
+      mapPackTop3: false,
     };
 
     const keywordModel = {
@@ -221,7 +221,7 @@ describe('refreshAndUpdateKeywords - business_name handling', () => {
       position: 5,
       url: 'https://example.com/',
       result: [],
-      mapPackTop3: 0,
+      mapPackTop3: false,
       error: false,
     } as RefreshResult);
 

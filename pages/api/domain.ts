@@ -9,6 +9,7 @@ import { maskDomainScraperSettings, parseDomainScraperSettings } from '../../uti
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
 import { safeJsonParse } from '../../utils/safeJsonParse';
+import normalizeDomainBooleans from '../../utils/normalizeDomain';
 
 type DomainGetResponse = {
    domain?: DomainType | null
@@ -63,7 +64,7 @@ const getDomain = async (req: NextApiRequest, res: NextApiResponse<DomainGetResp
       );
       parsedDomain.scraper_settings = parsedScraperSettings;
 
-      return res.status(200).json({ domain: parsedDomain });
+      return res.status(200).json({ domain: normalizeDomainBooleans(parsedDomain) });
    } catch (error) {
       logger.error('Getting Domain: ', error instanceof Error ? error : new Error(String(error)));
       return res.status(400).json({ error: 'Error Loading Domain' });

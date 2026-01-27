@@ -18,6 +18,7 @@ import {
 } from '../../utils/domainScraperSettings';
 import { toDbBool } from '../../utils/dbBooleans';
 import { safeJsonParse } from '../../utils/safeJsonParse';
+import normalizeDomainBooleans from '../../utils/normalizeDomain';
 
 type DomainsGetRes = {
    domains: DomainType[]
@@ -87,11 +88,12 @@ export const getDomains = async (req: NextApiRequest, res: NextApiResponse<Domai
             }
             : {};
          const persistedScraperSettings = parseDomainScraperSettings(domainPlain?.scraper_settings);
-         return {
+         const maskedDomain = {
             ...domainPlain,
             search_console: JSON.stringify(searchConsoleData),
             scraper_settings: maskDomainScraperSettings(persistedScraperSettings),
          } as DomainType;
+         return normalizeDomainBooleans(maskedDomain);
       });
       const theDomains: DomainType[] = withStats ? await getdomainStats(formattedDomains) : formattedDomains;
       return res.status(200).json({ domains: theDomains });
@@ -140,7 +142,7 @@ const addDomain = async (req: NextApiRequest, res: NextApiResponse<DomainsAddRes
 
       try {
          const newDomains:Domain[] = await Domain.bulkCreate(domainsToAdd);
-         const formattedDomains = newDomains.map((el) => el.get({ plain: true }));
+         const formattedDomains = newDomains.map((el) => normalizeDomainBooleans(el.get({ plain: true }) as DomainType));
          return res.status(201).json({ domains: formattedDomains });
       } catch (error) {
          logger.error('Adding New Domain ', error instanceof Error ? error : new Error(String(error)));
@@ -229,7 +231,8 @@ export const updateDomain = async (req: NextApiRequest, res: NextApiResponse<Dom
       domainToUpdate.set(updates);
       await domainToUpdate.save();
 
-      return res.status(200).json({ domain: domainToUpdate });
+      const normalizedDomain = normalizeDomainBooleans(domainToUpdate.get({ plain: true }) as DomainType);
+      return res.status(200).json({ domain: normalizedDomain });
    } catch (error) {
       logger.error('Updating Domain: ', error instanceof Error ? error : new Error(String(error)), { context: req.query.domain });
       return res.status(400).json({ domain: null, error: 'Error Updating Domain. An Unknown Error Occurred.' });
