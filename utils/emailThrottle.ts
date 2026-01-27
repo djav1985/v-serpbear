@@ -21,13 +21,19 @@ let cacheLock: Promise<void> = Promise.resolve();
 /**
  * Acquire lock for cache operations
  */
-const acquireLock = (): Promise<void> => {
+const acquireLock = (): Promise<() => void> => {
    const previousLock = cacheLock;
-   let releaseLock: () => void;
+   let releaseLock: (() => void) | undefined;
    cacheLock = new Promise((resolve) => {
       releaseLock = resolve;
    });
-   return previousLock.then(() => releaseLock!);
+   // Return the release function once the previous lock is released
+   return previousLock.then(() => {
+      if (!releaseLock) {
+         throw new Error('Lock release function was not initialized');
+      }
+      return releaseLock;
+   });
 };
 
 /**

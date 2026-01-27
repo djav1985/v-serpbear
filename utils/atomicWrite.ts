@@ -1,3 +1,4 @@
+import { writeFile, rename, unlink } from 'fs/promises';
 import { randomBytes } from 'crypto';
 import { logger } from './logger';
 
@@ -13,20 +14,21 @@ export const atomicWriteFile = async (
    data: string,
    encoding: BufferEncoding = 'utf-8'
 ): Promise<void> => {
-   const { writeFile, rename, unlink } = await import('fs/promises');
-   
-   // Generate a temporary file path with random suffix
-   const tempFilePath = `${filePath}.tmp.${randomBytes(8).toString('hex')}`;
+   // Generate a temporary file path with random suffix (16 bytes for stronger entropy)
+   const tempFilePath = `${filePath}.tmp.${randomBytes(16).toString('hex')}`;
    
    try {
       // Write to temporary file first
+      // eslint-disable-next-line security/detect-non-literal-fs-filename
       await writeFile(tempFilePath, data, { encoding });
       
       // Atomic rename - this is atomic on most filesystems
+      // eslint-disable-next-line security/detect-non-literal-fs-filename
       await rename(tempFilePath, filePath);
    } catch (error) {
       // Clean up temp file if it exists
       try {
+         // eslint-disable-next-line security/detect-non-literal-fs-filename
          await unlink(tempFilePath);
       } catch (_cleanupError) {
          // Ignore cleanup errors - file might not exist

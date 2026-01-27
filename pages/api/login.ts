@@ -76,21 +76,22 @@ const loginUser = async (req: NextApiRequest, res: NextApiResponse<loginResponse
    let isPasswordValid = false;
    
    try {
-      // Ensure both strings are the same length for timingSafeEqual
-      const userNameBuffer = Buffer.from(userName);
-      const usernameBuffer = Buffer.from(username);
-      const passwordBuffer = Buffer.from(process.env.PASSWORD);
-      const inputPasswordBuffer = Buffer.from(password);
+      // Pad strings to fixed length to prevent length-based timing attacks
+      const maxLength = Math.max(userName.length, username.length, 256);
+      const paddedUserName = userName.padEnd(maxLength, '\0');
+      const paddedUsername = username.padEnd(maxLength, '\0');
+      const paddedPassword = process.env.PASSWORD.padEnd(maxLength, '\0');
+      const paddedInputPassword = password.padEnd(maxLength, '\0');
       
-      // Compare username (pad to same length if needed)
-      if (userNameBuffer.length === usernameBuffer.length) {
-         isUsernameValid = timingSafeEqual(userNameBuffer, usernameBuffer);
-      }
+      // Compare with fixed-length buffers
+      const userNameBuffer = Buffer.from(paddedUserName);
+      const usernameBuffer = Buffer.from(paddedUsername);
+      const passwordBuffer = Buffer.from(paddedPassword);
+      const inputPasswordBuffer = Buffer.from(paddedInputPassword);
       
-      // Always compare password regardless of username validity to prevent timing leaks
-      if (passwordBuffer.length === inputPasswordBuffer.length) {
-         isPasswordValid = timingSafeEqual(passwordBuffer, inputPasswordBuffer);
-      }
+      // These comparisons are now always on same-length buffers
+      isUsernameValid = timingSafeEqual(userNameBuffer, usernameBuffer);
+      isPasswordValid = timingSafeEqual(passwordBuffer, inputPasswordBuffer);
    } catch (error) {
       // If comparison fails, treat as invalid credentials
       logger.debug('Timing-safe comparison failed', { error: error instanceof Error ? error.message : String(error) });
