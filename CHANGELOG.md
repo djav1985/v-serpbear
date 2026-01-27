@@ -35,7 +35,10 @@ All notable changes to this project will be documented in this file. Releases no
 
 ### Build
 - Bumped the application version to 4.0.0 across manifests, UI footer defaults, and versioned tests.
+- Aligned Docker build and type-checking scripts with the current TypeScript toolchain so CI and image builds run against the corrected typings.
 
+### Bug Fixes
+- Corrected TypeScript types for `failed_queue`, `proper-lockfile`, and `logger.error`, unblocking the Docker production build by eliminating the associated type errors.
 # [3.0.0](https://github.com/djav1985/v-serpbear/compare/v2.0.7...v3.0.0) (2025-09-24)
 
 ### Features
