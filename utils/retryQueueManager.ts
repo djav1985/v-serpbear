@@ -1,6 +1,7 @@
 import { readFile } from 'fs/promises';
 import { atomicWriteFile } from './atomicWrite';
 import * as lockfile from 'proper-lockfile';
+import { logger } from './logger';
 
 /**
  * Retry Queue Manager with concurrency-safe file operations

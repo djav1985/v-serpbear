@@ -328,13 +328,13 @@ describe('refreshAndUpdateKeywords', () => {
 
     await refreshAndUpdateKeywords(mockKeywords, mockSettings);
 
-    // Should not perform file operations when no keywords are skipped
-    expect(readFile).not.toHaveBeenCalled();
-    expect(writeFile).not.toHaveBeenCalled();
+    // Should not call retry queue operations when no keywords are skipped
+    const { retryQueueManager } = require('../../utils/retryQueueManager');
+    expect(retryQueueManager.removeBatch).not.toHaveBeenCalled();
     expect(removeFromRetryQueue).not.toHaveBeenCalled();
   });
 
-  it('handles missing retry queue file gracefully', async () => {
+  it('handles retry queue operations correctly for disabled domains', async () => {
     const mockKeywords = [
       {
         ID: 1,
@@ -350,80 +350,11 @@ describe('refreshAndUpdateKeywords', () => {
 
     (Keyword.update as jest.Mock).mockResolvedValue([1]);
 
-    // Mock readFile to reject with ENOENT error (file not found)
-    (readFile as jest.Mock).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
-
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-
     await refreshAndUpdateKeywords(mockKeywords, mockSettings);
 
-    // Should handle missing file gracefully without logging error
-    expect(readFile).toHaveBeenCalledTimes(1);
-    expect(writeFile).not.toHaveBeenCalled();
-    expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('[ERROR] Failed to update retry queue:'));
-
-    consoleSpy.mockRestore();
-  });
-
-  it('handles other file errors appropriately', async () => {
-    const mockKeywords = [
-      {
-        ID: 1,
-        domain: 'disabled.com',
-        get: jest.fn().mockReturnValue({ ID: 1, domain: 'disabled.com' }),
-        update: jest.fn(),
-      },
-    ];
-
-    (Domain.findAll as jest.Mock).mockResolvedValue([
-      { get: () => ({ domain: 'disabled.com', scrapeEnabled: 0 }) },
-    ]);
-
-    (Keyword.update as jest.Mock).mockResolvedValue([1]);
-
-    // Mock readFile to reject with permission error
-    const permissionError = Object.assign(new Error('Permission denied'), { code: 'EACCES' });
-    (readFile as jest.Mock).mockRejectedValue(permissionError);
-
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-
-    await refreshAndUpdateKeywords(mockKeywords, mockSettings);
-
-    // Should log non-ENOENT errors
-    expect(readFile).toHaveBeenCalledTimes(1);
-    expect(writeFile).not.toHaveBeenCalled();
-    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"level":"ERROR"'));
-    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('[ERROR] Failed to update retry queue:'));
-
-    consoleSpy.mockRestore();
-  });
-
-  it('skips writeFile when queue is unchanged', async () => {
-    const mockKeywords = [
-      {
-        ID: 99,
-        domain: 'disabled.com',
-        get: jest.fn().mockReturnValue({ ID: 99, domain: 'disabled.com' }),
-        update: jest.fn(),
-      },
-    ];
-
-    (Domain.findAll as jest.Mock).mockResolvedValue([
-      { get: () => ({ domain: 'disabled.com', scrapeEnabled: 0 }) },
-    ]);
-
-    (Keyword.update as jest.Mock).mockResolvedValue([1]);
-
-    // Mock readFile to return a queue without the skipped ID (no changes needed)
-    const mockQueue = JSON.stringify([1, 2, 3]); // ID 99 is not in the queue
-    (readFile as jest.Mock).mockResolvedValue(mockQueue);
-    (writeFile as jest.Mock).mockResolvedValue(undefined);
-
-    await refreshAndUpdateKeywords(mockKeywords, mockSettings);
-
-    // Should read but not write when no changes are needed
-    expect(readFile).toHaveBeenCalledTimes(1);
-    expect(writeFile).not.toHaveBeenCalled();
+    // Should call removeBatch for skipped keywords from disabled domains
+    const { retryQueueManager } = require('../../utils/retryQueueManager');
+    expect(retryQueueManager.removeBatch).toHaveBeenCalledWith(expect.any(Set));
   });
 
   it('normalises undefined scraper results before persisting', async () => {

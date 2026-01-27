@@ -25,6 +25,13 @@ jest.mock('fs/promises', () => ({
   unlink: jest.fn(),
 }));
 
+// Mock retryQueueManager
+jest.mock('../../utils/retryQueueManager', () => ({
+  retryQueueManager: {
+    getQueue: jest.fn().mockResolvedValue([]),
+  },
+}));
+
 // Mock the logger to prevent console output during tests
 jest.mock('../../utils/logger', () => ({
   logger: {
@@ -248,30 +255,19 @@ describe('GET /api/settings and configuration requirements', () => {
     expect(writeFileMock).not.toHaveBeenCalled();
   });
 
-  it('recreates failed queue without overwriting settings', async () => {
+  it('returns failed_queue from retryQueueManager', async () => {
     const settingsPayload = JSON.stringify({ scraper_type: 'serpapi' });
-    const missingQueueError = Object.assign(new Error('missing failed queue'), { code: 'ENOENT' });
+    const mockQueue = [123, 456, 789];
 
-    readFileMock
-      .mockResolvedValueOnce(settingsPayload)
-      .mockRejectedValueOnce(missingQueueError);
-
-    writeFileMock.mockResolvedValue(undefined);
-    renameMock.mockResolvedValue(undefined);
+    readFileMock.mockResolvedValueOnce(settingsPayload);
+    
+    const { retryQueueManager } = require('../../utils/retryQueueManager');
+    retryQueueManager.getQueue.mockResolvedValueOnce(mockQueue);
 
     const settings = await settingsApi.getAppSettings();
 
     expect(settings.scraper_type).toBe('serpapi');
-    expect(writeFileMock).toHaveBeenCalledTimes(1);
-    // atomicWriteFile writes to temp file with { encoding } object
-    expect(writeFileMock).toHaveBeenCalledWith(
-      expect.stringContaining('failed_queue.json.tmp'),
-      JSON.stringify([]),
-      { encoding: 'utf-8' },
-    );
-    expect(renameMock).toHaveBeenCalledWith(
-      expect.stringContaining('failed_queue.json.tmp'),
-      expect.stringContaining('failed_queue.json'),
-    );
+    expect(settings.failed_queue).toEqual(mockQueue);
+    expect(retryQueueManager.getQueue).toHaveBeenCalled();
   });
 });

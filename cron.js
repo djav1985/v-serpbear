@@ -180,26 +180,26 @@ const runAppCronJobs = () => {
 
    // Run Failed scraping CRON using configured failed queue schedule
    const failedCronTime = normalizeCronExpression(CRON_FAILED_SCHEDULE, '0 0 */1 * * *');
-   new Cron(failedCronTime, () => {
+   new Cron(failedCronTime, async () => {
       console.log('[CRON] Retrying Failed Scrapes...');
 
-      // Use retryQueueManager for concurrency-safe access
-      import('./utils/retryQueueManager').then(({ retryQueueManager }) => {
-         retryQueueManager.getQueue().then((keywordsToRetry) => {
-            if (keywordsToRetry.length > 0) {
-               console.log(`[CRON] Found ${keywordsToRetry.length} failed scrapes to retry`, { count: keywordsToRetry.length });
-               // Use URLSearchParams to safely encode the keyword IDs
-               const params = new URLSearchParams({ id: keywordsToRetry.join(',') });
-               makeCronApiCall(process.env.APIKEY, internalApiUrl, `/api/refresh?${params.toString()}`, '[CRON] Failed Scrapes Retry Result:');
-            } else {
-               console.log('[CRON] No failed scrapes to retry');
-            }
-         }).catch((error) => {
-            console.error('[CRON] ERROR Reading Failed Scrapes Queue:', error);
-         });
-      }).catch((error) => {
-         console.error('[CRON] ERROR Loading retryQueueManager:', error);
-      });
+      try {
+         // Use retryQueueManager for concurrency-safe access
+         // Dynamic import works because Next.js transpiles TS files at runtime
+         const { retryQueueManager } = await import('./utils/retryQueueManager.js');
+         const keywordsToRetry = await retryQueueManager.getQueue();
+         
+         if (keywordsToRetry.length > 0) {
+            console.log(`[CRON] Found ${keywordsToRetry.length} failed scrapes to retry`, { count: keywordsToRetry.length });
+            // Use URLSearchParams to safely encode the keyword IDs
+            const params = new URLSearchParams({ id: keywordsToRetry.join(',') });
+            makeCronApiCall(process.env.APIKEY, internalApiUrl, `/api/refresh?${params.toString()}`, '[CRON] Failed Scrapes Retry Result:');
+         } else {
+            console.log('[CRON] No failed scrapes to retry');
+         }
+      } catch (error) {
+         console.error('[CRON] ERROR in Failed Scrapes Retry:', error);
+      }
    }, cronOptions);
 
    // Run Google Search Console Scraper on configured main schedule
