@@ -527,7 +527,6 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
 
       try {
          await keywordRaw.update(dbPayload);
-         await clearKeywordUpdatingFlags([keyword.ID], 'after keyword update', { keywordId: keyword.ID }, true);
          // Log when updating flag is cleared to help debug UI issues
          logger.info('Keyword updating flag cleared', {
             keywordId: keyword.ID,
