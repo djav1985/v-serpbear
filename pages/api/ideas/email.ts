@@ -104,9 +104,7 @@ const emailKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse<Email
          return res.status(404).json({ success: false, error: 'Domain not found.' });
       }
 
-      const domainPlain = (domainRecord as any).get
-         ? (domainRecord as any).get({ plain: true }) as DomainType
-         : domainRecord.toJSON() as DomainType;
+      const domainPlain = (domainRecord as any).get({ plain: true }) as DomainType;
       const normalizedDomain = normalizeDomainBooleans(domainPlain);
 
       const notificationEmails = trimString(normalizedDomain.notification_emails);
