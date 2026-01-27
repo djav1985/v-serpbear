@@ -118,10 +118,12 @@ class RefreshQueue {
    }
 
    /**
-    * Check if a domain is currently being processed
+    * Check if a domain is currently being processed or queued
     */
    isDomainLocked(domain: string): boolean {
-      return this.activeDomains.has(domain);
+      // A domain is considered locked if it is either actively being processed
+      // or has a pending task in the queue.
+      return this.activeDomains.has(domain) || this.queue.some(task => task.domain === domain);
    }
 
    /**
