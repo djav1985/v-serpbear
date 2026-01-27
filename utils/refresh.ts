@@ -26,10 +26,12 @@ export const resetStaleKeywordUpdates = async ({
    const staleBefore = new Date(Date.now() - thresholdMinutes * 60 * 1000).toJSON();
    const whereClause: Record<string, any> = {
       updating: 1,
-      // Consider a keyword stale based on how long it has been in the "updating" state.
-      // We use `updatedAt` here because setting `updating = 1` will bump this timestamp,
-      // whereas `lastUpdated` is only updated after a successful refresh completes.
-      updatedAt: { [Op.lt]: staleBefore },
+      // Consider a keyword stale based on lastUpdated timestamp being older than the threshold.
+      // If lastUpdated is null/empty, we also include it to handle stuck keywords.
+      [Op.or]: [
+         { lastUpdated: { [Op.lt]: staleBefore } },
+         { lastUpdated: { [Op.or]: [null, ''] } },
+      ],
    };
 
    if (domain) {
