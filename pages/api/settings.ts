@@ -221,7 +221,7 @@ export const getAppSettings = async () : Promise<SettingsType> => {
        const defaults = { ...buildSettingsDefaults() };
        const shouldCreateFile = async (targetPath: string, data: string) => {
           try {
-             // eslint-disable-next-line security/detect-non-literal-fs-filename
+              
              await access(targetPath);
              return;
           } catch (readError) {
