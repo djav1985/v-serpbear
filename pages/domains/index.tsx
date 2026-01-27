@@ -14,6 +14,7 @@ import Footer from '../../components/common/Footer';
 import { withAuth } from '../../hooks/useAuth';
 import PageLoader from '../../components/common/PageLoader';
 import { useBranding } from '../../hooks/useBranding';
+import { safeJsonParse } from '../../utils/safeJsonParse';
 
 type thumbImages = { [domain:string] : string }
 
@@ -53,8 +54,8 @@ const Domains: NextPage = () => {
       const domainsSCAPI:{ [ID:string] : boolean } = {};
       if (domainsData?.domains) {
          domainsData.domains.forEach((domain:DomainType) => {
-            const doaminSc = domain?.search_console ? JSON.parse(domain.search_console) : {};
-            domainsSCAPI[domain.ID] = doaminSc.client_email && doaminSc.private_key;
+            const domainSc = safeJsonParse<DomainSearchConsole | null>(domain?.search_console, null);
+            domainsSCAPI[domain.ID] = !!(domainSc?.client_email && domainSc?.private_key);
          });
       }
       return domainsSCAPI;

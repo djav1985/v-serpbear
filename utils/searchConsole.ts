@@ -10,6 +10,7 @@ import { readFile, writeFile, unlink } from 'fs/promises';
 import * as path from 'path';
 import { getCountryCodeFromAlphaThree } from './countries';
 import { logger } from './logger';
+import { safeJsonParse } from './safeJsonParse';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -53,7 +54,10 @@ const fetchSearchConsoleData = async (domain:DomainType, days:number, type?:stri
    }
    const domainName = domain.domain;
    const defaultSCSettings = { property_type: 'domain', url: '', client_email: '', private_key: '' };
-   const domainSettings = domain.search_console ? JSON.parse(domain.search_console) : defaultSCSettings;
+   const domainSettings = safeJsonParse(domain.search_console, defaultSCSettings, {
+      context: `domain ${domainName} search_console`,
+      logError: true,
+   });
    const sCPrivateKey = api?.private_key || process.env.SEARCH_CONSOLE_PRIVATE_KEY || '';
    const sCClientEmail = api?.client_email || process.env.SEARCH_CONSOLE_CLIENT_EMAIL || '';
 
@@ -265,7 +269,11 @@ export const integrateKeywordSCData = (keyword: KeywordType, SCData:SCDomainData
 export const getSearchConsoleApiInfo = async (domain: DomainType): Promise<SCAPISettings> => {
    const scAPIData = { client_email: '', private_key: '' };
    // Check if the Domain Has the API Data
-   const domainSCSettings = domain.search_console && JSON.parse(domain.search_console);
+   const domainSCSettings = safeJsonParse<Record<string, string> | null>(
+      domain.search_console,
+      null,
+      { context: `domain ${domain.domain ?? ''} search_console`, logError: true },
+   );
    if (domainSCSettings && domainSCSettings.private_key) {
       if (!domainSCSettings.private_key.includes('BEGIN PRIVATE KEY')) {
          const cryptr = new Cryptr(process.env.SECRET as string);
@@ -280,7 +288,11 @@ export const getSearchConsoleApiInfo = async (domain: DomainType): Promise<SCAPI
    if (!scAPIData?.private_key) {
       try {
          const settingsRaw = await readFile(`${process.cwd()}/data/settings.json`, { encoding: 'utf-8' });
-         const settings: SettingsType = settingsRaw ? JSON.parse(settingsRaw) : {};
+         const settings = safeJsonParse<SettingsType | Partial<SettingsType>>(
+            settingsRaw,
+            {},
+            { context: 'settings.json', logError: true },
+         );
          const cryptr = new Cryptr(process.env.SECRET as string);
          scAPIData.client_email = settings.search_console_client_email ? cryptr.decrypt(settings.search_console_client_email) : '';
          scAPIData.private_key = settings.search_console_private_key ? cryptr.decrypt(settings.search_console_private_key) : '';
@@ -304,7 +316,11 @@ export const getSearchConsoleApiInfo = async (domain: DomainType): Promise<SCAPI
  */
 export const checkSearchConsoleIntegration = async (domain: DomainType): Promise<{ isValid: boolean, error: string }> => {
    const res = { isValid: false, error: '' };
-   const { client_email = '', private_key = '' } = domain?.search_console ? JSON.parse(domain.search_console) : {};
+   const { client_email = '', private_key = '' } = safeJsonParse<DomainSearchConsole>(
+      domain?.search_console,
+      { client_email: '', private_key: '', property_type: 'domain', url: '' },
+      { context: `domain ${domain?.domain ?? ''} search_console`, logError: true },
+   );
    const response = await fetchSearchConsoleData(domain, 3, undefined, { client_email, private_key });
    if (Array.isArray(response)) { res.isValid = true; }
    if ((response as SCDomainFetchError)?.errorMsg) { res.error = (response as SCDomainFetchError).errorMsg; }
@@ -322,7 +338,14 @@ export const readLocalSCData = async (domain:string): Promise<SCDomainDataType|f
       if (!filePath) throw new Error('Invalid domain for file path');
       // eslint-disable-next-line security/detect-non-literal-fs-filename
       const currentQueueRaw = await readFile(filePath, { encoding: 'utf-8' }).catch(async () => { await updateLocalSCData(domain); return '{}'; });
-      const domainSCData = JSON.parse(currentQueueRaw);
+      const domainSCData = safeJsonParse<SCDomainDataType | false>(
+         currentQueueRaw,
+         false,
+         { context: `local Search Console data for ${domain}`, logError: true },
+      );
+      if (!domainSCData) {
+         return false;
+      }
       return domainSCData;
    } catch (error) {
       logger.warn(`Failed to read local Search Console data for domain: ${domain}`, { error: error instanceof Error ? error.message : String(error) });

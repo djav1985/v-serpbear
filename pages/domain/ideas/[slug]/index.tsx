@@ -20,6 +20,7 @@ import Footer from '../../../../components/common/Footer';
 import AddKeywords from '../../../../components/keywords/AddKeywords';
 import { useFetchKeywords } from '../../../../services/keywords';
 import { withAuth } from '../../../../hooks/useAuth';
+import { safeJsonParse } from '../../../../utils/safeJsonParse';
 
 export const DomainIdeasPage: NextPage = () => {
    const router = useRouter();
@@ -58,7 +59,7 @@ export const DomainIdeasPage: NextPage = () => {
    }, [router.query.slug, domainsData]);
 
    const domainHasScAPI = useMemo(() => {
-      const domainSc = activDomain?.search_console ? JSON.parse(activDomain.search_console) : {};
+      const domainSc = safeJsonParse<DomainSearchConsole | null>(activDomain?.search_console, null);
       return !!(domainSc?.client_email && domainSc?.private_key);
    }, [activDomain]);
 

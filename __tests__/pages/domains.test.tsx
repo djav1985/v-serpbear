@@ -135,6 +135,29 @@ describe('Domains Page', () => {
       expect(container.querySelector('.domItem')).toBeInTheDocument();
    });
 
+   it('handles malformed search console JSON gracefully', async () => {
+      useQuerySpy.mockImplementation(buildUseQueryImplementation({
+         domains: {
+            data: {
+               domains: [{
+                  ...dummyDomain,
+                  search_console: '{bad-json',
+               }],
+            },
+            isLoading: false,
+            isSuccess: true,
+         },
+      }));
+
+      render(
+         <QueryClientProvider client={queryClient}>
+            <Domains />
+         </QueryClientProvider>,
+      );
+
+      expect(screen.getByTestId('domains')).toBeInTheDocument();
+   });
+
    it('displays the page loader while queries resolve', () => {
       useQuerySpy.mockImplementation(buildUseQueryImplementation({
          settings: { isLoading: true, data: undefined },

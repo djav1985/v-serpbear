@@ -207,9 +207,12 @@ describe('GET /api/settings and configuration requirements', () => {
   });
 
   it('returns defaults when files are missing', async () => {
+    const missingSettingsError = Object.assign(new Error('missing settings'), { code: 'ENOENT' });
+    const missingQueueError = Object.assign(new Error('missing failed queue'), { code: 'ENOENT' });
+
     readFileMock
-      .mockRejectedValueOnce(new Error('missing settings'))
-      .mockRejectedValueOnce(new Error('missing failed queue'));
+      .mockRejectedValueOnce(missingSettingsError)
+      .mockRejectedValueOnce(missingQueueError);
     writeFileMock.mockResolvedValue(undefined);
 
     const settings = await settingsApi.getAppSettings();
@@ -219,6 +222,18 @@ describe('GET /api/settings and configuration requirements', () => {
       available_scapers: expect.any(Array),
     }));
     expect(writeFileMock).toHaveBeenCalled();
+  });
+
+  it('does not overwrite settings when JSON is invalid', async () => {
+    readFileMock
+      .mockResolvedValueOnce('{bad json')
+      .mockResolvedValueOnce(JSON.stringify([]));
+    writeFileMock.mockResolvedValue(undefined);
+
+    const settings = await settingsApi.getAppSettings();
+
+    expect(settings.scraper_type).toBe('none');
+    expect(writeFileMock).not.toHaveBeenCalled();
   });
 
   it('recreates failed queue without overwriting settings', async () => {

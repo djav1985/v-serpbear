@@ -18,6 +18,7 @@ import AddKeywords from '../../../components/keywords/AddKeywords';
 import Footer from '../../../components/common/Footer';
 import { useBranding } from '../../../hooks/useBranding';
 import { withAuth } from '../../../hooks/useAuth';
+import { safeJsonParse } from '../../../utils/safeJsonParse';
 
 export const DomainPage: NextPage = () => {
    const router = useRouter();
@@ -47,7 +48,7 @@ export const DomainPage: NextPage = () => {
    }, [router.query.slug, domainsData]);
 
    const domainHasScAPI = useMemo(() => {
-      const domainSc = activDomain?.search_console ? JSON.parse(activDomain.search_console) : {};
+      const domainSc = safeJsonParse<DomainSearchConsole | null>(activDomain?.search_console, null);
       return !!(domainSc?.client_email && domainSc?.private_key);
    }, [activDomain]);
 

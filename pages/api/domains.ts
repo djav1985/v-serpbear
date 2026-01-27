@@ -17,6 +17,7 @@ import {
    parseDomainScraperSettings,
 } from '../../utils/domainScraperSettings';
 import { toDbBool } from '../../utils/dbBooleans';
+import { safeJsonParse } from '../../utils/safeJsonParse';
 
 type DomainsGetRes = {
    domains: DomainType[]
@@ -72,7 +73,11 @@ export const getDomains = async (req: NextApiRequest, res: NextApiResponse<Domai
       const allDomains: Domain[] = await Domain.findAll();
       const formattedDomains: DomainType[] = allDomains.map((el) => {
          const domainPlain = el.get({ plain: true }) as any;
-         const scData = domainPlain?.search_console ? JSON.parse(domainPlain.search_console) : {};
+         const scData = safeJsonParse<Record<string, string> | null>(
+            domainPlain?.search_console,
+            null,
+            { context: `domain ${domainPlain?.domain ?? domainPlain?.ID ?? ''} search_console`, logError: true },
+         );
          const { client_email, private_key } = scData || {};
          const searchConsoleData = scData
             ? {
