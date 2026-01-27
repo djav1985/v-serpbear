@@ -14,6 +14,7 @@ import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
 import { toDbBool } from '../../utils/dbBooleans';
 import normalizeDomainBooleans from '../../utils/normalizeDomain';
+import { refreshQueue } from '../../utils/refreshQueue';
 
 type BackgroundKeywordsRefreshRes = {
    // 202 Accepted: background execution started, no keywords returned yet
@@ -124,6 +125,17 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
          return res.status(200).json({ keywords: [] });
       }
 
+      // Get the domain for this refresh (manual refresh is always single-domain)
+      const refreshDomain = keywordsToRefresh[0]?.domain;
+      
+      // Check if this domain is already being refreshed
+      if (refreshDomain && refreshQueue.isDomainLocked(refreshDomain)) {
+         logger.info(`Manual refresh rejected: domain already being refreshed`, { domain: refreshDomain });
+         return res.status(409).json({ 
+            error: `Domain "${refreshDomain}" is already being refreshed. Please wait for the current refresh to complete.`,
+         });
+      }
+
       const keywordIdsToRefresh = keywordsToRefresh.map((keyword) => keyword.ID);
       const now = new Date().toJSON();
       await Keyword.update(
@@ -131,25 +143,36 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
          { where: { ID: { [Op.in]: keywordIdsToRefresh } } },
       );
 
-      logger.info(`Processing ${keywordsToRefresh.length} keywords for ${req.query.id === 'all' ? `domain: ${domain}` :
-         `IDs: ${keywordIdsToRefresh.join(',')}`}`);
+      const taskId = req.query.id === 'all' ? `manual-refresh-domain-${domain}` : `manual-refresh-ids-${keywordIdsToRefresh.join(',')}`;
+      logger.info(`Manual refresh enqueued: ${taskId} (${keywordsToRefresh.length} keywords)`, { domain: refreshDomain });
 
-      // Start background refresh without awaiting
-      // Success: refreshAndUpdateKeywords clears 'updating' flags internally after completion
-      // Error: catch handler below ensures flags are cleared to prevent UI spinner getting stuck
-      refreshAndUpdateKeywords(keywordsToRefresh, settings).catch((refreshError) => {
-         const message = serializeError(refreshError);
-         logger.error('[REFRESH] ERROR refreshAndUpdateKeywords: ', refreshError instanceof Error ? refreshError : new Error(message), { keywordIds: keywordIdsToRefresh });
-         // Ensure flags are cleared on error
-         Keyword.update(
-            { updating: toDbBool(false), updatingStartedAt: null },
-            { where: { ID: { [Op.in]: keywordIdsToRefresh } } },
-         ).catch((updateError) => {
-            logger.error('[REFRESH] Failed to clear updating flags after error: ', updateError instanceof Error ? updateError : new Error(String(updateError)));
-         });
+      // Enqueue the manual refresh task with domain for per-domain locking
+      // This prevents the same domain from being refreshed multiple times simultaneously
+      // but allows different domains to process in parallel
+      refreshQueue.enqueue(
+         taskId,
+         async () => {
+            try {
+               await refreshAndUpdateKeywords(keywordsToRefresh, settings);
+            } catch (refreshError) {
+               const message = serializeError(refreshError);
+               logger.error('[REFRESH] ERROR refreshAndUpdateKeywords: ', refreshError instanceof Error ? refreshError : new Error(message), { keywordIds: keywordIdsToRefresh });
+               // Ensure flags are cleared on error
+               await Keyword.update(
+                  { updating: toDbBool(false), updatingStartedAt: null },
+                  { where: { ID: { [Op.in]: keywordIdsToRefresh } } },
+               ).catch((updateError) => {
+                  logger.error('[REFRESH] Failed to clear updating flags after error: ', updateError instanceof Error ? updateError : new Error(String(updateError)));
+               });
+               throw refreshError; // Re-throw to be caught by queue error handler
+            }
+         },
+         refreshDomain // Pass domain for per-domain locking
+      ).catch((queueError) => {
+         logger.error('[REFRESH] ERROR enqueueing refresh task: ', queueError instanceof Error ? queueError : new Error(String(queueError)));
       });
 
-      // Return immediately with 200 OK status to match /api/cron pattern
+      // Return immediately with 200 OK status
       return res.status(200).json({ 
          message: 'Refresh started',
          keywordCount: keywordsToRefresh.length,

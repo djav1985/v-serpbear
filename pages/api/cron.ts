@@ -1,7 +1,6 @@
 /// <reference path="../../types.d.ts" />
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { Op } from 'sequelize';
 import db from '../../database/database';
 import Keyword from '../../database/models/keyword';
 import Domain from '../../database/models/domain';
@@ -12,6 +11,7 @@ import refreshAndUpdateKeywords from '../../utils/refresh';
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
 import { fromDbBool, toDbBool } from '../../utils/dbBooleans';
+import { refreshQueue } from '../../utils/refreshQueue';
 
 type CRONRefreshRes = {
    started: boolean
@@ -50,33 +50,71 @@ const cronRefreshkeywords = async (req: NextApiRequest, res: NextApiResponse<CRO
          return res.status(200).json({ started: false, error: 'No domains have scraping enabled.' });
       }
 
-      const now = new Date().toJSON();
-      await Keyword.update(
-         { updating: toDbBool(true), lastUpdateError: 'false', updatingStartedAt: now },
-         { where: { domain: { [Op.in]: enabledDomains } } },
-      );
-      const keywordQueries: Keyword[] = await Keyword.findAll({ where: { domain: enabledDomains } });
-
-      logger.info(`Cron refresh started for ${enabledDomains.length} domains with ${keywordQueries.length} keywords`);
+      logger.info(`Cron refresh started for ${enabledDomains.length} domains`);
       
-      // Start background refresh without awaiting
-      // Success: refreshAndUpdateKeywords clears 'updating' flags internally after completion
-      // Error: catch handler below ensures flags are cleared to prevent keywords getting stuck
-      const keywordIds = keywordQueries.map((k) => k.ID);
-      refreshAndUpdateKeywords(keywordQueries, settings).catch((refreshError) => {
-         logger.error('[CRON] ERROR refreshAndUpdateKeywords: ', refreshError instanceof Error ? refreshError : new Error(String(refreshError)));
-         // Ensure flags are cleared on error
-         Keyword.update(
-            { updating: toDbBool(false), updatingStartedAt: null },
-            { where: { ID: { [Op.in]: keywordIds } } },
-         ).catch((updateError) => {
-            logger.error('[CRON] Failed to clear updating flags after error: ', updateError instanceof Error ? updateError : new Error(String(updateError)));
+      // Enqueue each domain separately to allow parallel processing
+      // The queue will process up to maxConcurrency domains in parallel
+      // while ensuring the same domain is never processed twice simultaneously
+      for (const domain of enabledDomains) {
+         refreshQueue.enqueue(
+            `cron-refresh-${domain}`,
+            async () => {
+               await processSingleDomain(domain, settings);
+            },
+            domain // Pass domain for per-domain locking
+         ).catch((queueError) => {
+            logger.error(`[CRON] ERROR enqueueing refresh task for ${domain}: `, queueError instanceof Error ? queueError : new Error(String(queueError)));
          });
-      });
+      }
 
       return res.status(200).json({ started: true });
    } catch (error) {
       logger.error('Error starting cron refresh', error instanceof Error ? error : new Error(String(error)));
       return res.status(500).json({ started: false, error: 'Error Starting the Cron Job' });
+   }
+};
+
+/**
+ * Process a single domain's keywords.
+ * This function is called for each domain independently, allowing parallel processing
+ * while the queue ensures no domain is processed twice simultaneously.
+ */
+const processSingleDomain = async (domain: string, settings: SettingsType): Promise<void> => {
+   try {
+      logger.info(`Processing domain: ${domain}`);
+      
+      const now = new Date().toJSON();
+      await Keyword.update(
+         { updating: toDbBool(true), lastUpdateError: 'false', updatingStartedAt: now },
+         { where: { domain } },
+      );
+      
+      const keywordQueries: Keyword[] = await Keyword.findAll({ where: { domain } });
+      
+      if (keywordQueries.length === 0) {
+         logger.info(`No keywords found for domain: ${domain}`);
+         return;
+      }
+      
+      logger.info(`Processing ${keywordQueries.length} keywords for domain: ${domain}`);
+      
+      // Process this domain's keywords
+      await refreshAndUpdateKeywords(keywordQueries, settings);
+      
+      logger.info(`Completed processing domain: ${domain}`);
+   } catch (domainError) {
+      logger.error(`Error processing domain: ${domain}`, domainError instanceof Error ? domainError : new Error(String(domainError)));
+      
+      // Ensure flags are cleared on error for this domain
+      try {
+         await Keyword.update(
+            { updating: toDbBool(false), updatingStartedAt: null },
+            { where: { domain } },
+         );
+      } catch (updateError) {
+         logger.error(`Failed to clear updating flags for domain: ${domain}`, updateError instanceof Error ? updateError : new Error(String(updateError)));
+      }
+      
+      throw domainError; // Re-throw to be logged by queue
    }
 };

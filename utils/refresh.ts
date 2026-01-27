@@ -3,7 +3,6 @@
 import { performance } from 'perf_hooks';
 import { setTimeout as sleep } from 'timers/promises';
 import { Op } from 'sequelize';
-import { readFile, writeFile } from 'fs/promises';
 import Cryptr from 'cryptr';
 import { RefreshResult, removeFromRetryQueue, retryScrape, scrapeKeywordFromGoogle } from './scraper';
 import parseKeywords from './parseKeywords';
@@ -15,6 +14,7 @@ import { decryptDomainScraperSettings, parseDomainScraperSettings } from './doma
 import { logger } from './logger';
 import { fromDbBool, toDbBool } from './dbBooleans';
 import normalizeDomainBooleans from './normalizeDomain';
+import { retryQueueManager } from './retryQueueManager';
 
 const describeScraperType = (scraperType?: SettingsType['scraper_type']): string => {
    if (!scraperType || scraperType.length === 0) {
@@ -203,23 +203,12 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
          { where: { ID: { [Op.in]: skippedIds } } },
       );
 
+      // Use batched removal for better performance and concurrency safety
       const idsToRemove = new Set(skippedIds);
       if (idsToRemove.size > 0) {
-        const filePath = `${process.cwd()}/data/failed_queue.json`;
-        try {
-          const currentQueueRaw = await readFile(filePath, { encoding: 'utf-8' });
-          let currentQueue: number[] = JSON.parse(currentQueueRaw);
-          const initialLength = currentQueue.length;
-          currentQueue = currentQueue.filter((item) => !idsToRemove.has(item));
-
-          if (currentQueue.length < initialLength) {
-            await writeFile(filePath, JSON.stringify(currentQueue), { encoding: 'utf-8' });
-          }
-        } catch (error: any) {
-          if (error.code !== 'ENOENT') {
-            logger.error('[ERROR] Failed to update retry queue:', error);
-          }
-        }
+        await retryQueueManager.removeBatch(idsToRemove).catch((error: any) => {
+          logger.error('[ERROR] Failed to update retry queue:', error);
+        });
       }
    }
 
@@ -239,33 +228,9 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
 
    try {
       if (canScrapeInParallel) {
-         const refreshedResults = await refreshParallel(keywords, settings, domainSpecificSettings);
-         // Create a map for O(1) lookup of results by keyword ID
-         const resultsMap = new Map(
-            refreshedResults.map(entry => [entry.keywordId, entry])
-         );
-         
-         // Process all eligible keywords and update their positions
-         for (const keywordModel of eligibleKeywordModels) {
-            const refreshedEntry = resultsMap.get(keywordModel.ID);
-            if (refreshedEntry) {
-               // Update position with scraped data
-               const updatedkeyword = await updateKeywordPosition(keywordModel, refreshedEntry.result, refreshedEntry.settings);
-               updatedKeywords.push(updatedkeyword);
-            } else {
-               // No result found - this indicates a scraping failure
-               // The refreshParallel function already handles errors, but ensure state is consistent
-               logger.warn('No refresh result found for keyword, clearing updating flag', { keywordId: keywordModel.ID });
-               try {
-                  await Keyword.update({ updating: toDbBool(false), updatingStartedAt: null }, { where: { ID: keywordModel.ID } });
-               } catch (updateErr) {
-                  logger.error('[REFRESH] Failed to clear updating flag for keyword without result', updateErr instanceof Error ? updateErr : new Error(String(updateErr)), { keywordId: keywordModel.ID });
-               }
-               const currentKeyword = keywordModel.get({ plain: true });
-               const parsedKeyword = parseKeywords([currentKeyword])[0];
-               updatedKeywords.push({ ...parsedKeyword, updating: false, updatingStartedAt: null });
-            }
-         }
+         // Parallel scraping: each keyword is updated immediately upon receiving API response
+         const parallelUpdatedKeywords = await refreshParallel(keywords, eligibleKeywordModels, settings, domainSpecificSettings);
+         updatedKeywords.push(...parallelUpdatedKeywords);
       } else {
          // Sequential scraping: scrape desktop keywords first, then mobile
          // This allows mobile keywords to use desktop results as fallback if needed (e.g., for valueserp)
@@ -331,6 +296,9 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
       logger.info('Keyword refresh completed', { count: updatedKeywords.length, duration: `${(end - start).toFixed(2)}ms` });
    }
 
+   // Final safety net: clear updating flag for any keywords that are still marked as updating
+   // This handles edge cases where updateKeywordPosition was never called
+   // The onlyWhenUpdating=true flag ensures we only touch keywords still marked as updating
    await clearKeywordUpdatingFlags(eligibleKeywordIds, 'after refresh', undefined, true);
 
    // Update domain stats for all affected domains after keyword updates
@@ -590,12 +558,6 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
 };
 
 /**
- * Scrape Google Keyword Search Result in Parallel.
- * @param {KeywordType[]} keywords - Keywords to scrape
- * @param {SettingsType} settings - The App Settings that contain the Scraper settings
- * @returns {Promise}
- */
-/**
  * Builds an error result object for a keyword that failed to scrape.
  * Preserves the keyword's existing state while capturing error details.
  * @param {KeywordType} keyword - The keyword that failed to scrape
@@ -613,39 +575,66 @@ const buildErrorResult = (keyword: KeywordType, error: unknown): RefreshResult =
    error: typeof error === 'string' ? error : serializeError(error),
 });
 
-type ParallelKeywordRefresh = {
-   keywordId: number;
-   result: RefreshResult;
-   settings: SettingsType;
-};
-
+/**
+ * Scrape Google Keyword Search Result in Parallel.
+ * Each keyword's database row is updated immediately upon receiving the API response.
+ * @param {KeywordType[]} keywords - Keywords to scrape
+ * @param {Keyword[]} keywordModels - Keyword model instances for database updates
+ * @param {SettingsType} settings - The App Settings that contain the Scraper settings
+ * @param {Map<string, SettingsType>} domainSpecificSettings - Domain-specific settings
+ * @returns {Promise<KeywordType[]>} Array of updated keywords
+ */
 const refreshParallel = async (
    keywords:KeywordType[],
+   keywordModels: Keyword[],
    settings:SettingsType,
    domainSpecificSettings: Map<string, SettingsType>,
-): Promise<ParallelKeywordRefresh[]> => {
+): Promise<KeywordType[]> => {
+   const updatedKeywords: KeywordType[] = [];
+   
+   // Create map for quick model lookup by ID
+   const modelMap = new Map(keywordModels.map(m => [m.ID, m]));
+   
+   // Start all scraping operations in parallel, but update database immediately upon each response
    const promises = keywords.map(async (keyword) => {
       const effectiveSettings = resolveEffectiveSettings(keyword.domain, settings, domainSpecificSettings);
+      const keywordModel = modelMap.get(keyword.ID);
+      
+      if (!keywordModel) {
+         logger.error('No keyword model found for ID', { keywordId: keyword.ID });
+         return keyword;
+      }
+      
       try {
+         // Scrape the keyword
          const result = await scrapeKeywordFromGoogle(keyword, effectiveSettings);
-         if (result === false) {
-            return { keywordId: keyword.ID, result: buildErrorResult(keyword, 'Scraper returned no data'), settings: effectiveSettings };
+         
+         // Immediately update the database with the result
+         if (result === false || !result) {
+            const errorResult = buildErrorResult(keyword, result === false ? 'Scraper returned no data' : 'Unknown scraper response');
+            const updatedKeyword = await updateKeywordPosition(keywordModel, errorResult, effectiveSettings);
+            return updatedKeyword;
          }
-
-         if (result) {
-            return { keywordId: keyword.ID, result, settings: effectiveSettings };
-         }
-
-         return { keywordId: keyword.ID, result: buildErrorResult(keyword, 'Unknown scraper response'), settings: effectiveSettings };
+         
+         // Update database immediately upon receiving the API response
+         const updatedKeyword = await updateKeywordPosition(keywordModel, result, effectiveSettings);
+         return updatedKeyword;
+         
       } catch (error: any) {
          logger.error('[ERROR] Parallel scrape failed for keyword:', error, { keyword: keyword.keyword });
-         return { keywordId: keyword.ID, result: buildErrorResult(keyword, error), settings: effectiveSettings };
+         const errorResult = buildErrorResult(keyword, error);
+         
+         // Update database with error immediately
+         const updatedKeyword = await updateKeywordPosition(keywordModel, errorResult, effectiveSettings);
+         return updatedKeyword;
       }
    });
 
-   const resolvedResults = await Promise.all(promises);
-   logger.info('Parallel keyword refresh completed', { count: resolvedResults.length });
-   return resolvedResults;
+   // Wait for all updates to complete
+   updatedKeywords.push(...await Promise.all(promises));
+   
+   logger.info('Parallel keyword refresh completed', { count: updatedKeywords.length });
+   return updatedKeywords;
 };
 
 export default refreshAndUpdateKeywords;

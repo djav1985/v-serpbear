@@ -11,6 +11,7 @@ import { checkSearchConsoleIntegration, removeLocalSCData } from '../../utils/se
 import { withApiLogging } from '../../utils/apiLogging';
 import { validateHostname } from '../../utils/validators/hostname';
 import { logger } from '../../utils/logger';
+import { refreshQueue } from '../../utils/refreshQueue';
 import {
    buildPersistedScraperSettings,
    maskDomainScraperSettings,
@@ -157,8 +158,21 @@ export const deleteDomain = async (req: NextApiRequest, res: NextApiResponse<Dom
    if (!req.query.domain || typeof req.query.domain !== 'string') {
       return res.status(400).json({ domainRemoved: 0, keywordsRemoved: 0, SCDataRemoved: false, error: 'Domain is Required!' });
    }
+   
+   const { domain } = req.query || {};
+   
+   // Check if domain is currently being refreshed
+   if (refreshQueue.isDomainLocked(domain as string)) {
+      logger.warn(`Cannot delete domain while refresh is in progress`, { domain });
+      return res.status(409).json({ 
+         domainRemoved: 0, 
+         keywordsRemoved: 0, 
+         SCDataRemoved: false, 
+         error: `Cannot delete domain "${domain}" while a refresh is in progress. Please wait for the refresh to complete or try again later.`,
+      });
+   }
+   
    try {
-      const { domain } = req.query || {};
       const removedDomCount: number = await Domain.destroy({ where: { domain } });
       if (removedDomCount === 0) {
          return res.status(404).json({ domainRemoved: 0, keywordsRemoved: 0, SCDataRemoved: false, error: 'Domain not found' });

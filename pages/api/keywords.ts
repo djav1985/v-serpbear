@@ -14,6 +14,7 @@ import { formatLocation, hasValidCityStatePair, parseLocation } from '../../util
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
 import { toDbBool } from '../../utils/dbBooleans';
+import { refreshQueue } from '../../utils/refreshQueue';
 
 type KeywordsGetResponse = {
    keywords?: KeywordType[],
@@ -308,6 +309,22 @@ const deleteKeywords = async (req: NextApiRequest, res: NextApiResponse<Keywords
       
       if (keywordsToRemove.length === 0) {
          return res.status(400).json({ error: 'No valid keyword IDs provided' });
+      }
+      
+      // Check which domains these keywords belong to
+      const keywordsToCheck = await Keyword.findAll({ 
+         where: { ID: { [Op.in]: keywordsToRemove } },
+         attributes: ['ID', 'domain'],
+      });
+      
+      const affectedDomains = Array.from(new Set(keywordsToCheck.map(k => k.domain)));
+      const lockedDomains = affectedDomains.filter(domain => refreshQueue.isDomainLocked(domain));
+      
+      if (lockedDomains.length > 0) {
+         logger.warn(`Cannot delete keywords while domains are being refreshed`, { lockedDomains });
+         return res.status(409).json({ 
+            error: `Cannot delete keywords while their domains are being refreshed: ${lockedDomains.join(', ')}. Please wait for the refresh to complete.`,
+         });
       }
       
       const removeQuery = { where: { ID: { [Op.in]: keywordsToRemove } } };

@@ -46,6 +46,24 @@ jest.mock('../../utils/apiLogging', () => ({
   withApiLogging: (handler: any) => handler,
 }));
 
+jest.mock('../../utils/refreshQueue', () => ({
+  refreshQueue: {
+    enqueue: jest.fn().mockImplementation(async (_id: string, task: () => Promise<void>, _domain?: string) => {
+      // Execute task immediately in tests
+      await task();
+    }),
+    isDomainLocked: jest.fn().mockReturnValue(false),
+    getStatus: jest.fn().mockReturnValue({ 
+      queueLength: 0, 
+      activeProcesses: 0,
+      activeDomains: [],
+      pendingTaskIds: [],
+      maxConcurrency: 3,
+    }),
+    setMaxConcurrency: jest.fn(),
+  },
+}));
+
 describe('/api/refresh', () => {
   const req = { method: 'POST', query: {}, headers: {} } as unknown as NextApiRequest;
   let res: NextApiResponse;
@@ -61,6 +79,7 @@ describe('/api/refresh', () => {
     (verifyUser as jest.Mock).mockReturnValue('authorized');
     (getAppSettings as jest.Mock).mockResolvedValue({ scraper_type: 'serpapi' });
     (Keyword.update as jest.Mock).mockResolvedValue([1]);
+    (refreshAndUpdateKeywords as jest.Mock).mockResolvedValue([]);
   });
 
   it('rejects requests with no valid keyword IDs', async () => {
@@ -129,14 +148,13 @@ describe('/api/refresh', () => {
     };
 
     const keywordRecord1 = createKeywordRecord(1);
-    const keywordRecord2 = createKeywordRecord(2, { domain: 'example.org', country: 'GB' });
+    const keywordRecord2 = createKeywordRecord(2);
 
     (Keyword.findAll as jest.Mock)
       .mockResolvedValueOnce([keywordRecord1, keywordRecord2]);
 
     (Domain.findAll as jest.Mock).mockResolvedValue([
       { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
-      { get: () => ({ domain: 'example.org', scrapeEnabled: 1 }) },
     ]);
     const refreshedKeywords = [
       { ...keywordRecord1.get(), updating: 0 },
@@ -146,15 +164,18 @@ describe('/api/refresh', () => {
 
     await handler(req, res);
 
+    // Wait for async processing to complete
+    await jest.runAllTimersAsync();
+
+    // Both keywords from same domain updated together
+    expect(Keyword.update).toHaveBeenCalledTimes(1);
     expect(Keyword.update).toHaveBeenCalledWith(
       { updating: 1, lastUpdateError: 'false', updatingStartedAt: '2024-06-01T12:00:00.000Z' },
       { where: { ID: { [Op.in]: [1, 2] } } },
     );
     expect(Keyword.findAll).toHaveBeenCalledTimes(1);
-    expect(refreshAndUpdateKeywords).toHaveBeenCalledWith([
-      keywordRecord1,
-      keywordRecord2,
-    ], { scraper_type: 'serpapi' });
+    expect(refreshAndUpdateKeywords).toHaveBeenCalledTimes(1);
+    expect(refreshAndUpdateKeywords).toHaveBeenCalledWith([keywordRecord1, keywordRecord2], { scraper_type: 'serpapi' });
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       message: 'Refresh started',
@@ -186,6 +207,32 @@ describe('/api/refresh', () => {
     expect(scrapeKeywordFromGoogle).toHaveBeenCalledWith(expect.objectContaining({ device: 'mobile' }), { scraper_type: 'serpapi' });
     expect(previewRes.status).toHaveBeenCalledWith(200);
     expect(previewRes.json).toHaveBeenCalledWith({ error: '', searchResult: expect.objectContaining({ device: 'mobile' }) });
+  });
+
+  it('rejects manual refresh when domain is already locked', async () => {
+    req.query = { id: '1', domain: 'example.com' };
+
+    const keywordRecord = { ID: 1, domain: 'example.com' };
+    (Keyword.findAll as jest.Mock).mockResolvedValue([keywordRecord]);
+    (Domain.findAll as jest.Mock).mockResolvedValue([
+      { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
+    ]);
+
+    // Mock domain as locked
+    const { refreshQueue } = require('../../utils/refreshQueue');
+    (refreshQueue.isDomainLocked as jest.Mock).mockReturnValueOnce(true);
+
+    await handler(req, res);
+
+    // Should return 409 Conflict
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith({
+      error: 'Domain "example.com" is already being refreshed. Please wait for the current refresh to complete.',
+    });
+
+    // Should NOT enqueue or update keywords
+    expect(Keyword.update).not.toHaveBeenCalled();
+    expect(refreshQueue.enqueue).not.toHaveBeenCalled();
   });
 
   afterEach(() => {
