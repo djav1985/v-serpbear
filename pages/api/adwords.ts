@@ -26,9 +26,24 @@ const respondWithIntegrationResult = (
    res: NextApiResponse,
    { success, message = '', statusCode }: IntegrationResultOptions,
 ) => {
+   const normalizeOrigin = (value: string) => value.replace(/\/+$/, '');
+   const getHeaderValue = (value: string | string[] | undefined) => {
+      if (!value) {
+         return undefined;
+      }
+      if (Array.isArray(value)) {
+         return value[0];
+      }
+      return value.split(',')[0]?.trim();
+   };
+   const forwardedHost = getHeaderValue(req.headers['x-forwarded-host']);
+   const forwardedProto = getHeaderValue(req.headers['x-forwarded-proto']);
+   const configuredOrigin = normalizeOrigin(process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || '');
    const host = req.headers.host || '';
-   const protocol = host.includes('localhost:') ? 'http://' : 'https://';
-   const origin = `${protocol}${host}`;
+   const fallbackProtocol = host.includes('localhost:') ? 'http' : 'https';
+   const origin = forwardedHost
+      ? `${forwardedProto || 'https'}://${forwardedHost}`
+      : configuredOrigin || `${fallbackProtocol}://${host}`;
    const status = success ? 'success' : 'error';
    const payload = { type: 'adwordsIntegrated', status, message };
    const redirectUrl = `${origin}/settings?ads=integrated&status=${status}${message ? `&detail=${encodeURIComponent(message)}` : ''}`;
@@ -51,7 +66,7 @@ const respondWithIntegrationResult = (
             return;
           }
         } catch (err) {
-          logger.warn('Failed to notify opener', { error: err?.message || String(err) });
+          console.warn('Failed to notify opener', err?.message || String(err));
         }
         if (redirectUrl) {
           window.location.replace(redirectUrl);

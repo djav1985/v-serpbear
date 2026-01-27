@@ -54,6 +54,23 @@ jest.mock('../../utils/apiLogging', () => ({
    withApiLogging: (handler: any) => handler,
 }));
 
+const extractScriptContent = (html: string) => {
+   const match = html.match(/<script>([\s\S]*?)<\/script>/);
+   if (!match) {
+      throw new Error('Script tag not found.');
+   }
+   return match[1];
+};
+
+const extractRedirectUrl = (html: string) => {
+   const script = extractScriptContent(html);
+   const redirectMatch = script.match(/const redirectUrl = ([^;]+);/);
+   if (!redirectMatch) {
+      throw new Error('Redirect URL not found.');
+   }
+   return JSON.parse(redirectMatch[1]);
+};
+
 describe('GET /api/adwords - refresh token retrieval', () => {
    const originalEnv = process.env;
 
@@ -104,6 +121,104 @@ describe('GET /api/adwords - refresh token retrieval', () => {
       expect(res.send).toHaveBeenCalledWith(expect.stringContaining('adwordsIntegrated'));
 
    });
+
+   it('redirects even when postMessage throws', async () => {
+      const req = {
+         method: 'GET',
+         query: {},
+         headers: { host: 'localhost:3000' },
+      } as unknown as NextApiRequest;
+
+      const res = {
+         status: jest.fn().mockReturnThis(),
+         setHeader: jest.fn().mockReturnThis(),
+         send: jest.fn(),
+      } as unknown as NextApiResponse;
+
+      await handler(req, res);
+
+      const html = (res.send as jest.Mock).mock.calls[0][0] as string;
+      const script = extractScriptContent(html);
+      const redirectUrl = extractRedirectUrl(html);
+
+      const replaceMock = jest.fn();
+      const closeMock = jest.fn();
+      const postMessageMock = jest.fn(() => {
+         throw new Error('postMessage failed');
+      });
+
+      const originalLocation = window.location;
+      const originalOpener = window.opener;
+      const originalClose = window.close;
+
+      Object.defineProperty(window, 'location', {
+         value: { origin: 'http://localhost:3000', replace: replaceMock },
+         writable: true,
+      });
+      Object.defineProperty(window, 'opener', {
+         value: { postMessage: postMessageMock },
+         writable: true,
+      });
+      Object.defineProperty(window, 'close', {
+         value: closeMock,
+         writable: true,
+      });
+
+      try {
+         window.eval(script);
+      } finally {
+         Object.defineProperty(window, 'location', { value: originalLocation, writable: true });
+         Object.defineProperty(window, 'opener', { value: originalOpener, writable: true });
+         Object.defineProperty(window, 'close', { value: originalClose, writable: true });
+      }
+
+      expect(postMessageMock).toHaveBeenCalled();
+      expect(replaceMock).toHaveBeenCalledWith(redirectUrl);
+   });
+
+   it('uses forwarded headers to shape redirect URLs', async () => {
+      const req = {
+         method: 'GET',
+         query: {},
+         headers: {
+            host: 'localhost:3000',
+            'x-forwarded-host': 'forwarded.example',
+            'x-forwarded-proto': 'https',
+         },
+      } as unknown as NextApiRequest;
+
+      const res = {
+         status: jest.fn().mockReturnThis(),
+         setHeader: jest.fn().mockReturnThis(),
+         send: jest.fn(),
+      } as unknown as NextApiResponse;
+
+      await handler(req, res);
+
+      const html = (res.send as jest.Mock).mock.calls[0][0] as string;
+      expect(extractRedirectUrl(html)).toContain('https://forwarded.example/settings');
+   });
+
+   it('falls back to configured app URL when forwarded headers are missing', async () => {
+      (process.env as MutableEnv) = { ...originalEnv, NEXT_PUBLIC_APP_URL: 'https://public.example' };
+
+      const req = {
+         method: 'GET',
+         query: {},
+         headers: { host: 'localhost:3000' },
+      } as unknown as NextApiRequest;
+
+      const res = {
+         status: jest.fn().mockReturnThis(),
+         setHeader: jest.fn().mockReturnThis(),
+         send: jest.fn(),
+      } as unknown as NextApiResponse;
+
+      await handler(req, res);
+
+      const html = (res.send as jest.Mock).mock.calls[0][0] as string;
+      expect(extractRedirectUrl(html)).toContain('https://public.example/settings');
+   });
 });
 
 describe('POST /api/adwords - validate integration', () => {
@@ -147,4 +262,5 @@ describe('POST /api/adwords - validate integration', () => {
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({ valid: true });
    });
+
 });
