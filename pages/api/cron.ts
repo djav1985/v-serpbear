@@ -49,8 +49,9 @@ const cronRefreshkeywords = async (req: NextApiRequest, res: NextApiResponse<CRO
          return res.status(200).json({ started: false, error: 'No domains have scraping enabled.' });
       }
 
+      const now = new Date().toJSON();
       await Keyword.update(
-         { updating: 1 },
+         { updating: 1, lastUpdateError: 'false', updatingStartedAt: now },
          { where: { domain: { [Op.in]: enabledDomains } } },
       );
       const keywordQueries: Keyword[] = await Keyword.findAll({ where: { domain: enabledDomains } });
@@ -65,7 +66,7 @@ const cronRefreshkeywords = async (req: NextApiRequest, res: NextApiResponse<CRO
          logger.error('[CRON] ERROR refreshAndUpdateKeywords: ', refreshError instanceof Error ? refreshError : new Error(String(refreshError)));
          // Ensure flags are cleared on error
          Keyword.update(
-            { updating: 0 },
+            { updating: 0, updatingStartedAt: null },
             { where: { ID: { [Op.in]: keywordIds } } },
          ).catch((updateError) => {
             logger.error('[CRON] Failed to clear updating flags after error: ', updateError instanceof Error ? updateError : new Error(String(updateError)));

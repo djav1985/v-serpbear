@@ -39,7 +39,7 @@ const updatekeywordVolume = async (req: NextApiRequest, res: NextApiResponse<Key
       if (keywords.length > 0) {
          foundKeywords = await Keyword.findAll({ where: { ID: { [Op.in]: keywords } } });
       }
-      if (domain) {
+      if (domain && keywords.length === 0) {
          const allDomain = domain === 'all';
          const scope = allDomain ? {} : { where: { domain } };
          foundKeywords = await Keyword.findAll(scope);

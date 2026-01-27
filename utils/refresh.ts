@@ -24,13 +24,16 @@ export const resetStaleKeywordUpdates = async ({
    thresholdMinutes?: number;
 } = {}): Promise<number> => {
    const staleBefore = new Date(Date.now() - thresholdMinutes * 60 * 1000).toJSON();
+   const legacyFallbackBefore = new Date(Date.now() - thresholdMinutes * 2 * 60 * 1000).toJSON();
    const whereClause: Record<string, any> = {
       updating: 1,
-      // Consider a keyword stale based on lastUpdated timestamp being older than the threshold.
-      // If lastUpdated is null/empty, we also include it to handle stuck keywords.
+      // Prefer updatingStartedAt when available; fall back to lastUpdated for legacy rows
       [Op.or]: [
-         { lastUpdated: { [Op.lt]: staleBefore } },
-         { lastUpdated: { [Op.or]: [null, ''] } },
+         { updatingStartedAt: { [Op.lt]: staleBefore } },
+         {
+            updatingStartedAt: { [Op.or]: [null, ''] },
+            lastUpdated: { [Op.lt]: legacyFallbackBefore },
+         },
       ],
    };
 
@@ -45,7 +48,7 @@ export const resetStaleKeywordUpdates = async ({
    });
 
    const [affectedCount] = await Keyword.update(
-      { updating: 0, lastUpdateError: timeoutError },
+      { updating: 0, updatingStartedAt: null, lastUpdateError: timeoutError },
       { where: whereClause },
    );
 
@@ -213,7 +216,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
    if (skippedKeywords.length > 0) {
       const skippedIds = skippedKeywords.map((keyword) => keyword.ID);
       await Keyword.update(
-         { updating: 0 },
+         { updating: 0, updatingStartedAt: null },
          { where: { ID: { [Op.in]: skippedIds } } },
       );
 
@@ -269,10 +272,10 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                // No result found - this indicates a scraping failure
                // The refreshParallel function already handles errors, but ensure state is consistent
                logger.warn('No refresh result found for keyword, clearing updating flag', { keywordId: keywordModel.ID });
-               await Keyword.update({ updating: 0 }, { where: { ID: keywordModel.ID } });
+               await Keyword.update({ updating: 0, updatingStartedAt: null }, { where: { ID: keywordModel.ID } });
                const currentKeyword = keywordModel.get({ plain: true });
                const parsedKeyword = parseKeywords([currentKeyword])[0];
-               updatedKeywords.push({ ...parsedKeyword, updating: 0 });
+               updatedKeywords.push({ ...parsedKeyword, updating: 0, updatingStartedAt: null });
             }
          }
       } else {
@@ -325,7 +328,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
       const keywordIdsToCleanup = eligibleKeywordModels.map(k => k.ID);
       try {
          await Keyword.update(
-            { updating: 0 },
+            { updating: 0, updatingStartedAt: null },
             { where: { ID: { [Op.in]: keywordIdsToCleanup } } }
          );
       } catch (cleanupError: any) {
@@ -398,7 +401,7 @@ const refreshAndUpdateKeyword = async (
 
    // Handle error case: set updating to false and save error
    try {
-      const updateData: any = { updating: 0 };
+      const updateData: any = { updating: 0, updatingStartedAt: null };
 
       if (scraperError) {
          const theDate = new Date();
@@ -426,7 +429,7 @@ const refreshAndUpdateKeyword = async (
    }
 
    // Return the current keyword with updated state
-   const updatedKeywordData = { ...currentkeyword, updating: 0 };
+   const updatedKeywordData = { ...currentkeyword, updating: 0, updatingStartedAt: null };
    return parseKeywords([updatedKeywordData])[0];
 };
 
@@ -521,6 +524,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          lastUpdated: lastUpdatedValue,
          lastUpdateError: lastUpdateErrorValue,
          mapPackTop3: updatedKeyword.mapPackTop3 === 1 ? 1 : 0,
+         updatingStartedAt: null,
       };
 
       if (updatedKeyword.error && settings?.scrape_retry) {
@@ -559,6 +563,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
             ...keyword,
             position: newPos,
             updating: 0,
+            updatingStartedAt: null,
             url: dbPayload.url ?? '',
             lastResult: parsedNormalizedResult,
             localResults: parsedLocalResults,
@@ -570,13 +575,14 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
       } catch (error: any) {
          logger.error('[ERROR] Updating SERP for Keyword', error, { keyword: keyword.keyword });
          try {
-            await Keyword.update({ updating: 0 }, { where: { ID: keyword.ID } });
+            await Keyword.update({ updating: 0, updatingStartedAt: null }, { where: { ID: keyword.ID } });
          } catch (cleanupError: any) {
             logger.error('[ERROR] Failed to clear updating flag after update failure', cleanupError, { keywordId: keyword.ID });
          }
          updated = {
             ...keyword,
             updating: 0,
+            updatingStartedAt: null,
          };
       }
    }

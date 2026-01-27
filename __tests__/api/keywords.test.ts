@@ -74,6 +74,7 @@ const resetStaleKeywordUpdatesMock = resetStaleKeywordUpdates as unknown as jest
 
 describe('PUT /api/keywords error handling', () => {
   beforeEach(() => {
+    jest.useFakeTimers().setSystemTime(new Date('2024-06-01T12:00:00.000Z'));
     jest.clearAllMocks();
     dbMock.sync.mockResolvedValue(undefined);
     verifyUserMock.mockReturnValue('authorized');
@@ -225,6 +226,7 @@ describe('PUT /api/keywords error handling', () => {
     expect(keywordMock.bulkCreate).toHaveBeenCalledWith([
       expect.objectContaining({
         tags: JSON.stringify(['Primary', 'secondary']),
+        updatingStartedAt: now,
       }),
     ]);
     expect(res.status).toHaveBeenCalledWith(201);
@@ -269,10 +271,15 @@ describe('PUT /api/keywords error handling', () => {
     expect(resetStaleKeywordUpdatesMock).toHaveBeenCalledWith({ domain: 'example.com' });
     expect(res.status).toHaveBeenCalledWith(200);
   });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
 });
 
 describe('PUT /api/keywords tags updates', () => {
   beforeEach(() => {
+    jest.useFakeTimers().setSystemTime(new Date('2024-06-01T12:00:00.000Z'));
     jest.clearAllMocks();
     dbMock.sync.mockResolvedValue(undefined);
     verifyUserMock.mockReturnValue('authorized');
@@ -415,5 +422,9 @@ describe('PUT /api/keywords tags updates', () => {
         expect.objectContaining({ keyword: 'gamma', tags: [] }),
       ]),
     });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 });
