@@ -18,6 +18,10 @@ const normalizeValue = (value, fallback) => {
       return fallback;
    }
 
+   if (typeof value !== 'string' && !value) {
+      return fallback;
+   }
+
    const trimmed = value.toString().trim();
    if (!trimmed) {
       return fallback;
@@ -198,4 +202,5 @@ if (require.main === module) {
 module.exports = {
    runAppCronJobs,
    makeCronApiCall,
+   normalizeCronExpression,
 };

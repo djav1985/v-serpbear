@@ -5,6 +5,7 @@ import { getKeywordsInsight, getPagesInsight } from './insight';
 import { fetchDomainSCData, getSearchConsoleApiInfo, isSearchConsoleDataFreshForToday, readLocalSCData } from './searchConsole';
 import { parseLocation } from './location';
 import { buildLogoUrl, getBranding } from './branding';
+import { fromDbBool } from './dbBooleans';
 
 const DEFAULT_BRAND_LOGO = 'https://serpbear.b-cdn.net/ikAdjQq.png';
 const mobileIcon = 'https://serpbear.b-cdn.net/SqXD9rd.png';
@@ -90,7 +91,7 @@ type KeywordSummary = {
 };
 
 const calculateKeywordSummary = (items: KeywordType[]): KeywordSummary => items.reduce((stats, keyword) => {
-   if (keyword.mapPackTop3 === 1) {
+   if (fromDbBool(keyword.mapPackTop3)) {
       stats.mapPackKeywords += 1;
    }
    if (typeof keyword.position === 'number' && Number.isFinite(keyword.position) && keyword.position > 0) {
@@ -122,7 +123,7 @@ const generateEmail = async (domain:DomainType, keywords:KeywordType[], settings
       const deviceIconImg = keyword.device === 'desktop' ? desktopIcon : mobileIcon;
       const countryFlag = `<img class="flag" src="https://flagcdn.com/w20/${keyword.country.toLowerCase()}.png" alt="${keyword.country}" title="${keyword.country}" />`;
       const deviceIcon = `<img class="device" src="${deviceIconImg}" alt="${keyword.device}" title="${keyword.device}" width="18" height="18" />`;
-      const mapPackFlag = keyword.mapPackTop3
+      const mapPackFlag = fromDbBool(keyword.mapPackTop3)
          ? `<span class="map-pack-flag" role="img" aria-label="Map pack top three">MP</span>`
          : '';
       const flagStack = `<span class="flag-stack">${countryFlag}${mapPackFlag}</span>`;

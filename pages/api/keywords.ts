@@ -13,6 +13,7 @@ import { getKeywordsVolume, updateKeywordsVolumeData } from '../../utils/adwords
 import { formatLocation, hasValidCityStatePair, parseLocation } from '../../utils/location';
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
+import { toDbBool } from '../../utils/dbBooleans';
 
 type KeywordsGetResponse = {
    keywords?: KeywordType[],
@@ -229,16 +230,16 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
          country,
          location,
          position: 0,
-         updating: 1,
+         updating: toDbBool(true),
          updatingStartedAt: now,
          history: JSON.stringify({}),
          lastResult: JSON.stringify([]),
          url: '',
          tags: JSON.stringify(dedupedTags.slice(0, 10)), // Limit to 10 tags
-         sticky: 0,
+         sticky: toDbBool(false),
          lastUpdated: now,
          added: now,
-         mapPackTop3: 0,
+         mapPackTop3: toDbBool(false),
       } as any;
       keywordsToAdd.push(newKeyword);
    });
@@ -336,7 +337,7 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse<Keywords
    try {
       let keywords: KeywordType[] = [];
       if (sticky !== undefined) {
-         await Keyword.update({ sticky }, { where: { ID: { [Op.in]: keywordIDs } } });
+         await Keyword.update({ sticky: toDbBool(sticky) }, { where: { ID: { [Op.in]: keywordIDs } } });
          const updateQuery = { where: { ID: { [Op.in]: keywordIDs } } };
          const updatedKeywords:Keyword[] = await Keyword.findAll(updateQuery);
          const formattedKeywords = updatedKeywords.map((el) => el.get({ plain: true }));
