@@ -5,6 +5,13 @@ type SafeJsonParseOptions = {
    logError?: boolean;
 };
 
+/**
+ * Safely parse a JSON string with a fallback value.
+ * @param value Raw JSON string (or any value) to parse.
+ * @param fallback Value to return when parsing fails.
+ * @param options Context for logging and whether to log failures.
+ * @returns Parsed JSON value or the fallback.
+ */
 export const safeJsonParse = <T>(
    value: unknown,
    fallback: T,

@@ -288,7 +288,11 @@ export const getSearchConsoleApiInfo = async (domain: DomainType): Promise<SCAPI
    if (!scAPIData?.private_key) {
       try {
          const settingsRaw = await readFile(`${process.cwd()}/data/settings.json`, { encoding: 'utf-8' });
-         const settings = safeJsonParse<Partial<SettingsType>>(settingsRaw, {}, { context: 'settings.json', logError: true });
+         const settings = safeJsonParse<SettingsType | Partial<SettingsType>>(
+            settingsRaw,
+            {},
+            { context: 'settings.json', logError: true },
+         );
          const cryptr = new Cryptr(process.env.SECRET as string);
          scAPIData.client_email = settings.search_console_client_email ? cryptr.decrypt(settings.search_console_client_email) : '';
          scAPIData.private_key = settings.search_console_private_key ? cryptr.decrypt(settings.search_console_private_key) : '';

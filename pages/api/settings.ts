@@ -1,6 +1,6 @@
 /// <reference path="../../types.d.ts" />
 
-import { writeFile, readFile } from 'fs/promises';
+import { writeFile, readFile, access } from 'fs/promises';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import Cryptr from 'cryptr';
 import { logger } from '../../utils/logger';
@@ -222,7 +222,7 @@ export const getAppSettings = async () : Promise<SettingsType> => {
        const shouldCreateFile = async (targetPath: string, data: string) => {
           try {
              // eslint-disable-next-line security/detect-non-literal-fs-filename
-             await readFile(targetPath, { encoding: 'utf-8' });
+             await access(targetPath);
              return;
           } catch (readError) {
              const err = readError as NodeJS.ErrnoException;
