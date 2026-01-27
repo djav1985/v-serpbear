@@ -132,8 +132,8 @@ const addDomain = async (req: NextApiRequest, res: NextApiResponse<DomainsAddRes
          slug: hostname.replaceAll('-', '_').replaceAll('.', '-').replaceAll('/', '-'),
          lastUpdated: now,
          added: now,
-         scrapeEnabled: 1,
-         notification: 1,
+         scrapeEnabled: toDbBool(true),
+         notification: toDbBool(true),
       }));
 
       if (domainsToAdd.length === 0) {

@@ -61,7 +61,7 @@ const getKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
    const domain = (req.query.domain as string);
 
    try {
-      const hasUpdatingKeywords = await Keyword.count({ where: { domain, updating: 1 } });
+      const hasUpdatingKeywords = await Keyword.count({ where: { domain, updating: toDbBool(true) } });
       if (hasUpdatingKeywords) {
          await resetStaleKeywordUpdates({ domain });
       }
