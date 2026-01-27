@@ -8,6 +8,7 @@ import SelectField from '../common/SelectField';
 import { TOGGLE_TRACK_CLASS_NAME } from '../common/toggleStyles';
 import { isValidEmail } from '../../utils/client/validators';
 import SecretField from '../common/SecretField';
+import { fromDbBool } from '../../utils/dbBooleans';
 
 type DomainSettingsProps = {
    domain:DomainType|null,
@@ -21,10 +22,10 @@ type DomainSettingsError = {
    msg: string,
 }
 
-const deriveDomainActiveState = (domainData?: DomainType | null) => {
+const deriveDomainActiveState = (domainData?: DomainType | null): boolean => {
    if (!domainData) { return true; }
    const { scrapeEnabled, notification } = domainData;
-   return scrapeEnabled === 1 && notification === 1;
+   return fromDbBool(scrapeEnabled) && fromDbBool(notification);
 };
 
 const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
@@ -53,7 +54,7 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
       search_console: domain?.search_console ? JSON.parse(domain.search_console) : {
          property_type: 'domain', url: '', client_email: '', private_key: '',
       },
-      scrapeEnabled: initialActiveState ? 1 : 0,
+      scrapeEnabled: initialActiveState,
       scraper_settings: {
          scraper_type: initialScraperType,
          has_api_key: initialScraperHasKey,
@@ -97,7 +98,7 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
          return ({
             ...prevSettings,
             search_console: currentSearchConsoleSettings || prevSettings.search_console,
-            scrapeEnabled: nextActive ? 1 : 0,
+            scrapeEnabled: nextActive,
             scraper_settings: nextScraper,
             business_name: domainObj.business_name ?? prevSettings.business_name ?? '',
          });
@@ -107,11 +108,13 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
    const updateDomainActiveState = (next: boolean) => {
       setDomainSettings(prevSettings => ({
          ...prevSettings,
-         scrapeEnabled: next ? 1 : 0,
+         scrapeEnabled: next,
       }));
    };
 
-   const isDomainActive = domainSettings.scrapeEnabled === 1;
+   const isDomainActive = typeof domainSettings.scrapeEnabled === 'boolean' 
+      ? domainSettings.scrapeEnabled 
+      : fromDbBool(domainSettings.scrapeEnabled);
 
    const handleScraperSelect = (updated: string[]) => {
       const nextValue = updated[0] || '__system__';

@@ -85,7 +85,7 @@ describe('DomainItem Component', () => {
 
       expect(toggleMutationMock).toHaveBeenCalledWith({
          domain: dummyDomain,
-         domainSettings: { scrapeEnabled: 0 },
+         domainSettings: { scrapeEnabled: false },
       });
    });
 

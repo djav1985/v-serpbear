@@ -152,7 +152,7 @@ describe('DomainSettings Component', () => {
       expect(mutateMock).toHaveBeenCalledWith({
          domain: mockDomain,
          domainSettings: expect.objectContaining({
-            scrapeEnabled: 0,
+            scrapeEnabled: false,
          }),
       });
    });
