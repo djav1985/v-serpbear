@@ -198,7 +198,8 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
       }
    }
 
-   if (eligibleKeywordModels.length === 0) { return []; }
+   const eligibleKeywordIds = eligibleKeywordModels.map((keyword) => keyword.ID);
+   if (eligibleKeywordIds.length === 0) { return []; }
 
    const keywords:KeywordType[] = eligibleKeywordModels.map((el) => el.get({ plain: true }));
    const start = performance.now();
@@ -288,7 +289,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
       logger.error('[ERROR] Unexpected error during keyword refresh:', error);
       // Ensure all keywords that were marked for update have their flags cleared
       // This prevents UI spinner from getting stuck if an unexpected error occurs
-      const keywordIdsToCleanup = eligibleKeywordModels.map(k => k.ID);
+      const keywordIdsToCleanup = eligibleKeywordIds;
       try {
          await Keyword.update(
             { updating: toDbBool(false), updatingStartedAt: null },
@@ -304,7 +305,16 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
    if (updatedKeywords.length > 0) {
       logger.info('Keyword refresh completed', { count: updatedKeywords.length, duration: `${(end - start).toFixed(2)}ms` });
    }
-   
+
+   try {
+      await Keyword.update(
+         { updating: toDbBool(false), updatingStartedAt: null },
+         { where: { ID: { [Op.in]: eligibleKeywordIds } } },
+      );
+   } catch (finalUpdateError: any) {
+      logger.error('[ERROR] Failed to finalize updating flags after refresh', finalUpdateError);
+   }
+
    // Update domain stats for all affected domains after keyword updates
    if (updatedKeywords.length > 0) {
       const affectedDomains = Array.from(new Set(updatedKeywords.map((k) => k.domain)));
@@ -499,6 +509,14 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
 
       try {
          await keywordRaw.update(dbPayload);
+         try {
+            await Keyword.update(
+               { updating: toDbBool(false), updatingStartedAt: null },
+               { where: { ID: keyword.ID } },
+            );
+         } catch (finalUpdateError: any) {
+            logger.error('[ERROR] Failed to persist updating flag reset after keyword update', finalUpdateError, { keywordId: keyword.ID });
+         }
          // Log when updating flag is cleared to help debug UI issues
          logger.info('Keyword updating flag cleared', {
             keywordId: keyword.ID,

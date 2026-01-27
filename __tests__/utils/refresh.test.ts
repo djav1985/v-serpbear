@@ -62,7 +62,7 @@ describe('refreshAndUpdateKeywords', () => {
 
     await refreshAndUpdateKeywords([mockKeywordModel as unknown as Keyword], mockSettings);
 
-    expect(Keyword.update).toHaveBeenCalledTimes(1);
+    expect(Keyword.update).toHaveBeenCalledTimes(2);
     expect(Keyword.update).toHaveBeenCalledWith(
       expect.objectContaining({ updating: 0, updatingStartedAt: null }),
       { where: { ID: mockKeywordModel.ID } },
