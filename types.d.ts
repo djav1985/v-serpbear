@@ -79,7 +79,7 @@ type KeywordFilters = {
 }
 
 type countryData = {
-   [ISO:string] : [countryName:string, cityName:string, language:string, AdWordsID: number]
+   [ISO:string] : [countryName:string, cityName:string, language:string, AdWordsID: number, googleDomain: string | null]
 }
 
 type countryCodeData = {
