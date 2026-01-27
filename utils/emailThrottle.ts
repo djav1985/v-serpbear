@@ -1,7 +1,8 @@
 // Email throttling cache to prevent spam
-import { writeFile, readFile } from 'fs/promises';
+import { readFile } from 'fs/promises';
 import path from 'path';
 import { logger } from './logger';
+import { atomicWriteFile } from './atomicWrite';
 
 interface EmailCache {
    [domain: string]: {
@@ -14,11 +15,34 @@ const CACHE_FILE = path.join(process.cwd(), 'data', 'email-throttle.json');
 const MIN_EMAIL_INTERVAL = 60 * 60 * 1000; // 1 hour minimum between emails
 const MAX_EMAILS_PER_DAY = 5; // Maximum emails per domain per day
 
+// Simple in-memory lock to prevent concurrent cache operations
+let cacheLock: Promise<void> = Promise.resolve();
+
+/**
+ * Acquire lock for cache operations
+ */
+const acquireLock = (): Promise<() => void> => {
+   const previousLock = cacheLock;
+   let releaseLock: (() => void) | undefined;
+   cacheLock = new Promise((resolve) => {
+      releaseLock = resolve;
+   });
+   // Return the release function once the previous lock is released
+   return previousLock.then(() => {
+      if (!releaseLock) {
+         throw new Error('Lock release function was not initialized');
+      }
+      return releaseLock;
+   });
+};
+
 /**
  * Check if email can be sent based on throttling rules
  */
 export const canSendEmail = async (domain: string): Promise<{ canSend: boolean; reason?: string }> => {
+   let releaseLock: (() => void) | undefined;
    try {
+      releaseLock = await acquireLock();
       const cache = await getEmailCache();
       const now = new Date();
       const today = now.toDateString();
@@ -60,6 +84,10 @@ export const canSendEmail = async (domain: string): Promise<{ canSend: boolean; 
    } catch (error) {
       logger.error('Error checking email throttle cache, allowing email', error instanceof Error ? error : new Error(String(error)));
       return { canSend: true };
+   } finally {
+      if (releaseLock) {
+         releaseLock();
+      }
    }
 };
 
@@ -67,7 +95,9 @@ export const canSendEmail = async (domain: string): Promise<{ canSend: boolean; 
  * Record that an email was sent
  */
 export const recordEmailSent = async (domain: string): Promise<void> => {
+   let releaseLock: (() => void) | undefined;
    try {
+      releaseLock = await acquireLock();
       const cache = await getEmailCache();
       const now = new Date();
       const today = now.toDateString();
@@ -91,6 +121,10 @@ export const recordEmailSent = async (domain: string): Promise<void> => {
       await saveEmailCache(cache);
    } catch (error) {
       logger.error('Error recording email sent', error instanceof Error ? error : new Error(String(error)));
+   } finally {
+      if (releaseLock) {
+         releaseLock();
+      }
    }
 };
 
@@ -113,7 +147,7 @@ const getEmailCache = async (): Promise<EmailCache> => {
  */
 const saveEmailCache = async (cache: EmailCache): Promise<void> => {
    try {
-      await writeFile(CACHE_FILE, JSON.stringify(cache, null, 2), 'utf-8');
+      await atomicWriteFile(CACHE_FILE, JSON.stringify(cache, null, 2), 'utf-8');
    } catch (error) {
       logger.error('Error saving email throttle cache', error instanceof Error ? error : new Error(String(error)));
    }

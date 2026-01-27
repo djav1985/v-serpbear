@@ -3,6 +3,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import jwt from 'jsonwebtoken';
 import Cookies from 'cookies';
+import { timingSafeEqual } from 'crypto';
 import { logger } from '../../utils/logger';
 import isRequestSecure from '../../utils/api/isRequestSecure';
 import { withApiLogging } from '../../utils/apiLogging';
@@ -70,7 +71,43 @@ const loginUser = async (req: NextApiRequest, res: NextApiResponse<loginResponse
       return res.status(500).json({ error: 'Server configuration error' });
    }
 
-   if (username === userName && password === process.env.PASSWORD) {
+   // Use timing-safe comparison to prevent timing attacks
+   let isUsernameValid = false;
+   let isPasswordValid = false;
+   
+   try {
+      // Pad strings to a fixed maximum length to prevent length-based timing attacks
+      const MAX_CREDENTIAL_LENGTH = 256;
+      const maxLength = MAX_CREDENTIAL_LENGTH;
+      const paddedUserName = userName.padEnd(maxLength, '\0').slice(0, maxLength);
+      const paddedUsername = username.padEnd(maxLength, '\0').slice(0, maxLength);
+      const paddedPassword = process.env.PASSWORD.padEnd(maxLength, '\0').slice(0, maxLength);
+      const paddedInputPassword = password.padEnd(maxLength, '\0').slice(0, maxLength);
+      
+      // Compare with fixed-length buffers
+      const userNameBuffer = Buffer.from(paddedUserName);
+      const usernameBuffer = Buffer.from(paddedUsername);
+      const passwordBuffer = Buffer.from(paddedPassword);
+      const inputPasswordBuffer = Buffer.from(paddedInputPassword);
+      
+      // These comparisons are now always on same-length buffers
+      isUsernameValid = timingSafeEqual(userNameBuffer, usernameBuffer);
+      isPasswordValid = timingSafeEqual(passwordBuffer, inputPasswordBuffer);
+   } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error(
+         'Login failed: timing-safe comparison error',
+         err,
+         {
+            username,
+            duration: Date.now() - startTime,
+            ip: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'unknown'
+         }
+      );
+      return res.status(500).json({ error: 'Internal server error' });
+   }
+
+   if (isUsernameValid && isPasswordValid) {
       try {
          const token = jwt.sign({ user: userName }, process.env.SECRET);
          const secureCookie = isRequestSecure(req);
@@ -107,12 +144,11 @@ const loginUser = async (req: NextApiRequest, res: NextApiResponse<loginResponse
       }
    }
 
-   const error = username !== userName ? 'Incorrect Username' : 'Incorrect Password';
+   // Generic error message to prevent username enumeration
+   const error = 'Invalid credentials';
    
    logger.warn('Login failed: invalid credentials', {
       username,
-      reason: error,
-      validUsername: username === userName,
       duration: Date.now() - startTime,
       ip: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'unknown'
    });
