@@ -14,6 +14,7 @@ import { updateDomainStats } from './updateDomainStats';
 import { decryptDomainScraperSettings, parseDomainScraperSettings } from './domainScraperSettings';
 import { logger } from './logger';
 import { fromDbBool, toDbBool } from './dbBooleans';
+import normalizeDomainBooleans from './normalizeDomain';
 
 const STALE_UPDATE_THRESHOLD_MINUTES = 20;
 
@@ -167,7 +168,8 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
       const cryptr = secret ? new Cryptr(secret) : null;
       scrapePermissions = new Map(domains.map((domain) => {
          const domainPlain = domain.get({ plain: true }) as DomainType & { scraper_settings?: any };
-         const isEnabled = fromDbBool(domainPlain.scrapeEnabled);
+         const normalizedDomain = normalizeDomainBooleans(domainPlain);
+         const isEnabled = normalizedDomain.scrapeEnabled ?? false;
 
          if (cryptr) {
             const persistedOverride = parseDomainScraperSettings(domainPlain?.scraper_settings);
@@ -182,23 +184,23 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                   effectiveSettings.scraping_api = decryptedOverride.scraping_api;
                }
 
-               if (typeof domainPlain.business_name === 'string') {
-                  (effectiveSettings as any).business_name = domainPlain.business_name;
-               }
+                if (typeof normalizedDomain.business_name === 'string') {
+                   (effectiveSettings as any).business_name = normalizedDomain.business_name;
+                }
 
-               domainSpecificSettings.set(domainPlain.domain, effectiveSettings);
-               domainsWithScraperOverrides.add(domainPlain.domain);
-            } else if (typeof domainPlain.business_name === 'string' && domainPlain.business_name) {
-               // No scraper override but has business_name - use global settings with business_name
-               const effectiveSettings: SettingsType = {
-                  ...settings,
-               };
-               (effectiveSettings as any).business_name = domainPlain.business_name;
-               domainSpecificSettings.set(domainPlain.domain, effectiveSettings);
-            }
-         }
+                domainSpecificSettings.set(normalizedDomain.domain, effectiveSettings);
+                domainsWithScraperOverrides.add(normalizedDomain.domain);
+             } else if (typeof normalizedDomain.business_name === 'string' && normalizedDomain.business_name) {
+                // No scraper override but has business_name - use global settings with business_name
+                const effectiveSettings: SettingsType = {
+                   ...settings,
+                };
+                (effectiveSettings as any).business_name = normalizedDomain.business_name;
+                domainSpecificSettings.set(normalizedDomain.domain, effectiveSettings);
+             }
+          }
 
-         return [domainPlain.domain, isEnabled];
+         return [normalizedDomain.domain, isEnabled];
       }));
    }
 

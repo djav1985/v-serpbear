@@ -5,6 +5,7 @@ import Domain from '../../../database/models/domain';
 import verifyUser from '../../../utils/verifyUser';
 import { getAppSettings } from '../settings';
 import { trimStringProperties } from '../../../utils/security';
+import normalizeDomainBooleans from '../../../utils/normalizeDomain';
 import generateKeywordIdeasEmail, { KeywordIdeasEmailKeyword } from '../../../utils/generateKeywordIdeasEmail';
 import { getBranding } from '../../../utils/branding';
 import { logger } from '../../../utils/logger';
@@ -105,9 +106,10 @@ const emailKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse<Email
 
       const domainPlain = (domainRecord as any).get
          ? (domainRecord as any).get({ plain: true }) as DomainType
-         : domainRecord as DomainType;
+         : (domainRecord as unknown as DomainType);
+      const normalizedDomain = normalizeDomainBooleans(domainPlain);
 
-      const notificationEmails = trimString(domainPlain.notification_emails);
+      const notificationEmails = trimString(normalizedDomain.notification_emails);
       if (!notificationEmails) {
          return res.status(400).json({ success: false, error: 'Notification email not configured for this domain.' });
       }
@@ -153,7 +155,7 @@ const emailKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse<Email
       const transporter = nodeMailer.createTransport(mailerSettings);
       const normalizedKeywords = normalizeKeywords(body.keywords);
       const emailHTML = generateKeywordIdeasEmail({
-         domain: domainPlain.domain,
+         domain: normalizedDomain.domain,
          keywords: normalizedKeywords,
          platformName,
       });
@@ -165,11 +167,11 @@ const emailKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse<Email
       await transporter.sendMail({
          from: fromEmail,
          to: notificationEmails,
-         subject: `[${domainPlain.domain}] Keyword Ideas`,
+       subject: `[${normalizedDomain.domain}] Keyword Ideas`,
          html: emailHTML,
       });
 
-      logger.info(`Sent keyword ideas email for ${domainPlain.domain}`);
+      logger.info(`Sent keyword ideas email for ${normalizedDomain.domain}`);
       return res.status(200).json({ success: true, error: null });
    } catch (error) {
       logger.error('Error sending keyword ideas email', error instanceof Error ? error : new Error(String(error)));

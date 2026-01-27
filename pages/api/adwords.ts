@@ -48,7 +48,7 @@ const respondWithIntegrationResult = (
    const safeForwardedHost = isValidHost(forwardedHost || undefined) ? (forwardedHost as string) : undefined;
    const originFromForwarded =
       safeForwardedProto && safeForwardedHost ? `${safeForwardedProto}://${safeForwardedHost}` : undefined;
-   const originBase = configuredOrigin || originFromForwarded || `${fallbackProtocol}://${host}`;
+   const originBase = originFromForwarded || configuredOrigin || `${fallbackProtocol}://${host}`;
    const origin = normalizeOrigin(originBase);
    const status = success ? 'success' : 'error';
    const payload = { type: 'adwordsIntegrated', status, message };
