@@ -61,6 +61,7 @@ describe('/api/refresh', () => {
     (verifyUser as jest.Mock).mockReturnValue('authorized');
     (getAppSettings as jest.Mock).mockResolvedValue({ scraper_type: 'serpapi' });
     (Keyword.update as jest.Mock).mockResolvedValue([1]);
+    (refreshAndUpdateKeywords as jest.Mock).mockResolvedValue([]);
   });
 
   it('rejects requests with no valid keyword IDs', async () => {
@@ -146,15 +147,23 @@ describe('/api/refresh', () => {
 
     await handler(req, res);
 
+    // Wait for async processing to complete
+    await jest.runAllTimersAsync();
+
+    // Sequential processing: each domain's keywords updated separately
+    expect(Keyword.update).toHaveBeenCalledTimes(2);
     expect(Keyword.update).toHaveBeenCalledWith(
       { updating: 1, lastUpdateError: 'false', updatingStartedAt: '2024-06-01T12:00:00.000Z' },
-      { where: { ID: { [Op.in]: [1, 2] } } },
+      { where: { ID: { [Op.in]: [1] } } },
+    );
+    expect(Keyword.update).toHaveBeenCalledWith(
+      { updating: 1, lastUpdateError: 'false', updatingStartedAt: '2024-06-01T12:00:00.000Z' },
+      { where: { ID: { [Op.in]: [2] } } },
     );
     expect(Keyword.findAll).toHaveBeenCalledTimes(1);
-    expect(refreshAndUpdateKeywords).toHaveBeenCalledWith([
-      keywordRecord1,
-      keywordRecord2,
-    ], { scraper_type: 'serpapi' });
+    expect(refreshAndUpdateKeywords).toHaveBeenCalledTimes(2);
+    expect(refreshAndUpdateKeywords).toHaveBeenNthCalledWith(1, [keywordRecord1], { scraper_type: 'serpapi' });
+    expect(refreshAndUpdateKeywords).toHaveBeenNthCalledWith(2, [keywordRecord2], { scraper_type: 'serpapi' });
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       message: 'Refresh started',
