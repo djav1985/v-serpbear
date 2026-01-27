@@ -52,6 +52,7 @@ jest.mock('../../utils/refreshQueue', () => ({
       // Execute task immediately in tests
       await task();
     }),
+    isDomainLocked: jest.fn().mockReturnValue(false),
     getStatus: jest.fn().mockReturnValue({ 
       queueLength: 0, 
       activeProcesses: 0,
@@ -206,6 +207,32 @@ describe('/api/refresh', () => {
     expect(scrapeKeywordFromGoogle).toHaveBeenCalledWith(expect.objectContaining({ device: 'mobile' }), { scraper_type: 'serpapi' });
     expect(previewRes.status).toHaveBeenCalledWith(200);
     expect(previewRes.json).toHaveBeenCalledWith({ error: '', searchResult: expect.objectContaining({ device: 'mobile' }) });
+  });
+
+  it('rejects manual refresh when domain is already locked', async () => {
+    req.query = { id: '1', domain: 'example.com' };
+
+    const keywordRecord = { ID: 1, domain: 'example.com' };
+    (Keyword.findAll as jest.Mock).mockResolvedValue([keywordRecord]);
+    (Domain.findAll as jest.Mock).mockResolvedValue([
+      { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
+    ]);
+
+    // Mock domain as locked
+    const { refreshQueue } = require('../../utils/refreshQueue');
+    (refreshQueue.isDomainLocked as jest.Mock).mockReturnValueOnce(true);
+
+    await handler(req, res);
+
+    // Should return 409 Conflict
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith({
+      error: 'Domain "example.com" is already being refreshed. Please wait for the current refresh to complete.',
+    });
+
+    // Should NOT enqueue or update keywords
+    expect(Keyword.update).not.toHaveBeenCalled();
+    expect(refreshQueue.enqueue).not.toHaveBeenCalled();
   });
 
   afterEach(() => {

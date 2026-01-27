@@ -125,6 +125,17 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
          return res.status(200).json({ keywords: [] });
       }
 
+      // Get the domain for this refresh (manual refresh is always single-domain)
+      const refreshDomain = keywordsToRefresh[0]?.domain;
+      
+      // Check if this domain is already being refreshed
+      if (refreshDomain && refreshQueue.isDomainLocked(refreshDomain)) {
+         logger.info(`Manual refresh rejected: domain already being refreshed`, { domain: refreshDomain });
+         return res.status(409).json({ 
+            error: `Domain "${refreshDomain}" is already being refreshed. Please wait for the current refresh to complete.`,
+         });
+      }
+
       const keywordIdsToRefresh = keywordsToRefresh.map((keyword) => keyword.ID);
       const now = new Date().toJSON();
       await Keyword.update(
@@ -132,8 +143,6 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
          { where: { ID: { [Op.in]: keywordIdsToRefresh } } },
       );
 
-      // Get the domain for this refresh (manual refresh is always single-domain)
-      const refreshDomain = keywordsToRefresh[0]?.domain;
       const taskId = req.query.id === 'all' ? `manual-refresh-domain-${domain}` : `manual-refresh-ids-${keywordIdsToRefresh.join(',')}`;
       logger.info(`Manual refresh enqueued: ${taskId} (${keywordsToRefresh.length} keywords)`, { domain: refreshDomain });
 

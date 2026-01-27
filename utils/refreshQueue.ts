@@ -118,6 +118,13 @@ class RefreshQueue {
    }
 
    /**
+    * Check if a domain is currently being processed
+    */
+   isDomainLocked(domain: string): boolean {
+      return this.activeDomains.has(domain);
+   }
+
+   /**
     * Get current queue status
     */
    getStatus() {
