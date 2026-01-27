@@ -3,7 +3,7 @@ import { Op } from 'sequelize';
 import Cryptr from 'cryptr';
 import Domain from '../../database/models/domain';
 import Keyword from '../../database/models/keyword';
-import refreshAndUpdateKeywords, { resetStaleKeywordUpdates, updateKeywordPosition } from '../../utils/refresh';
+import refreshAndUpdateKeywords, { updateKeywordPosition } from '../../utils/refresh';
 import { removeFromRetryQueue, retryScrape, scrapeKeywordFromGoogle } from '../../utils/scraper';
 import type { RefreshResult } from '../../utils/scraper';
 
@@ -1161,35 +1161,5 @@ describe('refreshAndUpdateKeywords', () => {
     // Verify that update was called to clear the updating flags
     expect(keywords[0].update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0, updatingStartedAt: null }));
     expect(keywords[1].update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0, updatingStartedAt: null }));
-  });
-});
-
-describe('resetStaleKeywordUpdates', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it('resets stale updating keywords with a timeout error', async () => {
-    (Keyword.update as jest.Mock).mockResolvedValueOnce([1]);
-
-    const clearedCount = await resetStaleKeywordUpdates({ domain: 'example.com', thresholdMinutes: 15 });
-
-    expect(Keyword.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        updating: 0,
-        updatingStartedAt: null,
-        lastUpdateError: expect.stringContaining('Refresh timed out after 15 minutes'),
-      }),
-      expect.objectContaining({
-        where: expect.objectContaining({ 
-          updating: 1, 
-          domain: 'example.com',
-          [Op.or]: expect.arrayContaining([
-            expect.objectContaining({ updatingStartedAt: expect.any(Object) }),
-          ]),
-        }),
-      }),
-    );
-    expect(clearedCount).toBe(1);
   });
 });

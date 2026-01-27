@@ -6,7 +6,6 @@ import Keyword from '../../database/models/keyword';
 import verifyUser from '../../utils/verifyUser';
 import { getAppSettings } from '../../pages/api/settings';
 import { getKeywordsVolume, updateKeywordsVolumeData } from '../../utils/adwords';
-import { resetStaleKeywordUpdates } from '../../utils/refresh';
 
 jest.mock('../../database/database', () => ({
   __esModule: true,
@@ -33,7 +32,6 @@ jest.mock('../../utils/verifyUser', () => ({
 jest.mock('../../utils/refresh', () => ({
   __esModule: true,
   default: jest.fn(),
-  resetStaleKeywordUpdates: jest.fn(),
 }));
 
 jest.mock('../../pages/api/settings', () => ({
@@ -70,7 +68,6 @@ const verifyUserMock = verifyUser as unknown as jest.Mock;
 const getAppSettingsMock = getAppSettings as unknown as jest.Mock;
 const getKeywordsVolumeMock = getKeywordsVolume as unknown as jest.Mock;
 const updateKeywordsVolumeDataMock = updateKeywordsVolumeData as unknown as jest.Mock;
-const resetStaleKeywordUpdatesMock = resetStaleKeywordUpdates as unknown as jest.Mock;
 
 describe('PUT /api/keywords error handling', () => {
   beforeEach(() => {
@@ -86,7 +83,6 @@ describe('PUT /api/keywords error handling', () => {
     });
     getKeywordsVolumeMock.mockResolvedValue({ volumes: false });
     updateKeywordsVolumeDataMock.mockResolvedValue(true);
-    resetStaleKeywordUpdatesMock.mockResolvedValue(0);
   });
 
   it('returns 500 when keyword update fails', async () => {
@@ -267,7 +263,6 @@ describe('PUT /api/keywords error handling', () => {
 
     await handler(req, res);
 
-    expect(resetStaleKeywordUpdatesMock).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(200);
   });
 
