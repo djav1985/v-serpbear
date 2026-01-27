@@ -154,22 +154,37 @@ describe('GET /api/adwords - refresh token retrieval', () => {
       Object.defineProperty(window, 'location', {
          value: { origin: 'http://localhost:3000', replace: replaceMock },
          writable: true,
+         configurable: true,
       });
       Object.defineProperty(window, 'opener', {
          value: { postMessage: postMessageMock },
          writable: true,
+         configurable: true,
       });
       Object.defineProperty(window, 'close', {
          value: closeMock,
          writable: true,
+         configurable: true,
       });
 
       try {
          window.eval(script);
       } finally {
-         Object.defineProperty(window, 'location', { value: originalLocation, writable: true });
-         Object.defineProperty(window, 'opener', { value: originalOpener, writable: true });
-         Object.defineProperty(window, 'close', { value: originalClose, writable: true });
+         Object.defineProperty(window, 'location', {
+            value: originalLocation,
+            writable: true,
+            configurable: true,
+         });
+         Object.defineProperty(window, 'opener', {
+            value: originalOpener,
+            writable: true,
+            configurable: true,
+         });
+         Object.defineProperty(window, 'close', {
+            value: originalClose,
+            writable: true,
+            configurable: true,
+         });
       }
 
       expect(postMessageMock).toHaveBeenCalled();
