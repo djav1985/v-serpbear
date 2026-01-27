@@ -106,7 +106,7 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
       const scrapeEnabledMap = new Map(domainRecords.map((record) => {
          const plain = record.get({ plain: true }) as DomainType;
          const normalizedDomain = normalizeDomainBooleans(plain);
-         return [normalizedDomain.domain, Boolean(normalizedDomain.scrapeEnabled)];
+         return [normalizedDomain.domain, normalizedDomain.scrapeEnabled];
       }));
 
       const keywordsToRefresh = keywordQueries.filter((keyword) => scrapeEnabledMap.get(keyword.domain) === true);

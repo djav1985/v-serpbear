@@ -155,7 +155,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
    if (!rawkeyword || rawkeyword.length === 0) { return []; }
 
    const domainNames = Array.from(new Set(rawkeyword.map((el) => el.domain).filter(Boolean)));
-   let scrapePermissions = new Map<string, boolean>();
+    let scrapePermissions = new Map<string, boolean | undefined>();
    const domainSpecificSettings = new Map<string, SettingsType>();
    const domainsWithScraperOverrides = new Set<string>();
 
@@ -169,7 +169,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
       scrapePermissions = new Map(domains.map((domain) => {
          const domainPlain = domain.get({ plain: true }) as DomainType & { scraper_settings?: any };
          const normalizedDomain = normalizeDomainBooleans(domainPlain);
-         const isEnabled = Boolean(normalizedDomain.scrapeEnabled);
+         const isEnabled = normalizedDomain.scrapeEnabled;
 
          if (cryptr) {
             const persistedOverride = parseDomainScraperSettings(domainPlain?.scraper_settings);
