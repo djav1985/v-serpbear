@@ -8,7 +8,7 @@ type KeywordsResponse = {
    [key: string]: unknown,
 };
 
-const normaliseKeywordFlag = (value: unknown): boolean => Boolean(value === true || value === 1);
+const normaliseKeywordFlag = (value: unknown): boolean => Boolean(value === true);
 
 const normaliseKeywordFlags = (keyword: unknown): KeywordType => {
    if (typeof keyword !== 'object' || keyword === null) {
