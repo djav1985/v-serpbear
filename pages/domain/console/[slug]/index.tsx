@@ -158,6 +158,7 @@ export const DomainConsolePage: NextPage = () => {
                scraperName={activeScraper?.label || ''}
                keywords={trackedKeywords}
                allowsCity={!!activeScraper?.allowsCity}
+               scraperCountries={activeScraper?.scraperCountries}
                closeModal={() => setShowAddKeywords(false)}
             />
          </CSSTransition>

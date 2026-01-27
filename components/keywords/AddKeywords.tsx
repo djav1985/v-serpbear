@@ -11,7 +11,8 @@ type AddKeywordsProps = {
    scraperName: string,
    allowsCity: boolean,
    closeModal: Function,
-   domain: string
+   domain: string,
+   scraperCountries?: string[],
 }
 
 type KeywordsInput = {
@@ -30,6 +31,7 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
    keywords,
    scraperName = '',
    allowsCity = false,
+   scraperCountries,
 }: AddKeywordsProps, ref) => {
    const inputRef = useRef(null);
    const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -80,6 +82,29 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
    }, []);
    
    const { mutate: addMutate, isLoading: isAdding } = useAddKeywords(() => closeModal(false));
+
+   // Filter countries based on scraper support
+   const availableCountries = useMemo(() => {
+      const allCountryCodes = Object.keys(countries);
+      
+      // If scraper defines specific countries, use only those
+      if (scraperCountries && scraperCountries.length > 0) {
+         return allCountryCodes
+            .filter((code) => scraperCountries.includes(code) && countries[code])
+            .map((countryISO: string) => ({ 
+               label: countries[countryISO][0], 
+               value: countryISO 
+            }));
+      }
+      
+      // Otherwise, only show countries with non-null googleDomain
+      return allCountryCodes
+         .filter((code) => countries[code] && countries[code][4] !== null)
+         .map((countryISO: string) => ({ 
+            label: countries[countryISO][0], 
+            value: countryISO 
+         }));
+   }, [scraperCountries]);
 
    const existingTags: string[] = useMemo(() => {
       const allTags = keywords.reduce((acc: string[], keyword) => [...acc, ...keyword.tags], []).filter((t) => t && t.trim() !== '');
@@ -173,7 +198,7 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
                   <SelectField
                      multiple={false}
                      selected={[newKeywordsData.country]}
-                     options={Object.keys(countries).map((countryISO:string) => ({ label: countries[countryISO][0], value: countryISO }))}
+                     options={availableCountries}
                      defaultLabel='All Countries'
                      updateField={(updated:string[]) => {
                         const nextCountry = updated[0];

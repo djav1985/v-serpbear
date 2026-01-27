@@ -1,8 +1,7 @@
-import countries from "../../utils/countries";
+import countries, { getGoogleDomain } from "../../utils/countries";
 import { resolveCountryCode } from "../../utils/scraperHelpers";
 import { parseLocation } from "../../utils/location";
 import { computeMapPackTop3 } from "../../utils/mapPack";
-import { getGoogleDomain } from "../../utils/googleDomains";
 import { logger } from "../../utils/logger";
 
 const decodeIfEncoded = (value: string): string => {

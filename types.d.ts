@@ -79,7 +79,7 @@ type KeywordFilters = {
 }
 
 type countryData = {
-   [ISO:string] : [countryName:string, cityName:string, language:string, AdWordsID: number]
+   [ISO:string] : [countryName:string, cityName:string, language:string, AdWordsID: number, googleDomain: string | null]
 }
 
 type countryCodeData = {
@@ -115,7 +115,7 @@ type SettingsType = {
    smtp_tls_servername?: string,
    smtp_username?: string,
    smtp_password?: string,
-   available_scapers?: { label: string, value: string, allowsCity?: boolean, supportsMapPack?: boolean }[],
+   available_scapers?: { label: string, value: string, allowsCity?: boolean, supportsMapPack?: boolean, scraperCountries?: string[] }[],
    scrape_interval?: string,
    scrape_delay?: string,
    scrape_retry?: boolean,
@@ -281,6 +281,10 @@ interface ScraperSettings {
    resultObjectKey: string,
    /** If the Scraper allows setting a perices location or allows city level scraping set this to true. */
    allowsCity?: boolean,
+   /** Optional list of country codes (ISO 2-letter) that this scraper supports.
+    * If provided, only these countries will be available in the keyword-adding dropdown for this scraper.
+    * If not provided, all countries with a non-null googleDomain will be available. */
+   scraperCountries?: string[],
    /** Set your own custom HTTP header properties when making the scraper API request.
     * The function should return an object that contains all the header properties you want to pass to API request's header.
     * Example: `{'Cache-Control': 'max-age=0', 'Content-Type': 'application/json'}` */

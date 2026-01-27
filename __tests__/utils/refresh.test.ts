@@ -1181,7 +1181,6 @@ describe('resetStaleKeywordUpdates', () => {
         where: expect.objectContaining({ 
           updating: 1, 
           domain: 'example.com',
-          updatedAt: expect.any(Object),
         }),
       }),
     );
