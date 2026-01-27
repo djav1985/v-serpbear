@@ -40,11 +40,18 @@ jest.mock('../../utils/apiLogging', () => ({
 
 jest.mock('../../utils/refreshQueue', () => ({
   refreshQueue: {
-    enqueue: jest.fn().mockImplementation(async (_id: string, task: () => Promise<void>) => {
+    enqueue: jest.fn().mockImplementation(async (_id: string, task: () => Promise<void>, _domain?: string) => {
       // Execute task immediately in tests
       await task();
     }),
-    getStatus: jest.fn().mockReturnValue({ queueLength: 0, isProcessing: false, pendingTaskIds: [] }),
+    getStatus: jest.fn().mockReturnValue({ 
+      queueLength: 0, 
+      activeProcesses: 0,
+      activeDomains: [],
+      pendingTaskIds: [],
+      maxConcurrency: 3,
+    }),
+    setMaxConcurrency: jest.fn(),
   },
 }));
 
@@ -134,7 +141,7 @@ describe('/api/cron', () => {
     // Flush all pending promises
     await jest.runAllTimersAsync();
 
-    // Verify sequential processing - each domain processed separately
+    // Each domain enqueued separately (can process in parallel via queue)
     expect(Keyword.update).toHaveBeenCalledTimes(2);
     expect(Keyword.update).toHaveBeenNthCalledWith(1,
       { updating: 1, lastUpdateError: 'false', updatingStartedAt: '2024-06-01T12:00:00.000Z' },

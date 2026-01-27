@@ -52,13 +52,20 @@ const cronRefreshkeywords = async (req: NextApiRequest, res: NextApiResponse<CRO
 
       logger.info(`Cron refresh started for ${enabledDomains.length} domains`);
       
-      // Enqueue the cron refresh task - it will be processed sequentially with any manual refreshes
-      // This ensures only one refresh operation runs at a time across the entire system
-      refreshQueue.enqueue('cron-refresh', async () => {
-         await processDomainsSequentially(enabledDomains, settings);
-      }).catch((queueError) => {
-         logger.error('[CRON] ERROR enqueueing refresh task: ', queueError instanceof Error ? queueError : new Error(String(queueError)));
-      });
+      // Enqueue each domain separately to allow parallel processing
+      // The queue will process up to maxConcurrency domains in parallel
+      // while ensuring the same domain is never processed twice simultaneously
+      for (const domain of enabledDomains) {
+         refreshQueue.enqueue(
+            `cron-refresh-${domain}`,
+            async () => {
+               await processSingleDomain(domain, settings);
+            },
+            domain // Pass domain for per-domain locking
+         ).catch((queueError) => {
+            logger.error(`[CRON] ERROR enqueueing refresh task for ${domain}: `, queueError instanceof Error ? queueError : new Error(String(queueError)));
+         });
+      }
 
       return res.status(200).json({ started: true });
    } catch (error) {
@@ -68,53 +75,46 @@ const cronRefreshkeywords = async (req: NextApiRequest, res: NextApiResponse<CRO
 };
 
 /**
- * Process domains sequentially to ensure single-writer database access.
- * Each domain's keywords are fully processed before moving to the next domain.
- * This prevents concurrent database writes and ensures data consistency.
+ * Process a single domain's keywords.
+ * This function is called for each domain independently, allowing parallel processing
+ * while the queue ensures no domain is processed twice simultaneously.
  */
-const processDomainsSequentially = async (domains: string[], settings: SettingsType): Promise<void> => {
-   logger.info(`Starting sequential processing of ${domains.length} domains`);
-   
-   for (const domain of domains) {
+const processSingleDomain = async (domain: string, settings: SettingsType): Promise<void> => {
+   try {
+      logger.info(`Processing domain: ${domain}`);
+      
+      const now = new Date().toJSON();
+      await Keyword.update(
+         { updating: toDbBool(true), lastUpdateError: 'false', updatingStartedAt: now },
+         { where: { domain } },
+      );
+      
+      const keywordQueries: Keyword[] = await Keyword.findAll({ where: { domain } });
+      
+      if (keywordQueries.length === 0) {
+         logger.info(`No keywords found for domain: ${domain}`);
+         return;
+      }
+      
+      logger.info(`Processing ${keywordQueries.length} keywords for domain: ${domain}`);
+      
+      // Process this domain's keywords
+      await refreshAndUpdateKeywords(keywordQueries, settings);
+      
+      logger.info(`Completed processing domain: ${domain}`);
+   } catch (domainError) {
+      logger.error(`Error processing domain: ${domain}`, domainError instanceof Error ? domainError : new Error(String(domainError)));
+      
+      // Ensure flags are cleared on error for this domain
       try {
-         logger.info(`Processing domain: ${domain}`);
-         
-         const now = new Date().toJSON();
          await Keyword.update(
-            { updating: toDbBool(true), lastUpdateError: 'false', updatingStartedAt: now },
+            { updating: toDbBool(false), updatingStartedAt: null },
             { where: { domain } },
          );
-         
-         const keywordQueries: Keyword[] = await Keyword.findAll({ where: { domain } });
-         
-         if (keywordQueries.length === 0) {
-            logger.info(`No keywords found for domain: ${domain}`);
-            continue;
-         }
-         
-         logger.info(`Processing ${keywordQueries.length} keywords for domain: ${domain}`);
-         
-         // Wait for this domain's keywords to complete before moving to next domain
-         await refreshAndUpdateKeywords(keywordQueries, settings);
-         
-         logger.info(`Completed processing domain: ${domain}`);
-      } catch (domainError) {
-         logger.error(`Error processing domain: ${domain}`, domainError instanceof Error ? domainError : new Error(String(domainError)));
-         
-         // Ensure flags are cleared on error for this domain
-         try {
-            await Keyword.update(
-               { updating: toDbBool(false), updatingStartedAt: null },
-               { where: { domain } },
-            );
-         } catch (updateError) {
-            logger.error(`Failed to clear updating flags for domain: ${domain}`, updateError instanceof Error ? updateError : new Error(String(updateError)));
-         }
-         
-         // Continue to next domain even if this one failed
-         logger.info(`Continuing to next domain after error in: ${domain}`);
+      } catch (updateError) {
+         logger.error(`Failed to clear updating flags for domain: ${domain}`, updateError instanceof Error ? updateError : new Error(String(updateError)));
       }
+      
+      throw domainError; // Re-throw to be logged by queue
    }
-   
-   logger.info(`Completed sequential processing of all ${domains.length} domains`);
 };

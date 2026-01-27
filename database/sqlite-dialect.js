@@ -133,6 +133,26 @@ class Database extends EventEmitter {
         fileMustExist: !hasFlag(flags, OPEN_CREATE)
       };
       this.driver = new BetterSqlite3(filename, options);
+      
+      // Enable WAL mode for better concurrent access
+      // WAL allows readers and writers to operate concurrently without blocking each other
+      if (!options.readonly && this.driver.pragma) {
+        try {
+          this.driver.pragma('journal_mode = WAL');
+          this.driver.pragma('synchronous = NORMAL'); // Faster with WAL, still safe
+        } catch (walError) {
+          // WAL mode might fail in some environments (e.g., network filesystems)
+          // Log but continue - will fall back to default mode
+          console.warn('Failed to enable WAL mode:', walError.message);
+        }
+      }
+      
+      // Set busy timeout to 5 seconds (5000ms)
+      // This makes SQLite wait up to 5 seconds for locks to clear instead of failing immediately
+      if (this.driver.pragma) {
+        this.driver.pragma('busy_timeout = 5000');
+      }
+      
       this.open = true;
       setImmediate(() => {
         this.emit('open');

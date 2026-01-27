@@ -48,11 +48,18 @@ jest.mock('../../utils/apiLogging', () => ({
 
 jest.mock('../../utils/refreshQueue', () => ({
   refreshQueue: {
-    enqueue: jest.fn().mockImplementation(async (_id: string, task: () => Promise<void>) => {
+    enqueue: jest.fn().mockImplementation(async (_id: string, task: () => Promise<void>, _domain?: string) => {
       // Execute task immediately in tests
       await task();
     }),
-    getStatus: jest.fn().mockReturnValue({ queueLength: 0, isProcessing: false, pendingTaskIds: [] }),
+    getStatus: jest.fn().mockReturnValue({ 
+      queueLength: 0, 
+      activeProcesses: 0,
+      activeDomains: [],
+      pendingTaskIds: [],
+      maxConcurrency: 3,
+    }),
+    setMaxConcurrency: jest.fn(),
   },
 }));
 
