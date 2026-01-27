@@ -38,7 +38,19 @@ const CRON_MAIN_SCHEDULE = normalizeCronExpression(process.env.CRON_MAIN_SCHEDUL
 const CRON_EMAIL_SCHEDULE = normalizeCronExpression(process.env.CRON_EMAIL_SCHEDULE, '0 0 6 * * *');
 const CRON_FAILED_SCHEDULE = normalizeCronExpression(process.env.CRON_FAILED_SCHEDULE, '0 0 */1 * * *');
 
+/**
+ * Get application settings from data/settings.json
+ * 
+ * Error handling behavior:
+ * - ENOENT (file missing): Creates file with defaults and returns defaults
+ * - Invalid JSON: Returns defaults WITHOUT overwriting the file (to preserve recoverable data)
+ * - Decryption failure: Returns parsed settings with empty strings for encrypted fields
+ * 
+ * Note: This differs from pages/api/settings.ts which overwrites the file on ANY read error.
+ * The cron worker is more conservative to avoid data loss during automated operations.
+ */
 const getAppSettings = async () => {
+   const settingsPath = `${process.cwd()}/data/settings.json`;
    const defaultSettings = {
       scraper_type: 'none',
       notification_interval: 'never',
@@ -46,31 +58,39 @@ const getAppSettings = async () => {
       smtp_server: '',
       smtp_port: '',
       smtp_username: '',
-      smtp_password: ''
+      smtp_password: '',
+      scrape_interval: '',
    };
    // console.log('process.env.SECRET: ', process.env.SECRET);
    try {
-      let decryptedSettings = {};
-      const exists = await promises.stat(`${process.cwd()}/data/settings.json`).then(() => true).catch(() => false);
-      if (exists) {
-         const settingsRaw = await promises.readFile(`${process.cwd()}/data/settings.json`, { encoding: 'utf-8' });
-         const settings = settingsRaw ? JSON.parse(settingsRaw) : {};
-
-         try {
-            const cryptr = new Cryptr(process.env.SECRET);
-            const scraping_api = settings.scraping_api ? cryptr.decrypt(settings.scraping_api) : '';
-            const smtp_password = settings.smtp_password ? cryptr.decrypt(settings.smtp_password) : '';
-            decryptedSettings = { ...settings, scraping_api, smtp_password };
-         } catch (error) {
-            console.error('Error Decrypting Settings API Keys!', error);
-         }
-      } else {
-         throw Error('Settings file dont exist.');
+      const settingsRaw = await promises.readFile(settingsPath, { encoding: 'utf-8' });
+      let settings = {};
+      try {
+         settings = settingsRaw ? JSON.parse(settingsRaw) : {};
+      } catch (error) {
+         console.error('CRON ERROR: Parsing Settings File.', error);
+         return defaultSettings;
       }
-      return decryptedSettings;
+
+      try {
+         const cryptr = new Cryptr(process.env.SECRET);
+         const scraping_api = settings.scraping_api ? cryptr.decrypt(settings.scraping_api) : '';
+         const smtp_password = settings.smtp_password ? cryptr.decrypt(settings.smtp_password) : '';
+         return { ...settings, scraping_api, smtp_password };
+      } catch (error) {
+         console.error('Error Decrypting Settings API Keys!', error);
+         return {
+            ...settings,
+            scraping_api: '',
+            smtp_password: ''
+         };
+      }
    } catch (error) {
+      if (error?.code === 'ENOENT') {
+         await promises.writeFile(settingsPath, JSON.stringify(defaultSettings), { encoding: 'utf-8' });
+         return defaultSettings;
+      }
       console.error('CRON ERROR: Reading Settings File.', error);
-      await promises.writeFile(`${process.cwd()}/data/settings.json`, JSON.stringify(defaultSettings), { encoding: 'utf-8' });
       return defaultSettings;
    }
 };
@@ -202,5 +222,6 @@ if (require.main === module) {
 module.exports = {
    runAppCronJobs,
    makeCronApiCall,
+   getAppSettings,
    normalizeCronExpression,
 };
