@@ -8,7 +8,7 @@ import Domain from '../../database/models/domain';
 import { getAppSettings } from './settings';
 import verifyUser from '../../utils/verifyUser';
 
-import refreshAndUpdateKeywords, { resetStaleKeywordUpdates } from '../../utils/refresh';
+import refreshAndUpdateKeywords from '../../utils/refresh';
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
 import { fromDbBool, toDbBool } from '../../utils/dbBooleans';
@@ -49,10 +49,6 @@ const cronRefreshkeywords = async (req: NextApiRequest, res: NextApiResponse<CRO
          logger.warn('Cron refresh skipped: No domains have scraping enabled');
          return res.status(200).json({ started: false, error: 'No domains have scraping enabled.' });
       }
-
-      // Clean up any stale keywords from previous runs before starting new refresh
-      logger.info('Checking for stale keyword updates before cron refresh');
-      await resetStaleKeywordUpdates();
 
       const now = new Date().toJSON();
       await Keyword.update(
