@@ -601,7 +601,7 @@ const refreshParallel = async (
       const keywordModel = modelMap.get(keyword.ID);
       
       if (!keywordModel) {
-         logger.error('No keyword model found for ID', { keywordId: keyword.ID });
+         logger.error('No keyword model found for ID', undefined, { keywordId: keyword.ID });
          return keyword;
       }
       

@@ -120,7 +120,7 @@ type SettingsType = {
    scrape_interval?: string,
    scrape_delay?: string,
    scrape_retry?: boolean,
-   failed_queue?: string[]
+   failed_queue?: number[]
    version?: string,
    search_console: boolean,
    search_console_client_email: string,
@@ -197,6 +197,8 @@ type SCInsightItem = {
    page?: string,
    date?: string
 }
+
+declare module 'proper-lockfile';
 
 type SearchAnalyticsItem = {
    keyword: string,

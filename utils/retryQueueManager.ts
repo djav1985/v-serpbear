@@ -24,7 +24,7 @@ class RetryQueueManager {
     * their read-modify-write sequences.
     */
    private async withLock<T>(operation: () => Promise<T>): Promise<T> {
-      let release: lockfile.Release;
+      let release: () => Promise<void>;
 
       try {
          // Acquire a cross-process file lock on the queue file with retry/backoff.
