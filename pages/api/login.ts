@@ -76,12 +76,13 @@ const loginUser = async (req: NextApiRequest, res: NextApiResponse<loginResponse
    let isPasswordValid = false;
    
    try {
-      // Pad strings to fixed length to prevent length-based timing attacks
-      const maxLength = Math.max(userName.length, username.length, 256);
-      const paddedUserName = userName.padEnd(maxLength, '\0');
-      const paddedUsername = username.padEnd(maxLength, '\0');
-      const paddedPassword = process.env.PASSWORD.padEnd(maxLength, '\0');
-      const paddedInputPassword = password.padEnd(maxLength, '\0');
+      // Pad strings to a fixed maximum length to prevent length-based timing attacks
+      const MAX_CREDENTIAL_LENGTH = 256;
+      const maxLength = MAX_CREDENTIAL_LENGTH;
+      const paddedUserName = userName.padEnd(maxLength, '\0').slice(0, maxLength);
+      const paddedUsername = username.padEnd(maxLength, '\0').slice(0, maxLength);
+      const paddedPassword = process.env.PASSWORD.padEnd(maxLength, '\0').slice(0, maxLength);
+      const paddedInputPassword = password.padEnd(maxLength, '\0').slice(0, maxLength);
       
       // Compare with fixed-length buffers
       const userNameBuffer = Buffer.from(paddedUserName);
