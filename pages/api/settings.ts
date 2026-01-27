@@ -1,6 +1,6 @@
 /// <reference path="../../types.d.ts" />
 
-import { writeFile, readFile, access } from 'fs/promises';
+import { readFile, access } from 'fs/promises';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import Cryptr from 'cryptr';
 import { logger } from '../../utils/logger';
@@ -11,6 +11,7 @@ import { trimStringProperties } from '../../utils/security';
 import { getBranding } from '../../utils/branding';
 import packageJson from '../../package.json';
 import { safeJsonParse } from '../../utils/safeJsonParse';
+import { atomicWriteFile } from '../../utils/atomicWrite';
 
 const buildSettingsDefaults = (): SettingsType => {
    const { platformName } = getBranding();
@@ -131,7 +132,7 @@ const updateSettings = async (req: NextApiRequest, res: NextApiResponse<Settings
          adwords_account_id,
       };
 
-      await writeFile(`${process.cwd()}/data/settings.json`, JSON.stringify(securedSettings), { encoding: 'utf-8' });
+      await atomicWriteFile(`${process.cwd()}/data/settings.json`, JSON.stringify(securedSettings), 'utf-8');
       return res.status(200).json({ settings: normalizedSettings });
    } catch (error) {
       logger.error('Error updating app settings', error instanceof Error ? error : new Error(String(error)));
@@ -195,7 +196,7 @@ export const getAppSettings = async () : Promise<SettingsType> => {
          const err = failedQueueError as NodeJS.ErrnoException;
          logger.warn('Failed to read failed queue file, recreating', { error: err?.message || String(err) });
          try {
-            await writeFile(failedQueuePath, JSON.stringify([]), { encoding: 'utf-8' });
+            await atomicWriteFile(failedQueuePath, JSON.stringify([]), 'utf-8');
          } catch (writeError) {
             logger.error('Failed to recreate failed queue file', writeError instanceof Error ? writeError : new Error(String(writeError)));
          }
@@ -227,8 +228,7 @@ export const getAppSettings = async () : Promise<SettingsType> => {
           } catch (readError) {
              const err = readError as NodeJS.ErrnoException;
              if (err?.code === 'ENOENT') {
-                // eslint-disable-next-line security/detect-non-literal-fs-filename
-                await writeFile(targetPath, data, { encoding: 'utf-8' });
+                await atomicWriteFile(targetPath, data, 'utf-8');
              }
           }
        };

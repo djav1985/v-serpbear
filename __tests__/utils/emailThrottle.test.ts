@@ -1,14 +1,16 @@
 import { canSendEmail, recordEmailSent } from '../../utils/emailThrottle';
-import { writeFile, readFile } from 'fs/promises';
+import { writeFile, readFile, rename } from 'fs/promises';
 
 // Mock fs/promises
 jest.mock('fs/promises');
 const mockWriteFile = writeFile as jest.MockedFunction<typeof writeFile>;
 const mockReadFile = readFile as jest.MockedFunction<typeof readFile>;
+const mockRename = rename as jest.MockedFunction<typeof rename>;
 
 describe('Email Throttling', () => {
    beforeEach(() => {
       jest.clearAllMocks();
+      mockRename.mockResolvedValue(undefined);
    });
 
    describe('canSendEmail', () => {
@@ -97,10 +99,17 @@ describe('Email Throttling', () => {
          
          await recordEmailSent('example.com');
          
+         // atomicWriteFile writes to a temp file first with { encoding } object
          expect(mockWriteFile).toHaveBeenCalledWith(
-            expect.stringContaining('email-throttle.json'),
+            expect.stringContaining('email-throttle.json.tmp'),
             expect.stringContaining('"example.com"'),
-            'utf-8'
+            { encoding: 'utf-8' }
+         );
+         
+         // And then renames it
+         expect(mockRename).toHaveBeenCalledWith(
+            expect.stringContaining('email-throttle.json.tmp'),
+            expect.stringContaining('email-throttle.json')
          );
          
          // Check that count is 1 and lastSent is recent

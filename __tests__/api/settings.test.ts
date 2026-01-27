@@ -1,4 +1,4 @@
-import { writeFile, readFile } from 'fs/promises';
+import { writeFile, readFile, access, rename, unlink } from 'fs/promises';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import handler from '../../pages/api/settings';
 import * as settingsApi from '../../pages/api/settings';
@@ -20,6 +20,9 @@ jest.mock('../../scrapers/index', () => ({
 jest.mock('fs/promises', () => ({
   readFile: jest.fn(),
   writeFile: jest.fn(),
+  access: jest.fn(),
+  rename: jest.fn(),
+  unlink: jest.fn(),
 }));
 
 // Mock the logger to prevent console output during tests
@@ -43,6 +46,9 @@ const encryptMock = jest.fn((value: string) => value);
 const readFileMock = readFile as unknown as jest.Mock;
 const verifyUserMock = verifyUser as unknown as jest.Mock;
 const writeFileMock = writeFile as unknown as jest.Mock;
+const accessMock = access as unknown as jest.Mock;
+const renameMock = rename as unknown as jest.Mock;
+const _unlinkMock = unlink as unknown as jest.Mock;
 const originalEnv = process.env;
 
 jest.mock('cryptr', () => ({
@@ -213,7 +219,11 @@ describe('GET /api/settings and configuration requirements', () => {
     readFileMock
       .mockRejectedValueOnce(missingSettingsError)
       .mockRejectedValueOnce(missingQueueError);
+    accessMock
+      .mockRejectedValueOnce(missingSettingsError)
+      .mockRejectedValueOnce(missingQueueError);
     writeFileMock.mockResolvedValue(undefined);
+    renameMock.mockResolvedValue(undefined);
 
     const settings = await settingsApi.getAppSettings();
 
@@ -221,7 +231,9 @@ describe('GET /api/settings and configuration requirements', () => {
       scraper_type: 'none',
       available_scapers: expect.any(Array),
     }));
+    // Check that write happened (via atomicWriteFile which calls writeFile then rename)
     expect(writeFileMock).toHaveBeenCalled();
+    expect(renameMock).toHaveBeenCalled();
   });
 
   it('does not overwrite settings when JSON is invalid', async () => {
@@ -245,15 +257,21 @@ describe('GET /api/settings and configuration requirements', () => {
       .mockRejectedValueOnce(missingQueueError);
 
     writeFileMock.mockResolvedValue(undefined);
+    renameMock.mockResolvedValue(undefined);
 
     const settings = await settingsApi.getAppSettings();
 
     expect(settings.scraper_type).toBe('serpapi');
     expect(writeFileMock).toHaveBeenCalledTimes(1);
+    // atomicWriteFile writes to temp file with { encoding } object
     expect(writeFileMock).toHaveBeenCalledWith(
-      `${process.cwd()}/data/failed_queue.json`,
+      expect.stringContaining('failed_queue.json.tmp'),
       JSON.stringify([]),
       { encoding: 'utf-8' },
+    );
+    expect(renameMock).toHaveBeenCalledWith(
+      expect.stringContaining('failed_queue.json.tmp'),
+      expect.stringContaining('failed_queue.json'),
     );
   });
 });

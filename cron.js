@@ -190,7 +190,9 @@ const runAppCronJobs = () => {
                const keywordsToRetry = data ? JSON.parse(data) : [];
                if (keywordsToRetry.length > 0) {
                   console.log(`[CRON] Found ${keywordsToRetry.length} failed scrapes to retry`, { count: keywordsToRetry.length });
-                  makeCronApiCall(process.env.APIKEY, internalApiUrl, `/api/refresh?id=${keywordsToRetry.join(',')}`, '[CRON] Failed Scrapes Retry Result:');
+                  // Use URLSearchParams to safely encode the keyword IDs
+                  const params = new URLSearchParams({ id: keywordsToRetry.join(',') });
+                  makeCronApiCall(process.env.APIKEY, internalApiUrl, `/api/refresh?${params.toString()}`, '[CRON] Failed Scrapes Retry Result:');
                } else {
                   console.log('[CRON] No failed scrapes to retry');
                }

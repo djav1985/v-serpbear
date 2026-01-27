@@ -3,6 +3,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import jwt from 'jsonwebtoken';
 import Cookies from 'cookies';
+import { timingSafeEqual } from 'crypto';
 import { logger } from '../../utils/logger';
 import isRequestSecure from '../../utils/api/isRequestSecure';
 import { withApiLogging } from '../../utils/apiLogging';
@@ -70,7 +71,32 @@ const loginUser = async (req: NextApiRequest, res: NextApiResponse<loginResponse
       return res.status(500).json({ error: 'Server configuration error' });
    }
 
-   if (username === userName && password === process.env.PASSWORD) {
+   // Use timing-safe comparison to prevent timing attacks
+   let isUsernameValid = false;
+   let isPasswordValid = false;
+   
+   try {
+      // Ensure both strings are the same length for timingSafeEqual
+      const userNameBuffer = Buffer.from(userName);
+      const usernameBuffer = Buffer.from(username);
+      const passwordBuffer = Buffer.from(process.env.PASSWORD);
+      const inputPasswordBuffer = Buffer.from(password);
+      
+      // Compare username (pad to same length if needed)
+      if (userNameBuffer.length === usernameBuffer.length) {
+         isUsernameValid = timingSafeEqual(userNameBuffer, usernameBuffer);
+      }
+      
+      // Always compare password regardless of username validity to prevent timing leaks
+      if (passwordBuffer.length === inputPasswordBuffer.length) {
+         isPasswordValid = timingSafeEqual(passwordBuffer, inputPasswordBuffer);
+      }
+   } catch (error) {
+      // If comparison fails, treat as invalid credentials
+      logger.debug('Timing-safe comparison failed', { error: error instanceof Error ? error.message : String(error) });
+   }
+
+   if (isUsernameValid && isPasswordValid) {
       try {
          const token = jwt.sign({ user: userName }, process.env.SECRET);
          const secureCookie = isRequestSecure(req);
@@ -107,12 +133,11 @@ const loginUser = async (req: NextApiRequest, res: NextApiResponse<loginResponse
       }
    }
 
-   const error = username !== userName ? 'Incorrect Username' : 'Incorrect Password';
+   // Generic error message to prevent username enumeration
+   const error = 'Invalid credentials';
    
    logger.warn('Login failed: invalid credentials', {
       username,
-      reason: error,
-      validUsername: username === userName,
       duration: Date.now() - startTime,
       ip: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'unknown'
    });
