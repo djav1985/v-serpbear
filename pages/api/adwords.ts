@@ -41,9 +41,15 @@ const respondWithIntegrationResult = (
    const configuredOrigin = normalizeOrigin(process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || '');
    const host = req.headers.host || '';
    const fallbackProtocol = host.includes('localhost:') ? 'http' : 'https';
-   const origin = forwardedHost
-      ? `${forwardedProto || 'https'}://${forwardedHost}`
-      : configuredOrigin || `${fallbackProtocol}://${host}`;
+   const isValidProto = (proto: string | undefined) => proto === 'http' || proto === 'https';
+   const isValidHost = (value: string | undefined) =>
+      !!value && /^[a-zA-Z0-9.-]+(:\d+)?$/.test(value);
+   const safeForwardedProto = isValidProto(forwardedProto || undefined) ? (forwardedProto as string) : undefined;
+   const safeForwardedHost = isValidHost(forwardedHost || undefined) ? (forwardedHost as string) : undefined;
+   const originFromForwarded =
+      safeForwardedProto && safeForwardedHost ? `${safeForwardedProto}://${safeForwardedHost}` : undefined;
+   const originBase = configuredOrigin || originFromForwarded || `${fallbackProtocol}://${host}`;
+   const origin = normalizeOrigin(originBase);
    const status = success ? 'success' : 'error';
    const payload = { type: 'adwordsIntegrated', status, message };
    const redirectUrl = `${origin}/settings?ads=integrated&status=${status}${message ? `&detail=${encodeURIComponent(message)}` : ''}`;
