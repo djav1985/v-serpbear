@@ -103,14 +103,21 @@ const clearKeywordUpdatingFlags = async (
    keywordIds: number[],
    logContext: string,
    meta?: Record<string, unknown>,
+   onlyWhenUpdating = false,
 ): Promise<void> => {
    if (keywordIds.length === 0) {
       return;
    }
+   const whereClause: { ID: { [Op.in]: number[] }; updating?: number } = {
+      ID: { [Op.in]: keywordIds },
+   };
+   if (onlyWhenUpdating) {
+      whereClause.updating = toDbBool(true);
+   }
    try {
       await Keyword.update(
          { updating: toDbBool(false), updatingStartedAt: null },
-         { where: { ID: { [Op.in]: keywordIds } } },
+         { where: whereClause },
       );
    } catch (error: any) {
       logger.error(`[ERROR] Failed to clear updating flags ${logContext}`, error, meta);
@@ -324,7 +331,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
       logger.info('Keyword refresh completed', { count: updatedKeywords.length, duration: `${(end - start).toFixed(2)}ms` });
    }
 
-   await clearKeywordUpdatingFlags(eligibleKeywordIds, 'after refresh');
+   await clearKeywordUpdatingFlags(eligibleKeywordIds, 'after refresh', undefined, true);
 
    // Update domain stats for all affected domains after keyword updates
    if (updatedKeywords.length > 0) {
@@ -520,7 +527,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
 
       try {
          await keywordRaw.update(dbPayload);
-         await clearKeywordUpdatingFlags([keyword.ID], 'after keyword update', { keywordId: keyword.ID });
+         await clearKeywordUpdatingFlags([keyword.ID], 'after keyword update', { keywordId: keyword.ID }, true);
          // Log when updating flag is cleared to help debug UI issues
          logger.info('Keyword updating flag cleared', {
             keywordId: keyword.ID,
