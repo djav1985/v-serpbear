@@ -8,8 +8,29 @@ type KeywordsResponse = {
    [key: string]: unknown,
 };
 
-const normaliseKeywordFlag = (value: unknown): boolean => Boolean(value === true);
+const normaliseKeywordFlag = (value: unknown): boolean => {
+   if (typeof value === 'boolean') {
+      return value;
+   }
 
+   if (typeof value === 'number') {
+      // Treat any non-zero number as true, 0 as false (handles DB integer flags like 0/1)
+      return value !== 0;
+   }
+
+   if (typeof value === 'string') {
+      const normalised = value.trim().toLowerCase();
+      if (normalised === 'true' || normalised === '1') {
+         return true;
+      }
+      if (normalised === 'false' || normalised === '0' || normalised === '') {
+         return false;
+      }
+   }
+
+   // Fallback: use standard truthiness for any other types
+   return Boolean(value);
+};
 const normaliseKeywordFlags = (keyword: unknown): KeywordType => {
    if (typeof keyword !== 'object' || keyword === null) {
       throw new Error('Invalid keyword object');
