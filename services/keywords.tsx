@@ -8,8 +8,29 @@ type KeywordsResponse = {
    [key: string]: unknown,
 };
 
-const normaliseKeywordFlag = (value: unknown): boolean => Boolean(value === true || value === 1);
+const normaliseKeywordFlag = (value: unknown): boolean => {
+   if (typeof value === 'boolean') {
+      return value;
+   }
 
+   if (typeof value === 'number') {
+      // Treat any non-zero number as true, 0 as false (handles DB integer flags like 0/1)
+      return value !== 0;
+   }
+
+   if (typeof value === 'string') {
+      const normalised = value.trim().toLowerCase();
+      if (normalised === 'true' || normalised === '1') {
+         return true;
+      }
+      if (normalised === 'false' || normalised === '0' || normalised === '') {
+         return false;
+      }
+   }
+
+   // Fallback: use standard truthiness for any other types
+   return Boolean(value);
+};
 const normaliseKeywordFlags = (keyword: unknown): KeywordType => {
    if (typeof keyword !== 'object' || keyword === null) {
       throw new Error('Invalid keyword object');
@@ -67,6 +88,9 @@ export function useFetchKeywords(
       () => fetchKeywords(router, domain),
       {
          refetchInterval: keywordSPollInterval,
+         refetchIntervalInBackground: true,
+         staleTime: 0, // Always fetch fresh data, don't use stale cache
+         cacheTime: 1000, // Keep a very short cache to avoid duplicate requests on quick remounts
          onSuccess: (data) => {
             // If Keywords are Manually Refreshed check if the any of the keywords position are still being fetched
             // If yes, then refecth the keywords every 5 seconds until all the keywords position is updated by the server

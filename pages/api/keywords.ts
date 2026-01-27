@@ -8,7 +8,7 @@ import { getAppSettings } from './settings';
 import verifyUser from '../../utils/verifyUser';
 import parseKeywords from '../../utils/parseKeywords';
 import { integrateKeywordSCData, readLocalSCData } from '../../utils/searchConsole';
-import refreshAndUpdateKeywords, { resetStaleKeywordUpdates } from '../../utils/refresh';
+import refreshAndUpdateKeywords from '../../utils/refresh';
 import { getKeywordsVolume, updateKeywordsVolumeData } from '../../utils/adwords';
 import { formatLocation, hasValidCityStatePair, parseLocation } from '../../utils/location';
 import { logger } from '../../utils/logger';
@@ -61,10 +61,6 @@ const getKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
    const domain = (req.query.domain as string);
 
    try {
-      const hasUpdatingKeywords = await Keyword.count({ where: { domain, updating: toDbBool(true) } });
-      if (hasUpdatingKeywords) {
-         await resetStaleKeywordUpdates({ domain });
-      }
       const settings = await getAppSettings();
       const integratedSC = process.env.SEARCH_CONSOLE_PRIVATE_KEY && process.env.SEARCH_CONSOLE_CLIENT_EMAIL;
       const { search_console_client_email, search_console_private_key } = settings;

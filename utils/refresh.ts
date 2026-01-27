@@ -16,51 +16,6 @@ import { logger } from './logger';
 import { fromDbBool, toDbBool } from './dbBooleans';
 import normalizeDomainBooleans from './normalizeDomain';
 
-const STALE_UPDATE_THRESHOLD_MINUTES = 20;
-
-export const resetStaleKeywordUpdates = async ({
-   domain,
-   thresholdMinutes = STALE_UPDATE_THRESHOLD_MINUTES,
-}: {
-   domain?: string;
-   thresholdMinutes?: number;
-} = {}): Promise<number> => {
-   const staleBefore = new Date(Date.now() - thresholdMinutes * 60 * 1000).toJSON();
-   const legacyFallbackBefore = new Date(Date.now() - thresholdMinutes * 2 * 60 * 1000).toJSON();
-   const whereClause: Record<string, any> = {
-      updating: toDbBool(true),
-      // Prefer updatingStartedAt when available; fall back to lastUpdated for legacy rows
-      [Op.or]: [
-         { updatingStartedAt: { [Op.lt]: staleBefore } },
-         {
-            updatingStartedAt: { [Op.or]: [null, ''] },
-            lastUpdated: { [Op.lt]: legacyFallbackBefore },
-         },
-      ],
-   };
-
-   if (domain) {
-      whereClause.domain = domain;
-   }
-
-   const timeoutError = JSON.stringify({
-      date: new Date().toJSON(),
-      error: `Refresh timed out after ${thresholdMinutes} minutes`,
-      scraper: 'timeout',
-   });
-
-   const [affectedCount] = await Keyword.update(
-      { updating: toDbBool(false), updatingStartedAt: null, lastUpdateError: timeoutError },
-      { where: whereClause },
-   );
-
-   if (affectedCount > 0) {
-      logger.warn('Cleared stale keyword updates', { count: affectedCount, domain, thresholdMinutes });
-   }
-
-   return affectedCount;
-};
-
 const describeScraperType = (scraperType?: SettingsType['scraper_type']): string => {
    if (!scraperType || scraperType.length === 0) {
       return 'none';
@@ -275,7 +230,11 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                // No result found - this indicates a scraping failure
                // The refreshParallel function already handles errors, but ensure state is consistent
                logger.warn('No refresh result found for keyword, clearing updating flag', { keywordId: keywordModel.ID });
-               await Keyword.update({ updating: toDbBool(false), updatingStartedAt: null }, { where: { ID: keywordModel.ID } });
+               try {
+                  await Keyword.update({ updating: toDbBool(false), updatingStartedAt: null }, { where: { ID: keywordModel.ID } });
+               } catch (updateErr) {
+                  logger.error('[REFRESH] Failed to clear updating flag for keyword without result', updateErr instanceof Error ? updateErr : new Error(String(updateErr)), { keywordId: keywordModel.ID });
+               }
                const currentKeyword = keywordModel.get({ plain: true });
                const parsedKeyword = parseKeywords([currentKeyword])[0];
                updatedKeywords.push({ ...parsedKeyword, updating: false, updatingStartedAt: null });
@@ -299,6 +258,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
 
          for (const keyword of sortedKeywords) {
             const keywordPlain = keyword.get({ plain: true });
+            logger.info('Processing keyword refresh', { keywordId: keywordPlain.ID, keyword: keywordPlain.keyword });
             const normalizedDevice = normalizeDevice(keywordPlain.device);
             const keywordKey = generateKeywordCacheKey(keywordPlain);
             
@@ -416,6 +376,7 @@ const refreshAndUpdateKeyword = async (
       }
 
       await Keyword.update(updateData, { where: { ID: keyword.ID } });
+      logger.info('Keyword updating flag cleared after scraper error', { keywordId: keyword.ID, error: scraperError });
       keyword.set(updateData);
    } catch (updateError: any) {
       logger.error('[ERROR] Failed to update keyword error status:', updateError);
@@ -538,6 +499,13 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
 
       try {
          await keywordRaw.update(dbPayload);
+         // Log when updating flag is cleared to help debug UI issues
+         logger.info('Keyword updating flag cleared', {
+            keywordId: keyword.ID,
+            keyword: keyword.keyword,
+            position: newPos,
+            hasError: dbPayload.lastUpdateError !== 'false',
+         });
          // Only log significant updates (errors or top 3 map pack)
          if (dbPayload.lastUpdateError !== 'false' || dbPayload.mapPackTop3) {
             logger.info('Keyword updated', {
