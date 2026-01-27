@@ -51,6 +51,7 @@ describe('/api/refresh', () => {
   let res: NextApiResponse;
 
   beforeEach(() => {
+    jest.useFakeTimers().setSystemTime(new Date('2024-06-01T12:00:00.000Z'));
     res = {
       status: jest.fn().mockReturnThis(),
       json: jest.fn(),
@@ -91,7 +92,7 @@ describe('/api/refresh', () => {
       keywordCount: 1,
     });
     expect(Keyword.update).toHaveBeenCalledWith(
-      { updating: 1, lastUpdateError: 'false' },
+      { updating: 1, lastUpdateError: 'false', updatingStartedAt: '2024-06-01T12:00:00.000Z' },
       { where: { ID: { [Op.in]: [1] } } },
     );
   });
@@ -146,7 +147,7 @@ describe('/api/refresh', () => {
     await handler(req, res);
 
     expect(Keyword.update).toHaveBeenCalledWith(
-      { updating: 1, lastUpdateError: 'false' },
+      { updating: 1, lastUpdateError: 'false', updatingStartedAt: '2024-06-01T12:00:00.000Z' },
       { where: { ID: { [Op.in]: [1, 2] } } },
     );
     expect(Keyword.findAll).toHaveBeenCalledTimes(1);
@@ -189,5 +190,6 @@ describe('/api/refresh', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    jest.useRealTimers();
   });
 });

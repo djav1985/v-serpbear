@@ -112,7 +112,7 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
       if (skippedKeywords.length > 0) {
          const skippedIds = skippedKeywords.map((keyword) => keyword.ID);
          await Keyword.update(
-            { updating: 0 },
+            { updating: 0, updatingStartedAt: null },
             { where: { ID: { [Op.in]: skippedIds } } },
          );
       }
@@ -122,8 +122,9 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
       }
 
       const keywordIdsToRefresh = keywordsToRefresh.map((keyword) => keyword.ID);
+      const now = new Date().toJSON();
       await Keyword.update(
-         { updating: 1, lastUpdateError: 'false' },
+         { updating: 1, lastUpdateError: 'false', updatingStartedAt: now },
          { where: { ID: { [Op.in]: keywordIdsToRefresh } } },
       );
 
@@ -138,7 +139,7 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
          logger.error('[REFRESH] ERROR refreshAndUpdateKeywords: ', refreshError instanceof Error ? refreshError : new Error(message), { keywordIds: keywordIdsToRefresh });
          // Ensure flags are cleared on error
          Keyword.update(
-            { updating: 0 },
+            { updating: 0, updatingStartedAt: null },
             { where: { ID: { [Op.in]: keywordIdsToRefresh } } },
          ).catch((updateError) => {
             logger.error('[REFRESH] Failed to clear updating flags after error: ', updateError instanceof Error ? updateError : new Error(String(updateError)));

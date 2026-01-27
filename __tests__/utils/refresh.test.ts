@@ -64,10 +64,10 @@ describe('refreshAndUpdateKeywords', () => {
 
     expect(Keyword.update).toHaveBeenCalledTimes(1);
     expect(Keyword.update).toHaveBeenCalledWith(
-      expect.objectContaining({ updating: 0 }),
+      expect.objectContaining({ updating: 0, updatingStartedAt: null }),
       { where: { ID: mockKeywordModel.ID } },
     );
-    expect(mockKeywordModel.set).toHaveBeenCalledWith(expect.objectContaining({ updating: 0 }));
+    expect(mockKeywordModel.set).toHaveBeenCalledWith(expect.objectContaining({ updating: 0, updatingStartedAt: null }));
   });
 
   it('queues retries when sequential scraping returns false', async () => {
@@ -98,7 +98,7 @@ describe('refreshAndUpdateKeywords', () => {
 
     await refreshAndUpdateKeywords([keywordModel], settings);
 
-    expect(keywordModel.set).toHaveBeenCalledWith(expect.objectContaining({ updating: 0 }));
+    expect(keywordModel.set).toHaveBeenCalledWith(expect.objectContaining({ updating: 0, updatingStartedAt: null }));
     expect(retryScrape).toHaveBeenCalledWith(41);
     expect(removeFromRetryQueue).not.toHaveBeenCalled();
   });
@@ -131,7 +131,7 @@ describe('refreshAndUpdateKeywords', () => {
 
     await refreshAndUpdateKeywords([keywordModel], settings);
 
-    expect(keywordModel.set).toHaveBeenCalledWith(expect.objectContaining({ updating: 0 }));
+    expect(keywordModel.set).toHaveBeenCalledWith(expect.objectContaining({ updating: 0, updatingStartedAt: null }));
     expect(removeFromRetryQueue).toHaveBeenCalledWith(42);
     expect(retryScrape).not.toHaveBeenCalled();
   });
@@ -249,6 +249,7 @@ describe('refreshAndUpdateKeywords', () => {
     expect(scrapeKeywordFromGoogle).toHaveBeenCalledWith(expect.objectContaining({ keyword: 'parallel failure' }), settings);
     expect(keywordModel.update).toHaveBeenCalledWith(expect.objectContaining({
       updating: 0,
+      updatingStartedAt: null,
       lastUpdateError: expect.stringContaining('parallel boom'),
     }));
     expect(results[0].updating).toBe(0);
@@ -295,7 +296,7 @@ describe('refreshAndUpdateKeywords', () => {
     await refreshAndUpdateKeywords(mockKeywords, mockSettings);
     // Verify Op.in was used correctly
     expect(Keyword.update).toHaveBeenCalledWith(
-      { updating: 0 },
+      { updating: 0, updatingStartedAt: null },
       { where: { ID: { [Op.in]: [1, 2, 3] } } },
     );
 
@@ -604,9 +605,9 @@ describe('refreshAndUpdateKeywords', () => {
 
     const updated = await updateKeywordPosition(keywordModel, updatedKeyword, settings);
 
-    expect(keywordModel.update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0 }));
+    expect(keywordModel.update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0, updatingStartedAt: null }));
     expect(Keyword.update).toHaveBeenCalledWith(
-      { updating: 0 },
+      { updating: 0, updatingStartedAt: null },
       { where: { ID: mockPlainKeyword.ID } },
     );
     expect(updated.updating).toBe(0);
@@ -1107,6 +1108,7 @@ describe('refreshAndUpdateKeywords', () => {
     // by updateKeywordPosition, which sets updating: 0 in the database via keywordModel.update
     expect(keywordModel.update).toHaveBeenCalledWith(expect.objectContaining({
       updating: 0,
+      updatingStartedAt: null,
     }));
 
     // Verify the returned result has updating: 0 (converted for UI)
@@ -1157,8 +1159,8 @@ describe('refreshAndUpdateKeywords', () => {
     expect(results[1].updating).toBe(0);
 
     // Verify that update was called to clear the updating flags
-    expect(keywords[0].update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0 }));
-    expect(keywords[1].update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0 }));
+    expect(keywords[0].update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0, updatingStartedAt: null }));
+    expect(keywords[1].update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0, updatingStartedAt: null }));
   });
 });
 
@@ -1175,12 +1177,16 @@ describe('resetStaleKeywordUpdates', () => {
     expect(Keyword.update).toHaveBeenCalledWith(
       expect.objectContaining({
         updating: 0,
+        updatingStartedAt: null,
         lastUpdateError: expect.stringContaining('Refresh timed out after 15 minutes'),
       }),
       expect.objectContaining({
         where: expect.objectContaining({ 
           updating: 1, 
           domain: 'example.com',
+          [Op.or]: expect.arrayContaining([
+            expect.objectContaining({ updatingStartedAt: expect.any(Object) }),
+          ]),
         }),
       }),
     );

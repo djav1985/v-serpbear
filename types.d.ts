@@ -49,6 +49,7 @@ type KeywordType = {
    url: string,
    tags: string[],
    updating: number,
+   updatingStartedAt?: string | null,
    lastUpdateError: {date: string, error: string, scraper: string} | false,
    scData?: KeywordSCData,
     uid?: string

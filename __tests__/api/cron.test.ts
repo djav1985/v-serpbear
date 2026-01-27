@@ -49,6 +49,7 @@ describe('/api/cron', () => {
   let res: MockedResponse;
 
   beforeEach(() => {
+    jest.useFakeTimers().setSystemTime(new Date('2024-06-01T12:00:00.000Z'));
     res = {
       status: jest.fn().mockReturnThis(),
       json: jest.fn(),
@@ -72,7 +73,7 @@ describe('/api/cron', () => {
     await handler(req, res as NextApiResponse);
 
     expect(Keyword.update).toHaveBeenCalledWith(
-      { updating: 1, lastUpdateError: 'false' },
+      { updating: 1, lastUpdateError: 'false', updatingStartedAt: '2024-06-01T12:00:00.000Z' },
       { where: { domain: { [Op.in]: ['enabled.com'] } } },
     );
     expect(Keyword.findAll).toHaveBeenCalledWith({ where: { domain: ['enabled.com'] } });
@@ -97,5 +98,6 @@ describe('/api/cron', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    jest.useRealTimers();
   });
 });

@@ -201,6 +201,7 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
    }> = [];
    const validationErrors: string[] = [];
 
+   const now = new Date().toJSON();
    keywords.forEach((kwrd: KeywordAddPayload, index: number) => {
       const validation = validateKeywordData(kwrd);
       
@@ -229,13 +230,14 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
          location,
          position: 0,
          updating: 1,
+         updatingStartedAt: now,
          history: JSON.stringify({}),
          lastResult: JSON.stringify([]),
          url: '',
          tags: JSON.stringify(dedupedTags.slice(0, 10)), // Limit to 10 tags
          sticky: 0,
-         lastUpdated: new Date().toJSON(),
-         added: new Date().toJSON(),
+         lastUpdated: now,
+         added: now,
          mapPackTop3: 0,
       } as any;
       keywordsToAdd.push(newKeyword);

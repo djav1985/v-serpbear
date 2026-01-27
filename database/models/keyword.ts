@@ -62,6 +62,9 @@ class Keyword extends Model {
    @Column({ type: DataType.INTEGER, allowNull: true, defaultValue: 0 })
    updating!: number;
 
+   @Column({ type: DataType.STRING, allowNull: true })
+   updatingStartedAt!: string | null;
+
    @Column({ type: DataType.STRING, allowNull: true, defaultValue: 'false' })
    lastUpdateError!: string;
 
