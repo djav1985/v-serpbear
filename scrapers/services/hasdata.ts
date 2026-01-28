@@ -18,6 +18,10 @@ interface HasDataResult {
   position: number;
 }
 
+type HasDataResponse = {
+  organicResults?: HasDataResult[];
+};
+
 const hasdata: ScraperSettings = {
   id: "hasdata",
   name: "HasData",
@@ -71,6 +75,7 @@ const hasdata: ScraperSettings = {
   supportsMapPack: true,
   serpExtractor: ({ result, response, keyword, settings }) => {
     const extractedResult = [];
+    const typedResponse = response as HasDataResponse | undefined;
     let results: HasDataResult[] = [];
     if (typeof result === "string") {
       try {
@@ -84,8 +89,8 @@ const hasdata: ScraperSettings = {
       }
     } else if (Array.isArray(result)) {
       results = result as HasDataResult[];
-    } else if (Array.isArray(response?.organicResults)) {
-      results = response.organicResults as HasDataResult[];
+    } else if (Array.isArray(typedResponse?.organicResults)) {
+      results = typedResponse.organicResults as HasDataResult[];
     }
 
     for (const { link, title, position } of results) {
