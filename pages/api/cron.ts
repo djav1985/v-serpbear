@@ -80,16 +80,19 @@ const cronRefreshkeywords = async (req: NextApiRequest, res: NextApiResponse<CRO
  * while the queue ensures no domain is processed twice simultaneously.
  */
 const processSingleDomain = async (domain: string, settings: SettingsType): Promise<void> => {
+   let keywordQueries: Keyword[] = [];
    try {
       logger.info(`Processing domain: ${domain}`);
       
       const now = new Date().toJSON();
-      await Keyword.update(
-         { updating: toDbBool(true), lastUpdateError: 'false', updatingStartedAt: now },
-         { where: { domain } },
+      keywordQueries = await Keyword.findAll({ where: { domain } });
+      await Promise.all(
+         keywordQueries.map((keyword) =>
+            keyword
+               .update({ updating: toDbBool(true), lastUpdateError: 'false', updatingStartedAt: now })
+               .then(() => keyword.set({ updating: toDbBool(true), lastUpdateError: 'false', updatingStartedAt: now })),
+         ),
       );
-      
-      const keywordQueries: Keyword[] = await Keyword.findAll({ where: { domain } });
       
       if (keywordQueries.length === 0) {
          logger.info(`No keywords found for domain: ${domain}`);
@@ -107,9 +110,12 @@ const processSingleDomain = async (domain: string, settings: SettingsType): Prom
       
       // Ensure flags are cleared on error for this domain
       try {
-         await Keyword.update(
-            { updating: toDbBool(false), updatingStartedAt: null },
-            { where: { domain } },
+         await Promise.all(
+            keywordQueries.map((keyword) =>
+               keyword
+                  .update({ updating: toDbBool(false), updatingStartedAt: null })
+                  .then(() => keyword.set({ updating: toDbBool(false), updatingStartedAt: null })),
+            ),
          );
       } catch (updateError) {
          logger.error(`Failed to clear updating flags for domain: ${domain}`, updateError instanceof Error ? updateError : new Error(String(updateError)));

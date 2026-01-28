@@ -1,4 +1,3 @@
-import { Op } from 'sequelize';
 import Cryptr from 'cryptr';
 import Domain from '../../database/models/domain';
 import Keyword from '../../database/models/keyword';
@@ -48,14 +47,13 @@ describe('refreshAndUpdateKeywords', () => {
         keyword: 'example keyword',
       }),
       set: jest.fn(),
-      update: jest.fn(),
+      update: jest.fn().mockResolvedValue(undefined),
     };
 
     (Domain.findAll as jest.Mock).mockResolvedValue([
       { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
     ]);
 
-    (Keyword.update as jest.Mock).mockResolvedValue([1]);
     (scrapeKeywordFromGoogle as jest.Mock).mockRejectedValue(new Error('network boom'));
 
     const mockSettings = {
@@ -65,11 +63,7 @@ describe('refreshAndUpdateKeywords', () => {
 
     await refreshAndUpdateKeywords([mockKeywordModel as unknown as Keyword], mockSettings);
 
-    expect(Keyword.update).toHaveBeenCalledTimes(2);
-    expect(Keyword.update).toHaveBeenCalledWith(
-      expect.objectContaining({ updating: 0, updatingStartedAt: null }),
-      { where: { ID: mockKeywordModel.ID } },
-    );
+    expect(mockKeywordModel.update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0, updatingStartedAt: null }));
     expect(mockKeywordModel.set).toHaveBeenCalledWith(expect.objectContaining({ updating: 0, updatingStartedAt: null }));
   });
 
@@ -84,14 +78,13 @@ describe('refreshAndUpdateKeywords', () => {
       ...keywordPlain,
       get: jest.fn().mockReturnValue(keywordPlain),
       set: jest.fn(),
-      update: jest.fn(),
+      update: jest.fn().mockResolvedValue(undefined),
     } as unknown as Keyword;
 
     (Domain.findAll as jest.Mock).mockResolvedValue([
       { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
     ]);
 
-    (Keyword.update as jest.Mock).mockResolvedValue([1]);
     (scrapeKeywordFromGoogle as jest.Mock).mockResolvedValueOnce(false);
 
     const settings = {
@@ -117,14 +110,13 @@ describe('refreshAndUpdateKeywords', () => {
       ...keywordPlain,
       get: jest.fn().mockReturnValue(keywordPlain),
       set: jest.fn(),
-      update: jest.fn(),
+      update: jest.fn().mockResolvedValue(undefined),
     } as unknown as Keyword;
 
     (Domain.findAll as jest.Mock).mockResolvedValue([
       { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
     ]);
 
-    (Keyword.update as jest.Mock).mockResolvedValue([1]);
     (scrapeKeywordFromGoogle as jest.Mock).mockResolvedValueOnce(false);
 
     const settings = {
@@ -184,7 +176,6 @@ describe('refreshAndUpdateKeywords', () => {
       update: jest.fn().mockResolvedValue(undefined),
     } as unknown as Keyword;
 
-    (Keyword.update as jest.Mock).mockResolvedValue([1]);
     (scrapeKeywordFromGoogle as jest.Mock).mockResolvedValueOnce({
       ID: keywordPlain.ID,
       position: 3,
@@ -265,19 +256,22 @@ describe('refreshAndUpdateKeywords', () => {
         ID: 1,
         domain: 'disabled1.com',
         get: jest.fn().mockReturnValue({ ID: 1, domain: 'disabled1.com' }),
-        update: jest.fn(),
+        update: jest.fn().mockResolvedValue(undefined),
+        set: jest.fn(),
       },
       {
         ID: 2,
         domain: 'disabled2.com',
         get: jest.fn().mockReturnValue({ ID: 2, domain: 'disabled2.com' }),
-        update: jest.fn(),
+        update: jest.fn().mockResolvedValue(undefined),
+        set: jest.fn(),
       },
       {
         ID: 3,
         domain: 'disabled3.com',
         get: jest.fn().mockReturnValue({ ID: 3, domain: 'disabled3.com' }),
-        update: jest.fn(),
+        update: jest.fn().mockResolvedValue(undefined),
+        set: jest.fn(),
       },
     ];
 
@@ -288,18 +282,14 @@ describe('refreshAndUpdateKeywords', () => {
       { get: () => ({ domain: 'disabled3.com', scrapeEnabled: 0 }) },
     ]);
 
-    (Keyword.update as jest.Mock).mockResolvedValue([3]);
-
     const { retryQueueManager } = require('../../utils/retryQueueManager');
 
     // Execute the function
     await refreshAndUpdateKeywords(mockKeywords, mockSettings);
     
-    // Verify Op.in was used correctly
-    expect(Keyword.update).toHaveBeenCalledWith(
-      { updating: 0, updatingStartedAt: null },
-      { where: { ID: { [Op.in]: [1, 2, 3] } } },
-    );
+    expect(mockKeywords[0].update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0, updatingStartedAt: null }));
+    expect(mockKeywords[1].update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0, updatingStartedAt: null }));
+    expect(mockKeywords[2].update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0, updatingStartedAt: null }));
 
     // Verify batched removal was called with the correct IDs
     expect(retryQueueManager.removeBatch).toHaveBeenCalledTimes(1);
@@ -318,7 +308,8 @@ describe('refreshAndUpdateKeywords', () => {
         ID: 1,
         domain: 'enabled.com',
         get: jest.fn().mockReturnValue({ ID: 1, domain: 'enabled.com' }),
-        update: jest.fn(),
+        update: jest.fn().mockResolvedValue(undefined),
+        set: jest.fn(),
       },
     ];
 
@@ -340,15 +331,14 @@ describe('refreshAndUpdateKeywords', () => {
         ID: 1,
         domain: 'disabled.com',
         get: jest.fn().mockReturnValue({ ID: 1, domain: 'disabled.com' }),
-        update: jest.fn(),
+        update: jest.fn().mockResolvedValue(undefined),
+        set: jest.fn(),
       },
     ];
 
     (Domain.findAll as jest.Mock).mockResolvedValue([
       { get: () => ({ domain: 'disabled.com', scrapeEnabled: 0 }) },
     ]);
-
-    (Keyword.update as jest.Mock).mockResolvedValue([1]);
 
     await refreshAndUpdateKeywords(mockKeywords, mockSettings);
 
@@ -386,6 +376,7 @@ describe('refreshAndUpdateKeywords', () => {
       domain: mockPlainKeyword.domain,
       get: jest.fn().mockReturnValue(mockPlainKeyword),
       update: jest.fn().mockResolvedValue(undefined),
+      set: jest.fn(),
     } as unknown as Keyword;
 
     const settings = {
@@ -444,6 +435,7 @@ describe('refreshAndUpdateKeywords', () => {
       domain: mockPlainKeyword.domain,
       get: jest.fn().mockReturnValue(mockPlainKeyword),
       update: jest.fn().mockResolvedValue(undefined),
+      set: jest.fn(),
     } as unknown as Keyword;
 
     const settings = {
@@ -508,9 +500,8 @@ describe('refreshAndUpdateKeywords', () => {
       domain: mockPlainKeyword.domain,
       get: jest.fn().mockReturnValue(mockPlainKeyword),
       update: jest.fn().mockRejectedValue(new Error('db update failed')),
+      set: jest.fn(),
     } as unknown as Keyword;
-
-    (Keyword.update as jest.Mock).mockResolvedValue([1]);
 
     const settings = {
       scraper_type: 'serpapi',
@@ -529,10 +520,6 @@ describe('refreshAndUpdateKeywords', () => {
     const updated = await updateKeywordPosition(keywordModel, updatedKeyword, settings);
 
     expect(keywordModel.update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0, updatingStartedAt: null }));
-    expect(Keyword.update).toHaveBeenCalledWith(
-      { updating: 0, updatingStartedAt: null },
-      { where: { ID: mockPlainKeyword.ID } },
-    );
     expect(updated.updating).toBe(false);
   });
 
@@ -565,6 +552,7 @@ describe('refreshAndUpdateKeywords', () => {
       domain: mockPlainKeyword.domain,
       get: jest.fn().mockReturnValue(mockPlainKeyword),
       update: jest.fn().mockResolvedValue(undefined),
+      set: jest.fn(),
     } as unknown as Keyword;
 
     const settings = {
@@ -625,6 +613,7 @@ describe('refreshAndUpdateKeywords', () => {
       domain: mockPlainKeyword.domain,
       get: jest.fn().mockReturnValue(mockPlainKeyword),
       update: jest.fn().mockResolvedValue(undefined),
+      set: jest.fn(),
     } as unknown as Keyword;
 
     const settings = {
@@ -740,7 +729,6 @@ describe('refreshAndUpdateKeywords', () => {
       update: jest.fn().mockResolvedValue(undefined),
     } as unknown as Keyword;
 
-    (Keyword.update as jest.Mock).mockResolvedValue([2]);
     (scrapeKeywordFromGoogle as jest.Mock).mockResolvedValue({
       ID: keyword1Plain.ID,
       position: 1,
@@ -843,6 +831,7 @@ describe('refreshAndUpdateKeywords', () => {
       domain: keyword1Plain.domain,
       get: jest.fn().mockReturnValue(keyword1Plain),
       update: jest.fn().mockResolvedValue(undefined),
+      set: jest.fn(),
     } as unknown as Keyword;
 
     const keywordModel2 = {
@@ -851,9 +840,9 @@ describe('refreshAndUpdateKeywords', () => {
       domain: keyword2Plain.domain,
       get: jest.fn().mockReturnValue(keyword2Plain),
       update: jest.fn().mockResolvedValue(undefined),
+      set: jest.fn(),
     } as unknown as Keyword;
 
-    (Keyword.update as jest.Mock).mockResolvedValue([2]);
     (scrapeKeywordFromGoogle as jest.Mock).mockResolvedValue({
       ID: keyword1Plain.ID,
       position: 1,
@@ -907,6 +896,7 @@ describe('refreshAndUpdateKeywords', () => {
       domain: baseKeyword.domain,
       get: jest.fn().mockReturnValue(baseKeyword),
       update: jest.fn().mockResolvedValue(undefined),
+      set: jest.fn(),
     } as unknown as Keyword;
 
     const settings = {
@@ -1009,6 +999,7 @@ describe('refreshAndUpdateKeywords', () => {
       domain: keywordPlain.domain,
       get: jest.fn().mockReturnValue(keywordPlain),
       update: jest.fn().mockResolvedValue(undefined),
+      set: jest.fn(),
     } as unknown as Keyword;
 
     (Domain.findAll as jest.Mock).mockResolvedValue([
@@ -1018,8 +1009,6 @@ describe('refreshAndUpdateKeywords', () => {
     // Mock scraper to return false (failure), which creates an error result in refreshParallel
     // This error result will be processed by updateKeywordPosition, which sets updating: 0
     (scrapeKeywordFromGoogle as jest.Mock).mockResolvedValueOnce(false);
-    (Keyword.update as jest.Mock).mockResolvedValue([1]);
-
     const settings = {
       scraper_type: 'serpapi', // parallel scraper
       scrape_retry: false,
@@ -1047,6 +1036,7 @@ describe('refreshAndUpdateKeywords', () => {
         domain: 'example.com',
         get: jest.fn().mockReturnValue({ ID: 101, keyword: 'keyword 1', domain: 'example.com' }),
         update: jest.fn().mockResolvedValue(undefined),
+        set: jest.fn(),
       },
       {
         ID: 102,
@@ -1054,6 +1044,7 @@ describe('refreshAndUpdateKeywords', () => {
         domain: 'example.com',
         get: jest.fn().mockReturnValue({ ID: 102, keyword: 'keyword 2', domain: 'example.com' }),
         update: jest.fn().mockResolvedValue(undefined),
+        set: jest.fn(),
       },
     ];
 
@@ -1064,8 +1055,6 @@ describe('refreshAndUpdateKeywords', () => {
     // Simulate errors in the scraping process
     // refreshParallel catches these and creates error results, so no exception is thrown
     (scrapeKeywordFromGoogle as jest.Mock).mockRejectedValue(new Error('Unexpected error'));
-    (Keyword.update as jest.Mock).mockResolvedValue([2]);
-
     const settings = {
       scraper_type: 'serpapi', // parallel scraper
       scrape_retry: false,
