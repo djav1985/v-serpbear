@@ -102,7 +102,7 @@ const valueSerp: ScraperSettings = {
     } else if (Array.isArray(result)) {
       results = result as ValueSerpResult[];
     } else if (Array.isArray(typedResponse?.organic_results)) {
-      results = typedResponse?.organic_results ?? [];
+      results = typedResponse.organic_results;
     }
     for (const item of results) {
       if (item?.title && item?.link) {

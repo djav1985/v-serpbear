@@ -402,7 +402,7 @@ describe('/api/notify - authentication', () => {
     expect(Domain.findOne).toHaveBeenCalledWith({ where: { domain: 'example.com' } });
   });
 
-  it('returns 200 with partial success when some notifications succeed and others fail', async () => {
+  it('returns 200 when notifications succeed for multiple domains', async () => {
     (verifyUser as jest.Mock).mockReturnValue('authorized');
 
     const domainRecord1 = {

@@ -90,7 +90,7 @@ const hasdata: ScraperSettings = {
     } else if (Array.isArray(result)) {
       results = result as HasDataResult[];
     } else if (Array.isArray(typedResponse?.organicResults)) {
-      results = typedResponse?.organicResults ?? [];
+      results = typedResponse.organicResults;
     }
 
     for (const { link, title, position } of results) {
