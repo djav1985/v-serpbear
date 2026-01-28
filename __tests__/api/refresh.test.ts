@@ -1,5 +1,4 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { Op } from 'sequelize';
 import handler from '../../pages/api/refresh';
 import db from '../../database/database';
 import Keyword from '../../database/models/keyword';
@@ -78,7 +77,6 @@ describe('/api/refresh', () => {
     (db.sync as jest.Mock).mockResolvedValue(undefined);
     (verifyUser as jest.Mock).mockReturnValue('authorized');
     (getAppSettings as jest.Mock).mockResolvedValue({ scraper_type: 'serpapi' });
-    (Keyword.update as jest.Mock).mockResolvedValue([1]);
     (refreshAndUpdateKeywords as jest.Mock).mockResolvedValue([]);
   });
 
@@ -95,7 +93,7 @@ describe('/api/refresh', () => {
   it('starts refresh in background and returns 202 immediately', async () => {
     req.query = { id: '1', domain: 'example.com' };
 
-    const keywordRecord = { ID: 1, domain: 'example.com' };
+    const keywordRecord = { ID: 1, domain: 'example.com', update: jest.fn().mockResolvedValue(undefined), set: jest.fn() };
     (Keyword.findAll as jest.Mock).mockResolvedValue([keywordRecord]);
     (Domain.findAll as jest.Mock).mockResolvedValue([
       { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
@@ -110,10 +108,11 @@ describe('/api/refresh', () => {
       message: 'Refresh started',
       keywordCount: 1,
     });
-    expect(Keyword.update).toHaveBeenCalledWith(
-      { updating: 1, lastUpdateError: 'false', updatingStartedAt: '2024-06-01T12:00:00.000Z' },
-      { where: { ID: { [Op.in]: [1] } } },
-    );
+    expect(keywordRecord.update).toHaveBeenCalledWith({
+      updating: 1,
+      lastUpdateError: 'false',
+      updatingStartedAt: '2024-06-01T12:00:00.000Z',
+    });
   });
 
   it('starts bulk refresh in background and returns 202', async () => {
@@ -144,6 +143,8 @@ describe('/api/refresh', () => {
       return {
         ...baseRecord,
         get: jest.fn().mockReturnValue(baseRecord),
+        update: jest.fn().mockResolvedValue(undefined),
+        set: jest.fn(),
       };
     };
 
@@ -168,11 +169,16 @@ describe('/api/refresh', () => {
     await jest.runAllTimersAsync();
 
     // Both keywords from same domain updated together
-    expect(Keyword.update).toHaveBeenCalledTimes(1);
-    expect(Keyword.update).toHaveBeenCalledWith(
-      { updating: 1, lastUpdateError: 'false', updatingStartedAt: '2024-06-01T12:00:00.000Z' },
-      { where: { ID: { [Op.in]: [1, 2] } } },
-    );
+    expect(keywordRecord1.update).toHaveBeenCalledWith({
+      updating: 1,
+      lastUpdateError: 'false',
+      updatingStartedAt: '2024-06-01T12:00:00.000Z',
+    });
+    expect(keywordRecord2.update).toHaveBeenCalledWith({
+      updating: 1,
+      lastUpdateError: 'false',
+      updatingStartedAt: '2024-06-01T12:00:00.000Z',
+    });
     expect(Keyword.findAll).toHaveBeenCalledTimes(1);
     expect(refreshAndUpdateKeywords).toHaveBeenCalledTimes(1);
     expect(refreshAndUpdateKeywords).toHaveBeenCalledWith([keywordRecord1, keywordRecord2], { scraper_type: 'serpapi' });
@@ -212,7 +218,7 @@ describe('/api/refresh', () => {
   it('rejects manual refresh when domain is already locked', async () => {
     req.query = { id: '1', domain: 'example.com' };
 
-    const keywordRecord = { ID: 1, domain: 'example.com' };
+    const keywordRecord = { ID: 1, domain: 'example.com', update: jest.fn().mockResolvedValue(undefined), set: jest.fn() };
     (Keyword.findAll as jest.Mock).mockResolvedValue([keywordRecord]);
     (Domain.findAll as jest.Mock).mockResolvedValue([
       { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
@@ -231,7 +237,7 @@ describe('/api/refresh', () => {
     });
 
     // Should NOT enqueue or update keywords
-    expect(Keyword.update).not.toHaveBeenCalled();
+    expect(keywordRecord.update).not.toHaveBeenCalled();
     expect(refreshQueue.enqueue).not.toHaveBeenCalled();
   });
 

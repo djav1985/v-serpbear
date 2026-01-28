@@ -114,10 +114,12 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
       const skippedKeywords = keywordQueries.filter((keyword) => scrapeEnabledMap.get(keyword.domain) === false);
 
       if (skippedKeywords.length > 0) {
-         const skippedIds = skippedKeywords.map((keyword) => keyword.ID);
-         await Keyword.update(
-            { updating: toDbBool(false), updatingStartedAt: null },
-            { where: { ID: { [Op.in]: skippedIds } } },
+         await Promise.all(
+            skippedKeywords.map((keyword) =>
+               keyword
+                  .update({ updating: toDbBool(false), updatingStartedAt: null })
+                  .then(() => keyword.set({ updating: toDbBool(false), updatingStartedAt: null })),
+            ),
          );
       }
 
@@ -138,9 +140,12 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
 
       const keywordIdsToRefresh = keywordsToRefresh.map((keyword) => keyword.ID);
       const now = new Date().toJSON();
-      await Keyword.update(
-         { updating: toDbBool(true), lastUpdateError: 'false', updatingStartedAt: now },
-         { where: { ID: { [Op.in]: keywordIdsToRefresh } } },
+      await Promise.all(
+         keywordsToRefresh.map((keyword) =>
+            keyword
+               .update({ updating: toDbBool(true), lastUpdateError: 'false', updatingStartedAt: now })
+               .then(() => keyword.set({ updating: toDbBool(true), lastUpdateError: 'false', updatingStartedAt: now })),
+         ),
       );
 
       const taskId = req.query.id === 'all' ? `manual-refresh-domain-${domain}` : `manual-refresh-ids-${keywordIdsToRefresh.join(',')}`;
@@ -158,9 +163,12 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
                const message = serializeError(refreshError);
                logger.error('[REFRESH] ERROR refreshAndUpdateKeywords: ', refreshError instanceof Error ? refreshError : new Error(message), { keywordIds: keywordIdsToRefresh });
                // Ensure flags are cleared on error
-               await Keyword.update(
-                  { updating: toDbBool(false), updatingStartedAt: null },
-                  { where: { ID: { [Op.in]: keywordIdsToRefresh } } },
+               await Promise.all(
+                  keywordsToRefresh.map((keyword) =>
+                     keyword
+                        .update({ updating: toDbBool(false), updatingStartedAt: null })
+                        .then(() => keyword.set({ updating: toDbBool(false), updatingStartedAt: null })),
+                  ),
                ).catch((updateError) => {
                   logger.error('[REFRESH] Failed to clear updating flags after error: ', updateError instanceof Error ? updateError : new Error(String(updateError)));
                });

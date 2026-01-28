@@ -74,7 +74,6 @@ describe('/api/cron', () => {
     (db.sync as jest.Mock).mockResolvedValue(undefined);
     (verifyUser as jest.Mock).mockReturnValue('authorized');
     (getAppSettings as jest.Mock).mockResolvedValue({ scraper_type: 'serpapi' });
-    (Keyword.update as jest.Mock).mockResolvedValue([1]);
     (refreshAndUpdateKeywords as jest.Mock).mockResolvedValue([]);
   });
 
@@ -84,7 +83,7 @@ describe('/api/cron', () => {
       { get: () => ({ domain: 'disabled.com', scrapeEnabled: 0 }) },
     ]);
 
-    const keywordRecord = { domain: 'enabled.com' };
+    const keywordRecord = { domain: 'enabled.com', update: jest.fn().mockResolvedValue(undefined), set: jest.fn() };
     (Keyword.findAll as jest.Mock).mockResolvedValue([keywordRecord]);
 
     await handler(req, res as NextApiResponse);
@@ -97,10 +96,11 @@ describe('/api/cron', () => {
     await jest.runAllTimersAsync();
 
     // Sequential processing: update and findAll called per domain
-    expect(Keyword.update).toHaveBeenCalledWith(
-      { updating: 1, lastUpdateError: 'false', updatingStartedAt: '2024-06-01T12:00:00.000Z' },
-      { where: { domain: 'enabled.com' } },
-    );
+    expect(keywordRecord.update).toHaveBeenCalledWith({
+      updating: 1,
+      lastUpdateError: 'false',
+      updatingStartedAt: '2024-06-01T12:00:00.000Z',
+    });
     expect(Keyword.findAll).toHaveBeenCalledWith({ where: { domain: 'enabled.com' } });
     expect(refreshAndUpdateKeywords).toHaveBeenCalledWith([keywordRecord], { scraper_type: 'serpapi' });
   });
@@ -125,8 +125,8 @@ describe('/api/cron', () => {
       { get: () => ({ domain: 'second.com', scrapeEnabled: 1 }) },
     ]);
 
-    const firstKeyword = { domain: 'first.com', keyword: 'test1' };
-    const secondKeyword = { domain: 'second.com', keyword: 'test2' };
+    const firstKeyword = { domain: 'first.com', keyword: 'test1', update: jest.fn().mockResolvedValue(undefined), set: jest.fn() };
+    const secondKeyword = { domain: 'second.com', keyword: 'test2', update: jest.fn().mockResolvedValue(undefined), set: jest.fn() };
     
     (Keyword.findAll as jest.Mock)
       .mockResolvedValueOnce([firstKeyword])
@@ -142,15 +142,16 @@ describe('/api/cron', () => {
     await jest.runAllTimersAsync();
 
     // Each domain enqueued separately (can process in parallel via queue)
-    expect(Keyword.update).toHaveBeenCalledTimes(2);
-    expect(Keyword.update).toHaveBeenNthCalledWith(1,
-      { updating: 1, lastUpdateError: 'false', updatingStartedAt: '2024-06-01T12:00:00.000Z' },
-      { where: { domain: 'first.com' } },
-    );
-    expect(Keyword.update).toHaveBeenNthCalledWith(2,
-      { updating: 1, lastUpdateError: 'false', updatingStartedAt: '2024-06-01T12:00:00.000Z' },
-      { where: { domain: 'second.com' } },
-    );
+    expect(firstKeyword.update).toHaveBeenCalledWith({
+      updating: 1,
+      lastUpdateError: 'false',
+      updatingStartedAt: '2024-06-01T12:00:00.000Z',
+    });
+    expect(secondKeyword.update).toHaveBeenCalledWith({
+      updating: 1,
+      lastUpdateError: 'false',
+      updatingStartedAt: '2024-06-01T12:00:00.000Z',
+    });
 
     expect(Keyword.findAll).toHaveBeenCalledTimes(2);
     expect(Keyword.findAll).toHaveBeenNthCalledWith(1, { where: { domain: 'first.com' } });

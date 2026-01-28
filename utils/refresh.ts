@@ -2,7 +2,6 @@
 
 import { performance } from 'perf_hooks';
 import { setTimeout as sleep } from 'timers/promises';
-import { Op } from 'sequelize';
 import Cryptr from 'cryptr';
 import { RefreshResult, removeFromRetryQueue, retryScrape, scrapeKeywordFromGoogle } from './scraper';
 import parseKeywords from './parseKeywords';
@@ -100,24 +99,24 @@ const generateKeywordCacheKey = (keyword: KeywordType): string =>
    `${keyword.keyword}|${keyword.domain}|${keyword.country}|${normalizeLocationForCache(keyword.location)}`;
 
 const clearKeywordUpdatingFlags = async (
-   keywordIds: number[],
+   keywords: Keyword[],
    logContext: string,
    meta?: Record<string, unknown>,
    onlyWhenUpdating = false,
 ): Promise<void> => {
-   if (keywordIds.length === 0) {
+   if (keywords.length === 0) {
       return;
    }
-   const whereClause: { ID: { [Op.in]: number[] }; updating?: number } = {
-      ID: { [Op.in]: keywordIds },
-   };
-   if (onlyWhenUpdating) {
-      whereClause.updating = toDbBool(true);
-   }
    try {
-      await Keyword.update(
-         { updating: toDbBool(false), updatingStartedAt: null },
-         { where: whereClause },
+      await Promise.all(
+         keywords.map((keyword) => {
+            if (onlyWhenUpdating && !fromDbBool(keyword.updating)) {
+               return Promise.resolve();
+            }
+            return keyword
+               .update({ updating: toDbBool(false), updatingStartedAt: null })
+               .then(() => keyword.set({ updating: toDbBool(false), updatingStartedAt: null }));
+         }),
       );
    } catch (error: any) {
       logger.error(`[ERROR] Failed to clear updating flags ${logContext}`, error, meta);
@@ -197,18 +196,14 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
    });
 
    if (skippedKeywords.length > 0) {
-      const skippedIds = skippedKeywords.map((keyword) => keyword.ID);
-      await Keyword.update(
-         { updating: toDbBool(false), updatingStartedAt: null },
-         { where: { ID: { [Op.in]: skippedIds } } },
-      );
+      await clearKeywordUpdatingFlags(skippedKeywords, 'for skipped keywords');
 
       // Use batched removal for better performance and concurrency safety
-      const idsToRemove = new Set(skippedIds);
+      const idsToRemove = new Set(skippedKeywords.map((keyword) => keyword.ID));
       if (idsToRemove.size > 0) {
-        await retryQueueManager.removeBatch(idsToRemove).catch((error: any) => {
-          logger.error('[ERROR] Failed to update retry queue:', error);
-        });
+         await retryQueueManager.removeBatch(idsToRemove).catch((error: any) => {
+            logger.error('[ERROR] Failed to update retry queue:', error);
+         });
       }
    }
 
@@ -281,10 +276,8 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
       // This prevents UI spinner from getting stuck if an unexpected error occurs
       const keywordIdsToCleanup = eligibleKeywordIds;
       try {
-         await Keyword.update(
-            { updating: toDbBool(false), updatingStartedAt: null },
-            { where: { ID: { [Op.in]: keywordIdsToCleanup } } }
-         );
+         const keywordModelsToCleanup = eligibleKeywordModels.filter((keyword) => keywordIdsToCleanup.includes(keyword.ID));
+         await clearKeywordUpdatingFlags(keywordModelsToCleanup, 'after refresh error');
       } catch (cleanupError: any) {
          logger.error('[ERROR] Failed to cleanup updating flags after error:', cleanupError);
       }
@@ -299,7 +292,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
    // Final safety net: clear updating flag for any keywords that are still marked as updating
    // This handles edge cases where updateKeywordPosition was never called
    // The onlyWhenUpdating=true flag ensures we only touch keywords still marked as updating
-   await clearKeywordUpdatingFlags(eligibleKeywordIds, 'after refresh', undefined, true);
+   await clearKeywordUpdatingFlags(eligibleKeywordModels, 'after refresh', undefined, true);
 
    // Update domain stats for all affected domains after keyword updates
    if (updatedKeywords.length > 0) {
@@ -371,7 +364,7 @@ const refreshAndUpdateKeyword = async (
          });
       }
 
-      await Keyword.update(updateData, { where: { ID: keyword.ID } });
+      await keyword.update(updateData);
       logger.info('Keyword updating flag cleared after scraper error', { keywordId: keyword.ID, error: scraperError });
       keyword.set(updateData);
    } catch (updateError: any) {
@@ -495,6 +488,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
 
       try {
          await keywordRaw.update(dbPayload);
+         keywordRaw.set(dbPayload);
          // Log when updating flag is cleared to help debug UI issues
          logger.info('Keyword updating flag cleared', {
             keywordId: keyword.ID,
@@ -542,7 +536,8 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
       } catch (error: any) {
          logger.error('[ERROR] Updating SERP for Keyword', error, { keyword: keyword.keyword });
          try {
-            await Keyword.update({ updating: toDbBool(false), updatingStartedAt: null }, { where: { ID: keyword.ID } });
+            await keywordRaw.update({ updating: toDbBool(false), updatingStartedAt: null });
+            keywordRaw.set({ updating: toDbBool(false), updatingStartedAt: null });
          } catch (cleanupError: any) {
             logger.error('[ERROR] Failed to clear updating flag after update failure', cleanupError, { keywordId: keyword.ID });
          }
