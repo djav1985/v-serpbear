@@ -115,11 +115,12 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
 
       if (skippedKeywords.length > 0) {
          await Promise.all(
-            skippedKeywords.map((keyword) =>
-               keyword
-                  .update({ updating: toDbBool(false), updatingStartedAt: null })
-                  .then(() => keyword.set({ updating: toDbBool(false), updatingStartedAt: null })),
-            ),
+            skippedKeywords.map(async (keyword) => {
+               await keyword.update({ updating: toDbBool(false), updatingStartedAt: null });
+               if (typeof keyword.reload === 'function') {
+                  await keyword.reload();
+               }
+            }),
          );
       }
 
@@ -141,11 +142,12 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
       const keywordIdsToRefresh = keywordsToRefresh.map((keyword) => keyword.ID);
       const now = new Date().toJSON();
       await Promise.all(
-         keywordsToRefresh.map((keyword) =>
-            keyword
-               .update({ updating: toDbBool(true), lastUpdateError: 'false', updatingStartedAt: now })
-               .then(() => keyword.set({ updating: toDbBool(true), lastUpdateError: 'false', updatingStartedAt: now })),
-         ),
+         keywordsToRefresh.map(async (keyword) => {
+            await keyword.update({ updating: toDbBool(true), lastUpdateError: 'false', updatingStartedAt: now });
+            if (typeof keyword.reload === 'function') {
+               await keyword.reload();
+            }
+         }),
       );
 
       const taskId = req.query.id === 'all' ? `manual-refresh-domain-${domain}` : `manual-refresh-ids-${keywordIdsToRefresh.join(',')}`;
@@ -164,11 +166,12 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
                logger.error('[REFRESH] ERROR refreshAndUpdateKeywords: ', refreshError instanceof Error ? refreshError : new Error(message), { keywordIds: keywordIdsToRefresh });
                // Ensure flags are cleared on error
                await Promise.all(
-                  keywordsToRefresh.map((keyword) =>
-                     keyword
-                        .update({ updating: toDbBool(false), updatingStartedAt: null })
-                        .then(() => keyword.set({ updating: toDbBool(false), updatingStartedAt: null })),
-                  ),
+                  keywordsToRefresh.map(async (keyword) => {
+                     await keyword.update({ updating: toDbBool(false), updatingStartedAt: null });
+                     if (typeof keyword.reload === 'function') {
+                        await keyword.reload();
+                     }
+                  }),
                ).catch((updateError) => {
                   logger.error('[REFRESH] Failed to clear updating flags after error: ', updateError instanceof Error ? updateError : new Error(String(updateError)));
                });
