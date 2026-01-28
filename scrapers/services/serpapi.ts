@@ -10,6 +10,10 @@ interface SerpApiResult {
   position: number;
 }
 
+type SerpApiResponse = {
+  organic_results?: SerpApiResult[];
+};
+
 const serpapi: ScraperSettings = {
   id: "serpapi",
   name: "SerpApi.com",
@@ -62,6 +66,7 @@ const serpapi: ScraperSettings = {
   resultObjectKey: "organic_results",
   serpExtractor: ({ result, response, keyword, settings }) => {
     const extractedResult = [];
+    const typedResponse = response as SerpApiResponse | undefined;
     let results: SerpApiResult[] = [];
 
     if (typeof result === "string") {
@@ -76,8 +81,8 @@ const serpapi: ScraperSettings = {
       }
     } else if (Array.isArray(result)) {
       results = result as SerpApiResult[];
-    } else if (Array.isArray(response?.organic_results)) {
-      results = response.organic_results as SerpApiResult[];
+    } else if (Array.isArray(typedResponse?.organic_results)) {
+      results = typedResponse?.organic_results ?? [];
     }
 
     for (const { link, title, position } of results) {
