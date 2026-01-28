@@ -8,6 +8,10 @@ interface SerplyResult {
    realPosition: number,
 }
 
+type SerplyResponse = {
+   result?: SerplyResult[];
+};
+
 const SERPLY_COUNTRIES = ['US', 'CA', 'IE', 'GB', 'FR', 'DE', 'SE', 'IN', 'JP', 'KR', 'SG', 'AU', 'BR'];
 
 const serply:ScraperSettings = {
@@ -37,6 +41,7 @@ const serply:ScraperSettings = {
    supportsMapPack: true,
    serpExtractor: ({ result, response, keyword, settings }) => {
       const extractedResult = [];
+      const typedResponse = response as SerplyResponse | undefined;
       let results: SerplyResult[] = [];
       if (typeof result === 'string') {
          try {
@@ -46,8 +51,8 @@ const serply:ScraperSettings = {
          }
       } else if (Array.isArray(result)) {
          results = result as SerplyResult[];
-      } else if (Array.isArray(response?.result)) {
-         results = response.result as SerplyResult[];
+      } else if (Array.isArray(typedResponse?.result)) {
+         results = typedResponse?.result ?? [];
       }
       for (const item of results) {
          if (item?.title && item?.link) {
