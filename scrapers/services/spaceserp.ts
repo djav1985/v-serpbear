@@ -11,6 +11,10 @@ interface SpaceSerpResult {
    position: number
 }
 
+type SpaceSerpResponse = {
+   organic_results?: SpaceSerpResult[];
+};
+
 const spaceSerp:ScraperSettings = {
    id: 'spaceSerp',
    name: 'Space Serp',
@@ -32,6 +36,7 @@ const spaceSerp:ScraperSettings = {
    supportsMapPack: true,
    serpExtractor: ({ result, response, keyword, settings }) => {
       const extractedResult = [];
+      const typedResponse = response as SpaceSerpResponse | undefined;
       let results: SpaceSerpResult[] = [];
       if (typeof result === 'string') {
          try {
@@ -41,8 +46,8 @@ const spaceSerp:ScraperSettings = {
          }
       } else if (Array.isArray(result)) {
          results = result as SpaceSerpResult[];
-      } else if (Array.isArray(response?.organic_results)) {
-         results = response.organic_results as SpaceSerpResult[];
+      } else if (Array.isArray(typedResponse?.organic_results)) {
+         results = typedResponse?.organic_results ?? [];
       }
       for (const item of results) {
          if (item?.title && item?.link) {
