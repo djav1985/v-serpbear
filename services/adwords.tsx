@@ -111,12 +111,19 @@ export function useMutateKeywordIdeas(router:NextRouter, onSuccess?: Function) {
       if (!isOk) {
          const errorMessage = typeof responsePayload === 'string'
             ? responsePayload
-            : (responsePayload as any)?.error || (responsePayload as any)?.message || `Server error (${res.status}): Please try again later`;
+            : (responsePayload && typeof responsePayload === 'object' && 'error' in responsePayload
+               ? String((responsePayload as { error?: string }).error || '')
+               : responsePayload && typeof responsePayload === 'object' && 'message' in responsePayload
+                  ? String((responsePayload as { message?: string }).message || '')
+                  : `Server error (${res.status}): Please try again later`);
          throw new Error(errorMessage);
       }
 
-      if ((responsePayload as any)?.error) {
-         throw new Error((responsePayload as any).error);
+      if (responsePayload && typeof responsePayload === 'object' && 'error' in responsePayload) {
+         const payload = responsePayload as { error?: string };
+         if (payload.error) {
+            throw new Error(payload.error);
+         }
       }
 
       return responsePayload;

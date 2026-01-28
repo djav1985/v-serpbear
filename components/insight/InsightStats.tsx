@@ -1,9 +1,10 @@
 import React, { useMemo } from 'react';
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
-import { Line } from 'react-chartjs-2';
+import dynamic from 'next/dynamic';
 import { formattedNum } from '../../utils/client/helpers';
+import { CHART_DATASET_KEY_INSIGHT } from '../../utils/constants';
+import { ensureChartJsRegistered } from '../../utils/chartjs';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
+const Line = dynamic(() => import('react-chartjs-2').then((mod) => mod.Line), { ssr: false });
 
 type InsightStatsProps = {
    stats: SearchAnalyticsStat[],
@@ -41,6 +42,7 @@ const InsightStats = ({ stats = [], totalKeywords = 0, totalPages = 0 }:InsightS
    }, [stats]);
 
    const renderChart = () => {
+      ensureChartJsRegistered();
       // Doc: https://www.chartjs.org/docs/latest/samples/line/multi-axis.html
       const chartOptions = {
          responsive: true,
@@ -75,8 +77,8 @@ const InsightStats = ({ stats = [], totalKeywords = 0, totalPages = 0 }:InsightS
          { label: 'Visits', data: clicks, borderColor: 'rgb(117, 50, 205)', backgroundColor: 'rgba(117, 50, 205, 0.5)', yAxisID: 'y' },
          { label: 'Impressions', data: impressions, borderColor: 'rgb(31, 205, 176)', backgroundColor: 'rgba(31, 205, 176, 0.5)', yAxisID: 'y1' },
       ];
-      return <Line datasetIdKey={'xxx'} options={chartOptions} data={{ labels: chartData.labels, datasets: dataSet }} />;
-   };
+       return <Line datasetIdKey={CHART_DATASET_KEY_INSIGHT} options={chartOptions} data={{ labels: chartData.labels, datasets: dataSet }} />;
+    };
 
    return (
       <div className='p-6 lg:border-t lg:border-gray-200'>

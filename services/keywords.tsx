@@ -2,44 +2,36 @@ import toast from 'react-hot-toast';
 import { NextRouter } from 'next/router';
 import { useMutation, useQuery, useQueryClient } from 'react-query';
 import { getClientOrigin } from '../utils/client/origin';
+import { normalizeBooleanFlag } from '../utils/boolean';
 
 type KeywordsResponse = {
    keywords?: KeywordType[]
+   pagination?: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+   };
    [key: string]: unknown,
 };
 
-const normaliseKeywordFlag = (value: unknown): boolean => {
-   if (typeof value === 'boolean') {
-      return value;
-   }
-
-   if (typeof value === 'number') {
-      // Treat any non-zero number as true, 0 as false (handles DB integer flags like 0/1)
-      return value !== 0;
-   }
-
-   if (typeof value === 'string') {
-      const normalised = value.trim().toLowerCase();
-      if (normalised === 'true' || normalised === '1') {
-         return true;
-      }
-      if (normalised === 'false' || normalised === '0' || normalised === '') {
-         return false;
-      }
-   }
-
-   // Fallback: use standard truthiness for any other types
-   return Boolean(value);
+type KeywordFlagCarrier = {
+   updating?: unknown;
+   sticky?: unknown;
+   mapPackTop3?: unknown;
+   [key: string]: unknown;
 };
-const normaliseKeywordFlags = (keyword: unknown): KeywordType => {
-   if (typeof keyword !== 'object' || keyword === null) {
+
+const normalizeKeywordFlags = (keyword: unknown): KeywordType => {
+   if (!keyword || typeof keyword !== 'object') {
       throw new Error('Invalid keyword object');
    }
+   const candidate = keyword as KeywordFlagCarrier;
    return {
-      ...(keyword as Record<string, unknown>),
-      updating: normaliseKeywordFlag((keyword as any)?.updating),
-      sticky: normaliseKeywordFlag((keyword as any)?.sticky),
-      mapPackTop3: normaliseKeywordFlag((keyword as any)?.mapPackTop3),
+      ...candidate,
+      updating: normalizeBooleanFlag(candidate.updating),
+      sticky: normalizeBooleanFlag(candidate.sticky),
+      mapPackTop3: normalizeBooleanFlag(candidate.mapPackTop3),
    } as KeywordType;
 };
 
@@ -73,7 +65,7 @@ export const fetchKeywords = async (router: NextRouter, domain: string) => {
    if (!Array.isArray(data.keywords)) { return data; }
    return {
       ...data,
-      keywords: data.keywords.map((keyword) => normaliseKeywordFlags(keyword)),
+      keywords: data.keywords.map((keyword) => normalizeKeywordFlags(keyword)),
    };
 };
 
@@ -327,7 +319,7 @@ export function useFetchSingleKeyword(keywordID:number) {
             history: result.keyword?.history || [], 
             searchResult: result.keyword?.lastResult || [], 
             localResults: result.keyword?.localResults || [],
-            mapPackTop3: normaliseKeywordFlag(result.keyword?.mapPackTop3),
+            mapPackTop3: normalizeBooleanFlag(result.keyword?.mapPackTop3),
          };
       } catch (error) {
          if (error instanceof Error && error.message !== 'Error Loading Keyword Details') {

@@ -18,6 +18,12 @@ import { refreshQueue } from '../../utils/refreshQueue';
 
 type KeywordsGetResponse = {
    keywords?: KeywordType[],
+   pagination?: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+   };
    error?: string|null,
    details?: string,
 }
@@ -60,6 +66,9 @@ const getKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
       return res.status(400).json({ error: 'Domain is Required!' });
    }
    const domain = (req.query.domain as string);
+   const page = req.query.page && typeof req.query.page === 'string' ? Math.max(1, parseInt(req.query.page, 10) || 1) : 1;
+   const limit = req.query.limit && typeof req.query.limit === 'string' ? Math.max(1, Math.min(parseInt(req.query.limit, 10) || 100, 500)) : 100;
+   const offset = (page - 1) * limit;
 
    try {
       const settings = await getAppSettings();
@@ -69,8 +78,13 @@ const getKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
          ? await readLocalSCData(domain)
          : false;
 
-      const allKeywords:Keyword[] = await Keyword.findAll({ where: { domain } });
-      const keywords: KeywordType[] = parseKeywords(allKeywords.map((e) => e.get({ plain: true })));
+       const allKeywords:Keyword[] = await Keyword.findAll({
+          where: { domain },
+          order: [['ID', 'ASC']],
+          limit,
+          offset,
+       });
+       const keywords: KeywordType[] = parseKeywords(allKeywords.map((e) => e.get({ plain: true })));
       const processedKeywords = keywords.map((keyword) => {
          const historyArray = Object.keys(keyword.history).map((dateKey:string) => ({
             date: new Date(dateKey).getTime(),
@@ -84,7 +98,16 @@ const getKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
          const finalKeyword = domainSCData ? integrateKeywordSCData(keywordWithSlimHistory, domainSCData) : keywordWithSlimHistory;
          return finalKeyword;
       });
-      return res.status(200).json({ keywords: processedKeywords });
+       const total = await Keyword.count({ where: { domain } });
+       return res.status(200).json({
+          keywords: processedKeywords,
+          pagination: {
+             page,
+             limit,
+             total,
+             totalPages: Math.max(1, Math.ceil(total / limit)),
+          },
+       });
    } catch (error) {
       logger.error(`Error getting domain keywords for: ${domain}`, error instanceof Error ? error : new Error(String(error)));
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -180,23 +203,24 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
       return res.status(400).json({ error: 'Too many keywords', details: 'Maximum 100 keywords can be added at once' });
    }
 
-   const keywordsToAdd: Array<{
-      keyword: string;
-      device: string;
-      domain: string;
-      country: string;
-      location: string;
-      position: number;
-      updating: boolean;
-      history: string;
-      lastResult: string;
-      url: string;
-      tags: string;
-      sticky: boolean;
-      lastUpdated: string;
-      added: string;
-      mapPackTop3: boolean;
-   }> = [];
+    const keywordsToAdd: Array<{
+       keyword: string;
+       device: string;
+       domain: string;
+       country: string;
+       location: string;
+       position: number;
+       updating: number;
+       updatingStartedAt: string;
+       history: string;
+       lastResult: string;
+       url: string;
+       tags: string;
+       sticky: number;
+       lastUpdated: string;
+       added: string;
+       mapPackTop3: number;
+    }> = [];
    const validationErrors: string[] = [];
 
    const now = new Date().toJSON();
@@ -220,24 +244,24 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
          }
       });
 
-      const newKeyword = {
-         keyword,
-         device,
-         domain,
-         country,
-         location,
-         position: 0,
-         updating: toDbBool(true),
-         updatingStartedAt: now,
-         history: JSON.stringify({}),
-         lastResult: JSON.stringify([]),
-         url: '',
-         tags: JSON.stringify(dedupedTags.slice(0, 10)), // Limit to 10 tags
-         sticky: toDbBool(false),
-         lastUpdated: now,
-         added: now,
-         mapPackTop3: toDbBool(false),
-      } as any;
+       const newKeyword = {
+          keyword,
+          device,
+          domain,
+          country,
+          location,
+          position: 0,
+          updating: toDbBool(true),
+          updatingStartedAt: now,
+          history: JSON.stringify({}),
+          lastResult: JSON.stringify([]),
+          url: '',
+          tags: JSON.stringify(dedupedTags.slice(0, 10)), // Limit to 10 tags
+          sticky: toDbBool(false),
+          lastUpdated: now,
+          added: now,
+          mapPackTop3: toDbBool(false),
+       };
       keywordsToAdd.push(newKeyword);
    });
    
@@ -253,7 +277,7 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
    }
 
    try {
-      await Keyword.bulkCreate(keywordsToAdd as any);
+       await Keyword.bulkCreate(keywordsToAdd);
       
       // Reload keywords from DB to ensure IDs are populated
       // Build a query to find the just-created keywords by their unique combination of keyword+device+domain

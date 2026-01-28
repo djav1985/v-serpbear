@@ -10,6 +10,7 @@ import { readFile, writeFile, unlink } from 'fs/promises';
 import * as path from 'path';
 import { countryAlphaTwoCodes } from './countries';
 import { logger } from './logger';
+import { DEVICE_DESKTOP } from './constants';
 import { safeJsonParse } from './safeJsonParse';
 
 dayjs.extend(utc);
@@ -187,7 +188,7 @@ export const fetchDomainSCData = async (
 export const parseSearchConsoleItem = (SCItem: SearchAnalyticsRawItem, domainName: string): SearchAnalyticsItem => {
    const { clicks = 0, impressions = 0, ctr = 0, position = 0 } = SCItem;
    const keyword = SCItem.keys[0];
-   const device = SCItem.keys[1] ? SCItem.keys[1].toLowerCase() : 'desktop';
+   const device = SCItem.keys[1] ? SCItem.keys[1].toLowerCase() : DEVICE_DESKTOP;
    const countryCode = SCItem.keys[2] ? SCItem.keys[2].toUpperCase() : 'ZZ';
    const country = countryAlphaTwoCodes[countryCode] || countryCode;
    const rawPage = SCItem.keys[3] || '';

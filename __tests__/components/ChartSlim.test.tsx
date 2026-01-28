@@ -17,6 +17,11 @@ jest.mock('react-chartjs-2', () => ({
    },
 }));
 
+jest.mock('next/dynamic', () => () => {
+   const { Line } = require('react-chartjs-2');
+   return (props: any) => Line(props);
+});
+
 describe('ChartSlim Component', () => {
    beforeEach(() => {
       lineMock.mockClear();

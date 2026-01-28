@@ -2,12 +2,17 @@ import countries, { getGoogleDomain } from '../../utils/countries';
 import { resolveCountryCode } from '../../utils/scraperHelpers';
 import { parseLocation } from '../../utils/location';
 import { computeMapPackTop3 } from '../../utils/mapPack';
+import { DEVICE_MOBILE } from '../../utils/constants';
 
 interface SearchApiResult {
    title: string,
    link: string,
    position: number,
  }
+
+type SearchApiResponse = {
+   organic_results?: SearchApiResult[];
+};
 
 const searchapi:ScraperSettings = {
   id: 'searchapi',
@@ -50,8 +55,8 @@ const searchapi:ScraperSettings = {
       if (locationParts.length) {
          params.set('location', locationParts.join(','));
       }
-      if (keyword.device === 'mobile') {
-         params.set('device', 'mobile');
+      if (keyword.device === DEVICE_MOBILE) {
+         params.set('device', DEVICE_MOBILE);
       }
       params.set('gl', country.toLowerCase());
       params.set('hl', lang);
@@ -62,9 +67,10 @@ const searchapi:ScraperSettings = {
       return `https://www.searchapi.io/api/v1/search?${params.toString()}`;
    },
   resultObjectKey: 'organic_results',
-  serpExtractor: ({ result, response, keyword, settings }) => {
-     const extractedResult = [];
-     let results: SearchApiResult[] = [];
+   serpExtractor: ({ result, response, keyword, settings }) => {
+      const extractedResult = [];
+      const typedResponse = response as SearchApiResponse | undefined;
+      let results: SearchApiResult[] = [];
      if (typeof result === 'string') {
         try {
            results = JSON.parse(result) as SearchApiResult[];
@@ -73,9 +79,9 @@ const searchapi:ScraperSettings = {
         }
      } else if (Array.isArray(result)) {
         results = result as SearchApiResult[];
-     } else if (Array.isArray(response?.organic_results)) {
-        results = response.organic_results as SearchApiResult[];
-     }
+      } else if (Array.isArray(typedResponse?.organic_results)) {
+         results = typedResponse?.organic_results ?? [];
+      }
 
      for (const { link, title, position } of results) {
         if (title && link) {
@@ -87,8 +93,8 @@ const searchapi:ScraperSettings = {
         }
      }
 
-     const businessName = (settings as any)?.business_name ?? null;
-     const mapPackTop3 = computeMapPackTop3(keyword.domain, response, businessName);
+      const businessName = settings?.business_name ?? null;
+      const mapPackTop3 = computeMapPackTop3(keyword.domain, response, businessName);
 
      return { organic: extractedResult, mapPackTop3 };
   },

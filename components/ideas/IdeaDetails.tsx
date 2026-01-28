@@ -8,6 +8,7 @@ import Chart from '../common/Chart';
 import useOnKey from '../../hooks/useOnKey';
 import { formattedNum } from '../../utils/client/helpers';
 import { fetchSearchResults } from '../../services/keywords';
+import { DEVICE_DESKTOP } from '../../utils/constants';
 
 type IdeaDetailsProps = {
    keyword: IdeaKeyword,
@@ -26,7 +27,7 @@ const IdeaDetails = ({ keyword, closeDetails }:IdeaDetailsProps) => {
    const updatedDate = new Date(keyword.updated);
    const searchResultContainer = useRef<HTMLDivElement>(null);
    const searchResultFound = useRef<HTMLDivElement>(null);
-   const searchResultReqPayload = { keyword: keyword.keyword, country: keyword.country, device: 'desktop' };
+   const searchResultReqPayload = { keyword: keyword.keyword, country: keyword.country, device: DEVICE_DESKTOP };
    const { data: keywordSearchResultData, refetch: fetchKeywordSearchResults, isLoading: fetchingResult } = useQuery(
    `ideas:${keyword.uid}`,
       () => fetchSearchResults(router, searchResultReqPayload),

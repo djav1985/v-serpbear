@@ -15,6 +15,10 @@ interface SerperResult {
   position: number;
 }
 
+type SerperResponse = {
+  organic?: SerperResult[];
+};
+
 const serper: ScraperSettings = {
   id: "serper",
   name: "Serper.dev",
@@ -55,6 +59,7 @@ const serper: ScraperSettings = {
   resultObjectKey: "organic",
   serpExtractor: ({ result, response }) => {
     const extractedResult = [];
+    const typedResponse = response as SerperResponse | undefined;
     let results: SerperResult[] = [];
 
     if (typeof result === "string") {
@@ -69,8 +74,8 @@ const serper: ScraperSettings = {
       }
     } else if (Array.isArray(result)) {
       results = result as SerperResult[];
-    } else if (Array.isArray(response?.organic)) {
-      results = response.organic as SerperResult[];
+    } else if (Array.isArray(typedResponse?.organic)) {
+      results = typedResponse?.organic ?? [];
     }
 
     for (const { link, title, position } of results) {

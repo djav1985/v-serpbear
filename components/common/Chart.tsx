@@ -1,9 +1,10 @@
 import React from 'react';
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
-import { Line } from 'react-chartjs-2';
+import dynamic from 'next/dynamic';
 import { calculateChartBounds } from '../../utils/client/chartBounds';
+import { CHART_DATASET_KEY_MAIN } from '../../utils/constants';
+import { ensureChartJsRegistered } from '../../utils/chartjs';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
+const Line = dynamic(() => import('react-chartjs-2').then((mod) => mod.Line), { ssr: false });
 
 type ChartProps = {
    labels: string[];
@@ -13,6 +14,7 @@ type ChartProps = {
 };
 
 const Chart = ({ labels, series, reverse = true, noMaxLimit = false }: ChartProps) => {
+   ensureChartJsRegistered();
    const { min, max } = calculateChartBounds(series, { reverse, noMaxLimit });
    const options = {
       responsive: true,
@@ -34,7 +36,7 @@ const Chart = ({ labels, series, reverse = true, noMaxLimit = false }: ChartProp
 
    return (
       <Line
-         datasetIdKey="XXX"
+         datasetIdKey={CHART_DATASET_KEY_MAIN}
          options={options}
          data={{
             labels,

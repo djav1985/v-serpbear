@@ -16,7 +16,7 @@ const useUpdateSettingsMock = useUpdateSettings as jest.Mock;
 const useClearFailedQueueMock = useClearFailedQueue as jest.Mock;
 const mockUseBranding = useBranding as jest.MockedFunction<typeof useBranding>;
 
-describe('Settings scraper reload behaviour', () => {
+describe('Settings scraper reload behavior', () => {
    const closeSettings = jest.fn();
    let queryClient: QueryClient;
    const renderComponent = () => render(

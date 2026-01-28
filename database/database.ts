@@ -11,9 +11,9 @@ const connection = new Sequelize({
    database: 'sequelize',
    dialectModule: sqliteDialect,
    pool: {
-      max: 5,
+      max: 12,
       min: 0,
-      idle: 10000,
+      idle: 5000,
    },
    logging: false,
    models: [Domain, Keyword],
