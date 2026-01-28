@@ -7,6 +7,7 @@ import allScrapers from '../scrapers/index';
 import {
    BASE_SCRAPER_TIMEOUT_MS,
    DEFAULT_SCRAPER_TIMEOUT_MS,
+   DEVICE_DESKTOP,
    DEVICE_MOBILE,
    GOOGLE_BASE_URL,
    MAX_RETRY_DELAY_MS,
