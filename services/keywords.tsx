@@ -6,6 +6,12 @@ import { normalizeBooleanFlag } from '../utils/boolean';
 
 type KeywordsResponse = {
    keywords?: KeywordType[]
+   pagination?: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+   };
    [key: string]: unknown,
 };
 

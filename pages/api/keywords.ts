@@ -18,6 +18,12 @@ import { refreshQueue } from '../../utils/refreshQueue';
 
 type KeywordsGetResponse = {
    keywords?: KeywordType[],
+   pagination?: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+   };
    error?: string|null,
    details?: string,
 }
@@ -60,6 +66,9 @@ const getKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
       return res.status(400).json({ error: 'Domain is Required!' });
    }
    const domain = (req.query.domain as string);
+   const page = req.query.page && typeof req.query.page === 'string' ? Math.max(1, parseInt(req.query.page, 10) || 1) : 1;
+   const limit = req.query.limit && typeof req.query.limit === 'string' ? Math.max(1, Math.min(parseInt(req.query.limit, 10) || 100, 500)) : 100;
+   const offset = (page - 1) * limit;
 
    try {
       const settings = await getAppSettings();
@@ -69,8 +78,13 @@ const getKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
          ? await readLocalSCData(domain)
          : false;
 
-      const allKeywords:Keyword[] = await Keyword.findAll({ where: { domain } });
-      const keywords: KeywordType[] = parseKeywords(allKeywords.map((e) => e.get({ plain: true })));
+       const allKeywords:Keyword[] = await Keyword.findAll({
+          where: { domain },
+          order: [['ID', 'ASC']],
+          limit,
+          offset,
+       });
+       const keywords: KeywordType[] = parseKeywords(allKeywords.map((e) => e.get({ plain: true })));
       const processedKeywords = keywords.map((keyword) => {
          const historyArray = Object.keys(keyword.history).map((dateKey:string) => ({
             date: new Date(dateKey).getTime(),
@@ -84,7 +98,16 @@ const getKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
          const finalKeyword = domainSCData ? integrateKeywordSCData(keywordWithSlimHistory, domainSCData) : keywordWithSlimHistory;
          return finalKeyword;
       });
-      return res.status(200).json({ keywords: processedKeywords });
+       const total = await Keyword.count({ where: { domain } });
+       return res.status(200).json({
+          keywords: processedKeywords,
+          pagination: {
+             page,
+             limit,
+             total,
+             totalPages: Math.max(1, Math.ceil(total / limit)),
+          },
+       });
    } catch (error) {
       logger.error(`Error getting domain keywords for: ${domain}`, error instanceof Error ? error : new Error(String(error)));
       const message = error instanceof Error ? error.message : 'Unknown error';
