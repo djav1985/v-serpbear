@@ -213,7 +213,7 @@ export const scrapeKeywordFromGoogle = async (keyword:KeywordType, settings:Sett
       try {
           const res = scraperType === 'proxy' && settings.proxy
              ? await scraperClient
-             : await scraperClient.then((reslt) => reslt.json());
+             : await scraperClient.then((reslt) => (reslt as Response).json());
 
          // Check response status and success indicators
           if (hasScraperError(res)) {
