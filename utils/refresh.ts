@@ -415,7 +415,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
       const { history } = keyword;
       history[dateKey] = newPos;
 
-      const normalizeResult = (result: any): string => {
+       const normalizeResult = (result: any): string => {
          if (result === undefined || result === null) {
             return '[]';
          }
@@ -427,7 +427,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          try {
             return JSON.stringify(result);
          } catch (error: any) {
-            logger.debug('Failed to serialise keyword result', { error });
+            logger.debug('Failed to serialize keyword result', { error });
             return '[]';
          }
       };
@@ -441,7 +441,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          parsedNormalizedResult = [];
       }
 
-      const normalizeLocalResults = (results: any): string => {
+       const normalizeLocalResults = (results: any): string => {
          if (results === undefined || results === null) {
             return JSON.stringify([]);
          }
@@ -453,7 +453,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          try {
             return JSON.stringify(results);
          } catch (error: any) {
-            logger.debug('Failed to serialise local results', { error });
+            logger.debug('Failed to serialize local results', { error });
             return JSON.stringify([]);
          }
       };

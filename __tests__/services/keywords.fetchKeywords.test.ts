@@ -6,7 +6,7 @@ jest.mock('../../utils/client/origin', () => ({
 
 import { fetchKeywords } from '../../services/keywords';
 
-describe('fetchKeywords normalisation', () => {
+describe('fetchKeywords normalization', () => {
    const originalFetch = global.fetch;
    const originalLocation = window.location;
 
