@@ -75,7 +75,7 @@ const serper: ScraperSettings = {
     } else if (Array.isArray(result)) {
       results = result as SerperResult[];
     } else if (Array.isArray(typedResponse?.organic)) {
-      results = typedResponse.organic;
+      results = typedResponse?.organic ?? [];
     }
 
     for (const { link, title, position } of results) {

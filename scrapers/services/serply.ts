@@ -52,7 +52,7 @@ const serply:ScraperSettings = {
       } else if (Array.isArray(result)) {
          results = result as SerplyResult[];
       } else if (Array.isArray(typedResponse?.result)) {
-         results = typedResponse.result;
+         results = typedResponse?.result ?? [];
       }
       for (const item of results) {
          if (item?.title && item?.link) {

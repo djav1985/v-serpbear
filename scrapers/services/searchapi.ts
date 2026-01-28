@@ -80,7 +80,7 @@ const searchapi:ScraperSettings = {
      } else if (Array.isArray(result)) {
         results = result as SearchApiResult[];
       } else if (Array.isArray(typedResponse?.organic_results)) {
-         results = typedResponse.organic_results;
+         results = typedResponse?.organic_results ?? [];
       }
 
      for (const { link, title, position } of results) {
