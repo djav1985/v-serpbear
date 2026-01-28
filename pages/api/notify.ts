@@ -167,8 +167,8 @@ const sendNotificationEmail = async (domain: DomainType, settings: SettingsType)
       const keywords: KeywordType[] = parseKeywords(keywordsArray);
       
       // Calculate domain stats to ensure email shows correct tracker summary
-      const domainsWithStats = await getdomainStats([domainObj]);
-      const domainWithStats = domainsWithStats[0] || domainObj;
+      const domainsWithStats = await getdomainStats([domain]);
+      const domainWithStats = domainsWithStats[0] || domain;
       
       const emailHTML = await generateEmail(domainWithStats, keywords, settings);
 
