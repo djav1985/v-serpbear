@@ -349,7 +349,7 @@ describe('refreshAndUpdateKeywords', () => {
     expect(retryQueueManager.removeBatch).toHaveBeenCalledWith(expect.any(Set));
   });
 
-  it('normalises undefined scraper results before persisting', async () => {
+  it('normalizes undefined scraper results before persisting', async () => {
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
     const mockPlainKeyword = {
@@ -408,7 +408,7 @@ describe('refreshAndUpdateKeywords', () => {
     consoleSpy.mockRestore();
   });
 
-  it('normalises array scraper results correctly', async () => {
+  it('normalizes array scraper results correctly', async () => {
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
     const mockPlainKeyword = {
@@ -586,7 +586,7 @@ describe('refreshAndUpdateKeywords', () => {
     }
   });
 
-  it('normalises legacy array history payloads before persisting new entries', async () => {
+  it('normalizes legacy array history payloads before persisting new entries', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2024-05-20T12:00:00.000Z'));
 
     const mockPlainKeyword = {

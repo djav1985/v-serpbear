@@ -12,6 +12,7 @@ import SCKeyword from './SCKeyword';
 import useWindowResize from '../../hooks/useWindowResize';
 import useIsMobile from '../../hooks/useIsMobile';
 import { formattedNum } from '../../utils/client/helpers';
+import { DEVICE_DESKTOP } from '../../utils/constants';
 import { formatLocation } from '../../utils/location';
 
 type SCKeywordsTableProps = {
@@ -29,7 +30,7 @@ type SCCountryDataType = {
 
 const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleIntegrated = true }: SCKeywordsTableProps) => {
    const router = useRouter();
-   const [device, setDevice] = useState<string>('desktop');
+   const [device, setDevice] = useState<string>(DEVICE_DESKTOP);
    const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
    const [filterParams, setFilterParams] = useState<KeywordFilters>({ countries: [], tags: [], search: '' });
    const [sortBy, setSortBy] = useState<string>('imp_desc');

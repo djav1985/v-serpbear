@@ -8,6 +8,7 @@ import ScraperSettings from './ScraperSettings';
 import useOnKey from '../../hooks/useOnKey';
 import IntegrationSettings from './IntegrationSettings';
 import { DEFAULT_BRANDING } from '../../utils/branding';
+import { DEFAULT_REFRESH_BATCH_SIZE } from '../../utils/constants';
 import { useBranding } from '../../hooks/useBranding';
 
 type SettingsProps = {
@@ -23,6 +24,7 @@ type SettingsError = {
 export const createDefaultSettings = (platformName: string): SettingsType => ({
    scraper_type: 'none',
    scrape_delay: 'none',
+   refresh_batch_size: DEFAULT_REFRESH_BATCH_SIZE,
    scrape_retry: false,
    notification_interval: 'daily',
    notification_email: '',

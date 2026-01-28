@@ -180,23 +180,24 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
       return res.status(400).json({ error: 'Too many keywords', details: 'Maximum 100 keywords can be added at once' });
    }
 
-   const keywordsToAdd: Array<{
-      keyword: string;
-      device: string;
-      domain: string;
-      country: string;
-      location: string;
-      position: number;
-      updating: boolean;
-      history: string;
-      lastResult: string;
-      url: string;
-      tags: string;
-      sticky: boolean;
-      lastUpdated: string;
-      added: string;
-      mapPackTop3: boolean;
-   }> = [];
+    const keywordsToAdd: Array<{
+       keyword: string;
+       device: string;
+       domain: string;
+       country: string;
+       location: string;
+       position: number;
+       updating: number;
+       updatingStartedAt: string;
+       history: string;
+       lastResult: string;
+       url: string;
+       tags: string;
+       sticky: number;
+       lastUpdated: string;
+       added: string;
+       mapPackTop3: number;
+    }> = [];
    const validationErrors: string[] = [];
 
    const now = new Date().toJSON();
@@ -220,24 +221,24 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
          }
       });
 
-      const newKeyword = {
-         keyword,
-         device,
-         domain,
-         country,
-         location,
-         position: 0,
-         updating: toDbBool(true),
-         updatingStartedAt: now,
-         history: JSON.stringify({}),
-         lastResult: JSON.stringify([]),
-         url: '',
-         tags: JSON.stringify(dedupedTags.slice(0, 10)), // Limit to 10 tags
-         sticky: toDbBool(false),
-         lastUpdated: now,
-         added: now,
-         mapPackTop3: toDbBool(false),
-      } as any;
+       const newKeyword = {
+          keyword,
+          device,
+          domain,
+          country,
+          location,
+          position: 0,
+          updating: toDbBool(true),
+          updatingStartedAt: now,
+          history: JSON.stringify({}),
+          lastResult: JSON.stringify([]),
+          url: '',
+          tags: JSON.stringify(dedupedTags.slice(0, 10)), // Limit to 10 tags
+          sticky: toDbBool(false),
+          lastUpdated: now,
+          added: now,
+          mapPackTop3: toDbBool(false),
+       };
       keywordsToAdd.push(newKeyword);
    });
    
@@ -253,7 +254,7 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
    }
 
    try {
-      await Keyword.bulkCreate(keywordsToAdd as any);
+       await Keyword.bulkCreate(keywordsToAdd);
       
       // Reload keywords from DB to ensure IDs are populated
       // Build a query to find the just-created keywords by their unique combination of keyword+device+domain

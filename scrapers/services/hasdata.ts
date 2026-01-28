@@ -2,6 +2,7 @@ import countries, { getGoogleDomain } from "../../utils/countries";
 import { resolveCountryCode } from "../../utils/scraperHelpers";
 import { parseLocation } from "../../utils/location";
 import { computeMapPackTop3 } from "../../utils/mapPack";
+import { DEVICE_DESKTOP } from "../../utils/constants";
 
 const decodeIfEncoded = (value: string): string => {
   try {
@@ -59,7 +60,7 @@ const hasdata: ScraperSettings = {
     params.set("q", decodeIfEncoded(keyword.keyword));
     params.set("gl", resolvedCountry.toLowerCase());
     params.set("hl", lang);
-    params.set("deviceType", keyword.device || "desktop");
+    params.set("deviceType", keyword.device || DEVICE_DESKTOP);
     params.set("domain", googleDomain);
     if (locationParts.length) {
       params.set("location", locationParts.join(","));
@@ -97,7 +98,7 @@ const hasdata: ScraperSettings = {
       }
     }
 
-    const businessName = (settings as any)?.business_name ?? null;
+    const businessName = settings?.business_name ?? null;
     const mapPackTop3 = computeMapPackTop3(keyword.domain, response, businessName);
 
     return { organic: extractedResult, mapPackTop3 };

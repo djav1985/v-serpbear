@@ -2,6 +2,7 @@ import countries from '../../utils/countries';
 import { resolveCountryCode } from '../../utils/scraperHelpers';
 import { parseLocation } from '../../utils/location';
 import { computeMapPackTop3 } from '../../utils/mapPack';
+import { DEVICE_MOBILE } from '../../utils/constants';
 
 interface SpaceSerpResult {
    title: string,
@@ -22,7 +23,7 @@ const spaceSerp:ScraperSettings = {
       const { city, state } = parseLocation(keyword.location, keyword.country);
       const locationParts = [city, state, countryName].filter(Boolean);
       const location = city || state ? `&location=${encodeURIComponent(locationParts.join(','))}` : '';
-      const device = keyword.device === 'mobile' ? '&device=mobile' : '';
+      const device = keyword.device === DEVICE_MOBILE ? `&device=${DEVICE_MOBILE}` : '';
       const localeInfo = countryData[country] ?? countryData.US ?? Object.values(countryData)[0];
       const lang = localeInfo?.[2] ?? 'en';
       return `https://api.spaceserp.com/google/search?apiKey=${settings.scraping_api}&q=${encodeURIComponent(keyword.keyword)}&pageSize=100&gl=${country}&hl=${lang}${location}${device}&resultBlocks=`;
@@ -53,7 +54,7 @@ const spaceSerp:ScraperSettings = {
          }
       }
 
-      const businessName = (settings as any)?.business_name ?? null;
+      const businessName = settings?.business_name ?? null;
       const mapPackTop3 = computeMapPackTop3(keyword.domain, response, businessName);
 
       return { organic: extractedResult, mapPackTop3 };

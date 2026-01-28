@@ -35,7 +35,7 @@ describe('fetchKeywords normalisation', () => {
    it('coerces numeric flags into boolean values', async () => {
       const keywordPayload = {
          ID: 1,
-         keyword: 'normalise flags',
+         keyword: 'normalize flags',
          device: 'desktop',
          country: 'US',
          domain: 'example.com',

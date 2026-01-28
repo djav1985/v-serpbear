@@ -1,64 +1,64 @@
-import { normaliseBooleanFlag } from '../../utils/client/helpers';
+import { normalizeBooleanFlag } from '../../utils/client/helpers';
 
-// Import the normaliseBoolean function - it's not exported but we need to test it
+// Import the normalizeBoolean function - it's not exported but we need to test it
 // We'll import parseKeywords and test through that for now
 import parseKeywords from '../../utils/parseKeywords';
 
 describe('Boolean Normalization Functions', () => {
-  describe('normaliseBooleanFlag', () => {
+  describe('normalizeBooleanFlag', () => {
     // Test current expected behavior for true values
     it('returns true for recognized truthy strings', () => {
-      expect(normaliseBooleanFlag('1')).toBe(true);
-      expect(normaliseBooleanFlag('true')).toBe(true);
-      expect(normaliseBooleanFlag('TRUE')).toBe(true);
-      expect(normaliseBooleanFlag('yes')).toBe(true);
-      expect(normaliseBooleanFlag('YES')).toBe(true);
-      expect(normaliseBooleanFlag('on')).toBe(true);
-      expect(normaliseBooleanFlag('ON')).toBe(true);
-      expect(normaliseBooleanFlag('  TRUE  ')).toBe(true);
+      expect(normalizeBooleanFlag('1')).toBe(true);
+      expect(normalizeBooleanFlag('true')).toBe(true);
+      expect(normalizeBooleanFlag('TRUE')).toBe(true);
+      expect(normalizeBooleanFlag('yes')).toBe(true);
+      expect(normalizeBooleanFlag('YES')).toBe(true);
+      expect(normalizeBooleanFlag('on')).toBe(true);
+      expect(normalizeBooleanFlag('ON')).toBe(true);
+      expect(normalizeBooleanFlag('  TRUE  ')).toBe(true);
     });
 
     // Test current expected behavior for false values
     it('returns false for recognized falsy strings', () => {
-      expect(normaliseBooleanFlag('')).toBe(false);
-      expect(normaliseBooleanFlag('0')).toBe(false);
-      expect(normaliseBooleanFlag('false')).toBe(false);
-      expect(normaliseBooleanFlag('FALSE')).toBe(false);
-      expect(normaliseBooleanFlag('no')).toBe(false);
-      expect(normaliseBooleanFlag('NO')).toBe(false);
-      expect(normaliseBooleanFlag('off')).toBe(false);
-      expect(normaliseBooleanFlag('OFF')).toBe(false);
-      expect(normaliseBooleanFlag('  FALSE  ')).toBe(false);
-      expect(normaliseBooleanFlag('   ')).toBe(false);
+      expect(normalizeBooleanFlag('')).toBe(false);
+      expect(normalizeBooleanFlag('0')).toBe(false);
+      expect(normalizeBooleanFlag('false')).toBe(false);
+      expect(normalizeBooleanFlag('FALSE')).toBe(false);
+      expect(normalizeBooleanFlag('no')).toBe(false);
+      expect(normalizeBooleanFlag('NO')).toBe(false);
+      expect(normalizeBooleanFlag('off')).toBe(false);
+      expect(normalizeBooleanFlag('OFF')).toBe(false);
+      expect(normalizeBooleanFlag('  FALSE  ')).toBe(false);
+      expect(normalizeBooleanFlag('   ')).toBe(false);
     });
 
     // Test expected behavior - unrecognized strings should default to false
     it('returns false for unrecognized non-empty strings (safer behavior)', () => {
       // These are examples of API error messages that should not be treated as true
-      expect(normaliseBooleanFlag('API Error: Invalid request')).toBe(false);
-      expect(normaliseBooleanFlag('Server error occurred')).toBe(false);
-      expect(normaliseBooleanFlag('timeout')).toBe(false);
-      expect(normaliseBooleanFlag('undefined')).toBe(false);
-      expect(normaliseBooleanFlag('null')).toBe(false);
-      expect(normaliseBooleanFlag('some random text')).toBe(false);
-      expect(normaliseBooleanFlag('maybe')).toBe(false);
-      expect(normaliseBooleanFlag('enabled')).toBe(false);
-      expect(normaliseBooleanFlag('active')).toBe(false);
+      expect(normalizeBooleanFlag('API Error: Invalid request')).toBe(false);
+      expect(normalizeBooleanFlag('Server error occurred')).toBe(false);
+      expect(normalizeBooleanFlag('timeout')).toBe(false);
+      expect(normalizeBooleanFlag('undefined')).toBe(false);
+      expect(normalizeBooleanFlag('null')).toBe(false);
+      expect(normalizeBooleanFlag('some random text')).toBe(false);
+      expect(normalizeBooleanFlag('maybe')).toBe(false);
+      expect(normalizeBooleanFlag('enabled')).toBe(false);
+      expect(normalizeBooleanFlag('active')).toBe(false);
     });
 
     // Test non-string values work as expected
     it('handles non-string values correctly', () => {
-      expect(normaliseBooleanFlag(true)).toBe(true);
-      expect(normaliseBooleanFlag(false)).toBe(false);
-      expect(normaliseBooleanFlag(1)).toBe(true);
-      expect(normaliseBooleanFlag(0)).toBe(false);
-      expect(normaliseBooleanFlag(42)).toBe(true);
-      expect(normaliseBooleanFlag(null)).toBe(false);
-      expect(normaliseBooleanFlag(undefined)).toBe(false);
-    });
+      expect(normalizeBooleanFlag(true)).toBe(true);
+      expect(normalizeBooleanFlag(false)).toBe(false);
+      expect(normalizeBooleanFlag(1)).toBe(true);
+      expect(normalizeBooleanFlag(0)).toBe(false);
+      expect(normalizeBooleanFlag(42)).toBe(true);
+      expect(normalizeBooleanFlag(null)).toBe(false);
+      expect(normalizeBooleanFlag(undefined)).toBe(false);
+   });
   });
 
-  describe('normaliseBoolean (via parseKeywords) - deprecated', () => {
+  describe('normalizeBoolean (via parseKeywords) - deprecated', () => {
     const buildKeyword = (overrides: Partial<Record<string, any>> = {}) => ({
       ID: 1,
       keyword: 'example keyword',
