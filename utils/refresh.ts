@@ -113,9 +113,7 @@ const clearKeywordUpdatingFlags = async (
             if (onlyWhenUpdating && !fromDbBool(keyword.updating)) {
                return Promise.resolve();
             }
-            return keyword
-               .update({ updating: toDbBool(false), updatingStartedAt: null })
-               .then(() => keyword.set({ updating: toDbBool(false), updatingStartedAt: null }));
+            return keyword.update({ updating: toDbBool(false), updatingStartedAt: null });
          }),
       );
    } catch (error: any) {
@@ -488,7 +486,6 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
 
       try {
          await keywordRaw.update(dbPayload);
-         keywordRaw.set(dbPayload);
          // Log when updating flag is cleared to help debug UI issues
          logger.info('Keyword updating flag cleared', {
             keywordId: keyword.ID,
@@ -537,7 +534,6 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          logger.error('[ERROR] Updating SERP for Keyword', error, { keyword: keyword.keyword });
          try {
             await keywordRaw.update({ updating: toDbBool(false), updatingStartedAt: null });
-            keywordRaw.set({ updating: toDbBool(false), updatingStartedAt: null });
          } catch (cleanupError: any) {
             logger.error('[ERROR] Failed to clear updating flag after update failure', cleanupError, { keywordId: keyword.ID });
          }
