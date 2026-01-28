@@ -4,7 +4,7 @@
 
 SerpBear is a full-stack Next.js application that tracks where your pages rank on Google, enriches those rankings with Google Search Console and Google Ads data, and keeps stakeholders informed with scheduled email digests. The project ships as a production-ready Docker image, a conventional Node.js application, and a programmable REST API so you can integrate SERP intelligence wherever you need it.
 
-I HAVE NOT CHECKED ALL SCRAERS YET! PLEASE LET ME KNOW YOUR EXPERIENCE?
+Not every scraper provider is validated on every release—please report any issues with specific integrations in GitHub Discussions.
 
 > ### ✨ Why v-serpbear outperforms upstream SerpBear
 >
@@ -58,7 +58,7 @@ I HAVE NOT CHECKED ALL SCRAERS YET! PLEASE LET ME KNOW YOUR EXPERIENCE?
 - **Frontend & API:** Next.js 15 application serving React pages and JSON endpoints from a single codebase.
 - **Database:** SQLite (via a custom `better-sqlite3` dialect) by default, with optional external database support through Sequelize.
 - **Background workers:** Node-based cron runner schedules scrapes, retries, Google Search Console refreshes, and notification emails according to configurable cron expressions and timezone settings.
-- **Integrations:** Pluggable scrapers, Google Search Console, Google Ads, and SMTP providers are all controlled via environment variables.
+- **Integrations:** Scraper selection, Google Ads credentials, and SMTP settings are managed in the Settings UI (persisted in `data/settings.json`), while Search Console credentials can be supplied in Settings or via the `SEARCH_CONSOLE_*` environment variables as a global fallback.
 
 ![Animated dashboard tour](https://serpbear.b-cdn.net/serpbear_readme_v2.gif "Animated dashboard tour")
 ![New dashboard tour](./screenshot.jpg "New dashboard tour")
@@ -104,7 +104,7 @@ The default compose stack maps `./data` to the container so your SQLite database
 
 ## Configuration reference
 
-Runtime behaviour is controlled through environment variables and settings stored in `data/settings.json`. The tables below summarise every supported environment variable and note the defaults that ship with `.env.example`.
+Runtime behaviour is controlled through environment variables and settings stored in `data/settings.json`. The tables below summarise supported environment variables; defaults mirror `.env.example` where provided.
 
 > **Env files.** Next.js loads `.env.local` for local development, while Docker Compose reads `.env`. The standalone cron worker (`node cron.js`) explicitly loads `.env.local`, so keep local credentials there when running the worker outside Docker.
 
@@ -113,6 +113,7 @@ Runtime behaviour is controlled through environment variables and settings store
 | Variable | Default | Required | Description |
 | --- | --- | --- | --- |
 | `USER` | `admin` | ✅ | Initial dashboard username. Update after first login. |
+| `USER_NAME` | — | Optional | Alternate username variable used when `USER` is not set (useful for some container environments). |
 | `PASSWORD` | `0123456789` | ✅ | Initial dashboard password. Update after first login. |
 | `SECRET` | random string | ✅ | Cryptographic secret for cookie signing and JWT verification. Generate a unique value per deployment. |
 | `APIKEY` | random string | ✅ | Server-side API key used to authenticate REST requests from external clients. |
@@ -145,6 +146,16 @@ Search Console credentials can also be supplied via the Settings UI (stored in `
 | Variable | Default | Required | Description |
 | --- | --- | --- | --- |
 | *(managed in Settings UI)* | — | — | SMTP settings (server, port, credentials, sender, and TLS override) are configured in the Notification settings modal or via the settings API and stored in `data/settings.json`. They are not read from environment variables in the current codebase, but SerpBear will trim whitespace/trailing dots on the optional SMTP TLS hostname (`smtp_tls_servername`) before passing it to Nodemailer. |
+
+### Settings stored in `data/settings.json`
+
+Use the Settings UI (or `/api/settings`) to manage values that are persisted in `data/settings.json` and encrypted with `SECRET`. Key configuration areas include:
+
+- **Scraper settings:** `scraper_type`, `scraping_api`, `proxy`, `scrape_interval`, `scrape_delay`, `scrape_retry`
+- **Notification defaults:** `notification_email`, `notification_email_from`, `notification_email_from_name`
+- **SMTP credentials:** `smtp_server`, `smtp_port`, `smtp_username`, `smtp_password`, `smtp_tls_servername`
+- **Google integrations:** `search_console_client_email`, `search_console_private_key`, and the `adwords_*` credentials used for keyword ideas
+- **UI preferences:** `keywordsColumns`
 
 ### Cron scheduling
 
@@ -246,7 +257,7 @@ The **Business Name** field is an optional setting in the domain scraper configu
 ### Notifications & reporting
 
 - Email digests summarise rank gains/losses, highlight top movers, and include Search Console traffic data when available.
-- Notification cadence is fully configurable through `CRON_EMAIL_SCHEDULE`. Disable SMTP variables to skip sending emails entirely.
+- Notification cadence is fully configurable through `CRON_EMAIL_SCHEDULE`. Clear SMTP values in Settings to skip sending emails entirely.
 - Trigger a manual run from the **Send Notifications Now** button in the Notification settings modal. Inline guidance and assistive-technology announcements walk through the prerequisites so teams can confirm SMTP credentials and email recipients immediately.
 - `/api/notify` now reserves HTTP 401 strictly for authentication issues—misconfigured SMTP hosts return 400 and runtime delivery errors surface as 500 responses with descriptive messages for easier debugging.
 
