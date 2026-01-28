@@ -536,6 +536,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          logger.error('[ERROR] Updating SERP for Keyword', error, { keyword: keyword.keyword });
          try {
             await keywordRaw.update({ updating: toDbBool(false), updatingStartedAt: null });
+            keywordRaw.set({ updating: toDbBool(false), updatingStartedAt: null });
          } catch (cleanupError: any) {
             logger.error('[ERROR] Failed to clear updating flag after update failure', cleanupError, { keywordId: keyword.ID });
          }
