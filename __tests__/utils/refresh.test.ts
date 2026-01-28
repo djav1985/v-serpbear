@@ -48,7 +48,6 @@ describe('refreshAndUpdateKeywords', () => {
       }),
       set: jest.fn(),
       update: jest.fn().mockResolvedValue(undefined),
-      reload: jest.fn().mockResolvedValue(undefined), // Add reload mock
     };
 
     (Domain.findAll as jest.Mock).mockResolvedValue([
@@ -66,7 +65,6 @@ describe('refreshAndUpdateKeywords', () => {
 
     expect(mockKeywordModel.update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0, updatingStartedAt: null }));
     // We no longer call set() - Sequelize update handles model state
-    expect(mockKeywordModel.reload).toHaveBeenCalled();
   });
 
   it('queues retries when sequential scraping returns false', async () => {
@@ -81,7 +79,6 @@ describe('refreshAndUpdateKeywords', () => {
       get: jest.fn().mockReturnValue(keywordPlain),
       set: jest.fn(),
       update: jest.fn().mockResolvedValue(undefined),
-      reload: jest.fn().mockResolvedValue(undefined), // Add reload mock
     } as unknown as Keyword;
 
     (Domain.findAll as jest.Mock).mockResolvedValue([
@@ -97,9 +94,8 @@ describe('refreshAndUpdateKeywords', () => {
 
     await refreshAndUpdateKeywords([keywordModel], settings);
 
-    // We no longer call set() - Sequelize update + reload handles model state
+    // We no longer call set() - Sequelize update handles model state
     expect(keywordModel.update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0, updatingStartedAt: null }));
-    expect(keywordModel.reload).toHaveBeenCalled();
     expect(retryScrape).toHaveBeenCalledWith(41);
     expect(removeFromRetryQueue).not.toHaveBeenCalled();
   });
@@ -116,7 +112,6 @@ describe('refreshAndUpdateKeywords', () => {
       get: jest.fn().mockReturnValue(keywordPlain),
       set: jest.fn(),
       update: jest.fn().mockResolvedValue(undefined),
-      reload: jest.fn().mockResolvedValue(undefined), // Add reload mock
     } as unknown as Keyword;
 
     (Domain.findAll as jest.Mock).mockResolvedValue([
@@ -132,9 +127,8 @@ describe('refreshAndUpdateKeywords', () => {
 
     await refreshAndUpdateKeywords([keywordModel], settings);
 
-    // We no longer call set() - Sequelize update + reload handles model state
+    // We no longer call set() - Sequelize update handles model state
     expect(keywordModel.update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0, updatingStartedAt: null }));
-    expect(keywordModel.reload).toHaveBeenCalled();
     expect(removeFromRetryQueue).toHaveBeenCalledWith(42);
     expect(retryScrape).not.toHaveBeenCalled();
   });

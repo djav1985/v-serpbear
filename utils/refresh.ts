@@ -113,12 +113,8 @@ const clearKeywordUpdatingFlags = async (
             if (onlyWhenUpdating && !fromDbBool(keyword.updating)) {
                return Promise.resolve();
             }
-            // Only update database - Sequelize will sync the model instance automatically
+            // Only update database flags; Sequelize updates the instance in memory.
             await keyword.update({ updating: toDbBool(false), updatingStartedAt: null });
-            // Reload to ensure in-memory model reflects database state (if reload is available)
-            if (typeof keyword.reload === 'function') {
-               await keyword.reload();
-            }
          }),
       );
    } catch (error: any) {
@@ -367,11 +363,8 @@ const refreshAndUpdateKeyword = async (
          });
       }
 
-      // Update database and reload model to ensure sync (if reload is available)
+      // Update database to clear flags and persist error details if available.
       await keyword.update(updateData);
-      if (typeof keyword.reload === 'function') {
-         await keyword.reload();
-      }
       logger.info('Keyword updating flag cleared after scraper error', { keywordId: keyword.ID, error: scraperError });
    } catch (updateError: any) {
       logger.error('[ERROR] Failed to update keyword error status:', updateError);
@@ -493,12 +486,8 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
       }
 
       try {
-         // Update database first
+         // Update database first; Sequelize updates the in-memory instance.
          await keywordRaw.update(dbPayload);
-         // Reload model to ensure in-memory state matches database (if reload is available)
-         if (typeof keywordRaw.reload === 'function') {
-            await keywordRaw.reload();
-         }
          
          // Log when updating flag is cleared to help debug UI issues
          logger.info('Keyword updating flag cleared', {
@@ -547,11 +536,8 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
       } catch (error: any) {
          logger.error('[ERROR] Updating SERP for Keyword', error, { keyword: keyword.keyword });
          try {
-            // Update database and reload to ensure sync (if reload is available)
+            // Update database to clear flags after failure.
             await keywordRaw.update({ updating: toDbBool(false), updatingStartedAt: null });
-            if (typeof keywordRaw.reload === 'function') {
-               await keywordRaw.reload();
-            }
          } catch (cleanupError: any) {
             logger.error('[ERROR] Failed to clear updating flag after update failure', cleanupError, { keywordId: keyword.ID });
          }
