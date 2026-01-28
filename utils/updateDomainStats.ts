@@ -17,9 +17,12 @@ export const updateDomainStats = async (domainName: string): Promise<void> => {
 
       // Reload all keywords to ensure we have the latest data from database
       // This is important when keywords were just updated in parallel
-      if (allKeywords.length > 0 && typeof allKeywords[0].reload === 'function') {
-         await Promise.all(allKeywords.map(keyword => keyword.reload()));
-      }
+      // Check each keyword individually to handle mixed scenarios (e.g., mocked vs real models)
+      await Promise.all(
+         allKeywords.map(keyword => 
+            typeof keyword.reload === 'function' ? keyword.reload() : Promise.resolve()
+         )
+      );
 
       // Calculate stats from keywords
       const stats = allKeywords.reduce(
