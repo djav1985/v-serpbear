@@ -11,7 +11,7 @@ const Footer = ({ currentVersion = '' }: FooterProps) => {
    return (
       <footer className='text-center flex flex-1 justify-center pb-5 items-end'>
          <span className='text-gray-500 text-xs'>
-            {platformName} v{currentVersion || '3.0.0'} by{' '}
+            {platformName} v{currentVersion || '4.0.0'} by{' '}
             <a
                className='text-gray-500 underline underline-offset-2 hover:text-gray-400 focus:text-gray-400 focus:outline-none'
                href='https://vontainment.com'

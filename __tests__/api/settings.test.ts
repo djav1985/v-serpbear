@@ -155,7 +155,7 @@ describe('GET /api/settings and configuration requirements', () => {
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       settings: expect.objectContaining({
-        version: '3.0.0',
+        version: '4.0.0',
       }),
     });
   });
@@ -179,7 +179,7 @@ describe('GET /api/settings and configuration requirements', () => {
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       settings: expect.objectContaining({
-        version: '3.0.0',
+        version: '4.0.0',
       }),
     });
   });

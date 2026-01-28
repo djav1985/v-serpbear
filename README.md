@@ -4,7 +4,7 @@
 
 SerpBear is a full-stack Next.js application that tracks where your pages rank on Google, enriches those rankings with Google Search Console and Google Ads data, and keeps stakeholders informed with scheduled email digests. The project ships as a production-ready Docker image, a conventional Node.js application, and a programmable REST API so you can integrate SERP intelligence wherever you need it.
 
-I HAVE NOT CHECKED ALL SCRAERS YET! PLEASE LET ME KNOW YOUR EXPERIENCE?
+Not every scraper provider is validated on every release—please report any issues with specific integrations in GitHub Discussions.
 
 > ### ✨ Why v-serpbear outperforms upstream SerpBear
 >
@@ -33,7 +33,7 @@ I HAVE NOT CHECKED ALL SCRAERS YET! PLEASE LET ME KNOW YOUR EXPERIENCE?
 - 📘 **Documentation:** <https://docs.serpbear.com/>
 - 📜 **Changelog:** [`CHANGELOG.md`](./CHANGELOG.md)
 - 🐳 **Docker Hub image:** <https://hub.docker.com/r/vontainment/v-serpbear>
-- 🆕 **Current version:** v3.0.0 by [Vontainment](https://vontainment.com)
+- 🆕 **Current version:** v4.0.0 by [Vontainment](https://vontainment.com)
 - 🛟 **Community support:** [GitHub Discussions](https://github.com/djav1985/v-serpbear/discussions)
 
 ---
@@ -58,7 +58,7 @@ I HAVE NOT CHECKED ALL SCRAERS YET! PLEASE LET ME KNOW YOUR EXPERIENCE?
 - **Frontend & API:** Next.js 15 application serving React pages and JSON endpoints from a single codebase.
 - **Database:** SQLite (via a custom `better-sqlite3` dialect) by default, with optional external database support through Sequelize.
 - **Background workers:** Node-based cron runner schedules scrapes, retries, Google Search Console refreshes, and notification emails according to configurable cron expressions and timezone settings.
-- **Integrations:** Pluggable scrapers, Google Search Console, Google Ads, and SMTP providers are all controlled via environment variables.
+- **Integrations:** Scraper selection, Google Ads credentials, and SMTP settings are managed in the Settings UI (persisted in `data/settings.json`), while Search Console credentials can be supplied in Settings or via the `SEARCH_CONSOLE_*` environment variables as a global fallback.
 
 ![Animated dashboard tour](https://serpbear.b-cdn.net/serpbear_readme_v2.gif "Animated dashboard tour")
 ![New dashboard tour](./screenshot.jpg "New dashboard tour")
@@ -85,7 +85,7 @@ The default compose stack maps `./data` to the container so your SQLite database
 
 1. Install Node.js **20.18.1 or newer**, matching the version pinned in [`.nvmrc`](./.nvmrc).
 2. Install dependencies with `npm install` (or `npm ci`).
-3. Copy `.env.example` to `.env.local` and fill in the required keys.
+3. Copy `.env.example` to `.env.local` for local development (Docker Compose uses `.env`) and fill in the required keys.
 4. **Apply database migrations:** `npm run db:migrate` to set up the SQLite database schema.
 5. Start the development server via `npm run dev` or build and serve production assets with `npm run build && npm run start`.
 
@@ -104,13 +104,16 @@ The default compose stack maps `./data` to the container so your SQLite database
 
 ## Configuration reference
 
-All runtime behaviour is controlled through environment variables. The tables below summarise every supported option and note the defaults that ship with `.env.example`.
+Runtime behaviour is controlled through environment variables and settings stored in `data/settings.json`. The tables below summarise supported environment variables; defaults mirror `.env.example` where provided.
+
+> **Env files.** Next.js loads `.env.local` for local development, while Docker Compose reads `.env`. The standalone cron worker (`node cron.js`) explicitly loads `.env.local`, so keep local credentials there when running the worker outside Docker.
 
 ### Authentication & session management
 
 | Variable | Default | Required | Description |
 | --- | --- | --- | --- |
 | `USER` | `admin` | ✅ | Initial dashboard username. Update after first login. |
+| `USER_NAME` | — | Optional | Alternate username variable used when `USER` is not set (useful for some container environments). |
 | `PASSWORD` | `0123456789` | ✅ | Initial dashboard password. Update after first login. |
 | `SECRET` | random string | ✅ | Cryptographic secret for cookie signing and JWT verification. Generate a unique value per deployment. |
 | `APIKEY` | random string | ✅ | Server-side API key used to authenticate REST requests from external clients. |
@@ -120,8 +123,8 @@ All runtime behaviour is controlled through environment variables. The tables be
 
 | Variable | Default | Required | Description |
 | --- | --- | --- | --- |
-| `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | ✅ | Public URL of your deployment. Determines callback URLs for integrations and absolute links in email digests. Falls back to `APP_URL` when set. |
-| `APP_URL` | — | Optional | Optional server-side origin used when `NEXT_PUBLIC_APP_URL` is unset. Helpful for CLI scripts or cron contexts that cannot inject the public variable. |
+| `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | ✅ | Public URL of your deployment. Determines OAuth callbacks and absolute links in email digests. Server-side code falls back to `APP_URL` when `NEXT_PUBLIC_APP_URL` is unset. |
+| `APP_URL` | — | Optional | Optional server-side origin used when `NEXT_PUBLIC_APP_URL` is unset. Helpful for CLI scripts that cannot inject the public variable. |
 | `NEXT_PUBLIC_SCREENSHOTS` | `true` | ✅ | Toggle keyword thumbnail capture in the UI. Set to `false` to fall back to favicons. |
 | `NEXT_PUBLIC_WHITE_LABEL` | `false` | Optional | Enables white-label branding. When `true`, the platform name and logo come from the variables below. |
 | `WHITE_LABEL_LOGO_FILE` | `branding-logo.png` | Optional | File name under `/app/data` for the custom logo. Use a 96×96px PNG, SVG, or WEBP asset for best results. |
@@ -135,23 +138,24 @@ All runtime behaviour is controlled through environment variables. The tables be
 | --- | --- | --- | --- |
 | `SEARCH_CONSOLE_CLIENT_EMAIL` | — | Optional | Service account email with access to the Search Console properties you want to track. |
 | `SEARCH_CONSOLE_PRIVATE_KEY` | — | Optional | Corresponding private key (remember to keep newlines escaped in `.env` files). |
-| `ADWORDS_CLIENT_ID` | — | Optional | Google Ads OAuth client ID used for keyword volume and idea imports. |
-| `ADWORDS_CLIENT_SECRET` | — | Optional | Google Ads OAuth client secret. |
-| `ADWORDS_DEVELOPER_TOKEN` | — | Optional | Google Ads developer token for API access. |
-| `ADWORDS_ACCOUNT_ID` | — | Optional | Google Ads manager account ID used when fetching keyword data. |
+
+Search Console credentials can also be supplied via the Settings UI (stored in `data/settings.json`), and those values take precedence over environment variables. Google Ads credentials are configured in the Settings UI and stored encrypted in `data/settings.json`—there are no Google Ads environment variables in the current codebase.
 
 ### Email notifications
 
 | Variable | Default | Required | Description |
 | --- | --- | --- | --- |
-| `SMTP_SERVER` | — | Optional | SMTP host for transactional email. |
-| `SMTP_PORT` | — | Optional | Port used when connecting to the SMTP host. |
-| `SMTP_USERNAME` | — | Optional | Authentication username (if required by your provider). |
-| `SMTP_PASSWORD` | — | Optional | Authentication password or app-specific token. |
-| `NOTIFICATION_EMAIL_FROM` | — | Optional | Sender email address that appears in notification emails. |
-| `NOTIFICATION_EMAIL_FROM_NAME` | `SerpBear` | Optional | Friendly sender name shown to recipients. Automatically switches to `NEXT_PUBLIC_PLATFORM_NAME` when white-label branding is enabled. |
+| *(managed in Settings UI)* | — | — | SMTP settings (server, port, credentials, sender, and TLS override) are configured in the Notification settings modal or via the settings API and stored in `data/settings.json`. They are not read from environment variables in the current codebase, but SerpBear will trim whitespace/trailing dots on the optional SMTP TLS hostname (`smtp_tls_servername`) before passing it to Nodemailer. |
 
-SerpBear also accepts an optional **SMTP TLS certificate hostname** override from the Notification settings modal (or via the `smtp_tls_servername` field in the settings API). Whitespace and trailing dots are trimmed automatically before the value is passed to Nodemailer as the TLS `servername`, making it easier to work with proxies or shared SMTP endpoints whose certificates do not match the connection host.
+### Settings stored in `data/settings.json`
+
+Use the Settings UI (or `/api/settings`) to manage values that are persisted in `data/settings.json` and encrypted with `SECRET`. Key configuration areas include:
+
+- **Scraper settings:** `scraper_type`, `scraping_api`, `proxy`, `scrape_interval`, `scrape_delay`, `scrape_retry`
+- **Notification defaults:** `notification_email`, `notification_email_from`, `notification_email_from_name`
+- **SMTP credentials:** `smtp_server`, `smtp_port`, `smtp_username`, `smtp_password`, `smtp_tls_servername`
+- **Google integrations:** `search_console_client_email`, `search_console_private_key`, and the `adwords_*` credentials used for keyword ideas
+- **UI preferences:** `keywordsColumns`
 
 ### Cron scheduling
 
@@ -168,9 +172,9 @@ All cron expressions are normalised at runtime—quotes and stray whitespace are
 
 | Variable | Default | Required | Description |
 | --- | --- | --- | --- |
-| `LOG_LEVEL` | `info` | Optional | Controls log verbosity for the structured logger. Accepts `error`, `warn`, `info`, `debug`, or `verbose`. |
-| `LOG_SUCCESS_EVENTS` | `true` | Optional | Enables informational logs for successful API calls and authentication events. Set to `false` to capture only warnings and errors. |
-| `NEXT_REMOVE_CONSOLE` | `false` | Optional | Removes `console.*` calls during production builds. When enabled, the Next.js compiler still preserves error logs. |
+| `LOG_LEVEL` | `info` | Optional | Controls log verbosity for the structured logger. Accepts `error`, `warn`, `info`, `debug`; set to `off`, `none`, `false`, or `0` to disable logging. |
+| `LOG_SUCCESS_EVENTS` | — | Optional | Reserved for future use; ignored in the current codebase. |
+| `NEXT_REMOVE_CONSOLE` | — | Optional | Not wired in `next.config.js`; currently has no effect. |
 
 Set `ANALYZE=true` before running `next build` to generate a static bundle analysis report (`bundle-analyzer-report.html`) as configured in [`next.config.js`](./next.config.js).
 
@@ -253,7 +257,7 @@ The **Business Name** field is an optional setting in the domain scraper configu
 ### Notifications & reporting
 
 - Email digests summarise rank gains/losses, highlight top movers, and include Search Console traffic data when available.
-- Notification cadence is fully configurable through `CRON_EMAIL_SCHEDULE`. Disable SMTP variables to skip sending emails entirely.
+- Notification cadence is fully configurable through `CRON_EMAIL_SCHEDULE`. Clear SMTP values in Settings to skip sending emails entirely.
 - Trigger a manual run from the **Send Notifications Now** button in the Notification settings modal. Inline guidance and assistive-technology announcements walk through the prerequisites so teams can confirm SMTP credentials and email recipients immediately.
 - `/api/notify` now reserves HTTP 401 strictly for authentication issues—misconfigured SMTP hosts return 400 and runtime delivery errors surface as 500 responses with descriptive messages for easier debugging.
 
