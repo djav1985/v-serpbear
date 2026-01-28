@@ -37,7 +37,7 @@ This document captures **potential** areas to simplify and optimize the codebase
 - **Reduce payload sizes** (`pages/api/*`, `services/*`)
   - Return only necessary fields on list endpoints (use DTOs or projection) to avoid large JSON payloads.
 
-- **Centralize API error handling** (`utils/apiError.ts`, `utils/errorSerialization.ts`)
+- **Centralize API error handling** (`utils/errorSerialization.ts`)
   - Standardize error shapes so UI and cron can share handling logic consistently.
 
 ## Frontend Simplification
