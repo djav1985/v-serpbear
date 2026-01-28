@@ -10,10 +10,16 @@ import { fromDbBool } from './dbBooleans';
  */
 export const updateDomainStats = async (domainName: string): Promise<void> => {
    try {
-      // Get all keywords for the domain
+      // Get all keywords for the domain with fresh data from database
       const allKeywords = await Keyword.findAll({ 
          where: { domain: domainName }
       });
+
+      // Reload all keywords to ensure we have the latest data from database
+      // This is important when keywords were just updated in parallel
+      if (allKeywords.length > 0 && typeof allKeywords[0].reload === 'function') {
+         await Promise.all(allKeywords.map(keyword => keyword.reload()));
+      }
 
       // Calculate stats from keywords
       const stats = allKeywords.reduce(

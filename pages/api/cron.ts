@@ -87,11 +87,12 @@ const processSingleDomain = async (domain: string, settings: SettingsType): Prom
       const now = new Date().toJSON();
       keywordQueries = await Keyword.findAll({ where: { domain } });
       await Promise.all(
-         keywordQueries.map((keyword) =>
-            keyword
-               .update({ updating: toDbBool(true), lastUpdateError: 'false', updatingStartedAt: now })
-               .then(() => keyword.set({ updating: toDbBool(true), lastUpdateError: 'false', updatingStartedAt: now })),
-         ),
+         keywordQueries.map(async (keyword) => {
+            await keyword.update({ updating: toDbBool(true), lastUpdateError: 'false', updatingStartedAt: now });
+            if (typeof keyword.reload === 'function') {
+               await keyword.reload();
+            }
+         }),
       );
       
       if (keywordQueries.length === 0) {
@@ -111,11 +112,12 @@ const processSingleDomain = async (domain: string, settings: SettingsType): Prom
       // Ensure flags are cleared on error for this domain
       try {
          await Promise.all(
-            keywordQueries.map((keyword) =>
-               keyword
-                  .update({ updating: toDbBool(false), updatingStartedAt: null })
-                  .then(() => keyword.set({ updating: toDbBool(false), updatingStartedAt: null })),
-            ),
+            keywordQueries.map(async (keyword) => {
+               await keyword.update({ updating: toDbBool(false), updatingStartedAt: null });
+               if (typeof keyword.reload === 'function') {
+                  await keyword.reload();
+               }
+            }),
          );
       } catch (updateError) {
          logger.error(`Failed to clear updating flags for domain: ${domain}`, updateError instanceof Error ? updateError : new Error(String(updateError)));
