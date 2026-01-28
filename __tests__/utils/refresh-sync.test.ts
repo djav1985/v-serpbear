@@ -35,7 +35,7 @@ describe('Database-Memory Synchronization in Keyword Refresh', () => {
   });
 
   describe('updateKeywordPosition', () => {
-    it('reloads model after database update to ensure in-memory consistency', async () => {
+    it('updates the database to sync in-memory state', async () => {
       const mockKeywordModel = {
         ID: 1,
         keyword: 'test keyword',
@@ -52,7 +52,6 @@ describe('Database-Memory Synchronization in Keyword Refresh', () => {
           lastUpdated: '',
         }),
         update: jest.fn().mockResolvedValue(undefined),
-        reload: jest.fn().mockResolvedValue(undefined),
       } as unknown as Keyword;
 
       const refreshResult: RefreshResult = {
@@ -81,11 +80,9 @@ describe('Database-Memory Synchronization in Keyword Refresh', () => {
         }),
       );
 
-      // Verify reload was called to sync in-memory state with database
-      expect(mockKeywordModel.reload).toHaveBeenCalled();
     });
 
-    it('handles missing reload function gracefully (for test mocks)', async () => {
+    it('does not rely on a reload function for test mocks', async () => {
       const mockKeywordModelWithoutReload = {
         ID: 2,
         keyword: 'test keyword 2',
@@ -102,7 +99,6 @@ describe('Database-Memory Synchronization in Keyword Refresh', () => {
           lastUpdated: '',
         }),
         update: jest.fn().mockResolvedValue(undefined),
-        // No reload method
       } as unknown as Keyword;
 
       const refreshResult: RefreshResult = {
@@ -131,7 +127,7 @@ describe('Database-Memory Synchronization in Keyword Refresh', () => {
   });
 
   describe('refreshAndUpdateKeywords', () => {
-    it('ensures all keywords are reloaded after bulk updates', async () => {
+    it('updates keywords after bulk updates', async () => {
       const mockKeyword1 = {
         ID: 1,
         keyword: 'keyword 1',
@@ -143,7 +139,6 @@ describe('Database-Memory Synchronization in Keyword Refresh', () => {
           domain: 'example.com',
         }),
         update: jest.fn().mockResolvedValue(undefined),
-        reload: jest.fn().mockResolvedValue(undefined),
       };
 
       const mockKeyword2 = {
@@ -157,7 +152,6 @@ describe('Database-Memory Synchronization in Keyword Refresh', () => {
           domain: 'example.com',
         }),
         update: jest.fn().mockResolvedValue(undefined),
-        reload: jest.fn().mockResolvedValue(undefined),
       };
 
       (Domain.findAll as jest.Mock).mockResolvedValue([
@@ -202,12 +196,12 @@ describe('Database-Memory Synchronization in Keyword Refresh', () => {
         settings,
       );
 
-      // Both keywords should have been updated and reloaded
-      expect(mockKeyword1.reload).toHaveBeenCalled();
-      expect(mockKeyword2.reload).toHaveBeenCalled();
+      // Both keywords should have been updated
+      expect(mockKeyword1.update).toHaveBeenCalled();
+      expect(mockKeyword2.update).toHaveBeenCalled();
     });
 
-    it('reloads models after error handling to maintain consistency', async () => {
+    it('updates keyword flags after error handling', async () => {
       const mockKeyword = {
         ID: 3,
         keyword: 'error keyword',
@@ -219,7 +213,6 @@ describe('Database-Memory Synchronization in Keyword Refresh', () => {
           domain: 'example.com',
         }),
         update: jest.fn().mockResolvedValue(undefined),
-        reload: jest.fn().mockResolvedValue(undefined),
       };
 
       (Domain.findAll as jest.Mock).mockResolvedValue([
@@ -254,8 +247,6 @@ describe('Database-Memory Synchronization in Keyword Refresh', () => {
         }),
       );
 
-      // Model should be reloaded to sync state
-      expect(mockKeyword.reload).toHaveBeenCalled();
     });
   });
 
@@ -274,7 +265,6 @@ describe('Database-Memory Synchronization in Keyword Refresh', () => {
           history: {},
         }),
         update: jest.fn().mockResolvedValue(undefined),
-        reload: jest.fn().mockResolvedValue(undefined),
         set: jest.fn(), // Mock set to verify it's NOT called
       } as unknown as Keyword;
 
@@ -295,12 +285,11 @@ describe('Database-Memory Synchronization in Keyword Refresh', () => {
 
       await updateKeywordPosition(mockKeyword, refreshResult, settings);
 
-      // Verify .set() was NOT called - we rely on .update() + .reload() instead
+      // Verify .set() was NOT called - we rely on .update() instead
       expect(mockKeyword.set).not.toHaveBeenCalled();
       
       // Verify we use the correct sync pattern
       expect(mockKeyword.update).toHaveBeenCalled();
-      expect(mockKeyword.reload).toHaveBeenCalled();
     });
   });
 });
