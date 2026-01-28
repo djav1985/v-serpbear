@@ -19,7 +19,7 @@ jest.mock('react-chartjs-2', () => ({
 
 jest.mock('next/dynamic', () => (loader: () => any) => {
    const Component = loader();
-   return Component;
+   return (props: any) => (typeof Component === 'function' ? Component(props) : null);
 });
 
 describe('ChartSlim Component', () => {

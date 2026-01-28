@@ -115,7 +115,9 @@ const notify = async (req: NextApiRequest, res: NextApiResponse<NotifyResponse>)
 };
 
 const sendNotificationEmail = async (domain: DomainType | Domain, settings: SettingsType) => {
-   const domainObj = domain instanceof Domain ? (domain.get({ plain: true }) as DomainType) : domain;
+   const domainObj = domain && typeof (domain as Domain).get === 'function'
+      ? (domain as Domain).get({ plain: true }) as DomainType
+      : domain as DomainType;
    const domainName = domainObj.domain;
 
    // Check email throttling
