@@ -10,6 +10,10 @@ interface SearchApiResult {
    position: number,
  }
 
+type SearchApiResponse = {
+   organic_results?: SearchApiResult[];
+};
+
 const searchapi:ScraperSettings = {
   id: 'searchapi',
   name: 'SearchApi.io',
@@ -63,9 +67,10 @@ const searchapi:ScraperSettings = {
       return `https://www.searchapi.io/api/v1/search?${params.toString()}`;
    },
   resultObjectKey: 'organic_results',
-  serpExtractor: ({ result, response, keyword, settings }) => {
-     const extractedResult = [];
-     let results: SearchApiResult[] = [];
+   serpExtractor: ({ result, response, keyword, settings }) => {
+      const extractedResult = [];
+      const typedResponse = response as SearchApiResponse | undefined;
+      let results: SearchApiResult[] = [];
      if (typeof result === 'string') {
         try {
            results = JSON.parse(result) as SearchApiResult[];
@@ -74,9 +79,9 @@ const searchapi:ScraperSettings = {
         }
      } else if (Array.isArray(result)) {
         results = result as SearchApiResult[];
-     } else if (Array.isArray(response?.organic_results)) {
-        results = response.organic_results as SearchApiResult[];
-     }
+      } else if (Array.isArray(typedResponse?.organic_results)) {
+         results = typedResponse?.organic_results ?? [];
+      }
 
      for (const { link, title, position } of results) {
         if (title && link) {
