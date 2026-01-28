@@ -113,7 +113,9 @@ const clearKeywordUpdatingFlags = async (
             if (onlyWhenUpdating && !fromDbBool(keyword.updating)) {
                return Promise.resolve();
             }
-            return keyword.update({ updating: toDbBool(false), updatingStartedAt: null });
+            return keyword
+               .update({ updating: toDbBool(false), updatingStartedAt: null })
+               .then(() => keyword.set({ updating: toDbBool(false), updatingStartedAt: null }));
          }),
       );
    } catch (error: any) {
