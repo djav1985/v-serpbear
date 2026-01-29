@@ -255,7 +255,8 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
             const shouldPreserveFallback = domainScraperType === 'valueserp';
 
             const processBatch = async (batch: Keyword[], useFallback: boolean) => {
-               const batchResults = await Promise.all(batch.map(async (keyword) => {
+               const batchResults: KeywordType[] = [];
+               for (const keyword of batch) {
                   const keywordPlain = keyword.get({ plain: true });
                   logger.info('Processing keyword refresh', { keywordId: keywordPlain.ID, keyword: keywordPlain.keyword });
                   const normalizedDevice = normalizeDevice(keywordPlain.device);
@@ -268,8 +269,8 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                   if (normalizedDevice === DEVICE_DESKTOP && updatedkeyword.mapPackTop3 !== undefined) {
                      desktopMapPackCache.set(keywordKey, toDbBool(updatedkeyword.mapPackTop3));
                   }
-                  return updatedkeyword;
-               }));
+                  batchResults.push(updatedkeyword);
+               }
 
                updatedKeywords.push(...batchResults);
 
