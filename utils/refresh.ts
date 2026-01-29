@@ -222,7 +222,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
    const updatedKeywords: KeywordType[] = [];
 
    // Determine if all keywords can be scraped in parallel by checking effective settings
-    const parallelScrapers = DEFAULT_PARALLEL_SCRAPERS as readonly string[];
+    const parallelScrapers: string[] = [...DEFAULT_PARALLEL_SCRAPERS];
    const canScrapeInParallel = keywords.every((keyword) => {
       const effectiveSettings = resolveEffectiveSettings(keyword.domain, settings, domainSpecificSettings);
       return parallelScrapers.includes(effectiveSettings.scraper_type);
@@ -249,14 +249,16 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
             });
 
             const desktopMapPackCache = new Map<string, number>();
-            for (let index = 0; index < sortedKeywords.length; index += refreshBatchSize) {
-               const batch = sortedKeywords.slice(index, index + refreshBatchSize);
+            const desktopKeywords = sortedKeywords.filter((keyword) => normalizeDevice(keyword.device) === DEVICE_DESKTOP);
+            const mobileKeywords = sortedKeywords.filter((keyword) => normalizeDevice(keyword.device) === DEVICE_MOBILE);
+
+            const processBatch = async (batch: Keyword[], useFallback: boolean) => {
                const batchResults = await Promise.all(batch.map(async (keyword) => {
                   const keywordPlain = keyword.get({ plain: true });
                   logger.info('Processing keyword refresh', { keywordId: keywordPlain.ID, keyword: keywordPlain.keyword });
                   const normalizedDevice = normalizeDevice(keywordPlain.device);
                   const keywordKey = generateKeywordCacheKey(keywordPlain);
-                  const fallbackMapPackTop3 = normalizedDevice === DEVICE_MOBILE
+                  const fallbackMapPackTop3 = useFallback && normalizedDevice === DEVICE_MOBILE
                      ? desktopMapPackCache.get(keywordKey)
                      : undefined;
 
@@ -276,6 +278,16 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                      await sleep(Math.min(safeDelay, MAX_SCRAPE_DELAY_MS));
                   }
                }
+            };
+
+            for (let index = 0; index < desktopKeywords.length; index += refreshBatchSize) {
+               const batch = desktopKeywords.slice(index, index + refreshBatchSize);
+               await processBatch(batch, false);
+            }
+
+            for (let index = 0; index < mobileKeywords.length; index += refreshBatchSize) {
+               const batch = mobileKeywords.slice(index, index + refreshBatchSize);
+               await processBatch(batch, true);
             }
          }
       }

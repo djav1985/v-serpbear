@@ -1076,4 +1076,96 @@ describe('refreshAndUpdateKeywords', () => {
     expect(keywords[0].update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0, updatingStartedAt: null }));
     expect(keywords[1].update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0, updatingStartedAt: null }));
   });
+
+  it('applies refresh_batch_size and preserves desktop fallback ordering per domain', async () => {
+    const cryptr = new Cryptr(process.env.SECRET as string);
+    const domains = [
+      {
+        get: () => ({
+          domain: 'example.com',
+          scrapeEnabled: 1,
+          scraper_settings: JSON.stringify({
+            scraper_type: 'valueserp',
+            scraping_api: cryptr.encrypt('value-key'),
+          }),
+        }),
+      },
+      {
+        get: () => ({
+          domain: 'other.com',
+          scrapeEnabled: 1,
+          scraper_settings: JSON.stringify({
+            scraper_type: 'valueserp',
+            scraping_api: cryptr.encrypt('value-key'),
+          }),
+        }),
+      },
+    ];
+    (Domain.findAll as jest.Mock).mockResolvedValue(domains);
+
+    const makeKeyword = (id: number, device: string, domain: string) => {
+      const keywordPlain = {
+        ID: id,
+        keyword: `keyword-${id}`,
+        domain,
+        device,
+        country: 'US',
+        location: '',
+        position: 0,
+        volume: 0,
+        updating: 1,
+        sticky: 0,
+        history: '{}',
+        lastResult: '[]',
+        lastUpdateError: 'false',
+        lastUpdated: '2024-01-01T00:00:00.000Z',
+        added: '2024-01-01T00:00:00.000Z',
+        url: '',
+        tags: '[]',
+        mapPackTop3: false,
+      };
+      return {
+        ID: id,
+        keyword: keywordPlain.keyword,
+        domain,
+        get: jest.fn().mockReturnValue(keywordPlain),
+        update: jest.fn().mockResolvedValue(undefined),
+        set: jest.fn(),
+      } as unknown as Keyword;
+    };
+
+    const keywordModels = [
+      makeKeyword(1, 'desktop', 'example.com'),
+      makeKeyword(2, 'mobile', 'example.com'),
+      makeKeyword(3, 'desktop', 'example.com'),
+      makeKeyword(4, 'mobile', 'example.com'),
+      makeKeyword(5, 'desktop', 'other.com'),
+    ];
+
+    const callLog: Array<{ id: number; device: string; fallback?: number }> = [];
+    (scrapeKeywordFromGoogle as jest.Mock).mockImplementation(async (_keyword: KeywordType, settings: SettingsType & { fallback_mapPackTop3?: number }) => {
+      const id = _keyword.ID as number;
+      callLog.push({ id, device: _keyword.device, fallback: settings.fallback_mapPackTop3 });
+      return {
+        ID: id,
+        position: 1,
+        result: [],
+        mapPackTop3: _keyword.device === 'desktop',
+        error: false,
+      } as RefreshResult;
+    });
+
+    const settings = {
+      scraper_type: 'custom-scraper',
+      scrape_retry: false,
+      refresh_batch_size: 2,
+    } as SettingsType;
+
+    await refreshAndUpdateKeywords(keywordModels, settings);
+
+    const exampleCalls = callLog.filter((entry) => [1, 2, 3, 4].includes(entry.id));
+    expect(exampleCalls.map((entry) => entry.id)).toEqual([1, 3, 2, 4]);
+    expect(exampleCalls.find((entry) => entry.id === 2)?.fallback).toBe(1);
+    expect(exampleCalls.find((entry) => entry.id === 4)?.fallback).toBe(1);
+  });
 });
