@@ -1164,7 +1164,7 @@ describe('refreshAndUpdateKeywords', () => {
     await refreshAndUpdateKeywords(keywordModels, settings);
 
     const exampleCalls = callLog.filter((entry) => [1, 2, 3, 4].includes(entry.id));
-    expect(exampleCalls.map((entry) => entry.id)).toEqual([1, 3, 2, 4]);
+    expect(exampleCalls.map((entry) => entry.id)).toEqual([1, 2, 3, 4]);
     expect(exampleCalls.find((entry) => entry.id === 2)?.fallback).toBe(1);
     expect(exampleCalls.find((entry) => entry.id === 4)?.fallback).toBe(1);
   });
