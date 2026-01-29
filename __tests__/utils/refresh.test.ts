@@ -1162,12 +1162,15 @@ describe('refreshAndUpdateKeywords', () => {
       refresh_batch_size: 2,
     } as SettingsType;
 
-    await refreshAndUpdateKeywords(keywordModels, settings);
+    const updated = await refreshAndUpdateKeywords(keywordModels, settings);
 
     const exampleCalls = callLog.filter((entry) => [1, 2, 3, 4].includes(entry.id));
     expect(exampleCalls.map((entry) => entry.id)).toEqual([1, 2, 3, 4]);
-    expect(exampleCalls.find((entry) => entry.id === 2)?.fallback).toBe(1);
-    expect(exampleCalls.find((entry) => entry.id === 4)?.fallback).toBe(1);
+    const updatedExample = updated.filter((entry) => entry.domain === 'example.com');
+    expect(updatedExample.find((entry) => entry.ID === 1)?.mapPackTop3).toBe(true);
+    expect(updatedExample.find((entry) => entry.ID === 2)?.mapPackTop3).toBe(false);
+    expect(updatedExample.find((entry) => entry.ID === 3)?.mapPackTop3).toBe(true);
+    expect(updatedExample.find((entry) => entry.ID === 4)?.mapPackTop3).toBe(false);
 
     const otherCalls = callLog.filter((entry) => [5, 6].includes(entry.id));
     expect(otherCalls.map((entry) => entry.id)).toEqual([5, 6]);
