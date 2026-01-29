@@ -22,7 +22,7 @@ All notable changes to this project will be documented in this file. Releases no
 - Clarified regression coverage to assert the camelCase `mapPackTop3` keyword property rather than the legacy snake_case flag.
 - Tracker mini stats in notification emails stay side-by-side on mobile by removing the block layout override while keeping tighter padding for small screens.
 - Ensured keyword refresh cleanup always persists `updating` resets even when Sequelize instances still hold stale values after bulk updates, so failed scrapes no longer leave rows stuck in a loading state.
-- Cleared ESLint warnings by wiring width/min-width props into UI components, surfacing settings errors inline, sanitising SMTP TLS hostnames, and logging caught exceptions throughout Ads/Search Console utilities and API handlers.
+- Cleared ESLint warnings by wiring width/min-width props into UI components, surfacing settings errors inline, sanitizing SMTP TLS hostnames, and logging caught exceptions throughout Ads/Search Console utilities and API handlers.
 - Fixed the Google Ads keyword ideas mutation so successful requests no longer throw a runtime reference error and now properly invalidate the cached query for the active domain.
 - Tracker email summary now falls back to live keyword data to compute average position and map-pack totals, preventing those counters from showing 0 when domain aggregates are unavailable.
 - Tracker email summary now respects persisted Map Pack totals when available while still deriving a fallback from live keyword data for domains without the stored value.
@@ -69,9 +69,9 @@ All notable changes to this project will be documented in this file. Releases no
 - Fixed keyword flag coercion so `'0'/'false'` values no longer lock spinners.  
 - Hardened domain screenshot caching against corrupted `domainThumbs`.  
 - Hardened `/api/refresh` error handling for empty IDs, scraper failures, and disabled domains.  
-- Normalised SQLite boolean bindings for domain toggles.  
-- Normalised keyword creation and history persistence (always JSON).  
-- Normalised Google SERP extraction (resolves `/url` and `/interstitial`).  
+- Normalized SQLite boolean bindings for domain toggles.  
+- Normalized keyword creation and history persistence (always JSON).  
+- Normalized Google SERP extraction (resolves `/url` and `/interstitial`).  
 - Hardened settings API for missing runtime config and default fallbacks.  
 - Domain validation regex fixes and extra test coverage.  
 - Domain settings now hydrate from canonical host; tolerate null domains.  

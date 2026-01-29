@@ -6,15 +6,23 @@ import { fetchDomainSCData, getSearchConsoleApiInfo, isSearchConsoleDataFreshFor
 import { parseLocation } from './location';
 import { buildLogoUrl, getBranding } from './branding';
 import { fromDbBool } from './dbBooleans';
+import { normalizeBooleanFlag } from './boolean';
+import { DEVICE_DESKTOP } from './constants';
 
 const DEFAULT_BRAND_LOGO = 'https://serpbear.b-cdn.net/ikAdjQq.png';
 const mobileIcon = 'https://serpbear.b-cdn.net/SqXD9rd.png';
 const desktopIcon = 'https://serpbear.b-cdn.net/Dx3u0XD.png';
 const googleIcon = 'https://serpbear.b-cdn.net/Sx3u0X9.png';
 
-const normalizeMapPackTop3 = (value: boolean | number | null | undefined): boolean => (
-   typeof value === 'boolean' ? value : fromDbBool(value)
-);
+const normalizeMapPackTop3 = (value: unknown): boolean => {
+   if (typeof value === 'boolean') {
+      return value;
+   }
+   if (typeof value === 'number' || value === null || value === undefined) {
+      return fromDbBool(typeof value === 'number' ? value : undefined);
+   }
+   return normalizeBooleanFlag(value);
+};
 
 const resolveEmailBranding = () => {
    const brandingDetails = getBranding();
@@ -124,7 +132,7 @@ const generateEmail = async (domain:DomainType, keywords:KeywordType[], settings
       let positionChangeIcon = '';
 
       const positionChange = getPositionChange(keyword.history, keyword.position);
-      const deviceIconImg = keyword.device === 'desktop' ? desktopIcon : mobileIcon;
+      const deviceIconImg = keyword.device === DEVICE_DESKTOP ? desktopIcon : mobileIcon;
       const countryFlag = `<img class="flag" src="https://flagcdn.com/w20/${keyword.country.toLowerCase()}.png" alt="${keyword.country}" title="${keyword.country}" />`;
       const deviceIcon = `<img class="device" src="${deviceIconImg}" alt="${keyword.device}" title="${keyword.device}" width="18" height="18" />`;
       const mapPackFlag = normalizeMapPackTop3(keyword.mapPackTop3)

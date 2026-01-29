@@ -1,5 +1,5 @@
 // Migration: Adds scrape_enabled and notify_enabled flags to the domain table so
-// scraping and notification behaviour can be toggled per domain.
+// scraping and notification behavior can be toggled per domain.
 
 module.exports = {
    up: async function up(params = {}, legacySequelize) {

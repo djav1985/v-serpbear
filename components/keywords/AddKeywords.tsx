@@ -5,6 +5,7 @@ import SelectField from '../common/SelectField';
 import countries from '../../utils/countries';
 import { useAddKeywords } from '../../services/keywords';
 import { formatLocation, hasValidCityStatePair, parseLocation } from '../../utils/location';
+import { DEVICE_DESKTOP, DEVICE_MOBILE } from '../../utils/constants';
 
 type AddKeywordsProps = {
    keywords: KeywordType[],
@@ -39,7 +40,7 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
    const [showTagSuggestions, setShowTagSuggestions] = useState(false);
    const [newKeywordsData, setNewKeywordsData] = useState<KeywordsInput>({
       keywords: '',
-      device: 'desktop',
+      device: DEVICE_DESKTOP,
       country: 'US',
       domain,
       tags: '',
@@ -218,16 +219,16 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
                   </div>
                   <ul className='flex text-xs font-semibold text-gray-500'>
                      <li
-                        className={`${deviceTabStyle} mr-2 ${newKeywordsData.device.includes('desktop') ? '  bg-indigo-50 text-indigo-700' : ''}`}
-                        onClick={() => setDeviceType('desktop')}>
+                        className={`${deviceTabStyle} mr-2 ${newKeywordsData.device.includes(DEVICE_DESKTOP) ? '  bg-indigo-50 text-indigo-700' : ''}`}
+                        onClick={() => setDeviceType(DEVICE_DESKTOP)}>
                            <Icon type='desktop' classes={'top-[3px]'} size={15} /> <i className='not-italic hidden lg:inline-block'>Desktop</i>
-                           <Icon type='check' classes={'pl-1'} size={12} color={newKeywordsData.device.includes('desktop') ? '#4338ca' : '#bbb'} />
+                           <Icon type='check' classes={'pl-1'} size={12} color={newKeywordsData.device.includes(DEVICE_DESKTOP) ? '#4338ca' : '#bbb'} />
                         </li>
                      <li
-                        className={`${deviceTabStyle} ${newKeywordsData.device.includes('mobile') ? '  bg-indigo-50 text-indigo-700' : ''}`}
-                        onClick={() => setDeviceType('mobile')}>
+                        className={`${deviceTabStyle} ${newKeywordsData.device.includes(DEVICE_MOBILE) ? '  bg-indigo-50 text-indigo-700' : ''}`}
+                        onClick={() => setDeviceType(DEVICE_MOBILE)}>
                            <Icon type='mobile' /> <i className='not-italic hidden lg:inline-block'>Mobile</i>
-                           <Icon type='check' classes={'pl-1'} size={12} color={newKeywordsData.device.includes('mobile') ? '#4338ca' : '#bbb'} />
+                           <Icon type='check' classes={'pl-1'} size={12} color={newKeywordsData.device.includes(DEVICE_MOBILE) ? '#4338ca' : '#bbb'} />
                         </li>
                   </ul>
                </div>

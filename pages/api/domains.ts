@@ -73,8 +73,8 @@ export const getDomains = async (req: NextApiRequest, res: NextApiResponse<Domai
    try {
       
       const allDomains: Domain[] = await Domain.findAll();
-      const formattedDomains: DomainType[] = allDomains.map((el) => {
-         const domainPlain = el.get({ plain: true }) as any;
+       const formattedDomains: DomainType[] = allDomains.map((el) => {
+          const domainPlain = el.get({ plain: true }) as DomainType;
          const scData = safeJsonParse<Record<string, string> | null>(
             domainPlain?.search_console,
             null,

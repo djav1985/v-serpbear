@@ -5,11 +5,21 @@ module.exports = {
       const queryInterface = params?.context ?? params;
       return queryInterface.sequelize.transaction(async (t) => {
          try {
-            // Add index on keyword.domain for faster domain-based queries
-            await queryInterface.addIndex('keyword', ['domain'], {
-               name: 'keyword_domain_idx',
-               transaction: t
-            });
+         // Add index on keyword.domain for faster domain-based queries
+         await queryInterface.addIndex('keyword', ['domain'], {
+            name: 'keyword_domain_idx',
+            transaction: t
+         });
+
+         await queryInterface.addIndex('keyword', ['device'], {
+            name: 'keyword_device_idx',
+            transaction: t
+         });
+
+         await queryInterface.addIndex('keyword', ['country'], {
+            name: 'keyword_country_idx',
+            transaction: t
+         });
 
             // Add composite index for keyword + domain for uniqueness checks
             await queryInterface.addIndex('keyword', ['keyword', 'domain', 'device', 'country'], {
@@ -48,6 +58,8 @@ module.exports = {
       return queryInterface.sequelize.transaction(async (t) => {
          try {
             await queryInterface.removeIndex('keyword', 'keyword_domain_idx', { transaction: t });
+            await queryInterface.removeIndex('keyword', 'keyword_device_idx', { transaction: t });
+            await queryInterface.removeIndex('keyword', 'keyword_country_idx', { transaction: t });
             await queryInterface.removeIndex('keyword', 'keyword_unique_combination_idx', { transaction: t });
             await queryInterface.removeIndex('keyword', 'keyword_last_updated_idx', { transaction: t });
             await queryInterface.removeIndex('keyword', 'keyword_position_idx', { transaction: t });
