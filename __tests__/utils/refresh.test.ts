@@ -1095,7 +1095,7 @@ describe('refreshAndUpdateKeywords', () => {
           domain: 'other.com',
           scrapeEnabled: 1,
           scraper_settings: JSON.stringify({
-            scraper_type: 'valueserp',
+            scraper_type: 'custom-scraper',
             scraping_api: cryptr.encrypt('value-key'),
           }),
         }),
@@ -1140,6 +1140,7 @@ describe('refreshAndUpdateKeywords', () => {
       makeKeyword(3, 'desktop', 'example.com'),
       makeKeyword(4, 'mobile', 'example.com'),
       makeKeyword(5, 'desktop', 'other.com'),
+      makeKeyword(6, 'mobile', 'other.com'),
     ];
 
     const callLog: Array<{ id: number; device: string; fallback?: number }> = [];
@@ -1164,8 +1165,12 @@ describe('refreshAndUpdateKeywords', () => {
     await refreshAndUpdateKeywords(keywordModels, settings);
 
     const exampleCalls = callLog.filter((entry) => [1, 2, 3, 4].includes(entry.id));
-    expect(exampleCalls.map((entry) => entry.id)).toEqual([1, 2, 3, 4]);
+    expect(exampleCalls.map((entry) => entry.id)).toEqual([1, 3, 2, 4]);
     expect(exampleCalls.find((entry) => entry.id === 2)?.fallback).toBe(1);
     expect(exampleCalls.find((entry) => entry.id === 4)?.fallback).toBe(1);
+
+    const otherCalls = callLog.filter((entry) => [5, 6].includes(entry.id));
+    expect(otherCalls.map((entry) => entry.id)).toEqual([5, 6]);
+    expect(otherCalls.find((entry) => entry.id === 6)?.fallback).toBeUndefined();
   });
 });

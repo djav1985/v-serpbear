@@ -251,6 +251,8 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
             const desktopMapPackCache = new Map<string, number>();
             const desktopKeywords = sortedKeywords.filter((keyword) => normalizeDevice(keyword.device) === DEVICE_DESKTOP);
             const mobileKeywords = sortedKeywords.filter((keyword) => normalizeDevice(keyword.device) === DEVICE_MOBILE);
+            const domainScraperType = resolveEffectiveSettings(domainName, settings, domainSpecificSettings).scraper_type;
+            const shouldPreserveFallback = domainScraperType === 'valueserp';
 
             const processBatch = async (batch: Keyword[], useFallback: boolean) => {
                const batchResults = await Promise.all(batch.map(async (keyword) => {
@@ -285,9 +287,17 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                await processBatch(batch, false);
             }
 
-            for (let index = 0; index < mobileKeywords.length; index += refreshBatchSize) {
-               const batch = mobileKeywords.slice(index, index + refreshBatchSize);
-               await processBatch(batch, true);
+            if (shouldPreserveFallback) {
+               for (let index = 0; index < mobileKeywords.length; index += refreshBatchSize) {
+                  const batch = mobileKeywords.slice(index, index + refreshBatchSize);
+                  await processBatch(batch, true);
+               }
+            } else if (mobileKeywords.length > 0) {
+               const combinedKeywords = [...desktopKeywords, ...mobileKeywords];
+               for (let index = 0; index < combinedKeywords.length; index += refreshBatchSize) {
+                  const batch = combinedKeywords.slice(index, index + refreshBatchSize);
+                  await processBatch(batch, false);
+               }
             }
          }
       }
