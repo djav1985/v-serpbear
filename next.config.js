@@ -8,6 +8,8 @@ const nextConfig = {
     optimizePackageImports: ['react-icons', 'react-chartjs-2', 'react-query']
   },
 
+  turbopack: {},
+
   // Bundle analyzer (enable with ANALYZE=true)
   ...(process.env.ANALYZE === 'true' && {
     webpack: (config, { dev, isServer, defaultLoaders: _defaultLoaders, nextRuntime: _nextRuntime, webpack: _webpack }) => {
