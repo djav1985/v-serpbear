@@ -1,5 +1,8 @@
 /**
- * Converts a boolean value to SQLite integer (1 or 0)
+ * Converts a value to a SQLite boolean integer (1 or 0).
+ *
+ * Accepts booleans, numbers, null, and undefined, and uses standard JavaScript
+ * truthiness: truthy values map to 1, falsy values (0, null, undefined, false) map to 0.
  */
 export const toDbBool = (value: boolean | number | null | undefined): 1 | 0 => value ? 1 : 0;
 
