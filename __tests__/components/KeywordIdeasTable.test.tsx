@@ -28,6 +28,7 @@ jest.mock('../../services/adwords', () => ({
 
 jest.mock('../../services/domains', () => ({
    fetchDomains: jest.fn().mockResolvedValue({ domains: [] }),
+   ADWORDS_ENABLED: true,
 }));
 
 jest.mock('../../services/ideas', () => ({

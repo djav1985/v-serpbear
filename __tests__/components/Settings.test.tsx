@@ -8,6 +8,14 @@ import { useClearFailedQueue, useFetchSettings, useUpdateSettings } from '../../
 import { useBranding } from '../../hooks/useBranding';
 import { DEFAULT_BRANDING } from '../../utils/branding';
 
+jest.mock('../../services/domains', () => ({
+   __esModule: true,
+   ADWORDS_ENABLED: true,
+}));
+jest.mock('next/dynamic', () => () => () => null);
+
+jest.mock('../../components/settings/SearchConsoleSettings', () => () => null);
+jest.mock('../../components/settings/AdWordsSettings', () => () => null);
 jest.mock('../../services/settings');
 jest.mock('../../hooks/useBranding');
 

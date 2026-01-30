@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { CSSTransition } from 'react-transition-group';
 import Icon from '../../components/common/Icon';
 import TopBar from '../../components/common/TopBar';
-import KeywordIdeasTable from '../../components/ideas/KeywordIdeasTable';
+import dynamic from 'next/dynamic';
 import { exportKeywordIdeas } from '../../utils/client/exportcsv';
 import { useFetchKeywordIdeas, useMutateKeywordIdeas } from '../../services/adwords';
 import { useFetchSettings } from '../../services/settings';
@@ -15,6 +15,7 @@ import allCountries, { adwordsLanguages } from '../../utils/countries';
 import Footer from '../../components/common/Footer';
 import { BrandTitle } from '../../components/common/Branding';
 import { useBranding } from '../../hooks/useBranding';
+import { ADWORDS_ENABLED } from '../../services/domains';
 
 const Research: NextPage = () => {
    const router = useRouter();
@@ -28,12 +29,15 @@ const Research: NextPage = () => {
    const settingsNodeRef = useRef<HTMLDivElement>(null);
 
    const { data: appSettings } = useFetchSettings();
-   const adwordsConnected = Boolean(
+   const adwordsConnected = ADWORDS_ENABLED && Boolean(
       appSettings?.settings?.adwords_refresh_token
       && appSettings?.settings?.adwords_developer_token
       && appSettings?.settings?.adwords_account_id,
    );
-   const { data: keywordIdeasData, isLoading: isLoadingIdeas, isError: errorLoadingIdeas } = useFetchKeywordIdeas(router, adwordsConnected);
+   const { data: keywordIdeasData, isLoading: isLoadingIdeas, isError: errorLoadingIdeas } = useFetchKeywordIdeas(
+      router,
+      adwordsConnected,
+   );
    const { mutate: updateKeywordIdeas, isLoading: isUpdatingIdeas } = useMutateKeywordIdeas(router);
 
    const keywordIdeas:IdeaKeyword[] = keywordIdeasData?.data?.keywords || [];
@@ -48,8 +52,17 @@ const Research: NextPage = () => {
    }, [previousCountry, previousLang, previousSeedKeywords]);
 
    const reloadKeywordIdeas = () => {
-      const keywordPaylod = seedKeywords ? seedKeywords.split(',').map((key) => key.trim()) : undefined;
-      updateKeywordIdeas({ seedType: 'custom', language, domainSlug: 'research', domainUrl: '', keywords: keywordPaylod, country });
+      const keywordPayload = seedKeywords
+         ? seedKeywords.split(',').map((key) => key.trim())
+         : undefined;
+      updateKeywordIdeas({
+         seedType: 'custom',
+         language,
+         domainSlug: 'research',
+         domainUrl: '',
+         keywords: keywordPayload,
+         country,
+      });
    };
 
    const countryOptions = useMemo(() => Object.keys(allCountries)
@@ -61,6 +74,11 @@ const Research: NextPage = () => {
    const buttonStyle = 'leading-6 inline-block px-2 py-2 text-gray-500 hover:text-gray-700';
    const buttonLabelStyle = 'ml-2 text-sm not-italic lg:invisible lg:opacity-0';
    const labelStyle = 'mb-2 font-semibold inline-block text-sm text-gray-700 capitalize w-full';
+
+   const KeywordIdeasTable = useMemo(
+      () => dynamic(() => import('../../components/ideas/KeywordIdeasTable'), { ssr: false }),
+      [],
+   );
 
    return (
       <div className='Research'>
@@ -133,16 +151,18 @@ const Research: NextPage = () => {
                      </button>
                   </div>
                </div>
-               <KeywordIdeasTable
-               isLoading={isLoadingIdeas}
-               noIdeasDatabase={errorLoadingIdeas}
-               domain={null}
-               keywords={keywordIdeas}
-               favorites={favorites}
-               isAdwordsIntegrated={adwordsConnected}
-               showFavorites={showFavorites}
-               setShowFavorites={setShowFavorites}
-               />
+                {ADWORDS_ENABLED && (
+                   <KeywordIdeasTable
+                   isLoading={isLoadingIdeas}
+                   noIdeasDatabase={errorLoadingIdeas}
+                   domain={null}
+                   keywords={keywordIdeas}
+                   favorites={favorites}
+                   isAdwordsIntegrated={adwordsConnected}
+                   showFavorites={showFavorites}
+                   setShowFavorites={setShowFavorites}
+                   />
+                )}
             </div>
          </div>
          <CSSTransition in={showSettings} timeout={300} classNames="settings_anim" unmountOnExit mountOnEnter nodeRef={settingsNodeRef}>

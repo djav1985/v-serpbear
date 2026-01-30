@@ -134,9 +134,10 @@ type SettingsType = {
    adwords_developer_token?: string,
    adwords_account_id?: string,
    keywordsColumns: string[]
-   white_label_enabled?: boolean,
-   white_label_logo_file?: string,
-   platform_name?: string,
+    white_label_enabled?: boolean,
+    white_label_logo_file?: string,
+    platform_name?: string,
+    adwords_enabled?: boolean,
 }
 
 type KeywordSCDataChild = {

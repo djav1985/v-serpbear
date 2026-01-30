@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useMutateKeywordIdeas } from '../../services/adwords';
+import { ADWORDS_ENABLED } from '../../services/domains';
 import allCountries, { adwordsLanguages } from '../../utils/countries';
 import SelectField from '../common/SelectField';
 import Icon from '../common/Icon';
@@ -63,6 +64,7 @@ const KeywordIdeasUpdater = ({ onUpdate, settings, domain, searchConsoleConnecte
     }, [searchConsoleConnected]);
 
    const reloadKeywordIdeas = () => {
+      if (!ADWORDS_ENABLED) { return; }
       let keywordPayload: string[] | undefined;
 
       if (seedType === 'custom' && keywords) {

@@ -14,9 +14,9 @@ import useIsMobile from '../../hooks/useIsMobile';
 import { IdeasSortKeywords, IdeasfilterKeywords } from '../../utils/client/sortFilter';
 import IdeasFilters from './IdeasFilter';
 import { useMutateFavKeywordIdeas } from '../../services/adwords';
+import { ADWORDS_ENABLED, fetchDomains } from '../../services/domains';
 import { DEVICE_DESKTOP, DEVICE_MOBILE } from '../../utils/constants';
 import IdeaDetails from './IdeaDetails';
-import { fetchDomains } from '../../services/domains';
 import SelectField from '../common/SelectField';
 import toast from 'react-hot-toast';
 
@@ -138,6 +138,9 @@ const IdeasKeywordsTable = ({
    };
 
    const favoriteKeyword = (keywordID: string) => {
+      if (!ADWORDS_ENABLED) {
+         return;
+      }
       if (!isFaving) {
          faveKeyword({ keywordID, domain: isResearchPage ? 'research' : domain?.slug });
       }

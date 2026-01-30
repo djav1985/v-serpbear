@@ -17,7 +17,16 @@ describe('domains service environment toggle', () => {
       expect(screenshotsEnabled).toBe(true);
    });
 
-   it('disables screenshot fetching when NEXT_PUBLIC_SCREENSHOTS is false', async () => {
+   it('enables adwords by default', () => {
+      let adwordsEnabled: boolean | undefined;
+      jest.isolateModules(() => {
+         const mod = require('../../services/domains');
+         adwordsEnabled = mod.ADWORDS_ENABLED;
+      });
+      expect(adwordsEnabled).toBe(true);
+   });
+
+    it('disables screenshot fetching when NEXT_PUBLIC_SCREENSHOTS is false', async () => {
       process.env = { ...originalEnv, NEXT_PUBLIC_SCREENSHOTS: 'false' };
       jest.resetModules();
 
@@ -40,5 +49,18 @@ describe('domains service environment toggle', () => {
       if (!originalFetch) {
          delete (global as typeof globalThis & { fetch?: jest.Mock }).fetch;
       }
-   });
+    });
+
+    it('disables adwords feature when NEXT_PUBLIC_ADWORDS is false', () => {
+       process.env = { ...originalEnv, NEXT_PUBLIC_ADWORDS: 'false' };
+       jest.resetModules();
+
+       let adwordsEnabled: boolean | undefined;
+       jest.isolateModules(() => {
+          const mod = require('../../services/domains');
+          adwordsEnabled = mod.ADWORDS_ENABLED;
+       });
+
+       expect(adwordsEnabled).toBe(false);
+    });
 });

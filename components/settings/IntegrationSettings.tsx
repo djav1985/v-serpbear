@@ -1,10 +1,12 @@
 /// <reference path="../../types.d.ts" />
 
 import React, { useState } from 'react';
+import dynamic from 'next/dynamic';
 import SearchConsoleSettings from './SearchConsoleSettings';
-import AdWordsSettings from './AdWordsSettings';
+import { ADWORDS_ENABLED } from '../../services/domains';
 import Icon from '../common/Icon';
 
+const AdWordsSettings = dynamic(() => import('./AdWordsSettings'), { ssr: false });
 type IntegrationSettingsProps = {
    settings: SettingsType,
    settingsError: null | {
@@ -27,18 +29,20 @@ const IntegrationSettings = ({ settings, settingsError, updateSettings, performU
                onClick={() => setCurrentTab('searchconsole')}>
                   <Icon type='google' size={14} /> Search Console
                </li>
-               <li
-               className={`${tabStyle} ${currentTab === 'adwords' ? ' bg-blue-50 text-blue-600' : ''}`}
-               onClick={() => setCurrentTab('adwords')}>
-                  <Icon type='adwords' size={14} /> Google Ads
-               </li>
+               {ADWORDS_ENABLED && (
+                  <li
+                  className={`${tabStyle} ${currentTab === 'adwords' ? ' bg-blue-50 text-blue-600' : ''}`}
+                  onClick={() => setCurrentTab('adwords')}>
+                     <Icon type='adwords' size={14} /> Google Ads
+                  </li>
+               )}
             </ul>
          </div>
          <div>
             {currentTab === 'searchconsole' && settings && (
                <SearchConsoleSettings settings={settings} updateSettings={updateSettings} settingsError={settingsError} />
             )}
-            {currentTab === 'adwords' && settings && (
+            {ADWORDS_ENABLED && currentTab === 'adwords' && settings && (
                <AdWordsSettings
                settings={settings}
                updateSettings={updateSettings}

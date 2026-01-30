@@ -23,6 +23,13 @@ jest.mock('../../services/adwords', () => ({
    }),
 }));
 
+jest.mock('../../services/domains', () => ({
+   __esModule: true,
+   ADWORDS_ENABLED: true,
+}));
+
+jest.mock('next/dynamic', () => () => () => null);
+
 jest.mock('../../components/common/SelectField', () => ({ options }: any) => (
    <ul data-testid="select-field-options">
       {options.map((option: { label: string, value: string }) => (

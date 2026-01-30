@@ -10,11 +10,10 @@ import AddDomain from '../../../../components/domains/AddDomain';
 import DomainSettings from '../../../../components/domains/DomainSettings';
 import { exportKeywordIdeas } from '../../../../utils/client/exportcsv';
 import Settings from '../../../../components/settings/Settings';
-import { useFetchDomains } from '../../../../services/domains';
+import dynamic from 'next/dynamic';
+import { useFetchDomains, ADWORDS_ENABLED } from '../../../../services/domains';
 import { useFetchSettings } from '../../../../services/settings';
-import KeywordIdeasTable from '../../../../components/ideas/KeywordIdeasTable';
 import { useFetchKeywordIdeas } from '../../../../services/adwords';
-import KeywordIdeasUpdater from '../../../../components/ideas/KeywordIdeasUpdater';
 import Modal from '../../../../components/common/Modal';
 import Footer from '../../../../components/common/Footer';
 import AddKeywords from '../../../../components/keywords/AddKeywords';
@@ -38,13 +37,16 @@ export const DomainIdeasPage: NextPage = () => {
    const { data: appSettings } = useFetchSettings();
    const appSettingsData: SettingsType = appSettings?.settings || {};
    const { data: domainsData } = useFetchDomains(router, false);
-   const adwordsConnected = Boolean(
+   const adwordsConnected = ADWORDS_ENABLED && Boolean(
       appSettingsData?.adwords_refresh_token
       && appSettingsData?.adwords_developer_token
       && appSettingsData?.adwords_account_id,
    );
    const globalSearchConsoleConnected = Boolean(appSettingsData?.search_console_integrated);
-   const { data: keywordIdeasData, isLoading: isLoadingIdeas, isError: errorLoadingIdeas } = useFetchKeywordIdeas(router, adwordsConnected);
+   const { data: keywordIdeasData, isLoading: isLoadingIdeas, isError: errorLoadingIdeas } = useFetchKeywordIdeas(
+      router,
+      adwordsConnected,
+   );
    const theDomains: DomainType[] = (domainsData && domainsData.domains) || [];
    const keywordIdeas:IdeaKeyword[] = keywordIdeasData?.data?.keywords || [];
    const favorites:IdeaKeyword[] = keywordIdeasData?.data?.favorites || [];
@@ -72,6 +74,15 @@ export const DomainIdeasPage: NextPage = () => {
       [scraper_type, available_scapers],
    );
 
+   const KeywordIdeasTable = useMemo(
+      () => dynamic(() => import('../../../../components/ideas/KeywordIdeasTable'), { ssr: false }),
+      [],
+   );
+   const KeywordIdeasUpdater = useMemo(
+      () => dynamic(() => import('../../../../components/ideas/KeywordIdeasUpdater'), { ssr: false }),
+      [],
+   );
+
    return (
       <div className="Domain ">
          {activDomain && activDomain.domain
@@ -93,16 +104,18 @@ export const DomainIdeasPage: NextPage = () => {
                   showIdeaUpdateModal={() => setShowUpdateModal(true)}
                   />
                ) : <div className='w-full lg:h-[100px]'></div>}
-               <KeywordIdeasTable
-               isLoading={isLoadingIdeas}
-               noIdeasDatabase={errorLoadingIdeas}
-               domain={activDomain}
-               keywords={keywordIdeas}
-               favorites={favorites}
-               isAdwordsIntegrated={adwordsConnected}
-               showFavorites={showFavorites}
-               setShowFavorites={setShowFavorites}
-               />
+               {ADWORDS_ENABLED && (
+                  <KeywordIdeasTable
+                  isLoading={isLoadingIdeas}
+                  noIdeasDatabase={errorLoadingIdeas}
+                  domain={activDomain}
+                  keywords={keywordIdeas}
+                  favorites={favorites}
+                  isAdwordsIntegrated={adwordsConnected}
+                  showFavorites={showFavorites}
+                  setShowFavorites={setShowFavorites}
+                  />
+               )}
             </div>
          </div>
 
@@ -124,17 +137,17 @@ export const DomainIdeasPage: NextPage = () => {
              <Settings ref={settingsNodeRef} closeSettings={() => setShowSettings(false)} />
          </CSSTransition>
 
-         {showUpdateModal && activDomain?.domain && (
-            <Modal closeModal={() => setShowUpdateModal(false) } title={'Load Keyword Ideas from Google Ads'} verticalCenter={true}>
-               <KeywordIdeasUpdater
-               domain={activDomain}
-               onUpdate={() => setShowUpdateModal(false)}
-               settings={keywordIdeasSettings}
-               searchConsoleConnected={searchConsoleConnected}
-               adwordsConnected={adwordsConnected}
-               />
-            </Modal>
-         )}
+          {ADWORDS_ENABLED && showUpdateModal && activDomain?.domain && (
+             <Modal closeModal={() => setShowUpdateModal(false) } title={'Load Keyword Ideas from Google Ads'} verticalCenter={true}>
+                <KeywordIdeasUpdater
+                domain={activDomain}
+                onUpdate={() => setShowUpdateModal(false)}
+                settings={keywordIdeasSettings}
+                searchConsoleConnected={searchConsoleConnected}
+                adwordsConnected={adwordsConnected}
+                />
+             </Modal>
+          )}
          <CSSTransition in={showAddKeywords} timeout={300} classNames="modal_anim" unmountOnExit mountOnEnter nodeRef={addKeywordsNodeRef}>
             <AddKeywords
                ref={addKeywordsNodeRef}

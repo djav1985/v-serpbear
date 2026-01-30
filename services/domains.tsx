@@ -14,6 +14,7 @@ export const normalizeEnvFlag = (value: string | undefined) => {
 };
 
 export const SCREENSHOTS_ENABLED = normalizeEnvFlag(process.env.NEXT_PUBLIC_SCREENSHOTS);
+export const ADWORDS_ENABLED = normalizeEnvFlag(process.env.NEXT_PUBLIC_ADWORDS);
 
 const normalizeDomainPatch = (
    patch: Partial<DomainSettings>,

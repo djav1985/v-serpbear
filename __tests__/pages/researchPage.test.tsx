@@ -14,7 +14,12 @@ jest.mock('../../services/adwords', () => ({
 }));
 jest.mock('../../services/settings');
 
-jest.mock('../../components/ideas/KeywordIdeasTable', () => () => <div data-testid="ideas-table" />);
+jest.mock('../../services/domains', () => ({
+   __esModule: true,
+   ADWORDS_ENABLED: true,
+}));
+
+jest.mock('next/dynamic', () => () => () => <div data-testid="ideas-table" />);
 
 const useFetchKeywordIdeasMock = useFetchKeywordIdeas as jest.Mock;
 const useFetchSettingsMock = useFetchSettings as jest.Mock;
