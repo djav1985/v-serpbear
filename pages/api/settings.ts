@@ -9,7 +9,6 @@ import allScrapers from '../../scrapers/index';
 import { withApiLogging } from '../../utils/apiLogging';
 import { trimStringProperties } from '../../utils/security';
 import { getBranding } from '../../utils/branding';
-import { DEFAULT_REFRESH_BATCH_SIZE } from '../../utils/constants';
 import packageJson from '../../package.json';
 import { safeJsonParse } from '../../utils/safeJsonParse';
 import { atomicWriteFile } from '../../utils/atomicWrite';
@@ -32,7 +31,6 @@ const buildSettingsDefaults = (): SettingsType => {
       smtp_password: '',
       scrape_interval: '',
       scrape_delay: '',
-      refresh_batch_size: DEFAULT_REFRESH_BATCH_SIZE,
       scrape_retry: false,
       search_console: true,
       search_console_client_email: '',

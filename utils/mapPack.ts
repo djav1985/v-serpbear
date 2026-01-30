@@ -34,12 +34,12 @@ const toNumber = (value: unknown): number | null => {
    return null;
 };
 
-export const normalizeDomainHost = (domain: string): string | null => normalizeHostFromString(domain);
+export const normaliseDomainHost = (domain: string): string | null => normalizeHostFromString(domain);
 
-const normalizeCandidateHost = (value: string): string | null => normalizeHostFromString(value);
+const normaliseCandidateHost = (value: string): string | null => normalizeHostFromString(value);
 
 export const doesUrlMatchDomainHost = (domainHost: string, value: string): boolean => {
-   const candidateHost = normalizeCandidateHost(value);
+   const candidateHost = normaliseCandidateHost(value);
    if (!candidateHost) { return false; }
    if (candidateHost.includes('google.')) { return false; }
    return candidateHost === domainHost
@@ -88,18 +88,6 @@ export const extractLocalResultsFromPayload = (payload: unknown, debug = false):
    }
 
    const container = payload as Record<string, unknown>;
-   const localResultsContainer = typeof container.local_results === 'object' && container.local_results !== null
-      ? (container.local_results as Record<string, unknown>)
-      : null;
-   const localPackContainer = typeof container.local_pack === 'object' && container.local_pack !== null
-      ? (container.local_pack as Record<string, unknown>)
-      : null;
-   const resultsContainer = typeof container.results === 'object' && container.results !== null
-      ? (container.results as Record<string, unknown>)
-      : null;
-   const localMapContainer = typeof container.local_map === 'object' && container.local_map !== null
-      ? (container.local_map as Record<string, unknown>)
-      : null;
    const directCandidates: LocalResultEntry[][] = [];
 
    const register = (value: unknown) => {
@@ -113,19 +101,19 @@ export const extractLocalResultsFromPayload = (payload: unknown, debug = false):
 
    register(container.local_results);
    register(container.localResults);
-   register(localResultsContainer?.results);
-   register(localResultsContainer?.local_results);
-   register(localResultsContainer?.places);
-   register(localPackContainer?.results);
+   register((container.local_results as any)?.results);
+   register((container.local_results as any)?.local_results);
+   register((container.local_results as any)?.places);
+   register((container.local_pack as any)?.results);
    register(container.maps_results);
    register(container.map_results);
    register(container.places_results);
    register(container.place_results);
-   register(resultsContainer?.local_results);
+   register((container.results as any)?.local_results);
    // Mobile-specific variations
    register(container.mobile_local_results);
    register(container.local_map);
-   register(localMapContainer?.places);
+   register((container.local_map as any)?.places);
 
    if (directCandidates.length === 0) {
       directCandidates.push(...collectLocalArrays(container));
@@ -189,7 +177,7 @@ const extractCandidateTitles = (entry: LocalResultEntry): string[] => {
 };
 
 export const computeMapPackTop3 = (domain: string, localResultsInput: unknown, businessName?: string | null): boolean => {
-   const domainHost = normalizeDomainHost(domain);
+   const domainHost = normaliseDomainHost(domain);
    if (!domainHost) {
       return false;
    }

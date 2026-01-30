@@ -14,14 +14,6 @@ import { logger } from './logger';
 import { fromDbBool, toDbBool } from './dbBooleans';
 import normalizeDomainBooleans from './normalizeDomain';
 import { retryQueueManager } from './retryQueueManager';
-import {
-   DEFAULT_PARALLEL_SCRAPERS,
-   DEFAULT_REFRESH_BATCH_SIZE,
-   DEFAULT_SCRAPE_DELAY_MS,
-   DEVICE_DESKTOP,
-   DEVICE_MOBILE,
-   MAX_SCRAPE_DELAY_MS,
-} from './constants';
 
 const describeScraperType = (scraperType?: SettingsType['scraper_type']): string => {
    if (!scraperType || scraperType.length === 0) {
@@ -95,7 +87,7 @@ const normalizeLocationForCache = (location?: string | null): string => {
  * @returns {'desktop' | 'mobile'} Normalized device type
  */
 const normalizeDevice = (device?: string): 'desktop' | 'mobile' =>
-   device === DEVICE_MOBILE ? DEVICE_MOBILE : DEVICE_DESKTOP;
+   device === 'mobile' ? 'mobile' : 'desktop';
 
 /**
  * Generates a cache key for matching desktop and mobile keyword pairs.
@@ -153,7 +145,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
       const secret = process.env.SECRET;
       const cryptr = secret ? new Cryptr(secret) : null;
       scrapePermissions = new Map(domains.map((domain) => {
-          const domainPlain = domain.get({ plain: true }) as DomainType;
+         const domainPlain = domain.get({ plain: true }) as DomainType & { scraper_settings?: any };
          const normalizedDomain = normalizeDomainBooleans(domainPlain);
          const isEnabled = normalizedDomain.scrapeEnabled;
 
@@ -171,19 +163,19 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                }
 
                 if (typeof normalizedDomain.business_name === 'string') {
-                    effectiveSettings.business_name = normalizedDomain.business_name;
-                 }
+                   (effectiveSettings as any).business_name = normalizedDomain.business_name;
+                }
 
                 domainSpecificSettings.set(normalizedDomain.domain, effectiveSettings);
                 domainsWithScraperOverrides.add(normalizedDomain.domain);
-              } else if (typeof normalizedDomain.business_name === 'string' && normalizedDomain.business_name) {
-                 // No scraper override but has business_name - use global settings with business_name
-                 const effectiveSettings: SettingsType = {
-                    ...settings,
-                 };
-                 effectiveSettings.business_name = normalizedDomain.business_name;
-                 domainSpecificSettings.set(normalizedDomain.domain, effectiveSettings);
-              }
+             } else if (typeof normalizedDomain.business_name === 'string' && normalizedDomain.business_name) {
+                // No scraper override but has business_name - use global settings with business_name
+                const effectiveSettings: SettingsType = {
+                   ...settings,
+                };
+                (effectiveSettings as any).business_name = normalizedDomain.business_name;
+                domainSpecificSettings.set(normalizedDomain.domain, effectiveSettings);
+             }
           }
 
          return [normalizedDomain.domain, isEnabled];
@@ -222,7 +214,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
    const updatedKeywords: KeywordType[] = [];
 
    // Determine if all keywords can be scraped in parallel by checking effective settings
-    const parallelScrapers: string[] = [...DEFAULT_PARALLEL_SCRAPERS];
+   const parallelScrapers = ['scrapingant', 'serpapi', 'searchapi'];
    const canScrapeInParallel = keywords.every((keyword) => {
       const effectiveSettings = resolveEffectiveSettings(keyword.domain, settings, domainSpecificSettings);
       return parallelScrapers.includes(effectiveSettings.scraper_type);
@@ -230,74 +222,49 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
 
    try {
       if (canScrapeInParallel) {
+         // Parallel scraping: each keyword is updated immediately upon receiving API response
          const parallelUpdatedKeywords = await refreshParallel(keywords, eligibleKeywordModels, settings, domainSpecificSettings);
          updatedKeywords.push(...parallelUpdatedKeywords);
       } else {
-         const domains = Array.from(new Set(eligibleKeywordModels.map((keyword) => keyword.domain)));
-         const refreshBatchSize = typeof settings.refresh_batch_size === 'number' && Number.isFinite(settings.refresh_batch_size)
-            ? Math.max(1, settings.refresh_batch_size)
-            : DEFAULT_REFRESH_BATCH_SIZE;
+         // Sequential scraping: scrape desktop keywords first, then mobile
+         // This allows mobile keywords to use desktop results as fallback if needed (e.g., for valueserp)
+         const sortedKeywords = [...eligibleKeywordModels].sort((a, b) => {
+            const aDevice = normalizeDevice(a.device);
+            const bDevice = normalizeDevice(b.device);
+            // Desktop comes before mobile
+            if (aDevice === 'desktop' && bDevice === 'mobile') return -1;
+            if (aDevice === 'mobile' && bDevice === 'desktop') return 1;
+            return 0;
+         });
 
-         for (const domainName of domains) {
-            const domainKeywords = eligibleKeywordModels.filter((keyword) => keyword.domain === domainName);
-            const sortedKeywords = [...domainKeywords].sort((a, b) => {
-               const aDevice = normalizeDevice(a.device);
-               const bDevice = normalizeDevice(b.device);
-               if (aDevice === DEVICE_DESKTOP && bDevice === DEVICE_MOBILE) return -1;
-               if (aDevice === DEVICE_MOBILE && bDevice === DEVICE_DESKTOP) return 1;
-               return 0;
-            });
+         // Map to store desktop results for each keyword (by keyword+domain+country+location)
+         // This cache allows scrapers like valueserp to use desktop mapPackTop3 for mobile when needed
+         const desktopMapPackCache = new Map<string, number>();
 
-            const desktopMapPackCache = new Map<string, number>();
-            const desktopKeywords = sortedKeywords.filter((keyword) => normalizeDevice(keyword.device) === DEVICE_DESKTOP);
-            const mobileKeywords = sortedKeywords.filter((keyword) => normalizeDevice(keyword.device) === DEVICE_MOBILE);
-            const domainScraperType = resolveEffectiveSettings(domainName, settings, domainSpecificSettings).scraper_type;
-            const shouldPreserveFallback = domainScraperType === 'valueserp';
+         for (const keyword of sortedKeywords) {
+            const keywordPlain = keyword.get({ plain: true });
+            logger.info('Processing keyword refresh', { keywordId: keywordPlain.ID, keyword: keywordPlain.keyword });
+            const normalizedDevice = normalizeDevice(keywordPlain.device);
+            const keywordKey = generateKeywordCacheKey(keywordPlain);
+            
+            // If this is a mobile keyword, check if we have desktop mapPackTop3 cached
+            const fallbackMapPackTop3 = (normalizedDevice === 'mobile') 
+               ? desktopMapPackCache.get(keywordKey) 
+               : undefined;
 
-            const processBatch = async (batch: Keyword[], useFallback: boolean) => {
-               const batchResults: KeywordType[] = [];
-               for (const keyword of batch) {
-                  const keywordPlain = keyword.get({ plain: true });
-                  logger.info('Processing keyword refresh', { keywordId: keywordPlain.ID, keyword: keywordPlain.keyword });
-                  const normalizedDevice = normalizeDevice(keywordPlain.device);
-                  const keywordKey = generateKeywordCacheKey(keywordPlain);
-                  const fallbackMapPackTop3 = useFallback && normalizedDevice === DEVICE_MOBILE
-                     ? desktopMapPackCache.get(keywordKey)
-                     : undefined;
+            const updatedkeyword = await refreshAndUpdateKeyword(keyword, settings, domainSpecificSettings, fallbackMapPackTop3);
+            updatedKeywords.push(updatedkeyword);
 
-                  const updatedkeyword = await refreshAndUpdateKeyword(keyword, settings, domainSpecificSettings, fallbackMapPackTop3);
-                  if (normalizedDevice === DEVICE_DESKTOP && updatedkeyword.mapPackTop3 !== undefined) {
-                     desktopMapPackCache.set(keywordKey, toDbBool(updatedkeyword.mapPackTop3));
-                  }
-                  batchResults.push(updatedkeyword);
-               }
-
-               updatedKeywords.push(...batchResults);
-
-               if (keywords.length > 0 && settings.scrape_delay && settings.scrape_delay !== '0') {
-                  const delay = parseInt(settings.scrape_delay, 10);
-                  const safeDelay = Number.isFinite(delay) && delay > 0 ? delay : DEFAULT_SCRAPE_DELAY_MS;
-                  if (safeDelay > 0) {
-                     await sleep(Math.min(safeDelay, MAX_SCRAPE_DELAY_MS));
-                  }
-               }
-            };
-
-            for (let index = 0; index < desktopKeywords.length; index += refreshBatchSize) {
-               const batch = desktopKeywords.slice(index, index + refreshBatchSize);
-               await processBatch(batch, false);
+            // If this was a desktop keyword, cache its mapPackTop3
+            // Note: undefined/null device is treated as desktop for consistency
+            if (normalizedDevice === 'desktop' && updatedkeyword.mapPackTop3 !== undefined) {
+               desktopMapPackCache.set(keywordKey, toDbBool(updatedkeyword.mapPackTop3));
             }
 
-            if (shouldPreserveFallback) {
-               for (let index = 0; index < mobileKeywords.length; index += refreshBatchSize) {
-                  const batch = mobileKeywords.slice(index, index + refreshBatchSize);
-                  await processBatch(batch, true);
-               }
-            } else if (mobileKeywords.length > 0) {
-               const combinedKeywords = [...desktopKeywords, ...mobileKeywords];
-               for (let index = 0; index < combinedKeywords.length; index += refreshBatchSize) {
-                  const batch = combinedKeywords.slice(index, index + refreshBatchSize);
-                  await processBatch(batch, false);
+            if (keywords.length > 0 && settings.scrape_delay && settings.scrape_delay !== '0') {
+               const delay = parseInt(settings.scrape_delay, 10);
+               if (!isNaN(delay) && delay > 0) {
+                  await sleep(Math.min(delay, 30000)); // Cap delay at 30 seconds for safety
                }
             }
          }
@@ -438,7 +405,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
       const { history } = keyword;
       history[dateKey] = newPos;
 
-       const normalizeResult = (result: any): string => {
+      const normalizeResult = (result: any): string => {
          if (result === undefined || result === null) {
             return '[]';
          }
@@ -450,7 +417,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          try {
             return JSON.stringify(result);
          } catch (error: any) {
-            logger.debug('Failed to serialize keyword result', { error });
+            logger.debug('Failed to serialise keyword result', { error });
             return '[]';
          }
       };
@@ -464,7 +431,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          parsedNormalizedResult = [];
       }
 
-       const normalizeLocalResults = (results: any): string => {
+      const normalizeLocalResults = (results: any): string => {
          if (results === undefined || results === null) {
             return JSON.stringify([]);
          }
@@ -476,7 +443,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          try {
             return JSON.stringify(results);
          } catch (error: any) {
-            logger.debug('Failed to serialize local results', { error });
+            logger.debug('Failed to serialise local results', { error });
             return JSON.stringify([]);
          }
       };
@@ -534,7 +501,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
             logger.info('Keyword updated', {
                keywordId: keyword.ID,
                keyword: keyword.keyword,
-             device: keyword.device || DEVICE_DESKTOP,
+               device: keyword.device || 'desktop',
                mapPackTop3: fromDbBool(dbPayload.mapPackTop3),
                hasError: dbPayload.lastUpdateError !== 'false',
             });

@@ -6,7 +6,7 @@ jest.mock('../../utils/client/origin', () => ({
 
 import { fetchKeywords } from '../../services/keywords';
 
-describe('fetchKeywords normalization', () => {
+describe('fetchKeywords normalisation', () => {
    const originalFetch = global.fetch;
    const originalLocation = window.location;
 
@@ -35,7 +35,7 @@ describe('fetchKeywords normalization', () => {
    it('coerces numeric flags into boolean values', async () => {
       const keywordPayload = {
          ID: 1,
-         keyword: 'normalize flags',
+         keyword: 'normalise flags',
          device: 'desktop',
          country: 'US',
          domain: 'example.com',
@@ -53,12 +53,12 @@ describe('fetchKeywords normalization', () => {
          mapPackTop3: 1,
       } as unknown as KeywordType;
 
-       fetchMock.mockResolvedValue({
-          status: 200,
-          json: jest.fn().mockResolvedValue({ keywords: [keywordPayload], pagination: { page: 1, limit: 100, total: 1, totalPages: 1 } }),
-       });
+      fetchMock.mockResolvedValue({
+         status: 200,
+         json: jest.fn().mockResolvedValue({ keywords: [keywordPayload] }),
+      });
 
-       const response = await fetchKeywords({} as any, 'example.com');
+      const response = await fetchKeywords({} as any, 'example.com');
 
       expect(fetchMock).toHaveBeenCalledWith(
          `${mockOrigin}/api/keywords?domain=example.com`,
@@ -66,8 +66,7 @@ describe('fetchKeywords normalization', () => {
       );
 
       expect(response).toBeTruthy();
-       expect(Array.isArray(response.keywords)).toBe(true);
-       expect(response.pagination).toEqual({ page: 1, limit: 100, total: 1, totalPages: 1 });
+      expect(Array.isArray(response.keywords)).toBe(true);
 
       const [keyword] = response.keywords as KeywordType[];
       expect(keyword.updating).toBe(false);

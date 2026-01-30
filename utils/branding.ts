@@ -20,9 +20,7 @@ const LOGO_MIME_TYPES: Record<string, string> = {
    '.webp': 'image/webp',
 };
 
-import { normalizeBooleanFlag } from './boolean';
-
-const normalizeBoolean = (value?: string): boolean => normalizeBooleanFlag(value);
+const normalizeBoolean = (value?: string): boolean => (value || '').toLowerCase() === 'true';
 
 const trimString = (value?: string | null): string => (value || '').trim();
 
@@ -88,3 +86,4 @@ export const buildLogoUrl = (brandingOrOrigin?: BuildLogoUrlFirstArg, originOver
    const sanitizedOrigin = origin ? stripTrailingSlash(origin) : '';
    return `${sanitizedOrigin}${branding.logoApiPath}`;
 };
+

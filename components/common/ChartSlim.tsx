@@ -1,10 +1,9 @@
 import React from 'react';
-import dynamic from 'next/dynamic';
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js';
+import { Line } from 'react-chartjs-2';
 import { calculateChartBounds } from '../../utils/client/chartBounds';
-import { CHART_DATASET_KEY_SLIM } from '../../utils/constants';
-import { ensureChartJsRegistered } from '../../utils/chartjs';
 
-const Line = dynamic(() => import('react-chartjs-2').then((mod) => mod.Line), { ssr: false });
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Title, Tooltip, Legend);
 
 type ChartProps = {
    labels: string[];
@@ -15,7 +14,6 @@ type ChartProps = {
 };
 
 const ChartSlim = ({ labels, series, noMaxLimit = false, reverse = true, fillContainer = false }: ChartProps) => {
-   ensureChartJsRegistered();
    const { min, max } = calculateChartBounds(series, { reverse, noMaxLimit });
    const options = {
       responsive: true,
@@ -74,7 +72,7 @@ const ChartSlim = ({ labels, series, noMaxLimit = false, reverse = true, fillCon
    return (
       <div className={`${wrapperClasses} rounded border border-gray-200`}>
          <Line
-            datasetIdKey={CHART_DATASET_KEY_SLIM}
+            datasetIdKey="XXX"
             className={lineClasses}
             options={options}
             data={{

@@ -14,7 +14,6 @@ import useWindowResize from '../../hooks/useWindowResize';
 import useIsMobile from '../../hooks/useIsMobile';
 import { useUpdateSettings } from '../../services/settings';
 import { defaultSettings } from '../settings/Settings';
-import { DEVICE_DESKTOP } from '../../utils/constants';
 
 type KeywordsTableProps = {
    domain: DomainType | null,
@@ -30,7 +29,7 @@ const KeywordsTable = (props: KeywordsTableProps) => {
    const titleColumnRef = useRef(null);
    const { keywords = [], isLoading = true, isConsoleIntegrated = false, settings } = props;
    const showSCData = isConsoleIntegrated;
-   const [device, setDevice] = useState<string>(DEVICE_DESKTOP);
+   const [device, setDevice] = useState<string>('desktop');
    const [selectedKeywords, setSelectedKeywords] = useState<number[]>([]);
    const [showKeyDetails, setShowKeyDetails] = useState<KeywordType|null>(null);
    const [showRemoveModal, setShowRemoveModal] = useState<boolean>(false);

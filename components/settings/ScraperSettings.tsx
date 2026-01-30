@@ -1,8 +1,6 @@
 /// <reference path="../../types.d.ts" />
 
 import React from 'react';
-import InputField from '../common/InputField';
-import { DEFAULT_REFRESH_BATCH_SIZE } from '../../utils/constants';
 import { useClearFailedQueue } from '../../services/settings';
 import Icon from '../common/Icon';
 import SelectField, { SelectionOption } from '../common/SelectField';
@@ -121,19 +119,7 @@ const ScraperSettings = ({ settings, settingsError, updateSettings }:ScraperSett
                onChange={(val) => updateSettings('scrape_retry', val)}
                />
             </div>
-      <div className="settings__section__input mb-5">
-         <InputField
-            label='Keyword Refresh Batch Size'
-            placeholder='5'
-            value={String(settings.refresh_batch_size ?? DEFAULT_REFRESH_BATCH_SIZE)}
-            onChange={(value: string) => {
-               const parsed = Number.parseInt(value, 10);
-               updateSettings('refresh_batch_size', Number.isFinite(parsed) ? Math.max(1, parsed) : DEFAULT_REFRESH_BATCH_SIZE);
-            }}
-         />
-         <small className=' text-gray-500 pt-2 block'>Controls concurrent keyword refreshes per domain.</small>
-      </div>
-      {settings?.scrape_retry && (settings.failed_queue?.length || 0) > 0 && (
+            {settings?.scrape_retry && (settings.failed_queue?.length || 0) > 0 && (
                <div className="settings__section__input mb-5">
                   <label className={labelStyle}>Clear Failed Retry Queue</label>
                   <button

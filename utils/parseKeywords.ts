@@ -1,7 +1,7 @@
 import Keyword from '../database/models/keyword';
 import { fromDbBool } from './dbBooleans';
 
-export const normalizeHistory = (rawHistory: unknown): KeywordHistory => {
+export const normaliseHistory = (rawHistory: unknown): KeywordHistory => {
    if (!rawHistory || typeof rawHistory !== 'object' || Array.isArray(rawHistory)) {
       return {};
    }
@@ -28,7 +28,7 @@ const parseKeywords = (allKeywords: Keyword[]) : KeywordType[] => {
 
       let historyRaw: unknown;
       try { historyRaw = JSON.parse(keywordData.history); } catch { historyRaw = {}; }
-       const history = normalizeHistory(historyRaw);
+      const history = normaliseHistory(historyRaw);
 
       let tags: string[] = [];
       try { tags = JSON.parse(keywordData.tags); } catch { tags = []; }

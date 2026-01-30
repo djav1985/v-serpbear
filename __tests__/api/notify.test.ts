@@ -402,7 +402,7 @@ describe('/api/notify - authentication', () => {
     expect(Domain.findOne).toHaveBeenCalledWith({ where: { domain: 'example.com' } });
   });
 
-  it('returns 200 when notifications succeed for multiple domains', async () => {
+  it('returns 200 with partial success when some notifications succeed and others fail', async () => {
     (verifyUser as jest.Mock).mockReturnValue('authorized');
 
     const domainRecord1 = {
@@ -455,8 +455,10 @@ describe('/api/notify - authentication', () => {
       },
     ]);
 
-    // Both calls succeed to avoid partial failure response
-    sendMailMock.mockResolvedValue(undefined);
+    // First call succeeds, second call fails
+    sendMailMock
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('SMTP failed for second domain'));
 
     await handler(req as NextApiRequest, res as NextApiResponse);
 

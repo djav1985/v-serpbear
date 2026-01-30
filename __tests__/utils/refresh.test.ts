@@ -349,7 +349,7 @@ describe('refreshAndUpdateKeywords', () => {
     expect(retryQueueManager.removeBatch).toHaveBeenCalledWith(expect.any(Set));
   });
 
-  it('normalizes undefined scraper results before persisting', async () => {
+  it('normalises undefined scraper results before persisting', async () => {
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
     const mockPlainKeyword = {
@@ -408,7 +408,7 @@ describe('refreshAndUpdateKeywords', () => {
     consoleSpy.mockRestore();
   });
 
-  it('normalizes array scraper results correctly', async () => {
+  it('normalises array scraper results correctly', async () => {
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
     const mockPlainKeyword = {
@@ -586,7 +586,7 @@ describe('refreshAndUpdateKeywords', () => {
     }
   });
 
-  it('normalizes legacy array history payloads before persisting new entries', async () => {
+  it('normalises legacy array history payloads before persisting new entries', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2024-05-20T12:00:00.000Z'));
 
     const mockPlainKeyword = {
@@ -1075,105 +1075,5 @@ describe('refreshAndUpdateKeywords', () => {
     // Verify that update was called to clear the updating flags
     expect(keywords[0].update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0, updatingStartedAt: null }));
     expect(keywords[1].update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0, updatingStartedAt: null }));
-  });
-
-  it('applies refresh_batch_size and preserves desktop fallback ordering per domain', async () => {
-    const cryptr = new Cryptr(process.env.SECRET as string);
-    const domains = [
-      {
-        get: () => ({
-          domain: 'example.com',
-          scrapeEnabled: 1,
-          scraper_settings: JSON.stringify({
-            scraper_type: 'valueserp',
-            scraping_api: cryptr.encrypt('value-key'),
-          }),
-        }),
-      },
-      {
-        get: () => ({
-          domain: 'other.com',
-          scrapeEnabled: 1,
-          scraper_settings: JSON.stringify({
-            scraper_type: 'custom-scraper',
-            scraping_api: cryptr.encrypt('value-key'),
-          }),
-        }),
-      },
-    ];
-    (Domain.findAll as jest.Mock).mockResolvedValue(domains);
-
-    const makeKeyword = (id: number, device: string, domain: string) => {
-      const keywordPlain = {
-        ID: id,
-        keyword: `keyword-${id}`,
-        domain,
-        device,
-        country: 'US',
-        location: '',
-        position: 0,
-        volume: 0,
-        updating: 1,
-        sticky: 0,
-        history: '{}',
-        lastResult: '[]',
-        lastUpdateError: 'false',
-        lastUpdated: '2024-01-01T00:00:00.000Z',
-        added: '2024-01-01T00:00:00.000Z',
-        url: '',
-        tags: '[]',
-        mapPackTop3: false,
-      };
-      return {
-        ID: id,
-        keyword: keywordPlain.keyword,
-        domain,
-        get: jest.fn().mockReturnValue(keywordPlain),
-        update: jest.fn().mockResolvedValue(undefined),
-        set: jest.fn(),
-      } as unknown as Keyword;
-    };
-
-    const keywordModels = [
-      makeKeyword(1, 'desktop', 'example.com'),
-      makeKeyword(2, 'mobile', 'example.com'),
-      makeKeyword(3, 'desktop', 'example.com'),
-      makeKeyword(4, 'mobile', 'example.com'),
-      makeKeyword(5, 'desktop', 'other.com'),
-      makeKeyword(6, 'mobile', 'other.com'),
-    ];
-
-    const callLog: Array<{ id: number; device: string; fallback?: number }> = [];
-    (scrapeKeywordFromGoogle as jest.Mock).mockImplementation(async (_keyword: KeywordType, settings: SettingsType & { fallback_mapPackTop3?: number }) => {
-      const id = _keyword.ID as number;
-      callLog.push({ id, device: _keyword.device, fallback: settings.fallback_mapPackTop3 });
-      return {
-        ID: id,
-        position: 1,
-        result: [],
-        mapPackTop3: _keyword.device === 'desktop',
-        error: false,
-      } as RefreshResult;
-    });
-
-    const settings = {
-      scraper_type: 'custom-scraper',
-      scrape_retry: false,
-      refresh_batch_size: 2,
-    } as SettingsType;
-
-    const updated = await refreshAndUpdateKeywords(keywordModels, settings);
-
-    const exampleCalls = callLog.filter((entry) => [1, 2, 3, 4].includes(entry.id));
-    expect(exampleCalls.map((entry) => entry.id)).toEqual([1, 2, 3, 4]);
-    const updatedExample = updated.filter((entry) => entry.domain === 'example.com');
-    expect(updatedExample.find((entry) => entry.ID === 1)?.mapPackTop3).toBe(true);
-    expect(updatedExample.find((entry) => entry.ID === 2)?.mapPackTop3).toBe(false);
-    expect(updatedExample.find((entry) => entry.ID === 3)?.mapPackTop3).toBe(true);
-    expect(updatedExample.find((entry) => entry.ID === 4)?.mapPackTop3).toBe(false);
-
-    const otherCalls = callLog.filter((entry) => [5, 6].includes(entry.id));
-    expect(otherCalls.map((entry) => entry.id)).toEqual([5, 6]);
-    expect(otherCalls.find((entry) => entry.id === 6)?.fallback).toBeUndefined();
   });
 });

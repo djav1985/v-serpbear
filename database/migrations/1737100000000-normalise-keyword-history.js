@@ -35,7 +35,7 @@ module.exports = {
             { transaction }
          );
 
-         console.log('Normalized keyword history defaults to empty objects.');
+         console.log('Normalised keyword history defaults to empty objects.');
       });
    },
 
