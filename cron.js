@@ -103,16 +103,16 @@ const generateCronTime = (interval) => {
       cronTime = CRON_MAIN_SCHEDULE;
    }
    if (interval === 'other_day') {
-      cronTime = '0 0 2-30/2 * *';
+      cronTime = '0 0 0 2-30/2 * *';
    }
    if (interval === 'daily_morning') {
       cronTime = CRON_EMAIL_SCHEDULE;
    }
    if (interval === 'weekly') {
-      cronTime = '0 0 * * 1';
+      cronTime = '0 0 0 * * 1';
    }
    if (interval === 'monthly') {
-      cronTime = '0 0 1 * *'; // Run every first day of the month at 00:00(midnight)
+      cronTime = '0 0 0 1 * *'; // Run every first day of the month at 00:00(midnight)
    }
 
    return cronTime;
@@ -126,8 +126,33 @@ const makeCronApiCall = (apiKey, baseUrl, endpoint, successMessage) => {
 
    const fetchOpts = { method: 'POST', headers: { Authorization: `Bearer ${apiKey}` } };
    return fetch(`${baseUrl}${endpoint}`, fetchOpts)
-      .then((res) => res.json())
-      .then((data) => { console.log(successMessage, { data }); })
+      .then((res) => {
+         if (!res.ok) {
+            console.error(`[CRON] API call to ${endpoint} failed with status ${res.status}`);
+            return res.text().then(text => {
+               console.error(`[CRON] Response body:`, text || '(empty)');
+               throw new Error(`HTTP ${res.status}: ${text || 'No response body'}`);
+            }).catch(() => {
+               throw new Error(`HTTP ${res.status}`);
+            });
+         }
+         
+         const contentType = res.headers.get('content-type');
+         if (contentType && contentType.includes('application/json')) {
+            return res.json().then(data => {
+               console.log(successMessage, { data });
+            });
+         } else {
+            // Non-JSON response or empty body
+            return res.text().then(text => {
+               if (text) {
+                  console.log(successMessage, { response: text });
+               } else {
+                  console.log(successMessage, { status: res.status });
+               }
+            });
+         }
+      })
       .catch((err) => {
          console.error(`[CRON] ERROR making API call to ${endpoint}:`, err);
       });

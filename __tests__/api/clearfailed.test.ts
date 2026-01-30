@@ -1,12 +1,13 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import handler from '../../pages/api/clearfailed';
 import verifyUser from '../../utils/verifyUser';
-import { writeFile } from 'fs/promises';
 
 jest.mock('../../utils/verifyUser');
-jest.mock('fs/promises', () => ({
-   __esModule: true,
-   writeFile: jest.fn(),
+
+jest.mock('../../utils/retryQueueManager', () => ({
+   retryQueueManager: {
+      clearQueue: jest.fn(),
+   },
 }));
 
 jest.mock('../../utils/apiLogging', () => ({
@@ -24,7 +25,8 @@ describe('/api/clearfailed', () => {
       } as unknown as NextApiResponse;
 
       (verifyUser as jest.Mock).mockReturnValue('authorized');
-      (writeFile as jest.Mock).mockResolvedValue(undefined);
+      const { retryQueueManager } = require('../../utils/retryQueueManager');
+      (retryQueueManager.clearQueue as jest.Mock).mockResolvedValue(undefined);
    });
 
    afterEach(() => {
@@ -32,7 +34,8 @@ describe('/api/clearfailed', () => {
    });
 
    it('responds with error status when clearing the queue fails', async () => {
-      (writeFile as jest.Mock).mockRejectedValue(new Error('disk full'));
+      const { retryQueueManager } = require('../../utils/retryQueueManager');
+      (retryQueueManager.clearQueue as jest.Mock).mockRejectedValue(new Error('disk full'));
 
       await handler(req, res);
 

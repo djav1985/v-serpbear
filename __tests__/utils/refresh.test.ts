@@ -260,6 +260,7 @@ describe('refreshAndUpdateKeywords', () => {
         get: jest.fn().mockReturnValue({ ID: 1, domain: 'disabled1.com' }),
         update: jest.fn().mockResolvedValue(undefined),
         set: jest.fn(),
+        updating: 1,
       },
       {
         ID: 2,
@@ -267,6 +268,7 @@ describe('refreshAndUpdateKeywords', () => {
         get: jest.fn().mockReturnValue({ ID: 2, domain: 'disabled2.com' }),
         update: jest.fn().mockResolvedValue(undefined),
         set: jest.fn(),
+        updating: 1,
       },
       {
         ID: 3,
@@ -274,6 +276,7 @@ describe('refreshAndUpdateKeywords', () => {
         get: jest.fn().mockReturnValue({ ID: 3, domain: 'disabled3.com' }),
         update: jest.fn().mockResolvedValue(undefined),
         set: jest.fn(),
+        updating: 1,
       },
     ];
 
@@ -284,14 +287,19 @@ describe('refreshAndUpdateKeywords', () => {
       { get: () => ({ domain: 'disabled3.com', scrapeEnabled: 0 }) },
     ]);
 
+    // Mock the static Keyword.update method for bulk updates
+    (Keyword.update as jest.Mock) = jest.fn().mockResolvedValue([3]); // [affectedRows]
+
     const { retryQueueManager } = require('../../utils/retryQueueManager');
 
     // Execute the function
     await refreshAndUpdateKeywords(mockKeywords, mockSettings);
     
-    expect(mockKeywords[0].update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0, updatingStartedAt: null }));
-    expect(mockKeywords[1].update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0, updatingStartedAt: null }));
-    expect(mockKeywords[2].update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0, updatingStartedAt: null }));
+    // Verify bulk update was called instead of individual updates
+    expect(Keyword.update).toHaveBeenCalledWith(
+      expect.objectContaining({ updating: 0, updatingStartedAt: null }),
+      expect.objectContaining({ where: { ID: [1, 2, 3] } })
+    );
 
     // Verify batched removal was called with the correct IDs
     expect(retryQueueManager.removeBatch).toHaveBeenCalledTimes(1);

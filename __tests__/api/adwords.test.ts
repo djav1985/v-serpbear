@@ -25,6 +25,10 @@ jest.mock('fs/promises', () => ({
    writeFile: jest.fn(),
 }));
 
+jest.mock('../../utils/atomicWrite', () => ({
+   atomicWriteFile: jest.fn().mockResolvedValue(undefined),
+}));
+
 const decryptMock = jest.fn();
 const encryptMock = jest.fn();
 
