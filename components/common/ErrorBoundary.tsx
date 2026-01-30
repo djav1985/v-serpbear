@@ -8,6 +8,7 @@ type ErrorBoundaryState = {
 
 type ErrorBoundaryProps = React.PropsWithChildren & {
   onReset?: () => void;
+  onError?: (error: unknown, info: React.ErrorInfo) => void;
 };
 
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
@@ -24,7 +25,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 
   componentDidCatch(error: unknown, info: React.ErrorInfo) {
-    void this.props;
+    this.props.onError?.(error, info);
     console.error('Unhandled application error:', error, info);
   }
 
