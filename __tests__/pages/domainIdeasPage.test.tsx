@@ -36,7 +36,13 @@ jest.mock('../../services/keywords', () => ({
 const KeywordIdeasTableMock = jest.fn(() => <div data-testid="ideas-table" />);
 const KeywordIdeasUpdaterMock = jest.fn(() => <div data-testid="ideas-updater" />);
 
-jest.mock('next/dynamic', () => () => (props: any) => <KeywordIdeasTableMock {...props} />);
+jest.mock('next/dynamic', () => (importer: () => any) => {
+   const path = importer.toString();
+   if (path.includes('KeywordIdeasUpdater')) {
+      return (props: any) => <KeywordIdeasUpdaterMock {...props} />;
+   }
+   return (props: any) => <KeywordIdeasTableMock {...props} />;
+});
 jest.mock('../../components/ideas/KeywordIdeasTable', () => (props: any) => KeywordIdeasTableMock(props));
 jest.mock('../../components/ideas/KeywordIdeasUpdater', () => (props: any) => KeywordIdeasUpdaterMock(props));
 

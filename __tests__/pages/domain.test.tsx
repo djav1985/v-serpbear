@@ -40,6 +40,11 @@ jest.mock('next/dynamic', () => () => () => null);
 jest.mock('../../components/keywords/AddKeywords', () => () => null);
 jest.mock('../../components/domains/AddDomain', () => () => null);
 jest.mock('../../components/domains/DomainSettings', () => () => null);
+jest.mock('../../components/common/Footer', () => () => null);
+jest.mock('../../components/common/TopBar', () => () => null);
+jest.mock('../../components/common/Sidebar', () => () => null);
+jest.mock('../../components/domains/DomainHeader', () => () => null);
+jest.mock('../../components/keywords/KeywordsTable', () => () => null);
 
 const useFetchDomainsFunc = useFetchDomains as jest.Mock<any>;
 const useFetchDomainFunc = useFetchDomain as jest.Mock<any>;
@@ -85,6 +90,10 @@ describe('SingleDomain Page', () => {
    });
    afterEach(() => {
       jest.clearAllMocks();
+   });
+
+   afterAll(() => {
+      queryClient.clear();
    });
    it('Render without crashing.', async () => {
       render(<QueryClientProvider client={queryClient}><SingleDomain /></QueryClientProvider>);
