@@ -43,6 +43,9 @@ class RetryQueueManager {
                logger.debug('Failed to create retry queue file', { error: createErr?.message });
                throw createErr;
             }
+         } else {
+            logger.debug('Failed to read retry queue file', { error: err?.message });
+            throw err;
          }
       }
 
