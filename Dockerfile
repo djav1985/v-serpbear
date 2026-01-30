@@ -1,7 +1,6 @@
 FROM node:20.18.1-alpine3.20 AS base
 ENV NEXT_TELEMETRY_DISABLED=1 \
-    NPM_VERSION=11.6.0 \
-    NODE_ENV=production
+    NPM_VERSION=11.6.0
 WORKDIR /app
 RUN npm install -g npm@"${NPM_VERSION}"
 # Create non-root user early for security
