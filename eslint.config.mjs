@@ -38,7 +38,7 @@ const noUnusedVarsConfig = {
 
 export default [
   {
-    ignores: [".next/**", "coverage/**", "node_modules/**", "dist/**", "build/**"],
+    ignores: [".next/**", "next-env.d.ts", "coverage/**", "node_modules/**", "dist/**", "build/**"],
   },
   js.configs.recommended,
   {

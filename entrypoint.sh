@@ -44,7 +44,7 @@ NODE
 
 start_cron() {
   echo "Starting background cron worker..."
-  node ./cron.js &
+  node --require ts-node/register ./cron.js &
 }
 
 prepare_data_dir

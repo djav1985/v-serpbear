@@ -186,7 +186,7 @@ const runAppCronJobs = () => {
       try {
          // Use retryQueueManager for concurrency-safe access
          // Dynamic import works because Next.js transpiles TS files at runtime
-         const { retryQueueManager } = await import('./utils/retryQueueManager.js');
+         const { retryQueueManager } = await import('./utils/retryQueueManager');
          const keywordsToRetry = await retryQueueManager.getQueue();
          
          if (keywordsToRetry.length > 0) {
