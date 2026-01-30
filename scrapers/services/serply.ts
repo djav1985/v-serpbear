@@ -1,5 +1,6 @@
 import { resolveCountryCode } from '../../utils/scraperHelpers';
 import { computeMapPackTop3 } from '../../utils/mapPack';
+import { DEVICE_MOBILE } from '../../utils/constants';
 
 interface SerplyResult {
    title: string,
@@ -18,7 +19,7 @@ const serply:ScraperSettings = {
       const country = resolveCountryCode(keyword.country, SERPLY_COUNTRIES);
       return {
          'Content-Type': 'application/json',
-         'X-User-Agent': keyword.device === 'mobile' ? 'mobile' : 'desktop',
+         'X-User-Agent': keyword.device === DEVICE_MOBILE ? 'mobile' : 'desktop',
          'X-Api-Key': settings.scraping_api,
          'X-Proxy-Location': country,
       };
@@ -58,7 +59,7 @@ const serply:ScraperSettings = {
          }
       }
 
-      const businessName = (settings as any)?.business_name ?? null;
+      const businessName = (settings as ExtendedSettings)?.business_name ?? null;
       const mapPackTop3 = computeMapPackTop3(keyword.domain, response, businessName);
 
       return { organic: extractedResult, mapPackTop3 };

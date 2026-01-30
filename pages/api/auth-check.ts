@@ -30,7 +30,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<AuthCheckRespon
       
       let user = 'authenticated_user';
       if (token && process.env.SECRET) {
-        const decoded = jwt.verify(token, process.env.SECRET) as any;
+        const decoded = jwt.verify(token, process.env.SECRET) as JwtDecodedPayload;
         user = decoded?.user || user;
       }
 

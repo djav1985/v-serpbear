@@ -52,7 +52,7 @@ const logout = async (req: NextApiRequest, res: NextApiResponse<logoutResponse>,
          const jwt = await import('jsonwebtoken');
          const token = cookies.get('token');
          if (token && process.env.SECRET) {
-            const decoded = jwt.verify(token, process.env.SECRET) as any;
+            const decoded = jwt.verify(token, process.env.SECRET) as JwtDecodedPayload;
             username = decoded?.user || username;
          }
       } catch (error) {

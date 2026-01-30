@@ -101,19 +101,19 @@ export const extractLocalResultsFromPayload = (payload: unknown, debug = false):
 
    register(container.local_results);
    register(container.localResults);
-   register((container.local_results as any)?.results);
-   register((container.local_results as any)?.local_results);
-   register((container.local_results as any)?.places);
-   register((container.local_pack as any)?.results);
+   register((container.local_results as { results?: any[] })?.results);
+   register((container.local_results as { local_results?: any[] })?.local_results);
+   register((container.local_results as { places?: any[] })?.places);
+   register((container.local_pack as { results?: any[] })?.results);
    register(container.maps_results);
    register(container.map_results);
    register(container.places_results);
    register(container.place_results);
-   register((container.results as any)?.local_results);
+   register((container.results as { local_results?: any[] })?.local_results);
    // Mobile-specific variations
    register(container.mobile_local_results);
    register(container.local_map);
-   register((container.local_map as any)?.places);
+   register((container.local_map as { places?: any[] })?.places);
 
    if (directCandidates.length === 0) {
       directCandidates.push(...collectLocalArrays(container));

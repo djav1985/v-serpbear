@@ -1,10 +1,10 @@
 import axios, { AxiosResponse, CreateAxiosDefaults } from 'axios';
 import * as cheerio from 'cheerio';
-import HttpsProxyAgent from 'https-proxy-agent';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 import countries from './countries';
 import { serializeError } from './errorSerialization';
 import allScrapers from '../scrapers/index';
-import { GOOGLE_BASE_URL } from './constants';
+import { GOOGLE_BASE_URL, DEVICE_MOBILE } from './constants';
 import { computeMapPackTop3, doesUrlMatchDomainHost, normaliseDomainHost, extractLocalResultsFromPayload } from './mapPack';
 import { logger } from './logger';
 import { retryQueueManager } from './retryQueueManager';
@@ -62,7 +62,7 @@ export const getScraperClient = (
    };
 
    const mobileAgent = 'Mozilla/5.0 (Linux; Android 10; SM-G996U Build/QP1A.190711.020; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Mobile Safari/537.36';
-   if (keyword && keyword.device === 'mobile') {
+   if (keyword && keyword.device === DEVICE_MOBILE) {
       headers['User-Agent'] = mobileAgent;
    }
 
@@ -104,7 +104,7 @@ export const getScraperClient = (
          proxyURL = firstProxy;
       }
 
-      axiosConfig.httpsAgent = new (HttpsProxyAgent as any)(proxyURL.trim());
+      axiosConfig.httpsAgent = new HttpsProxyAgent(proxyURL.trim());
       axiosConfig.proxy = false;
       const axiosClient = axios.create(axiosConfig);
       client = axiosClient.get(`https://www.google.com/search?num=100&q=${encodeURI(keyword.keyword)}`);
@@ -266,7 +266,7 @@ export const scrapeKeywordFromGoogle = async (keyword:KeywordType, settings:Sett
             let computedMapPack = false;
             let localResults: any[] = [];
             if (scraperObj?.supportsMapPack !== false) {
-               const businessName = (settings as any).business_name ?? null;
+               const businessName = (settings as ExtendedSettings).business_name ?? null;
                computedMapPack = typeof extraction.mapPackTop3 === 'boolean'
                   ? extraction.mapPackTop3
                   : computeMapPackTop3(keyword.domain, res, businessName);
@@ -274,7 +274,7 @@ export const scrapeKeywordFromGoogle = async (keyword:KeywordType, settings:Sett
                // Extract local results from the response payload
                const debugMode = process.env.NODE_ENV === 'development';
                localResults = extractLocalResultsFromPayload(res, debugMode);
-               if (debugMode && keyword.device === 'mobile') {
+               if (debugMode && keyword.device === DEVICE_MOBILE) {
                   logger.debug(`[MAP_PACK] Mobile keyword: ${keyword.keyword}, mapPackTop3: ${computedMapPack}, localResults count: ${localResults.length}`);
                }
             }
@@ -522,7 +522,7 @@ export const extractScrapedResult = (
    }
 
    // Mobile Scraper
-   if (extractedResult.length === 0 && device === 'mobile') {
+   if (extractedResult.length === 0 && device === DEVICE_MOBILE) {
       const items = $('body').find('#rso > div');
       for (let i = 0; i < items.length; i += 1) {
          const item = $(items[i]);

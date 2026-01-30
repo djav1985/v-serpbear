@@ -1,5 +1,5 @@
 import Keyword from '../database/models/keyword';
-import { fromDbBool } from './dbBooleans';
+import { normalizeToBoolean } from './dbBooleans';
 
 export const normaliseHistory = (rawHistory: unknown): KeywordHistory => {
    if (!rawHistory || typeof rawHistory !== 'object' || Array.isArray(rawHistory)) {
@@ -52,9 +52,9 @@ const parseKeywords = (allKeywords: Keyword[]) : KeywordType[] => {
          lastResult,
          localResults,
          lastUpdateError,
-         sticky: fromDbBool(keywordData.sticky),
-         updating: fromDbBool(keywordData.updating),
-         mapPackTop3: fromDbBool(keywordData.mapPackTop3),
+         sticky: normalizeToBoolean(keywordData.sticky),
+         updating: normalizeToBoolean(keywordData.updating),
+         mapPackTop3: normalizeToBoolean(keywordData.mapPackTop3),
       } as KeywordType;
    });
    return parsedItems;

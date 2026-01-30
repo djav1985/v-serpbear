@@ -44,7 +44,7 @@ const verifyUser = (req: NextApiRequest, res: NextApiResponse): string => {
          } else {
             authorized = 'authorized';
             authMethod = 'jwt_token';
-            username = (decoded as any)?.user;
+            username = (decoded as JwtDecodedPayload)?.user;
             logger.authEvent('token_verification_success', username, true);
          }
       });
