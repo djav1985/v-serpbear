@@ -1,4 +1,5 @@
-import { readFile } from 'fs/promises';
+import { readFile, mkdir } from 'fs/promises';
+import { dirname } from 'path';
 import { atomicWriteFile } from './atomicWrite';
 import * as lockfile from 'proper-lockfile';
 import { logger } from './logger';
@@ -34,8 +35,7 @@ class RetryQueueManager {
          if (err.code === 'ENOENT') {
             // File doesn't exist - create it with empty array
             try {
-               const dir = require('path').dirname(this.filePath);
-               const { mkdir } = require('fs/promises');
+               const dir = dirname(this.filePath);
                // eslint-disable-next-line security/detect-non-literal-fs-filename
                await mkdir(dir, { recursive: true });
                await atomicWriteFile(this.filePath, JSON.stringify([]), 'utf-8');

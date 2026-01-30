@@ -171,6 +171,15 @@ export const getAppSettings = async () : Promise<SettingsType> => {
    const settingsPath = `${process.cwd()}/data/settings.json`;
    const failedQueuePath = `${process.cwd()}/data/failed_queue.json`;
 
+   // Initialize failedQueue early to avoid reference errors in early returns
+   let failedQueue: number[] = [];
+   try {
+      failedQueue = await retryQueueManager.getQueue();
+   } catch (failedQueueError) {
+      logger.warn('Failed to read failed queue', { error: failedQueueError instanceof Error ? failedQueueError.message : String(failedQueueError) });
+      failedQueue = [];
+   }
+
    try {
       const settingsRaw = await readFile(settingsPath, { encoding: 'utf-8' });
       const settings = safeJsonParse<Partial<SettingsType>>(settingsRaw, {}, { context: 'settings.json', logError: true });
@@ -197,7 +206,7 @@ export const getAppSettings = async () : Promise<SettingsType> => {
                supportsMapPack: !!scraper.supportsMapPack,
                scraperCountries: scraper.scraperCountries,
             })),
-            failed_queue: [],
+            failed_queue: failedQueue,
             search_console_integrated: false,
          };
       }
@@ -236,15 +245,6 @@ export const getAppSettings = async () : Promise<SettingsType> => {
          ...decryptedSettings,
          notification_email_from_name: decryptedSettings.notification_email_from_name || platformName,
       };
-
-      // Use retryQueueManager for concurrency-safe access to failed queue
-      let failedQueue: number[] = [];
-      try {
-         failedQueue = await retryQueueManager.getQueue();
-      } catch (failedQueueError) {
-         logger.warn('Failed to read failed queue', { error: failedQueueError instanceof Error ? failedQueueError.message : String(failedQueueError) });
-         failedQueue = [];
-      }
 
       return {
          ...normalizedSettings,
