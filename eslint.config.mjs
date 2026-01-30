@@ -157,4 +157,9 @@ export default [
     files: ["eslint.config.mjs"],
     rules: { "import/extensions": "off" },
   },
+  {
+    name: "serpbear/cron",
+    files: ["cron.js"],
+    rules: { "import/extensions": "off" },
+  },
 ];
