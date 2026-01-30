@@ -32,7 +32,13 @@ describe('cron worker helpers', () => {
 
   it('sends the authorization header when API key is available', async () => {
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-    (global.fetch as jest.Mock).mockResolvedValue({ json: () => Promise.resolve({ ok: true }) });
+    (global.fetch as jest.Mock).mockResolvedValue({ 
+      ok: true,
+      headers: {
+        get: jest.fn().mockReturnValue('application/json'),
+      },
+      json: () => Promise.resolve({ ok: true }),
+    });
 
     await makeCronApiCall('secret', 'http://localhost:3000', '/api/cron', 'Success:');
 
