@@ -37,7 +37,7 @@ type KeywordsTableState = {
 };
 
 type KeywordsTableAction =
-   | { type: 'toggleSelection'; keywordID: number }
+   | { type: 'toggleSelection'; keywordId: number }
    | { type: 'setSelectedKeywords'; selectedKeywords: number[] }
    | { type: 'showKeyDetails'; keyword: KeywordType | null }
    | { type: 'showRemoveModal'; show: boolean }
@@ -53,9 +53,9 @@ type KeywordsTableAction =
 const keywordsTableReducer = (state: KeywordsTableState, action: KeywordsTableAction): KeywordsTableState => {
    switch (action.type) {
       case 'toggleSelection': {
-         const updatedSelected = state.selectedKeywords.includes(action.keywordID)
-            ? state.selectedKeywords.filter((keyID) => keyID !== action.keywordID)
-            : [...state.selectedKeywords, action.keywordID];
+         const updatedSelected = state.selectedKeywords.includes(action.keywordId)
+            ? state.selectedKeywords.filter((keyId) => keyId !== action.keywordId)
+            : [...state.selectedKeywords, action.keywordId];
          return { ...state, selectedKeywords: updatedSelected };
       }
       case 'setSelectedKeywords':
@@ -156,7 +156,7 @@ const KeywordsTable = (props: KeywordsTableProps) => {
       return [...new Set(allTags)];
    }, [keywords]);
 
-   const selectKeyword = (keywordID: number) => dispatch({ type: 'toggleSelection', keywordID });
+   const selectKeyword = (keywordId: number) => dispatch({ type: 'toggleSelection', keywordId });
 
    const updateColumns = (column:string) => {
       const newColumns = tableColumns.includes(column) ? tableColumns.filter((col) => col !== column) : [...tableColumns, column];
