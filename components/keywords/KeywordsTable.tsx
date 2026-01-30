@@ -80,11 +80,12 @@ const keywordsTableReducer = (state: KeywordsTableState, action: KeywordsTableAc
          return { ...state, selectedKeywords: [] };
       case 'clearSelectionAndCloseRemoveModal':
          return { ...state, selectedKeywords: [], showRemoveModal: false };
-      default:
+      default: {
          const exhaustiveCheck: never = action;
          void exhaustiveCheck;
          return state;
-   }
+      }
+    }
 };
 
 const KeywordsTable = (props: KeywordsTableProps) => {

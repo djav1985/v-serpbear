@@ -24,6 +24,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 
   componentDidCatch(error: unknown, info: React.ErrorInfo) {
+    void this.props;
     console.error('Unhandled application error:', error, info);
   }
 
