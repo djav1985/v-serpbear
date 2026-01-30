@@ -97,6 +97,11 @@ const normalizeLocationForCache = (location?: string | null): string => {
 const normalizeDevice = (device?: string): 'desktop' | 'mobile' =>
    device === DEVICE_MOBILE ? DEVICE_MOBILE : DEVICE_DESKTOP;
 
+/**
+ * Partitions keywords into desktop and mobile collections based on normalized device.
+ * @param {Keyword[]} keywords - Keyword models to partition.
+ * @returns {{ desktopKeywords: Keyword[]; mobileKeywords: Keyword[] }} Desktop and mobile keyword arrays.
+ */
 const partitionKeywordsByDevice = (keywords: Keyword[]): { desktopKeywords: Keyword[]; mobileKeywords: Keyword[] } => {
    const desktopKeywords: Keyword[] = [];
    const mobileKeywords: Keyword[] = [];
