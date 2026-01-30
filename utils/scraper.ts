@@ -1,6 +1,6 @@
 import axios, { AxiosResponse, CreateAxiosDefaults } from 'axios';
 import * as cheerio from 'cheerio';
-import HttpsProxyAgent from 'https-proxy-agent';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 import countries from './countries';
 import { serializeError } from './errorSerialization';
 import allScrapers from '../scrapers/index';
@@ -104,7 +104,6 @@ export const getScraperClient = (
          proxyURL = firstProxy;
       }
 
-      // @ts-expect-error HttpsProxyAgent typing issue with constructor
       axiosConfig.httpsAgent = new HttpsProxyAgent(proxyURL.trim());
       axiosConfig.proxy = false;
       const axiosClient = axios.create(axiosConfig);
