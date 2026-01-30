@@ -353,6 +353,8 @@ type ExtendedSettings = SettingsType & {
 }
 
 // Request with custom properties
+// This type is used to extend NextApiRequest with custom properties
+// Usage: (req as ExtendedRequest).requestId = ...
 type ExtendedRequest = {
    requestId?: string,
 }
