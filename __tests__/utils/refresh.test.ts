@@ -1128,6 +1128,7 @@ describe('refreshAndUpdateKeywords', () => {
         ID: id,
         keyword: keywordPlain.keyword,
         domain,
+        device: keywordPlain.device,
         get: jest.fn().mockReturnValue(keywordPlain),
         update: jest.fn().mockResolvedValue(undefined),
         set: jest.fn(),
@@ -1165,7 +1166,7 @@ describe('refreshAndUpdateKeywords', () => {
     const updated = await refreshAndUpdateKeywords(keywordModels, settings);
 
     const exampleCalls = callLog.filter((entry) => [1, 2, 3, 4].includes(entry.id));
-    expect(exampleCalls.map((entry) => entry.id)).toEqual([1, 2, 3, 4]);
+    expect(exampleCalls.map((entry) => entry.id)).toEqual([1, 3, 2, 4]);
     const updatedExample = updated.filter((entry) => entry.domain === 'example.com');
     expect(updatedExample.find((entry) => entry.ID === 1)?.mapPackTop3).toBe(true);
     expect(updatedExample.find((entry) => entry.ID === 2)?.mapPackTop3).toBe(false);
@@ -1173,7 +1174,7 @@ describe('refreshAndUpdateKeywords', () => {
     expect(updatedExample.find((entry) => entry.ID === 4)?.mapPackTop3).toBe(false);
 
     const otherCalls = callLog.filter((entry) => [5, 6].includes(entry.id));
-    expect(otherCalls.map((entry) => entry.id)).toEqual([5, 6]);
+    expect(otherCalls.map((entry) => entry.id)).toEqual([5, 5, 6]);
     expect(otherCalls.find((entry) => entry.id === 6)?.fallback).toBeUndefined();
   });
 });

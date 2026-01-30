@@ -97,6 +97,21 @@ const normalizeLocationForCache = (location?: string | null): string => {
 const normalizeDevice = (device?: string): 'desktop' | 'mobile' =>
    device === DEVICE_MOBILE ? DEVICE_MOBILE : DEVICE_DESKTOP;
 
+const partitionKeywordsByDevice = (keywords: Keyword[]): { desktopKeywords: Keyword[]; mobileKeywords: Keyword[] } => {
+   const desktopKeywords: Keyword[] = [];
+   const mobileKeywords: Keyword[] = [];
+
+   for (const keyword of keywords) {
+      if (normalizeDevice(keyword.device) === DEVICE_MOBILE) {
+         mobileKeywords.push(keyword);
+      } else {
+         desktopKeywords.push(keyword);
+      }
+   }
+
+   return { desktopKeywords, mobileKeywords };
+};
+
 /**
  * Generates a cache key for matching desktop and mobile keyword pairs.
  * The key is used to store and retrieve desktop mapPackTop3 values for mobile keywords.
@@ -240,17 +255,9 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
 
          for (const domainName of domains) {
             const domainKeywords = eligibleKeywordModels.filter((keyword) => keyword.domain === domainName);
-            const sortedKeywords = [...domainKeywords].sort((a, b) => {
-               const aDevice = normalizeDevice(a.device);
-               const bDevice = normalizeDevice(b.device);
-               if (aDevice === DEVICE_DESKTOP && bDevice === DEVICE_MOBILE) return -1;
-               if (aDevice === DEVICE_MOBILE && bDevice === DEVICE_DESKTOP) return 1;
-               return 0;
-            });
+            const { desktopKeywords, mobileKeywords } = partitionKeywordsByDevice(domainKeywords);
 
             const desktopMapPackCache = new Map<string, number>();
-            const desktopKeywords = sortedKeywords.filter((keyword) => normalizeDevice(keyword.device) === DEVICE_DESKTOP);
-            const mobileKeywords = sortedKeywords.filter((keyword) => normalizeDevice(keyword.device) === DEVICE_MOBILE);
             const domainScraperType = resolveEffectiveSettings(domainName, settings, domainSpecificSettings).scraper_type;
             const shouldPreserveFallback = domainScraperType === 'valueserp';
 
@@ -294,7 +301,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                   await processBatch(batch, true);
                }
             } else if (mobileKeywords.length > 0) {
-               const combinedKeywords = [...desktopKeywords, ...mobileKeywords];
+               const combinedKeywords = desktopKeywords.concat(mobileKeywords);
                for (let index = 0; index < combinedKeywords.length; index += refreshBatchSize) {
                   const batch = combinedKeywords.slice(index, index + refreshBatchSize);
                   await processBatch(batch, false);
