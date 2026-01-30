@@ -44,7 +44,7 @@ const verifyUser = (req: NextApiRequest, res: NextApiResponse): string => {
 
    if (token && process.env.SECRET) {
       try {
-         // Use synchronous jwt.verify to ensure authorized is determined before returning
+         // Verify JWT token and extract user information
          const decoded = jwt.verify(token, process.env.SECRET) as JwtDecodedPayload;
          authorized = 'authorized';
          authMethod = 'jwt_token';
