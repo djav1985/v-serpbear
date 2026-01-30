@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from 'react-query';
 import { ReactQueryDevtools } from 'react-query/devtools';
 import { Toaster } from 'react-hot-toast';
 import { getBranding, type BrandingConfig } from '../utils/branding';
+import ErrorBoundary from '../components/common/ErrorBoundary';
 
 type CustomAppProps = AppProps & {
    pageProps: {
@@ -16,15 +17,21 @@ type CustomAppProps = AppProps & {
 function MyApp({ Component, pageProps }: CustomAppProps) {
    const [queryClient] = React.useState(() => new QueryClient({
       defaultOptions: {
-        queries: {
-          refetchOnWindowFocus: false,
-        },
+         queries: {
+            refetchOnWindowFocus: false,
+         },
       },
-    }));
+   }));
    return <QueryClientProvider client={queryClient}>
-            <Component {...pageProps} />
-            <ReactQueryDevtools initialIsOpen={false} />
-            <Toaster position="bottom-center" containerClassName="react_toaster" />
+            <ErrorBoundary onReset={() => {
+               if (typeof window !== 'undefined') {
+                  window.location.reload();
+               }
+            }}>
+               <Component {...pageProps} />
+               <ReactQueryDevtools initialIsOpen={false} />
+               <Toaster position="bottom-center" containerClassName="react_toaster" />
+            </ErrorBoundary>
           </QueryClientProvider>;
 }
 
