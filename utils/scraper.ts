@@ -1,6 +1,6 @@
 import axios, { AxiosResponse, CreateAxiosDefaults } from 'axios';
 import * as cheerio from 'cheerio';
-import { HttpsProxyAgent } from 'https-proxy-agent';
+import HttpsProxyAgent from 'https-proxy-agent';
 import countries from './countries';
 import { serializeError } from './errorSerialization';
 import allScrapers from '../scrapers/index';
