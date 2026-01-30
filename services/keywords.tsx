@@ -2,35 +2,13 @@ import toast from 'react-hot-toast';
 import { NextRouter } from 'next/router';
 import { useMutation, useQuery, useQueryClient } from 'react-query';
 import { getClientOrigin } from '../utils/client/origin';
+import { normalizeToBoolean } from '../utils/dbBooleans';
 
 type KeywordsResponse = {
    keywords?: KeywordType[]
    [key: string]: unknown,
 };
 
-const normaliseKeywordFlag = (value: unknown): boolean => {
-   if (typeof value === 'boolean') {
-      return value;
-   }
-
-   if (typeof value === 'number') {
-      // Treat any non-zero number as true, 0 as false (handles DB integer flags like 0/1)
-      return value !== 0;
-   }
-
-   if (typeof value === 'string') {
-      const normalised = value.trim().toLowerCase();
-      if (normalised === 'true' || normalised === '1') {
-         return true;
-      }
-      if (normalised === 'false' || normalised === '0' || normalised === '') {
-         return false;
-      }
-   }
-
-   // Fallback: use standard truthiness for any other types
-   return Boolean(value);
-};
 const normaliseKeywordFlags = (keyword: unknown): KeywordType => {
    if (typeof keyword !== 'object' || keyword === null) {
       throw new Error('Invalid keyword object');
@@ -38,9 +16,9 @@ const normaliseKeywordFlags = (keyword: unknown): KeywordType => {
    const keywordRecord = keyword as Record<string, unknown>;
    return {
       ...keywordRecord,
-      updating: normaliseKeywordFlag(keywordRecord.updating),
-      sticky: normaliseKeywordFlag(keywordRecord.sticky),
-      mapPackTop3: normaliseKeywordFlag(keywordRecord.mapPackTop3),
+      updating: normalizeToBoolean(keywordRecord.updating),
+      sticky: normalizeToBoolean(keywordRecord.sticky),
+      mapPackTop3: normalizeToBoolean(keywordRecord.mapPackTop3),
    } as KeywordType;
 };
 
