@@ -110,8 +110,40 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
          return [normalizedDomain.domain, normalizedDomain.scrapeEnabled];
       }));
 
+      // Separate keywords into three categories:
+      // 1. Keywords with domains that exist and have scraping enabled
+      // 2. Keywords with domains that exist and have scraping disabled
+      // 3. Keywords with domains that don't exist in the Domain table (error case)
       const keywordsToRefresh = keywordQueries.filter((keyword) => scrapeEnabledMap.get(keyword.domain) === true);
       const skippedKeywords = keywordQueries.filter((keyword) => scrapeEnabledMap.get(keyword.domain) === false);
+      const missingDomainKeywords = keywordQueries.filter((keyword) => !scrapeEnabledMap.has(keyword.domain));
+
+      // Handle keywords whose domain is missing from the Domain table
+      if (missingDomainKeywords.length > 0) {
+         const missingDomains = Array.from(new Set(missingDomainKeywords.map((kw) => kw.domain)));
+         logger.error('Keywords found with domains not in Domain table', {
+            domains: missingDomains,
+            keywordCount: missingDomainKeywords.length,
+            keywordIds: missingDomainKeywords.map((kw) => kw.ID),
+         });
+         
+         // Clear updating flags for these keywords
+         await Promise.all(
+            missingDomainKeywords.map(async (keyword) => {
+               await keyword.update({ updating: toDbBool(false), updatingStartedAt: null });
+               if (typeof keyword.reload === 'function') {
+                  await keyword.reload();
+               }
+            }),
+         );
+         
+         // Return error if all keywords have missing domains
+         if (keywordsToRefresh.length === 0 && skippedKeywords.length === 0) {
+            return res.status(400).json({ 
+               error: `Domains not found in database: ${missingDomains.join(', ')}. Please ensure domains are created before adding keywords.`,
+            });
+         }
+      }
 
       if (skippedKeywords.length > 0) {
          await Promise.all(

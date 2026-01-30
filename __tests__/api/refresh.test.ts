@@ -241,6 +241,109 @@ describe('/api/refresh', () => {
     expect(refreshQueue.enqueue).not.toHaveBeenCalled();
   });
 
+  it('handles keywords with domains missing from Domain table', async () => {
+    req.query = { id: '1,2', domain: 'missing-domain.com' };
+
+    const keywordRecord1 = { 
+      ID: 1, 
+      domain: 'missing-domain.com', 
+      update: jest.fn().mockResolvedValue(undefined), 
+      reload: jest.fn().mockResolvedValue(undefined),
+      set: jest.fn() 
+    };
+    const keywordRecord2 = { 
+      ID: 2, 
+      domain: 'missing-domain.com', 
+      update: jest.fn().mockResolvedValue(undefined), 
+      reload: jest.fn().mockResolvedValue(undefined),
+      set: jest.fn() 
+    };
+    
+    (Keyword.findAll as jest.Mock).mockResolvedValue([keywordRecord1, keywordRecord2]);
+    // Domain table returns empty array - domain doesn't exist
+    (Domain.findAll as jest.Mock).mockResolvedValue([]);
+
+    await handler(req, res);
+
+    // Should clear updating flags for keywords with missing domains
+    expect(keywordRecord1.update).toHaveBeenCalledWith({ 
+      updating: 0, 
+      updatingStartedAt: null 
+    });
+    expect(keywordRecord2.update).toHaveBeenCalledWith({ 
+      updating: 0, 
+      updatingStartedAt: null 
+    });
+
+    // Should return error
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      error: 'Domains not found in database: missing-domain.com. Please ensure domains are created before adding keywords.',
+    });
+
+    // Should NOT call refreshAndUpdateKeywords
+    expect(refreshAndUpdateKeywords).not.toHaveBeenCalled();
+  });
+
+  it('handles mixed scenario with some domains missing and some present', async () => {
+    req.query = { id: '1,2,3' };
+
+    const keywordRecord1 = { 
+      ID: 1, 
+      domain: 'valid-domain.com', 
+      update: jest.fn().mockResolvedValue(undefined), 
+      reload: jest.fn().mockResolvedValue(undefined),
+      set: jest.fn() 
+    };
+    const keywordRecord2 = { 
+      ID: 2, 
+      domain: 'missing-domain.com', 
+      update: jest.fn().mockResolvedValue(undefined), 
+      reload: jest.fn().mockResolvedValue(undefined),
+      set: jest.fn() 
+    };
+    const keywordRecord3 = { 
+      ID: 3, 
+      domain: 'valid-domain.com', 
+      update: jest.fn().mockResolvedValue(undefined), 
+      reload: jest.fn().mockResolvedValue(undefined),
+      set: jest.fn() 
+    };
+    
+    (Keyword.findAll as jest.Mock).mockResolvedValue([keywordRecord1, keywordRecord2, keywordRecord3]);
+    // Only valid-domain.com exists in Domain table
+    (Domain.findAll as jest.Mock).mockResolvedValue([
+      { get: () => ({ domain: 'valid-domain.com', scrapeEnabled: 1 }) },
+    ]);
+
+    await handler(req, res);
+
+    // Should clear updating flag for keyword with missing domain
+    expect(keywordRecord2.update).toHaveBeenCalledWith({ 
+      updating: 0, 
+      updatingStartedAt: null 
+    });
+
+    // Should set updating flag for keywords with valid domain
+    expect(keywordRecord1.update).toHaveBeenCalledWith({
+      updating: 1,
+      lastUpdateError: 'false',
+      updatingStartedAt: '2024-06-01T12:00:00.000Z',
+    });
+    expect(keywordRecord3.update).toHaveBeenCalledWith({
+      updating: 1,
+      lastUpdateError: 'false',
+      updatingStartedAt: '2024-06-01T12:00:00.000Z',
+    });
+
+    // Should proceed with refresh for valid keywords
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      message: 'Refresh started',
+      keywordCount: 2,
+    });
+  });
+
   afterEach(() => {
     jest.clearAllMocks();
     jest.useRealTimers();

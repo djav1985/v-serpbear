@@ -162,9 +162,8 @@ const runAppCronJobs = () => {
    console.log('[CRON] Initializing application cron jobs...');
    console.log('[CRON] Timezone:', { timezone: CRON_TIMEZONE });
    
-   // Use internal docker hostname for API calls, fallback to configured URL
-   const apiUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-   const internalApiUrl = apiUrl.includes('localhost') ? 'http://localhost:3000' : apiUrl;
+   // Prefer configured URL, fallback to localhost
+   const internalApiUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'http://localhost:3000';
    
    console.log('[CRON] API URL:', { url: internalApiUrl });
    console.log('[CRON] API Key available:', { available: !!process.env.APIKEY });
