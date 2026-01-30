@@ -1,4 +1,5 @@
-import { Table, Model, Column, DataType, PrimaryKey } from 'sequelize-typescript';
+import { Table, Model, Column, DataType, PrimaryKey, ForeignKey, BelongsTo } from 'sequelize-typescript';
+import Domain from './domain';
 
 @Table({
   timestamps: false,
@@ -22,15 +23,24 @@ class Keyword extends Model {
    @Column({ type: DataType.STRING, allowNull: true, defaultValue: '' })
    location!: string;
 
-   @Column({ type: DataType.STRING, allowNull: false, defaultValue: '' })
+   @ForeignKey(() => Domain)
+   @Column({
+      type: DataType.STRING,
+      allowNull: false,
+      defaultValue: '',
+      references: { model: 'domain', key: 'domain' },
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE',
+   })
    domain!: string;
 
-   // @ForeignKey(() => Domain)
-   // @Column({ allowNull: false })
-   // domainID!: number;
-
-   // @BelongsTo(() => Domain)
-   // domain!: Domain;
+   @BelongsTo(() => Domain, {
+      foreignKey: 'domain',
+      targetKey: 'domain',
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE',
+   })
+   domainInfo?: Domain;
 
    @Column({ type: DataType.STRING, allowNull: true })
    lastUpdated!: string;
@@ -41,19 +51,19 @@ class Keyword extends Model {
    @Column({ type: DataType.INTEGER, allowNull: false, defaultValue: 0 })
    position!: number;
 
-   @Column({ type: DataType.STRING, allowNull: true, defaultValue: JSON.stringify({}) })
+   @Column({ type: DataType.TEXT, allowNull: true, defaultValue: JSON.stringify({}) })
    history!: string;
 
    @Column({ type: DataType.INTEGER, allowNull: false, defaultValue: 0 })
    volume!: number;
 
-   @Column({ type: DataType.STRING, allowNull: true, defaultValue: JSON.stringify([]) })
+   @Column({ type: DataType.TEXT, allowNull: true, defaultValue: JSON.stringify([]) })
    url!: string;
 
-   @Column({ type: DataType.STRING, allowNull: true, defaultValue: JSON.stringify([]) })
+   @Column({ type: DataType.TEXT, allowNull: true, defaultValue: JSON.stringify([]) })
    tags!: string;
 
-   @Column({ type: DataType.STRING, allowNull: true, defaultValue: JSON.stringify([]) })
+   @Column({ type: DataType.TEXT, allowNull: true, defaultValue: JSON.stringify([]) })
    lastResult!: string;
 
    @Column({ type: DataType.INTEGER, allowNull: true, defaultValue: 1 })
@@ -71,7 +81,7 @@ class Keyword extends Model {
    @Column({ type: DataType.INTEGER, allowNull: false, defaultValue: 0 })
    mapPackTop3!: number;
 
-   @Column({ type: DataType.STRING, allowNull: true, defaultValue: JSON.stringify([]) })
+   @Column({ type: DataType.TEXT, allowNull: true, defaultValue: JSON.stringify([]) })
    localResults!: string;
 }
 
