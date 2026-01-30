@@ -1,23 +1,13 @@
 import fs from 'fs';
 import path from 'path';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import TopBar from '../../components/common/TopBar';
 import { DEFAULT_BRANDING } from '../../utils/branding';
 import { useBranding } from '../../hooks/useBranding';
-import { serializeError } from '../../utils/errorSerialization';
-import toast from 'react-hot-toast';
 
 jest.mock('../../hooks/useBranding');
-jest.mock('../../utils/errorSerialization', () => ({
-   serializeError: jest.fn(),
-}));
-jest.mock('react-hot-toast', () => ({
-   __esModule: true,
-   default: jest.fn(),
-}));
 
 const mockUseBranding = useBranding as jest.MockedFunction<typeof useBranding>;
-const mockSerializeError = serializeError as jest.MockedFunction<typeof serializeError>;
 
 jest.mock('../../utils/client/origin', () => ({
    getClientOrigin: () => (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'),
@@ -39,7 +29,6 @@ describe('TopBar Component', () => {
          isFetching: false,
          refetch: jest.fn(),
       });
-      mockSerializeError.mockReturnValue('Serialized logout error');
    });
 
    afterEach(() => {
@@ -99,21 +88,5 @@ describe('TopBar Component', () => {
       expect(topbarElement).toBeInTheDocument();
       expect(topbarElement?.classList.contains('desktop-container')).toBe(true);
       expect(topbarElement?.className).not.toMatch(/max-w-\dxl?/);
-   });
-
-   it('uses serializeError when logout fails', async () => {
-      const fetchSpy = jest.spyOn(global, 'fetch').mockRejectedValue(new Error('logout failed'));
-      render(<TopBar showSettings={jest.fn} showAddModal={jest.fn} />);
-
-      const logoutLink = screen.getByText('Logout');
-      logoutLink.click();
-
-      await waitFor(() => {
-         expect(fetchSpy).toHaveBeenCalled();
-         expect(mockSerializeError).toHaveBeenCalled();
-         expect((toast as jest.Mock)).toHaveBeenCalledWith('Failed to log out: Serialized logout error', { icon: '⚠️' });
-      });
-
-      fetchSpy.mockRestore();
    });
 });

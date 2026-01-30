@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { serializeError } from '../utils/errorSerialization';
 
 export interface AuthStatus {
   isAuthenticated: boolean;
@@ -45,12 +44,11 @@ export function useAuth(): AuthStatus {
         });
       }
     } catch (error) {
-      const message = serializeError(error);
       console.error('Failed to check authentication status', error);
       setAuthStatus({
         isAuthenticated: false,
         isLoading: false,
-        error: `Failed to check authentication status: ${message}`,
+        error: 'Failed to check authentication status',
       });
     }
   };
