@@ -44,7 +44,7 @@ NODE
 
 start_cron() {
   echo "Starting background cron worker..."
-  node ./cron.js &
+  npx tsx ./cron.js &
 }
 
 prepare_data_dir

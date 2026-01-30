@@ -40,6 +40,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 # Copy runtime dependencies with proper permissions
 COPY --from=builder --chown=nextjs:nodejs /app/cron.js ./cron.js
 COPY --from=builder --chown=nextjs:nodejs /app/email ./email
+COPY --from=builder --chown=nextjs:nodejs /app/utils ./utils
 COPY --from=builder --chown=nextjs:nodejs /app/database ./database
 COPY --from=builder --chown=nextjs:nodejs /app/.sequelizerc ./.sequelizerc
 COPY --from=builder --chown=nextjs:nodejs /app/entrypoint.sh ./entrypoint.sh

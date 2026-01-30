@@ -38,7 +38,7 @@ const noUnusedVarsConfig = {
 
 export default [
   {
-    ignores: [".next/**", "coverage/**", "node_modules/**", "dist/**", "build/**"],
+    ignores: [".next/**", "next-env.d.ts", "coverage/**", "node_modules/**", "dist/**", "build/**"],
   },
   js.configs.recommended,
   {
@@ -155,6 +155,11 @@ export default [
   {
     name: "serpbear/config",
     files: ["eslint.config.mjs"],
+    rules: { "import/extensions": "off" },
+  },
+  {
+    name: "serpbear/cron",
+    files: ["cron.js"],
     rules: { "import/extensions": "off" },
   },
 ];
