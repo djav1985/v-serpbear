@@ -197,7 +197,7 @@ export const getAppSettings = async () : Promise<SettingsType> => {
                supportsMapPack: !!scraper.supportsMapPack,
                scraperCountries: scraper.scraperCountries,
             })),
-            failed_queue: failedQueue,
+            failed_queue: [],
             search_console_integrated: false,
          };
       }
