@@ -2,14 +2,24 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { DomainPage as SingleDomain } from '../../pages/domain/[slug]';
 import { useAddDomain, useDeleteDomain, useFetchDomain, useFetchDomains, useUpdateDomain } from '../../services/domains';
+import { useBranding } from '../../hooks/useBranding';
+import { DEFAULT_BRANDING } from '../../utils/branding';
 import { useAddKeywords, useDeleteKeywords,
    useFavKeywords, useFetchKeywords, useRefreshKeywords, useFetchSingleKeyword } from '../../services/keywords';
 import { dummyDomain, dummyKeywords, dummySettings } from '../../__mocks__/data';
 import { useFetchSettings, useUpdateSettings } from '../../services/settings';
 
 jest.mock('../../services/domains');
-jest.mock('../../services/keywords');
+jest.mock('../../services/keywords', () => ({
+   useAddKeywords: jest.fn(),
+   useDeleteKeywords: jest.fn(),
+   useFavKeywords: jest.fn(),
+   useFetchKeywords: jest.fn(),
+   useRefreshKeywords: jest.fn(),
+   useFetchSingleKeyword: jest.fn(),
+}));
 jest.mock('../../services/settings');
+jest.mock('../../hooks/useBranding');
 
 jest.mock('next/router', () => ({
    useRouter: () => ({
@@ -21,6 +31,8 @@ jest.mock('next/router', () => ({
 jest.mock('react-chartjs-2', () => ({
    Line: () => null,
 }));
+
+jest.mock('next/dynamic', () => () => () => null);
 
 const useFetchDomainsFunc = useFetchDomains as jest.Mock<any>;
 const useFetchDomainFunc = useFetchDomain as jest.Mock<any>;
@@ -35,6 +47,7 @@ const useDeleteDomainFunc = useDeleteDomain as jest.Mock<any>;
 const useFetchSettingsFunc = useFetchSettings as jest.Mock<any>;
 const useUpdateSettingsFunc = useUpdateSettings as jest.Mock<any>;
 const useFetchSingleKeywordFunc = useFetchSingleKeyword as jest.Mock<any>;
+const useBrandingMock = useBranding as jest.Mock<any>;
 
 describe('SingleDomain Page', () => {
    const queryClient = new QueryClient();
@@ -53,6 +66,13 @@ describe('SingleDomain Page', () => {
       useUpdateDomainFunc.mockImplementation(() => ({ mutate: () => { } }));
       useUpdateSettingsFunc.mockImplementation(() => ({ mutate: () => { } }));
       useDeleteDomainFunc.mockImplementation(() => ({ mutate: () => { } }));
+      useBrandingMock.mockReturnValue({
+         branding: DEFAULT_BRANDING,
+         isLoading: false,
+         isError: false,
+         isFetching: false,
+         refetch: jest.fn(),
+      });
    });
    afterEach(() => {
       jest.clearAllMocks();
