@@ -306,7 +306,7 @@ export function useFetchSingleKeyword(keywordID:number) {
             history: result.keyword?.history || [], 
             searchResult: result.keyword?.lastResult || [], 
             localResults: result.keyword?.localResults || [],
-            mapPackTop3: normaliseKeywordFlag(result.keyword?.mapPackTop3),
+            mapPackTop3: normalizeToBoolean(result.keyword?.mapPackTop3),
          };
       } catch (error) {
          if (error instanceof Error && error.message !== 'Error Loading Keyword Details') {

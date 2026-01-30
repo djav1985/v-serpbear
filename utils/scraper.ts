@@ -104,7 +104,8 @@ export const getScraperClient = (
          proxyURL = firstProxy;
       }
 
-      axiosConfig.httpsAgent = new HttpsProxyAgent(proxyURL.trim()) as any;
+      // @ts-expect-error HttpsProxyAgent typing issue with constructor
+      axiosConfig.httpsAgent = new HttpsProxyAgent(proxyURL.trim());
       axiosConfig.proxy = false;
       const axiosClient = axios.create(axiosConfig);
       client = axiosClient.get(`https://www.google.com/search?num=100&q=${encodeURI(keyword.keyword)}`);
