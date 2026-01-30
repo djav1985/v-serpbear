@@ -26,7 +26,9 @@ const verifyUser = (req: NextApiRequest, res: NextApiResponse): string => {
       'GET:/api/searchconsole',
       'GET:/api/insight',
    ];
-   const verifiedAPI = req.headers.authorization ? req.headers.authorization.substring('Bearer '.length) === process.env.APIKEY : false;
+   const verifiedAPI = req.headers.authorization && req.headers.authorization.startsWith('Bearer ') 
+      ? req.headers.authorization.substring('Bearer '.length) === process.env.APIKEY 
+      : false;
    const accessingAllowedRoute = req.url && req.method && allowedApiRoutes.includes(`${req.method}:${req.url.replace(/\?(.*)/, '')}`);
    
    let authorized: string = '';
@@ -34,20 +36,19 @@ const verifyUser = (req: NextApiRequest, res: NextApiResponse): string => {
    let username: string | undefined;
 
    if (token && process.env.SECRET) {
-      jwt.verify(token, process.env.SECRET, (err, decoded) => {
-         if (err) {
-            authorized = 'Not authorized';
-            logger.authEvent('token_verification_failed', undefined, false, {
-               error: err.message,
-               tokenPresent: true
-            });
-         } else {
-            authorized = 'authorized';
-            authMethod = 'jwt_token';
-            username = (decoded as JwtDecodedPayload)?.user;
-            logger.authEvent('token_verification_success', username, true);
-         }
-      });
+      try {
+         const decoded = jwt.verify(token, process.env.SECRET) as JwtDecodedPayload;
+         authorized = 'authorized';
+         authMethod = 'jwt_token';
+         username = decoded?.user;
+         logger.authEvent('token_verification_success', username, true);
+      } catch (err: any) {
+         authorized = 'Not authorized';
+         logger.authEvent('token_verification_failed', undefined, false, {
+            error: err?.message || String(err),
+            tokenPresent: true
+         });
+      }
    } else if (verifiedAPI && accessingAllowedRoute) {
       authorized = 'authorized';
       authMethod = 'api_key';

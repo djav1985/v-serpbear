@@ -26,6 +26,26 @@ class RetryQueueManager {
    private async withLock<T>(operation: () => Promise<T>): Promise<T> {
       let release: () => Promise<void>;
 
+      // Ensure the queue file exists before trying to lock it
+      try {
+         // eslint-disable-next-line security/detect-non-literal-fs-filename
+         await readFile(this.filePath, { encoding: 'utf-8' });
+      } catch (err: any) {
+         if (err.code === 'ENOENT') {
+            // File doesn't exist - create it with empty array
+            try {
+               const dir = require('path').dirname(this.filePath);
+               const { mkdir } = require('fs/promises');
+               // eslint-disable-next-line security/detect-non-literal-fs-filename
+               await mkdir(dir, { recursive: true });
+               await atomicWriteFile(this.filePath, JSON.stringify([]), 'utf-8');
+            } catch (createErr: any) {
+               logger.debug('Failed to create retry queue file', { error: createErr?.message });
+               throw createErr;
+            }
+         }
+      }
+
       try {
          // Acquire a cross-process file lock on the queue file with retry/backoff.
          release = await lockfile.lock(this.filePath, {

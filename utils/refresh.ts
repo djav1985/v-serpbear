@@ -109,15 +109,27 @@ const clearKeywordUpdatingFlags = async (
       return;
    }
    try {
-      await Promise.all(
-         keywords.map(async (keyword) => {
-            if (onlyWhenUpdating && !fromDbBool(keyword.updating)) {
-               return Promise.resolve();
-            }
-            // Only update database flags; Sequelize updates the instance in memory.
-            await keyword.update({ updating: toDbBool(false), updatingStartedAt: null });
-         }),
+      const idsToUpdate = onlyWhenUpdating
+         ? keywords.filter((keyword) => fromDbBool(keyword.updating)).map((keyword) => keyword.ID)
+         : keywords.map((keyword) => keyword.ID);
+      
+      if (idsToUpdate.length === 0) {
+         return;
+      }
+      
+      // Bulk update for better performance
+      await Keyword.update(
+         { updating: toDbBool(false), updatingStartedAt: null },
+         { where: { ID: idsToUpdate } }
       );
+      
+      // Also update in-memory instances for consistency
+      keywords.forEach((keyword) => {
+         if (!onlyWhenUpdating || fromDbBool(keyword.updating)) {
+            keyword.updating = toDbBool(false);
+            keyword.updatingStartedAt = null;
+         }
+      });
    } catch (error: any) {
       logger.error(`[ERROR] Failed to clear updating flags ${logContext}`, error, meta);
    }
@@ -138,6 +150,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
    const domainSpecificSettings = new Map<string, SettingsType>();
    const domainsWithScraperOverrides = new Set<string>();
 
+   // Precompute per-domain "effective settings" map once
    if (domainNames.length > 0) {
       const domains = await Domain.findAll({
          where: { domain: domainNames },
@@ -153,31 +166,31 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
          if (cryptr) {
             const persistedOverride = parseDomainScraperSettings(domainPlain?.scraper_settings);
             const decryptedOverride = decryptDomainScraperSettings(persistedOverride, cryptr);
-            if (decryptedOverride?.scraper_type) {
-               const effectiveSettings: SettingsType = {
-                  ...settings,
-                  scraper_type: decryptedOverride.scraper_type,
-               };
+            const hasOverride = !!decryptedOverride?.scraper_type;
+            const hasBusinessName = typeof normalizedDomain.business_name === 'string' && normalizedDomain.business_name;
+            
+            if (hasOverride || hasBusinessName) {
+               // Only clone settings when we have overrides
+               const effectiveSettings: SettingsType = hasOverride 
+                  ? {
+                     ...settings,
+                     scraper_type: decryptedOverride.scraper_type,
+                     ...(typeof decryptedOverride.scraping_api === 'string' && { scraping_api: decryptedOverride.scraping_api }),
+                  }
+                  : { ...settings };
 
-               if (typeof decryptedOverride.scraping_api === 'string') {
-                  effectiveSettings.scraping_api = decryptedOverride.scraping_api;
+               if (hasBusinessName) {
+                  (effectiveSettings as ExtendedSettings).business_name = normalizedDomain.business_name;
                }
 
-                if (typeof normalizedDomain.business_name === 'string') {
-                   (effectiveSettings as ExtendedSettings).business_name = normalizedDomain.business_name;
-                }
-
-                domainSpecificSettings.set(normalizedDomain.domain, effectiveSettings);
-                domainsWithScraperOverrides.add(normalizedDomain.domain);
-             } else if (typeof normalizedDomain.business_name === 'string' && normalizedDomain.business_name) {
-                // No scraper override but has business_name - use global settings with business_name
-                const effectiveSettings: SettingsType = {
-                   ...settings,
-                };
-                (effectiveSettings as ExtendedSettings).business_name = normalizedDomain.business_name;
-                domainSpecificSettings.set(normalizedDomain.domain, effectiveSettings);
-             }
-          }
+               domainSpecificSettings.set(normalizedDomain.domain, effectiveSettings);
+               
+               if (hasOverride) {
+                  domainsWithScraperOverrides.add(normalizedDomain.domain);
+               }
+            }
+            // If no overrides and no business_name, we use the global settings directly (no clone needed)
+         }
 
          return [normalizedDomain.domain, isEnabled];
       }));
@@ -214,10 +227,10 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
    const start = performance.now();
    const updatedKeywords: KeywordType[] = [];
 
-   // Determine if all keywords can be scraped in parallel by checking effective settings
+   // Determine if all keywords can be scraped in parallel by checking effective settings (precomputed)
    const parallelScrapers = ['scrapingant', 'serpapi', 'searchapi'];
    const canScrapeInParallel = keywords.every((keyword) => {
-      const effectiveSettings = resolveEffectiveSettings(keyword.domain, settings, domainSpecificSettings);
+      const effectiveSettings = domainSpecificSettings.get(keyword.domain) ?? settings;
       return parallelScrapers.includes(effectiveSettings.scraper_type);
    });
 

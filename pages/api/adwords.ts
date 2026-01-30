@@ -2,13 +2,14 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { OAuth2Client } from 'google-auth-library';
-import { readFile, writeFile } from 'fs/promises';
+import { readFile } from 'fs/promises';
 import Cryptr from 'cryptr';
 import db from '../../database/database';
 import verifyUser from '../../utils/verifyUser';
 import { getAdwordsCredentials, getAdwordsKeywordIdeas } from '../../utils/adwords';
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
+import { atomicWriteFile } from '../../utils/atomicWrite';
 
 type adwordsValidateResp = {
    valid: boolean
@@ -125,7 +126,7 @@ const getAdwordsRefreshToken = async (req: NextApiRequest, res: NextApiResponse)
             const r = await oAuth2Client.getToken(code);
             if (r?.tokens?.refresh_token) {
                const adwords_refresh_token = cryptr.encrypt(r.tokens.refresh_token);
-               await writeFile(`${process.cwd()}/data/settings.json`, JSON.stringify({ ...settings, adwords_refresh_token }), { encoding: 'utf-8' });
+               await atomicWriteFile(`${process.cwd()}/data/settings.json`, JSON.stringify({ ...settings, adwords_refresh_token }), 'utf-8');
                return respondWithIntegrationResult(req, res, { success: true, message: 'Integrated.' });
             }
             return respondWithIntegrationResult(req, res, {
@@ -206,7 +207,7 @@ const validateAdwordsIntegration = async (req: NextApiRequest, res: NextApiRespo
          adwords_account_id: encryptedAccountId,
       };
 
-      await writeFile(`${process.cwd()}/data/settings.json`, JSON.stringify(securedSettings), { encoding: 'utf-8' });
+      await atomicWriteFile(`${process.cwd()}/data/settings.json`, JSON.stringify(securedSettings), 'utf-8');
 
       return res.status(200).json({ valid: true });
    } catch (error) {

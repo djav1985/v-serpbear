@@ -71,19 +71,36 @@ const getKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
 
       const allKeywords:Keyword[] = await Keyword.findAll({ where: { domain } });
       const keywords: KeywordType[] = parseKeywords(allKeywords.map((e) => e.get({ plain: true })));
+      
+      // Consolidate pipeline: do history slicing + lastResult reset + SC integration in a single pass
       const processedKeywords = keywords.map((keyword) => {
-         const historyArray = Object.keys(keyword.history).map((dateKey:string) => ({
-            date: new Date(dateKey).getTime(),
-            dateRaw: dateKey,
-            position: keyword.history[dateKey],
-         }));
-         const historySorted = historyArray.sort((a, b) => a.date - b.date);
-         const lastWeekHistory :KeywordHistory = {};
-         historySorted.slice(-7).forEach((x:any) => { lastWeekHistory[x.dateRaw] = x.position; });
+         // Extract last 7 history entries without sorting entire history
+         const historyEntries = Object.entries(keyword.history);
+         let lastWeekHistory: KeywordHistory = {};
+         
+         if (historyEntries.length <= 7) {
+            // If we have 7 or fewer entries, use them all
+            lastWeekHistory = keyword.history;
+         } else {
+            // Sort only the entries by date (not the entire history array)
+            const sortedEntries = historyEntries
+               .map(([dateKey, position]) => ({ dateKey, date: new Date(dateKey).getTime(), position }))
+               .sort((a, b) => a.date - b.date)
+               .slice(-7);
+            
+            sortedEntries.forEach(({ dateKey, position }) => {
+               lastWeekHistory[dateKey] = position;
+            });
+         }
+         
+         // Create keyword with slim history and reset lastResult
          const keywordWithSlimHistory = { ...keyword, lastResult: [], history: lastWeekHistory };
+         
+         // Integrate SC data if available
          const finalKeyword = domainSCData ? integrateKeywordSCData(keywordWithSlimHistory, domainSCData) : keywordWithSlimHistory;
          return finalKeyword;
       });
+      
       return res.status(200).json({ keywords: processedKeywords });
    } catch (error) {
       logger.error(`Error getting domain keywords for: ${domain}`, error instanceof Error ? error : new Error(String(error)));
@@ -274,9 +291,27 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
       const formattedkeywords = reloadedKeywords.map((el) => el.get({ plain: true }));
       const keywordsParsed: KeywordType[] = parseKeywords(formattedkeywords);
 
-      // Queue the SERP Scraping Process
+      // Queue the SERP Scraping Process through refreshQueue to manage concurrency
       const settings = await getAppSettings();
-      refreshAndUpdateKeywords(reloadedKeywords, settings);
+      const domainName = keywordsParsed[0]?.domain;
+      if (domainName) {
+         await refreshQueue.enqueue(
+            `addKeywords-${domainName}-${Date.now()}`,
+            async () => {
+               try {
+                  await refreshAndUpdateKeywords(reloadedKeywords, settings);
+               } catch (error) {
+                  logger.error('Failed to refresh keywords after adding', error instanceof Error ? error : new Error(String(error)));
+               }
+            },
+            domainName
+         );
+      } else {
+         // Fallback: if no domain, just call it directly
+         refreshAndUpdateKeywords(reloadedKeywords, settings).catch((error) => {
+            logger.error('Failed to refresh keywords after adding', error instanceof Error ? error : new Error(String(error)));
+         });
+      }
 
       // Update the Keyword Volume
       const { adwords_account_id, adwords_client_id, adwords_client_secret, adwords_developer_token } = settings;

@@ -1,5 +1,6 @@
 import Keyword from '../database/models/keyword';
 import { normalizeToBoolean } from './dbBooleans';
+import { safeJsonParse } from './safeJsonParse';
 
 export const normaliseHistory = (rawHistory: unknown): KeywordHistory => {
    if (!rawHistory || typeof rawHistory !== 'object' || Array.isArray(rawHistory)) {
@@ -26,22 +27,27 @@ const parseKeywords = (allKeywords: Keyword[]) : KeywordType[] => {
    const parsedItems = allKeywords.map((keywrd:Keyword) => {
       const keywordData = keywrd as unknown as Record<string, any>;
 
-      let historyRaw: unknown;
-      try { historyRaw = JSON.parse(keywordData.history); } catch { historyRaw = {}; }
+      // Use safeJsonParse helper and skip parsing when already an object
+      const historyRaw = typeof keywordData.history === 'string' 
+         ? safeJsonParse<unknown>(keywordData.history, {}, {})
+         : (keywordData.history || {});
       const history = normaliseHistory(historyRaw);
 
-      let tags: string[] = [];
-      try { tags = JSON.parse(keywordData.tags); } catch { tags = []; }
+      const tags = typeof keywordData.tags === 'string'
+         ? safeJsonParse<string[]>(keywordData.tags, [], {})
+         : (Array.isArray(keywordData.tags) ? keywordData.tags : []);
 
-      let lastResult: any[] = [];
-      try { lastResult = JSON.parse(keywordData.lastResult); } catch { lastResult = []; }
+      const lastResult = typeof keywordData.lastResult === 'string'
+         ? safeJsonParse<any[]>(keywordData.lastResult, [], {})
+         : (Array.isArray(keywordData.lastResult) ? keywordData.lastResult : []);
 
-      let localResults: any[] = [];
-      try { localResults = JSON.parse(keywordData.localResults || '[]'); } catch { localResults = []; }
+      const localResults = typeof keywordData.localResults === 'string'
+         ? safeJsonParse<any[]>(keywordData.localResults, [], {})
+         : (Array.isArray(keywordData.localResults) ? keywordData.localResults : []);
 
       let lastUpdateError: any = false;
       if (typeof keywordData.lastUpdateError === 'string' && keywordData.lastUpdateError !== 'false' && keywordData.lastUpdateError.includes('{')) {
-         try { lastUpdateError = JSON.parse(keywordData.lastUpdateError); } catch { lastUpdateError = {}; }
+         lastUpdateError = safeJsonParse<any>(keywordData.lastUpdateError, {}, {});
       }
 
       return {

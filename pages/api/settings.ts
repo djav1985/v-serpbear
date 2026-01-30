@@ -107,10 +107,18 @@ const updateSettings = async (req: NextApiRequest, res: NextApiResponse<Settings
    if (!settings) {
       return res.status(400).json({ error: 'Settings payload is required.' });
    }
+   
+   if (!process.env.SECRET) {
+      return res.status(500).json({ 
+         error: 'Server configuration error', 
+         details: 'SECRET environment variable is not configured' 
+      });
+   }
+   
    try {
       const normalizedSettings: SettingsType = trimStringProperties({ ...settings });
 
-      const cryptr = new Cryptr(process.env.SECRET as string);
+      const cryptr = new Cryptr(process.env.SECRET);
       const encrypt = (value?: string) => (value ? cryptr.encrypt(value) : '');
       const scraping_api = encrypt(normalizedSettings.scraping_api);
       const smtp_password = encrypt(normalizedSettings.smtp_password);
@@ -121,6 +129,22 @@ const updateSettings = async (req: NextApiRequest, res: NextApiResponse<Settings
       const adwords_developer_token = encrypt(normalizedSettings.adwords_developer_token);
       const adwords_account_id = encrypt(normalizedSettings.adwords_account_id);
 
+      // Read existing settings to preserve adwords_refresh_token if not in payload
+      let existingRefreshToken = '';
+      try {
+         const existingSettingsRaw = await readFile(`${process.cwd()}/data/settings.json`, { encoding: 'utf-8' });
+         const existingSettings = safeJsonParse<Partial<SettingsType>>(existingSettingsRaw, {}, { context: 'settings.json', logError: false });
+         existingRefreshToken = existingSettings.adwords_refresh_token || '';
+      } catch (err) {
+         // If file doesn't exist or can't be read, continue with empty refresh token
+         logger.debug('Could not read existing settings for adwords_refresh_token', { error: err instanceof Error ? err.message : String(err) });
+      }
+
+      // Use existing refresh token if not provided in payload
+      const adwords_refresh_token = normalizedSettings.adwords_refresh_token 
+         ? encrypt(normalizedSettings.adwords_refresh_token)
+         : existingRefreshToken;
+
       const securedSettings = {
          ...normalizedSettings,
          scraping_api,
@@ -129,6 +153,7 @@ const updateSettings = async (req: NextApiRequest, res: NextApiResponse<Settings
          search_console_private_key,
          adwords_client_id,
          adwords_client_secret,
+         adwords_refresh_token,
          adwords_developer_token,
          adwords_account_id,
       };
@@ -152,6 +177,31 @@ export const getAppSettings = async () : Promise<SettingsType> => {
       const baseSettings: SettingsType = { ...buildSettingsDefaults(), ...settings };
       let decryptedSettings: SettingsType = baseSettings;
 
+      if (!process.env.SECRET) {
+         logger.warn('SECRET environment variable not configured, cannot decrypt settings');
+         return {
+            ...baseSettings,
+            scraping_api: '',
+            smtp_password: '',
+            search_console_client_email: '',
+            search_console_private_key: '',
+            adwords_client_id: '',
+            adwords_client_secret: '',
+            adwords_refresh_token: '',
+            adwords_developer_token: '',
+            adwords_account_id: '',
+            available_scapers: allScrapers.map((scraper) => ({
+               label: scraper.name,
+               value: scraper.id,
+               allowsCity: !!scraper.allowsCity,
+               supportsMapPack: !!scraper.supportsMapPack,
+               scraperCountries: scraper.scraperCountries,
+            })),
+            failed_queue: failedQueue,
+            search_console_integrated: false,
+         };
+      }
+
       try {
          const cryptr = new Cryptr(process.env.SECRET as string);
          const scraping_api = settings.scraping_api ? cryptr.decrypt(settings.scraping_api) : '';
@@ -160,6 +210,7 @@ export const getAppSettings = async () : Promise<SettingsType> => {
          const search_console_private_key = settings.search_console_private_key ? cryptr.decrypt(settings.search_console_private_key) : '';
          const adwords_client_id = settings.adwords_client_id ? cryptr.decrypt(settings.adwords_client_id) : '';
          const adwords_client_secret = settings.adwords_client_secret ? cryptr.decrypt(settings.adwords_client_secret) : '';
+         const adwords_refresh_token = settings.adwords_refresh_token ? cryptr.decrypt(settings.adwords_refresh_token) : '';
          const adwords_developer_token = settings.adwords_developer_token ? cryptr.decrypt(settings.adwords_developer_token) : '';
          const adwords_account_id = settings.adwords_account_id ? cryptr.decrypt(settings.adwords_account_id) : '';
 
@@ -171,6 +222,7 @@ export const getAppSettings = async () : Promise<SettingsType> => {
             search_console_private_key,
             adwords_client_id,
             adwords_client_secret,
+            adwords_refresh_token,
             adwords_developer_token,
             adwords_account_id,
          };
