@@ -225,7 +225,7 @@ const KeywordsTable = (props: KeywordsTableProps) => {
                 innerElementType="div"
                 itemData={processedKeywords[device]}
                 itemCount={processedKeywords[device].length}
-                itemSize={isMobile ? 146 : 57}
+                itemSize={57}
                 height={state.SCListHeight}
                 width={'100%'}
                 className={'styled-scrollbar'}
