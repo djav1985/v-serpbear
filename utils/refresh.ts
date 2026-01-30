@@ -163,7 +163,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                }
 
                 if (typeof normalizedDomain.business_name === 'string') {
-                   (effectiveSettings as any).business_name = normalizedDomain.business_name;
+                   (effectiveSettings as ExtendedSettings).business_name = normalizedDomain.business_name;
                 }
 
                 domainSpecificSettings.set(normalizedDomain.domain, effectiveSettings);
@@ -173,7 +173,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                 const effectiveSettings: SettingsType = {
                    ...settings,
                 };
-                (effectiveSettings as any).business_name = normalizedDomain.business_name;
+                (effectiveSettings as ExtendedSettings).business_name = normalizedDomain.business_name;
                 domainSpecificSettings.set(normalizedDomain.domain, effectiveSettings);
              }
           }

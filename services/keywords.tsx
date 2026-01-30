@@ -35,11 +35,12 @@ const normaliseKeywordFlags = (keyword: unknown): KeywordType => {
    if (typeof keyword !== 'object' || keyword === null) {
       throw new Error('Invalid keyword object');
    }
+   const keywordRecord = keyword as Record<string, unknown>;
    return {
-      ...(keyword as Record<string, unknown>),
-      updating: normaliseKeywordFlag((keyword as any)?.updating),
-      sticky: normaliseKeywordFlag((keyword as any)?.sticky),
-      mapPackTop3: normaliseKeywordFlag((keyword as any)?.mapPackTop3),
+      ...keywordRecord,
+      updating: normaliseKeywordFlag(keywordRecord.updating),
+      sticky: normaliseKeywordFlag(keywordRecord.sticky),
+      mapPackTop3: normaliseKeywordFlag(keywordRecord.mapPackTop3),
    } as KeywordType;
 };
 

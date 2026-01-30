@@ -312,3 +312,47 @@ interface ScraperSettings {
     */
    timeoutMs?: number,
 }
+
+// JWT Token Payload
+type JwtDecodedPayload = {
+   user?: string,
+   iat?: number,
+   exp?: number,
+}
+
+// Scraper Response Types - for map pack and local results
+type ScraperResponseWithLocalResults = {
+   organic_results?: any[],
+   local_results?: any[] | {
+      results?: any[],
+      local_results?: any[],
+      places?: any[],
+   },
+   localResults?: any[],
+   local_pack?: {
+      results?: any[],
+   },
+   results?: {
+      local_results?: any[],
+   },
+   local_map?: any[] | {
+      places?: any[],
+   },
+   maps_results?: any[],
+   map_results?: any[],
+   places_results?: any[],
+   place_results?: any[],
+   places?: any[],
+   mobile_local_results?: any[],
+}
+
+// Settings with extended properties
+type ExtendedSettings = SettingsType & {
+   business_name?: string | null,
+   fallback_mapPackTop3?: number,
+}
+
+// Request with custom properties
+type ExtendedRequest = {
+   requestId?: string,
+}

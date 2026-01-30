@@ -104,7 +104,7 @@ export const getScraperClient = (
          proxyURL = firstProxy;
       }
 
-      axiosConfig.httpsAgent = new (HttpsProxyAgent as any)(proxyURL.trim());
+      axiosConfig.httpsAgent = new HttpsProxyAgent(proxyURL.trim()) as any;
       axiosConfig.proxy = false;
       const axiosClient = axios.create(axiosConfig);
       client = axiosClient.get(`https://www.google.com/search?num=100&q=${encodeURI(keyword.keyword)}`);
@@ -266,7 +266,7 @@ export const scrapeKeywordFromGoogle = async (keyword:KeywordType, settings:Sett
             let computedMapPack = false;
             let localResults: any[] = [];
             if (scraperObj?.supportsMapPack !== false) {
-               const businessName = (settings as any).business_name ?? null;
+               const businessName = (settings as ExtendedSettings).business_name ?? null;
                computedMapPack = typeof extraction.mapPackTop3 === 'boolean'
                   ? extraction.mapPackTop3
                   : computeMapPackTop3(keyword.domain, res, businessName);

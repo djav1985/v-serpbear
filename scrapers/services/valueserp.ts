@@ -98,25 +98,25 @@ const valueSerp: ScraperSettings = {
       }
     }
 
-    const businessName = (settings as any)?.business_name ?? null;
+    const businessName = (settings as ExtendedSettings)?.business_name ?? null;
     
     // Check if this is a mobile keyword and if the API response has NO local results section at all
     const isMobile = keyword.device === 'mobile';
     const hasLocalResultsSection = !!(
       response &&
       (
-        Array.isArray((response as any).local_results) ||
-        Array.isArray((response as any).localResults) ||
-        (typeof (response as any).local_map === "object" && (response as any).local_map !== null) ||
-        Array.isArray((response as any).places) ||
-        Array.isArray((response as any).places_results)
+        Array.isArray((response as ScraperResponseWithLocalResults).local_results) ||
+        Array.isArray((response as ScraperResponseWithLocalResults).localResults) ||
+        (typeof (response as ScraperResponseWithLocalResults).local_map === "object" && (response as ScraperResponseWithLocalResults).local_map !== null) ||
+        Array.isArray((response as ScraperResponseWithLocalResults).places) ||
+        Array.isArray((response as ScraperResponseWithLocalResults).places_results)
       )
     );
     
     let mapPackTop3: boolean;
     
     // If mobile AND no local results section in API response, use fallback from desktop
-    const fallbackValue = (settings as any)?.fallback_mapPackTop3;
+    const fallbackValue = (settings as ExtendedSettings)?.fallback_mapPackTop3;
     if (isMobile && !hasLocalResultsSection && fallbackValue !== undefined) {
       // Fallback value is always a number (0 or 1) from desktop keyword, convert to boolean
       mapPackTop3 = fallbackValue === 1;
