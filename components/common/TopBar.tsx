@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import Icon from './Icon';
 import { BrandTitle } from './Branding';
 import { getClientOrigin } from '../../utils/client/origin';
+import { serializeError } from '../../utils/errorSerialization';
 
 type TopbarProps = {
    showSettings: Function,
@@ -26,8 +27,9 @@ const TopBar = ({ showSettings, showAddModal }:TopbarProps) => {
          } else {
             router.push('/login');
          }
-      } catch (_fetchError) {
-         toast('Failed to log out. Please try again.', { icon: '⚠️' });
+      } catch (fetchError) {
+         const message = serializeError(fetchError);
+         toast(`Failed to log out: ${message}`, { icon: '⚠️' });
       }
    };
 

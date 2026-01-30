@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { BrandTitle } from '../../components/common/Branding';
 import { useBranding } from '../../hooks/useBranding';
 import { getClientOrigin } from '../../utils/client/origin';
+import { serializeError } from '../../utils/errorSerialization';
 
 type LoginError = {
    type: string,
@@ -56,7 +57,8 @@ const Login: NextPage = () => {
             }
          } catch (fetchError) {
             console.error('Login request failed:', fetchError);
-            setError({ type: 'network_error', msg: 'Network error: Unable to connect to the server.' });
+            const message = serializeError(fetchError);
+            setError({ type: 'network_error', msg: `Network error: ${message}` });
             setTimeout(() => { setError(null); }, 3000);
          }
       }
