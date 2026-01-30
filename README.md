@@ -126,6 +126,7 @@ Runtime behavior is controlled through environment variables and settings stored
 | `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | ✅ | Public URL of your deployment. Determines OAuth callbacks and absolute links in email digests. Server-side code falls back to `APP_URL` when `NEXT_PUBLIC_APP_URL` is unset. |
 | `APP_URL` | — | Optional | Optional server-side origin used when `NEXT_PUBLIC_APP_URL` is unset. Helpful for CLI scripts that cannot inject the public variable. |
 | `NEXT_PUBLIC_SCREENSHOTS` | `true` | ✅ | Toggle keyword thumbnail capture in the UI. Set to `false` to fall back to favicons. |
+| `NEXT_PUBLIC_ADWORDS` | `true` | Optional | Toggle Google Ads keyword ideas UI and integrations. Set to `false` to hide Ads-related settings and ideas pages. |
 | `NEXT_PUBLIC_WHITE_LABEL` | `false` | Optional | Enables white-label branding. When `true`, the platform name and logo come from the variables below. |
 | `WHITE_LABEL_LOGO_FILE` | `branding-logo.png` | Optional | File name under `/app/data` for the custom logo. Use a 96×96px PNG, SVG, or WEBP asset for best results. |
 | `NEXT_PUBLIC_PLATFORM_NAME` | `SerpBear` | Optional | Display name for the application and notification emails in white-label mode. |

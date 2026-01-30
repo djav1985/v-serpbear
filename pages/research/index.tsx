@@ -17,6 +17,8 @@ import { BrandTitle } from '../../components/common/Branding';
 import { useBranding } from '../../hooks/useBranding';
 import { ADWORDS_ENABLED } from '../../services/domains';
 
+const KeywordIdeasTable = dynamic(() => import('../../components/ideas/KeywordIdeasTable'));
+
 const Research: NextPage = () => {
    const router = useRouter();
    const { branding } = useBranding();
@@ -75,10 +77,6 @@ const Research: NextPage = () => {
    const buttonLabelStyle = 'ml-2 text-sm not-italic lg:invisible lg:opacity-0';
    const labelStyle = 'mb-2 font-semibold inline-block text-sm text-gray-700 capitalize w-full';
 
-   const KeywordIdeasTable = useMemo(
-      () => dynamic(() => import('../../components/ideas/KeywordIdeasTable'), { ssr: false }),
-      [],
-   );
 
    return (
       <div className='Research'>

@@ -1,5 +1,6 @@
 /// <reference path="../../types.d.ts" />
 
+import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { DomainIdeasPage } from '../../pages/domain/ideas/[slug]';

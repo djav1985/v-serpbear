@@ -21,6 +21,9 @@ import { useFetchKeywords } from '../../../../services/keywords';
 import { withAuth } from '../../../../hooks/useAuth';
 import { safeJsonParse } from '../../../../utils/safeJsonParse';
 
+const KeywordIdeasTable = dynamic(() => import('../../../../components/ideas/KeywordIdeasTable'));
+const KeywordIdeasUpdater = dynamic(() => import('../../../../components/ideas/KeywordIdeasUpdater'));
+
 export const DomainIdeasPage: NextPage = () => {
    const router = useRouter();
    const [showDomainSettings, setShowDomainSettings] = useState(false);
@@ -74,14 +77,6 @@ export const DomainIdeasPage: NextPage = () => {
       [scraper_type, available_scapers],
    );
 
-   const KeywordIdeasTable = useMemo(
-      () => dynamic(() => import('../../../../components/ideas/KeywordIdeasTable'), { ssr: false }),
-      [],
-   );
-   const KeywordIdeasUpdater = useMemo(
-      () => dynamic(() => import('../../../../components/ideas/KeywordIdeasUpdater'), { ssr: false }),
-      [],
-   );
 
    return (
       <div className="Domain ">
