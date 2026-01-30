@@ -1,4 +1,4 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
+import type { NextApiRequest } from 'next';
 import Cryptr from 'cryptr';
 import handler from '../../pages/api/domains';
 import db from '../../database/database';
@@ -6,6 +6,7 @@ import Domain from '../../database/models/domain';
 import Keyword from '../../database/models/keyword';
 import verifyUser from '../../utils/verifyUser';
 import { removeLocalSCData } from '../../utils/searchConsole';
+import { createMockResponse } from '../__helpers__';
 
 jest.mock('../../database/database', () => ({
   __esModule: true,
@@ -43,11 +44,6 @@ const dbMock = db as unknown as { sync: jest.Mock };
 const DomainMock = Domain as unknown as { findOne: jest.Mock; destroy: jest.Mock; bulkCreate: jest.Mock; findAll: jest.Mock };
 const KeywordMock = Keyword as unknown as { destroy: jest.Mock };
 const removeLocalSCDataMock = removeLocalSCData as unknown as jest.Mock;
-
-const createMockResponse = () => ({
-  status: jest.fn().mockReturnThis(),
-  json: jest.fn(),
-}) as unknown as NextApiResponse;
 
 describe('GET /api/domains', () => {
    beforeEach(() => {
