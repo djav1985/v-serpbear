@@ -1174,7 +1174,7 @@ describe('refreshAndUpdateKeywords', () => {
     expect(updatedExample.find((entry) => entry.ID === 4)?.mapPackTop3).toBe(false);
 
     const otherCalls = callLog.filter((entry) => [5, 6].includes(entry.id));
-    expect(otherCalls.map((entry) => entry.id)).toEqual([5, 5, 6]);
+    expect(otherCalls.map((entry) => entry.id)).toEqual([5, 6]);
     expect(otherCalls.find((entry) => entry.id === 6)?.fallback).toBeUndefined();
   });
 });

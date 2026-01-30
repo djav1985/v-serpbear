@@ -301,9 +301,8 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                   await processBatch(batch, true);
                }
             } else if (mobileKeywords.length > 0) {
-               const combinedKeywords = desktopKeywords.concat(mobileKeywords);
-               for (let index = 0; index < combinedKeywords.length; index += refreshBatchSize) {
-                  const batch = combinedKeywords.slice(index, index + refreshBatchSize);
+               for (let index = 0; index < mobileKeywords.length; index += refreshBatchSize) {
+                  const batch = mobileKeywords.slice(index, index + refreshBatchSize);
                   await processBatch(batch, false);
                }
             }
