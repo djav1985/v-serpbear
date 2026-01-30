@@ -1,11 +1,14 @@
 /**
  * Common Jest mock configurations used across multiple test files.
  * This file provides reusable mock setups to reduce duplication.
+ * 
+ * Note: Due to Jest's hoisting behavior, these functions cannot be called directly 
+ * in jest.mock() statements. Instead, copy the return value inline into your test file.
  */
 
 /**
  * Mock configuration for the database module.
- * Usage: In test file, add: jest.mock('../../database/database', mockDatabase);
+ * Copy this inline: jest.mock('../../database/database', () => ({ __esModule: true, default: { sync: jest.fn() } }));
  */
 export const mockDatabase = () => ({
   __esModule: true,
@@ -14,7 +17,7 @@ export const mockDatabase = () => ({
 
 /**
  * Mock configuration for the verifyUser utility.
- * Usage: In test file, add: jest.mock('../../utils/verifyUser', mockVerifyUser);
+ * Copy this inline: jest.mock('../../utils/verifyUser', () => ({ __esModule: true, default: jest.fn() }));
  */
 export const mockVerifyUser = () => ({
   __esModule: true,
@@ -23,7 +26,7 @@ export const mockVerifyUser = () => ({
 
 /**
  * Mock configuration for the apiLogging middleware.
- * Usage: In test file, add: jest.mock('../../utils/apiLogging', mockApiLogging);
+ * Copy this inline: jest.mock('../../utils/apiLogging', () => ({ __esModule: true, withApiLogging: (handler: any) => handler }));
  */
 export const mockApiLogging = () => ({
   __esModule: true,
@@ -32,7 +35,7 @@ export const mockApiLogging = () => ({
 
 /**
  * Mock configuration for the scrapers index.
- * Usage: In test file, add: jest.mock('../../scrapers/index', mockScrapers);
+ * Copy this inline: jest.mock('../../scrapers/index', () => ({ __esModule: true, default: [] }));
  */
 export const mockScrapers = () => ({
   __esModule: true,
@@ -41,7 +44,7 @@ export const mockScrapers = () => ({
 
 /**
  * Mock configuration for the logger utility.
- * Usage: In test file, add: jest.mock('../../utils/logger', mockLogger);
+ * Copy this inline or reference this pattern for your test setup.
  */
 export const mockLogger = () => ({
   logger: {
@@ -56,7 +59,7 @@ export const mockLogger = () => ({
 
 /**
  * Mock configuration for the refresh utility.
- * Usage: In test file, add: jest.mock('../../utils/refresh', mockRefresh);
+ * Copy this inline: jest.mock('../../utils/refresh', () => ({ __esModule: true, default: jest.fn() }));
  */
 export const mockRefresh = () => ({
   __esModule: true,
@@ -65,7 +68,7 @@ export const mockRefresh = () => ({
 
 /**
  * Mock configuration for the Domain model with common methods.
- * Usage: In test file, add: jest.mock('../../database/models/domain', mockDomainModel);
+ * Copy this inline or adapt the methods array to match your test needs.
  */
 export const mockDomainModel = () => ({
   __esModule: true,
@@ -81,7 +84,7 @@ export const mockDomainModel = () => ({
 
 /**
  * Mock configuration for the Keyword model with common methods.
- * Usage: In test file, add: jest.mock('../../database/models/keyword', mockKeywordModel);
+ * Copy this inline or adapt the methods array to match your test needs.
  */
 export const mockKeywordModel = () => ({
   __esModule: true,

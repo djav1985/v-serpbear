@@ -16,7 +16,7 @@ const customJestConfig = {
   // if using TypeScript with a baseUrl set to the root directory then you need the below for alias' to work
   moduleDirectories: ['node_modules', '<rootDir>/'],
   testEnvironment: '@happy-dom/jest-environment',
-  testMatch: ['**/__tests__/**/*.test.[jt]s?(x)', '**/?(*.)+(spec|test).[jt]s?(x)'],
+  testPathIgnorePatterns: ['/node_modules/', '/__helpers__/(?!.*\\.test\\.[jt]sx?$)'],
   transformIgnorePatterns: [
     '/node_modules/(?!(sequelize|until-async|@bundled-es-modules|msw|uuid)/)'
   ],
