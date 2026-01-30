@@ -2,6 +2,7 @@ import countries, { getGoogleDomain } from "../../utils/countries";
 import { resolveCountryCode } from "../../utils/scraperHelpers";
 import { parseLocation } from "../../utils/location";
 import { computeMapPackTop3 } from "../../utils/mapPack";
+import { DEVICE_MOBILE } from "../../utils/constants";
 
 interface SerpApiResult {
   title: string;
@@ -49,7 +50,7 @@ const serpapi: ScraperSettings = {
     if (locationParts.length) {
       params.set("location", locationParts.join(","));
     }
-    if (keyword.device === 'mobile') {
+    if (keyword.device === DEVICE_MOBILE) {
       params.set("device", "mobile");
     }
     params.set("google_domain", googleDomain);

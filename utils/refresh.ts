@@ -14,6 +14,7 @@ import { logger } from './logger';
 import { fromDbBool, toDbBool } from './dbBooleans';
 import normalizeDomainBooleans from './normalizeDomain';
 import { retryQueueManager } from './retryQueueManager';
+import { DEVICE_MOBILE, DEVICE_DESKTOP } from './constants';
 
 const describeScraperType = (scraperType?: SettingsType['scraper_type']): string => {
    if (!scraperType || scraperType.length === 0) {
@@ -87,7 +88,7 @@ const normalizeLocationForCache = (location?: string | null): string => {
  * @returns {'desktop' | 'mobile'} Normalized device type
  */
 const normalizeDevice = (device?: string): 'desktop' | 'mobile' =>
-   device === 'mobile' ? 'mobile' : 'desktop';
+   device === DEVICE_MOBILE ? DEVICE_MOBILE : DEVICE_DESKTOP;
 
 /**
  * Generates a cache key for matching desktop and mobile keyword pairs.
@@ -232,8 +233,8 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
             const aDevice = normalizeDevice(a.device);
             const bDevice = normalizeDevice(b.device);
             // Desktop comes before mobile
-            if (aDevice === 'desktop' && bDevice === 'mobile') return -1;
-            if (aDevice === 'mobile' && bDevice === 'desktop') return 1;
+            if (aDevice === DEVICE_DESKTOP && bDevice === DEVICE_MOBILE) return -1;
+            if (aDevice === DEVICE_MOBILE && bDevice === DEVICE_DESKTOP) return 1;
             return 0;
          });
 
@@ -248,7 +249,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
             const keywordKey = generateKeywordCacheKey(keywordPlain);
             
             // If this is a mobile keyword, check if we have desktop mapPackTop3 cached
-            const fallbackMapPackTop3 = (normalizedDevice === 'mobile') 
+            const fallbackMapPackTop3 = (normalizedDevice === DEVICE_MOBILE) 
                ? desktopMapPackCache.get(keywordKey) 
                : undefined;
 
@@ -257,7 +258,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
 
             // If this was a desktop keyword, cache its mapPackTop3
             // Note: undefined/null device is treated as desktop for consistency
-            if (normalizedDevice === 'desktop' && updatedkeyword.mapPackTop3 !== undefined) {
+            if (normalizedDevice === DEVICE_DESKTOP && updatedkeyword.mapPackTop3 !== undefined) {
                desktopMapPackCache.set(keywordKey, toDbBool(updatedkeyword.mapPackTop3));
             }
 

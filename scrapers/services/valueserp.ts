@@ -3,6 +3,7 @@ import { resolveCountryCode } from "../../utils/scraperHelpers";
 import { parseLocation } from "../../utils/location";
 import { computeMapPackTop3 } from "../../utils/mapPack";
 import { logger } from "../../utils/logger";
+import { DEVICE_MOBILE } from "../../utils/constants";
 
 const decodeIfEncoded = (value: string): string => {
   try {
@@ -60,7 +61,7 @@ const valueSerp: ScraperSettings = {
     if (locationParts.length) {
       params.set("location", locationParts.join(","));
     }
-    if (keyword.device === "mobile") {
+    if (keyword.device === DEVICE_MOBILE) {
       params.set("device", "mobile");
     }
     params.set("gl", resolvedCountry.toLowerCase());
@@ -101,7 +102,7 @@ const valueSerp: ScraperSettings = {
     const businessName = (settings as ExtendedSettings)?.business_name ?? null;
     
     // Check if this is a mobile keyword and if the API response has NO local results section at all
-    const isMobile = keyword.device === 'mobile';
+    const isMobile = keyword.device === DEVICE_MOBILE;
     const hasLocalResultsSection = !!(
       response &&
       (
