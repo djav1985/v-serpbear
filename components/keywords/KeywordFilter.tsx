@@ -2,7 +2,6 @@ import React, { useState, useMemo } from 'react';
 import Icon from '../common/Icon';
 import SelectField, { SelectionOption } from '../common/SelectField';
 import countries from '../../utils/countries';
-import { DEVICE_DESKTOP, DEVICE_MOBILE } from '../../utils/constants';
 
 type KeywordFilterProps = {
    device: string,
@@ -41,13 +40,13 @@ const KeywordFilters = (props: KeywordFilterProps) => {
    const [columnOptions, showColumnOptions] = useState(false);
 
    const keywordCounts = useMemo(() => {
-      const counts = { [DEVICE_DESKTOP]: 0, [DEVICE_MOBILE]: 0 };
+      const counts = { desktop: 0, mobile: 0 };
       if (keywords && keywords.length > 0) {
          keywords.forEach((k) => {
-            if (k.device === DEVICE_DESKTOP) {
-               counts[DEVICE_DESKTOP] += 1;
+            if (k.device === 'desktop') {
+               counts.desktop += 1;
             } else {
-               counts[DEVICE_MOBILE] += 1;
+               counts.mobile += 1;
             }
          });
       }
@@ -126,20 +125,20 @@ const KeywordFilters = (props: KeywordFilterProps) => {
             <ul className='flex text-xs'>
                <li
                 data-testid="desktop_tab"
-               className={`${deviceTabStyle} ${device === DEVICE_DESKTOP ? ' bg-[#F8F9FF] text-gray-700' : ''}`}
-               onClick={() => setDevice(DEVICE_DESKTOP)}>
+               className={`${deviceTabStyle} ${device === 'desktop' ? ' bg-[#F8F9FF] text-gray-700' : ''}`}
+               onClick={() => setDevice('desktop')}>
                      <Icon type='desktop' classes='top-[3px]' size={15} />
                      <i className='hidden not-italic lg:inline-block ml-1'>Desktop</i>
-                      <span className={`${deviceTabCountStyle}`}>{keywordCounts[DEVICE_DESKTOP]}</span>
-                </li>
-                <li
-                data-testid="mobile_tab"
-                className={`${deviceTabStyle} ${device === DEVICE_MOBILE ? ' bg-[#F8F9FF] text-gray-700' : ''}`}
-                onClick={() => setDevice(DEVICE_MOBILE)}>
-                      <Icon type='mobile' />
-                      <i className='hidden not-italic lg:inline-block ml-1'>Mobile</i>
-                      <span className={`${deviceTabCountStyle}`}>{keywordCounts[DEVICE_MOBILE]}</span>
-                </li>
+                     <span className={`${deviceTabCountStyle}`}>{keywordCounts.desktop}</span>
+               </li>
+               <li
+               data-testid="mobile_tab"
+               className={`${deviceTabStyle} ${device === 'mobile' ? ' bg-[#F8F9FF] text-gray-700' : ''}`}
+               onClick={() => setDevice('mobile')}>
+                     <Icon type='mobile' />
+                     <i className='hidden not-italic lg:inline-block ml-1'>Mobile</i>
+                     <span className={`${deviceTabCountStyle}`}>{keywordCounts.mobile}</span>
+               </li>
             </ul>
          </div>
          <div className='flex gap-5'>

@@ -24,7 +24,7 @@ export function withApiLogging(
     } = options;
 
     // Add request ID to the request object for downstream use
-    (req as NextApiRequest & { requestId?: string }).requestId = requestId;
+    (req as any).requestId = requestId;
 
     // Log body only in DEBUG mode or when explicitly requested
     const shouldLogBody = logBody || process.env.LOG_LEVEL?.toLowerCase() === 'debug';

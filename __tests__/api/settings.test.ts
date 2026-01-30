@@ -3,7 +3,6 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import handler from '../../pages/api/settings';
 import * as settingsApi from '../../pages/api/settings';
 import { getBranding } from '../../utils/branding';
-import { DEFAULT_REFRESH_BATCH_SIZE } from '../../utils/constants';
 
 const { platformName } = getBranding();
 import verifyUser from '../../utils/verifyUser';
@@ -204,7 +203,6 @@ describe('GET /api/settings and configuration requirements', () => {
       smtp_password: '',
       scrape_interval: '',
       scrape_delay: '',
-      refresh_batch_size: DEFAULT_REFRESH_BATCH_SIZE,
       scrape_retry: false,
       search_console: true,
       search_console_client_email: '',

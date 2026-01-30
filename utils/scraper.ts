@@ -4,16 +4,8 @@ import HttpsProxyAgent from 'https-proxy-agent';
 import countries from './countries';
 import { serializeError } from './errorSerialization';
 import allScrapers from '../scrapers/index';
-import {
-   BASE_SCRAPER_TIMEOUT_MS,
-   DEFAULT_SCRAPER_TIMEOUT_MS,
-   DEVICE_DESKTOP,
-   DEVICE_MOBILE,
-   GOOGLE_BASE_URL,
-   MAX_RETRY_DELAY_MS,
-   RETRY_TIMEOUT_INCREMENT_MS,
-} from './constants';
-import { computeMapPackTop3, doesUrlMatchDomainHost, normalizeDomainHost, extractLocalResultsFromPayload } from './mapPack';
+import { GOOGLE_BASE_URL } from './constants';
+import { computeMapPackTop3, doesUrlMatchDomainHost, normaliseDomainHost, extractLocalResultsFromPayload } from './mapPack';
 import { logger } from './logger';
 import { retryQueueManager } from './retryQueueManager';
 
@@ -45,7 +37,7 @@ export type RefreshResult = false | {
 const getRetryDelay = (attempt: number, baseDelay: number = 1000): number => {
    const exponentialDelay = baseDelay * Math.pow(2, attempt);
    const jitter = Math.random() * 0.1 * exponentialDelay; // 10% jitter
-   return Math.min(exponentialDelay + jitter, MAX_RETRY_DELAY_MS); // Max retry delay
+   return Math.min(exponentialDelay + jitter, 30000); // Max 30 seconds
 };
 
 /**
@@ -70,7 +62,7 @@ export const getScraperClient = (
    };
 
    const mobileAgent = 'Mozilla/5.0 (Linux; Android 10; SM-G996U Build/QP1A.190711.020; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Mobile Safari/537.36';
-   if (keyword && keyword.device === DEVICE_MOBILE) {
+   if (keyword && keyword.device === 'mobile') {
       headers['User-Agent'] = mobileAgent;
    }
 
@@ -99,7 +91,7 @@ export const getScraperClient = (
       
       // Enhanced proxy configuration with timeout and error handling
       // Use scraper-specific timeout if provided, otherwise use default with retry adjustment
-      const defaultTimeout = Math.min(DEFAULT_SCRAPER_TIMEOUT_MS, BASE_SCRAPER_TIMEOUT_MS + retryAttempt * RETRY_TIMEOUT_INCREMENT_MS);
+      const defaultTimeout = Math.min(30000, 15000 + retryAttempt * 5000);
       axiosConfig.timeout = scraper?.timeoutMs || defaultTimeout;
       axiosConfig.maxRedirects = 3;
       
@@ -112,7 +104,7 @@ export const getScraperClient = (
          proxyURL = firstProxy;
       }
 
-      axiosConfig.httpsAgent = new HttpsProxyAgent(proxyURL.trim());
+      axiosConfig.httpsAgent = new (HttpsProxyAgent as any)(proxyURL.trim());
       axiosConfig.proxy = false;
       const axiosClient = axios.create(axiosConfig);
       client = axiosClient.get(`https://www.google.com/search?num=100&q=${encodeURI(keyword.keyword)}`);
@@ -120,7 +112,7 @@ export const getScraperClient = (
       // Enhanced fetch configuration with timeout and better error handling
       const controller = new AbortController();
       // Use scraper-specific timeout if provided, otherwise use default with retry adjustment
-      const defaultTimeout = Math.min(DEFAULT_SCRAPER_TIMEOUT_MS, BASE_SCRAPER_TIMEOUT_MS + retryAttempt * RETRY_TIMEOUT_INCREMENT_MS);
+      const defaultTimeout = Math.min(30000, 15000 + retryAttempt * 5000);
       const timeoutMs = scraper?.timeoutMs || defaultTimeout;
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
       
@@ -192,7 +184,7 @@ export const scrapeKeywordFromGoogle = async (keyword:KeywordType, settings:Sett
       result: keyword.lastResult,
       mapPackTop3: keyword.mapPackTop3 ?? false,
       error: true,
-    };
+   };
    
    const scraperType = settings?.scraper_type || '';
    const scraperObj = allScrapers.find((scraper:ScraperSettings) => scraper.id === scraperType);
@@ -212,12 +204,10 @@ export const scrapeKeywordFromGoogle = async (keyword:KeywordType, settings:Sett
       }
 
       try {
-          const res = scraperType === 'proxy' && settings.proxy
-             ? await scraperClient
-             : await scraperClient.then((reslt) => (reslt as Response).json());
+         const res = scraperType === 'proxy' && settings.proxy ? await scraperClient : await scraperClient.then((reslt:any) => reslt.json());
 
          // Check response status and success indicators
-          if (hasScraperError(res)) {
+         if (hasScraperError(res)) {
             // Build comprehensive error object
             const scraperError = buildScraperError(res);
 
@@ -276,7 +266,7 @@ export const scrapeKeywordFromGoogle = async (keyword:KeywordType, settings:Sett
             let computedMapPack = false;
             let localResults: any[] = [];
             if (scraperObj?.supportsMapPack !== false) {
-               const businessName = settings?.business_name ?? null;
+               const businessName = (settings as any).business_name ?? null;
                computedMapPack = typeof extraction.mapPackTop3 === 'boolean'
                   ? extraction.mapPackTop3
                   : computeMapPackTop3(keyword.domain, res, businessName);
@@ -284,9 +274,9 @@ export const scrapeKeywordFromGoogle = async (keyword:KeywordType, settings:Sett
                // Extract local results from the response payload
                const debugMode = process.env.NODE_ENV === 'development';
                localResults = extractLocalResultsFromPayload(res, debugMode);
-                if (debugMode && keyword.device === DEVICE_MOBILE) {
-                   logger.debug(`[MAP_PACK] Mobile keyword: ${keyword.keyword}, mapPackTop3: ${computedMapPack}, localResults count: ${localResults.length}`);
-                }
+               if (debugMode && keyword.device === 'mobile') {
+                  logger.debug(`[MAP_PACK] Mobile keyword: ${keyword.keyword}, mapPackTop3: ${computedMapPack}, localResults count: ${localResults.length}`);
+               }
             }
 
             refreshedResults = {
@@ -303,7 +293,7 @@ export const scrapeKeywordFromGoogle = async (keyword:KeywordType, settings:Sett
             if (attempt > 0 || computedMapPack) {
                logger.info('Keyword scraped', {
                   keyword: keyword.keyword,
-                   device: keyword.device || DEVICE_DESKTOP,
+                  device: keyword.device || 'desktop',
                   position: serp.position,
                   mapPackTop3: computedMapPack,
                   attempt: attempt + 1
@@ -380,7 +370,7 @@ const ensureAbsoluteURL = (value: string | undefined | null, base: string = GOOG
       try {
          return new URL(`https:${trimmedValue}`).toString();
       } catch (error: any) {
-         logger.error('[ERROR] Failed to normalize protocol-relative URL', error, { url: trimmedValue });
+         logger.error('[ERROR] Failed to normalise protocol-relative URL', error, { url: trimmedValue });
          return null;
       }
    }
@@ -390,7 +380,7 @@ const ensureAbsoluteURL = (value: string | undefined | null, base: string = GOOG
       try {
          return new URL(trimmedValue).toString();
       } catch (error: any) {
-         logger.error('[ERROR] Failed to normalize absolute URL', error, { url: trimmedValue });
+         logger.error('[ERROR] Failed to normalise absolute URL', error, { url: trimmedValue });
          return null;
       }
    }
@@ -412,7 +402,7 @@ const ensureAbsoluteURL = (value: string | undefined | null, base: string = GOOG
    }
 };
 
-const normalizeGoogleHref = (href: string | undefined | null): string | null => {
+const normaliseGoogleHref = (href: string | undefined | null): string | null => {
    if (!href) { return null; }
 
    let resolvedURL: URL;
@@ -479,7 +469,7 @@ const detectMapPackFromHtml = (
    domain?: string,
 ): boolean => {
    if (!domain) { return false; }
-   const domainHost = normalizeDomainHost(domain);
+   const domainHost = normaliseDomainHost(domain);
    if (!domainHost) { return false; }
 
    const candidates = collectCandidateWebsiteLinks($);
@@ -523,16 +513,16 @@ export const extractScrapedResult = (
       if (searchResultItems[i]) {
          const title = $(searchResultItems[i]).html();
          const rawURL = $(searchResultItems[i]).closest('a').attr('href');
-          const normalizedURL = normalizeGoogleHref(rawURL);
-          if (title && normalizedURL) {
-             lastPosition += 1;
-             extractedResult.push({ title, url: normalizedURL, position: lastPosition });
-          }
+         const normalisedURL = normaliseGoogleHref(rawURL);
+         if (title && normalisedURL) {
+            lastPosition += 1;
+            extractedResult.push({ title, url: normalisedURL, position: lastPosition });
+         }
       }
    }
 
    // Mobile Scraper
-   if (extractedResult.length === 0 && device === DEVICE_MOBILE) {
+   if (extractedResult.length === 0 && device === 'mobile') {
       const items = $('body').find('#rso > div');
       for (let i = 0; i < items.length; i += 1) {
          const item = $(items[i]);
@@ -541,10 +531,10 @@ export const extractScrapedResult = (
             const rawURL = linkDom.attr('href');
             const titleDom = linkDom.find('[role="link"]');
             const title = titleDom ? titleDom.text() : '';
-            const normalizedURL = normalizeGoogleHref(rawURL);
-            if (title && normalizedURL) {
+            const normalisedURL = normaliseGoogleHref(rawURL);
+            if (title && normalisedURL) {
                lastPosition += 1;
-               extractedResult.push({ title, url: normalizedURL, position: lastPosition });
+               extractedResult.push({ title, url: normalisedURL, position: lastPosition });
             }
          }
       }

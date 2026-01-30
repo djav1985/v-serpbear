@@ -29,15 +29,10 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<AuthCheckRespon
       const token = cookies.get('token');
       
       let user = 'authenticated_user';
-       if (token && process.env.SECRET) {
-         const decoded = jwt.verify(token, process.env.SECRET) as ApiUserPayload | string;
-         if (decoded && typeof decoded === 'object') {
-            const decodedUser = decoded.user;
-            if (typeof decodedUser === 'string') {
-               user = decodedUser;
-            }
-         }
-       }
+      if (token && process.env.SECRET) {
+        const decoded = jwt.verify(token, process.env.SECRET) as any;
+        user = decoded?.user || user;
+      }
 
       return res.status(200).json({
         authenticated: true,

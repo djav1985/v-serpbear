@@ -107,7 +107,6 @@ type SettingsType = {
    scraper_type: string,
    scraping_api?: string,
    proxy?: string,
-   business_name?: string | null,
    notification_interval: string,
    notification_email: string,
    notification_email_from: string,
@@ -120,7 +119,6 @@ type SettingsType = {
    available_scapers?: { label: string, value: string, allowsCity?: boolean, supportsMapPack?: boolean, scraperCountries?: string[] }[],
    scrape_interval?: string,
    scrape_delay?: string,
-   refresh_batch_size?: number,
    scrape_retry?: boolean,
    failed_queue?: number[]
    version?: string,
@@ -265,13 +263,9 @@ type scraperExtractedItem = {
 
 type ScraperExtractorInput = {
    keyword: KeywordType,
-   response: unknown,
+   response: any,
    result?: unknown,
    settings?: SettingsType,
-}
-
-type ApiUserPayload = {
-   user?: string;
 }
 
 type ScraperExtractorResult = {

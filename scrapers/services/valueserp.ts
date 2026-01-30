@@ -3,8 +3,6 @@ import { resolveCountryCode } from "../../utils/scraperHelpers";
 import { parseLocation } from "../../utils/location";
 import { computeMapPackTop3 } from "../../utils/mapPack";
 import { logger } from "../../utils/logger";
-import { DEVICE_MOBILE, VALUESERP_TIMEOUT_MS } from "../../utils/constants";
-import { normalizeBooleanFlag } from "../../utils/boolean";
 
 const decodeIfEncoded = (value: string): string => {
   try {
@@ -21,25 +19,12 @@ interface ValueSerpResult {
   domain: string;
 }
 
-type ValueSerpLocalMap = {
-  places?: unknown;
-};
-
-type ValueSerpResponse = {
-  organic_results?: ValueSerpResult[];
-  local_results?: unknown;
-  localResults?: unknown;
-  local_map?: ValueSerpLocalMap | null;
-  places?: unknown;
-  places_results?: unknown;
-};
-
 const valueSerp: ScraperSettings = {
   id: "valueserp",
   name: "Value Serp",
   website: "valueserp.com",
   allowsCity: true,
-  timeoutMs: VALUESERP_TIMEOUT_MS, // ValueSerp responses often take longer, allow 35 seconds
+  timeoutMs: 35000, // ValueSerp responses often take longer, allow 35 seconds
   scrapeURL: (
     keyword: KeywordType,
     settings: SettingsType,
@@ -75,8 +60,8 @@ const valueSerp: ScraperSettings = {
     if (locationParts.length) {
       params.set("location", locationParts.join(","));
     }
-    if (keyword.device === DEVICE_MOBILE) {
-      params.set("device", DEVICE_MOBILE);
+    if (keyword.device === "mobile") {
+      params.set("device", "mobile");
     }
     params.set("gl", resolvedCountry.toLowerCase());
     params.set("hl", lang);
@@ -87,7 +72,6 @@ const valueSerp: ScraperSettings = {
   supportsMapPack: true,
   serpExtractor: ({ result, response, keyword, settings }) => {
     const extractedResult = [];
-    const typedResponse = response as ValueSerpResponse | undefined;
     let results: ValueSerpResult[] = [];
     if (typeof result === "string") {
       try {
@@ -101,8 +85,8 @@ const valueSerp: ScraperSettings = {
       }
     } else if (Array.isArray(result)) {
       results = result as ValueSerpResult[];
-    } else if (Array.isArray(typedResponse?.organic_results)) {
-      results = typedResponse?.organic_results ?? [];
+    } else if (Array.isArray(response?.organic_results)) {
+      results = response.organic_results as ValueSerpResult[];
     }
     for (const item of results) {
       if (item?.title && item?.link) {
@@ -114,28 +98,28 @@ const valueSerp: ScraperSettings = {
       }
     }
 
-    const businessName = settings?.business_name ?? null;
+    const businessName = (settings as any)?.business_name ?? null;
     
     // Check if this is a mobile keyword and if the API response has NO local results section at all
-    const isMobile = keyword.device === DEVICE_MOBILE;
-    const hasLocalResultsSection = Boolean(
-      typedResponse &&
+    const isMobile = keyword.device === 'mobile';
+    const hasLocalResultsSection = !!(
+      response &&
       (
-        Array.isArray(typedResponse.local_results) ||
-        Array.isArray(typedResponse.localResults) ||
-        (typeof typedResponse.local_map === "object" && typedResponse.local_map !== null) ||
-        Array.isArray(typedResponse.places) ||
-        Array.isArray(typedResponse.places_results)
+        Array.isArray((response as any).local_results) ||
+        Array.isArray((response as any).localResults) ||
+        (typeof (response as any).local_map === "object" && (response as any).local_map !== null) ||
+        Array.isArray((response as any).places) ||
+        Array.isArray((response as any).places_results)
       )
     );
     
     let mapPackTop3: boolean;
     
     // If mobile AND no local results section in API response, use fallback from desktop
-    const fallbackValue = (settings as SettingsType & { fallback_mapPackTop3?: unknown })?.fallback_mapPackTop3;
+    const fallbackValue = (settings as any)?.fallback_mapPackTop3;
     if (isMobile && !hasLocalResultsSection && fallbackValue !== undefined) {
       // Fallback value is always a number (0 or 1) from desktop keyword, convert to boolean
-      mapPackTop3 = normalizeBooleanFlag(fallbackValue);
+      mapPackTop3 = fallbackValue === 1;
       logger.debug(`[VALUESERP] Mobile keyword "${keyword.keyword}" has no local results in API response, using desktop mapPackTop3: ${mapPackTop3}`);
     } else {
       // Otherwise compute normally

@@ -114,8 +114,9 @@ const notify = async (req: NextApiRequest, res: NextApiResponse<NotifyResponse>)
    }
 };
 
-const sendNotificationEmail = async (domain: DomainType, settings: SettingsType) => {
-   const domainName = domain.domain;
+const sendNotificationEmail = async (domain: DomainType | Domain, settings: SettingsType) => {
+   const domainObj: DomainType = (domain as any).get ? (domain as any).get({ plain: true }) : domain as DomainType;
+   const domainName = domainObj.domain;
 
    // Check email throttling
    const throttleCheck = await canSendEmail(domainName);
@@ -167,8 +168,8 @@ const sendNotificationEmail = async (domain: DomainType, settings: SettingsType)
       const keywords: KeywordType[] = parseKeywords(keywordsArray);
       
       // Calculate domain stats to ensure email shows correct tracker summary
-      const domainsWithStats = await getdomainStats([domain]);
-      const domainWithStats = domainsWithStats[0] || domain;
+      const domainsWithStats = await getdomainStats([domainObj]);
+      const domainWithStats = domainsWithStats[0] || domainObj;
       
       const emailHTML = await generateEmail(domainWithStats, keywords, settings);
 

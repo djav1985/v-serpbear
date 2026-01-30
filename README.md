@@ -12,7 +12,7 @@ Not every scraper provider is validated on every release—please report any iss
 >
 > **4. Configuration & flexibility** – Streamlined environment variables, CI-powered deployment workflows, and dynamic toggles for ValueSerp, SerpAPI, and other providers eliminate hardcoded defaults.
 >
-> **5. Security & modernization** – Modern Node.js support, removal of deprecated libraries, and stricter sanitization guard against warning-laden installs and insecure runtime behavior.
+> **5. Security & modernization** – Modern Node.js support, removal of deprecated libraries, and stricter sanitisation guard against warning-laden installs and insecure runtime behaviour.
 >
 > **6. Error handling & observability** – Descriptive logs, layered retry logic, and adjustable debug levels make diagnosing scraper hiccups or API failures straightforward.
 >
@@ -40,7 +40,7 @@ Not every scraper provider is validated on every release—please report any iss
 
 ### Core capabilities
 
-- **Unlimited domains & keywords:** Organize an unrestricted number of tracked keywords across multiple sites.
+- **Unlimited domains & keywords:** Organise an unrestricted number of tracked keywords across multiple sites.
 - **Turn-key scraping integrations:** Connect a managed SERP data provider or bring your own proxy, then run high-volume organic rank checks with built-in retries.
 - **Keyword research & ideas:** Pull search volumes and suggested keywords straight from your Google Ads test account.
 - **Google Search Console enrichment:** Overlay verified impression and click data on keyword trends to see which rankings actually drive traffic.
@@ -104,7 +104,7 @@ The default compose stack maps `./data` to the container so your SQLite database
 
 ## Configuration reference
 
-Runtime behavior is controlled through environment variables and settings stored in `data/settings.json`. The tables below summarize supported environment variables; defaults mirror `.env.example` where provided.
+Runtime behaviour is controlled through environment variables and settings stored in `data/settings.json`. The tables below summarise supported environment variables; defaults mirror `.env.example` where provided.
 
 > **Env files.** Next.js loads `.env.local` for local development, while Docker Compose reads `.env`. The standalone cron worker (`node cron.js`) explicitly loads `.env.local`, so keep local credentials there when running the worker outside Docker.
 
@@ -166,7 +166,7 @@ Use the Settings UI (or `/api/settings`) to manage values that are persisted in 
 | `CRON_FAILED_SCHEDULE` | `0 0 */1 * * *` | ✅ | Cron expression that retries failed scrapes. |
 | `CRON_EMAIL_SCHEDULE` | `0 0 6 * * *` | ✅ | Cron expression for the daily notification email digest. |
 
-All cron expressions are normalized at runtime—quotes and stray whitespace are stripped automatically before scheduling jobs.
+All cron expressions are normalised at runtime—quotes and stray whitespace are stripped automatically before scheduling jobs.
 
 ### Monitoring & logging
 
@@ -182,7 +182,7 @@ Set `ANALYZE=true` before running `next build` to generate a static bundle analy
 
 ## Supported SERP data providers
 
-SerpBear integrates with several managed APIs in addition to a "bring your own proxy" option. The table below summarizes their capabilities as implemented in the current codebase.
+SerpBear integrates with several managed APIs in addition to a "bring your own proxy" option. The table below summarises their capabilities as implemented in the current codebase.
 
 | Provider | Working | Pricing snapshot* | Geo targeting | Map Pack coverage | Organic results per request | API key header |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -229,7 +229,7 @@ The **Business Name** field is an optional setting in the domain scraper configu
 1. **Add a domain** – supply the host name you want to monitor.
 2. **Create keywords** – capture the query, target country, optional state/city pair (stored as a single location string), and device type (desktop/mobile).
 3. **Run scrapes** – the cron worker queries your configured provider for the top 100 organic results and stores rank positions.
-4. **Analyze trends** – interactive charts and tables surface historical rank, average position, and day-over-day change.
+4. **Analyse trends** – interactive charts and tables surface historical rank, average position, and day-over-day change.
 5. **Share insights** – export keyword data via the API or send scheduled email summaries to stakeholders.
 
 ### Google Search Console insights
@@ -256,7 +256,7 @@ The **Business Name** field is an optional setting in the domain scraper configu
 
 ### Notifications & reporting
 
-- Email digests summarize rank gains/losses, highlight top movers, and include Search Console traffic data when available.
+- Email digests summarise rank gains/losses, highlight top movers, and include Search Console traffic data when available.
 - Notification cadence is fully configurable through `CRON_EMAIL_SCHEDULE`. Clear SMTP values in Settings to skip sending emails entirely.
 - Trigger a manual run from the **Send Notifications Now** button in the Notification settings modal. Inline guidance and assistive-technology announcements walk through the prerequisites so teams can confirm SMTP credentials and email recipients immediately.
 - `/api/notify` now reserves HTTP 401 strictly for authentication issues—misconfigured SMTP hosts return 400 and runtime delivery errors surface as 500 responses with descriptive messages for easier debugging.
@@ -275,7 +275,7 @@ The **Business Name** field is an optional setting in the domain scraper configu
 - **Testing:**
   - `npm test` executes the Jest test suite using the `@happy-dom/jest-environment` adapter.
   - `npm run test:ci` mirrors the CI environment.
-  - `npm run test:cv -- --runInBand` generates serialized coverage when debugging.
+  - `npm run test:cv -- --runInBand` generates serialised coverage when debugging.
   - Regression specs assert the camelCase `mapPackTop3` keyword flag—update fixtures to keep that property present when adding new cases.
 - **Database scripts:** `npm run db:migrate` / `npm run db:revert`.
 - **Production build:** `npm run build` followed by `npm run start`.
@@ -291,7 +291,7 @@ We welcome community contributions! Please:
 
 1. Fork and clone the repository.
 2. Create focused commits with descriptive messages.
-3. Add or update tests for any behavioral change.
+3. Add or update tests for any behavioural change.
 4. Run `npm run lint` and `npm test` before opening a pull request.
 
 Check [`AGENTS.md`](./AGENTS.md) for repository-wide contribution guidelines.

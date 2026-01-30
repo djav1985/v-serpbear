@@ -14,7 +14,6 @@ import useIsMobile from '../../hooks/useIsMobile';
 import { IdeasSortKeywords, IdeasfilterKeywords } from '../../utils/client/sortFilter';
 import IdeasFilters from './IdeasFilter';
 import { useMutateFavKeywordIdeas } from '../../services/adwords';
-import { DEVICE_DESKTOP, DEVICE_MOBILE } from '../../utils/constants';
 import IdeaDetails from './IdeaDetails';
 import { fetchDomains } from '../../services/domains';
 import SelectField from '../common/SelectField';
@@ -45,7 +44,7 @@ const IdeasKeywordsTable = ({
    const [filterParams, setFilterParams] = useState<KeywordFilters>({ countries: [], tags: [], search: '' });
    const [sortBy, setSortBy] = useState<string>('imp_desc');
    const [listHeight, setListHeight] = useState(500);
-   const [addKeywordDevice, setAddKeywordDevice] = useState<typeof DEVICE_DESKTOP | typeof DEVICE_MOBILE>(DEVICE_DESKTOP);
+   const [addKeywordDevice, setAddKeywordDevice] = useState<'desktop'|'mobile'>('desktop');
    const [addKeywordDomain, setAddKeywordDomain] = useState('');
    const { mutate: addKeywords } = useAddKeywords(() => { if (domain && domain.slug) router.push(`/domain/${domain.slug}`); });
    const { mutate: emailKeywordIdeas, isLoading: isEmailing } = useEmailKeywordIdeas(() => setSelectedKeywords([]));
@@ -75,10 +74,10 @@ const IdeasKeywordsTable = ({
    }, [trackedKeywordsList]);
 
    const trackedDevicesToCheck = useMemo(() => {
-       if (addKeywordDevice === DEVICE_DESKTOP || addKeywordDevice === DEVICE_MOBILE) {
-          return [addKeywordDevice];
-       }
-       return [DEVICE_DESKTOP, DEVICE_MOBILE];
+      if (addKeywordDevice === 'desktop' || addKeywordDevice === 'mobile') {
+         return [addKeywordDevice];
+      }
+      return ['desktop', 'mobile'];
    }, [addKeywordDevice]);
 
    const isIdeaTracked = useCallback((idea: IdeaKeyword) => trackedDevicesToCheck.some((device) => trackedKeywordLookup[`${idea.keyword}:${idea.country}:${device}`]), [trackedDevicesToCheck, trackedKeywordLookup]);
@@ -296,14 +295,14 @@ const IdeasKeywordsTable = ({
                   <div className='inline-block ml-2'>
                      <button
                      className={`inline-block px-2 py-1 rounded-s
-                     ${addKeywordDevice === DEVICE_DESKTOP ? 'bg-indigo-100 text-blue-700' : 'bg-indigo-50 '}`}
-                     onClick={() => setAddKeywordDevice(DEVICE_DESKTOP)}>
-                        {addKeywordDevice === DEVICE_DESKTOP ? '◉' : '○'} Desktop
+                     ${addKeywordDevice === 'desktop' ? 'bg-indigo-100 text-blue-700' : 'bg-indigo-50 '}`}
+                     onClick={() => setAddKeywordDevice('desktop')}>
+                        {addKeywordDevice === 'desktop' ? '◉' : '○'} Desktop
                      </button>
                      <button
-                     className={`inline-block px-2 py-1 rounded-e ${addKeywordDevice === DEVICE_MOBILE ? 'bg-indigo-100 text-blue-700' : 'bg-indigo-50 '}`}
-                     onClick={() => setAddKeywordDevice(DEVICE_MOBILE)}>
-                        {addKeywordDevice === DEVICE_MOBILE ? '◉' : '○'} Mobile
+                     className={`inline-block px-2 py-1 rounded-e ${addKeywordDevice === 'mobile' ? 'bg-indigo-100 text-blue-700' : 'bg-indigo-50 '}`}
+                     onClick={() => setAddKeywordDevice('mobile')}>
+                        {addKeywordDevice === 'mobile' ? '◉' : '○'} Mobile
                      </button>
                   </div>
                      <div className='inline-flex flex-wrap gap-2 items-center ml-4 mt-2 sm:mt-0'>

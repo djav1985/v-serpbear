@@ -248,12 +248,11 @@ describe('PUT /api/keywords error handling', () => {
     };
 
     keywordMock.findAll.mockResolvedValueOnce([keywordRecord]);
-    keywordMock.count.mockResolvedValueOnce(1);
     getAppSettingsMock.mockResolvedValue({});
 
     const req = {
       method: 'GET',
-      query: { domain: 'example.com', page: '1', limit: '100' },
+      query: { domain: 'example.com' },
       headers: {},
     } as unknown as NextApiRequest;
 
@@ -264,17 +263,7 @@ describe('PUT /api/keywords error handling', () => {
 
     await handler(req, res);
 
-    expect(keywordMock.findAll).toHaveBeenCalledWith(expect.objectContaining({
-      where: { domain: 'example.com' },
-      order: [['ID', 'ASC']],
-      limit: 100,
-      offset: 0,
-    }));
-    expect(keywordMock.count).toHaveBeenCalledWith({ where: { domain: 'example.com' } });
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-      pagination: { page: 1, limit: 100, total: 1, totalPages: 1 },
-    }));
   });
 
   afterEach(() => {

@@ -130,7 +130,7 @@ describe('POST /api/domains', () => {
     expect(res.json).toHaveBeenCalledWith({ domains: [], error: expect.stringContaining('Invalid domain') });
   });
 
-  it('normalizes and deduplicates hostnames before insert', async () => {
+  it('normalises and deduplicates hostnames before insert', async () => {
     const bulkCreateResult = [
       { get: jest.fn().mockReturnValue({ domain: 'example.com', slug: 'example-com', scrapeEnabled: 1, notification: 1 }) },
       { get: jest.fn().mockReturnValue({ domain: 'sub.domain.com', slug: 'sub-domain-com', scrapeEnabled: 1, notification: 0 }) },

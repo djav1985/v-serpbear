@@ -1,5 +1,4 @@
 import valueSerp from '../../scrapers/services/valueserp';
-import { VALUESERP_TIMEOUT_MS } from '../../utils/constants';
 
 jest.mock('../../utils/logger', () => ({
   logger: {
@@ -128,7 +127,7 @@ describe('valueSerp scraper', () => {
   });
 
   it('has a timeout override of 35 seconds to handle longer response times', () => {
-    expect(valueSerp.timeoutMs).toBe(VALUESERP_TIMEOUT_MS);
+    expect(valueSerp.timeoutMs).toBe(35000);
   });
 
   it('omits location parameter when only country is provided (no city or state)', () => {

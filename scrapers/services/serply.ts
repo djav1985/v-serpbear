@@ -1,16 +1,11 @@
 import { resolveCountryCode } from '../../utils/scraperHelpers';
 import { computeMapPackTop3 } from '../../utils/mapPack';
-import { DEVICE_DESKTOP, DEVICE_MOBILE } from '../../utils/constants';
 
 interface SerplyResult {
    title: string,
    link: string,
    realPosition: number,
 }
-
-type SerplyResponse = {
-   result?: SerplyResult[];
-};
 
 const SERPLY_COUNTRIES = ['US', 'CA', 'IE', 'GB', 'FR', 'DE', 'SE', 'IN', 'JP', 'KR', 'SG', 'AU', 'BR'];
 
@@ -23,7 +18,7 @@ const serply:ScraperSettings = {
       const country = resolveCountryCode(keyword.country, SERPLY_COUNTRIES);
       return {
          'Content-Type': 'application/json',
-         'X-User-Agent': keyword.device === DEVICE_MOBILE ? DEVICE_MOBILE : DEVICE_DESKTOP,
+         'X-User-Agent': keyword.device === 'mobile' ? 'mobile' : 'desktop',
          'X-Api-Key': settings.scraping_api,
          'X-Proxy-Location': country,
       };
@@ -41,7 +36,6 @@ const serply:ScraperSettings = {
    supportsMapPack: true,
    serpExtractor: ({ result, response, keyword, settings }) => {
       const extractedResult = [];
-      const typedResponse = response as SerplyResponse | undefined;
       let results: SerplyResult[] = [];
       if (typeof result === 'string') {
          try {
@@ -51,8 +45,8 @@ const serply:ScraperSettings = {
          }
       } else if (Array.isArray(result)) {
          results = result as SerplyResult[];
-      } else if (Array.isArray(typedResponse?.result)) {
-         results = typedResponse?.result ?? [];
+      } else if (Array.isArray(response?.result)) {
+         results = response.result as SerplyResult[];
       }
       for (const item of results) {
          if (item?.title && item?.link) {
@@ -64,7 +58,7 @@ const serply:ScraperSettings = {
          }
       }
 
-      const businessName = settings?.business_name ?? null;
+      const businessName = (settings as any)?.business_name ?? null;
       const mapPackTop3 = computeMapPackTop3(keyword.domain, response, businessName);
 
       return { organic: extractedResult, mapPackTop3 };

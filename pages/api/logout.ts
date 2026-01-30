@@ -51,15 +51,10 @@ const logout = async (req: NextApiRequest, res: NextApiResponse<logoutResponse>,
       try {
          const jwt = await import('jsonwebtoken');
          const token = cookies.get('token');
-          if (token && process.env.SECRET) {
-             const decoded = jwt.verify(token, process.env.SECRET) as ApiUserPayload | string;
-             if (decoded && typeof decoded === 'object') {
-                const decodedUser = decoded.user;
-                if (typeof decodedUser === 'string') {
-                   username = decodedUser;
-                }
-             }
-          }
+         if (token && process.env.SECRET) {
+            const decoded = jwt.verify(token, process.env.SECRET) as any;
+            username = decoded?.user || username;
+         }
       } catch (error) {
          logger.debug('Failed to decode logout token during logout', error instanceof Error ? error : new Error(String(error)));
       }
