@@ -124,6 +124,7 @@ describe('Domain ideas page credentials handling', () => {
       const loadButton = await screen.findByTestId('load_ideas');
       fireEvent.click(loadButton);
 
-      expect(loadButton).toBeInTheDocument();
+      const lastCall = KeywordIdeasUpdaterMock.mock.calls.at(-1);
+      expect(lastCall?.[0]).toEqual(expect.objectContaining({ searchConsoleConnected: true }));
     });
 });
