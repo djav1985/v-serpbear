@@ -7,7 +7,6 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import verifyUser from '../../utils/verifyUser';
 import jwt from 'jsonwebtoken';
 import Cookies from 'cookies';
-import { normalizeToBoolean } from '../../utils/dbBooleans';
 
 // Mock dependencies
 jest.mock('jsonwebtoken');
@@ -96,48 +95,63 @@ describe('Issue 1: API key auth fallback with stale JWT cookie', () => {
 });
 
 describe('Issue 8: withstats query flag parsing', () => {
-   // Helper to extract query param value (mirrors domains.ts logic)
-   const extractQueryParam = (value: string | string[] | undefined): string | undefined => 
-      Array.isArray(value) && value.length > 0 ? value[value.length - 1] : value;
+   // Helper function to test (same as in domains.ts)
+   const parseBooleanQueryParam = (value: string | string[] | undefined): boolean => {
+      if (!value) return false;
+      const normalized = Array.isArray(value)
+         ? (value.length > 0 ? value[value.length - 1] : undefined)
+         : value;
+      if (!normalized) return false;
+      if (normalized === 'true') return true;
+      if (normalized === 'false') return false;
+      return true; // Any other non-empty value is considered true
+   };
 
    it('should correctly parse withstats=false as false', () => {
-      const result = normalizeToBoolean(extractQueryParam('false'));
+      const result = parseBooleanQueryParam('false');
       expect(result).toBe(false);
    });
 
    it('should correctly parse withstats=true as true', () => {
-      const result = normalizeToBoolean(extractQueryParam('true'));
+      const result = parseBooleanQueryParam('true');
       expect(result).toBe(true);
    });
 
    it('should parse "1" as true', () => {
-      const result = normalizeToBoolean(extractQueryParam('1'));
+      const result = parseBooleanQueryParam('1');
       expect(result).toBe(true);
    });
 
    it('should parse missing withstats as false', () => {
-      const result = normalizeToBoolean(extractQueryParam(undefined));
+      const result = parseBooleanQueryParam(undefined);
       expect(result).toBe(false);
    });
 
    it('should parse empty string as false', () => {
-      const result = normalizeToBoolean(extractQueryParam(''));
+      const result = parseBooleanQueryParam('');
       expect(result).toBe(false);
    });
 
    it('should handle array values by extracting last element first', () => {
       // Test the full flow: extract last element from array, then normalize
-      const resultTrue = normalizeToBoolean(extractQueryParam(['false', 'true']));
+      const resultTrue = parseBooleanQueryParam(['false', 'true']);
       expect(resultTrue).toBe(true);
 
-      const resultFalse = normalizeToBoolean(extractQueryParam(['true', 'false']));
+      const resultFalse = parseBooleanQueryParam(['true', 'false']);
       expect(resultFalse).toBe(false);
    });
 
    it('should handle empty arrays safely', () => {
       // Empty arrays should be treated like undefined
-      const result = normalizeToBoolean(extractQueryParam([]));
+      const result = parseBooleanQueryParam([]);
       expect(result).toBe(false);
+   });
+
+   it('should treat any other non-empty value as true (backward compatibility)', () => {
+      // This maintains backward compatibility with existing API clients
+      expect(parseBooleanQueryParam('yes')).toBe(true);
+      expect(parseBooleanQueryParam('on')).toBe(true);
+      expect(parseBooleanQueryParam('anything')).toBe(true);
    });
 });
 

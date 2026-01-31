@@ -16,9 +16,27 @@ import {
    maskDomainScraperSettings,
    parseDomainScraperSettings,
 } from '../../utils/domainScraperSettings';
-import { toDbBool, normalizeToBoolean } from '../../utils/dbBooleans';
+import { toDbBool } from '../../utils/dbBooleans';
 import { safeJsonParse } from '../../utils/safeJsonParse';
 import normalizeDomainBooleans from '../../utils/normalizeDomain';
+
+/**
+ * Parses a query parameter as a boolean value.
+ * Maintains backward compatibility with existing API clients.
+ * @param value - The query parameter value to parse (if an array, the last element is used)
+ * @returns true if value is 'true' or any other non-empty value except 'false', false otherwise
+ */
+const parseBooleanQueryParam = (value: string | string[] | undefined): boolean => {
+   if (!value) return false;
+   // Handle arrays by extracting the last element
+   const normalized = Array.isArray(value)
+      ? (value.length > 0 ? value[value.length - 1] : undefined)
+      : value;
+   if (!normalized) return false;
+   if (normalized === 'true') return true;
+   if (normalized === 'false') return false;
+   return true; // Any other non-empty value is considered true (backward compatibility)
+};
 
 type DomainsGetRes = {
    domains: DomainType[]
@@ -65,11 +83,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 };
 
 export const getDomains = async (req: NextApiRequest, res: NextApiResponse<DomainsGetRes>) => {
-   // Extract the last element if non-empty array, otherwise use the value directly
-   const withStatsParam = Array.isArray(req.query?.withstats) && req.query.withstats.length > 0
-      ? req.query.withstats[req.query.withstats.length - 1] 
-      : req.query.withstats;
-   const withStats = normalizeToBoolean(withStatsParam);
+   const withStats = parseBooleanQueryParam(req?.query?.withstats);
    
    try {
       

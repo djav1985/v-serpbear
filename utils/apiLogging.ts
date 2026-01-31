@@ -47,8 +47,6 @@ export function withApiLogging(
       });
     }
 
-    let statusCode = 200; // Default status code
-
     try {
       // Ensure database is initialized before executing any API handler
       // This is a fallback for cases where instrumentation hook doesn't run
@@ -60,7 +58,7 @@ export function withApiLogging(
       await handler(req, res);
       
       // Read status code directly after handler completes
-      statusCode = res.statusCode ?? 200;
+      const statusCode = res.statusCode ?? 200;
 
       const duration = Date.now() - startTime;
       
