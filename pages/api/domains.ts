@@ -234,14 +234,27 @@ export const updateDomain = async (req: NextApiRequest, res: NextApiResponse<Dom
       }
 
       // Validate Search Console API Data
-      if (search_console?.client_email && search_console?.private_key) {
-         const isSearchConsoleAPIValid = await checkSearchConsoleIntegration({ ...domainPlain, search_console: JSON.stringify(search_console) });
-         if (!isSearchConsoleAPIValid.isValid) {
-            return res.status(400).json({ domain: null, error: isSearchConsoleAPIValid.error });
+      if (search_console) {
+         // Ensure both credentials are provided together, or neither
+         const hasEmail = !!(search_console.client_email?.trim());
+         const hasKey = !!(search_console.private_key?.trim());
+         
+         if (hasEmail !== hasKey) {
+            return res.status(400).json({ 
+               domain: null, 
+               error: 'Both client_email and private_key must be provided together for Search Console integration',
+            });
          }
-         const cryptr = new Cryptr(process.env.SECRET as string);
-         search_console.client_email = search_console.client_email ? cryptr.encrypt(search_console.client_email.trim()) : '';
-         search_console.private_key = search_console.private_key ? cryptr.encrypt(search_console.private_key.trim()) : '';
+         
+         if (hasEmail && hasKey) {
+            const isSearchConsoleAPIValid = await checkSearchConsoleIntegration({ ...domainPlain, search_console: JSON.stringify(search_console) });
+            if (!isSearchConsoleAPIValid.isValid) {
+               return res.status(400).json({ domain: null, error: isSearchConsoleAPIValid.error });
+            }
+            const cryptr = new Cryptr(process.env.SECRET as string);
+            search_console.client_email = cryptr.encrypt(search_console.client_email.trim());
+            search_console.private_key = cryptr.encrypt(search_console.private_key.trim());
+         }
       }
 
       const updates: Partial<Domain> = {};

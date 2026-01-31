@@ -200,4 +200,21 @@ describe('Authentication cookie handling', () => {
       const logoutCookieConstructorCall = CookiesMock.mock.calls.find(([reqArg]) => reqArg === logoutReq);
       expect(logoutCookieConstructorCall?.[2]).toEqual({ secure: true });
    });
+
+   it('returns 405 Method Not Allowed for non-POST requests', async () => {
+      const req = {
+         method: 'GET',
+         headers: {
+            'x-forwarded-for': '127.0.0.1',
+            'user-agent': 'test-user-agent'
+         },
+      } as Partial<NextApiRequest>;
+
+      const res = createResponse();
+
+      await loginHandler(req as NextApiRequest, res);
+
+      expect(res.status).toHaveBeenCalledWith(405);
+      expect(res.json).toHaveBeenCalledWith({ success: false, error: 'Invalid Method' });
+   });
 });

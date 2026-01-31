@@ -167,3 +167,4 @@ describe('parseSearchConsoleItem', () => {
     expect(parseSearchConsoleItem(fallbackItem, 'example.com').country).toBe('XYZ');
   });
 });
+

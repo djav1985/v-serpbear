@@ -215,6 +215,32 @@ describe('/api/refresh', () => {
     expect(previewRes.json).toHaveBeenCalledWith({ error: '', searchResult: expect.objectContaining({ device: 'mobile' }) });
   });
 
+  it('defaults to desktop device when device parameter is not provided', async () => {
+    const previewReq = {
+      method: 'GET',
+      query: { keyword: 'widgets', country: 'US' }, // No device parameter
+      headers: {},
+    } as unknown as NextApiRequest;
+
+    const previewRes = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+    } as unknown as NextApiResponse;
+
+    (scrapeKeywordFromGoogle as jest.Mock).mockResolvedValue({
+      keyword: 'widgets',
+      position: 5,
+      result: [],
+      mapPackTop3: false,
+    });
+
+    await handler(previewReq, previewRes);
+
+    expect(scrapeKeywordFromGoogle).toHaveBeenCalledWith(expect.objectContaining({ device: 'desktop' }), { scraper_type: 'serpapi' });
+    expect(previewRes.status).toHaveBeenCalledWith(200);
+    expect(previewRes.json).toHaveBeenCalledWith({ error: '', searchResult: expect.objectContaining({ device: 'desktop' }) });
+  });
+
   it('rejects manual refresh when domain is already locked', async () => {
     req.query = { id: '1', domain: 'example.com' };
 
