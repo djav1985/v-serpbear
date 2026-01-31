@@ -65,7 +65,16 @@ export function resetDatabaseInitialization(): void {
  * (e.g., Docker, standalone mode, some production scenarios)
  */
 export async function ensureDatabase(): Promise<void> {
-   if (!dbInitialized) {
-      await initializeDatabase();
+   if (dbInitialized) {
+      return;
    }
+   
+   // If initialization is in progress, wait for it
+   if (dbInitPromise) {
+      await dbInitPromise;
+      return;
+   }
+   
+   // Otherwise, initialize now
+   await initializeDatabase();
 }

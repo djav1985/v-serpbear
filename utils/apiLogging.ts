@@ -74,6 +74,8 @@ export function withApiLogging(
     try {
       // Ensure database is initialized before executing any API handler
       // This is a fallback for cases where instrumentation hook doesn't run
+      // (e.g., Docker, standalone mode, some production scenarios)
+      // Performance note: After first initialization, this is just a fast boolean check
       await ensureDatabase();
       
       // Execute the actual handler

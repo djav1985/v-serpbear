@@ -105,4 +105,21 @@ describe('Database Initialization', () => {
       expect(db.sync).toHaveBeenCalledTimes(1);
       expect(isDatabaseInitialized()).toBe(true);
    });
+
+   it('should handle concurrent ensureDatabase calls without race conditions', async () => {
+      (db.sync as jest.Mock).mockImplementation(() => 
+         new Promise(resolve => setTimeout(resolve, 100))
+      );
+
+      // Simulate multiple API requests arriving simultaneously
+      const promise1 = ensureDatabase();
+      const promise2 = ensureDatabase();
+      const promise3 = ensureDatabase();
+
+      await Promise.all([promise1, promise2, promise3]);
+
+      // Database should only be initialized once
+      expect(db.sync).toHaveBeenCalledTimes(1);
+      expect(isDatabaseInitialized()).toBe(true);
+   });
 });
