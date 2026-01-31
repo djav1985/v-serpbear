@@ -79,7 +79,7 @@ describe('POST /api/volume', () => {
 
       await handler(req, res);
 
-      expect(dbMock.sync).toHaveBeenCalled();
+      // db.sync() is now called at startup via instrumentation, not in handlers
       expect(verifyUserMock).toHaveBeenCalledWith(req, res);
       expect(keywordModelMock.findAll).toHaveBeenCalled();
       expect(getKeywordsVolumeMock).toHaveBeenCalledWith([{ ID: 1, keyword: 'alpha', volume: 0 }]);

@@ -1,6 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import nodeMailer from 'nodemailer';
-import db from '../../../database/database';
 import Domain from '../../../database/models/domain';
 import verifyUser from '../../../utils/verifyUser';
 import { getAppSettings } from '../settings';

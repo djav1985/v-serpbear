@@ -4,7 +4,6 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { OAuth2Client } from 'google-auth-library';
 import { readFile } from 'fs/promises';
 import Cryptr from 'cryptr';
-import db from '../../database/database';
 import verifyUser from '../../utils/verifyUser';
 import { getAdwordsCredentials, getAdwordsKeywordIdeas } from '../../utils/adwords';
 import { logger } from '../../utils/logger';

@@ -215,7 +215,7 @@ describe('PUT /api/domains', () => {
 
     await handler(disableReq, disableRes);
 
-    expect(dbMock.sync).toHaveBeenCalledTimes(1);
+    // db.sync() is now called at startup via instrumentation, not in handlers
     expect(DomainMock.findOne).toHaveBeenCalledWith({ where: { domain: domainState.domain } });
     expect(domainInstance.set).toHaveBeenCalledWith(expect.objectContaining({
       scrapeEnabled: 0,

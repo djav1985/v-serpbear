@@ -419,6 +419,23 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
       const { history } = keyword;
       history[dateKey] = newPos;
 
+      // Trim history to last 30 days to optimize storage and read performance
+      // This prevents history object from growing indefinitely
+      const historyEntries = Object.entries(history);
+      if (historyEntries.length > 30) {
+         const sortedEntries = historyEntries
+            .map(([key, value]) => ({ key, date: new Date(key).getTime(), value }))
+            .sort((a, b) => a.date - b.date)
+            .slice(-30);
+         
+         const trimmedHistory: Record<string, number> = {};
+         sortedEntries.forEach(({ key, value }) => {
+            trimmedHistory[key] = value;
+         });
+         Object.keys(history).forEach(key => delete history[key]);
+         Object.assign(history, trimmedHistory);
+      }
+
       const normalizeResult = (result: any): string => {
          if (result === undefined || result === null) {
             return '[]';

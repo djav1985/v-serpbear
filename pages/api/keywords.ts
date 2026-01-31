@@ -2,7 +2,6 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Op } from 'sequelize';
-import db from '../../database/database';
 import Keyword from '../../database/models/keyword';
 import { getAppSettings } from './settings';
 import verifyUser from '../../utils/verifyUser';
@@ -73,7 +72,8 @@ const getKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
       
       // Consolidate pipeline: do history slicing + lastResult reset + SC integration in a single pass
       const processedKeywords = keywords.map((keyword) => {
-         // Extract last 7 history entries without sorting entire history
+         // Since history is now trimmed to 30 days during writes, we can simplify this
+         // Just get the last 7 entries without complex sorting
          const historyEntries = Object.entries(keyword.history);
          let lastWeekHistory: KeywordHistory = {};
          
@@ -81,7 +81,7 @@ const getKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
             // If we have 7 or fewer entries, use them all
             lastWeekHistory = keyword.history;
          } else {
-            // Sort only the entries by date (not the entire history array)
+            // Sort and take last 7 (now much faster since history is pre-trimmed to 30 days)
             const sortedEntries = historyEntries
                .map(([dateKey, position]) => ({ dateKey, date: new Date(dateKey).getTime(), position }))
                .sort((a, b) => a.date - b.date)
