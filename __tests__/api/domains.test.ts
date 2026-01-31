@@ -380,6 +380,83 @@ describe('PUT /api/domains', () => {
     expect(updatePayload.business_name).toBe('My Business');
     expect(updatePayload.scraper_settings).toEqual(expect.any(String));
   });
+
+  it('returns 500 when SECRET is missing and search_console credentials are provided', async () => {
+    delete process.env.SECRET;
+
+    const req = {
+      method: 'PUT',
+      query: { domain: domainState.domain },
+      body: { 
+        search_console: { 
+          client_email: 'test@example.com', 
+          private_key: 'test-key' 
+        }
+      },
+      headers: {},
+    } as unknown as NextApiRequest;
+
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({ 
+      domain: null, 
+      error: 'Server configuration error: encryption key not available' 
+    });
+    expect(domainInstance.save).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when SECRET is missing and scraper_settings are provided', async () => {
+    delete process.env.SECRET;
+
+    const req = {
+      method: 'PUT',
+      query: { domain: domainState.domain },
+      body: { 
+        scraper_settings: { scraper_type: 'serpapi', scraping_api: 'new-key' }
+      },
+      headers: {},
+    } as unknown as NextApiRequest;
+
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({ 
+      domain: null, 
+      error: 'Server configuration error: encryption key not available' 
+    });
+    expect(domainInstance.save).not.toHaveBeenCalled();
+  });
+
+  it('allows updates that do not require encryption when SECRET is missing', async () => {
+    delete process.env.SECRET;
+
+    const req = {
+      method: 'PUT',
+      query: { domain: domainState.domain },
+      body: { 
+        notification_interval: 'weekly',
+        notification_emails: 'test@example.com'
+      },
+      headers: {},
+    } as unknown as NextApiRequest;
+
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(domainInstance.save).toHaveBeenCalled();
+  });
+
+  afterEach(() => {
+    // Always restore SECRET to prevent test pollution
+    process.env.SECRET = 'test-secret';
+  });
 });
 
 describe('DELETE /api/domains', () => {

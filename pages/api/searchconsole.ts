@@ -28,7 +28,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
    if (req.method === 'POST') {
       return cronRefreshSearchConsoleData(req, res);
    }
-   return res.status(502).json({ error: 'Unrecognized Route.' });
+   return res.status(405).json({ error: 'Method not allowed' });
 }
 
 const getDomainSearchConsoleData = async (req: NextApiRequest, res: NextApiResponse<searchConsoleRes>) => {

@@ -21,7 +21,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
    if (req.method === 'GET') {
       return getDomainSearchConsoleInsight(req, res);
    }
-   return res.status(502).json({ error: 'Unrecognized Route.' });
+   return res.status(405).json({ error: 'Method not allowed' });
 }
 
 export default withApiLogging(handler, { name: 'insight' });
