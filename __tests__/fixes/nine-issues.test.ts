@@ -123,7 +123,7 @@ describe('Issue 8: withstats query flag parsing', () => {
       expect(result).toBe(false);
    });
 
-   it('should parse empty string as true', () => {
+   it('should parse empty string as false', () => {
       const result = parseBooleanQueryParam('');
       expect(result).toBe(false);
    });
