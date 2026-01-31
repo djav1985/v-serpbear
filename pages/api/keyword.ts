@@ -20,7 +20,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
    if (req.method === 'GET') {
       return getKeyword(req, res);
    }
-   return res.status(405).json({ error: 'Method not allowed' });
+   return res.status(405).json({ error: 'Method Not Allowed' });
 }
 
 export default withApiLogging(handler, { name: 'keyword' });

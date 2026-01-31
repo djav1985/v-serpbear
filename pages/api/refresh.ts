@@ -20,7 +20,7 @@ import { refreshQueue } from '../../utils/refreshQueue';
  * @param keywords - Array of keyword models to clear flags for
  */
 const clearKeywordFlags = async (keywords: Keyword[]): Promise<void> => {
-   await Promise.all(
+   const results = await Promise.allSettled(
       keywords.map(async (keyword) => {
          await keyword.update({ updating: toDbBool(false), updatingStartedAt: null });
          if (typeof keyword.reload === 'function') {
@@ -28,6 +28,13 @@ const clearKeywordFlags = async (keywords: Keyword[]): Promise<void> => {
          }
       }),
    );
+   
+   // Log any individual failures
+   results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+         logger.error('[REFRESH] Failed to clear updating flag for keyword: ', result.reason instanceof Error ? result.reason : new Error(String(result.reason)), { keywordId: keywords[index]?.ID });
+      }
+   });
 };
 
 type BackgroundKeywordsRefreshRes = {
