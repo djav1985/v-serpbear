@@ -454,10 +454,8 @@ describe('PUT /api/domains', () => {
   });
 
   afterEach(() => {
-    // Restore SECRET to prevent test pollution
-    if (!process.env.SECRET) {
-      process.env.SECRET = 'test-secret';
-    }
+    // Always restore SECRET to prevent test pollution
+    process.env.SECRET = 'test-secret';
   });
 });
 
