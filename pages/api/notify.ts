@@ -103,6 +103,11 @@ const notify = async (req: NextApiRequest, res: NextApiResponse<NotifyResponse>)
          return res.status(500).json({ success: false, error: 'All notification emails failed to send. Please check your SMTP configuration.' });
       }
 
+      // If no emails were attempted (no eligible domains), inform the user
+      if (attemptCount === 0) {
+         return res.status(200).json({ success: true, error: 'No domains are enabled for notifications.' });
+      }
+
       return res.status(200).json({ success: true, error: null });
    } catch (error) {
       logger.error('Error sending notification emails', error instanceof Error ? error : new Error(String(error)));

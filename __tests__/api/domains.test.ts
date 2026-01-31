@@ -453,6 +453,54 @@ describe('PUT /api/domains', () => {
     expect(domainInstance.save).toHaveBeenCalled();
   });
 
+  it('rejects partial Search Console updates with only client_email', async () => {
+    const req = {
+      method: 'PUT',
+      query: { domain: domainState.domain },
+      body: { 
+        search_console: { 
+          client_email: 'test@example.com'
+        }
+      },
+      headers: {},
+    } as unknown as NextApiRequest;
+
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ 
+      domain: null, 
+      error: 'Both client_email and private_key must be provided together for Search Console integration' 
+    });
+    expect(domainInstance.save).not.toHaveBeenCalled();
+  });
+
+  it('rejects partial Search Console updates with only private_key', async () => {
+    const req = {
+      method: 'PUT',
+      query: { domain: domainState.domain },
+      body: { 
+        search_console: { 
+          private_key: 'test-key'
+        }
+      },
+      headers: {},
+    } as unknown as NextApiRequest;
+
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ 
+      domain: null, 
+      error: 'Both client_email and private_key must be provided together for Search Console integration' 
+    });
+    expect(domainInstance.save).not.toHaveBeenCalled();
+  });
+
   afterEach(() => {
     // Always restore SECRET to prevent test pollution
     process.env.SECRET = 'test-secret';

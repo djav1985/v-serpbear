@@ -242,8 +242,8 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
 };
 
 const getKeywordSearchResults = async (req: NextApiRequest, res: NextApiResponse<KeywordSearchResultRes>) => {
-   if (!req.query.keyword || !req.query.country || !req.query.device) {
-      return res.status(400).json({ error: 'A Valid keyword, Country Code, and device is Required!' });
+   if (!req.query.keyword || !req.query.country) {
+      return res.status(400).json({ error: 'A Valid keyword and Country Code is Required!' });
    }
    try {
       const settings = await getAppSettings();

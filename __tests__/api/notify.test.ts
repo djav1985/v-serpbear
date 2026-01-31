@@ -264,7 +264,7 @@ describe('/api/notify - authentication', () => {
     await handler(req as NextApiRequest, res as NextApiResponse);
 
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ success: true, error: null });
+    expect(res.json).toHaveBeenCalledWith({ success: true, error: 'No domains are enabled for notifications.' });
     expect(nodeMailer.createTransport).not.toHaveBeenCalled();
   });
 
@@ -465,5 +465,27 @@ describe('/api/notify - authentication', () => {
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({ success: true, error: null });
     expect(sendMailMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns success message when no domains are enabled for notifications', async () => {
+    (verifyUser as jest.Mock).mockReturnValue('authorized');
+
+    const domainRecord = {
+      get: () => ({
+        domain: 'example.com',
+        notification: 0,
+        scrapeEnabled: 0,
+        notification_emails: 'custom@example.com',
+      }),
+    };
+
+    (Domain.findAll as jest.Mock).mockResolvedValue([domainRecord]);
+
+    await handler(req as NextApiRequest, res as NextApiResponse);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ success: true, error: 'No domains are enabled for notifications.' });
+    expect(nodeMailer.createTransport).not.toHaveBeenCalled();
+    expect(sendMailMock).not.toHaveBeenCalled();
   });
 });

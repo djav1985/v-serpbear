@@ -277,9 +277,17 @@ export const getSearchConsoleApiInfo = async (domain: DomainType): Promise<SCAPI
    );
    if (domainSCSettings && domainSCSettings.private_key) {
       if (!domainSCSettings.private_key.includes('BEGIN PRIVATE KEY')) {
-         const cryptr = new Cryptr(process.env.SECRET as string);
-         scAPIData.client_email = domainSCSettings.client_email ? cryptr.decrypt(domainSCSettings.client_email) : '';
-         scAPIData.private_key = domainSCSettings.private_key ? cryptr.decrypt(domainSCSettings.private_key) : '';
+         try {
+            const cryptr = new Cryptr(process.env.SECRET as string);
+            scAPIData.client_email = domainSCSettings.client_email ? cryptr.decrypt(domainSCSettings.client_email) : '';
+            scAPIData.private_key = domainSCSettings.private_key ? cryptr.decrypt(domainSCSettings.private_key) : '';
+         } catch (error) {
+            logger.warn('Failed to decrypt domain-level Search Console credentials, falling back to global credentials', {
+               domain: domain.domain,
+               error: error instanceof Error ? error.message : String(error),
+            });
+            // Continue to fallback logic below
+         }
       } else {
          scAPIData.client_email = domainSCSettings.client_email;
          scAPIData.private_key = domainSCSettings.private_key;

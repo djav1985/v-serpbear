@@ -31,7 +31,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       duration: Date.now() - startTime
    });
    
-   return res.status(401).json({ success: false, error: 'Invalid Method' });
+   return res.status(405).json({ success: false, error: 'Invalid Method' });
 }
 
 const loginUser = async (req: NextApiRequest, res: NextApiResponse<loginResponse>, startTime: number) => {
