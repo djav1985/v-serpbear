@@ -1,7 +1,6 @@
 /// <reference path="../../types.d.ts" />
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import db from '../../database/database';
 import Domain from '../../database/models/domain';
 import { logger } from '../../utils/logger';
 import { fetchDomainSCData, getSearchConsoleApiInfo, readLocalSCData, resolveDomainIdentifier } from '../../utils/searchConsole';
@@ -19,7 +18,6 @@ type searchConsoleCRONRes = {
 }
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
-   await db.sync();
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
       return res.status(401).json({ error: authorized });

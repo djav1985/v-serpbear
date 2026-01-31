@@ -2,7 +2,6 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Op } from 'sequelize';
-import db from '../../database/database';
 import Keyword from '../../database/models/keyword';
 import Domain from '../../database/models/domain';
 import refreshAndUpdateKeywords from '../../utils/refresh';
@@ -56,7 +55,6 @@ type KeywordSearchResultRes = {
 }
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
-   await db.sync();
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
       return res.status(401).json({ error: authorized });
@@ -137,6 +135,15 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
             }),
          );
          
+         // Remove missing domain keywords from retry queue
+         const missingKeywordIds = new Set(missingDomainKeywords.map((kw) => kw.ID));
+         if (missingKeywordIds.size > 0) {
+            const { retryQueueManager } = await import('../../utils/retryQueueManager');
+            await retryQueueManager.removeBatch(missingKeywordIds).catch((error) => {
+               logger.error('Failed to remove missing domain keywords from retry queue', error instanceof Error ? error : new Error(String(error)));
+            });
+         }
+         
          // Return error if all keywords have missing domains
          if (keywordsToRefresh.length === 0 && skippedKeywords.length === 0) {
             return res.status(400).json({ 
@@ -160,16 +167,19 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
          return res.status(200).json({ keywords: [] });
       }
 
-      // Get the domain for this refresh (manual refresh is always single-domain)
-      const refreshDomain = keywordsToRefresh[0]?.domain;
+      // Check if any of the domains being refreshed are locked
+      const domainsToRefresh = Array.from(new Set(keywordsToRefresh.map((keyword) => keyword.domain).filter(Boolean)));
+      const lockedDomains = domainsToRefresh.filter((domain) => refreshQueue.isDomainLocked(domain));
       
-      // Check if this domain is already being refreshed
-      if (refreshDomain && refreshQueue.isDomainLocked(refreshDomain)) {
-         logger.info(`Manual refresh rejected: domain already being refreshed`, { domain: refreshDomain });
+      if (lockedDomains.length > 0) {
+         logger.info(`Manual refresh rejected: domains already being refreshed`, { domains: lockedDomains });
          return res.status(409).json({ 
-            error: `Domain "${refreshDomain}" is already being refreshed. Please wait for the current refresh to complete.`,
+            error: `Domains are already being refreshed: ${lockedDomains.join(', ')}. Please wait for the current refresh to complete.`,
          });
       }
+
+      // Use the first domain only for task association; the manual refresh itself may span multiple domains
+      const refreshDomain = domainsToRefresh[0];
 
       const keywordIdsToRefresh = keywordsToRefresh.map((keyword) => keyword.ID);
       const now = new Date().toJSON();
@@ -182,7 +192,11 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
          }),
       );
 
-      const taskId = req.query.id === 'all' ? `manual-refresh-domain-${domain}` : `manual-refresh-ids-${keywordIdsToRefresh.join(',')}`;
+      // Generate unique task ID using crypto to prevent collisions in concurrent scenarios
+      const uniqueId = crypto.randomUUID();
+      const taskId = req.query.id === 'all' 
+         ? `manual-refresh-domain-${domain}-${uniqueId}` 
+         : `manual-refresh-ids-${keywordIdsToRefresh.join(',')}-${uniqueId}`;
       logger.info(`Manual refresh enqueued: ${taskId} (${keywordsToRefresh.length} keywords)`, { domain: refreshDomain });
 
       // Enqueue the manual refresh task with domain for per-domain locking

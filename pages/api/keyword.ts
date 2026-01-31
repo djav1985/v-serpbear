@@ -1,7 +1,6 @@
 /// <reference path="../../types.d.ts" />
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import db from '../../database/database';
 import Keyword from '../../database/models/keyword';
 import parseKeywords from '../../utils/parseKeywords';
 import verifyUser from '../../utils/verifyUser';
@@ -16,7 +15,6 @@ type KeywordGetResponse = {
 async function handler(req: NextApiRequest, res: NextApiResponse) {
    const authorized = verifyUser(req, res);
    if (authorized === 'authorized' && req.method === 'GET') {
-      await db.sync();
       return getKeyword(req, res);
    }
    return res.status(401).json({ error: authorized });

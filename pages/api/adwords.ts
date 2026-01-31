@@ -4,7 +4,6 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { OAuth2Client } from 'google-auth-library';
 import { readFile } from 'fs/promises';
 import Cryptr from 'cryptr';
-import db from '../../database/database';
 import verifyUser from '../../utils/verifyUser';
 import { getAdwordsCredentials, getAdwordsKeywordIdeas } from '../../utils/adwords';
 import { logger } from '../../utils/logger';
@@ -91,7 +90,6 @@ const respondWithIntegrationResult = (
 };
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
-   await db.sync();
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
       return res.status(401).json({ error: authorized });

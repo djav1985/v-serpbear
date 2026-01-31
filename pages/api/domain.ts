@@ -2,7 +2,6 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import Cryptr from 'cryptr';
-import db from '../../database/database';
 import Domain from '../../database/models/domain';
 import verifyUser from '../../utils/verifyUser';
 import { maskDomainScraperSettings, parseDomainScraperSettings } from '../../utils/domainScraperSettings';
@@ -19,7 +18,6 @@ type DomainGetResponse = {
 async function handler(req: NextApiRequest, res: NextApiResponse) {
    const authorized = verifyUser(req, res);
    if (authorized === 'authorized' && req.method === 'GET') {
-      await db.sync();
       return getDomain(req, res);
    }
    return res.status(401).json({ error: authorized });

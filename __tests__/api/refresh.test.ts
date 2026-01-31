@@ -233,7 +233,7 @@ describe('/api/refresh', () => {
     // Should return 409 Conflict
     expect(res.status).toHaveBeenCalledWith(409);
     expect(res.json).toHaveBeenCalledWith({
-      error: 'Domain "example.com" is already being refreshed. Please wait for the current refresh to complete.',
+      error: 'Domains are already being refreshed: example.com. Please wait for the current refresh to complete.',
     });
 
     // Should NOT enqueue or update keywords

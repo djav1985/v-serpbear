@@ -1,6 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Op } from 'sequelize';
-import db from '../../database/database';
 import Keyword from '../../database/models/keyword';
 import { logger } from '../../utils/logger';
 import verifyUser from '../../utils/verifyUser';
@@ -15,7 +14,6 @@ type KeywordsRefreshRes = {
 }
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
-   await db.sync();
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
       return res.status(401).json({ error: authorized });

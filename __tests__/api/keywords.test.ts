@@ -103,7 +103,7 @@ describe('PUT /api/keywords error handling', () => {
 
     await handler(req, res);
 
-    expect(dbMock.sync).toHaveBeenCalled();
+    // db.sync() is now called at startup via instrumentation, not in handlers
     expect(verifyUserMock).toHaveBeenCalledWith(req, res);
     expect(keywordMock.update).toHaveBeenCalledWith({ sticky: 1 }, { where: { ID: { [Op.in]: [1] } } });
     expect(keywordMock.findAll).not.toHaveBeenCalled();

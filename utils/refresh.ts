@@ -419,6 +419,24 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
       const { history } = keyword;
       history[dateKey] = newPos;
 
+      // Trim history to last 30 days to optimize storage and read performance
+      // This prevents history object from growing indefinitely
+      const historyEntries = Object.entries(history);
+      if (historyEntries.length >= 31) {
+         // Once we have 31 entries (30 + today's new entry), trim to 30 most recent
+         const sortedEntries = historyEntries
+            .map(([key, value]) => ({ key, date: new Date(key).getTime(), value }))
+            .sort((a, b) => a.date - b.date)
+            .slice(-30); // Keep last 30 entries
+         
+         const trimmedHistory: Record<string, number> = {};
+         sortedEntries.forEach(({ key, value }) => {
+            trimmedHistory[key] = value;
+         });
+         Object.keys(history).forEach(key => delete history[key]);
+         Object.assign(history, trimmedHistory);
+      }
+
       const normalizeResult = (result: any): string => {
          if (result === undefined || result === null) {
             return '[]';
@@ -493,10 +511,15 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          updatingStartedAt: null,
       };
 
-      if (updatedKeyword.error && settings?.scrape_retry) {
-         await retryScrape(keyword.ID);
-      } else {
-         await removeFromRetryQueue(keyword.ID);
+      // Update retry queue outside of try-catch to prevent aborting on retry queue errors
+      try {
+         if (updatedKeyword.error && settings?.scrape_retry) {
+            await retryScrape(keyword.ID);
+         } else {
+            await removeFromRetryQueue(keyword.ID);
+         }
+      } catch (queueError) {
+         logger.error('[ERROR] Failed to update retry queue (non-fatal):', queueError instanceof Error ? queueError : new Error(String(queueError)), { keywordId: keyword.ID });
       }
 
       try {

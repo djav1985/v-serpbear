@@ -1,7 +1,6 @@
 /// <reference path="../../types.d.ts" />
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import db from '../../database/database';
 import Keyword from '../../database/models/keyword';
 import Domain from '../../database/models/domain';
 import { getAppSettings } from './settings';
@@ -19,7 +18,6 @@ type CRONRefreshRes = {
 }
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
-   await db.sync();
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
       return res.status(401).json({ error: authorized });

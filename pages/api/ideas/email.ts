@@ -1,6 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import nodeMailer from 'nodemailer';
-import db from '../../../database/database';
 import Domain from '../../../database/models/domain';
 import verifyUser from '../../../utils/verifyUser';
 import { getAppSettings } from '../settings';
@@ -56,7 +55,6 @@ const normalizeKeywords = (keywords: KeywordIdeasEmailKeyword[] = []): KeywordId
 });
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<EmailKeywordIdeasResponse>) {
-   await db.sync();
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
       return res.status(401).json({ success: false, error: authorized });

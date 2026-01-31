@@ -2,7 +2,6 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Op } from 'sequelize';
-import db from '../../database/database';
 import Keyword from '../../database/models/keyword';
 import { getAppSettings } from './settings';
 import verifyUser from '../../utils/verifyUser';
@@ -30,7 +29,6 @@ type KeywordsDeleteRes = {
 }
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
-   await db.sync();
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
       return res.status(401).json({ error: authorized });
@@ -74,7 +72,8 @@ const getKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
       
       // Consolidate pipeline: do history slicing + lastResult reset + SC integration in a single pass
       const processedKeywords = keywords.map((keyword) => {
-         // Extract last 7 history entries without sorting entire history
+         // Since history is now trimmed to 30 days during writes, we can simplify this
+         // Just get the last 7 entries without complex sorting
          const historyEntries = Object.entries(keyword.history);
          let lastWeekHistory: KeywordHistory = {};
          
@@ -82,7 +81,7 @@ const getKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
             // If we have 7 or fewer entries, use them all
             lastWeekHistory = keyword.history;
          } else {
-            // Sort only the entries by date (not the entire history array)
+            // Sort and take last 7 (now much faster since history is pre-trimmed to 30 days)
             const sortedEntries = historyEntries
                .map(([dateKey, position]) => ({ dateKey, date: new Date(dateKey).getTime(), position }))
                .sort((a, b) => a.date - b.date)
@@ -273,19 +272,11 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
       await Keyword.bulkCreate(keywordsToAdd as any);
       
       // Reload keywords from DB to ensure IDs are populated
-      // Build a query to find the just-created keywords by their unique combination of keyword+device+domain
-      const reloadConditions = keywordsToAdd.map((kw) => ({
-         [Op.and]: [
-            { keyword: kw.keyword },
-            { device: kw.device },
-            { domain: kw.domain },
-            { country: kw.country },
-            { location: kw.location },
-         ],
-      }));
-      
+      // Use added timestamp to find only the just-created keywords (not existing ones)
       const reloadedKeywords = await Keyword.findAll({
-         where: { [Op.or]: reloadConditions },
+         where: { 
+            added: now,
+         },
       });
       
       const formattedkeywords = reloadedKeywords.map((el) => el.get({ plain: true }));
@@ -295,8 +286,10 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
       const settings = await getAppSettings();
       const domainName = keywordsParsed[0]?.domain;
       if (domainName) {
+         // Generate unique task ID using crypto to prevent collisions in concurrent scenarios
+         const uniqueId = crypto.randomUUID();
          await refreshQueue.enqueue(
-            `addKeywords-${domainName}-${Date.now()}`,
+            `addKeywords-${domainName}-${uniqueId}`,
             async () => {
                try {
                   await refreshAndUpdateKeywords(reloadedKeywords, settings);
@@ -421,7 +414,18 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse<Keywords
                .filter((tag) => tag.length > 0);
 
             const selectedKeyword = await Keyword.findOne({ where: { ID: numericId } });
-            const currentTags = selectedKeyword && selectedKeyword.tags ? JSON.parse(selectedKeyword.tags) : [];
+            let currentTags: string[] = [];
+            
+            if (selectedKeyword && selectedKeyword.tags) {
+               try {
+                  const parsedTags = JSON.parse(selectedKeyword.tags);
+                  currentTags = Array.isArray(parsedTags) ? parsedTags : [];
+               } catch (parseError) {
+                  logger.warn('Failed to parse tags for keyword', { keywordId: numericId, tags: selectedKeyword.tags, error: parseError instanceof Error ? parseError.message : String(parseError) });
+                  currentTags = [];
+               }
+            }
+            
             const mergedTags = Array.from(new Set([...currentTags, ...sanitizedTags])).sort();
 
             if (selectedKeyword) {

@@ -1,7 +1,6 @@
 /// <reference path="../../types.d.ts" />
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import db from '../../database/database';
 import { getCountryInsight, getKeywordsInsight, getPagesInsight } from '../../utils/insight';
 import { fetchDomainSCData, getSearchConsoleApiInfo, readLocalSCData } from '../../utils/searchConsole';
 import verifyUser from '../../utils/verifyUser';
@@ -15,7 +14,6 @@ type SCInsightRes = {
 }
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
-   await db.sync();
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
       return res.status(401).json({ error: authorized });

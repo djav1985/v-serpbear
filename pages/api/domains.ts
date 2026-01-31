@@ -2,7 +2,6 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import Cryptr from 'cryptr';
-import db from '../../database/database';
 import Domain from '../../database/models/domain';
 import Keyword from '../../database/models/keyword';
 import getdomainStats from '../../utils/domains';
@@ -20,6 +19,19 @@ import {
 import { toDbBool } from '../../utils/dbBooleans';
 import { safeJsonParse } from '../../utils/safeJsonParse';
 import normalizeDomainBooleans from '../../utils/normalizeDomain';
+
+/**
+ * Parses a query parameter as a boolean value
+ * @param value - The query parameter value to parse (if an array, the last element is used)
+ * @returns true if value is 'true' or any other non-empty value except 'false', false otherwise
+ */
+const parseBooleanQueryParam = (value: string | string[] | undefined): boolean => {
+   if (!value) return false;
+   const normalized = Array.isArray(value) ? value[value.length - 1] : value;
+   if (normalized === 'true') return true;
+   if (normalized === 'false') return false;
+   return true; // Any other non-empty value is considered true
+};
 
 type DomainsGetRes = {
    domains: DomainType[]
@@ -44,8 +56,6 @@ type DomainsUpdateRes = {
 }
 
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
-   await db.sync();
-   
    // Check authentication for all requests now - changed from previous behavior
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
@@ -68,7 +78,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 };
 
 export const getDomains = async (req: NextApiRequest, res: NextApiResponse<DomainsGetRes>) => {
-   const withStats = !!req?.query?.withstats;
+   const withStats = parseBooleanQueryParam(req?.query?.withstats);
    
    try {
       

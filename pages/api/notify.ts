@@ -2,7 +2,6 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import nodeMailer from 'nodemailer';
-import db from '../../database/database';
 import Domain from '../../database/models/domain';
 import Keyword from '../../database/models/keyword';
 import generateEmail from '../../utils/generateEmail';
@@ -30,7 +29,6 @@ const sanitizeHostname = (host?: string | null): string => {
 };
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
-   await db.sync();
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
       return res.status(401).json({ success: false, error: authorized });

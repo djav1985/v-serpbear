@@ -111,7 +111,7 @@ describe('GET /api/adwords - refresh token retrieval', () => {
 
       await handler(req, res);
 
-      expect(db.sync).toHaveBeenCalled();
+      // db.sync() is now called at startup via instrumentation, not in handlers
       expect(verifyUser).toHaveBeenCalledWith(req, res);
       expect(readFile).toHaveBeenCalled();
       expect(OAuth2Client).toHaveBeenCalledWith({
