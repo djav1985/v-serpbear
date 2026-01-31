@@ -98,7 +98,7 @@ describe('Issue 1: API key auth fallback with stale JWT cookie', () => {
 describe('Issue 8: withstats query flag parsing', () => {
    // Helper to extract query param value (mirrors domains.ts logic)
    const extractQueryParam = (value: string | string[] | undefined): string | undefined => 
-      Array.isArray(value) ? value[value.length - 1] : value;
+      Array.isArray(value) && value.length > 0 ? value[value.length - 1] : value;
 
    it('should correctly parse withstats=false as false', () => {
       const result = normalizeToBoolean(extractQueryParam('false'));
@@ -132,6 +132,12 @@ describe('Issue 8: withstats query flag parsing', () => {
 
       const resultFalse = normalizeToBoolean(extractQueryParam(['true', 'false']));
       expect(resultFalse).toBe(false);
+   });
+
+   it('should handle empty arrays safely', () => {
+      // Empty arrays should be treated like undefined
+      const result = normalizeToBoolean(extractQueryParam([]));
+      expect(result).toBe(false);
    });
 });
 

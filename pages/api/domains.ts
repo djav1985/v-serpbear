@@ -65,8 +65,8 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 };
 
 export const getDomains = async (req: NextApiRequest, res: NextApiResponse<DomainsGetRes>) => {
-   // Extract the last element if array, otherwise use the value directly
-   const withStatsParam = Array.isArray(req.query?.withstats) 
+   // Extract the last element if non-empty array, otherwise use the value directly
+   const withStatsParam = Array.isArray(req.query?.withstats) && req.query.withstats.length > 0
       ? req.query.withstats[req.query.withstats.length - 1] 
       : req.query.withstats;
    const withStats = normalizeToBoolean(withStatsParam);
