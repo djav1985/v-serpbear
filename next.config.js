@@ -41,10 +41,14 @@ const nextConfig = {
   // Webpack optimizations
   webpack: (config, { dev, isServer: _isServer, defaultLoaders: _defaultLoaders, nextRuntime: _nextRuntime, webpack: _webpack }) => {
     // Exclude unused Sequelize dialect dependencies
-    config.externals = config.externals || [];
-    config.externals.push({
-      'pg-hstore': 'commonjs pg-hstore',
-    });
+    // Handle externals safely whether it's an array, function, or undefined
+    const existingExternals = Array.isArray(config.externals) ? config.externals : [];
+    config.externals = [
+      ...existingExternals,
+      {
+        'pg-hstore': 'commonjs pg-hstore',
+      }
+    ];
 
     // Bundle size optimizations
     if (!dev) {

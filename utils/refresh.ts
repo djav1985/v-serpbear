@@ -174,6 +174,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                const effectiveSettings: SettingsType = hasOverride 
                   ? {
                      ...settings,
+                     // Safe to use non-null assertion: hasOverride already validates scraper_type is truthy
                      scraper_type: decryptedOverride.scraper_type!,
                      ...(typeof decryptedOverride.scraping_api === 'string' && { scraping_api: decryptedOverride.scraping_api }),
                   }
