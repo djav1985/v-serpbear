@@ -14,10 +14,13 @@ type KeywordGetResponse = {
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
    const authorized = verifyUser(req, res);
-   if (authorized === 'authorized' && req.method === 'GET') {
+   if (authorized !== 'authorized') {
+      return res.status(401).json({ error: authorized });
+   }
+   if (req.method === 'GET') {
       return getKeyword(req, res);
    }
-   return res.status(401).json({ error: authorized });
+   return res.status(405).json({ error: 'Method not allowed' });
 }
 
 export default withApiLogging(handler, { name: 'keyword' });
