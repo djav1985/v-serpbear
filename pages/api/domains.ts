@@ -56,8 +56,6 @@ type DomainsUpdateRes = {
 }
 
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
-   await db.sync();
-   
    // Check authentication for all requests now - changed from previous behavior
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {

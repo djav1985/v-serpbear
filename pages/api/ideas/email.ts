@@ -56,7 +56,6 @@ const normalizeKeywords = (keywords: KeywordIdeasEmailKeyword[] = []): KeywordId
 });
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<EmailKeywordIdeasResponse>) {
-   await db.sync();
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
       return res.status(401).json({ success: false, error: authorized });

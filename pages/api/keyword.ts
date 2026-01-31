@@ -16,7 +16,6 @@ type KeywordGetResponse = {
 async function handler(req: NextApiRequest, res: NextApiResponse) {
    const authorized = verifyUser(req, res);
    if (authorized === 'authorized' && req.method === 'GET') {
-      await db.sync();
       return getKeyword(req, res);
    }
    return res.status(401).json({ error: authorized });

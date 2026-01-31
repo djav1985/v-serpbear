@@ -23,7 +23,24 @@ class RefreshQueue {
    private queue: RefreshTask[] = [];
    private activeProcesses = new Map<string, Promise<void>>(); // Track active processes by task ID
    private activeDomains = new Set<string>(); // Track which domains are currently being processed
-   private maxConcurrency: number = 3; // Allow up to 3 domains to process in parallel
+   private maxConcurrency: number;
+
+   constructor() {
+      // Read concurrency from environment variable, default to 3
+      const envConcurrency = process.env.REFRESH_QUEUE_CONCURRENCY;
+      const parsedConcurrency = envConcurrency ? parseInt(envConcurrency, 10) : 3;
+      
+      // Validate and set concurrency (must be at least 1)
+      this.maxConcurrency = Number.isFinite(parsedConcurrency) && parsedConcurrency >= 1 
+         ? parsedConcurrency 
+         : 3;
+      
+      if (envConcurrency && parsedConcurrency !== this.maxConcurrency) {
+         logger.warn(`Invalid REFRESH_QUEUE_CONCURRENCY value "${envConcurrency}", using default: ${this.maxConcurrency}`);
+      } else if (this.maxConcurrency !== 3) {
+         logger.info(`Refresh queue concurrency set to ${this.maxConcurrency} via environment variable`);
+      }
+   }
 
    /**
     * Add a refresh task to the queue
