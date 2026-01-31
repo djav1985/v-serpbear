@@ -98,37 +98,41 @@ describe('Issue 8: withstats query flag parsing', () => {
    // Import the shared helper function (now used in domains.ts)
    const { normalizeToBoolean } = require('../../utils/dbBooleans');
 
+   // Helper to extract query param value (mirrors domains.ts logic)
+   const extractQueryParam = (value: string | string[] | undefined): string | undefined => 
+      Array.isArray(value) ? value[value.length - 1] : value;
+
    it('should correctly parse withstats=false as false', () => {
-      const result = normalizeToBoolean('false');
+      const result = normalizeToBoolean(extractQueryParam('false'));
       expect(result).toBe(false);
    });
 
    it('should correctly parse withstats=true as true', () => {
-      const result = normalizeToBoolean('true');
+      const result = normalizeToBoolean(extractQueryParam('true'));
       expect(result).toBe(true);
    });
 
    it('should parse "1" as true', () => {
-      const result = normalizeToBoolean('1');
+      const result = normalizeToBoolean(extractQueryParam('1'));
       expect(result).toBe(true);
    });
 
    it('should parse missing withstats as false', () => {
-      const result = normalizeToBoolean(undefined);
+      const result = normalizeToBoolean(extractQueryParam(undefined));
       expect(result).toBe(false);
    });
 
    it('should parse empty string as false', () => {
-      const result = normalizeToBoolean('');
+      const result = normalizeToBoolean(extractQueryParam(''));
       expect(result).toBe(false);
    });
 
    it('should handle array values by extracting last element first', () => {
-      // Note: In domains.ts, we now extract the last element before passing to normalizeToBoolean
-      const resultTrue = normalizeToBoolean(['false', 'true'][1]);
+      // Test the full flow: extract last element from array, then normalize
+      const resultTrue = normalizeToBoolean(extractQueryParam(['false', 'true']));
       expect(resultTrue).toBe(true);
 
-      const resultFalse = normalizeToBoolean(['true', 'false'][1]);
+      const resultFalse = normalizeToBoolean(extractQueryParam(['true', 'false']));
       expect(resultFalse).toBe(false);
    });
 });
