@@ -273,19 +273,11 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
       await Keyword.bulkCreate(keywordsToAdd as any);
       
       // Reload keywords from DB to ensure IDs are populated
-      // Build a query to find the just-created keywords by their unique combination of keyword+device+domain
-      const reloadConditions = keywordsToAdd.map((kw) => ({
-         [Op.and]: [
-            { keyword: kw.keyword },
-            { device: kw.device },
-            { domain: kw.domain },
-            { country: kw.country },
-            { location: kw.location },
-         ],
-      }));
-      
+      // Use added timestamp to find only the just-created keywords (not existing ones)
       const reloadedKeywords = await Keyword.findAll({
-         where: { [Op.or]: reloadConditions },
+         where: { 
+            added: now,
+         },
       });
       
       const formattedkeywords = reloadedKeywords.map((el) => el.get({ plain: true }));
@@ -295,8 +287,10 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
       const settings = await getAppSettings();
       const domainName = keywordsParsed[0]?.domain;
       if (domainName) {
+         // Generate unique task ID using timestamp and random value to prevent collisions
+         const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
          await refreshQueue.enqueue(
-            `addKeywords-${domainName}-${Date.now()}`,
+            `addKeywords-${domainName}-${uniqueId}`,
             async () => {
                try {
                   await refreshAndUpdateKeywords(reloadedKeywords, settings);
@@ -421,7 +415,18 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse<Keywords
                .filter((tag) => tag.length > 0);
 
             const selectedKeyword = await Keyword.findOne({ where: { ID: numericId } });
-            const currentTags = selectedKeyword && selectedKeyword.tags ? JSON.parse(selectedKeyword.tags) : [];
+            let currentTags: string[] = [];
+            
+            if (selectedKeyword && selectedKeyword.tags) {
+               try {
+                  const parsedTags = JSON.parse(selectedKeyword.tags);
+                  currentTags = Array.isArray(parsedTags) ? parsedTags : [];
+               } catch (parseError) {
+                  logger.warn('Failed to parse tags for keyword', { keywordId: numericId, tags: selectedKeyword.tags, error: parseError instanceof Error ? parseError.message : String(parseError) });
+                  currentTags = [];
+               }
+            }
+            
             const mergedTags = Array.from(new Set([...currentTags, ...sanitizedTags])).sort();
 
             if (selectedKeyword) {

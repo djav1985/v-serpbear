@@ -140,8 +140,8 @@ const updateSettings = async (req: NextApiRequest, res: NextApiResponse<Settings
          logger.debug('Could not read existing settings for adwords_refresh_token', { error: err instanceof Error ? err.message : String(err) });
       }
 
-      // Use existing refresh token if not provided in payload
-      const adwords_refresh_token = normalizedSettings.adwords_refresh_token 
+      // If adwords_refresh_token is explicitly in the payload (even if empty), use it; otherwise preserve existing
+      const adwords_refresh_token = 'adwords_refresh_token' in normalizedSettings
          ? encrypt(normalizedSettings.adwords_refresh_token)
          : existingRefreshToken;
 

@@ -68,7 +68,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 };
 
 export const getDomains = async (req: NextApiRequest, res: NextApiResponse<DomainsGetRes>) => {
-   const withStats = !!req?.query?.withstats;
+   const withStats = req?.query?.withstats === 'true' || (req?.query?.withstats && req?.query?.withstats !== 'false');
    
    try {
       

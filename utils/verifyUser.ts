@@ -51,11 +51,21 @@ const verifyUser = (req: NextApiRequest, res: NextApiResponse): string => {
          username = decoded?.user;
          logger.authEvent('token_verification_success', username, true);
       } catch (err: any) {
-         authorized = 'Not authorized';
-         logger.authEvent('token_verification_failed', undefined, false, {
-            error: err?.message || String(err),
-            tokenPresent: true
-         });
+         // JWT validation failed - try API key fallback before rejecting
+         if (verifiedAPI && accessingAllowedRoute) {
+            authorized = 'authorized';
+            authMethod = 'api_key';
+            logger.authEvent('api_key_verification_success_after_jwt_fail', 'api_user', true, {
+               route: `${req.method}:${req.url?.replace(/\?(.*)/, '')}`,
+               jwtError: err?.message || String(err)
+            });
+         } else {
+            authorized = 'Not authorized';
+            logger.authEvent('token_verification_failed', undefined, false, {
+               error: err?.message || String(err),
+               tokenPresent: true
+            });
+         }
       }
    } else if (verifiedAPI && accessingAllowedRoute) {
       authorized = 'authorized';

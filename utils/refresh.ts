@@ -493,10 +493,15 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          updatingStartedAt: null,
       };
 
-      if (updatedKeyword.error && settings?.scrape_retry) {
-         await retryScrape(keyword.ID);
-      } else {
-         await removeFromRetryQueue(keyword.ID);
+      // Update retry queue outside of try-catch to prevent aborting on retry queue errors
+      try {
+         if (updatedKeyword.error && settings?.scrape_retry) {
+            await retryScrape(keyword.ID);
+         } else {
+            await removeFromRetryQueue(keyword.ID);
+         }
+      } catch (queueError) {
+         logger.error('[ERROR] Failed to update retry queue (non-fatal):', queueError instanceof Error ? queueError : new Error(String(queueError)), { keywordId: keyword.ID });
       }
 
       try {
