@@ -113,7 +113,7 @@ const calculateKeywordSummary = (items: KeywordType[]): KeywordSummary => items.
  */
 const generateEmail = async (domain:DomainType, keywords:KeywordType[], settings: SettingsType) : Promise<string> => {
    const domainName = domain.domain;
-   const emailTemplate = await readFile(path.join(__dirname, '..', '..', '..', '..', 'email', 'email.html'), { encoding: 'utf-8' });
+   const emailTemplate = await readFile(path.join(process.cwd(), 'email', 'email.html'), { encoding: 'utf-8' });
    const currentDate = dayjs(new Date()).format('MMMM D, YYYY');
    const keywordsCount = keywords.length;
    let improved = 0; let declined = 0;
