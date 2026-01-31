@@ -4,6 +4,9 @@ const { promises } = require('fs');
 const { Cron } = require('croner');
 require('dotenv').config({ path: './.env.local' });
 
+// Load retryQueueManager synchronously at startup (safe for cron worker)
+const { retryQueueManager } = require('./utils/retryQueueManager');
+
 const stripOptionalQuotes = (value) => {
    if (typeof value !== 'string') {
       return value;
@@ -30,12 +33,10 @@ const normalizeValue = (value, fallback) => {
    return sanitized || fallback;
 };
 
-const normalizeCronExpression = (value, fallback) => normalizeValue(value, fallback);
-
 const CRON_TIMEZONE = normalizeValue(process.env.CRON_TIMEZONE, 'America/New_York');
-const CRON_MAIN_SCHEDULE = normalizeCronExpression(process.env.CRON_MAIN_SCHEDULE, '0 0 0 * * *');
-const CRON_EMAIL_SCHEDULE = normalizeCronExpression(process.env.CRON_EMAIL_SCHEDULE, '0 0 6 * * *');
-const CRON_FAILED_SCHEDULE = normalizeCronExpression(process.env.CRON_FAILED_SCHEDULE, '0 0 */1 * * *');
+const CRON_MAIN_SCHEDULE = normalizeValue(process.env.CRON_MAIN_SCHEDULE, '0 0 0 * * *');
+const CRON_EMAIL_SCHEDULE = normalizeValue(process.env.CRON_EMAIL_SCHEDULE, '0 0 6 * * *');
+const CRON_FAILED_SCHEDULE = normalizeValue(process.env.CRON_FAILED_SCHEDULE, '0 0 */1 * * *');
 
 /**
  * Cron interval mapping - maps interval keys to cron expressions
@@ -166,7 +167,7 @@ const runAppCronJobs = () => {
       console.log('[CRON] Scraper type:', { type: settings.scraper_type || 'none' });
       
       if (scrape_interval !== 'never') {
-         const scrapeCronTime = normalizeCronExpression(CRON_INTERVAL_MAP[scrape_interval] || CRON_MAIN_SCHEDULE, CRON_MAIN_SCHEDULE);
+         const scrapeCronTime = normalizeValue(CRON_INTERVAL_MAP[scrape_interval] || CRON_MAIN_SCHEDULE, CRON_MAIN_SCHEDULE);
          console.log('[CRON] Setting up keyword scraping cron with schedule:', { schedule: scrapeCronTime });
          new Cron(scrapeCronTime, () => {
             console.log('[CRON] Running Keyword Position Cron Job!');
@@ -178,7 +179,7 @@ const runAppCronJobs = () => {
       const notif_interval = (!settings.notification_interval || settings.notification_interval === 'never') ? false : settings.notification_interval;
       if (notif_interval) {
          const intervalKey = notif_interval === 'daily' ? 'daily_morning' : notif_interval;
-         const cronTime = normalizeCronExpression(
+         const cronTime = normalizeValue(
             CRON_INTERVAL_MAP[intervalKey] || CRON_EMAIL_SCHEDULE,
             CRON_EMAIL_SCHEDULE,
          );
@@ -192,14 +193,12 @@ const runAppCronJobs = () => {
    });
 
    // Run Failed scraping CRON using configured failed queue schedule
-   const failedCronTime = normalizeCronExpression(CRON_FAILED_SCHEDULE, '0 0 */1 * * *');
+   const failedCronTime = normalizeValue(CRON_FAILED_SCHEDULE, '0 0 */1 * * *');
    new Cron(failedCronTime, async () => {
       console.log('[CRON] Retrying Failed Scrapes...');
 
       try {
          // Use retryQueueManager for concurrency-safe access
-         // Dynamic import works because Next.js transpiles TS files at runtime
-         const { retryQueueManager } = await import('./utils/retryQueueManager.ts');
          const keywordsToRetry = await retryQueueManager.getQueue();
          
          if (keywordsToRetry.length > 0) {
@@ -217,7 +216,7 @@ const runAppCronJobs = () => {
 
    // Run Google Search Console Scraper on configured main schedule
    // Always run the CRON as the API endpoint will check for credentials per domain
-   const searchConsoleCRONTime = normalizeCronExpression(CRON_MAIN_SCHEDULE, '0 0 0 * * *');
+   const searchConsoleCRONTime = normalizeValue(CRON_MAIN_SCHEDULE, '0 0 0 * * *');
    new Cron(searchConsoleCRONTime, () => {
       console.log('[CRON] Running Google Search Console Scraper...');
       makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/searchconsole', '[CRON] Search Console Scraper Result:');
@@ -235,5 +234,5 @@ module.exports = {
    runAppCronJobs,
    makeCronApiCall,
    getAppSettings,
-   normalizeCronExpression,
+   normalizeValue,
 };

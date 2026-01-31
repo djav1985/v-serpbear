@@ -48,8 +48,12 @@ jest.mock('../../utils/apiLogging', () => ({
 jest.mock('../../utils/refreshQueue', () => ({
   refreshQueue: {
     enqueue: jest.fn().mockImplementation(async (_id: string, task: () => Promise<void>, _domain?: string) => {
-      // Execute task immediately in tests
-      await task();
+      // Execute task immediately in tests and catch any errors
+      try {
+        await task();
+      } catch (_error) {
+        // Swallow the error in tests - the task itself handles error logging
+      }
     }),
     isDomainLocked: jest.fn().mockReturnValue(false),
     getStatus: jest.fn().mockReturnValue({ 
@@ -93,7 +97,7 @@ describe('/api/refresh', () => {
   it('starts refresh in background and returns 202 immediately', async () => {
     req.query = { id: '1', domain: 'example.com' };
 
-    const keywordRecord = { ID: 1, domain: 'example.com', update: jest.fn().mockResolvedValue(undefined), set: jest.fn() };
+    const keywordRecord = { ID: 1, domain: 'example.com', update: jest.fn().mockResolvedValue(undefined), reload: jest.fn().mockResolvedValue(undefined), set: jest.fn() };
     (Keyword.findAll as jest.Mock).mockResolvedValue([keywordRecord]);
     (Domain.findAll as jest.Mock).mockResolvedValue([
       { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
@@ -102,6 +106,9 @@ describe('/api/refresh', () => {
     (refreshAndUpdateKeywords as jest.Mock).mockRejectedValue(new Error('scraper failed'));
 
     await handler(req, res);
+    
+    // Wait for async task to complete
+    await jest.runAllTimersAsync();
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({ 
@@ -112,6 +119,12 @@ describe('/api/refresh', () => {
       updating: 1,
       lastUpdateError: 'false',
       updatingStartedAt: '2024-06-01T12:00:00.000Z',
+    });
+    
+    // After error in refresh task, clearKeywordFlags should clear the flag
+    expect(keywordRecord.update).toHaveBeenCalledWith({
+      updating: 0,
+      updatingStartedAt: null,
     });
   });
 
@@ -368,6 +381,176 @@ describe('/api/refresh', () => {
       message: 'Refresh started',
       keywordCount: 2,
     });
+  });
+
+  it('clears updating flags for keywords when scraping fails', async () => {
+    req.query = { id: '1,2', domain: 'example.com' };
+
+    const keywordRecord1 = { 
+      ID: 1, 
+      domain: 'example.com', 
+      update: jest.fn().mockResolvedValue(undefined), 
+      reload: jest.fn().mockResolvedValue(undefined),
+      set: jest.fn() 
+    };
+    const keywordRecord2 = { 
+      ID: 2, 
+      domain: 'example.com', 
+      update: jest.fn().mockResolvedValue(undefined), 
+      reload: jest.fn().mockResolvedValue(undefined),
+      set: jest.fn() 
+    };
+
+    (Keyword.findAll as jest.Mock).mockResolvedValue([keywordRecord1, keywordRecord2]);
+    (Domain.findAll as jest.Mock).mockResolvedValue([
+      { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
+    ]);
+
+    // Simulate scraping failure
+    (refreshAndUpdateKeywords as jest.Mock).mockRejectedValue(new Error('Scraping service unavailable'));
+
+    await handler(req, res);
+
+    // Wait for async task to complete
+    await jest.runAllTimersAsync();
+
+    // Both keywords should have updating flag set initially
+    expect(keywordRecord1.update).toHaveBeenCalledWith({
+      updating: 1,
+      lastUpdateError: 'false',
+      updatingStartedAt: '2024-06-01T12:00:00.000Z',
+    });
+    expect(keywordRecord2.update).toHaveBeenCalledWith({
+      updating: 1,
+      lastUpdateError: 'false',
+      updatingStartedAt: '2024-06-01T12:00:00.000Z',
+    });
+
+    // After error, clearKeywordFlags should clear the flags
+    expect(keywordRecord1.update).toHaveBeenCalledWith({
+      updating: 0,
+      updatingStartedAt: null,
+    });
+    expect(keywordRecord2.update).toHaveBeenCalledWith({
+      updating: 0,
+      updatingStartedAt: null,
+    });
+  });
+
+  it('handles partial failures when clearing flags for some keywords', async () => {
+    req.query = { id: '1,2,3', domain: 'example.com' };
+
+    let keywordRecord2UpdateCallCount = 0;
+    const keywordRecord1 = { 
+      ID: 1, 
+      domain: 'example.com', 
+      update: jest.fn().mockResolvedValue(undefined), 
+      reload: jest.fn().mockResolvedValue(undefined),
+      set: jest.fn() 
+    };
+    const keywordRecord2 = { 
+      ID: 2, 
+      domain: 'example.com', 
+      update: jest.fn().mockImplementation((_data) => {
+        keywordRecord2UpdateCallCount++;
+        // Fail on second call (when clearing flags)
+        if (keywordRecord2UpdateCallCount > 1) {
+          return Promise.reject(new Error('Database connection lost'));
+        }
+        return Promise.resolve(undefined);
+      }), 
+      reload: jest.fn().mockResolvedValue(undefined),
+      set: jest.fn() 
+    };
+    const keywordRecord3 = { 
+      ID: 3, 
+      domain: 'example.com', 
+      update: jest.fn().mockResolvedValue(undefined), 
+      reload: jest.fn().mockResolvedValue(undefined),
+      set: jest.fn() 
+    };
+
+    (Keyword.findAll as jest.Mock).mockResolvedValue([keywordRecord1, keywordRecord2, keywordRecord3]);
+    (Domain.findAll as jest.Mock).mockResolvedValue([
+      { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
+    ]);
+
+    // Simulate scraping failure to trigger clearKeywordFlags
+    (refreshAndUpdateKeywords as jest.Mock).mockRejectedValue(new Error('Scraping failed'));
+
+    await handler(req, res);
+
+    // Wait for async task to complete
+    await jest.runAllTimersAsync();
+
+    // All keywords should initially have updating flag set
+    expect(keywordRecord1.update).toHaveBeenCalledWith({
+      updating: 1,
+      lastUpdateError: 'false',
+      updatingStartedAt: '2024-06-01T12:00:00.000Z',
+    });
+
+    // clearKeywordFlags should attempt to clear all keywords
+    // Keyword 1 and 3 should succeed
+    expect(keywordRecord1.update).toHaveBeenCalledWith({
+      updating: 0,
+      updatingStartedAt: null,
+    });
+    expect(keywordRecord3.update).toHaveBeenCalledWith({
+      updating: 0,
+      updatingStartedAt: null,
+    });
+    
+    // Keyword 2 should fail on the second call but this shouldn't prevent others
+    expect(keywordRecord2.update).toHaveBeenCalledWith({
+      updating: 0,
+      updatingStartedAt: null,
+    });
+    expect(keywordRecord2UpdateCallCount).toBe(2);
+  });
+
+  it('handles skipped keywords with disabled scraping', async () => {
+    req.query = { id: '1,2', domain: 'example.com' };
+
+    const keywordRecord1 = { 
+      ID: 1, 
+      domain: 'example.com', 
+      update: jest.fn().mockResolvedValue(undefined), 
+      reload: jest.fn().mockResolvedValue(undefined),
+      set: jest.fn() 
+    };
+    const keywordRecord2 = { 
+      ID: 2, 
+      domain: 'example.com', 
+      update: jest.fn().mockResolvedValue(undefined), 
+      reload: jest.fn().mockResolvedValue(undefined),
+      set: jest.fn() 
+    };
+
+    (Keyword.findAll as jest.Mock).mockResolvedValue([keywordRecord1, keywordRecord2]);
+    // Domain has scraping disabled
+    (Domain.findAll as jest.Mock).mockResolvedValue([
+      { get: () => ({ domain: 'example.com', scrapeEnabled: 0 }) },
+    ]);
+
+    await handler(req, res);
+
+    // clearKeywordFlags should be called for skipped keywords
+    expect(keywordRecord1.update).toHaveBeenCalledWith({
+      updating: 0,
+      updatingStartedAt: null,
+    });
+    expect(keywordRecord2.update).toHaveBeenCalledWith({
+      updating: 0,
+      updatingStartedAt: null,
+    });
+
+    // Should return empty keywords array
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ keywords: [] });
+
+    // refreshAndUpdateKeywords should not be called
+    expect(refreshAndUpdateKeywords).not.toHaveBeenCalled();
   });
 
   afterEach(() => {

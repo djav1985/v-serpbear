@@ -36,7 +36,9 @@ const verifyUser = (req: NextApiRequest, res: NextApiResponse): string => {
       }
    }
    
-   const accessingAllowedRoute = req.url && req.method && allowedApiRoutes.includes(`${req.method}:${req.url.replace(/\?(.*)/, '')}`);
+   // Compute normalized path once for all route checks
+   const normalizedPath = req.url && req.method ? `${req.method}:${req.url.replace(/\?(.*)/, '')}` : '';
+   const accessingAllowedRoute = normalizedPath && allowedApiRoutes.includes(normalizedPath);
    
    let authorized: string = '';
    let authMethod: string = 'none';
@@ -56,7 +58,7 @@ const verifyUser = (req: NextApiRequest, res: NextApiResponse): string => {
             authorized = 'authorized';
             authMethod = 'api_key';
             logger.authEvent('api_key_verification_success_after_jwt_fail', 'api_user', true, {
-               route: `${req.method}:${req.url?.replace(/\?(.*)/, '')}`,
+               route: normalizedPath,
                jwtError: err?.message || String(err)
             });
          } else {
@@ -71,7 +73,7 @@ const verifyUser = (req: NextApiRequest, res: NextApiResponse): string => {
       authorized = 'authorized';
       authMethod = 'api_key';
       logger.authEvent('api_key_verification_success', 'api_user', true, {
-         route: `${req.method}:${req.url?.replace(/\?(.*)/, '')}`
+         route: normalizedPath
       });
    } else {
       if (!token) {
@@ -85,7 +87,7 @@ const verifyUser = (req: NextApiRequest, res: NextApiResponse): string => {
       if (verifiedAPI && !accessingAllowedRoute) {
          authorized = 'This Route cannot be accessed with API.';
          logger.authEvent('api_route_not_allowed', 'api_user', false, {
-            route: `${req.method}:${req.url?.replace(/\?(.*)/, '')}`
+            route: normalizedPath
          });
       }
       if (req.headers.authorization && !verifiedAPI) {
