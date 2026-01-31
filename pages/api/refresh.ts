@@ -178,7 +178,7 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
          });
       }
 
-      // Use the first domain for task association (manual refresh is single-domain)
+      // Use the first domain only for task association; the manual refresh itself may span multiple domains
       const refreshDomain = domainsToRefresh[0];
 
       const keywordIdsToRefresh = keywordsToRefresh.map((keyword) => keyword.ID);
