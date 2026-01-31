@@ -421,12 +421,13 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
 
       // Trim history to last 30 days to optimize storage and read performance
       // This prevents history object from growing indefinitely
+      // After adding today's entry, we trim to keep exactly 30 most recent entries
       const historyEntries = Object.entries(history);
       if (historyEntries.length > 30) {
          const sortedEntries = historyEntries
             .map(([key, value]) => ({ key, date: new Date(key).getTime(), value }))
             .sort((a, b) => a.date - b.date)
-            .slice(-30);
+            .slice(-30); // Keep last 30 entries (including today)
          
          const trimmedHistory: Record<string, number> = {};
          sortedEntries.forEach(({ key, value }) => {

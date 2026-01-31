@@ -37,7 +37,7 @@ class RefreshQueue {
       
       if (envConcurrency && parsedConcurrency !== this.maxConcurrency) {
          logger.warn(`Invalid REFRESH_QUEUE_CONCURRENCY value "${envConcurrency}", using default: ${this.maxConcurrency}`);
-      } else if (this.maxConcurrency !== 3) {
+      } else if (envConcurrency && this.maxConcurrency !== 3) {
          logger.info(`Refresh queue concurrency set to ${this.maxConcurrency} via environment variable`);
       }
    }
