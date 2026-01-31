@@ -452,6 +452,13 @@ describe('PUT /api/domains', () => {
     expect(res.status).toHaveBeenCalledWith(200);
     expect(domainInstance.save).toHaveBeenCalled();
   });
+
+  afterEach(() => {
+    // Restore SECRET to prevent test pollution
+    if (!process.env.SECRET) {
+      process.env.SECRET = 'test-secret';
+    }
+  });
 });
 
 describe('DELETE /api/domains', () => {
