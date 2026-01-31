@@ -122,4 +122,19 @@ describe('Database Initialization', () => {
       expect(db.sync).toHaveBeenCalledTimes(1);
       expect(isDatabaseInitialized()).toBe(true);
    });
+
+   it('should propagate initialization errors from ensureDatabase and allow retry', async () => {
+      (db.sync as jest.Mock)
+         .mockRejectedValueOnce(new Error('Database connection failed'))
+         .mockResolvedValueOnce(undefined);
+
+      // First call should fail
+      await expect(ensureDatabase()).rejects.toThrow('Database connection failed');
+      expect(isDatabaseInitialized()).toBe(false);
+
+      // Second call should succeed (retry after failure)
+      await ensureDatabase();
+      expect(isDatabaseInitialized()).toBe(true);
+      expect(db.sync).toHaveBeenCalledTimes(2);
+   });
 });

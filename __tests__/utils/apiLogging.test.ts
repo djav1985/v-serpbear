@@ -137,4 +137,25 @@ describe('withApiLogging', () => {
       })
     );
   });
+
+  it('calls ensureDatabase before executing the handler', async () => {
+    const { withApiLogging } = await import('../../utils/apiLogging');
+    const { ensureDatabase } = require('../../database/init') as { ensureDatabase: jest.Mock };
+
+    const handler = jest.fn(async (_req: NextApiRequest, res: NextApiResponse) => {
+      res.status(200).json({ ok: true });
+    });
+
+    const wrapped = withApiLogging(handler);
+
+    await wrapped(createRequest(), createResponse());
+
+    // Verify ensureDatabase was called
+    expect(ensureDatabase).toHaveBeenCalled();
+    
+    // Verify ensureDatabase was called before the handler
+    const ensureDatabaseCallOrder = ensureDatabase.mock.invocationCallOrder[0];
+    const handlerCallOrder = handler.mock.invocationCallOrder[0];
+    expect(ensureDatabaseCallOrder).toBeLessThan(handlerCallOrder);
+  });
 });
