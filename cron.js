@@ -5,7 +5,7 @@ const { Cron } = require('croner');
 require('dotenv').config({ path: './.env.local' });
 
 // Load retryQueueManager synchronously at startup (safe for cron worker)
-const { retryQueueManager } = require('./utils/retryQueueManager.ts');
+const { retryQueueManager } = require('./utils/retryQueueManager');
 
 const stripOptionalQuotes = (value) => {
    if (typeof value !== 'string') {
