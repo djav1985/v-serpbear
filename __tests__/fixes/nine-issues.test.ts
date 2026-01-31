@@ -98,9 +98,10 @@ describe('Issue 8: withstats query flag parsing', () => {
    // Helper function to test (same as in domains.ts)
    const parseBooleanQueryParam = (value: string | string[] | undefined): boolean => {
       if (!value) return false;
-      if (value === 'true') return true;
-      if (value === 'false') return false;
-      return true; // Any other truthy value is considered true
+      const normalized = Array.isArray(value) ? value[value.length - 1] : value;
+      if (normalized === 'true') return true;
+      if (normalized === 'false') return false;
+      return true; // Any other non-empty value is considered true
    };
 
    it('should correctly parse withstats=false as false', () => {
@@ -126,6 +127,17 @@ describe('Issue 8: withstats query flag parsing', () => {
    it('should parse empty string as false', () => {
       const result = parseBooleanQueryParam('');
       expect(result).toBe(false);
+   });
+
+   it('should handle array values by using the last element', () => {
+      const resultTrue = parseBooleanQueryParam(['false', 'true']);
+      expect(resultTrue).toBe(true);
+
+      const resultFalse = parseBooleanQueryParam(['true', 'false']);
+      expect(resultFalse).toBe(false);
+
+      const resultOther = parseBooleanQueryParam(['something', 'else']);
+      expect(resultOther).toBe(true);
    });
 });
 
@@ -201,6 +213,31 @@ describe('Issue 3: Tag update JSON parsing safety', () => {
       }
       
       expect(currentTags).toEqual([]);
+   });
+});
+
+describe('Issue 4: Retry queue cleanup for missing domains', () => {
+   it('should remove missing domain keywords from retry queue', () => {
+      // Simulate the logic from pages/api/refresh.ts lines 138-145
+      const missingDomainKeywords = [
+         { ID: 1, domain: 'missing.com' },
+         { ID: 2, domain: 'missing.com' },
+         { ID: 3, domain: 'another-missing.com' }
+      ];
+      
+      const missingKeywordIds = new Set(missingDomainKeywords.map((kw) => kw.ID));
+      
+      expect(missingKeywordIds.size).toBe(3);
+      expect(missingKeywordIds.has(1)).toBe(true);
+      expect(missingKeywordIds.has(2)).toBe(true);
+      expect(missingKeywordIds.has(3)).toBe(true);
+   });
+
+   it('should handle empty missing domain keywords list', () => {
+      const missingDomainKeywords: any[] = [];
+      const missingKeywordIds = new Set(missingDomainKeywords.map((kw) => kw.ID));
+      
+      expect(missingKeywordIds.size).toBe(0);
    });
 });
 

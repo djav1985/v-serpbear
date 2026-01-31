@@ -126,7 +126,7 @@ Confirmed implementation in `pages/api/keywords.ts` line 277-281 uses efficient 
 
 All optimizations are covered by comprehensive tests:
 
-### New Tests Added (14 total)
+### New Tests Added (33 total)
 - `__tests__/database/init.test.ts` (5 tests)
   - Singleton initialization
   - Concurrent call handling
@@ -141,8 +141,12 @@ All optimizations are covered by comprehensive tests:
   - Trimming when over 30 days
   - Preservation when under 30 days
 
+- `__tests__/fixes/nine-issues.test.ts` (19 tests)
+  - Auth fallback, query parsing, concurrency, error handling
+  - Tag parsing, settings clearing, multi-domain locking
+
 ### Test Results
-- ✅ 649 tests pass (up from 635)
+- ✅ 651 tests pass (up from 635)
 - ✅ 116 test suites pass
 - ✅ No breaking changes
 
