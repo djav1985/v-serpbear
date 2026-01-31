@@ -13,6 +13,11 @@ jest.mock('../../database/database', () => ({
   default: { sync: jest.fn() },
 }));
 
+jest.mock('../../database/init', () => ({
+  __esModule: true,
+  ensureDatabase: jest.fn().mockResolvedValue(undefined),
+}));
+
 jest.mock('../../database/models/domain', () => ({
   __esModule: true,
   default: { findOne: jest.fn(), destroy: jest.fn(), bulkCreate: jest.fn(), findAll: jest.fn() },

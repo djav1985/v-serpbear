@@ -9,6 +9,10 @@ jest.mock('../../utils/logger', () => ({
   },
 }));
 
+jest.mock('../../database/init', () => ({
+  ensureDatabase: jest.fn().mockResolvedValue(undefined),
+}));
+
 describe('withApiLogging', () => {
   const { logger } = require('../../utils/logger') as {
     logger: {

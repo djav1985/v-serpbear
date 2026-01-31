@@ -2,7 +2,7 @@
  * Tests for database initialization module
  */
 
-import { initializeDatabase, isDatabaseInitialized, resetDatabaseInitialization } from '../../database/init';
+import { initializeDatabase, isDatabaseInitialized, resetDatabaseInitialization, ensureDatabase } from '../../database/init';
 import db from '../../database/database';
 
 jest.mock('../../database/database', () => ({
@@ -84,5 +84,25 @@ describe('Database Initialization', () => {
 
       await initializeDatabase();
       expect(db.sync).toHaveBeenCalledTimes(2);
+   });
+
+   it('should ensure database is initialized when called', async () => {
+      (db.sync as jest.Mock).mockResolvedValue(undefined);
+
+      await ensureDatabase();
+
+      expect(db.sync).toHaveBeenCalledTimes(1);
+      expect(isDatabaseInitialized()).toBe(true);
+   });
+
+   it('should not re-initialize database if already initialized via ensureDatabase', async () => {
+      (db.sync as jest.Mock).mockResolvedValue(undefined);
+
+      await initializeDatabase();
+      await ensureDatabase();
+      await ensureDatabase();
+
+      expect(db.sync).toHaveBeenCalledTimes(1);
+      expect(isDatabaseInitialized()).toBe(true);
    });
 });
