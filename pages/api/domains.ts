@@ -220,6 +220,14 @@ export const updateDomain = async (req: NextApiRequest, res: NextApiResponse<Dom
 
       const domainPlain = domainToUpdate.get({ plain: true });
 
+      // Validate SECRET is available for encryption operations
+      if ((search_console?.client_email && search_console?.private_key) || Object.prototype.hasOwnProperty.call(payload, 'scraper_settings')) {
+         if (!process.env.SECRET) {
+            logger.error('SECRET environment variable not set for domain update encryption');
+            return res.status(500).json({ domain: null, error: 'Server configuration error: encryption key not available' });
+         }
+      }
+
       // Validate Search Console API Data
       if (search_console?.client_email && search_console?.private_key) {
          const isSearchConsoleAPIValid = await checkSearchConsoleIntegration({ ...domainPlain, search_console: JSON.stringify(search_console) });

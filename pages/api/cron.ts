@@ -25,7 +25,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
    if (req.method === 'POST') {
       return cronRefreshkeywords(req, res);
    }
-   return res.status(502).json({ error: 'Unrecognized Route.' });
+   return res.status(405).json({ error: 'Method not allowed' });
 }
 
 export default withApiLogging(handler, { name: 'cron' });
@@ -54,8 +54,10 @@ const cronRefreshkeywords = async (req: NextApiRequest, res: NextApiResponse<CRO
       // The queue will process up to maxConcurrency domains in parallel
       // while ensuring the same domain is never processed twice simultaneously
       for (const domain of enabledDomains) {
+         // Generate unique task ID using crypto to prevent collisions in concurrent scenarios
+         const uniqueId = crypto.randomUUID();
          refreshQueue.enqueue(
-            `cron-refresh-${domain}`,
+            `cron-refresh-${domain}-${uniqueId}`,
             async () => {
                await processSingleDomain(domain, settings);
             },
