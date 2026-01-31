@@ -46,7 +46,7 @@ const CRON_INTERVAL_MAP = {
    other_day: '0 0 0 2-30/2 * *',
    daily_morning: CRON_EMAIL_SCHEDULE,
    weekly: '0 0 0 * * 1',
-   monthly: '0 0 0 1 * *', // Run every first day of the month at 00:00(midnight)
+   monthly: '0 0 0 1 * *', // Run every first day of the month at 00:00 (midnight)
 };
 
 /**
