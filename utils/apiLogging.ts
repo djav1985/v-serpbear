@@ -1,5 +1,6 @@
 import type { NextApiHandler, NextApiRequest, NextApiResponse } from 'next';
 import { logger } from './logger';
+import { ensureDatabase } from '../database/init';
 
 /**
  * API Logging Middleware - wraps API handlers with request/response logging
@@ -71,6 +72,12 @@ export function withApiLogging(
     }
 
     try {
+      // Ensure database is initialized before executing any API handler
+      // This is a fallback for cases where instrumentation hook doesn't run
+      // (e.g., Docker, standalone mode, some production scenarios)
+      // Performance note: After first initialization, this is just a fast boolean check
+      await ensureDatabase();
+      
       // Execute the actual handler
       await handler(req, res);
       statusCode = res.statusCode ?? statusCode;

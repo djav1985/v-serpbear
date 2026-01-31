@@ -55,3 +55,26 @@ export function resetDatabaseInitialization(): void {
    dbInitialized = false;
    dbInitPromise = null;
 }
+
+/**
+ * Ensure database is initialized before proceeding
+ * Safe to call from any API endpoint - will initialize on first call
+ * and be a no-op on subsequent calls
+ * 
+ * This is a fallback for cases where instrumentation hook doesn't run
+ * (e.g., Docker, standalone mode, some production scenarios)
+ */
+export async function ensureDatabase(): Promise<void> {
+   if (dbInitialized) {
+      return;
+   }
+   
+   // If initialization is in progress, wait for it
+   if (dbInitPromise) {
+      await dbInitPromise;
+      return;
+   }
+   
+   // Otherwise, initialize now
+   await initializeDatabase();
+}
