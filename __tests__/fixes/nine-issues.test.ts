@@ -98,7 +98,10 @@ describe('Issue 8: withstats query flag parsing', () => {
    // Helper function to test (same as in domains.ts)
    const parseBooleanQueryParam = (value: string | string[] | undefined): boolean => {
       if (!value) return false;
-      const normalized = Array.isArray(value) ? value[value.length - 1] : value;
+      const normalized = Array.isArray(value)
+         ? (value.length > 0 ? value[value.length - 1] : undefined)
+         : value;
+      if (!normalized) return false;
       if (normalized === 'true') return true;
       if (normalized === 'false') return false;
       return true; // Any other non-empty value is considered true
@@ -114,7 +117,7 @@ describe('Issue 8: withstats query flag parsing', () => {
       expect(result).toBe(true);
    });
 
-   it('should parse any other truthy value as true', () => {
+   it('should parse "1" as true', () => {
       const result = parseBooleanQueryParam('1');
       expect(result).toBe(true);
    });
@@ -129,15 +132,26 @@ describe('Issue 8: withstats query flag parsing', () => {
       expect(result).toBe(false);
    });
 
-   it('should handle array values by using the last element', () => {
+   it('should handle array values by extracting last element first', () => {
+      // Test the full flow: extract last element from array, then normalize
       const resultTrue = parseBooleanQueryParam(['false', 'true']);
       expect(resultTrue).toBe(true);
 
       const resultFalse = parseBooleanQueryParam(['true', 'false']);
       expect(resultFalse).toBe(false);
+   });
 
-      const resultOther = parseBooleanQueryParam(['something', 'else']);
-      expect(resultOther).toBe(true);
+   it('should handle empty arrays safely', () => {
+      // Empty arrays should be treated like undefined
+      const result = parseBooleanQueryParam([]);
+      expect(result).toBe(false);
+   });
+
+   it('should treat any other non-empty value as true (backward compatibility)', () => {
+      // This maintains backward compatibility with existing API clients
+      expect(parseBooleanQueryParam('yes')).toBe(true);
+      expect(parseBooleanQueryParam('on')).toBe(true);
+      expect(parseBooleanQueryParam('anything')).toBe(true);
    });
 });
 

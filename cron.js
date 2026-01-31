@@ -38,6 +38,18 @@ const CRON_EMAIL_SCHEDULE = normalizeCronExpression(process.env.CRON_EMAIL_SCHED
 const CRON_FAILED_SCHEDULE = normalizeCronExpression(process.env.CRON_FAILED_SCHEDULE, '0 0 */1 * * *');
 
 /**
+ * Cron interval mapping - maps interval keys to cron expressions
+ */
+const CRON_INTERVAL_MAP = {
+   hourly: CRON_FAILED_SCHEDULE,
+   daily: CRON_MAIN_SCHEDULE,
+   other_day: '0 0 0 2-30/2 * *',
+   daily_morning: CRON_EMAIL_SCHEDULE,
+   weekly: '0 0 0 * * 1',
+   monthly: '0 0 0 1 * *', // Run every first day of the month at 00:00 (midnight)
+};
+
+/**
  * Get application settings from data/settings.json
  * 
  * Error handling behavior:
@@ -92,30 +104,6 @@ const getAppSettings = async () => {
       console.error('CRON ERROR: Reading Settings File.', error);
       return defaultSettings;
    }
-};
-
-const generateCronTime = (interval) => {
-   let cronTime = false;
-   if (interval === 'hourly') {
-      cronTime = CRON_FAILED_SCHEDULE;
-   }
-   if (interval === 'daily') {
-      cronTime = CRON_MAIN_SCHEDULE;
-   }
-   if (interval === 'other_day') {
-      cronTime = '0 0 0 2-30/2 * *';
-   }
-   if (interval === 'daily_morning') {
-      cronTime = CRON_EMAIL_SCHEDULE;
-   }
-   if (interval === 'weekly') {
-      cronTime = '0 0 0 * * 1';
-   }
-   if (interval === 'monthly') {
-      cronTime = '0 0 0 1 * *'; // Run every first day of the month at 00:00(midnight)
-   }
-
-   return cronTime;
 };
 
 const makeCronApiCall = (apiKey, baseUrl, endpoint, successMessage) => {
@@ -178,7 +166,7 @@ const runAppCronJobs = () => {
       console.log('[CRON] Scraper type:', { type: settings.scraper_type || 'none' });
       
       if (scrape_interval !== 'never') {
-         const scrapeCronTime = normalizeCronExpression(generateCronTime(scrape_interval) || CRON_MAIN_SCHEDULE, CRON_MAIN_SCHEDULE);
+         const scrapeCronTime = normalizeCronExpression(CRON_INTERVAL_MAP[scrape_interval] || CRON_MAIN_SCHEDULE, CRON_MAIN_SCHEDULE);
          console.log('[CRON] Setting up keyword scraping cron with schedule:', { schedule: scrapeCronTime });
          new Cron(scrapeCronTime, () => {
             console.log('[CRON] Running Keyword Position Cron Job!');
@@ -189,8 +177,9 @@ const runAppCronJobs = () => {
       // RUN Email Notification CRON
       const notif_interval = (!settings.notification_interval || settings.notification_interval === 'never') ? false : settings.notification_interval;
       if (notif_interval) {
+         const intervalKey = notif_interval === 'daily' ? 'daily_morning' : notif_interval;
          const cronTime = normalizeCronExpression(
-            generateCronTime(notif_interval === 'daily' ? 'daily_morning' : notif_interval) || CRON_EMAIL_SCHEDULE,
+            CRON_INTERVAL_MAP[intervalKey] || CRON_EMAIL_SCHEDULE,
             CRON_EMAIL_SCHEDULE,
          );
          if (cronTime) {

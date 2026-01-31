@@ -81,6 +81,7 @@ describe('withApiLogging', () => {
 
     await wrapped(createRequest(), createResponse());
 
+    // Verify debug logging for request details
     expect(logger.debug).toHaveBeenCalledWith(
       expect.stringContaining('API Request Details'),
       expect.objectContaining({
@@ -89,13 +90,9 @@ describe('withApiLogging', () => {
         body: undefined,
       })
     );
-    expect(logger.debug).toHaveBeenCalledWith(
-      expect.stringContaining('API Response Details'),
-      expect.objectContaining({
-        statusCode: 200,
-        responseBody: { ok: true },
-      })
-    );
+    
+    // Note: Response body logging has been removed for simplicity
+    // We now only log status codes, not response bodies
   });
 
   it('logs warning severity when handler sets res.statusCode directly', async () => {

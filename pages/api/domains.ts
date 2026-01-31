@@ -21,16 +21,21 @@ import { safeJsonParse } from '../../utils/safeJsonParse';
 import normalizeDomainBooleans from '../../utils/normalizeDomain';
 
 /**
- * Parses a query parameter as a boolean value
+ * Parses a query parameter as a boolean value.
+ * Maintains backward compatibility with existing API clients.
  * @param value - The query parameter value to parse (if an array, the last element is used)
  * @returns true if value is 'true' or any other non-empty value except 'false', false otherwise
  */
 const parseBooleanQueryParam = (value: string | string[] | undefined): boolean => {
    if (!value) return false;
-   const normalized = Array.isArray(value) ? value[value.length - 1] : value;
+   // Handle arrays by extracting the last element
+   const normalized = Array.isArray(value)
+      ? (value.length > 0 ? value[value.length - 1] : undefined)
+      : value;
+   if (!normalized) return false;
    if (normalized === 'true') return true;
    if (normalized === 'false') return false;
-   return true; // Any other non-empty value is considered true
+   return true; // Any other non-empty value is considered true (backward compatibility)
 };
 
 type DomainsGetRes = {
