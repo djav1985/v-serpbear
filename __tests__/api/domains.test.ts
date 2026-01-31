@@ -501,6 +501,51 @@ describe('PUT /api/domains', () => {
     expect(domainInstance.save).not.toHaveBeenCalled();
   });
 
+  it('rejects Search Console updates with both fields as empty strings', async () => {
+    const req = {
+      method: 'PUT',
+      query: { domain: domainState.domain },
+      body: { 
+        search_console: { 
+          client_email: '',
+          private_key: ''
+        }
+      },
+      headers: {},
+    } as unknown as NextApiRequest;
+
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    // Both empty strings should result in neither being considered present,
+    // so the update should proceed but skip validation and encryption
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(domainInstance.save).toHaveBeenCalled();
+  });
+
+  it('rejects Search Console updates with whitespace-only strings', async () => {
+    const req = {
+      method: 'PUT',
+      query: { domain: domainState.domain },
+      body: { 
+        search_console: { 
+          client_email: '   ',
+          private_key: '  \t\n  '
+        }
+      },
+      headers: {},
+    } as unknown as NextApiRequest;
+
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    // Whitespace-only strings should be treated as empty after trim()
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(domainInstance.save).toHaveBeenCalled();
+  });
+
   afterEach(() => {
     // Always restore SECRET to prevent test pollution
     process.env.SECRET = 'test-secret';
