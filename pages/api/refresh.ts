@@ -226,13 +226,7 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
             }
          },
          refreshDomain // Pass domain for per-domain locking
-      ).catch((queueError) => {
-         logger.error('[REFRESH] ERROR enqueueing refresh task: ', queueError instanceof Error ? queueError : new Error(String(queueError)));
-         // Clear flags on enqueue rejection
-         clearKeywordFlags(keywordsToRefresh).catch((updateError) => {
-            logger.error('[REFRESH] Failed to clear updating flags after enqueue error: ', updateError instanceof Error ? updateError : new Error(String(updateError)));
-         });
-      });
+      );
 
       // Return immediately with 200 OK status
       return res.status(200).json({ 
