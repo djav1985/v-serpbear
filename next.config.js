@@ -10,7 +10,9 @@ const nextConfig = {
     instrumentationHook: true
   },
 
-  turbopack: {},
+  turbopack: {
+    resolveExtensions: ['.tsx', '.ts', '.jsx', '.js', '.mjs', '.json'],
+  },
 
   // Bundle analyzer (enable with ANALYZE=true)
   ...(process.env.ANALYZE === 'true' && {
@@ -38,6 +40,12 @@ const nextConfig = {
 
   // Webpack optimizations
   webpack: (config, { dev, isServer: _isServer, defaultLoaders: _defaultLoaders, nextRuntime: _nextRuntime, webpack: _webpack }) => {
+    // Exclude unused Sequelize dialect dependencies
+    config.externals = config.externals || [];
+    config.externals.push({
+      'pg-hstore': 'commonjs pg-hstore',
+    });
+
     // Bundle size optimizations
     if (!dev) {
       config.optimization.splitChunks.cacheGroups = {
