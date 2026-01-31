@@ -119,7 +119,7 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
       // Handle keywords whose domain is missing from the Domain table
       if (missingDomainKeywords.length > 0) {
          const missingDomains = Array.from(new Set(missingDomainKeywords.map((kw) => kw.domain)));
-         logger.error('Keywords found with domains not in Domain table', {
+         logger.error('Keywords found with domains not in Domain table', undefined, {
             domains: missingDomains,
             keywordCount: missingDomainKeywords.length,
             keywordIds: missingDomainKeywords.map((kw) => kw.ID),
