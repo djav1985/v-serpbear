@@ -174,7 +174,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                const effectiveSettings: SettingsType = hasOverride 
                   ? {
                      ...settings,
-                     scraper_type: decryptedOverride.scraper_type,
+                     scraper_type: decryptedOverride.scraper_type!,
                      ...(typeof decryptedOverride.scraping_api === 'string' && { scraping_api: decryptedOverride.scraping_api }),
                   }
                   : { ...settings };
