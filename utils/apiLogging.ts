@@ -47,30 +47,6 @@ export function withApiLogging(
       });
     }
 
-    // Capture the original res.json and res.status functions to log responses
-    const originalJson = res.json.bind(res);
-    const originalStatus = res.status.bind(res);
-    const originalWriteHead = res.writeHead?.bind(res);
-    let statusCode = res.statusCode ?? 200;
-    let responseBody: any;
-
-    res.status = function(code: number) {
-      statusCode = code;
-      return originalStatus(code);
-    };
-
-    res.json = function(body: any) {
-      responseBody = body;
-      return originalJson(body);
-    };
-
-    if (originalWriteHead) {
-      res.writeHead = function(code: number, ...args: any[]) {
-        statusCode = code;
-        return originalWriteHead(code, ...args);
-      };
-    }
-
     try {
       // Ensure database is initialized before executing any API handler
       // This is a fallback for cases where instrumentation hook doesn't run
@@ -80,7 +56,9 @@ export function withApiLogging(
       
       // Execute the actual handler
       await handler(req, res);
-      statusCode = res.statusCode ?? statusCode;
+      
+      // Read status code directly after handler completes
+      const statusCode = res.statusCode ?? 200;
 
       const duration = Date.now() - startTime;
       
@@ -91,7 +69,6 @@ export function withApiLogging(
           requestId,
           statusCode,
           duration,
-          ...(shouldLogBody && responseBody ? { responseBody } : {}),
         });
       } else if (statusCode >= 400) {
         // WARN level: Log client errors with moderate detail
@@ -99,21 +76,10 @@ export function withApiLogging(
           requestId,
           statusCode,
           duration,
-          ...(shouldLogBody && responseBody ? { responseBody } : {}),
         });
       } else {
         // INFO level: Just log success with duration
         logger.info(`${req.method} ${req.url}${name ? ` [${name}]` : ''} - ${statusCode} (${duration}ms)`);
-        
-        // DEBUG level: Log full response details
-        if (shouldLogBody && responseBody) {
-          logger.debug(`API Response Details${name ? ` [${name}]` : ''}`, {
-            requestId,
-            statusCode,
-            duration,
-            responseBody,
-          });
-        }
       }
 
     } catch (error) {

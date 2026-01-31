@@ -16,22 +16,9 @@ import {
    maskDomainScraperSettings,
    parseDomainScraperSettings,
 } from '../../utils/domainScraperSettings';
-import { toDbBool } from '../../utils/dbBooleans';
+import { toDbBool, normalizeToBoolean } from '../../utils/dbBooleans';
 import { safeJsonParse } from '../../utils/safeJsonParse';
 import normalizeDomainBooleans from '../../utils/normalizeDomain';
-
-/**
- * Parses a query parameter as a boolean value
- * @param value - The query parameter value to parse (if an array, the last element is used)
- * @returns true if value is 'true' or any other non-empty value except 'false', false otherwise
- */
-const parseBooleanQueryParam = (value: string | string[] | undefined): boolean => {
-   if (!value) return false;
-   const normalized = Array.isArray(value) ? value[value.length - 1] : value;
-   if (normalized === 'true') return true;
-   if (normalized === 'false') return false;
-   return true; // Any other non-empty value is considered true
-};
 
 type DomainsGetRes = {
    domains: DomainType[]
@@ -78,7 +65,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 };
 
 export const getDomains = async (req: NextApiRequest, res: NextApiResponse<DomainsGetRes>) => {
-   const withStats = parseBooleanQueryParam(req?.query?.withstats);
+   const withStats = normalizeToBoolean(Array.isArray(req?.query?.withstats) ? req.query.withstats[req.query.withstats.length - 1] : req?.query?.withstats);
    
    try {
       

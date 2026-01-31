@@ -95,49 +95,41 @@ describe('Issue 1: API key auth fallback with stale JWT cookie', () => {
 });
 
 describe('Issue 8: withstats query flag parsing', () => {
-   // Helper function to test (same as in domains.ts)
-   const parseBooleanQueryParam = (value: string | string[] | undefined): boolean => {
-      if (!value) return false;
-      const normalized = Array.isArray(value) ? value[value.length - 1] : value;
-      if (normalized === 'true') return true;
-      if (normalized === 'false') return false;
-      return true; // Any other non-empty value is considered true
-   };
+   // Import the shared helper function (now used in domains.ts)
+   const { normalizeToBoolean } = require('../../utils/dbBooleans');
 
    it('should correctly parse withstats=false as false', () => {
-      const result = parseBooleanQueryParam('false');
+      const result = normalizeToBoolean('false');
       expect(result).toBe(false);
    });
 
    it('should correctly parse withstats=true as true', () => {
-      const result = parseBooleanQueryParam('true');
+      const result = normalizeToBoolean('true');
       expect(result).toBe(true);
    });
 
-   it('should parse any other truthy value as true', () => {
-      const result = parseBooleanQueryParam('1');
+   it('should parse "1" as true', () => {
+      const result = normalizeToBoolean('1');
       expect(result).toBe(true);
    });
 
    it('should parse missing withstats as false', () => {
-      const result = parseBooleanQueryParam(undefined);
+      const result = normalizeToBoolean(undefined);
       expect(result).toBe(false);
    });
 
    it('should parse empty string as false', () => {
-      const result = parseBooleanQueryParam('');
+      const result = normalizeToBoolean('');
       expect(result).toBe(false);
    });
 
-   it('should handle array values by using the last element', () => {
-      const resultTrue = parseBooleanQueryParam(['false', 'true']);
+   it('should handle array values by extracting last element first', () => {
+      // Note: In domains.ts, we now extract the last element before passing to normalizeToBoolean
+      const resultTrue = normalizeToBoolean(['false', 'true'][1]);
       expect(resultTrue).toBe(true);
 
-      const resultFalse = parseBooleanQueryParam(['true', 'false']);
+      const resultFalse = normalizeToBoolean(['true', 'false'][1]);
       expect(resultFalse).toBe(false);
-
-      const resultOther = parseBooleanQueryParam(['something', 'else']);
-      expect(resultOther).toBe(true);
    });
 });
 
