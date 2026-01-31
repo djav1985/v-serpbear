@@ -7,6 +7,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import verifyUser from '../../utils/verifyUser';
 import jwt from 'jsonwebtoken';
 import Cookies from 'cookies';
+import { normalizeToBoolean } from '../../utils/dbBooleans';
 
 // Mock dependencies
 jest.mock('jsonwebtoken');
@@ -95,9 +96,6 @@ describe('Issue 1: API key auth fallback with stale JWT cookie', () => {
 });
 
 describe('Issue 8: withstats query flag parsing', () => {
-   // Import the shared helper function (now used in domains.ts)
-   const { normalizeToBoolean } = require('../../utils/dbBooleans');
-
    // Helper to extract query param value (mirrors domains.ts logic)
    const extractQueryParam = (value: string | string[] | undefined): string | undefined => 
       Array.isArray(value) ? value[value.length - 1] : value;
