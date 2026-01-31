@@ -22,13 +22,14 @@ import normalizeDomainBooleans from '../../utils/normalizeDomain';
 
 /**
  * Parses a query parameter as a boolean value
- * @param value - The query parameter value to parse
+ * @param value - The query parameter value to parse (if an array, the last element is used)
  * @returns true if value is 'true' or any truthy value except 'false', false otherwise
  */
 const parseBooleanQueryParam = (value: string | string[] | undefined): boolean => {
    if (!value) return false;
-   if (value === 'true') return true;
-   if (value === 'false') return false;
+   const normalized = Array.isArray(value) ? value[value.length - 1] : value;
+   if (normalized === 'true') return true;
+   if (normalized === 'false') return false;
    return true; // Any other truthy value is considered true
 };
 
