@@ -287,8 +287,8 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
       const settings = await getAppSettings();
       const domainName = keywordsParsed[0]?.domain;
       if (domainName) {
-         // Generate unique task ID using timestamp and random value to prevent collisions
-         const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+         // Generate unique task ID using crypto to prevent collisions in concurrent scenarios
+         const uniqueId = crypto.randomUUID();
          await refreshQueue.enqueue(
             `addKeywords-${domainName}-${uniqueId}`,
             async () => {

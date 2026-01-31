@@ -194,8 +194,8 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
          }),
       );
 
-      // Generate unique task ID using timestamp and random value to prevent collisions
-      const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+      // Generate unique task ID using crypto to prevent collisions in concurrent scenarios
+      const uniqueId = crypto.randomUUID();
       const taskId = req.query.id === 'all' 
          ? `manual-refresh-domain-${domain}-${uniqueId}` 
          : `manual-refresh-ids-${keywordIdsToRefresh.join(',')}-${uniqueId}`;

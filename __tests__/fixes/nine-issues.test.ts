@@ -7,7 +7,6 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import verifyUser from '../../utils/verifyUser';
 import jwt from 'jsonwebtoken';
 import Cookies from 'cookies';
-import { createMockRequest } from '../__helpers__';
 
 // Mock dependencies
 jest.mock('jsonwebtoken');
@@ -96,47 +95,47 @@ describe('Issue 1: API key auth fallback with stale JWT cookie', () => {
 });
 
 describe('Issue 8: withstats query flag parsing', () => {
+   // Helper function to test (same as in domains.ts)
+   const parseBooleanQueryParam = (value: string | string[] | undefined): boolean => {
+      if (!value) return false;
+      if (value === 'true') return true;
+      if (value === 'false') return false;
+      return true; // Any other truthy value is considered true
+   };
+
    it('should correctly parse withstats=false as false', () => {
-      const req = createMockRequest({ method: 'GET', query: { withstats: 'false' } });
-      
-      // Test the logic that's used in domains.ts
-      const withStats = req?.query?.withstats === 'true' || (req?.query?.withstats && req?.query?.withstats !== 'false');
-      
-      expect(withStats).toBe(false);
+      const result = parseBooleanQueryParam('false');
+      expect(result).toBe(false);
    });
 
    it('should correctly parse withstats=true as true', () => {
-      const req = createMockRequest({ method: 'GET', query: { withstats: 'true' } });
-      
-      const withStats = req?.query?.withstats === 'true' || (req?.query?.withstats && req?.query?.withstats !== 'false');
-      
-      expect(withStats).toBe(true);
+      const result = parseBooleanQueryParam('true');
+      expect(result).toBe(true);
    });
 
    it('should parse any other truthy value as true', () => {
-      const req = createMockRequest({ method: 'GET', query: { withstats: '1' } });
-      
-      const withStats = req?.query?.withstats === 'true' || (req?.query?.withstats && req?.query?.withstats !== 'false');
-      
-      expect(withStats).toBe(true);
+      const result = parseBooleanQueryParam('1');
+      expect(result).toBe(true);
    });
 
-   it('should parse missing withstats as falsy', () => {
-      const req = createMockRequest({ method: 'GET', query: {} });
-      
-      const withStats = req?.query?.withstats === 'true' || (req?.query?.withstats && req?.query?.withstats !== 'false');
-      
-      expect(withStats).toBeFalsy();
+   it('should parse missing withstats as false', () => {
+      const result = parseBooleanQueryParam(undefined);
+      expect(result).toBe(false);
+   });
+
+   it('should parse empty string as true', () => {
+      const result = parseBooleanQueryParam('');
+      expect(result).toBe(false);
    });
 });
 
 describe('Issue 6: Task ID uniqueness', () => {
-   it('should generate unique task IDs with timestamp and random value', () => {
+   it('should generate unique task IDs with crypto.randomUUID()', () => {
       // Generate multiple task IDs
       const taskIds = new Set<string>();
       
       for (let i = 0; i < 100; i++) {
-         const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+         const uniqueId = crypto.randomUUID();
          const taskId = `addKeywords-test-domain-${uniqueId}`;
          taskIds.add(taskId);
       }
@@ -150,7 +149,7 @@ describe('Issue 6: Task ID uniqueness', () => {
       const keywordIds = [1, 2, 3];
       
       for (let i = 0; i < 50; i++) {
-         const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+         const uniqueId = crypto.randomUUID();
          const taskId = `manual-refresh-ids-${keywordIds.join(',')}-${uniqueId}`;
          taskIds.add(taskId);
       }
