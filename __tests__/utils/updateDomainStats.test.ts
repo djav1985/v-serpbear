@@ -66,9 +66,15 @@ describe('updateDomainStats', () => {
 
     await updateDomainStats('empty.com');
 
-    // Should log "No keywords found" and not call Domain.update
-    expect(logger.info).toHaveBeenCalledWith('No keywords found for domain empty.com');
-    expect(mockDomainUpdate).not.toHaveBeenCalled();
+    // Should update domain with zero values to maintain consistency
+    expect(logger.info).toHaveBeenCalledWith('No keywords found for domain empty.com, updating with zero values');
+    expect(mockDomainUpdate).toHaveBeenCalledWith(
+      {
+        avgPosition: 0,
+        mapPackKeywords: 0,
+      },
+      { where: { domain: 'empty.com' } }
+    );
   });
 
   it('handles keywords with all position 0 (unranked)', async () => {

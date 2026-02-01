@@ -6,6 +6,10 @@ import { fn, literal } from 'sequelize';
 /**
  * Updates domain statistics (avgPosition and mapPackKeywords) based on current keyword data.
  * Uses SQL aggregation for improved performance over fetching all keywords.
+ * 
+ * Note: This function assumes boolean fields in the database are stored as integers (0/1).
+ * The mapPackTop3 field comparison uses `= 1` to identify truthy values.
+ * 
  * @param {string} domainName - The domain to update stats for
  * @returns {Promise<void>}
  */
@@ -15,7 +19,7 @@ export const updateDomainStats = async (domainName: string): Promise<void> => {
       const stats = await Keyword.findOne({
          where: { domain: domainName },
          attributes: [
-            // Count keywords with mapPackTop3 = 1 (or truthy value)
+            // Count keywords with mapPackTop3 = 1 (truthy boolean value stored as integer)
             [fn('SUM', literal('CASE WHEN mapPackTop3 = 1 THEN 1 ELSE 0 END')), 'mapPackKeywords'],
             // Sum positions for keywords with position > 0
             [fn('SUM', literal('CASE WHEN position > 0 THEN position ELSE 0 END')), 'totalPosition'],
@@ -25,8 +29,17 @@ export const updateDomainStats = async (domainName: string): Promise<void> => {
          raw: true,
       });
 
+      // If no keywords found, update domain with zero values to maintain consistency
+      // This ensures the domain record is always updated even when no keywords exist
       if (!stats) {
-         logger.info(`No keywords found for domain ${domainName}`);
+         logger.info(`No keywords found for domain ${domainName}, updating with zero values`);
+         await Domain.update(
+            {
+               avgPosition: 0,
+               mapPackKeywords: 0,
+            },
+            { where: { domain: domainName } }
+         );
          return;
       }
 
