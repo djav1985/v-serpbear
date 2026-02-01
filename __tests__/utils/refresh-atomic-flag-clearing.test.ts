@@ -3,7 +3,7 @@ import Keyword from '../../database/models/keyword';
 import refreshAndUpdateKeywords, { updateKeywordPosition } from '../../utils/refresh';
 import { scrapeKeywordFromGoogle } from '../../utils/scraper';
 import type { RefreshResult } from '../../utils/scraper';
-import { toDbBool, fromDbBool } from '../../utils/dbBooleans';
+import { toDbBool } from '../../utils/dbBooleans';
 
 // Mock the dependencies
 jest.mock('../../database/models/domain');
