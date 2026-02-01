@@ -19,7 +19,7 @@ jest.mock('../../utils/logger', () => ({
 
 import { logger } from '../../utils/logger';
 
-const mockKeywordFindAll = Keyword.findAll as jest.MockedFunction<typeof Keyword.findAll>;
+const mockKeywordFindOne = Keyword.findOne as jest.MockedFunction<typeof Keyword.findOne>;
 const mockDomainUpdate = Domain.update as jest.MockedFunction<typeof Domain.update>;
 
 describe('updateDomainStats', () => {
@@ -31,75 +31,54 @@ describe('updateDomainStats', () => {
     jest.restoreAllMocks();
   });
 
-  it('calculates and updates domain stats correctly', async () => {
-    const mockKeywords = [
-      {
-        get: () => ({
-          position: 5,
-          mapPackTop3: 1,
-        }),
-      },
-      {
-        get: () => ({
-          position: 15,
-          mapPackTop3: 0,
-        }),
-      },
-      {
-        get: () => ({
-          position: 0, // Should be excluded from average
-          mapPackTop3: 1,
-        }),
-      },
-    ];
+  it('calculates and updates domain stats correctly using SQL aggregation', async () => {
+    // Mock the aggregated result from SQL query
+    const mockAggregatedStats = {
+      mapPackKeywords: 2,
+      totalPosition: 20, // 5 + 15
+      positionCount: 2,
+    };
 
-    mockKeywordFindAll.mockResolvedValue(mockKeywords as any);
+    mockKeywordFindOne.mockResolvedValue(mockAggregatedStats as any);
     mockDomainUpdate.mockResolvedValue([1] as any);
 
     await updateDomainStats('example.com');
 
-    expect(mockKeywordFindAll).toHaveBeenCalledWith({ where: { domain: 'example.com' } });
+    expect(mockKeywordFindOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { domain: 'example.com' },
+        raw: true,
+      })
+    );
+    
     expect(mockDomainUpdate).toHaveBeenCalledWith(
       {
-        avgPosition: 10, // Math.round((5+15)/2) = 10
-        mapPackKeywords: 2, // Two keywords have mapPackTop3: 1
+        avgPosition: 10, // Math.round(20/2) = 10
+        mapPackKeywords: 2,
       },
       { where: { domain: 'example.com' } }
     );
   });
 
   it('handles domain with no keywords', async () => {
-    mockKeywordFindAll.mockResolvedValue([]);
+    mockKeywordFindOne.mockResolvedValue(null);
     mockDomainUpdate.mockResolvedValue([1] as any);
 
     await updateDomainStats('empty.com');
 
-    expect(mockDomainUpdate).toHaveBeenCalledWith(
-      {
-        avgPosition: 0,
-        mapPackKeywords: 0,
-      },
-      { where: { domain: 'empty.com' } }
-    );
+    // Should log "No keywords found" and not call Domain.update
+    expect(logger.info).toHaveBeenCalledWith('No keywords found for domain empty.com');
+    expect(mockDomainUpdate).not.toHaveBeenCalled();
   });
 
   it('handles keywords with all position 0 (unranked)', async () => {
-    const mockKeywords = [
-      {
-        get: () => ({
-          position: 0,
-          mapPackTop3: 0,
-        }),
-      },
-      {
-        get: () => ({
-          position: 0,
-          mapPackTop3: 1,
-        }),
-      },
-    ];
+    const mockAggregatedStats = {
+      mapPackKeywords: 1,
+      totalPosition: 0,
+      positionCount: 0,
+    };
 
-    mockKeywordFindAll.mockResolvedValue(mockKeywords as any);
+    mockKeywordFindOne.mockResolvedValue(mockAggregatedStats as any);
     mockDomainUpdate.mockResolvedValue([1] as any);
 
     await updateDomainStats('unranked.com');
@@ -107,15 +86,36 @@ describe('updateDomainStats', () => {
     expect(mockDomainUpdate).toHaveBeenCalledWith(
       {
         avgPosition: 0, // No valid positions to average
-        mapPackKeywords: 1, // One keyword has mapPackTop3: 1
+        mapPackKeywords: 1,
       },
       { where: { domain: 'unranked.com' } }
     );
   });
 
+  it('calculates average position with proper rounding', async () => {
+    const mockAggregatedStats = {
+      mapPackKeywords: 3,
+      totalPosition: 14, // Will result in 14/3 = 4.666...
+      positionCount: 3,
+    };
+
+    mockKeywordFindOne.mockResolvedValue(mockAggregatedStats as any);
+    mockDomainUpdate.mockResolvedValue([1] as any);
+
+    await updateDomainStats('example.com');
+
+    expect(mockDomainUpdate).toHaveBeenCalledWith(
+      {
+        avgPosition: 5, // Math.round(14/3) = Math.round(4.666...) = 5
+        mapPackKeywords: 3,
+      },
+      { where: { domain: 'example.com' } }
+    );
+  });
+
   it('handles database errors gracefully', async () => {
     const error = new Error('Database error');
-    mockKeywordFindAll.mockRejectedValue(error);
+    mockKeywordFindOne.mockRejectedValue(error);
 
     await updateDomainStats('error.com');
 
