@@ -8,71 +8,71 @@ import { Table, Model, Column, DataType, PrimaryKey } from 'sequelize-typescript
 class Keyword extends Model {
    @PrimaryKey
    @Column({ type: DataType.INTEGER, allowNull: false, primaryKey: true, autoIncrement: true })
-   ID!: number;
+   declare ID: number;
 
    @Column({ type: DataType.STRING, allowNull: false })
-   keyword!: string;
+   declare keyword: string;
 
    @Column({ type: DataType.STRING, allowNull: true, defaultValue: 'desktop' })
-   device!: string;
+   declare device: string;
 
    @Column({ type: DataType.STRING, allowNull: true, defaultValue: 'US' })
-   country!: string;
+   declare country: string;
 
    @Column({ type: DataType.STRING, allowNull: true, defaultValue: '' })
-   location!: string;
+   declare location: string;
 
    @Column({ type: DataType.STRING, allowNull: false, defaultValue: '' })
-   domain!: string;
+   declare domain: string;
 
    // @ForeignKey(() => Domain)
    // @Column({ allowNull: false })
-   // domainID!: number;
+   // declare domainID: number;
 
    // @BelongsTo(() => Domain)
-   // domain!: Domain;
+   // declare domain: Domain;
 
    @Column({ type: DataType.STRING, allowNull: true })
-   lastUpdated!: string;
+   declare lastUpdated: string;
 
    @Column({ type: DataType.STRING, allowNull: true })
-   added!: string;
+   declare added: string;
 
    @Column({ type: DataType.INTEGER, allowNull: false, defaultValue: 0 })
-   position!: number;
+   declare position: number;
 
    @Column({ type: DataType.STRING, allowNull: true, defaultValue: JSON.stringify({}) })
-   history!: string;
+   declare history: string;
 
    @Column({ type: DataType.INTEGER, allowNull: false, defaultValue: 0 })
-   volume!: number;
+   declare volume: number;
 
    @Column({ type: DataType.STRING, allowNull: true, defaultValue: JSON.stringify([]) })
-   url!: string;
+   declare url: string;
 
    @Column({ type: DataType.STRING, allowNull: true, defaultValue: JSON.stringify([]) })
-   tags!: string;
+   declare tags: string;
 
    @Column({ type: DataType.STRING, allowNull: true, defaultValue: JSON.stringify([]) })
-   lastResult!: string;
+   declare lastResult: string;
 
    @Column({ type: DataType.INTEGER, allowNull: true, defaultValue: 1 })
-   sticky!: number;
+   declare sticky: number;
 
    @Column({ type: DataType.INTEGER, allowNull: true, defaultValue: 0 })
-   updating!: number;
+   declare updating: number;
 
    @Column({ type: DataType.STRING, allowNull: true })
-   updatingStartedAt!: string | null;
+   declare updatingStartedAt: string | null;
 
    @Column({ type: DataType.STRING, allowNull: true, defaultValue: 'false' })
-   lastUpdateError!: string;
+   declare lastUpdateError: string;
 
    @Column({ type: DataType.INTEGER, allowNull: false, defaultValue: 0 })
-   mapPackTop3!: number;
+   declare mapPackTop3: number;
 
    @Column({ type: DataType.STRING, allowNull: true, defaultValue: JSON.stringify([]) })
-   localResults!: string;
+   declare localResults: string;
 }
 
 export default Keyword;

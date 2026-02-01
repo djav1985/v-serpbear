@@ -8,51 +8,51 @@ import { Table, Model, Column, DataType, PrimaryKey, Unique } from 'sequelize-ty
 class Domain extends Model {
    @PrimaryKey
    @Column({ type: DataType.INTEGER, allowNull: false, primaryKey: true, autoIncrement: true })
-   ID!: number;
+   declare ID: number;
 
    @Unique
    @Column({ type: DataType.STRING, allowNull: false, defaultValue: '', unique: true })
-   domain!: string;
+   declare domain: string;
 
    @Unique
    @Column({ type: DataType.STRING, allowNull: false, defaultValue: '', unique: true })
-   slug!: string;
+   declare slug: string;
 
    @Column({ type: DataType.STRING, allowNull: true })
-   lastUpdated!: string;
+   declare lastUpdated: string;
 
    @Column({ type: DataType.STRING, allowNull: true })
-   added!: string;
+   declare added: string;
 
    @Column({ type: DataType.STRING, allowNull: true, defaultValue: JSON.stringify([]) })
-   tags!: string;
+   declare tags: string;
 
    @Column({ type: DataType.INTEGER, allowNull: false, defaultValue: 1 })
-   scrapeEnabled!: number;
+   declare scrapeEnabled: number;
 
    @Column({ type: DataType.INTEGER, allowNull: true, defaultValue: 1 })
-   notification!: number;
+   declare notification: number;
 
    @Column({ type: DataType.STRING, allowNull: true, defaultValue: 'daily' })
-   notification_interval!: string;
+   declare notification_interval: string;
 
    @Column({ type: DataType.STRING, allowNull: true, defaultValue: '' })
-   notification_emails!: string;
+   declare notification_emails: string;
 
    @Column({ type: DataType.STRING, allowNull: true })
-   search_console!: string;
+   declare search_console: string;
 
    @Column({ type: DataType.INTEGER, allowNull: true, defaultValue: 0 })
-   avgPosition!: number;
+   declare avgPosition: number;
 
    @Column({ type: DataType.INTEGER, allowNull: true, defaultValue: 0 })
-   mapPackKeywords!: number;
+   declare mapPackKeywords: number;
 
    @Column({ type: DataType.TEXT, allowNull: true, defaultValue: null })
-   scraper_settings!: string | null;
+   declare scraper_settings: string | null;
 
    @Column({ type: DataType.STRING, allowNull: true, defaultValue: null })
-   business_name!: string | null;
+   declare business_name: string | null;
 }
 
 export default Domain;

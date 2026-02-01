@@ -42,6 +42,8 @@ TODO
 
 #database
 data/database.sqlite
+data/database.sqlite-shm
+data/database.sqlite-wal
 data/verify-fix.js
 SARIF test files
 *.sarif
