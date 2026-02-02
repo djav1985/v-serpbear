@@ -27,7 +27,7 @@ export const updateDomainStats = async (domainName: string): Promise<void> => {
             [literal('COALESCE(SUM(CASE WHEN position > 0 THEN 1 ELSE 0 END), 0)'), 'positionCount'],
          ],
          raw: true,
-      });
+      }) as any;
 
       // If no keywords found, update domain with zero values to maintain consistency
       // This ensures the domain record is always updated even when no keywords exist

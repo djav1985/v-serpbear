@@ -21,6 +21,7 @@ COPY . .
 RUN --mount=type=cache,target=/root/.npm \
     --mount=type=cache,target=/app/.next/cache \
     rm -rf __tests__ __mocks__ *.md docs && \
+    mkdir -p data && \
     npm run build && \
     chmod +x entrypoint.sh
 

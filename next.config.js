@@ -6,8 +6,6 @@ const nextConfig = {
   // Performance optimizations
   experimental: {
     optimizePackageImports: ['react-icons', 'react-chartjs-2', 'react-query'],
-    // Enable instrumentation hook for database initialization at startup
-    instrumentationHook: true
   },
 
   turbopack: {
