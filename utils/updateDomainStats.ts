@@ -4,6 +4,15 @@ import { logger } from './logger';
 import { literal } from 'sequelize';
 
 /**
+ * Result type for the raw SQL aggregation query
+ */
+interface DomainStatsQueryResult {
+   mapPackKeywords: number | string | bigint;
+   totalPosition: number | string | bigint;
+   positionCount: number | string | bigint;
+}
+
+/**
  * Updates domain statistics (avgPosition and mapPackKeywords) based on current keyword data.
  * Uses SQL aggregation for improved performance over fetching all keywords.
  * 
@@ -27,7 +36,7 @@ export const updateDomainStats = async (domainName: string): Promise<void> => {
             [literal('COALESCE(SUM(CASE WHEN position > 0 THEN 1 ELSE 0 END), 0)'), 'positionCount'],
          ],
          raw: true,
-      });
+      }) as DomainStatsQueryResult | null;
 
       // If no keywords found, update domain with zero values to maintain consistency
       // This ensures the domain record is always updated even when no keywords exist
