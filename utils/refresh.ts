@@ -303,17 +303,13 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
       logger.info('Keyword refresh completed', { count: updatedKeywords.length, duration: `${(end - start).toFixed(2)}ms` });
    }
 
-   // Final safety net: clear updating flag for any keywords that are still marked as updating
-   // This handles edge cases where updateKeywordPosition was never called
-   // The onlyWhenUpdating=true flag ensures we only touch keywords still marked as updating
-   await clearKeywordUpdatingFlags(eligibleKeywordModels, 'after refresh', undefined, true);
-
    // Update domain stats for all affected domains after keyword updates
+   // Process all domains in parallel for better performance
    if (updatedKeywords.length > 0) {
       const affectedDomains = Array.from(new Set(updatedKeywords.map((k) => k.domain)));
-      for (const domainName of affectedDomains) {
-         await updateDomainStats(domainName);
-      }
+      await Promise.all(
+         affectedDomains.map(domainName => updateDomainStats(domainName))
+      );
    }
    
    return updatedKeywords;

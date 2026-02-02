@@ -1,58 +1,68 @@
 import Keyword from '../database/models/keyword';
 import Domain from '../database/models/domain';
 import { logger } from './logger';
-import { fromDbBool } from './dbBooleans';
+import { literal } from 'sequelize';
 
 /**
- * Updates domain statistics (avgPosition and mapPackKeywords) based on current keyword data
+ * Updates domain statistics (avgPosition and mapPackKeywords) based on current keyword data.
+ * Uses SQL aggregation for improved performance over fetching all keywords.
+ * 
+ * Note: This function assumes boolean fields in the database are stored as integers (0/1).
+ * The mapPackTop3 field comparison uses `= 1` to identify truthy values.
+ * 
  * @param {string} domainName - The domain to update stats for
  * @returns {Promise<void>}
  */
 export const updateDomainStats = async (domainName: string): Promise<void> => {
    try {
-      // Get all keywords for the domain with fresh data from database
-      const allKeywords = await Keyword.findAll({ 
-         where: { domain: domainName }
+      // Use SQL aggregation to calculate stats efficiently
+      const stats = await Keyword.findOne({
+         where: { domain: domainName },
+         attributes: [
+            // Count keywords with mapPackTop3 = 1 (truthy boolean value stored as integer)
+            [literal('COALESCE(SUM(CASE WHEN mapPackTop3 = 1 THEN 1 ELSE 0 END), 0)'), 'mapPackKeywords'],
+            // Sum positions for keywords with position > 0
+            [literal('COALESCE(SUM(CASE WHEN position > 0 THEN position ELSE 0 END), 0)'), 'totalPosition'],
+            // Count keywords with position > 0
+            [literal('COALESCE(SUM(CASE WHEN position > 0 THEN 1 ELSE 0 END), 0)'), 'positionCount'],
+         ],
+         raw: true,
       });
 
-      // Calculate stats from keywords
-      const stats = allKeywords.reduce(
-         (acc, keyword) => {
-            const keywordData = keyword.get({ plain: true });
-            
-            // Count mapPack keywords
-            if (fromDbBool(keywordData.mapPackTop3)) {
-               acc.mapPackKeywords++;
-            }
-            
-            // Sum positions for average (exclude position 0)
-            if (typeof keywordData.position === 'number' && 
-                Number.isFinite(keywordData.position) && 
-                keywordData.position > 0) {
-               acc.totalPosition += keywordData.position;
-               acc.positionCount++;
-            }
-            
-            return acc;
-         },
-         { mapPackKeywords: 0, totalPosition: 0, positionCount: 0 }
-      );
+      // If no keywords found, update domain with zero values to maintain consistency
+      // This ensures the domain record is always updated even when no keywords exist
+      if (!stats) {
+         logger.info(`No keywords found for domain ${domainName}, updating with zero values`);
+         await Domain.update(
+            {
+               avgPosition: 0,
+               mapPackKeywords: 0,
+            },
+            { where: { domain: domainName } }
+         );
+         return;
+      }
+
+      // Extract aggregated values
+      const mapPackKeywords = Number(stats.mapPackKeywords) || 0;
+      const totalPosition = Number(stats.totalPosition) || 0;
+      const positionCount = Number(stats.positionCount) || 0;
 
       // Calculate average position
-      const avgPosition = stats.positionCount > 0 
-         ? Math.round(stats.totalPosition / stats.positionCount) 
+      const avgPosition = positionCount > 0 
+         ? Math.round(totalPosition / positionCount) 
          : 0;
 
       // Update domain record
       await Domain.update(
          {
             avgPosition,
-            mapPackKeywords: stats.mapPackKeywords
+            mapPackKeywords,
          },
          { where: { domain: domainName } }
       );
 
-      logger.info(`Updated domain stats for ${domainName}`, { avgPosition, mapPackKeywords: stats.mapPackKeywords });
+      logger.info(`Updated domain stats for ${domainName}`, { avgPosition, mapPackKeywords });
    } catch (error) {
       logger.error(`Failed to update domain stats for ${domainName}`, error instanceof Error ? error : new Error(String(error)));
    }
