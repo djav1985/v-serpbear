@@ -1,7 +1,8 @@
 /**
  * Next.js instrumentation hook
- * Called when the server starts (for both dev and production)
- * Perfect place to initialize database once at startup
+ * Called both during build (next build) and when the server starts (dev/production).
+ * We intentionally skip database initialization during the build phase since it's only
+ * needed at runtime. The database initializes when the application actually runs.
  */
 
 export async function register() {
