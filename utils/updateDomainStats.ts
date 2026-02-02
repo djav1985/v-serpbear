@@ -1,7 +1,7 @@
 import Keyword from '../database/models/keyword';
 import Domain from '../database/models/domain';
 import { logger } from './logger';
-import { fn, literal } from 'sequelize';
+import { literal } from 'sequelize';
 
 /**
  * Updates domain statistics (avgPosition and mapPackKeywords) based on current keyword data.
