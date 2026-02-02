@@ -20,11 +20,11 @@ export const updateDomainStats = async (domainName: string): Promise<void> => {
          where: { domain: domainName },
          attributes: [
             // Count keywords with mapPackTop3 = 1 (truthy boolean value stored as integer)
-            [fn('SUM', literal('CASE WHEN mapPackTop3 = 1 THEN 1 ELSE 0 END')), 'mapPackKeywords'],
+            [literal('COALESCE(SUM(CASE WHEN mapPackTop3 = 1 THEN 1 ELSE 0 END), 0)'), 'mapPackKeywords'],
             // Sum positions for keywords with position > 0
-            [fn('SUM', literal('CASE WHEN position > 0 THEN position ELSE 0 END')), 'totalPosition'],
+            [literal('COALESCE(SUM(CASE WHEN position > 0 THEN position ELSE 0 END), 0)'), 'totalPosition'],
             // Count keywords with position > 0
-            [fn('SUM', literal('CASE WHEN position > 0 THEN 1 ELSE 0 END')), 'positionCount'],
+            [literal('COALESCE(SUM(CASE WHEN position > 0 THEN 1 ELSE 0 END), 0)'), 'positionCount'],
          ],
          raw: true,
       });
