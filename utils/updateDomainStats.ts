@@ -7,9 +7,9 @@ import { literal } from 'sequelize';
  * Result type for the raw SQL aggregation query
  */
 interface DomainStatsQueryResult {
-   mapPackKeywords: number;
-   totalPosition: number;
-   positionCount: number;
+   mapPackKeywords: number | string | bigint;
+   totalPosition: number | string | bigint;
+   positionCount: number | string | bigint;
 }
 
 /**
