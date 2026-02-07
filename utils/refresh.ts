@@ -508,6 +508,8 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          : 'false';
       const urlValue = typeof updatedKeyword.url === 'string' ? updatedKeyword.url : null;
 
+      // Build single atomic update payload with ALL fields from API response + flags
+      // This ensures we update each keyword row only once, minimizing DB writes
       const dbPayload = {
          position: newPos,
          updating: toDbBool(false),
@@ -533,7 +535,8 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
       }
 
       try {
-         // Update database first; Sequelize updates the in-memory instance.
+         // Single atomic DB update with all fields from API response + flags
+         // Sequelize automatically updates the in-memory instance on success
          await keywordRaw.update(dbPayload);
          
          // Log when updating flag is cleared to help debug UI issues
