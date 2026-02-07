@@ -143,7 +143,8 @@ const clearKeywordUpdatingFlags = async (
          });
       }
    } catch (error: any) {
-      logger.error(`[ERROR] Failed to clear updating flags ${logContext}`, error, meta);
+      const normalizedError = error instanceof Error ? error : new Error(String(error));
+      logger.error(`[ERROR] Failed to clear updating flags ${logContext}`, normalizedError, meta);
    }
 };
 
