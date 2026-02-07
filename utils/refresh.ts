@@ -591,14 +591,23 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
             { keywordId: keyword.ID, keyword: keyword.keyword }
          );
          
-         // Best-effort fallback: attempt to clear flags in DB even when full update failed
-         // This prevents keywords from getting stuck in "updating" state
+         // Best-effort fallback: attempt to clear flags AND persist error in DB
+         // even when full update failed. This prevents keywords from getting stuck
+         // in "updating" state and ensures the error is visible to users.
+         const errorDate = new Date();
+         const dbErrorPayload = {
+            date: errorDate.toJSON(),
+            error: serializeError(normalizedError),
+            scraper: settings.scraper_type,
+         };
+         
          try {
             await keywordRaw.update({
                updating: toDbBool(false),
                updatingStartedAt: null,
+               lastUpdateError: JSON.stringify(dbErrorPayload),
             });
-            logger.info('Cleared updating flags after DB update failure', { keywordId: keyword.ID });
+            logger.info('Cleared updating flags and persisted error after DB update failure', { keywordId: keyword.ID });
          } catch (fallbackError: any) {
             logger.error(
                '[ERROR] Failed to clear updating flags after DB update failure',
@@ -609,16 +618,11 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          
          // When DB write fails, return original keyword data with flags cleared
          // and error field populated to inform the user of the DB failure
-         const errorDate = new Date();
          updated = {
             ...keyword,
             updating: false,
             updatingStartedAt: null,
-            lastUpdateError: {
-               date: errorDate.toJSON(),
-               error: serializeError(normalizedError),
-               scraper: settings.scraper_type,
-            },
+            lastUpdateError: dbErrorPayload,
          };
       }
    }
