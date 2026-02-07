@@ -287,18 +287,21 @@ describe('refreshAndUpdateKeywords', () => {
       { get: () => ({ domain: 'disabled3.com', scrapeEnabled: 0 }) },
     ]);
 
-    // Mock the static Keyword.update method for bulk updates
-    (Keyword.update as jest.Mock) = jest.fn().mockResolvedValue([3]); // [affectedRows]
-
     const { retryQueueManager } = require('../../utils/retryQueueManager');
 
     // Execute the function
     await refreshAndUpdateKeywords(mockKeywords, mockSettings);
     
-    // Verify bulk update was called instead of individual updates
-    expect(Keyword.update).toHaveBeenCalledWith(
-      expect.objectContaining({ updating: 0, updatingStartedAt: null }),
-      expect.objectContaining({ where: { ID: [1, 2, 3] } })
+    // Verify per-row updates were called (not bulk Keyword.update)
+    // Each keyword instance should have its update method called
+    expect(mockKeywords[0].update).toHaveBeenCalledWith(
+      expect.objectContaining({ updating: 0, updatingStartedAt: null })
+    );
+    expect(mockKeywords[1].update).toHaveBeenCalledWith(
+      expect.objectContaining({ updating: 0, updatingStartedAt: null })
+    );
+    expect(mockKeywords[2].update).toHaveBeenCalledWith(
+      expect.objectContaining({ updating: 0, updatingStartedAt: null })
     );
 
     // Verify batched removal was called with the correct IDs
