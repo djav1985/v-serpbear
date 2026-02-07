@@ -573,6 +573,24 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          };
       } catch (error: any) {
          logger.error('[ERROR] Updating SERP for Keyword', error, { keyword: keyword.keyword });
+         
+         // Attempt fallback DB update to clear flags and prevent stuck "updating" state
+         try {
+            await keywordRaw.update({
+               updating: toDbBool(false),
+               updatingStartedAt: null,
+            });
+            logger.info('Keyword updating flag cleared via fallback', {
+               keywordId: keyword.ID,
+               keyword: keyword.keyword,
+            });
+         } catch (fallbackError: any) {
+            logger.error('[ERROR] Failed to clear updating flag via fallback', fallbackError, { 
+               keyword: keyword.keyword,
+               keywordId: keyword.ID,
+            });
+         }
+         
          updated = {
             ...keyword,
             updating: false,
