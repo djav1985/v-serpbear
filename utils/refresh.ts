@@ -509,7 +509,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
       const urlValue = typeof updatedKeyword.url === 'string' ? updatedKeyword.url : null;
 
       // Build single atomic update payload with ALL fields from API response + flags
-      // This ensures we update each keyword row only once, minimizing DB writes
+      // In the success path we perform a single update per keyword row to minimize DB writes,
       const dbPayload = {
          position: newPos,
          updating: toDbBool(false),
