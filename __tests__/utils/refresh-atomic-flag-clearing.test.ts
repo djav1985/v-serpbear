@@ -206,11 +206,19 @@ describe('Atomic Flag Clearing in Refresh Workflow', () => {
 
       // When DB write fails, the catch block returns in-memory state with flags cleared
       // but does NOT include the new API response data (position, url, etc.).
-      // The function returns the original keyword data with only the flags modified.
+      // The function returns the original keyword data with flags cleared and error field populated.
       expect(result).toMatchObject({
         updating: false,
         updatingStartedAt: null,
         position: 5, // Original position, not 3 from API response
+      });
+      
+      // Verify error field is populated with DB failure information
+      expect(result.lastUpdateError).toBeDefined();
+      expect(result.lastUpdateError).toMatchObject({
+        date: expect.any(String),
+        error: expect.stringContaining('DB write failed'),
+        scraper: 'serpapi',
       });
     });
   });
