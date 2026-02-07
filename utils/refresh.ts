@@ -587,13 +587,13 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          logger.error('[ERROR] Updating SERP for Keyword', error, { keyword: keyword.keyword });
          // When DB write fails, return original keyword data with flags cleared
          // and error field populated to inform the user of the DB failure
-         const theDate = new Date();
+         const errorDate = new Date();
          updated = {
             ...keyword,
             updating: false,
             updatingStartedAt: null,
             lastUpdateError: {
-               date: theDate.toJSON(),
+               date: errorDate.toJSON(),
                error: serializeError(error),
                scraper: settings.scraper_type,
             },
