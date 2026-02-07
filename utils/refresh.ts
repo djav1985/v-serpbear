@@ -585,7 +585,28 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          };
       } catch (error: any) {
          const normalizedError = error instanceof Error ? error : new Error(String(error));
-         logger.error('[ERROR] Updating SERP for Keyword', normalizedError, { keyword: keyword.keyword });
+         logger.error(
+            '[ERROR] Failed to update keyword in database',
+            normalizedError,
+            { keywordId: keyword.ID, keyword: keyword.keyword }
+         );
+         
+         // Best-effort fallback: attempt to clear flags in DB even when full update failed
+         // This prevents keywords from getting stuck in "updating" state
+         try {
+            await keywordRaw.update({
+               updating: toDbBool(false),
+               updatingStartedAt: null,
+            });
+            logger.info('Cleared updating flags after DB update failure', { keywordId: keyword.ID });
+         } catch (fallbackError: any) {
+            logger.error(
+               '[ERROR] Failed to clear updating flags after DB update failure',
+               fallbackError instanceof Error ? fallbackError : new Error(String(fallbackError)),
+               { keywordId: keyword.ID }
+            );
+         }
+         
          // When DB write fails, return original keyword data with flags cleared
          // and error field populated to inform the user of the DB failure
          const errorDate = new Date();
