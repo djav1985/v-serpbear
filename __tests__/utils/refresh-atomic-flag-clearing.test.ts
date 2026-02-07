@@ -144,12 +144,10 @@ describe('Atomic Flag Clearing in Refresh Workflow', () => {
       expect(mockKeywordModel.update).toHaveBeenCalledTimes(1);
     });
 
-    it('should attempt single atomic update with all fields when keyword.update() throws', async () => {
-      // This test verifies single-write semantics: when scraper returns data,
-      // ALL fields (position, url, history, flags, etc.) are updated in one
-      // keyword.update() call. If that fails, no fallback update is attempted.
-      // The keyword will remain in "updating" state in the database until
-      // clearKeywordUpdatingFlags cleans it up at the flow level.
+    it('should attempt fallback flag-clear update when full DB update fails', async () => {
+      // This test verifies that when the full atomic update fails,
+      // a best-effort fallback update attempts to clear just the flags
+      // to prevent keywords from staying stuck in "updating" state.
       const mockKeywordModel = {
         ID: 10,
         domain: 'example.com',
@@ -165,7 +163,9 @@ describe('Atomic Flag Clearing in Refresh Workflow', () => {
           lastUpdated: '',
           url: '',
         }),
-        update: jest.fn().mockRejectedValueOnce(new Error('DB write failed')),
+        update: jest.fn()
+          .mockRejectedValueOnce(new Error('DB write failed'))  // First call: full update fails
+          .mockResolvedValueOnce(undefined),                      // Second call: fallback flag-clear succeeds
       };
 
       const mockRefreshResult: RefreshResult = {
@@ -185,11 +185,11 @@ describe('Atomic Flag Clearing in Refresh Workflow', () => {
         mockSettings
       );
 
-      // Verify that update was called only once with ALL fields (no fallback)
-      expect(mockKeywordModel.update).toHaveBeenCalledTimes(1);
+      // Verify that update was called twice: once for full update, once for fallback flag-clear
+      expect(mockKeywordModel.update).toHaveBeenCalledTimes(2);
 
-      // Verify the single update includes all data from API response + flags in one atomic operation
-      expect(mockKeywordModel.update).toHaveBeenCalledWith(
+      // First call: full atomic update with all data from API response + flags
+      expect(mockKeywordModel.update).toHaveBeenNthCalledWith(1,
         expect.objectContaining({
           position: 3, // from API response
           url: 'https://example.com', // from API response
@@ -203,6 +203,12 @@ describe('Atomic Flag Clearing in Refresh Workflow', () => {
           mapPackTop3: toDbBool(false),
         })
       );
+
+      // Second call: best-effort fallback to clear flags only
+      expect(mockKeywordModel.update).toHaveBeenNthCalledWith(2, {
+        updating: toDbBool(false),
+        updatingStartedAt: null,
+      });
 
       // When DB write fails, the catch block returns in-memory state with flags cleared
       // but does NOT include the new API response data (position, url, etc.).
