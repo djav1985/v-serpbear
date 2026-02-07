@@ -117,21 +117,31 @@ const clearKeywordUpdatingFlags = async (
          return;
       }
 
-      const results = await Promise.allSettled(
-         keywordsToUpdate.map(async (keyword) => {
-            await keyword.update({ updating: toDbBool(false), updatingStartedAt: null });
-         }),
-      );
+      // Process updates in batches to reduce SQLite lock contention and SQLITE_BUSY errors.
+      // Each batch allows limited concurrency while batches are processed sequentially.
+      const BATCH_SIZE = 10;
+      const batches: Keyword[][] = [];
+      for (let i = 0; i < keywordsToUpdate.length; i += BATCH_SIZE) {
+         batches.push(keywordsToUpdate.slice(i, i + BATCH_SIZE));
+      }
 
-      results.forEach((result, index) => {
-         if (result.status === 'rejected') {
-            logger.error(
-               `[ERROR] Failed to clear updating flags ${logContext}`,
-               result.reason instanceof Error ? result.reason : new Error(String(result.reason)),
-               { keywordId: keywordsToUpdate[index]?.ID, ...meta },
-            );
-         }
-      });
+      for (const batch of batches) {
+         const results = await Promise.allSettled(
+            batch.map(async (keyword) => {
+               await keyword.update({ updating: toDbBool(false), updatingStartedAt: null });
+            }),
+         );
+
+         results.forEach((result, index) => {
+            if (result.status === 'rejected') {
+               logger.error(
+                  `[ERROR] Failed to clear updating flags ${logContext}`,
+                  result.reason instanceof Error ? result.reason : new Error(String(result.reason)),
+                  { keywordId: batch[index]?.ID, ...meta },
+               );
+            }
+         });
+      }
    } catch (error: any) {
       logger.error(`[ERROR] Failed to clear updating flags ${logContext}`, error, meta);
    }
