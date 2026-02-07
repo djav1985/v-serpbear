@@ -145,6 +145,10 @@ describe('Atomic Flag Clearing in Refresh Workflow', () => {
     });
 
     it('should return correct in-memory state when keyword.update() throws', async () => {
+      // This test verifies single-write semantics: when the DB update fails,
+      // no fallback update is attempted. The keyword will remain in "updating" 
+      // state in the database until the next refresh or cleanup cycle, but
+      // the in-memory state returned to the caller is correctly cleared.
       const mockKeywordModel = {
         ID: 10,
         domain: 'example.com',
@@ -193,6 +197,8 @@ describe('Atomic Flag Clearing in Refresh Workflow', () => {
       );
 
       // Verify in-memory state is correct even though DB update failed
+      // Note: The database state will NOT be updated (keyword remains in "updating" state)
+      // but the returned object has correct in-memory state for the refresh result
       expect(result).toMatchObject({
         updating: false,
         updatingStartedAt: null,
