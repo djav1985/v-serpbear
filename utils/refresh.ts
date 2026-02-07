@@ -580,7 +580,8 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
             mapPackTop3: fromDbBool(dbPayload.mapPackTop3),
          };
       } catch (error: any) {
-         logger.error('[ERROR] Updating SERP for Keyword', error, { keyword: keyword.keyword });
+         const err = error instanceof Error ? error : new Error(String(error));
+         logger.error('[ERROR] Updating SERP for Keyword', err, { keyword: keyword.keyword });
          
          // Attempt fallback DB update to clear flags and prevent stuck "updating" state
          try {
