@@ -313,6 +313,8 @@ describe('/api/refresh', () => {
       updating: 0, 
       updatingStartedAt: null 
     });
+    expect(keywordRecord1.update).toHaveBeenCalledTimes(1);
+    expect(keywordRecord2.update).toHaveBeenCalledTimes(1);
 
     // Should return error
     expect(res.status).toHaveBeenCalledWith(400);
@@ -362,6 +364,7 @@ describe('/api/refresh', () => {
       updating: 0, 
       updatingStartedAt: null 
     });
+    expect(keywordRecord2.update).toHaveBeenCalledTimes(1);
 
     // Should set updating flag for keywords with valid domain
     expect(keywordRecord1.update).toHaveBeenCalledWith({
@@ -544,6 +547,8 @@ describe('/api/refresh', () => {
       updating: 0,
       updatingStartedAt: null,
     });
+    expect(keywordRecord1.update).toHaveBeenCalledTimes(1);
+    expect(keywordRecord2.update).toHaveBeenCalledTimes(1);
 
     // Should return empty keywords array
     expect(res.status).toHaveBeenCalledWith(200);

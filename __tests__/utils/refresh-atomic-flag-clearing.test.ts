@@ -141,6 +141,7 @@ describe('Atomic Flag Clearing in Refresh Workflow', () => {
         error: 'Scraper failed',
         scraper: 'serpapi',
       });
+      expect(mockKeywordModel.update).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -203,13 +204,10 @@ describe('Atomic Flag Clearing in Refresh Workflow', () => {
           updatingStartedAt: null,
         });
       });
+      expect(mockKeywordModel.update).toHaveBeenCalledTimes(1);
     });
 
     it('should clear flags for skipped keywords (scraping disabled)', async () => {
-      // Mock Keyword.update for bulk updates
-      const mockBulkUpdate = jest.fn().mockResolvedValue([1]); // Sequelize returns [affectedCount]
-      (Keyword.update as jest.Mock) = mockBulkUpdate;
-
       const mockKeywordModel = {
         ID: 4,
         domain: 'disabled.com',
@@ -244,16 +242,14 @@ describe('Atomic Flag Clearing in Refresh Workflow', () => {
       // Verify scraper was never called for this keyword
       expect(scrapeKeywordFromGoogle).not.toHaveBeenCalled();
 
-      // Verify bulk update was called to clear flags (clearKeywordUpdatingFlags uses Keyword.update)
-      expect(mockBulkUpdate).toHaveBeenCalledWith(
+      // Verify per-row update clears flags once
+      expect(mockKeywordModel.update).toHaveBeenCalledWith(
         expect.objectContaining({
           updating: toDbBool(false),
           updatingStartedAt: null,
         }),
-        expect.objectContaining({
-          where: { ID: [4] },
-        })
       );
+      expect(mockKeywordModel.update).toHaveBeenCalledTimes(1);
     });
 
     it('should clear flags in error handler when unexpected error occurs', async () => {
@@ -316,6 +312,7 @@ describe('Atomic Flag Clearing in Refresh Workflow', () => {
       const updateCall = mockKeywordModel.update.mock.calls[0][0];
       expect(updateCall.lastUpdateError).toBeDefined();
       expect(updateCall.lastUpdateError).not.toBe('false');
+      expect(mockKeywordModel.update).toHaveBeenCalledTimes(1);
     });
   });
 
