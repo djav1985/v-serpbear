@@ -415,7 +415,7 @@ All notable changes to this project will be documented in this file. Releases no
 
 ### Features
 
-- keyword not in first 100 now shows >100 ([e1799fb](https://github.com/towfiqi/serpbear/commit/e1799fb2f35ab8c0f65eb90e66dcda10b8cb6f16))
+- keyword not in first 10 now shows >10 ([e1799fb](https://github.com/towfiqi/serpbear/commit/e1799fb2f35ab8c0f65eb90e66dcda10b8cb6f16))
 
 ### Bug Fixes
 
