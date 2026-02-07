@@ -143,6 +143,121 @@ describe('Atomic Flag Clearing in Refresh Workflow', () => {
       });
       expect(mockKeywordModel.update).toHaveBeenCalledTimes(1);
     });
+
+    it('should attempt fallback flag clearing when keyword.update() throws', async () => {
+      const mockKeywordModel = {
+        ID: 10,
+        domain: 'example.com',
+        keyword: 'db failure keyword',
+        updating: toDbBool(true),
+        updatingStartedAt: new Date().toJSON(),
+        get: jest.fn().mockReturnValue({
+          ID: 10,
+          domain: 'example.com',
+          keyword: 'db failure keyword',
+          position: 5,
+          history: {},
+          lastUpdated: '',
+          url: '',
+        }),
+        update: jest.fn()
+          .mockRejectedValueOnce(new Error('DB write failed'))
+          .mockResolvedValueOnce(undefined),
+      };
+
+      const mockRefreshResult: RefreshResult = {
+        ID: 10,
+        keyword: 'db failure keyword',
+        position: 3,
+        url: 'https://example.com',
+        result: [],
+        localResults: [],
+        mapPackTop3: false,
+        error: false,
+      };
+
+      const result = await updateKeywordPosition(
+        mockKeywordModel as unknown as Keyword,
+        mockRefreshResult,
+        mockSettings
+      );
+
+      // Verify that update was called twice:
+      // 1. First attempt with full payload (failed)
+      // 2. Fallback attempt with just flags
+      expect(mockKeywordModel.update).toHaveBeenCalledTimes(2);
+
+      // First call should have full update payload
+      expect(mockKeywordModel.update).toHaveBeenNthCalledWith(1,
+        expect.objectContaining({
+          updating: toDbBool(false),
+          updatingStartedAt: null,
+          position: 3,
+        })
+      );
+
+      // Second call (fallback) should only clear flags
+      expect(mockKeywordModel.update).toHaveBeenNthCalledWith(2,
+        expect.objectContaining({
+          updating: toDbBool(false),
+          updatingStartedAt: null,
+        })
+      );
+
+      // Verify in-memory state is correct
+      expect(result).toMatchObject({
+        updating: false,
+        updatingStartedAt: null,
+      });
+    });
+
+    it('should handle fallback update failure gracefully', async () => {
+      const mockKeywordModel = {
+        ID: 11,
+        domain: 'example.com',
+        keyword: 'double failure keyword',
+        updating: toDbBool(true),
+        updatingStartedAt: new Date().toJSON(),
+        get: jest.fn().mockReturnValue({
+          ID: 11,
+          domain: 'example.com',
+          keyword: 'double failure keyword',
+          position: 5,
+          history: {},
+          lastUpdated: '',
+          url: '',
+        }),
+        update: jest.fn()
+          .mockRejectedValueOnce(new Error('DB write failed'))
+          .mockRejectedValueOnce(new Error('Fallback also failed')),
+      };
+
+      const mockRefreshResult: RefreshResult = {
+        ID: 11,
+        keyword: 'double failure keyword',
+        position: 3,
+        url: 'https://example.com',
+        result: [],
+        localResults: [],
+        mapPackTop3: false,
+        error: false,
+      };
+
+      const result = await updateKeywordPosition(
+        mockKeywordModel as unknown as Keyword,
+        mockRefreshResult,
+        mockSettings
+      );
+
+      // Verify both update attempts were made
+      expect(mockKeywordModel.update).toHaveBeenCalledTimes(2);
+
+      // Even when fallback fails, in-memory state should still be correct
+      expect(result).toMatchObject({
+        updating: false,
+        updatingStartedAt: null,
+      });
+    });
   });
 
   describe('refreshAndUpdateKeywords', () => {
