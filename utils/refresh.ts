@@ -120,8 +120,6 @@ const clearKeywordUpdatingFlags = async (
       const results = await Promise.allSettled(
          keywordsToUpdate.map(async (keyword) => {
             await keyword.update({ updating: toDbBool(false), updatingStartedAt: null });
-            keyword.updating = toDbBool(false);
-            keyword.updatingStartedAt = null;
          }),
       );
 
