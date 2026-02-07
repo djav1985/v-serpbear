@@ -585,7 +585,11 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          };
       } catch (error: any) {
          const normalizedError = error instanceof Error ? error : new Error(String(error));
-         logger.error('[ERROR] Updating SERP for Keyword', normalizedError, { keyword: keyword.keyword });
+         logger.error(
+            '[ERROR] Failed to update keyword in database',
+            normalizedError,
+            { keywordId: keyword.ID, keyword: keyword.keyword }
+         );
          
          // Best-effort fallback: attempt to clear flags in DB even when full update failed
          // This prevents keywords from getting stuck in "updating" state
