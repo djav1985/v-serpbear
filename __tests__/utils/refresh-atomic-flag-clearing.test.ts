@@ -144,12 +144,12 @@ describe('Atomic Flag Clearing in Refresh Workflow', () => {
       expect(mockKeywordModel.update).toHaveBeenCalledTimes(1);
     });
 
-    it('should return correct in-memory state when keyword.update() throws', async () => {
-      // This test verifies single-write semantics: when the DB update fails,
-      // no fallback update is attempted. The keyword will remain in "updating" 
-      // state in the database. Error handlers elsewhere in the refresh flow
-      // (clearKeywordUpdatingFlags) will clean up stuck flags when errors
-      // occur at the flow level, but per-keyword DB failures are not retried.
+    it('should attempt single atomic update with all fields when keyword.update() throws', async () => {
+      // This test verifies single-write semantics: when scraper returns data,
+      // ALL fields (position, url, history, flags, etc.) are updated in one
+      // keyword.update() call. If that fails, no fallback update is attempted.
+      // The keyword will remain in "updating" state in the database until
+      // clearKeywordUpdatingFlags cleans it up at the flow level.
       const mockKeywordModel = {
         ID: 10,
         domain: 'example.com',
@@ -185,24 +185,40 @@ describe('Atomic Flag Clearing in Refresh Workflow', () => {
         mockSettings
       );
 
-      // Verify that update was called only once (no fallback)
+      // Verify that update was called only once with ALL fields (no fallback)
       expect(mockKeywordModel.update).toHaveBeenCalledTimes(1);
 
-      // Call should have full update payload
+      // Verify the single update includes all data from API response + flags in one atomic operation
       expect(mockKeywordModel.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          updating: toDbBool(false),
-          updatingStartedAt: null,
-          position: 3,
+          position: 3, // from API response
+          url: 'https://example.com', // from API response
+          updating: toDbBool(false), // flag cleared
+          updatingStartedAt: null, // flag cleared
+          lastResult: expect.any(String),
+          localResults: expect.any(String),
+          history: expect.any(String),
+          lastUpdated: expect.any(String),
+          lastUpdateError: 'false',
+          mapPackTop3: toDbBool(false),
         })
       );
 
-      // Verify in-memory state is correct even though DB update failed
-      // Note: The database state will NOT be updated (keyword remains in "updating" state)
-      // but the returned object has correct in-memory state for the refresh result
+      // When DB write fails, the catch block returns in-memory state with flags cleared
+      // but does NOT include the new API response data (position, url, etc.).
+      // The function returns the original keyword data with flags cleared and error field populated.
       expect(result).toMatchObject({
         updating: false,
         updatingStartedAt: null,
+        position: 5, // Original position, not 3 from API response
+      });
+      
+      // Verify error field is populated with DB failure information
+      expect(result.lastUpdateError).toBeDefined();
+      expect(result.lastUpdateError).toMatchObject({
+        date: expect.any(String),
+        error: expect.stringContaining('DB write failed'),
+        scraper: 'serpapi',
       });
     });
   });
