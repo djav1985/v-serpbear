@@ -584,7 +584,8 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
             mapPackTop3: fromDbBool(dbPayload.mapPackTop3),
          };
       } catch (error: any) {
-         logger.error('[ERROR] Updating SERP for Keyword', error, { keyword: keyword.keyword });
+         const normalizedError = error instanceof Error ? error : new Error(String(error));
+         logger.error('[ERROR] Updating SERP for Keyword', normalizedError, { keyword: keyword.keyword });
          // When DB write fails, return original keyword data with flags cleared
          // and error field populated to inform the user of the DB failure
          const errorDate = new Date();
@@ -594,7 +595,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
             updatingStartedAt: null,
             lastUpdateError: {
                date: errorDate.toJSON(),
-               error: serializeError(error),
+               error: serializeError(normalizedError),
                scraper: settings.scraper_type,
             },
          };
