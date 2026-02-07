@@ -204,11 +204,13 @@ describe('Atomic Flag Clearing in Refresh Workflow', () => {
         })
       );
 
-      // When DB write fails, returned in-memory state has flags cleared
-      // but retains original keyword data (not the new API response data)
+      // When DB write fails, the catch block returns in-memory state with flags cleared
+      // but does NOT include the new API response data (position, url, etc.).
+      // The function returns the original keyword data with only the flags modified.
       expect(result).toMatchObject({
         updating: false,
         updatingStartedAt: null,
+        position: 5, // Original position, not 3 from API response
       });
     });
   });
