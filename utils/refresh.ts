@@ -117,16 +117,22 @@ const clearKeywordUpdatingFlags = async (
          return;
       }
 
-      const keywordIds = keywordsToUpdate.map((keyword) => keyword.ID);
-
-      await Keyword.update(
-         { updating: toDbBool(false), updatingStartedAt: null },
-         { where: { ID: keywordIds } },
+      const results = await Promise.allSettled(
+         keywordsToUpdate.map(async (keyword) => {
+            await keyword.update({ updating: toDbBool(false), updatingStartedAt: null });
+            keyword.updating = toDbBool(false);
+            keyword.updatingStartedAt = null;
+         }),
       );
 
-      keywordsToUpdate.forEach((keyword) => {
-         keyword.updating = toDbBool(false);
-         keyword.updatingStartedAt = null;
+      results.forEach((result, index) => {
+         if (result.status === 'rejected') {
+            logger.error(
+               `[ERROR] Failed to clear updating flags ${logContext}`,
+               result.reason instanceof Error ? result.reason : new Error(String(result.reason)),
+               { keywordId: keywordsToUpdate[index]?.ID, ...meta },
+            );
+         }
       });
    } catch (error: any) {
       logger.error(`[ERROR] Failed to clear updating flags ${logContext}`, error, meta);
