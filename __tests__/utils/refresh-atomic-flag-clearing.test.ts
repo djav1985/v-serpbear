@@ -144,10 +144,10 @@ describe('Atomic Flag Clearing in Refresh Workflow', () => {
       expect(mockKeywordModel.update).toHaveBeenCalledTimes(1);
     });
 
-    it('should attempt fallback flag-clear update when full DB update fails', async () => {
+    it('should attempt fallback flag-clear and error persistence when full DB update fails', async () => {
       // This test verifies that when the full atomic update fails,
-      // a best-effort fallback update attempts to clear just the flags
-      // to prevent keywords from staying stuck in "updating" state.
+      // a best-effort fallback update attempts to clear the flags AND persist the error
+      // to prevent keywords from staying stuck in "updating" state and to show users what went wrong.
       const mockKeywordModel = {
         ID: 10,
         domain: 'example.com',
@@ -204,10 +204,20 @@ describe('Atomic Flag Clearing in Refresh Workflow', () => {
         })
       );
 
-      // Second call: best-effort fallback to clear flags only
-      expect(mockKeywordModel.update).toHaveBeenNthCalledWith(2, {
+      // Second call: best-effort fallback to clear flags AND persist error
+      const fallbackCall = mockKeywordModel.update.mock.calls[1][0];
+      expect(fallbackCall).toMatchObject({
         updating: toDbBool(false),
         updatingStartedAt: null,
+      });
+      
+      // Verify error field is persisted in DB during fallback
+      expect(fallbackCall.lastUpdateError).toBeDefined();
+      const persistedError = JSON.parse(fallbackCall.lastUpdateError);
+      expect(persistedError).toMatchObject({
+        date: expect.any(String),
+        error: expect.stringContaining('DB write failed'),
+        scraper: 'serpapi',
       });
 
       // When DB write fails, the catch block returns in-memory state with flags cleared
