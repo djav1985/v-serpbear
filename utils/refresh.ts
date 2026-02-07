@@ -583,7 +583,8 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
                keyword: keyword.keyword,
             });
          } catch (fallbackError: any) {
-            logger.error('[ERROR] Failed to clear updating flag via fallback', fallbackError, { 
+            const fallbackErr = fallbackError instanceof Error ? fallbackError : new Error(String(fallbackError));
+            logger.error('[ERROR] Failed to clear updating flag via fallback', fallbackErr, {
                keyword: keyword.keyword,
                keywordId: keyword.ID,
             });
