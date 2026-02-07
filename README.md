@@ -228,7 +228,7 @@ The **Business Name** field is an optional setting in the domain scraper configu
 
 1. **Add a domain** – supply the host name you want to monitor.
 2. **Create keywords** – capture the query, target country, optional state/city pair (stored as a single location string), and device type (desktop/mobile).
-3. **Run scrapes** – the cron worker queries your configured provider for the top 100 organic results and stores rank positions.
+3. **Run scrapes** – the cron worker queries your configured provider for the top 10 organic results and stores rank positions.
 4. **Analyse trends** – interactive charts and tables surface historical rank, average position, and day-over-day change.
 5. **Share insights** – export keyword data via the API or send scheduled email summaries to stakeholders.
 
