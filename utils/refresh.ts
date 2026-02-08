@@ -123,9 +123,9 @@ export const partitionKeywordsByDomainStatus = async (keywordQueries: Keyword[])
 
    const scrapeEnabledMap = new Map<string, boolean>(
       domainRecords.map((record) => {
-         const plain = record.get({ plain: true }) as DomainType;
-         const normalizedDomain = normalizeDomainBooleans(plain);
-         return [normalizedDomain.domain, normalizedDomain.scrapeEnabled];
+         const plain = record.get({ plain: true }) as Pick<DomainType, 'domain' | 'scrapeEnabled'>;
+         const scrapeEnabled = fromDbBool(plain.scrapeEnabled);
+         return [plain.domain, scrapeEnabled];
       }),
    );
 
