@@ -87,19 +87,17 @@ const processSingleDomain = async (domain: string, settings: SettingsType): Prom
       
       const now = new Date().toJSON();
       keywordQueries = await Keyword.findAll({ where: { domain } });
-      await Promise.all(
-         keywordQueries.map(async (keyword) => {
-            await keyword.update({ updating: toDbBool(true), lastUpdateError: 'false', updatingStartedAt: now });
-            if (typeof keyword.reload === 'function') {
-               await keyword.reload();
-            }
-         }),
-      );
       
       if (keywordQueries.length === 0) {
          logger.info(`No keywords found for domain: ${domain}`);
          return;
       }
+
+      const keywordIds = keywordQueries.map((keyword) => keyword.ID);
+      await Keyword.update(
+         { updating: toDbBool(true), lastUpdateError: 'false', updatingStartedAt: now },
+         { where: { ID: keywordIds } },
+      );
       
       logger.info(`Processing ${keywordQueries.length} keywords for domain: ${domain}`);
       

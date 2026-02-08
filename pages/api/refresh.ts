@@ -175,10 +175,9 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
 
       const keywordIdsToRefresh = keywordsToRefresh.map((keyword) => keyword.ID);
       const now = new Date().toJSON();
-      await Promise.all(
-         keywordsToRefresh.map((keyword) =>
-            keyword.update({ updating: toDbBool(true), lastUpdateError: 'false', updatingStartedAt: now }),
-         ),
+      await Keyword.update(
+         { updating: toDbBool(true), lastUpdateError: 'false', updatingStartedAt: now },
+         { where: { ID: { [Op.in]: keywordIdsToRefresh } } },
       );
 
       // Generate unique task ID using crypto to prevent collisions in concurrent scenarios
