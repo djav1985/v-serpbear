@@ -11,7 +11,15 @@ module.exports = {
 
       return queryInterface.sequelize.transaction(async (t) => {
          try {
-            const domainTableDefinition = await queryInterface.describeTable('domain');
+            let domainTableDefinition;
+            try {
+               domainTableDefinition = await queryInterface.describeTable('domain');
+            } catch (_describeError) {
+               // Table doesn't exist yet - skip migration
+               // Tables will be created by db.sync() after migrations run
+               console.log('[MIGRATION] Skipping migration - domain table does not exist yet');
+               return;
+            }
 
             // Add avgPosition column if it doesn't exist
             if (domainTableDefinition && !domainTableDefinition.avgPosition) {
@@ -52,7 +60,14 @@ module.exports = {
 
       return queryInterface.sequelize.transaction(async (t) => {
          try {
-            const domainTableDefinition = await queryInterface.describeTable('domain');
+            let domainTableDefinition;
+            try {
+               domainTableDefinition = await queryInterface.describeTable('domain');
+            } catch (_describeError) {
+               // Table doesn't exist - skip rollback
+               console.log('[MIGRATION] Skipping rollback - domain table does not exist');
+               return;
+            }
 
             if (domainTableDefinition && domainTableDefinition.avgPosition) {
                await queryInterface.removeColumn('domain', 'avgPosition', { transaction: t });
