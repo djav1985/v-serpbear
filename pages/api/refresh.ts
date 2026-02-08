@@ -83,10 +83,10 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
       return res.status(400).json({ error: 'No valid keyword IDs provided' });
    }
 
-   const clearUpdatingFlags = async (keywords: Keyword[], logContext: string, reason: string) => {
+   const clearUpdatingFlags = async (keywords: Keyword[], logContext: string, reason: string, onlyWhenUpdating = false) => {
       await clearKeywordUpdatingFlags(keywords, logContext, {
          keywordIds: keywords.map((kw) => kw.ID),
-      }, false, reason);
+      }, onlyWhenUpdating, reason);
    };
 
    try {
@@ -183,8 +183,8 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
             } catch (refreshError) {
                const message = serializeError(refreshError);
                logger.error('[REFRESH] ERROR refreshAndUpdateKeywords: ', refreshError instanceof Error ? refreshError : new Error(message), { keywordIds: keywordIdsToRefresh });
-               // Ensure flags are cleared on error
-               await clearUpdatingFlags(keywordsToRefresh, 'after refresh error', 'refresh-error').catch((updateError) => {
+               // Ensure flags are cleared on error, only for keywords still in updating state
+               await clearUpdatingFlags(keywordsToRefresh, 'after refresh error', 'refresh-error', true).catch((updateError) => {
                   logger.error('[REFRESH] Failed to clear updating flags after error: ', updateError instanceof Error ? updateError : new Error(String(updateError)));
                });
                throw refreshError; // Re-throw to be caught by queue error handler

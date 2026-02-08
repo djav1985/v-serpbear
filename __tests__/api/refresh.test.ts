@@ -106,7 +106,18 @@ describe('/api/refresh', () => {
   it('starts refresh in background and returns 202 immediately', async () => {
     req.query = { id: '1', domain: 'example.com' };
 
-    const keywordRecord = { ID: 1, domain: 'example.com', update: jest.fn().mockResolvedValue(undefined), reload: jest.fn().mockResolvedValue(undefined), set: jest.fn() };
+    const keywordRecord = { 
+      ID: 1, 
+      domain: 'example.com', 
+      updating: 0, // Initial state
+      update: jest.fn().mockImplementation(function(this: any, payload: any) {
+        // Update in-memory instance to match real Sequelize behavior
+        Object.assign(this, payload);
+        return Promise.resolve(undefined);
+      }), 
+      reload: jest.fn().mockResolvedValue(undefined), 
+      set: jest.fn() 
+    };
     (Keyword.findAll as jest.Mock).mockResolvedValue([keywordRecord]);
     (Domain.findAll as jest.Mock).mockResolvedValue([
       { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
@@ -131,6 +142,7 @@ describe('/api/refresh', () => {
     });
     
     // After error in refresh task, clearKeywordUpdatingFlags should clear the flag
+    // (only for keywords still in updating=true state)
     expect(keywordRecord.update).toHaveBeenCalledWith({
       updating: 0,
       updatingStartedAt: null,
@@ -404,15 +416,23 @@ describe('/api/refresh', () => {
 
     const keywordRecord1 = { 
       ID: 1, 
-      domain: 'example.com', 
-      update: jest.fn().mockResolvedValue(undefined), 
+      domain: 'example.com',
+      updating: 0, // Initial state
+      update: jest.fn().mockImplementation(function(this: any, payload: any) {
+        Object.assign(this, payload);
+        return Promise.resolve(undefined);
+      }), 
       reload: jest.fn().mockResolvedValue(undefined),
       set: jest.fn() 
     };
     const keywordRecord2 = { 
       ID: 2, 
-      domain: 'example.com', 
-      update: jest.fn().mockResolvedValue(undefined), 
+      domain: 'example.com',
+      updating: 0, // Initial state
+      update: jest.fn().mockImplementation(function(this: any, payload: any) {
+        Object.assign(this, payload);
+        return Promise.resolve(undefined);
+      }), 
       reload: jest.fn().mockResolvedValue(undefined),
       set: jest.fn() 
     };
@@ -443,6 +463,7 @@ describe('/api/refresh', () => {
     });
 
     // After error, clearKeywordUpdatingFlags should clear the flags
+    // (only for keywords still in updating=true state)
     expect(keywordRecord1.update).toHaveBeenCalledWith({
       updating: 0,
       updatingStartedAt: null,
@@ -461,20 +482,26 @@ describe('/api/refresh', () => {
     let keywordRecord2UpdateCallCount = 0;
     const keywordRecord1 = { 
       ID: 1, 
-      domain: 'example.com', 
-      update: jest.fn().mockResolvedValue(undefined), 
+      domain: 'example.com',
+      updating: 0, // Initial state
+      update: jest.fn().mockImplementation(function(this: any, payload: any) {
+        Object.assign(this, payload);
+        return Promise.resolve(undefined);
+      }), 
       reload: jest.fn().mockResolvedValue(undefined),
       set: jest.fn() 
     };
     const keywordRecord2 = { 
       ID: 2, 
-      domain: 'example.com', 
-      update: jest.fn().mockImplementation((_data) => {
+      domain: 'example.com',
+      updating: 0, // Initial state
+      update: jest.fn().mockImplementation(function(this: any, payload: any) {
         keywordRecord2UpdateCallCount++;
         // Fail on second call (when clearing flags)
         if (keywordRecord2UpdateCallCount > 1) {
           return Promise.reject(new Error('Database connection lost'));
         }
+        Object.assign(this, payload);
         return Promise.resolve(undefined);
       }), 
       reload: jest.fn().mockResolvedValue(undefined),
@@ -482,8 +509,12 @@ describe('/api/refresh', () => {
     };
     const keywordRecord3 = { 
       ID: 3, 
-      domain: 'example.com', 
-      update: jest.fn().mockResolvedValue(undefined), 
+      domain: 'example.com',
+      updating: 0, // Initial state
+      update: jest.fn().mockImplementation(function(this: any, payload: any) {
+        Object.assign(this, payload);
+        return Promise.resolve(undefined);
+      }), 
       reload: jest.fn().mockResolvedValue(undefined),
       set: jest.fn() 
     };
@@ -509,7 +540,7 @@ describe('/api/refresh', () => {
     });
 
     // clearKeywordUpdatingFlags should attempt to clear all keywords
-    // Keyword 1 and 3 should succeed
+    // Keyword 1 and 3 should succeed (only keywords still in updating state)
     expect(keywordRecord1.update).toHaveBeenCalledWith({
       updating: 0,
       updatingStartedAt: null,
