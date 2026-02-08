@@ -33,6 +33,14 @@ jest.mock('../../pages/api/settings', () => ({
 jest.mock('../../utils/refresh', () => ({
   __esModule: true,
   default: jest.fn(),
+  clearKeywordUpdatingFlags: jest.fn().mockImplementation(async (keywords: any[]) => {
+    // Mock implementation that clears flags for each keyword
+    await Promise.all(keywords.map(async (keyword) => {
+      if (keyword.update) {
+        await keyword.update({ updating: 0, updatingStartedAt: null });
+      }
+    }));
+  }),
 }));
 
 jest.mock('../../utils/scraper', () => ({
