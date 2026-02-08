@@ -139,7 +139,7 @@ const processSingleDomain = async (domain: string, settings: SettingsType): Prom
          await clearKeywordUpdatingFlags(keywordsToRefresh, 'after domain refresh error', {
             domain,
             keywordIds: keywordsToRefresh.map((keyword) => keyword.ID),
-         }, false, 'refresh-error');
+         }, true, 'refresh-error');
       } catch (updateError) {
          logger.error(`Failed to clear updating flags for domain: ${domain}`, updateError instanceof Error ? updateError : new Error(String(updateError)));
       }
