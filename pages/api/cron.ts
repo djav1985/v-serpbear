@@ -93,11 +93,13 @@ const processSingleDomain = async (domain: string, settings: SettingsType): Prom
          return;
       }
 
+      const scrapeEnabledMap = { [domain]: true };
+
       const {
          keywordsToRefresh: eligibleKeywords,
          skippedKeywords,
          missingDomainKeywords,
-      } = await partitionKeywordsByDomainStatus(keywordQueries);
+      } = await partitionKeywordsByDomainStatus(keywordQueries, scrapeEnabledMap);
 
       keywordsToRefresh = eligibleKeywords;
 
