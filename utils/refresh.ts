@@ -99,7 +99,7 @@ const normalizeDevice = (device?: string): 'desktop' | 'mobile' =>
 const generateKeywordCacheKey = (keyword: KeywordType): string =>
    `${keyword.keyword}|${keyword.domain}|${keyword.country}|${normalizeLocationForCache(keyword.location)}`;
 
-const clearKeywordUpdatingFlags = async (
+export const clearKeywordUpdatingFlags = async (
    keywords: Keyword[],
    logContext: string,
    meta?: Record<string, unknown>,

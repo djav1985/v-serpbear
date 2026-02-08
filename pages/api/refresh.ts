@@ -4,7 +4,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { Op } from 'sequelize';
 import Keyword from '../../database/models/keyword';
 import Domain from '../../database/models/domain';
-import refreshAndUpdateKeywords from '../../utils/refresh';
+import refreshAndUpdateKeywords, { clearKeywordUpdatingFlags } from '../../utils/refresh';
 import { getAppSettings } from './settings';
 import verifyUser from '../../utils/verifyUser';
 import { scrapeKeywordFromGoogle } from '../../utils/scraper';
@@ -14,28 +14,6 @@ import { withApiLogging } from '../../utils/apiLogging';
 import { toDbBool } from '../../utils/dbBooleans';
 import normalizeDomainBooleans from '../../utils/normalizeDomain';
 import { refreshQueue } from '../../utils/refreshQueue';
-
-/**
- * Helper function to clear updating flags for multiple keywords
- * @param keywords - Array of keyword models to clear flags for
- */
-const clearKeywordFlags = async (keywords: Keyword[]): Promise<void> => {
-   const results = await Promise.allSettled(
-      keywords.map(async (keyword) => {
-         await keyword.update({ updating: toDbBool(false), updatingStartedAt: null });
-         if (typeof keyword.reload === 'function') {
-            await keyword.reload();
-         }
-      }),
-   );
-   
-   // Log any individual failures
-   results.forEach((result, index) => {
-      if (result.status === 'rejected') {
-         logger.error('[REFRESH] Failed to clear updating flag for keyword: ', result.reason instanceof Error ? result.reason : new Error(String(result.reason)), { keywordId: keywords[index]?.ID });
-      }
-   });
-};
 
 type BackgroundKeywordsRefreshRes = {
    // 202 Accepted: background execution started, no keywords returned yet
@@ -148,7 +126,9 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
          });
          
          // Clear updating flags for these keywords
-         await clearKeywordFlags(missingDomainKeywords);
+         await clearKeywordUpdatingFlags(missingDomainKeywords, 'for missing domains', {
+            keywordIds: missingDomainKeywords.map((kw) => kw.ID),
+         });
          
          // Remove missing domain keywords from retry queue
          const missingKeywordIds = new Set(missingDomainKeywords.map((kw) => kw.ID));
@@ -168,7 +148,9 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
       }
 
       if (skippedKeywords.length > 0) {
-         await clearKeywordFlags(skippedKeywords);
+         await clearKeywordUpdatingFlags(skippedKeywords, 'for skipped keywords', {
+            keywordIds: skippedKeywords.map((kw) => kw.ID),
+         });
       }
 
       if (keywordsToRefresh.length === 0) {
@@ -194,9 +176,6 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
       await Promise.all(
          keywordsToRefresh.map(async (keyword) => {
             await keyword.update({ updating: toDbBool(true), lastUpdateError: 'false', updatingStartedAt: now });
-            if (typeof keyword.reload === 'function') {
-               await keyword.reload();
-            }
          }),
       );
 
@@ -219,7 +198,9 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
                const message = serializeError(refreshError);
                logger.error('[REFRESH] ERROR refreshAndUpdateKeywords: ', refreshError instanceof Error ? refreshError : new Error(message), { keywordIds: keywordIdsToRefresh });
                // Ensure flags are cleared on error
-               await clearKeywordFlags(keywordsToRefresh).catch((updateError) => {
+               await clearKeywordUpdatingFlags(keywordsToRefresh, 'after refresh error', {
+                  keywordIds: keywordIdsToRefresh,
+               }).catch((updateError) => {
                   logger.error('[REFRESH] Failed to clear updating flags after error: ', updateError instanceof Error ? updateError : new Error(String(updateError)));
                });
                throw refreshError; // Re-throw to be caught by queue error handler
