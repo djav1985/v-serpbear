@@ -47,7 +47,7 @@
     "react-window": "^1.8.11",
     "reflect-metadata": "^0.2.2",
     "sequelize": "^6.37.7",
-    "sequelize-cli": "^6.6.3",
+    "sequelize-cli": "^6.6.5",
     "sequelize-typescript": "^2.1.6",
     "tsx": "^4.21.0",
     "umzug": "^3.8.2"
