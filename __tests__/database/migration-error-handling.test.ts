@@ -47,11 +47,12 @@ describe('Migration Error Handling', () => {
   test('migration down function should also re-throw errors', async () => {
     const migration = require('../../database/migrations/1735640000000-add-database-indexes');
     
-    // Create a mock queryInterface that will fail
+    // Create a mock queryInterface that will fail on index removal
     const mockQueryInterface = {
       sequelize: {
         transaction: jest.fn((callback) => callback({ transaction: 'mock' })),
       },
+      describeTable: jest.fn().mockResolvedValue({ /* table exists */ }),
       removeIndex: jest.fn().mockRejectedValue(new Error('Index removal failed')),
     };
 
