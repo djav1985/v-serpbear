@@ -50,7 +50,7 @@ type KeywordType = {
    tags: string[],
    updating: boolean,
    updatingStartedAt?: string | null,
-   lastUpdateError: {date: string, error: string, scraper: string} | false,
+   lastUpdateError: {date: string, error?: string, scraper?: string, reason?: string} | false,
    scData?: KeywordSCData,
     uid?: string
    location?: string,

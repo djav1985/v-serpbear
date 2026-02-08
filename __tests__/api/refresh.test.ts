@@ -33,11 +33,19 @@ jest.mock('../../pages/api/settings', () => ({
 jest.mock('../../utils/refresh', () => ({
   __esModule: true,
   default: jest.fn(),
-  clearKeywordUpdatingFlags: jest.fn().mockImplementation(async (keywords: any[]) => {
+  clearKeywordUpdatingFlags: jest.fn().mockImplementation(async (keywords: any[], _logContext?: string, _meta?: Record<string, unknown>, _onlyWhenUpdating?: boolean, lastUpdateErrorReason?: string) => {
     // Mock implementation that clears flags for each keyword
+    const updatePayload: Record<string, unknown> = { updating: 0, updatingStartedAt: null };
+    if (lastUpdateErrorReason) {
+      updatePayload.lastUpdateError = JSON.stringify({
+        reason: lastUpdateErrorReason,
+        date: new Date().toJSON(),
+        error: lastUpdateErrorReason,
+      });
+    }
     await Promise.all(keywords.map(async (keyword) => {
       if (keyword.update) {
-        await keyword.update({ updating: 0, updatingStartedAt: null });
+        await keyword.update(updatePayload);
       }
     }));
   }),
@@ -78,6 +86,11 @@ jest.mock('../../utils/refreshQueue', () => ({
 describe('/api/refresh', () => {
   const req = { method: 'POST', query: {}, headers: {} } as unknown as NextApiRequest;
   let res: NextApiResponse;
+  const errorPayload = (reason: string) => JSON.stringify({
+    reason,
+    date: '2024-06-01T12:00:00.000Z',
+    error: reason,
+  });
 
   beforeEach(() => {
     jest.useFakeTimers().setSystemTime(new Date('2024-06-01T12:00:00.000Z'));
@@ -133,6 +146,7 @@ describe('/api/refresh', () => {
     expect(keywordRecord.update).toHaveBeenCalledWith({
       updating: 0,
       updatingStartedAt: null,
+      lastUpdateError: errorPayload('refresh-error'),
     });
   });
 
@@ -315,11 +329,13 @@ describe('/api/refresh', () => {
     // Should clear updating flags for keywords with missing domains
     expect(keywordRecord1.update).toHaveBeenCalledWith({ 
       updating: 0, 
-      updatingStartedAt: null 
+      updatingStartedAt: null,
+      lastUpdateError: errorPayload('missing-domain'),
     });
     expect(keywordRecord2.update).toHaveBeenCalledWith({ 
       updating: 0, 
-      updatingStartedAt: null 
+      updatingStartedAt: null,
+      lastUpdateError: errorPayload('missing-domain'),
     });
     expect(keywordRecord1.update).toHaveBeenCalledTimes(1);
     expect(keywordRecord2.update).toHaveBeenCalledTimes(1);
@@ -370,7 +386,8 @@ describe('/api/refresh', () => {
     // Should clear updating flag for keyword with missing domain
     expect(keywordRecord2.update).toHaveBeenCalledWith({ 
       updating: 0, 
-      updatingStartedAt: null 
+      updatingStartedAt: null,
+      lastUpdateError: errorPayload('missing-domain'),
     });
     expect(keywordRecord2.update).toHaveBeenCalledTimes(1);
 
@@ -441,10 +458,12 @@ describe('/api/refresh', () => {
     expect(keywordRecord1.update).toHaveBeenCalledWith({
       updating: 0,
       updatingStartedAt: null,
+      lastUpdateError: errorPayload('refresh-error'),
     });
     expect(keywordRecord2.update).toHaveBeenCalledWith({
       updating: 0,
       updatingStartedAt: null,
+      lastUpdateError: errorPayload('refresh-error'),
     });
   });
 
@@ -506,16 +525,19 @@ describe('/api/refresh', () => {
     expect(keywordRecord1.update).toHaveBeenCalledWith({
       updating: 0,
       updatingStartedAt: null,
+      lastUpdateError: errorPayload('refresh-error'),
     });
     expect(keywordRecord3.update).toHaveBeenCalledWith({
       updating: 0,
       updatingStartedAt: null,
+      lastUpdateError: errorPayload('refresh-error'),
     });
     
     // Keyword 2 should fail on the second call but this shouldn't prevent others
     expect(keywordRecord2.update).toHaveBeenCalledWith({
       updating: 0,
       updatingStartedAt: null,
+      lastUpdateError: errorPayload('refresh-error'),
     });
     expect(keywordRecord2UpdateCallCount).toBe(2);
   });
@@ -550,10 +572,12 @@ describe('/api/refresh', () => {
     expect(keywordRecord1.update).toHaveBeenCalledWith({
       updating: 0,
       updatingStartedAt: null,
+      lastUpdateError: errorPayload('scrape-disabled'),
     });
     expect(keywordRecord2.update).toHaveBeenCalledWith({
       updating: 0,
       updatingStartedAt: null,
+      lastUpdateError: errorPayload('scrape-disabled'),
     });
     expect(keywordRecord1.update).toHaveBeenCalledTimes(1);
     expect(keywordRecord2.update).toHaveBeenCalledTimes(1);
