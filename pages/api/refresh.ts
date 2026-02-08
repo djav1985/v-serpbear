@@ -86,10 +86,10 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
       return res.status(400).json({ error: 'No valid keyword IDs provided' });
    }
 
-   const clearUpdatingFlags = async (keywords: Keyword[], logContext: string) => {
+   const clearUpdatingFlags = async (keywords: Keyword[], logContext: string, reason: string) => {
       await clearKeywordUpdatingFlags(keywords, logContext, {
          keywordIds: keywords.map((kw) => kw.ID),
-      });
+      }, false, reason);
    };
 
    try {
@@ -132,7 +132,7 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
          });
          
          // Clear updating flags for these keywords
-         await clearUpdatingFlags(missingDomainKeywords, 'for missing domains');
+         await clearUpdatingFlags(missingDomainKeywords, 'for missing domains', 'missing-domain');
          
          // Remove missing domain keywords from retry queue
          const missingKeywordIds = new Set(missingDomainKeywords.map((kw) => kw.ID));
@@ -152,7 +152,7 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
       }
 
       if (skippedKeywords.length > 0) {
-         await clearUpdatingFlags(skippedKeywords, 'for skipped keywords');
+         await clearUpdatingFlags(skippedKeywords, 'for skipped keywords', 'scrape-disabled');
       }
 
       if (keywordsToRefresh.length === 0) {
@@ -199,7 +199,7 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
                const message = serializeError(refreshError);
                logger.error('[REFRESH] ERROR refreshAndUpdateKeywords: ', refreshError instanceof Error ? refreshError : new Error(message), { keywordIds: keywordIdsToRefresh });
                // Ensure flags are cleared on error
-               await clearUpdatingFlags(keywordsToRefresh, 'after refresh error').catch((updateError) => {
+               await clearUpdatingFlags(keywordsToRefresh, 'after refresh error', 'refresh-error').catch((updateError) => {
                   logger.error('[REFRESH] Failed to clear updating flags after error: ', updateError instanceof Error ? updateError : new Error(String(updateError)));
                });
                throw refreshError; // Re-throw to be caught by queue error handler

@@ -104,6 +104,7 @@ export const clearKeywordUpdatingFlags = async (
    logContext: string,
    meta?: Record<string, unknown>,
    onlyWhenUpdating = false,
+   lastUpdateErrorReason?: string,
 ): Promise<void> => {
    if (keywords.length === 0) {
       return;
@@ -125,10 +126,21 @@ export const clearKeywordUpdatingFlags = async (
          batches.push(keywordsToUpdate.slice(i, i + BATCH_SIZE));
       }
 
+      const lastUpdateErrorPayload = lastUpdateErrorReason
+         ? JSON.stringify({ reason: lastUpdateErrorReason, date: new Date().toJSON(), error: lastUpdateErrorReason })
+         : null;
+
       for (const batch of batches) {
          const results = await Promise.allSettled(
             batch.map(async (keyword) => {
-               await keyword.update({ updating: toDbBool(false), updatingStartedAt: null });
+               const updatePayload: Record<string, unknown> = {
+                  updating: toDbBool(false),
+                  updatingStartedAt: null,
+               };
+               if (lastUpdateErrorPayload) {
+                  updatePayload.lastUpdateError = lastUpdateErrorPayload;
+               }
+               await keyword.update(updatePayload);
             }),
          );
 
@@ -223,7 +235,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
    });
 
    if (skippedKeywords.length > 0) {
-      await clearKeywordUpdatingFlags(skippedKeywords, 'for skipped keywords');
+      await clearKeywordUpdatingFlags(skippedKeywords, 'for skipped keywords', undefined, false, 'scrape-disabled');
 
       // Use batched removal for better performance and concurrency safety
       const idsToRemove = new Set(skippedKeywords.map((keyword) => keyword.ID));
@@ -304,7 +316,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
       const keywordIdsToCleanup = eligibleKeywordIds;
       try {
          const keywordModelsToCleanup = eligibleKeywordModels.filter((keyword) => keywordIdsToCleanup.includes(keyword.ID));
-         await clearKeywordUpdatingFlags(keywordModelsToCleanup, 'after refresh error');
+         await clearKeywordUpdatingFlags(keywordModelsToCleanup, 'after refresh error', undefined, false, 'refresh-error');
       } catch (cleanupError: any) {
          logger.error('[ERROR] Failed to cleanup updating flags after error:', cleanupError);
       }
