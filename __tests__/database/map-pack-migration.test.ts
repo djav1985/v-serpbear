@@ -125,29 +125,26 @@ describe('Map Pack Top3 Migration', () => {
     });
   });
 
-  test('migration handles errors and re-throws them', async () => {
+  test('migration gracefully skips when table does not exist', async () => {
     const migration = require('../../database/migrations/1737307000000-add-keyword-map-pack-flag');
     
-    // Create a mock queryInterface that will fail
+    // Create a mock queryInterface that fails to describe table
     const mockQueryInterface = {
       sequelize: {
         transaction: jest.fn((callback) => callback({ transaction: 'mock' })),
       },
-      describeTable: jest.fn().mockRejectedValue(new Error('Database error')),
+      describeTable: jest.fn().mockRejectedValue(new Error('Table does not exist')),
     };
 
-    // Mock console.error to capture error logging
-    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    // Mock console.log to capture skip message
+    const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
     
-    try {
-      await migration.up({ context: mockQueryInterface });
-      throw new Error('Expected migration to throw error but it did not');
-    } catch (error) {
-      expect(error).toBeInstanceOf(Error);
-      expect(error.message).toBe('Database error');
-      expect(consoleSpy).toHaveBeenCalledWith('error :', expect.any(Error));
-    } finally {
-      consoleSpy.mockRestore();
-    }
+    // Migration should complete without throwing
+    await expect(migration.up({ context: mockQueryInterface })).resolves.not.toThrow();
+    
+    // Verify skip message was logged
+    expect(consoleSpy).toHaveBeenCalledWith('[MIGRATION] Skipping migration - keyword table does not exist yet');
+    
+    consoleSpy.mockRestore();
   });
 });

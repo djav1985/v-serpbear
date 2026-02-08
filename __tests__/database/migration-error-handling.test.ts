@@ -20,32 +20,28 @@ describe('Migration Error Handling', () => {
     }
   });
 
-  test('migration functions should re-throw errors after logging', async () => {
-    // Test that migration error handling works correctly by importing and testing a migration
+  test('migration functions gracefully skip when table does not exist', async () => {
+    // Test that migration handles missing tables gracefully
     const migration = require('../../database/migrations/1710000000000-add-keyword-state-field');
     
-    // Create a mock queryInterface that will fail
+    // Create a mock queryInterface that will fail to describe table
     const mockQueryInterface = {
       sequelize: {
         transaction: jest.fn((callback) => callback({ transaction: 'mock' })),
       },
-      describeTable: jest.fn().mockRejectedValue(new Error('Test database error')),
+      describeTable: jest.fn().mockRejectedValue(new Error('Table does not exist')),
     };
 
-    // Mock console.error to capture error logging
-    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    // Mock console.log to capture skip message
+    const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
     
-    try {
-      // This should throw an error after logging it
-      await migration.up({ context: mockQueryInterface });
-      throw new Error('Expected migration to throw error but it did not');
-    } catch (error) {
-      expect(error).toBeInstanceOf(Error);
-      expect(error.message).toBe('Test database error');
-      expect(consoleSpy).toHaveBeenCalledWith('error :', expect.any(Error));
-    } finally {
-      consoleSpy.mockRestore();
-    }
+    // Migration should complete without throwing
+    await expect(migration.up({ context: mockQueryInterface })).resolves.not.toThrow();
+    
+    // Verify skip message was logged
+    expect(consoleSpy).toHaveBeenCalledWith('[MIGRATION] Skipping migration - keyword table does not exist yet');
+    
+    consoleSpy.mockRestore();
   });
 
   test('migration down function should also re-throw errors', async () => {

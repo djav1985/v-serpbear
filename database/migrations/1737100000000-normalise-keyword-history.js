@@ -8,7 +8,15 @@ module.exports = {
          ?? require('sequelize');
 
       return queryInterface.sequelize.transaction(async (transaction) => {
-         const keywordTableDefinition = await queryInterface.describeTable('keyword');
+         let keywordTableDefinition;
+         try {
+            keywordTableDefinition = await queryInterface.describeTable('keyword');
+         } catch (_describeError) {
+            // Table doesn't exist yet - skip migration
+            // Tables will be created by db.sync() after migrations run
+            console.log('[MIGRATION] Skipping migration - keyword table does not exist yet');
+            return;
+         }
 
          if (keywordTableDefinition?.history) {
             await queryInterface.changeColumn(
@@ -47,7 +55,14 @@ module.exports = {
          ?? require('sequelize');
 
       return queryInterface.sequelize.transaction(async (transaction) => {
-         const keywordTableDefinition = await queryInterface.describeTable('keyword');
+         let keywordTableDefinition;
+         try {
+            keywordTableDefinition = await queryInterface.describeTable('keyword');
+         } catch (_describeError) {
+            // Table doesn't exist - skip rollback
+            console.log('[MIGRATION] Skipping rollback - keyword table does not exist');
+            return;
+         }
 
          if (keywordTableDefinition?.history) {
             await queryInterface.changeColumn(
