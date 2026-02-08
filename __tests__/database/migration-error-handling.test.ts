@@ -70,6 +70,30 @@ describe('Migration Error Handling', () => {
     }
   });
 
+  test('migration down function gracefully skips when table does not exist', async () => {
+    // Test that migration rollback handles missing tables gracefully
+    const migration = require('../../database/migrations/1710000000000-add-keyword-state-field');
+    
+    // Create a mock queryInterface that will fail to describe table
+    const mockQueryInterface = {
+      sequelize: {
+        transaction: jest.fn((callback) => callback({ transaction: 'mock' })),
+      },
+      describeTable: jest.fn().mockRejectedValue(new Error('Table does not exist')),
+    };
+
+    // Mock console.log to capture skip message
+    const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    
+    // Migration rollback should complete without throwing
+    await expect(migration.down({ context: mockQueryInterface })).resolves.not.toThrow();
+    
+    // Verify skip message was logged
+    expect(consoleSpy).toHaveBeenCalledWith('[MIGRATION] Skipping rollback - keyword table does not exist');
+    
+    consoleSpy.mockRestore();
+  });
+
   test('successful migrations should not throw errors', async () => {
     const migration = require('../../database/migrations/1710000000000-add-keyword-state-field');
     const { DataTypes } = require('sequelize');
