@@ -3,16 +3,13 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Op } from 'sequelize';
 import Keyword from '../../database/models/keyword';
-import Domain from '../../database/models/domain';
-import refreshAndUpdateKeywords, { clearKeywordUpdatingFlags } from '../../utils/refresh';
+import refreshAndUpdateKeywords, { clearKeywordUpdatingFlags, markKeywordsAsUpdating, partitionKeywordsByDomainStatus } from '../../utils/refresh';
 import { getAppSettings } from './settings';
 import verifyUser from '../../utils/verifyUser';
 import { scrapeKeywordFromGoogle } from '../../utils/scraper';
 import { serializeError } from '../../utils/errorSerialization';
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
-import { toDbBool } from '../../utils/dbBooleans';
-import normalizeDomainBooleans from '../../utils/normalizeDomain';
 import { refreshQueue } from '../../utils/refreshQueue';
 
 type BackgroundKeywordsRefreshRes = {
@@ -106,21 +103,11 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
          return res.status(404).json({ error: 'No keywords found for the provided filters.' });
       }
 
-      const domainNames = Array.from(new Set(keywordQueries.map((keyword) => keyword.domain).filter(Boolean)));
-      const domainRecords = await Domain.findAll({ where: { domain: domainNames }, attributes: ['domain', 'scrapeEnabled'] });
-      const scrapeEnabledMap = new Map(domainRecords.map((record) => {
-         const plain = record.get({ plain: true }) as DomainType;
-         const normalizedDomain = normalizeDomainBooleans(plain);
-         return [normalizedDomain.domain, normalizedDomain.scrapeEnabled];
-      }));
-
-      // Separate keywords into three categories:
-      // 1. Keywords with domains that exist and have scraping enabled
-      // 2. Keywords with domains that exist and have scraping disabled
-      // 3. Keywords with domains that don't exist in the Domain table (error case)
-      const keywordsToRefresh = keywordQueries.filter((keyword) => scrapeEnabledMap.get(keyword.domain) === true);
-      const skippedKeywords = keywordQueries.filter((keyword) => scrapeEnabledMap.get(keyword.domain) === false);
-      const missingDomainKeywords = keywordQueries.filter((keyword) => !scrapeEnabledMap.has(keyword.domain));
+      const {
+         keywordsToRefresh,
+         skippedKeywords,
+         missingDomainKeywords,
+      } = await partitionKeywordsByDomainStatus(keywordQueries);
 
       // Handle keywords whose domain is missing from the Domain table
       if (missingDomainKeywords.length > 0) {
@@ -174,11 +161,9 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
       const refreshDomain = domainsToRefresh[0];
 
       const keywordIdsToRefresh = keywordsToRefresh.map((keyword) => keyword.ID);
-      const now = new Date().toJSON();
-      await Keyword.update(
-         { updating: toDbBool(true), lastUpdateError: 'false', updatingStartedAt: now },
-         { where: { ID: { [Op.in]: keywordIdsToRefresh } } },
-      );
+      await markKeywordsAsUpdating(keywordsToRefresh, 'before manual refresh', {
+         keywordIds: keywordIdsToRefresh,
+      });
 
       // Generate unique task ID using crypto to prevent collisions in concurrent scenarios
       const uniqueId = crypto.randomUUID();

@@ -99,6 +99,84 @@ const normalizeDevice = (device?: string): 'desktop' | 'mobile' =>
 const generateKeywordCacheKey = (keyword: KeywordType): string =>
    `${keyword.keyword}|${keyword.domain}|${keyword.country}|${normalizeLocationForCache(keyword.location)}`;
 
+type KeywordRefreshPartition = {
+   keywordsToRefresh: Keyword[];
+   skippedKeywords: Keyword[];
+   missingDomainKeywords: Keyword[];
+   scrapeEnabledMap: Map<string, boolean>;
+};
+
+export const partitionKeywordsByDomainStatus = async (keywordQueries: Keyword[]): Promise<KeywordRefreshPartition> => {
+   if (!keywordQueries || keywordQueries.length === 0) {
+      return {
+         keywordsToRefresh: [],
+         skippedKeywords: [],
+         missingDomainKeywords: [],
+         scrapeEnabledMap: new Map(),
+      };
+   }
+
+   const domainNames = Array.from(new Set(keywordQueries.map((keyword) => keyword.domain).filter(Boolean)));
+   const domainRecords = domainNames.length > 0
+      ? await Domain.findAll({ where: { domain: domainNames }, attributes: ['domain', 'scrapeEnabled'] })
+      : [];
+
+   const scrapeEnabledMap = new Map<string, boolean>(
+      domainRecords.map((record) => {
+         const plain = record.get({ plain: true }) as DomainType;
+         const normalizedDomain = normalizeDomainBooleans(plain);
+         return [normalizedDomain.domain, normalizedDomain.scrapeEnabled];
+      }),
+   );
+
+   const keywordsToRefresh = keywordQueries.filter((keyword) => scrapeEnabledMap.get(keyword.domain) === true);
+   const skippedKeywords = keywordQueries.filter((keyword) => scrapeEnabledMap.get(keyword.domain) === false);
+   const missingDomainKeywords = keywordQueries.filter((keyword) => !scrapeEnabledMap.has(keyword.domain));
+
+   return { keywordsToRefresh, skippedKeywords, missingDomainKeywords, scrapeEnabledMap };
+};
+
+export const markKeywordsAsUpdating = async (
+   keywords: Keyword[],
+   logContext: string,
+   meta?: Record<string, unknown>,
+): Promise<void> => {
+   if (!keywords || keywords.length === 0) {
+      return;
+   }
+
+   const now = new Date().toJSON();
+   const updatePayload = {
+      updating: toDbBool(true),
+      lastUpdateError: 'false',
+      updatingStartedAt: now,
+   };
+
+   const BATCH_SIZE = 10;
+   const batches: Keyword[][] = [];
+   for (let i = 0; i < keywords.length; i += BATCH_SIZE) {
+      batches.push(keywords.slice(i, i + BATCH_SIZE));
+   }
+
+   for (const batch of batches) {
+      const results = await Promise.allSettled(
+         batch.map(async (keyword) => {
+            await keyword.update(updatePayload);
+         }),
+      );
+
+      results.forEach((result, index) => {
+         if (result.status === 'rejected') {
+            logger.error(
+               `[ERROR] Failed to set updating flags ${logContext}`,
+               result.reason instanceof Error ? result.reason : new Error(String(result.reason)),
+               { keywordId: batch[index]?.ID, ...meta },
+            );
+         }
+      });
+   }
+};
+
 export const clearKeywordUpdatingFlags = async (
    keywords: Keyword[],
    logContext: string,
