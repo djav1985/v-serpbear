@@ -129,7 +129,7 @@ describe('/api/refresh', () => {
       updatingStartedAt: '2024-06-01T12:00:00.000Z',
     });
     
-    // After error in refresh task, clearKeywordFlags should clear the flag
+    // After error in refresh task, clearKeywordUpdatingFlags should clear the flag
     expect(keywordRecord.update).toHaveBeenCalledWith({
       updating: 0,
       updatingStartedAt: null,
@@ -437,7 +437,7 @@ describe('/api/refresh', () => {
       updatingStartedAt: '2024-06-01T12:00:00.000Z',
     });
 
-    // After error, clearKeywordFlags should clear the flags
+    // After error, clearKeywordUpdatingFlags should clear the flags
     expect(keywordRecord1.update).toHaveBeenCalledWith({
       updating: 0,
       updatingStartedAt: null,
@@ -486,7 +486,7 @@ describe('/api/refresh', () => {
       { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
     ]);
 
-    // Simulate scraping failure to trigger clearKeywordFlags
+    // Simulate scraping failure to trigger clearKeywordUpdatingFlags
     (refreshAndUpdateKeywords as jest.Mock).mockRejectedValue(new Error('Scraping failed'));
 
     await handler(req, res);
@@ -501,7 +501,7 @@ describe('/api/refresh', () => {
       updatingStartedAt: '2024-06-01T12:00:00.000Z',
     });
 
-    // clearKeywordFlags should attempt to clear all keywords
+    // clearKeywordUpdatingFlags should attempt to clear all keywords
     // Keyword 1 and 3 should succeed
     expect(keywordRecord1.update).toHaveBeenCalledWith({
       updating: 0,
@@ -546,7 +546,7 @@ describe('/api/refresh', () => {
 
     await handler(req, res);
 
-    // clearKeywordFlags should be called for skipped keywords
+    // clearKeywordUpdatingFlags should be called for skipped keywords
     expect(keywordRecord1.update).toHaveBeenCalledWith({
       updating: 0,
       updatingStartedAt: null,
