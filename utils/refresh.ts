@@ -394,7 +394,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
       const keywordIdsToCleanup = eligibleKeywordIds;
       try {
          const keywordModelsToCleanup = eligibleKeywordModels.filter((keyword) => keywordIdsToCleanup.includes(keyword.ID));
-         await clearKeywordUpdatingFlags(keywordModelsToCleanup, 'after refresh error', undefined, false, 'refresh-error');
+         await clearKeywordUpdatingFlags(keywordModelsToCleanup, 'after refresh error', undefined, true, 'refresh-error');
       } catch (cleanupError: any) {
          logger.error('[ERROR] Failed to cleanup updating flags after error:', cleanupError);
       }
