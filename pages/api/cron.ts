@@ -7,10 +7,10 @@ import Domain from '../../database/models/domain';
 import { getAppSettings } from './settings';
 import verifyUser from '../../utils/verifyUser';
 
-import refreshAndUpdateKeywords from '../../utils/refresh';
+import refreshAndUpdateKeywords, { clearKeywordUpdatingFlags, markKeywordsAsUpdating, partitionKeywordsByDomainStatus } from '../../utils/refresh';
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
-import { fromDbBool, toDbBool } from '../../utils/dbBooleans';
+import { fromDbBool } from '../../utils/dbBooleans';
 import { refreshQueue } from '../../utils/refreshQueue';
 
 type CRONRefreshRes = {
@@ -82,10 +82,10 @@ const cronRefreshkeywords = async (req: NextApiRequest, res: NextApiResponse<CRO
  */
 const processSingleDomain = async (domain: string, settings: SettingsType): Promise<void> => {
    let keywordQueries: Keyword[] = [];
+   let keywordsToRefresh: Keyword[] = [];
    try {
       logger.info(`Processing domain: ${domain}`);
       
-      const now = new Date().toJSON();
       keywordQueries = await Keyword.findAll({ where: { domain } });
       
       if (keywordQueries.length === 0) {
@@ -93,16 +93,42 @@ const processSingleDomain = async (domain: string, settings: SettingsType): Prom
          return;
       }
 
-      const keywordIds = keywordQueries.map((keyword) => keyword.ID);
-      await Keyword.update(
-         { updating: toDbBool(true), lastUpdateError: 'false', updatingStartedAt: now },
-         { where: { ID: keywordIds } },
-      );
+      const {
+         keywordsToRefresh: eligibleKeywords,
+         skippedKeywords,
+         missingDomainKeywords,
+      } = await partitionKeywordsByDomainStatus(keywordQueries);
+
+      keywordsToRefresh = eligibleKeywords;
+
+      if (missingDomainKeywords.length > 0) {
+         await clearKeywordUpdatingFlags(missingDomainKeywords, 'for missing domains', {
+            domain,
+            keywordIds: missingDomainKeywords.map((keyword) => keyword.ID),
+         }, false, 'missing-domain');
+      }
+
+      if (skippedKeywords.length > 0) {
+         await clearKeywordUpdatingFlags(skippedKeywords, 'for skipped keywords', {
+            domain,
+            keywordIds: skippedKeywords.map((keyword) => keyword.ID),
+         }, false, 'scrape-disabled');
+      }
+
+      if (keywordsToRefresh.length === 0) {
+         logger.info(`No eligible keywords found for domain: ${domain}`);
+         return;
+      }
+
+      await markKeywordsAsUpdating(keywordsToRefresh, 'before cron refresh', {
+         domain,
+         keywordIds: keywordsToRefresh.map((keyword) => keyword.ID),
+      });
       
-      logger.info(`Processing ${keywordQueries.length} keywords for domain: ${domain}`);
+      logger.info(`Processing ${keywordsToRefresh.length} keywords for domain: ${domain}`);
       
       // Process this domain's keywords
-      await refreshAndUpdateKeywords(keywordQueries, settings);
+      await refreshAndUpdateKeywords(keywordsToRefresh, settings);
       
       logger.info(`Completed processing domain: ${domain}`);
    } catch (domainError) {
@@ -110,14 +136,10 @@ const processSingleDomain = async (domain: string, settings: SettingsType): Prom
       
       // Ensure flags are cleared on error for this domain
       try {
-         await Promise.all(
-            keywordQueries.map(async (keyword) => {
-               await keyword.update({ updating: toDbBool(false), updatingStartedAt: null });
-               if (typeof keyword.reload === 'function') {
-                  await keyword.reload();
-               }
-            }),
-         );
+         await clearKeywordUpdatingFlags(keywordsToRefresh, 'after domain refresh error', {
+            domain,
+            keywordIds: keywordsToRefresh.map((keyword) => keyword.ID),
+         }, false, 'refresh-error');
       } catch (updateError) {
          logger.error(`Failed to clear updating flags for domain: ${domain}`, updateError instanceof Error ? updateError : new Error(String(updateError)));
       }

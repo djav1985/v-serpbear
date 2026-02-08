@@ -30,26 +30,14 @@ jest.mock('../../pages/api/settings', () => ({
   getAppSettings: jest.fn(),
 }));
 
-jest.mock('../../utils/refresh', () => ({
-  __esModule: true,
-  default: jest.fn(),
-  clearKeywordUpdatingFlags: jest.fn().mockImplementation(async (keywords: any[], _logContext?: string, _meta?: Record<string, unknown>, _onlyWhenUpdating?: boolean, lastUpdateErrorReason?: string) => {
-    // Mock implementation that clears flags for each keyword
-    const updatePayload: Record<string, unknown> = { updating: 0, updatingStartedAt: null };
-    if (lastUpdateErrorReason) {
-      updatePayload.lastUpdateError = JSON.stringify({
-        reason: lastUpdateErrorReason,
-        date: new Date().toJSON(),
-        error: lastUpdateErrorReason,
-      });
-    }
-    await Promise.all(keywords.map(async (keyword) => {
-      if (keyword.update) {
-        await keyword.update(updatePayload);
-      }
-    }));
-  }),
-}));
+jest.mock('../../utils/refresh', () => {
+  const actual = jest.requireActual('../../utils/refresh');
+  return {
+    __esModule: true,
+    ...actual,
+    default: jest.fn(),
+  };
+});
 
 jest.mock('../../utils/scraper', () => ({
   scrapeKeywordFromGoogle: jest.fn(),
