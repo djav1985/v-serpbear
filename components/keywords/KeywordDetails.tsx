@@ -76,7 +76,7 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
                      <span>{keyword.keyword}</span>
                      <span
                      className={`py-1 px-2 ml-2 rounded bg-blue-50 ${keyword.position === 0 ? 'text-gray-500' : 'text-blue-700'}  text-xs font-bold`}>
-                        {keyword.position === 0 ? 'Not in First 100' : keyword.position}
+                        {keyword.position === 0 ? 'Not in First 10' : keyword.position}
                      </span>
                   </h3>
                   <button

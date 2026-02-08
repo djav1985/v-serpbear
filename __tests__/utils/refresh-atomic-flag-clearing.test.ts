@@ -141,6 +141,101 @@ describe('Atomic Flag Clearing in Refresh Workflow', () => {
         error: 'Scraper failed',
         scraper: 'serpapi',
       });
+      expect(mockKeywordModel.update).toHaveBeenCalledTimes(1);
+    });
+
+    it('should attempt fallback flag-clear and error persistence when full DB update fails', async () => {
+      // This test verifies that when the full atomic update fails,
+      // a best-effort fallback update attempts to clear the flags AND persist the error
+      // to prevent keywords from staying stuck in "updating" state and to show users what went wrong.
+      const mockKeywordModel = {
+        ID: 10,
+        domain: 'example.com',
+        keyword: 'db failure keyword',
+        updating: toDbBool(true),
+        updatingStartedAt: new Date().toJSON(),
+        get: jest.fn().mockReturnValue({
+          ID: 10,
+          domain: 'example.com',
+          keyword: 'db failure keyword',
+          position: 5,
+          history: {},
+          lastUpdated: '',
+          url: '',
+        }),
+        update: jest.fn()
+          .mockRejectedValueOnce(new Error('DB write failed'))  // First call: full update fails
+          .mockResolvedValueOnce(undefined),                      // Second call: fallback flag-clear succeeds
+      };
+
+      const mockRefreshResult: RefreshResult = {
+        ID: 10,
+        keyword: 'db failure keyword',
+        position: 3,
+        url: 'https://example.com',
+        result: [],
+        localResults: [],
+        mapPackTop3: false,
+        error: false,
+      };
+
+      const result = await updateKeywordPosition(
+        mockKeywordModel as unknown as Keyword,
+        mockRefreshResult,
+        mockSettings
+      );
+
+      // Verify that update was called twice: once for full update, once for fallback flag-clear
+      expect(mockKeywordModel.update).toHaveBeenCalledTimes(2);
+
+      // First call: full atomic update with all data from API response + flags
+      expect(mockKeywordModel.update).toHaveBeenNthCalledWith(1,
+        expect.objectContaining({
+          position: 3, // from API response
+          url: 'https://example.com', // from API response
+          updating: toDbBool(false), // flag cleared
+          updatingStartedAt: null, // flag cleared
+          lastResult: expect.any(String),
+          localResults: expect.any(String),
+          history: expect.any(String),
+          lastUpdated: expect.any(String),
+          lastUpdateError: 'false',
+          mapPackTop3: toDbBool(false),
+        })
+      );
+
+      // Second call: best-effort fallback to clear flags AND persist error
+      const fallbackCall = mockKeywordModel.update.mock.calls[1][0];
+      expect(fallbackCall).toMatchObject({
+        updating: toDbBool(false),
+        updatingStartedAt: null,
+      });
+      
+      // Verify error field is persisted in DB during fallback
+      expect(fallbackCall.lastUpdateError).toBeDefined();
+      const persistedError = JSON.parse(fallbackCall.lastUpdateError);
+      expect(persistedError).toMatchObject({
+        date: expect.any(String),
+        error: expect.stringContaining('DB write failed'),
+        scraper: 'serpapi',
+      });
+
+      // When DB write fails, the catch block returns in-memory state with flags cleared
+      // but does NOT include the new API response data (position, url, etc.).
+      // The function returns the original keyword data with flags cleared and error field populated.
+      expect(result).toMatchObject({
+        updating: false,
+        updatingStartedAt: null,
+        position: 5, // Original position, not 3 from API response
+      });
+      
+      // Verify error field is populated with DB failure information
+      expect(result.lastUpdateError).toBeDefined();
+      expect(result.lastUpdateError).toMatchObject({
+        date: expect.any(String),
+        error: expect.stringContaining('DB write failed'),
+        scraper: 'serpapi',
+      });
     });
   });
 
@@ -203,13 +298,10 @@ describe('Atomic Flag Clearing in Refresh Workflow', () => {
           updatingStartedAt: null,
         });
       });
+      expect(mockKeywordModel.update).toHaveBeenCalledTimes(1);
     });
 
     it('should clear flags for skipped keywords (scraping disabled)', async () => {
-      // Mock Keyword.update for bulk updates
-      const mockBulkUpdate = jest.fn().mockResolvedValue([1]); // Sequelize returns [affectedCount]
-      (Keyword.update as jest.Mock) = mockBulkUpdate;
-
       const mockKeywordModel = {
         ID: 4,
         domain: 'disabled.com',
@@ -244,16 +336,14 @@ describe('Atomic Flag Clearing in Refresh Workflow', () => {
       // Verify scraper was never called for this keyword
       expect(scrapeKeywordFromGoogle).not.toHaveBeenCalled();
 
-      // Verify bulk update was called to clear flags (clearKeywordUpdatingFlags uses Keyword.update)
-      expect(mockBulkUpdate).toHaveBeenCalledWith(
+      // Verify per-row update clears flags once
+      expect(mockKeywordModel.update).toHaveBeenCalledWith(
         expect.objectContaining({
           updating: toDbBool(false),
           updatingStartedAt: null,
         }),
-        expect.objectContaining({
-          where: { ID: [4] },
-        })
       );
+      expect(mockKeywordModel.update).toHaveBeenCalledTimes(1);
     });
 
     it('should clear flags in error handler when unexpected error occurs', async () => {
@@ -316,6 +406,7 @@ describe('Atomic Flag Clearing in Refresh Workflow', () => {
       const updateCall = mockKeywordModel.update.mock.calls[0][0];
       expect(updateCall.lastUpdateError).toBeDefined();
       expect(updateCall.lastUpdateError).not.toBe('false');
+      expect(mockKeywordModel.update).toHaveBeenCalledTimes(1);
     });
   });
 

@@ -99,39 +99,142 @@ const normalizeDevice = (device?: string): 'desktop' | 'mobile' =>
 const generateKeywordCacheKey = (keyword: KeywordType): string =>
    `${keyword.keyword}|${keyword.domain}|${keyword.country}|${normalizeLocationForCache(keyword.location)}`;
 
-const clearKeywordUpdatingFlags = async (
+type KeywordRefreshPartition = {
+   keywordsToRefresh: Keyword[];
+   skippedKeywords: Keyword[];
+   missingDomainKeywords: Keyword[];
+   scrapeEnabledMap: Map<string, boolean>;
+};
+
+export const partitionKeywordsByDomainStatus = async (keywordQueries: Keyword[]): Promise<KeywordRefreshPartition> => {
+   if (!keywordQueries || keywordQueries.length === 0) {
+      return {
+         keywordsToRefresh: [],
+         skippedKeywords: [],
+         missingDomainKeywords: [],
+         scrapeEnabledMap: new Map(),
+      };
+   }
+
+   const domainNames = Array.from(new Set(keywordQueries.map((keyword) => keyword.domain).filter(Boolean)));
+   const domainRecords = domainNames.length > 0
+      ? await Domain.findAll({ where: { domain: domainNames }, attributes: ['domain', 'scrapeEnabled'] })
+      : [];
+
+   const scrapeEnabledMap = new Map<string, boolean>(
+      domainRecords.map((record) => {
+         const plain = record.get({ plain: true }) as Pick<DomainType, 'domain' | 'scrapeEnabled'>;
+         const scrapeEnabled = fromDbBool(plain.scrapeEnabled);
+         return [plain.domain, scrapeEnabled];
+      }),
+   );
+
+   const keywordsToRefresh = keywordQueries.filter((keyword) => scrapeEnabledMap.get(keyword.domain) === true);
+   const skippedKeywords = keywordQueries.filter((keyword) => scrapeEnabledMap.get(keyword.domain) === false);
+   const missingDomainKeywords = keywordQueries.filter((keyword) => !scrapeEnabledMap.has(keyword.domain));
+
+   return { keywordsToRefresh, skippedKeywords, missingDomainKeywords, scrapeEnabledMap };
+};
+
+export const markKeywordsAsUpdating = async (
+   keywords: Keyword[],
+   logContext: string,
+   meta?: Record<string, unknown>,
+): Promise<void> => {
+   if (!keywords || keywords.length === 0) {
+      return;
+   }
+
+   const now = new Date().toJSON();
+   const updatePayload = {
+      updating: toDbBool(true),
+      lastUpdateError: 'false',
+      updatingStartedAt: now,
+   };
+
+   const BATCH_SIZE = 10;
+   const batches: Keyword[][] = [];
+   for (let i = 0; i < keywords.length; i += BATCH_SIZE) {
+      batches.push(keywords.slice(i, i + BATCH_SIZE));
+   }
+
+   for (const batch of batches) {
+      const results = await Promise.allSettled(
+         batch.map(async (keyword) => {
+            await keyword.update(updatePayload);
+         }),
+      );
+
+      results.forEach((result, index) => {
+         if (result.status === 'rejected') {
+            logger.error(
+               `[ERROR] Failed to set updating flags ${logContext}`,
+               result.reason instanceof Error ? result.reason : new Error(String(result.reason)),
+               { keywordId: batch[index]?.ID, ...meta },
+            );
+         }
+      });
+   }
+};
+
+export const clearKeywordUpdatingFlags = async (
    keywords: Keyword[],
    logContext: string,
    meta?: Record<string, unknown>,
    onlyWhenUpdating = false,
+   lastUpdateErrorReason?: string,
 ): Promise<void> => {
    if (keywords.length === 0) {
       return;
    }
    try {
-      const idsToUpdate = onlyWhenUpdating
-         ? keywords.filter((keyword) => fromDbBool(keyword.updating)).map((keyword) => keyword.ID)
-         : keywords.map((keyword) => keyword.ID);
-      
-      if (idsToUpdate.length === 0) {
+      const keywordsToUpdate = onlyWhenUpdating
+         ? keywords.filter((keyword) => fromDbBool(keyword.updating))
+         : keywords;
+
+      if (keywordsToUpdate.length === 0) {
          return;
       }
-      
-      // Bulk update for better performance
-      await Keyword.update(
-         { updating: toDbBool(false), updatingStartedAt: null },
-         { where: { ID: idsToUpdate } }
-      );
-      
-      // Also update in-memory instances for consistency
-      keywords.forEach((keyword) => {
-         if (!onlyWhenUpdating || fromDbBool(keyword.updating)) {
-            keyword.updating = toDbBool(false);
-            keyword.updatingStartedAt = null;
-         }
-      });
+
+      // Process updates in batches to reduce SQLite lock contention and SQLITE_BUSY errors.
+      // Each batch allows limited concurrency while batches are processed sequentially.
+      const BATCH_SIZE = 10;
+      const batches: Keyword[][] = [];
+      for (let i = 0; i < keywordsToUpdate.length; i += BATCH_SIZE) {
+         batches.push(keywordsToUpdate.slice(i, i + BATCH_SIZE));
+      }
+
+      const lastUpdateErrorPayload = lastUpdateErrorReason
+         ? JSON.stringify({ reason: lastUpdateErrorReason, date: new Date().toJSON(), error: lastUpdateErrorReason })
+         : null;
+
+      for (const batch of batches) {
+         const results = await Promise.allSettled(
+            batch.map(async (keyword) => {
+               const updatePayload: Record<string, unknown> = {
+                  updating: toDbBool(false),
+                  updatingStartedAt: null,
+               };
+               if (lastUpdateErrorPayload) {
+                  updatePayload.lastUpdateError = lastUpdateErrorPayload;
+               }
+               await keyword.update(updatePayload);
+            }),
+         );
+
+         results.forEach((result, index) => {
+            if (result.status === 'rejected') {
+               logger.error(
+                  `[ERROR] Failed to clear updating flags ${logContext}`,
+                  result.reason instanceof Error ? result.reason : new Error(String(result.reason)),
+                  { keywordId: batch[index]?.ID, ...meta },
+               );
+            }
+         });
+      }
    } catch (error: any) {
-      logger.error(`[ERROR] Failed to clear updating flags ${logContext}`, error, meta);
+      const normalizedError = error instanceof Error ? error : new Error(String(error));
+      logger.error(`[ERROR] Failed to clear updating flags ${logContext}`, normalizedError, meta);
    }
 };
 
@@ -210,7 +313,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
    });
 
    if (skippedKeywords.length > 0) {
-      await clearKeywordUpdatingFlags(skippedKeywords, 'for skipped keywords');
+      await clearKeywordUpdatingFlags(skippedKeywords, 'for skipped keywords', undefined, false, 'scrape-disabled');
 
       // Use batched removal for better performance and concurrency safety
       const idsToRemove = new Set(skippedKeywords.map((keyword) => keyword.ID));
@@ -291,7 +394,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
       const keywordIdsToCleanup = eligibleKeywordIds;
       try {
          const keywordModelsToCleanup = eligibleKeywordModels.filter((keyword) => keywordIdsToCleanup.includes(keyword.ID));
-         await clearKeywordUpdatingFlags(keywordModelsToCleanup, 'after refresh error');
+         await clearKeywordUpdatingFlags(keywordModelsToCleanup, 'after refresh error', undefined, true, 'refresh-error');
       } catch (cleanupError: any) {
          logger.error('[ERROR] Failed to cleanup updating flags after error:', cleanupError);
       }
@@ -495,6 +598,8 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          : 'false';
       const urlValue = typeof updatedKeyword.url === 'string' ? updatedKeyword.url : null;
 
+      // Build single atomic update payload with ALL fields from API response + flags
+      // In the success path we perform a single update per keyword row to minimize DB writes,
       const dbPayload = {
          position: newPos,
          updating: toDbBool(false),
@@ -520,7 +625,8 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
       }
 
       try {
-         // Update database first; Sequelize updates the in-memory instance.
+         // Single atomic DB update with all fields from API response + flags
+         // Sequelize automatically updates the in-memory instance on success
          await keywordRaw.update(dbPayload);
          
          // Log when updating flag is cleared to help debug UI issues
@@ -568,17 +674,45 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
             mapPackTop3: fromDbBool(dbPayload.mapPackTop3),
          };
       } catch (error: any) {
-         logger.error('[ERROR] Updating SERP for Keyword', error, { keyword: keyword.keyword });
+         const normalizedError = error instanceof Error ? error : new Error(String(error));
+         logger.error(
+            '[ERROR] Failed to update keyword in database',
+            normalizedError,
+            { keywordId: keyword.ID, keyword: keyword.keyword }
+         );
+         
+         // Best-effort fallback: attempt to clear flags AND persist error in DB
+         // even when full update failed. This prevents keywords from getting stuck
+         // in "updating" state and ensures the error is visible to users.
+         const errorDate = new Date();
+         const dbErrorPayload = {
+            date: errorDate.toJSON(),
+            error: serializeError(normalizedError),
+            scraper: settings.scraper_type,
+         };
+         
          try {
-            // Update database to clear flags after failure.
-            await keywordRaw.update({ updating: toDbBool(false), updatingStartedAt: null });
-         } catch (cleanupError: any) {
-            logger.error('[ERROR] Failed to clear updating flag after update failure', cleanupError, { keywordId: keyword.ID });
+            await keywordRaw.update({
+               updating: toDbBool(false),
+               updatingStartedAt: null,
+               lastUpdateError: JSON.stringify(dbErrorPayload),
+            });
+            logger.info('Cleared updating flags and persisted error after DB update failure', { keywordId: keyword.ID });
+         } catch (fallbackError: any) {
+            logger.error(
+               '[ERROR] Failed to clear updating flags after DB update failure',
+               fallbackError instanceof Error ? fallbackError : new Error(String(fallbackError)),
+               { keywordId: keyword.ID }
+            );
          }
+         
+         // When DB write fails, return original keyword data with flags cleared
+         // and error field populated to inform the user of the DB failure
          updated = {
             ...keyword,
             updating: false,
             updatingStartedAt: null,
+            lastUpdateError: dbErrorPayload,
          };
       }
    }

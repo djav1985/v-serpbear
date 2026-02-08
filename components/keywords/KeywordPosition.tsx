@@ -10,7 +10,7 @@ const KeywordPosition = ({ position = 0, type = '', updating = false }:KeywordPo
    const isUpdating = Boolean(updating);
 
    if (!isUpdating && position === 0) {
-      return <span className='text-gray-400' title='Not in Top 100'>{'>100'}</span>;
+      return <span className='text-gray-400' title='Not in Top 10'>{'>10'}</span>;
    }
    if (isUpdating && type !== 'sc') {
       return <span title='Updating Keyword Position'><Icon type="loading" /></span>;

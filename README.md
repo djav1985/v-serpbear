@@ -58,6 +58,7 @@ Not every scraper provider is validated on every release—please report any iss
 - **Frontend & API:** Next.js 15 application serving React pages and JSON endpoints from a single codebase.
 - **Database:** SQLite (via a custom `better-sqlite3` dialect) by default, with optional external database support through Sequelize.
 - **Background workers:** Node-based cron runner schedules scrapes, retries, Google Search Console refreshes, and notification emails according to configurable cron expressions and timezone settings.
+- **Refresh queue:** Per-domain locking ensures the same domain is never refreshed twice simultaneously, while configurable concurrency keeps multiple domains processing in parallel.
 - **Integrations:** Scraper selection, Google Ads credentials, and SMTP settings are managed in the Settings UI (persisted in `data/settings.json`), while Search Console credentials can be supplied in Settings or via the `SEARCH_CONSOLE_*` environment variables as a global fallback.
 
 ![Animated dashboard tour](https://serpbear.b-cdn.net/serpbear_readme_v2.gif "Animated dashboard tour")
@@ -175,6 +176,7 @@ All cron expressions are normalised at runtime—quotes and stray whitespace are
 | `LOG_LEVEL` | `info` | Optional | Controls log verbosity for the structured logger. Accepts `error`, `warn`, `info`, `debug`; set to `off`, `none`, `false`, or `0` to disable logging. |
 | `LOG_SUCCESS_EVENTS` | — | Optional | Reserved for future use; ignored in the current codebase. |
 | `NEXT_REMOVE_CONSOLE` | — | Optional | Not wired in `next.config.js`; currently has no effect. |
+| `REFRESH_QUEUE_CONCURRENCY` | `3` | Optional | Maximum number of domains that can be refreshed in parallel. The queue still prevents duplicate refreshes for the same domain. |
 
 Set `ANALYZE=true` before running `next build` to generate a static bundle analysis report (`bundle-analyzer-report.html`) as configured in [`next.config.js`](./next.config.js).
 
@@ -228,7 +230,7 @@ The **Business Name** field is an optional setting in the domain scraper configu
 
 1. **Add a domain** – supply the host name you want to monitor.
 2. **Create keywords** – capture the query, target country, optional state/city pair (stored as a single location string), and device type (desktop/mobile).
-3. **Run scrapes** – the cron worker queries your configured provider for the top 100 organic results and stores rank positions.
+3. **Run scrapes** – the cron worker queries your configured provider for the top 10 organic results and stores rank positions.
 4. **Analyse trends** – interactive charts and tables surface historical rank, average position, and day-over-day change.
 5. **Share insights** – export keyword data via the API or send scheduled email summaries to stakeholders.
 

@@ -29,10 +29,14 @@ jest.mock('../../pages/api/settings', () => ({
   getAppSettings: jest.fn(),
 }));
 
-jest.mock('../../utils/refresh', () => ({
-  __esModule: true,
-  default: jest.fn().mockResolvedValue([]),
-}));
+jest.mock('../../utils/refresh', () => {
+  const actual = jest.requireActual('../../utils/refresh');
+  return {
+    __esModule: true,
+    ...actual,
+    default: jest.fn().mockResolvedValue([]),
+  };
+});
 
 jest.mock('../../utils/apiLogging', () => ({
   withApiLogging: (handler: any) => handler,

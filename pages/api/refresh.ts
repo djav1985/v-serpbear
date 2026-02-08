@@ -3,39 +3,14 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Op } from 'sequelize';
 import Keyword from '../../database/models/keyword';
-import Domain from '../../database/models/domain';
-import refreshAndUpdateKeywords from '../../utils/refresh';
+import refreshAndUpdateKeywords, { clearKeywordUpdatingFlags, markKeywordsAsUpdating, partitionKeywordsByDomainStatus } from '../../utils/refresh';
 import { getAppSettings } from './settings';
 import verifyUser from '../../utils/verifyUser';
 import { scrapeKeywordFromGoogle } from '../../utils/scraper';
 import { serializeError } from '../../utils/errorSerialization';
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
-import { toDbBool } from '../../utils/dbBooleans';
-import normalizeDomainBooleans from '../../utils/normalizeDomain';
 import { refreshQueue } from '../../utils/refreshQueue';
-
-/**
- * Helper function to clear updating flags for multiple keywords
- * @param keywords - Array of keyword models to clear flags for
- */
-const clearKeywordFlags = async (keywords: Keyword[]): Promise<void> => {
-   const results = await Promise.allSettled(
-      keywords.map(async (keyword) => {
-         await keyword.update({ updating: toDbBool(false), updatingStartedAt: null });
-         if (typeof keyword.reload === 'function') {
-            await keyword.reload();
-         }
-      }),
-   );
-   
-   // Log any individual failures
-   results.forEach((result, index) => {
-      if (result.status === 'rejected') {
-         logger.error('[REFRESH] Failed to clear updating flag for keyword: ', result.reason instanceof Error ? result.reason : new Error(String(result.reason)), { keywordId: keywords[index]?.ID });
-      }
-   });
-};
 
 type BackgroundKeywordsRefreshRes = {
    // 202 Accepted: background execution started, no keywords returned yet
@@ -108,6 +83,12 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
       return res.status(400).json({ error: 'No valid keyword IDs provided' });
    }
 
+   const clearUpdatingFlags = async (keywords: Keyword[], logContext: string, reason: string, onlyWhenUpdating = false) => {
+      await clearKeywordUpdatingFlags(keywords, logContext, {
+         keywordIds: keywords.map((kw) => kw.ID),
+      }, onlyWhenUpdating, reason);
+   };
+
    try {
       const settings = await getAppSettings();
       
@@ -122,21 +103,11 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
          return res.status(404).json({ error: 'No keywords found for the provided filters.' });
       }
 
-      const domainNames = Array.from(new Set(keywordQueries.map((keyword) => keyword.domain).filter(Boolean)));
-      const domainRecords = await Domain.findAll({ where: { domain: domainNames }, attributes: ['domain', 'scrapeEnabled'] });
-      const scrapeEnabledMap = new Map(domainRecords.map((record) => {
-         const plain = record.get({ plain: true }) as DomainType;
-         const normalizedDomain = normalizeDomainBooleans(plain);
-         return [normalizedDomain.domain, normalizedDomain.scrapeEnabled];
-      }));
-
-      // Separate keywords into three categories:
-      // 1. Keywords with domains that exist and have scraping enabled
-      // 2. Keywords with domains that exist and have scraping disabled
-      // 3. Keywords with domains that don't exist in the Domain table (error case)
-      const keywordsToRefresh = keywordQueries.filter((keyword) => scrapeEnabledMap.get(keyword.domain) === true);
-      const skippedKeywords = keywordQueries.filter((keyword) => scrapeEnabledMap.get(keyword.domain) === false);
-      const missingDomainKeywords = keywordQueries.filter((keyword) => !scrapeEnabledMap.has(keyword.domain));
+      const {
+         keywordsToRefresh,
+         skippedKeywords,
+         missingDomainKeywords,
+      } = await partitionKeywordsByDomainStatus(keywordQueries);
 
       // Handle keywords whose domain is missing from the Domain table
       if (missingDomainKeywords.length > 0) {
@@ -148,7 +119,7 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
          });
          
          // Clear updating flags for these keywords
-         await clearKeywordFlags(missingDomainKeywords);
+         await clearUpdatingFlags(missingDomainKeywords, 'for missing domains', 'missing-domain');
          
          // Remove missing domain keywords from retry queue
          const missingKeywordIds = new Set(missingDomainKeywords.map((kw) => kw.ID));
@@ -168,7 +139,7 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
       }
 
       if (skippedKeywords.length > 0) {
-         await clearKeywordFlags(skippedKeywords);
+         await clearUpdatingFlags(skippedKeywords, 'for skipped keywords', 'scrape-disabled');
       }
 
       if (keywordsToRefresh.length === 0) {
@@ -190,15 +161,9 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
       const refreshDomain = domainsToRefresh[0];
 
       const keywordIdsToRefresh = keywordsToRefresh.map((keyword) => keyword.ID);
-      const now = new Date().toJSON();
-      await Promise.all(
-         keywordsToRefresh.map(async (keyword) => {
-            await keyword.update({ updating: toDbBool(true), lastUpdateError: 'false', updatingStartedAt: now });
-            if (typeof keyword.reload === 'function') {
-               await keyword.reload();
-            }
-         }),
-      );
+      await markKeywordsAsUpdating(keywordsToRefresh, 'before manual refresh', {
+         keywordIds: keywordIdsToRefresh,
+      });
 
       // Generate unique task ID using crypto to prevent collisions in concurrent scenarios
       const uniqueId = crypto.randomUUID();
@@ -218,8 +183,8 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
             } catch (refreshError) {
                const message = serializeError(refreshError);
                logger.error('[REFRESH] ERROR refreshAndUpdateKeywords: ', refreshError instanceof Error ? refreshError : new Error(message), { keywordIds: keywordIdsToRefresh });
-               // Ensure flags are cleared on error
-               await clearKeywordFlags(keywordsToRefresh).catch((updateError) => {
+               // Ensure flags are cleared on error, only for keywords still in updating state
+               await clearUpdatingFlags(keywordsToRefresh, 'after refresh error', 'refresh-error', true).catch((updateError) => {
                   logger.error('[REFRESH] Failed to clear updating flags after error: ', updateError instanceof Error ? updateError : new Error(String(updateError)));
                });
                throw refreshError; // Re-throw to be caught by queue error handler

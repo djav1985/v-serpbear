@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file. Releases no
 ### Documentation
 - Documented the fork's stability, security, and performance improvements at the top of the README for quick comparison with upstream SerpBear.
 - Clarified that local development must use Node.js 20.18.1+ to align with the `.nvmrc` pin and dependency requirements.
+- Documented refresh queue concurrency controls and per-domain locking behavior in the README configuration reference.
 
 ### Build
 - Adopted `@stylistic/stylelint-plugin` and upgraded Stylelint tooling to v16 so indentation rules continue working under the plugin namespace.
@@ -415,7 +416,7 @@ All notable changes to this project will be documented in this file. Releases no
 
 ### Features
 
-- keyword not in first 100 now shows >100 ([e1799fb](https://github.com/towfiqi/serpbear/commit/e1799fb2f35ab8c0f65eb90e66dcda10b8cb6f16))
+- keyword not in first 10 now shows >10 ([e1799fb](https://github.com/towfiqi/serpbear/commit/e1799fb2f35ab8c0f65eb90e66dcda10b8cb6f16))
 
 ### Bug Fixes
 
