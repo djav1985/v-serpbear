@@ -4,9 +4,13 @@ All notable changes to this project will be documented in this file. Releases no
 
 ## [Unreleased]
 
+# [4.0.0](https://github.com/djav1985/v-serpbear/compare/v3.0.0...v4.0.0) (2026-01-27)
+
 ### Features
 - Daily notification email now surfaces a tracker mini-summary ahead of the Search Console tables, styled to match the dashboard tracker card and only showing the Map Pack column when the active scraper supports it.
 - White-label deployments can override the platform name and supply a `/app/data` logo that propagates through the UI, emails, and Docker environment defaults.
+- Added CrazySERP scraper integration.
+- Added dynamic scraping strategy modes (`Basic`, `Custom`, and `Smart`) to control provider selection behavior.
 - Keyword ideas banner now offers an email action on both research and domain idea tabs, formatting selected ideas into a rich HTML table and bypassing notification throttling while still enforcing domain-specific recipients.
 - Keyword details panel now visualises skipped SERP positions as labelled page-range placeholders between real result cards. An inline banner reports the scraped vs. skipped counts, and the "not found" badge adapts to reflect the actual number of results checked rather than always displaying "Not in First 100".
 
@@ -14,9 +18,12 @@ All notable changes to this project will be documented in this file. Releases no
 - Documented the fork's stability, security, and performance improvements at the top of the README for quick comparison with upstream SerpBear.
 - Clarified that local development must use Node.js 20.18.1+ to align with the `.nvmrc` pin and dependency requirements.
 - Documented refresh queue concurrency controls and per-domain locking behavior in the README configuration reference.
+- Clarified README guidance that Google Ads and SMTP credentials are managed in Settings rather than environment variables, and that LOG_SUCCESS_EVENTS/NEXT_REMOVE_CONSOLE are currently unused.
 
 ### Build
 - Adopted `@stylistic/stylelint-plugin` and upgraded Stylelint tooling to v16 so indentation rules continue working under the plugin namespace.
+- Bumped the application version to 4.0.0 across manifests, UI footer defaults, and versioned tests.
+- Aligned Docker build and type-checking scripts with the current TypeScript toolchain so CI and image builds run against the corrected typings.
 
 ### Bug Fixes
 - Expanded the notification email template container so digest tables render wider in supporting clients.
@@ -29,17 +36,6 @@ All notable changes to this project will be documented in this file. Releases no
 - Tracker email summary now falls back to live keyword data to compute average position and map-pack totals, preventing those counters from showing 0 when domain aggregates are unavailable.
 - Tracker email summary now respects persisted Map Pack totals when available while still deriving a fallback from live keyword data for domains without the stored value.
 - Domain stats retrieval now omits average position and map-pack counts unless persisted values exist, avoiding stale recalculations from keyword snapshots.
-
-# [4.0.0](https://github.com/djav1985/v-serpbear/compare/v3.0.0...v4.0.0) (2026-01-27)
-
-### Documentation
-- Clarified README guidance that Google Ads and SMTP credentials are managed in Settings rather than environment variables, and that LOG_SUCCESS_EVENTS/NEXT_REMOVE_CONSOLE are currently unused.
-
-### Build
-- Bumped the application version to 4.0.0 across manifests, UI footer defaults, and versioned tests.
-- Aligned Docker build and type-checking scripts with the current TypeScript toolchain so CI and image builds run against the corrected typings.
-
-### Bug Fixes
 - Corrected TypeScript types for `failed_queue`, `proper-lockfile`, and `logger.error`, unblocking the Docker production build by eliminating the associated type errors.
 # [3.0.0](https://github.com/djav1985/v-serpbear/compare/v2.0.7...v3.0.0) (2025-09-24)
 
