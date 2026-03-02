@@ -10,23 +10,23 @@ Not every scraper provider is validated on every release—please report any iss
 >
 > **1. Bug fixes & patches** – Hardened scrapers survive DOM and API drift, patched dependency regressions, and keep long-running jobs stable under high request volumes.
 >
-> **4. Configuration & flexibility** – Streamlined environment variables, CI-powered deployment workflows, and dynamic toggles for ValueSerp, SerpAPI, and other providers eliminate hardcoded defaults.
+> **2. Configuration & flexibility** – Streamlined environment variables, CI-powered deployment workflows, and dynamic toggles for ValueSerp, SerpAPI, and other providers eliminate hardcoded defaults.
 >
-> **5. Security & modernization** – Modern Node.js support, removal of deprecated libraries, and stricter sanitisation guard against warning-laden installs and insecure runtime behaviour.
+> **3. Security & modernization** – Modern Node.js support, removal of deprecated libraries, and stricter sanitisation guard against warning-laden installs and insecure runtime behaviour.
 >
-> **6. Error handling & observability** – Descriptive logs, layered retry logic, and adjustable debug levels make diagnosing scraper hiccups or API failures straightforward.
+> **4. Error handling & observability** – Descriptive logs, layered retry logic, and adjustable debug levels make diagnosing scraper hiccups or API failures straightforward.
 >
-> **7. Performance & caching** – Smarter SERP caching, batched keyword refreshes, and fewer redundant calls drive faster crawls while reducing API spend.
+> **5. Performance & caching** – Smarter SERP caching, batched keyword refreshes, and fewer redundant calls drive faster crawls while reducing API spend.
 >
-> **8. Google Map Pack:** Now marks keywords that show up in the map pack.
+> **6. Google Map Pack:** Now marks keywords that show up in the map pack.
 >
-> **9. White Labeling:** Easy whitelabling.
+> **7. White Labeling:** Easy white-labeling.
 >
-> **10. Per Domain Scraping:** Easily set scrapers per domain globally or both.
+> **8. Per Domain Scraping:** Easily set scrapers per domain globally or both.
 >
-> **11. Transparent SERP result coverage:** The keyword details panel now shows exactly which pages were scraped and which were skipped. Skipped page ranges appear as clearly labelled placeholder blocks between real results, and the "not found" badge adapts to reflect the actual number of results checked rather than always displaying "Not in First 100".
+> **9. Transparent SERP result coverage:** The keyword details panel now shows exactly which pages were scraped and which were skipped. Skipped page ranges appear as clearly labelled placeholder blocks between real results, and the "not found" badge adapts to reflect the actual number of results checked rather than always displaying "Not in First 100".
 >
-> **12. Dynamic scraping strategy:** A flexible 3-tier system lets you control how many pages are checked per keyword at both the global and per-domain level. **Basic** (default) scrapes only the first page; **Custom** scrapes a fixed number of pages (1–10); **Smart** targets the page where the keyword was last seen ± one neighbour, with an optional full-10-page fallback. This directly addresses Google's removal of `num=100` support so keywords beyond position 10 are no longer always reported as "Not in First 100".
+> **10. Dynamic scraping strategy:** A flexible 3-tier system lets you control how many pages are checked per keyword at both the global and per-domain level. **Basic** (default) scrapes only the first page; **Custom** scrapes a fixed number of pages (1–10); **Smart** targets the page where the keyword was last seen ± one neighbour, with an optional full-10-page fallback. This directly addresses Google's removal of `num=100` support so keywords beyond position 10 are no longer always reported as "Not in First 100".
 > 
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/7e7a0030c3f84c6fb56a3ce6273fbc1d)](https://app.codacy.com/gh/djav1985/v-serpbear/dashboard) ![License](https://img.shields.io/github/license/djav1985/v-serpbear) ![Version](https://img.shields.io/github/package-json/v/djav1985/v-serpbear) ![Docker pulls](https://img.shields.io/docker/pulls/vontainment/v-serpbear)
 
@@ -60,7 +60,7 @@ Not every scraper provider is validated on every release—please report any iss
 
 ### Platform architecture at a glance
 
-- **Frontend & API:** Next.js 15 application serving React pages and JSON endpoints from a single codebase.
+- **Frontend & API:** Next.js 16 application serving React pages and JSON endpoints from a single codebase.
 - **Database:** SQLite (via a custom `better-sqlite3` dialect) by default, with optional external database support through Sequelize.
 - **Background workers:** Node-based cron runner schedules scrapes, retries, Google Search Console refreshes, and notification emails according to configurable cron expressions and timezone settings.
 - **Refresh queue:** Per-domain locking ensures the same domain is never refreshed twice simultaneously, while configurable concurrency keeps multiple domains processing in parallel.
@@ -203,8 +203,9 @@ SerpBear integrates with several managed APIs in addition to a "bring your own p
 | ValueSerp (`valueserp`) | ✅ | Pay-as-you-go 10,000 for $25 | City-level | **Yes** – extracts local map pack | Strategy-controlled (10 per page, up to 10 pages) | Query string `api_key` |
 | Serper (`serper`) | ✅ | Credit-based 50,000 for $50 | City-level | No – organic listings only | Strategy-controlled (10 per page, up to 10 pages) | Query string `api_key` |
 | HasData (`hasdata`) | ✅ | Free 1,000/mo + Plans from $49/mo | City-level | **Yes** – extracts local map pack | Strategy-controlled (10 per page, up to 10 pages) | Header `x-api-key` |
+| CrazySERP (`crazyserp`) | ? | Pay-as-you-go | City-level | No – organic listings only | Strategy-controlled (10 per page, up to 10 pages) | Header `Authorization: Bearer` |
 
-\*Pricing details are indicative; confirm current pricing with each vendor before purchasing. All managed integrations authenticate with the headers or query parameters shown in the final column, exactly as implemented in the `/scrapers/services` directory.
+\*Pricing details are indicative; confirm current pricing with each vendor before purchasing. All managed integrations authenticate with the headers or query parameters shown in the final column, exactly as implemented in the `/scrapers/services` directory. ✅ = recently validated in production; ? = implemented but not recently validated against the live API.
 
 **Results coverage** reflects the scrape strategy in use (see [Scrape Strategy](#scrape-strategy) below). Providers marked **Native** return up to 100 organic results in a single API call and bypass the app-level pagination system entirely. All other providers return 10 results per page; the scrape strategy controls how many pages are fetched per keyword refresh.
 
