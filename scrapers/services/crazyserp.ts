@@ -24,7 +24,15 @@ const crazyserp: ScraperSettings = {
       const lang = localeInfo?.[2] ?? 'en';
       const countryInfo = countries[country] ?? countries.US;
       const countryName = countryInfo?.[0] ?? 'United States';
-      const location = keyword.city ? `${keyword.city},${countryName}` : countryName;
+      const locationString = keyword.location ? keyword.location.trim() : '';
+      let location = countryName;
+      if (locationString) {
+         const normalizedLocation = locationString.toLowerCase();
+         const normalizedCountry = countryName.toLowerCase();
+         location = normalizedLocation.includes(normalizedCountry)
+            ? locationString
+            : `${locationString},${countryName}`;
+      }
       const googleDomain = getGoogleDomain(country);
       const params = new URLSearchParams();
       params.set('q', keyword.keyword);
