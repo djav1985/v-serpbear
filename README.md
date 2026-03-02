@@ -197,7 +197,7 @@ SerpBear integrates with several managed APIs in addition to a "bring your own p
 | Scraping Robot (`scrapingrobot`) | ? | Free tier (~5,000 req/mo) | Country-level | No – organic listings only | Strategy-controlled (10 per page, up to 10 pages) | Query string `token` |
 | ScrapingAnt (`scrapingant`) | ? | Pay-as-you-go | Country-level (select markets) | No – organic listings only | Strategy-controlled (10 per page, up to 10 pages) | Header `x-api-key` |
 | Serply (`serply`) | ? | Plans from $49/mo | City & region (supported markets) | **Yes** – extracts local map pack | Strategy-controlled (10 per page, up to 10 pages) | `X-Api-Key` + `X-Proxy-Location` |
-| SpaceSerp (`spaceserp`) | ? | Lifetime + subscription plans | City-level | **Yes** – extracts local map pack | Strategy-controlled (10 per page, up to 10 pages) | Query string `apiKey` |
+| SpaceSerp (`spaceSerp`) | ? | Lifetime + subscription plans | City-level | **Yes** – extracts local map pack | Strategy-controlled (10 per page, up to 10 pages) | Query string `apiKey` |
 | SerpApi (`serpapi`) | ✅ | Free 250/mo + Plans from $75/mo | City-level | **Yes** – extracts local map pack | **Native – up to 100 results per request** | Query string `api_key` |
 | SearchApi (`searchapi`) | ✅ | Plans from $40/mo | City-level | **Yes** – extracts local map pack | **Native – up to 100 results per request** | Query string `api_key` |
 | ValueSerp (`valueserp`) | ✅ | Pay-as-you-go 10,000 for $25 | City-level | **Yes** – extracts local map pack | Strategy-controlled (10 per page, up to 10 pages) | Query string `api_key` |
