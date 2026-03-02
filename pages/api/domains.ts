@@ -214,6 +214,9 @@ export const updateDomain = async (req: NextApiRequest, res: NextApiResponse<Dom
       scrapeEnabled,
       scraper_settings,
       business_name,
+      scrape_strategy,
+      scrape_pagination_limit,
+      scrape_smart_full_fallback,
    } = payload;
 
    try {
@@ -271,6 +274,17 @@ export const updateDomain = async (req: NextApiRequest, res: NextApiResponse<Dom
       }
       if (Object.prototype.hasOwnProperty.call(payload, 'business_name')) {
          updates.business_name = business_name || null;
+      }
+      if (Object.prototype.hasOwnProperty.call(payload, 'scrape_strategy')) {
+         const validStrategies: Array<ScrapeStrategy | ''> = ['', 'basic', 'custom', 'smart'];
+         const strategy = scrape_strategy || '';
+         updates.scrape_strategy = validStrategies.includes(strategy as ScrapeStrategy | '') ? strategy : '';
+      }
+      if (Object.prototype.hasOwnProperty.call(payload, 'scrape_pagination_limit')) {
+         updates.scrape_pagination_limit = scrape_pagination_limit || 0;
+      }
+      if (Object.prototype.hasOwnProperty.call(payload, 'scrape_smart_full_fallback')) {
+         updates.scrape_smart_full_fallback = !!scrape_smart_full_fallback;
       }
       if (Object.prototype.hasOwnProperty.call(payload, 'scraper_settings')) {
          const existingScraperSettings = parseDomainScraperSettings(domainPlain?.scraper_settings);

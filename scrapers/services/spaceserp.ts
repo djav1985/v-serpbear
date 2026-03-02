@@ -16,7 +16,7 @@ const spaceSerp:ScraperSettings = {
    name: 'Space Serp',
    website: 'spaceserp.com',
    allowsCity: true,
-   scrapeURL: (keyword, settings, countryData) => {
+   scrapeURL: (keyword, settings, countryData, pagination?: ScraperPagination) => {
       const country = resolveCountryCode(keyword.country);
       const countryInfo = countries[country] ?? countries.US;
       const countryName = countryInfo?.[0] ?? countries.US[0];
@@ -26,7 +26,8 @@ const spaceSerp:ScraperSettings = {
       const device = keyword.device === DEVICE_MOBILE ? '&device=mobile' : '';
       const localeInfo = countryData[country] ?? countryData.US ?? Object.values(countryData)[0];
       const lang = localeInfo?.[2] ?? 'en';
-      return `https://api.spaceserp.com/google/search?apiKey=${settings.scraping_api}&q=${encodeURIComponent(keyword.keyword)}&pageSize=100&gl=${country}&hl=${lang}${location}${device}&resultBlocks=`;
+      const p = pagination || { start: 0, num: 10, page: 1 };
+      return `https://api.spaceserp.com/google/search?apiKey=${settings.scraping_api}&q=${encodeURIComponent(keyword.keyword)}&pageSize=${p.num}&pageNo=${p.page}&gl=${country}&hl=${lang}${location}${device}&resultBlocks=`;
    },
    resultObjectKey: 'organic_results',
    supportsMapPack: true,

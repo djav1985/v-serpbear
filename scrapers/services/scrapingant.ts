@@ -13,11 +13,12 @@ const scrapingAnt:ScraperSettings = {
       const mobileAgent = 'Mozilla/5.0 (Linux; Android 10; SM-G996U Build/QP1A.190711.020; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Mobile Safari/537.36';
       return keyword && keyword.device === DEVICE_MOBILE ? { 'Ant-User-Agent': mobileAgent } : {};
    },
-   scrapeURL: (keyword: KeywordType, settings: SettingsType, countryData: countryData) => {
+   scrapeURL: (keyword: KeywordType, settings: SettingsType, countryData: countryData, pagination?: ScraperPagination) => {
       const country = resolveCountryCode(keyword.country, SCRAPINGANT_COUNTRIES);
       const localeInfo = countryData[country] ?? countryData.US ?? Object.values(countryData)[0];
       const lang = localeInfo?.[2] ?? 'en';
-      const url = encodeURI(`https://www.google.com/search?num=100&hl=${lang}&q=${keyword.keyword}`);
+      const p = pagination || { start: 0, num: 10 };
+      const url = encodeURI(`https://www.google.com/search?num=${p.num}&start=${p.start}&hl=${lang}&q=${keyword.keyword}`);
       return `https://api.scrapingant.com/v2/extended?url=${url}&x-api-key=${settings.scraping_api}&proxy_country=${country}&browser=false`;
    },
    resultObjectKey: 'result',

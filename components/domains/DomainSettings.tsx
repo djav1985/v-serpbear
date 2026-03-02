@@ -4,7 +4,8 @@ import Icon from '../common/Icon';
 import Modal from '../common/Modal';
 import { useDeleteDomain, useFetchDomain, useUpdateDomain } from '../../services/domains';
 import InputField from '../common/InputField';
-import SelectField from '../common/SelectField';
+import SelectField, { SelectionOption } from '../common/SelectField';
+import ToggleField from '../common/ToggleField';
 import { TOGGLE_TRACK_CLASS_NAME } from '../common/toggleStyles';
 import { isValidEmail } from '../../utils/client/validators';
 import SecretField from '../common/SecretField';
@@ -127,6 +128,9 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
          scraping_api: '',
       },
       business_name: initialBusinessName,
+      scrape_strategy: (domain?.scrape_strategy as ScrapeStrategy | '' | undefined) ?? '',
+      scrape_pagination_limit: domain?.scrape_pagination_limit ?? 0,
+      scrape_smart_full_fallback: domain?.scrape_smart_full_fallback ?? false,
    }));
 
    const scraperOptions = useMemo(() => ([
@@ -216,12 +220,17 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
    };
 
    const buildDomainSettingsPayload = (): Partial<DomainSettings> => {
-      const { scraper_settings, business_name, ...rest } = domainSettings;
+      const { scraper_settings, business_name, scrape_strategy, scrape_pagination_limit, scrape_smart_full_fallback, ...rest } = domainSettings;
       const payload: Partial<DomainSettings> = { ...rest };
 
       // Handle business_name separately
       const trimmedBusinessName = (business_name || '').trim();
       payload.business_name = trimmedBusinessName || null;
+
+      // Handle strategy fields
+      payload.scrape_strategy = scrape_strategy || '';
+      payload.scrape_pagination_limit = scrape_pagination_limit || 0;
+      payload.scrape_smart_full_fallback = !!scrape_smart_full_fallback;
 
       if (scraper_settings) {
          const nextType = typeof scraper_settings.scraper_type === 'string' && scraper_settings.scraper_type
@@ -414,6 +423,48 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
                            placeholder='e.g., Vontainment'
                            />
                         </div>
+                        <div className="mb-4 flex justify-between items-center w-full">
+                           <SelectField
+                              label='Scrape Strategy Override'
+                              options={([
+                                 { label: 'Use Global Setting', value: '' },
+                                 { label: 'Basic (First page only)', value: 'basic' },
+                                 { label: 'Custom (Set number of pages)', value: 'custom' },
+                                 { label: 'Smart (Based on last known position)', value: 'smart' },
+                              ] as SelectionOption[])}
+                              selected={[domainSettings.scrape_strategy || '']}
+                              defaultLabel="Use Global Setting"
+                              updateField={(updated:string[]) => setDomainSettings({ ...domainSettings, scrape_strategy: (updated[0] || '') as ScrapeStrategy | '' })}
+                              multiple={false}
+                              rounded={'rounded'}
+                              minWidth={210}
+                           />
+                        </div>
+                        {domainSettings.scrape_strategy === 'custom' && (
+                           <div className="mb-4 flex justify-between items-center w-full">
+                              <SelectField
+                                 label='Number of Pages to Scrape'
+                                 options={(Array.from({ length: 10 }, (_, i) => (
+                                    { label: `${i + 1} Page${i > 0 ? 's' : ''}`, value: String(i + 1) }
+                                 )) as SelectionOption[])}
+                                 selected={[String(domainSettings.scrape_pagination_limit || 5)]}
+                                 defaultLabel="Select Page Count"
+                                 updateField={(updated:string[]) => updated[0] && setDomainSettings({ ...domainSettings, scrape_pagination_limit: parseInt(updated[0], 10) })}
+                                 multiple={false}
+                                 rounded={'rounded'}
+                                 minWidth={210}
+                              />
+                           </div>
+                        )}
+                        {domainSettings.scrape_strategy === 'smart' && (
+                           <div className="mb-4 flex items-center w-full">
+                              <ToggleField
+                                 label='Full Fallback: Scrape all pages if not found nearby'
+                                 value={!!domainSettings.scrape_smart_full_fallback}
+                                 onChange={(val) => setDomainSettings({ ...domainSettings, scrape_smart_full_fallback: val })}
+                              />
+                           </div>
+                        )}
                      </>
                   )}
                </div>

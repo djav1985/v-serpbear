@@ -1,7 +1,7 @@
 import Domain from '../../database/models/domain';
 import Keyword from '../../database/models/keyword';
 import refreshAndUpdateKeywords, { updateKeywordPosition } from '../../utils/refresh';
-import { scrapeKeywordFromGoogle } from '../../utils/scraper';
+import { scrapeKeywordWithStrategy } from '../../utils/scraper';
 import type { RefreshResult } from '../../utils/scraper';
 import { toDbBool } from '../../utils/dbBooleans';
 
@@ -11,7 +11,7 @@ jest.mock('../../database/models/keyword');
 jest.mock('../../utils/scraper', () => ({
   removeFromRetryQueue: jest.fn(),
   retryScrape: jest.fn(),
-  scrapeKeywordFromGoogle: jest.fn(),
+  scrapeKeywordWithStrategy: jest.fn(),
 }));
 
 // Mock retryQueueManager
@@ -267,7 +267,7 @@ describe('Atomic Flag Clearing in Refresh Workflow', () => {
         },
       ]);
 
-      (scrapeKeywordFromGoogle as jest.Mock).mockResolvedValue({
+      (scrapeKeywordWithStrategy as jest.Mock).mockResolvedValue({
         ID: 3,
         keyword: 'success keyword',
         position: 2,
@@ -334,7 +334,7 @@ describe('Atomic Flag Clearing in Refresh Workflow', () => {
       );
 
       // Verify scraper was never called for this keyword
-      expect(scrapeKeywordFromGoogle).not.toHaveBeenCalled();
+      expect(scrapeKeywordWithStrategy).not.toHaveBeenCalled();
 
       // Verify per-row update clears flags once
       expect(mockKeywordModel.update).toHaveBeenCalledWith(
@@ -374,7 +374,7 @@ describe('Atomic Flag Clearing in Refresh Workflow', () => {
       ]);
 
       // Mock scraper to throw an error
-      (scrapeKeywordFromGoogle as jest.Mock).mockRejectedValue(
+      (scrapeKeywordWithStrategy as jest.Mock).mockRejectedValue(
         new Error('Unexpected scraper error')
       );
 
@@ -456,7 +456,7 @@ describe('Atomic Flag Clearing in Refresh Workflow', () => {
       ]);
 
       // Mock parallel scraper
-      (scrapeKeywordFromGoogle as jest.Mock)
+      (scrapeKeywordWithStrategy as jest.Mock)
         .mockResolvedValueOnce({
           ID: 6,
           keyword: 'parallel keyword 1',

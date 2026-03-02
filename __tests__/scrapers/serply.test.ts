@@ -16,7 +16,7 @@ describe('serply scraper', () => {
     expect(parsed.origin).toBe('https://api.serply.io');
     expect(parsed.pathname).toBe('/v1/search');
     expect(parsed.searchParams.get('q')).toBe(keyword.keyword);
-    expect(parsed.searchParams.get('num')).toBe('100');
+    expect(parsed.searchParams.get('num')).toBe('10');
     expect(parsed.searchParams.get('hl')).toBe(keyword.country);
   });
 

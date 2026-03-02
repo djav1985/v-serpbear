@@ -30,7 +30,8 @@ const hasdata: ScraperSettings = {
   scrapeURL: (
     keyword: KeywordType,
     settings: SettingsType,
-    countryData: any
+    countryData: any,
+    pagination?: ScraperPagination,
   ) => {
     // use global types
     const resolvedCountry = resolveCountryCode(keyword.country);
@@ -55,12 +56,15 @@ const hasdata: ScraperSettings = {
       Object.values(countryData ?? {})[0];
     const lang = localeInfo?.[2] ?? "en";
     const googleDomain = getGoogleDomain(country);
+    const p = pagination || { start: 0, num: 10 };
     const params = new URLSearchParams();
     params.set("q", decodeIfEncoded(keyword.keyword));
     params.set("gl", resolvedCountry.toLowerCase());
     params.set("hl", lang);
     params.set("deviceType", keyword.device || "desktop");
     params.set("domain", googleDomain);
+    params.set("num", String(p.num));
+    params.set("start", String(p.start));
     if (locationParts.length) {
       params.set("location", locationParts.join(","));
     }

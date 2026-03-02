@@ -3,7 +3,7 @@
 import { performance } from 'perf_hooks';
 import { setTimeout as sleep } from 'timers/promises';
 import Cryptr from 'cryptr';
-import { RefreshResult, removeFromRetryQueue, retryScrape, scrapeKeywordFromGoogle } from './scraper';
+import { RefreshResult, removeFromRetryQueue, retryScrape, scrapeKeywordWithStrategy } from './scraper';
 import parseKeywords from './parseKeywords';
 import Keyword from '../database/models/keyword';
 import Domain from '../database/models/domain';
@@ -252,12 +252,13 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
     let scrapePermissions = new Map<string, boolean>();
    const domainSpecificSettings = new Map<string, SettingsType>();
    const domainsWithScraperOverrides = new Set<string>();
+   const domainStrategyMap = new Map<string, Partial<DomainType>>();
 
    // Precompute per-domain "effective settings" map once
    if (domainNames.length > 0) {
       const domains = await Domain.findAll({
          where: { domain: domainNames },
-         attributes: ['domain', 'scrapeEnabled', 'scraper_settings', 'business_name'],
+         attributes: ['domain', 'scrapeEnabled', 'scraper_settings', 'business_name', 'scrape_strategy', 'scrape_pagination_limit', 'scrape_smart_full_fallback'],
       });
       const secret = process.env.SECRET;
       const cryptr = secret ? new Cryptr(secret) : null;
@@ -265,6 +266,13 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
          const domainPlain = domain.get({ plain: true }) as DomainType & { scraper_settings?: any };
          const normalizedDomain = normalizeDomainBooleans(domainPlain);
          const isEnabled = normalizedDomain.scrapeEnabled;
+
+         // Store strategy settings for this domain
+         domainStrategyMap.set(normalizedDomain.domain, {
+            scrape_strategy: (domainPlain.scrape_strategy || '') as ScrapeStrategy | '',
+            scrape_pagination_limit: domainPlain.scrape_pagination_limit || 0,
+            scrape_smart_full_fallback: domainPlain.scrape_smart_full_fallback || false,
+         });
 
          if (cryptr) {
             const persistedOverride = parseDomainScraperSettings(domainPlain?.scraper_settings);
@@ -341,7 +349,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
    try {
       if (canScrapeInParallel) {
          // Parallel scraping: each keyword is updated immediately upon receiving API response
-         const parallelUpdatedKeywords = await refreshParallel(keywords, eligibleKeywordModels, settings, domainSpecificSettings);
+         const parallelUpdatedKeywords = await refreshParallel(keywords, eligibleKeywordModels, settings, domainSpecificSettings, domainStrategyMap);
          updatedKeywords.push(...parallelUpdatedKeywords);
       } else {
          // Sequential scraping: scrape desktop keywords first, then mobile
@@ -370,7 +378,8 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                ? desktopMapPackCache.get(keywordKey) 
                : undefined;
 
-            const updatedkeyword = await refreshAndUpdateKeyword(keyword, settings, domainSpecificSettings, fallbackMapPackTop3);
+            const domainStrategy = domainStrategyMap.get(keywordPlain.domain);
+            const updatedkeyword = await refreshAndUpdateKeyword(keyword, settings, domainSpecificSettings, fallbackMapPackTop3, domainStrategy);
             updatedKeywords.push(updatedkeyword);
 
             // If this was a desktop keyword, cache its mapPackTop3
@@ -424,6 +433,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
  * @param {SettingsType} settings - The App Settings that contain the Scraper settings
  * @param {Map<string, SettingsType>} domainSpecificSettings - Domain-specific settings
  * @param {boolean} fallbackMapPackTop3 - Optional fallback mapPackTop3 value from desktop keyword (for valueserp mobile)
+ * @param {Partial<DomainType>} domainStrategy - Optional domain-level scrape strategy overrides
  * @returns {Promise<KeywordType>}
  */
 const refreshAndUpdateKeyword = async (
@@ -431,6 +441,7 @@ const refreshAndUpdateKeyword = async (
    settings: SettingsType,
    domainSpecificSettings: Map<string, SettingsType>,
    fallbackMapPackTop3?: number,
+   domainStrategy?: Partial<DomainType>,
 ): Promise<KeywordType> => {
    const currentkeyword = keyword.get({ plain: true });
    const baseEffectiveSettings = resolveEffectiveSettings(currentkeyword.domain, settings, domainSpecificSettings);
@@ -444,7 +455,7 @@ const refreshAndUpdateKeyword = async (
    let scraperError: string | false = false;
 
    try {
-      refreshedkeywordData = await scrapeKeywordFromGoogle(currentkeyword, effectiveSettings);
+      refreshedkeywordData = await scrapeKeywordWithStrategy(currentkeyword, effectiveSettings, domainStrategy);
       // If scraper returns false or has an error, capture the error
       if (!refreshedkeywordData) {
          scraperError = 'Scraper returned no data';
@@ -752,6 +763,7 @@ const refreshParallel = async (
    keywordModels: Keyword[],
    settings:SettingsType,
    domainSpecificSettings: Map<string, SettingsType>,
+   domainStrategyMap?: Map<string, Partial<DomainType>>,
 ): Promise<KeywordType[]> => {
    const updatedKeywords: KeywordType[] = [];
    
@@ -761,6 +773,7 @@ const refreshParallel = async (
    // Start all scraping operations in parallel, but update database immediately upon each response
    const promises = keywords.map(async (keyword) => {
       const effectiveSettings = resolveEffectiveSettings(keyword.domain, settings, domainSpecificSettings);
+      const domainStrategy = domainStrategyMap?.get(keyword.domain);
       const keywordModel = modelMap.get(keyword.ID);
       
       if (!keywordModel) {
@@ -769,8 +782,8 @@ const refreshParallel = async (
       }
       
       try {
-         // Scrape the keyword
-         const result = await scrapeKeywordFromGoogle(keyword, effectiveSettings);
+         // Scrape the keyword using the strategy-aware function
+         const result = await scrapeKeywordWithStrategy(keyword, effectiveSettings, domainStrategy);
          
          // Immediately update the database with the result
          if (result === false || !result) {

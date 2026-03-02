@@ -2,7 +2,7 @@ import Cryptr from 'cryptr';
 import Domain from '../../database/models/domain';
 import Keyword from '../../database/models/keyword';
 import refreshAndUpdateKeywords from '../../utils/refresh';
-import { scrapeKeywordFromGoogle } from '../../utils/scraper';
+import { scrapeKeywordWithStrategy } from '../../utils/scraper';
 import type { RefreshResult } from '../../utils/scraper';
 
 // Mock the dependencies
@@ -11,7 +11,7 @@ jest.mock('../../database/models/keyword');
 jest.mock('../../utils/scraper', () => ({
   removeFromRetryQueue: jest.fn(),
   retryScrape: jest.fn(),
-  scrapeKeywordFromGoogle: jest.fn(),
+  scrapeKeywordWithStrategy: jest.fn(),
 }));
 
 describe('refreshAndUpdateKeywords - business_name handling', () => {
@@ -25,7 +25,7 @@ describe('refreshAndUpdateKeywords - business_name handling', () => {
     process.env.SECRET = 'test-secret-for-encryption';
   });
 
-  it('passes business_name from domain field to scrapeKeywordFromGoogle', async () => {
+  it('passes business_name from domain field to scrapeKeywordWithStrategy', async () => {
     const cryptr = new Cryptr(process.env.SECRET as string);
     
     // Setup: domain has business_name as a separate field
@@ -76,7 +76,7 @@ describe('refreshAndUpdateKeywords - business_name handling', () => {
     (Keyword.update as jest.Mock).mockResolvedValue([1]);
     
     // Mock scraper response with local results containing business name
-    (scrapeKeywordFromGoogle as jest.Mock).mockResolvedValueOnce({
+    (scrapeKeywordWithStrategy as jest.Mock).mockResolvedValueOnce({
       ID: keywordPlain.ID,
       position: 1,
       url: 'https://vontainment.com/',
@@ -92,8 +92,8 @@ describe('refreshAndUpdateKeywords - business_name handling', () => {
 
     await refreshAndUpdateKeywords([keywordModel], mockSettings);
 
-    // Verify scrapeKeywordFromGoogle was called with effective settings including business_name
-    expect(scrapeKeywordFromGoogle).toHaveBeenCalledWith(
+    // Verify scrapeKeywordWithStrategy was called with effective settings including business_name
+    expect(scrapeKeywordWithStrategy).toHaveBeenCalledWith(
       expect.objectContaining({ 
         keyword: 'port charlotte affordable website design',
         domain: 'vontainment.com',
@@ -104,6 +104,7 @@ describe('refreshAndUpdateKeywords - business_name handling', () => {
         scraping_api: 'test-api-key',
         business_name: 'Vontainment',
       }),
+      expect.objectContaining({}),
     );
   });
 
@@ -155,7 +156,7 @@ describe('refreshAndUpdateKeywords - business_name handling', () => {
     } as unknown as Keyword;
 
     (Keyword.update as jest.Mock).mockResolvedValue([1]);
-    (scrapeKeywordFromGoogle as jest.Mock).mockResolvedValueOnce({
+    (scrapeKeywordWithStrategy as jest.Mock).mockResolvedValueOnce({
       ID: keywordPlain.ID,
       position: 5,
       url: 'https://example.com/',
@@ -166,10 +167,11 @@ describe('refreshAndUpdateKeywords - business_name handling', () => {
 
     await refreshAndUpdateKeywords([keywordModel], mockSettings);
 
-    // Verify scrapeKeywordFromGoogle was called WITHOUT business_name
-    expect(scrapeKeywordFromGoogle).toHaveBeenCalledWith(
+    // Verify scrapeKeywordWithStrategy was called WITHOUT business_name
+    expect(scrapeKeywordWithStrategy).toHaveBeenCalledWith(
       expect.objectContaining({ keyword: 'test keyword' }),
       expect.not.objectContaining({ business_name: expect.anything() }),
+      expect.objectContaining({}),
     );
   });
 
@@ -216,7 +218,7 @@ describe('refreshAndUpdateKeywords - business_name handling', () => {
     } as unknown as Keyword;
 
     (Keyword.update as jest.Mock).mockResolvedValue([1]);
-    (scrapeKeywordFromGoogle as jest.Mock).mockResolvedValueOnce({
+    (scrapeKeywordWithStrategy as jest.Mock).mockResolvedValueOnce({
       ID: keywordPlain.ID,
       position: 5,
       url: 'https://example.com/',
@@ -227,10 +229,11 @@ describe('refreshAndUpdateKeywords - business_name handling', () => {
 
     await refreshAndUpdateKeywords([keywordModel], mockSettings);
 
-    // Verify scrapeKeywordFromGoogle was called with global settings (no domain override)
-    expect(scrapeKeywordFromGoogle).toHaveBeenCalledWith(
+    // Verify scrapeKeywordWithStrategy was called with global settings (no domain override)
+    expect(scrapeKeywordWithStrategy).toHaveBeenCalledWith(
       expect.objectContaining({ keyword: 'test keyword' }),
       expect.objectContaining({ scraper_type: 'valueserp' }),
+      expect.objectContaining({}),
     );
   });
 });

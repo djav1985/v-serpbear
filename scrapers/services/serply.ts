@@ -24,11 +24,13 @@ const serply:ScraperSettings = {
          'X-Proxy-Location': country,
       };
    },
-   scrapeURL: (keyword) => {
+   scrapeURL: (keyword, _settings, _countries, pagination?: ScraperPagination) => {
       const country = resolveCountryCode(keyword.country, SERPLY_COUNTRIES);
+      const p = pagination || { start: 0, num: 10 };
       const searchParams = new URLSearchParams({
          q: keyword.keyword,
-         num: '100',
+         num: String(p.num),
+         start: String(p.start),
          hl: country,
       });
       return `https://api.serply.io/v1/search?${searchParams.toString()}`;

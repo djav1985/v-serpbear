@@ -2,7 +2,7 @@ import Cryptr from 'cryptr';
 import Domain from '../../database/models/domain';
 import Keyword from '../../database/models/keyword';
 import refreshAndUpdateKeywords from '../../utils/refresh';
-import { scrapeKeywordFromGoogle } from '../../utils/scraper';
+import { scrapeKeywordWithStrategy } from '../../utils/scraper';
 import type { RefreshResult } from '../../utils/scraper';
 
 // Mock the dependencies
@@ -11,7 +11,7 @@ jest.mock('../../database/models/keyword');
 jest.mock('../../utils/scraper', () => ({
   removeFromRetryQueue: jest.fn(),
   retryScrape: jest.fn(),
-  scrapeKeywordFromGoogle: jest.fn(),
+  scrapeKeywordWithStrategy: jest.fn(),
 }));
 
 describe('refreshAndUpdateKeywords - scraper override logging', () => {
@@ -76,7 +76,7 @@ describe('refreshAndUpdateKeywords - scraper override logging', () => {
     } as unknown as Keyword;
 
     (Keyword.update as jest.Mock).mockResolvedValue([1]);
-    (scrapeKeywordFromGoogle as jest.Mock).mockResolvedValueOnce({
+    (scrapeKeywordWithStrategy as jest.Mock).mockResolvedValueOnce({
       ID: keywordPlain.ID,
       position: 1,
       url: 'https://vontainment.com/',
@@ -151,7 +151,7 @@ describe('refreshAndUpdateKeywords - scraper override logging', () => {
     } as unknown as Keyword;
 
     (Keyword.update as jest.Mock).mockResolvedValue([1]);
-    (scrapeKeywordFromGoogle as jest.Mock).mockResolvedValueOnce({
+    (scrapeKeywordWithStrategy as jest.Mock).mockResolvedValueOnce({
       ID: keywordPlain.ID,
       position: 1,
       url: 'https://vontainment.com/',
@@ -267,7 +267,7 @@ describe('refreshAndUpdateKeywords - scraper override logging', () => {
     } as unknown as Keyword;
 
     (Keyword.update as jest.Mock).mockResolvedValue([1]);
-    (scrapeKeywordFromGoogle as jest.Mock)
+    (scrapeKeywordWithStrategy as jest.Mock)
       .mockResolvedValueOnce({
         ID: keyword1Plain.ID,
         position: 1,

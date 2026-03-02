@@ -237,7 +237,7 @@ const getKeywordSearchResults = async (req: NextApiRequest, res: NextApiResponse
       const scrapeResult = await scrapeKeywordFromGoogle(dummyKeyword, settings);
       if (scrapeResult && !scrapeResult.error) {
          const searchResult = {
-            results: scrapeResult.result,
+            results: scrapeResult.result.filter((r) => !r.skipped),
             keyword: scrapeResult.keyword,
             position: scrapeResult.position !== 111 ? scrapeResult.position : 0,
             country: req.query.country as string,
