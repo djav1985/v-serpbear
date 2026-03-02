@@ -25,11 +25,14 @@ export type RefreshResult = false | {
    keyword: string,
    position:number,
    url: string,
-   result: SearchResult[],
+   result: KeywordLastResult[],
    mapPackTop3: boolean,
    localResults?: any[],
    error?: boolean | string
 };
+
+const TOTAL_PAGES = 10;
+const PAGE_SIZE = 10;
 
 /**
  * Implements exponential backoff with jitter for retry attempts
@@ -52,7 +55,8 @@ export const getScraperClient = (
    keyword:KeywordType,
    settings:SettingsType,
    scraper?: ScraperSettings,
-   retryAttempt: number = 0
+   retryAttempt: number = 0,
+   pagination?: ScraperPagination,
 ): Promise<AxiosResponse|Response> | false => {
    let apiURL = ''; let client: Promise<AxiosResponse|Response> | false = false;
    const headers: any = {
@@ -69,7 +73,7 @@ export const getScraperClient = (
    if (scraper) {
       // Set Scraper Header
       const scrapeHeaders = scraper.headers ? scraper.headers(keyword, settings) : null;
-      const scraperAPIURL = scraper.scrapeURL ? scraper.scrapeURL(keyword, settings, countries) : null;
+      const scraperAPIURL = scraper.scrapeURL ? scraper.scrapeURL(keyword, settings, countries, pagination) : null;
       if (scrapeHeaders && Object.keys(scrapeHeaders).length > 0) {
          Object.keys(scrapeHeaders).forEach((headerItemKey:string) => {
             headers[headerItemKey] = scrapeHeaders[headerItemKey as keyof object];
@@ -107,7 +111,8 @@ export const getScraperClient = (
       axiosConfig.httpsAgent = new HttpsProxyAgent(proxyURL.trim());
       axiosConfig.proxy = false;
       const axiosClient = axios.create(axiosConfig);
-      client = axiosClient.get(`https://www.google.com/search?num=100&q=${encodeURI(keyword.keyword)}`);
+      const p = pagination || { start: 0, num: PAGE_SIZE };
+      client = axiosClient.get(`https://www.google.com/search?num=${p.num}&start=${p.start}&q=${encodeURI(keyword.keyword)}`);
    } else {
       // Enhanced fetch configuration with timeout and better error handling
       const controller = new AbortController();
@@ -166,6 +171,214 @@ const handleProxyError = (error: any, settings: SettingsType): string => {
       return `[${error.response.status}] ${error.response.statusText}`;
    }
    return serializeError(error);
+};
+
+type PageScrapeResult = {
+   results: SearchResult[];
+   mapPackTop3: boolean;
+   localResults: any[];
+};
+
+/**
+ * Scrape a single page of Google Search results with absolute position offsets applied.
+ * Includes retry logic with exponential backoff and returns mapPackTop3 / localResults.
+ */
+const scrapeSinglePage = async (
+   keyword: KeywordType,
+   settings: SettingsType,
+   scraperObj: ScraperSettings | undefined,
+   pagination: ScraperPagination,
+   maxRetries: number = 3,
+): Promise<PageScrapeResult> => {
+   const scraperType = settings?.scraper_type || '';
+   const empty: PageScrapeResult = { results: [], mapPackTop3: false, localResults: [] };
+
+   for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const scraperClient = getScraperClient(keyword, settings, scraperObj, attempt, pagination);
+      if (!scraperClient) { return empty; }
+      try {
+         const res = scraperType === 'proxy' && settings.proxy ? await scraperClient : await scraperClient.then((result:any) => result.json());
+         if (hasScraperError(res)) {
+            if (attempt < maxRetries) {
+               await new Promise(resolve => setTimeout(resolve, getRetryDelay(attempt)));
+               continue;
+            }
+            break;
+         }
+         const scraperResult = scraperObj?.resultObjectKey && res[scraperObj.resultObjectKey] ? res[scraperObj.resultObjectKey] : '';
+         const scrapeResult: string = (res.data || res.html || res.results || scraperResult || '');
+         if (res && scrapeResult) {
+            let organic: SearchResult[];
+            let mapPackTop3 = false;
+            if (scraperObj?.serpExtractor) {
+               const extraction = scraperObj.serpExtractor({ keyword, response: res, result: scrapeResult, settings });
+               organic = extraction.organic;
+               mapPackTop3 = extraction.mapPackTop3 ?? false;
+            } else {
+               const extraction = extractScrapedResult(scrapeResult, keyword.device, keyword.domain);
+               organic = extraction.organic;
+               mapPackTop3 = extraction.mapPackTop3;
+            }
+            const debugMode = process.env.NODE_ENV === 'development';
+            const localResults = extractLocalResultsFromPayload(res, debugMode);
+            return {
+               results: organic.map((item, i) => ({ ...item, position: pagination.start + i + 1 })),
+               mapPackTop3,
+               localResults,
+            };
+         }
+         if (attempt < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, getRetryDelay(attempt)));
+            continue;
+         }
+      } catch (error:any) {
+         logger.debug('[SCRAPE] Scraping page failed', { page: pagination.page, keyword: keyword.keyword, error: error?.message || '' });
+         if (attempt < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, getRetryDelay(attempt)));
+            continue;
+         }
+      }
+   }
+   return empty;
+};
+
+/**
+ * Build a full 100-position result array: scraped positions keep their data, unscraped positions are marked skipped.
+ */
+const buildFullResults = (scrapedResults: SearchResult[]): KeywordLastResult[] => {
+   const totalPositions = TOTAL_PAGES * PAGE_SIZE;
+   const scrapedByPos = new Map(scrapedResults.map((r) => [r.position, r]));
+   const full: KeywordLastResult[] = [];
+   for (let i = 1; i <= totalPositions; i += 1) {
+      const found = scrapedByPos.get(i);
+      full.push(found ? { position: i, url: found.url, title: found.title } : { position: i, url: '', title: '', skipped: true });
+   }
+   return full;
+};
+
+/**
+ * Resolve the effective scrape strategy from domain-level overrides or global settings.
+ */
+const resolveStrategy = (
+   settings: SettingsType,
+   domainSettings?: Partial<DomainType>,
+): { strategy: ScrapeStrategy, paginationLimit: number, smartFullFallback: boolean } => {
+   const domainStrategy = domainSettings?.scrape_strategy;
+   if (!domainStrategy) {
+      return {
+         strategy: (settings.scrape_strategy || 'basic') as ScrapeStrategy,
+         paginationLimit: settings.scrape_pagination_limit || 5,
+         smartFullFallback: settings.scrape_smart_full_fallback || false,
+      };
+   }
+   const strategy = domainStrategy as ScrapeStrategy;
+   const paginationLimit = domainSettings?.scrape_pagination_limit || settings.scrape_pagination_limit || 5;
+   const smartFullFallback = domainSettings?.scrape_smart_full_fallback ?? (settings.scrape_smart_full_fallback || false);
+   return { strategy, paginationLimit, smartFullFallback };
+};
+
+/**
+ * Scrape Google Search results using the configured scrape strategy (Basic, Custom, Smart).
+ * Domain-level settings override global settings. Marks non-scraped positions as skipped.
+ * For native-pagination scrapers (serpapi, searchapi) this delegates to scrapeKeywordFromGoogle.
+ * @param {KeywordType} keyword - the keyword to scrape
+ * @param {SettingsType} settings - global App Settings
+ * @param {Partial<DomainType>} domainSettings - optional domain-level setting overrides
+ * @returns {Promise<RefreshResult>}
+ */
+export const scrapeKeywordWithStrategy = async (
+   keyword: KeywordType,
+   settings: SettingsType,
+   domainSettings?: Partial<DomainType>,
+): Promise<RefreshResult> => {
+   const scraperType = settings?.scraper_type || '';
+   const scraperObj = allScrapers.find((s: ScraperSettings) => s.id === scraperType);
+
+   // Native-pagination scrapers (serpapi, searchapi) fetch up to 100 results in one request
+   if (scraperObj?.nativePagination) {
+      return scrapeKeywordFromGoogle(keyword, settings);
+   }
+
+   const errorResult: RefreshResult = {
+      ID: keyword.ID,
+      keyword: keyword.keyword,
+      position: keyword.position,
+      url: keyword.url,
+      result: keyword.lastResult,
+      mapPackTop3: keyword.mapPackTop3 ?? false,
+      error: 'No results scraped',
+   };
+
+   const { strategy, paginationLimit, smartFullFallback } = resolveStrategy(settings, domainSettings);
+   let pagesToScrape: number[];
+
+   if (strategy === 'custom') {
+      const limit = Math.max(1, Math.min(paginationLimit, TOTAL_PAGES));
+      pagesToScrape = Array.from({ length: limit }, (_, i) => i + 1);
+   } else if (strategy === 'smart') {
+      const lastPos = keyword.position;
+      const lastPage = lastPos > 0 ? Math.min(Math.ceil(lastPos / PAGE_SIZE), TOTAL_PAGES) : 1;
+      const neighbors = [lastPage - 1, lastPage, lastPage + 1].filter((p) => p >= 1 && p <= TOTAL_PAGES);
+      pagesToScrape = [...new Set(neighbors)];
+   } else {
+      pagesToScrape = [1]; // Basic: first page only
+   }
+
+   const allScrapedResults: SearchResult[] = [];
+   // Map pack and local results only appear on page 1; retain the previous value when page 1 is not scraped.
+   let page1MapPackTop3 = keyword.mapPackTop3 ?? false;
+   let page1LocalResults: any[] = [];
+   let page1Scraped = false;
+   for (const pageNum of pagesToScrape) {
+      const pagination: ScraperPagination = { start: (pageNum - 1) * PAGE_SIZE, num: PAGE_SIZE, page: pageNum };
+      const { results, mapPackTop3, localResults } = await scrapeSinglePage(keyword, settings, scraperObj, pagination);
+      if (results.length > 0) {
+         allScrapedResults.push(...results);
+         if (pageNum === 1) {
+            page1MapPackTop3 = mapPackTop3;
+            page1LocalResults = localResults;
+            page1Scraped = true;
+         }
+      }
+   }
+
+   if (allScrapedResults.length === 0) { return errorResult; }
+
+   // Smart + full fallback: if domain not found on neighboring pages, scrape the rest
+   if (strategy === 'smart' && smartFullFallback) {
+      const serpCheck = getSerp(keyword.domain, allScrapedResults);
+      if (serpCheck.position === 0) {
+         const alreadyScraped = new Set(pagesToScrape);
+         const remainingPages = Array.from({ length: TOTAL_PAGES }, (_, i) => i + 1).filter((p) => !alreadyScraped.has(p));
+         for (const pageNum of remainingPages) {
+            const pagination: ScraperPagination = { start: (pageNum - 1) * PAGE_SIZE, num: PAGE_SIZE, page: pageNum };
+            const { results, mapPackTop3, localResults } = await scrapeSinglePage(keyword, settings, scraperObj, pagination);
+            if (results.length > 0) {
+               allScrapedResults.push(...results);
+               if (pageNum === 1 && !page1Scraped) {
+                  page1MapPackTop3 = mapPackTop3;
+                  page1LocalResults = localResults;
+                  page1Scraped = true;
+               }
+            }
+         }
+      }
+   }
+
+   const finalSerp = getSerp(keyword.domain, allScrapedResults);
+   const fullResults = buildFullResults(allScrapedResults);
+
+   logger.info('[SERP] Strategy scrape completed', { keyword: keyword.keyword, position: finalSerp.position, strategy });
+   return {
+      ID: keyword.ID,
+      keyword: keyword.keyword,
+      position: finalSerp.position,
+      url: finalSerp.url,
+      result: fullResults,
+      mapPackTop3: page1MapPackTop3,
+      localResults: page1LocalResults,
+      error: false,
+   };
 };
 
 /**

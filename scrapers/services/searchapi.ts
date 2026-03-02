@@ -16,6 +16,7 @@ const searchapi:ScraperSettings = {
   website: 'searchapi.io',
   allowsCity: true,
   supportsMapPack: true,
+  nativePagination: true,
    headers: () => ({
       'Content-Type': 'application/json',
    }),

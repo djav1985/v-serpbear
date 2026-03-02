@@ -21,7 +21,7 @@ const serper: ScraperSettings = {
   website: "serper.dev",
   allowsCity: true,
   supportsMapPack: false,
-  scrapeURL: (keyword, settings, countryData) => {
+  scrapeURL: (keyword, settings, countryData, pagination?: ScraperPagination) => {
     const countryCode = resolveCountryCode(keyword.country);
     const fallbackInfo =
       countryData[countryCode] ??
@@ -42,6 +42,7 @@ const serper: ScraperSettings = {
     if (locationParts.length && countryName) {
       locationParts.push(countryName);
     }
+    const p = pagination || { start: 0, num: 10, page: 1 };
     const params = new URLSearchParams();
     params.set("q", decodeIfEncoded(keyword.keyword));
     if (locationParts.length) {
@@ -49,6 +50,7 @@ const serper: ScraperSettings = {
     }
     params.set("gl", gl);
     params.set("hl", lang);
+    params.set("page", String(p.page));
     params.set("apiKey", settings.scraping_api ?? "");
     return `https://google.serper.dev/search?${params.toString()}`;
   },

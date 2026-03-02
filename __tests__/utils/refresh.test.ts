@@ -2,7 +2,7 @@ import Cryptr from 'cryptr';
 import Domain from '../../database/models/domain';
 import Keyword from '../../database/models/keyword';
 import refreshAndUpdateKeywords, { updateKeywordPosition } from '../../utils/refresh';
-import { removeFromRetryQueue, retryScrape, scrapeKeywordFromGoogle } from '../../utils/scraper';
+import { removeFromRetryQueue, retryScrape, scrapeKeywordWithStrategy } from '../../utils/scraper';
 import type { RefreshResult } from '../../utils/scraper';
 
 // Mock the dependencies
@@ -11,7 +11,7 @@ jest.mock('../../database/models/keyword');
 jest.mock('../../utils/scraper', () => ({
   removeFromRetryQueue: jest.fn(),
   retryScrape: jest.fn(),
-  scrapeKeywordFromGoogle: jest.fn(),
+  scrapeKeywordWithStrategy: jest.fn(),
 }));
 
 // Mock retryQueueManager
@@ -54,7 +54,7 @@ describe('refreshAndUpdateKeywords', () => {
       { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
     ]);
 
-    (scrapeKeywordFromGoogle as jest.Mock).mockRejectedValue(new Error('network boom'));
+    (scrapeKeywordWithStrategy as jest.Mock).mockRejectedValue(new Error('network boom'));
 
     const mockSettings = {
       scraper_type: 'custom-scraper',
@@ -85,7 +85,7 @@ describe('refreshAndUpdateKeywords', () => {
       { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
     ]);
 
-    (scrapeKeywordFromGoogle as jest.Mock).mockResolvedValueOnce(false);
+    (scrapeKeywordWithStrategy as jest.Mock).mockResolvedValueOnce(false);
 
     const settings = {
       scraper_type: 'custom-scraper',
@@ -118,7 +118,7 @@ describe('refreshAndUpdateKeywords', () => {
       { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
     ]);
 
-    (scrapeKeywordFromGoogle as jest.Mock).mockResolvedValueOnce(false);
+    (scrapeKeywordWithStrategy as jest.Mock).mockResolvedValueOnce(false);
 
     const settings = {
       scraper_type: 'custom-scraper',
@@ -178,7 +178,7 @@ describe('refreshAndUpdateKeywords', () => {
       update: jest.fn().mockResolvedValue(undefined),
     } as unknown as Keyword;
 
-    (scrapeKeywordFromGoogle as jest.Mock).mockResolvedValueOnce({
+    (scrapeKeywordWithStrategy as jest.Mock).mockResolvedValueOnce({
       ID: keywordPlain.ID,
       position: 3,
       result: [],
@@ -193,9 +193,10 @@ describe('refreshAndUpdateKeywords', () => {
 
     await refreshAndUpdateKeywords([keywordModel], settings);
 
-    expect(scrapeKeywordFromGoogle).toHaveBeenCalledWith(
+    expect(scrapeKeywordWithStrategy).toHaveBeenCalledWith(
       expect.objectContaining({ keyword: 'override keyword' }),
       expect.objectContaining({ scraper_type: 'scrapingant', scraping_api: 'domain-key' }),
+      expect.objectContaining({}),
     );
   });
 
@@ -233,7 +234,7 @@ describe('refreshAndUpdateKeywords', () => {
       { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
     ]);
 
-    (scrapeKeywordFromGoogle as jest.Mock).mockRejectedValueOnce(new Error('parallel boom'));
+    (scrapeKeywordWithStrategy as jest.Mock).mockRejectedValueOnce(new Error('parallel boom'));
 
     const settings = {
       scraper_type: 'serpapi',
@@ -242,7 +243,7 @@ describe('refreshAndUpdateKeywords', () => {
 
     const results = await refreshAndUpdateKeywords([keywordModel], settings);
 
-    expect(scrapeKeywordFromGoogle).toHaveBeenCalledWith(expect.objectContaining({ keyword: 'parallel failure' }), settings);
+    expect(scrapeKeywordWithStrategy).toHaveBeenCalledWith(expect.objectContaining({ keyword: 'parallel failure' }), settings, expect.objectContaining({}));
     expect(keywordModel.update).toHaveBeenCalledWith(expect.objectContaining({
       updating: 0,
       updatingStartedAt: null,
@@ -742,7 +743,7 @@ describe('refreshAndUpdateKeywords', () => {
       update: jest.fn().mockResolvedValue(undefined),
     } as unknown as Keyword;
 
-    (scrapeKeywordFromGoogle as jest.Mock).mockResolvedValue({
+    (scrapeKeywordWithStrategy as jest.Mock).mockResolvedValue({
       ID: keyword1Plain.ID,
       position: 1,
       result: [],
@@ -856,7 +857,7 @@ describe('refreshAndUpdateKeywords', () => {
       set: jest.fn(),
     } as unknown as Keyword;
 
-    (scrapeKeywordFromGoogle as jest.Mock).mockResolvedValue({
+    (scrapeKeywordWithStrategy as jest.Mock).mockResolvedValue({
       ID: keyword1Plain.ID,
       position: 1,
       result: [],
@@ -1021,7 +1022,7 @@ describe('refreshAndUpdateKeywords', () => {
 
     // Mock scraper to return false (failure), which creates an error result in refreshParallel
     // This error result will be processed by updateKeywordPosition, which sets updating: 0
-    (scrapeKeywordFromGoogle as jest.Mock).mockResolvedValueOnce(false);
+    (scrapeKeywordWithStrategy as jest.Mock).mockResolvedValueOnce(false);
     const settings = {
       scraper_type: 'serpapi', // parallel scraper
       scrape_retry: false,
@@ -1067,7 +1068,7 @@ describe('refreshAndUpdateKeywords', () => {
 
     // Simulate errors in the scraping process
     // refreshParallel catches these and creates error results, so no exception is thrown
-    (scrapeKeywordFromGoogle as jest.Mock).mockRejectedValue(new Error('Unexpected error'));
+    (scrapeKeywordWithStrategy as jest.Mock).mockRejectedValue(new Error('Unexpected error'));
     const settings = {
       scraper_type: 'serpapi', // parallel scraper
       scrape_retry: false,

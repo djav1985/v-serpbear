@@ -6,7 +6,7 @@ import Keyword from '../../database/models/keyword';
 import refreshAndUpdateKeywords, { clearKeywordUpdatingFlags, markKeywordsAsUpdating, partitionKeywordsByDomainStatus } from '../../utils/refresh';
 import { getAppSettings } from './settings';
 import verifyUser from '../../utils/verifyUser';
-import { scrapeKeywordFromGoogle } from '../../utils/scraper';
+import { scrapeKeywordFromGoogle, scrapeKeywordWithStrategy } from '../../utils/scraper';
 import { serializeError } from '../../utils/errorSerialization';
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
@@ -224,7 +224,7 @@ const getKeywordSearchResults = async (req: NextApiRequest, res: NextApiResponse
          lastUpdated: '',
          volume: 0,
          added: '',
-         position: 111,
+         position: 0,
          sticky: false,
          history: {},
          lastResult: [],
@@ -234,12 +234,12 @@ const getKeywordSearchResults = async (req: NextApiRequest, res: NextApiResponse
          lastUpdateError: false,
          mapPackTop3: false,
       };
-      const scrapeResult = await scrapeKeywordFromGoogle(dummyKeyword, settings);
+      const scrapeResult = await scrapeKeywordWithStrategy(dummyKeyword, settings);
       if (scrapeResult && !scrapeResult.error) {
          const searchResult = {
-            results: scrapeResult.result,
+            results: scrapeResult.result.filter((r) => !r.skipped),
             keyword: scrapeResult.keyword,
-            position: scrapeResult.position !== 111 ? scrapeResult.position : 0,
+            position: scrapeResult.position,
             country: req.query.country as string,
             device: requestedDevice,
          };

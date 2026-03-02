@@ -6,7 +6,7 @@ import Domain from '../../database/models/domain';
 import verifyUser from '../../utils/verifyUser';
 import refreshAndUpdateKeywords from '../../utils/refresh';
 import { getAppSettings } from '../../pages/api/settings';
-import { scrapeKeywordFromGoogle } from '../../utils/scraper';
+import { scrapeKeywordFromGoogle, scrapeKeywordWithStrategy } from '../../utils/scraper';
 
 jest.mock('../../database/database', () => ({
   __esModule: true,
@@ -41,6 +41,7 @@ jest.mock('../../utils/refresh', () => {
 
 jest.mock('../../utils/scraper', () => ({
   scrapeKeywordFromGoogle: jest.fn(),
+  scrapeKeywordWithStrategy: jest.fn(),
   retryScrape: jest.fn(),
   removeFromRetryQueue: jest.fn(),
 }));
@@ -236,7 +237,7 @@ describe('/api/refresh', () => {
       json: jest.fn(),
     } as unknown as NextApiResponse;
 
-    (scrapeKeywordFromGoogle as jest.Mock).mockResolvedValue({
+    (scrapeKeywordWithStrategy as jest.Mock).mockResolvedValue({
       keyword: 'widgets',
       position: 3,
       result: [],
@@ -245,7 +246,7 @@ describe('/api/refresh', () => {
 
     await handler(previewReq, previewRes);
 
-    expect(scrapeKeywordFromGoogle).toHaveBeenCalledWith(expect.objectContaining({ device: 'mobile' }), { scraper_type: 'serpapi' });
+    expect(scrapeKeywordWithStrategy).toHaveBeenCalledWith(expect.objectContaining({ device: 'mobile', position: 0 }), { scraper_type: 'serpapi' });
     expect(previewRes.status).toHaveBeenCalledWith(200);
     expect(previewRes.json).toHaveBeenCalledWith({ error: '', searchResult: expect.objectContaining({ device: 'mobile' }) });
   });
@@ -262,7 +263,7 @@ describe('/api/refresh', () => {
       json: jest.fn(),
     } as unknown as NextApiResponse;
 
-    (scrapeKeywordFromGoogle as jest.Mock).mockResolvedValue({
+    (scrapeKeywordWithStrategy as jest.Mock).mockResolvedValue({
       keyword: 'widgets',
       position: 5,
       result: [],
@@ -271,7 +272,7 @@ describe('/api/refresh', () => {
 
     await handler(previewReq, previewRes);
 
-    expect(scrapeKeywordFromGoogle).toHaveBeenCalledWith(expect.objectContaining({ device: 'desktop' }), { scraper_type: 'serpapi' });
+    expect(scrapeKeywordWithStrategy).toHaveBeenCalledWith(expect.objectContaining({ device: 'desktop', position: 0 }), { scraper_type: 'serpapi' });
     expect(previewRes.status).toHaveBeenCalledWith(200);
     expect(previewRes.json).toHaveBeenCalledWith({ error: '', searchResult: expect.objectContaining({ device: 'desktop' }) });
   });

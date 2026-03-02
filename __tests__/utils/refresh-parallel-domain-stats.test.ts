@@ -1,7 +1,7 @@
 import Domain from '../../database/models/domain';
 import Keyword from '../../database/models/keyword';
 import refreshAndUpdateKeywords from '../../utils/refresh';
-import { scrapeKeywordFromGoogle } from '../../utils/scraper';
+import { scrapeKeywordWithStrategy } from '../../utils/scraper';
 import { updateDomainStats } from '../../utils/updateDomainStats';
 
 // Mock the dependencies
@@ -10,7 +10,7 @@ jest.mock('../../database/models/keyword');
 jest.mock('../../utils/scraper', () => ({
   removeFromRetryQueue: jest.fn(),
   retryScrape: jest.fn(),
-  scrapeKeywordFromGoogle: jest.fn(),
+  scrapeKeywordWithStrategy: jest.fn(),
 }));
 
 jest.mock('../../utils/retryQueueManager', () => ({
@@ -113,7 +113,7 @@ describe('Parallel Domain Stats Updates', () => {
     ]);
 
     // Mock successful scraping for all keywords
-    (scrapeKeywordFromGoogle as jest.Mock)
+    (scrapeKeywordWithStrategy as jest.Mock)
       .mockResolvedValueOnce({
         ID: 1,
         keyword: 'keyword 1',
@@ -227,7 +227,7 @@ describe('Parallel Domain Stats Updates', () => {
       },
     ]);
 
-    (scrapeKeywordFromGoogle as jest.Mock)
+    (scrapeKeywordWithStrategy as jest.Mock)
       .mockResolvedValueOnce({
         ID: 1,
         keyword: 'keyword 1',

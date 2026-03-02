@@ -7,7 +7,7 @@
 import Keyword from '../../database/models/keyword';
 import Domain from '../../database/models/domain';
 import refreshAndUpdateKeywords, { updateKeywordPosition } from '../../utils/refresh';
-import { scrapeKeywordFromGoogle } from '../../utils/scraper';
+import { scrapeKeywordWithStrategy } from '../../utils/scraper';
 import type { RefreshResult } from '../../utils/scraper';
 
 // Mock the dependencies
@@ -16,7 +16,7 @@ jest.mock('../../database/models/keyword');
 jest.mock('../../utils/scraper', () => ({
   removeFromRetryQueue: jest.fn(),
   retryScrape: jest.fn(),
-  scrapeKeywordFromGoogle: jest.fn(),
+  scrapeKeywordWithStrategy: jest.fn(),
 }));
 
 jest.mock('../../utils/retryQueueManager', () => ({
@@ -166,7 +166,7 @@ describe('Database-Memory Synchronization in Keyword Refresh', () => {
       // Mock Keyword.findAll for updateDomainStats
       (Keyword.findAll as jest.Mock).mockResolvedValue([mockKeyword1, mockKeyword2]);
 
-      (scrapeKeywordFromGoogle as jest.Mock)
+      (scrapeKeywordWithStrategy as jest.Mock)
         .mockResolvedValueOnce({
           ID: 1,
           keyword: 'keyword 1',
@@ -228,7 +228,7 @@ describe('Database-Memory Synchronization in Keyword Refresh', () => {
       (Keyword.findAll as jest.Mock).mockResolvedValue([mockKeyword]);
 
       // Simulate scraper error
-      (scrapeKeywordFromGoogle as jest.Mock).mockRejectedValueOnce(
+      (scrapeKeywordWithStrategy as jest.Mock).mockRejectedValueOnce(
         new Error('Scraper API error'),
       );
 

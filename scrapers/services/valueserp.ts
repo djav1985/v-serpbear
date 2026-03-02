@@ -29,7 +29,8 @@ const valueSerp: ScraperSettings = {
   scrapeURL: (
     keyword: KeywordType,
     settings: SettingsType,
-    countryData: any
+    countryData: any,
+    pagination?: ScraperPagination,
   ) => {
     const resolvedCountry = resolveCountryCode(keyword.country);
     const country = resolvedCountry;
@@ -51,6 +52,7 @@ const valueSerp: ScraperSettings = {
       countryData[country] ?? countryData.US ?? Object.values(countryData)[0];
     const lang = localeInfo?.[2] ?? "en";
     const googleDomain = getGoogleDomain(country);
+    const p = pagination || { start: 0, num: 10, page: 1 };
     const params = new URLSearchParams();
     // Set params in required order
     params.set("api_key", settings.scraping_api ?? "");
@@ -67,6 +69,7 @@ const valueSerp: ScraperSettings = {
     params.set("gl", resolvedCountry.toLowerCase());
     params.set("hl", lang);
     params.set("google_domain", googleDomain);
+    params.set("page", String(p.page));
     return `https://api.valueserp.com/search?${params.toString()}`;
   },
   resultObjectKey: "organic_results",

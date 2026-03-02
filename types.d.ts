@@ -1,3 +1,5 @@
+type ScrapeStrategy = 'basic' | 'custom' | 'smart'
+
 type DomainScraperSettings = {
    scraper_type?: string | null,
    scraping_api?: string | null,
@@ -27,6 +29,9 @@ type DomainType = {
    ideas_settings?: string,
    scraper_settings?: DomainScraperSettings | null,
    business_name?: string | null,
+   scrape_strategy?: ScrapeStrategy | '',
+   scrape_pagination_limit?: number,
+   scrape_smart_full_fallback?: boolean,
 }
 
 type KeywordHistory = {
@@ -63,7 +68,8 @@ type KeywordType = {
 type KeywordLastResult = {
    position: number,
    url: string,
-   title: string
+   title: string,
+   skipped?: boolean,
 }
 
 type KeywordLocalResult = {
@@ -101,6 +107,9 @@ type DomainSettings = {
    scrapeEnabled?: boolean,
    scraper_settings?: DomainScraperSettings | null,
    business_name?: string | null,
+   scrape_strategy?: ScrapeStrategy | '',
+   scrape_pagination_limit?: number,
+   scrape_smart_full_fallback?: boolean,
 }
 
 type SettingsType = {
@@ -120,6 +129,9 @@ type SettingsType = {
    scrape_interval?: string,
    scrape_delay?: string,
    scrape_retry?: boolean,
+   scrape_strategy?: ScrapeStrategy,
+   scrape_pagination_limit?: number,
+   scrape_smart_full_fallback?: boolean,
    failed_queue?: number[]
    version?: string,
    search_console: boolean,
@@ -272,6 +284,13 @@ type ScraperExtractorResult = {
    organic: scraperExtractedItem[],
    mapPackTop3?: boolean,
 }
+
+type ScraperPagination = {
+   start: number,
+   num: number,
+   page: number,
+}
+
 interface ScraperSettings {
    /** A Unique ID for the Scraper. eg: myScraper */
    id:string,
@@ -282,18 +301,20 @@ interface ScraperSettings {
    /** The result object's key that contains the results of the scraped data. For example,
     * if your scraper API the data like this `{scraped:[item1,item2..]}` the resultObjectKey should be "scraped" */
    resultObjectKey: string,
-   /** If the Scraper allows setting a perices location or allows city level scraping set this to true. */
+   /** If the Scraper allows setting a precise location or allows city level scraping set this to true. */
    allowsCity?: boolean,
    /** Optional list of country codes (ISO 2-letter) that this scraper supports.
     * If provided, only these countries will be available in the keyword-adding dropdown for this scraper.
     * If not provided, all countries with a non-null googleDomain will be available. */
    scraperCountries?: string[],
+   /** Whether this scraper API handles its own pagination (e.g. num=100) and should bypass the app's pagination logic */
+   nativePagination?: boolean,
    /** Set your own custom HTTP header properties when making the scraper API request.
     * The function should return an object that contains all the header properties you want to pass to API request's header.
     * Example: `{'Cache-Control': 'max-age=0', 'Content-Type': 'application/json'}` */
    headers?(keyword:KeywordType, settings: SettingsType): Object,
    /** Construct the API URL for scraping the data through your Scraper's API */
-   scrapeURL?(keyword:KeywordType, settings:SettingsType, countries:countryData): string,
+   scrapeURL?(keyword:KeywordType, settings:SettingsType, countries:countryData, pagination?: ScraperPagination): string,
    /**
     * Custom function to extract SERP results from the provider payload.
     * Should return the organic listings and, when available, whether the tracked
