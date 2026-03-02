@@ -18,7 +18,7 @@ const crazyserp: ScraperSettings = {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${settings.scraping_api}`,
    }),
-   scrapeURL: (keyword: KeywordType, _settings: SettingsType, countryData: countryData) => {
+   scrapeURL: (keyword: KeywordType, _settings: SettingsType, countryData: countryData, pagination?: ScraperPagination) => {
       const country = resolveCountryCode(keyword.country);
       const localeInfo = countryData[country] ?? countryData.US ?? Object.values(countryData)[0];
       const lang = localeInfo?.[2] ?? 'en';
@@ -34,10 +34,11 @@ const crazyserp: ScraperSettings = {
             : `${locationString},${countryName}`;
       }
       const googleDomain = getGoogleDomain(country);
+      const p = pagination || { start: 0, num: 10, page: 1 };
       const params = new URLSearchParams();
       params.set('q', keyword.keyword);
-      params.set('page', '10');
-      params.set('pageOffset', '0');
+      params.set('page', String(p.num));
+      params.set('pageOffset', String(p.start));
       params.set('location', location);
       params.set('googleDomain', googleDomain);
       params.set('gl', country.toLowerCase());
