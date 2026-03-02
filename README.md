@@ -25,6 +25,8 @@ Not every scraper provider is validated on every release—please report any iss
 > **10. Per Domain Scraping:** Easily set scrapers per domain globally or both.
 >
 > **11. Transparent SERP result coverage:** The keyword details panel now shows exactly which pages were scraped and which were skipped. Skipped page ranges appear as clearly labelled placeholder blocks between real results, and the "not found" badge adapts to reflect the actual number of results checked rather than always displaying "Not in First 100".
+>
+> **12. Dynamic scraping strategy:** A flexible 3-tier system lets you control how many pages are checked per keyword at both the global and per-domain level. **Basic** (default) scrapes only the first page; **Custom** scrapes a fixed number of pages (1–10); **Smart** targets the page where the keyword was last seen ± one neighbour, with an optional full-10-page fallback. This directly addresses Google's removal of `num=100` support so keywords beyond position 10 are no longer always reported as "Not in First 100".
 > 
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/7e7a0030c3f84c6fb56a3ce6273fbc1d)](https://app.codacy.com/gh/djav1985/v-serpbear/dashboard) ![License](https://img.shields.io/github/license/djav1985/v-serpbear) ![Version](https://img.shields.io/github/package-json/v/djav1985/v-serpbear) ![Docker pulls](https://img.shields.io/docker/pulls/vontainment/v-serpbear)
 
@@ -155,7 +157,7 @@ Search Console credentials can also be supplied via the Settings UI (stored in `
 
 Use the Settings UI (or `/api/settings`) to manage values that are persisted in `data/settings.json` and encrypted with `SECRET`. Key configuration areas include:
 
-- **Scraper settings:** `scraper_type`, `scraping_api`, `proxy`, `scrape_interval`, `scrape_delay`, `scrape_retry`
+- **Scraper settings:** `scraper_type`, `scraping_api`, `proxy`, `scrape_interval`, `scrape_delay`, `scrape_retry`, `scrape_strategy`, `scrape_pagination_limit`, `scrape_smart_full_fallback`
 - **Notification defaults:** `notification_email`, `notification_email_from`, `notification_email_from_name`
 - **SMTP credentials:** `smtp_server`, `smtp_port`, `smtp_username`, `smtp_password`, `smtp_tls_servername`
 - **Google integrations:** `search_console_client_email`, `search_console_private_key`, and the `adwords_*` credentials used for keyword ideas
@@ -189,20 +191,22 @@ Set `ANALYZE=true` before running `next build` to generate a static bundle analy
 
 SerpBear integrates with several managed APIs in addition to a "bring your own proxy" option. The table below summarises their capabilities as implemented in the current codebase.
 
-| Provider | Working | Pricing snapshot* | Geo targeting | Map Pack coverage | Organic results per request | API key header |
+| Provider | Working | Pricing snapshot* | Geo targeting | Map Pack coverage | Results coverage | API key header |
 | --- | --- | --- | --- | --- | --- | --- |
-| Custom proxy (`proxy`) | ? | Bring your own | Google default locale | No – organic listings only | 10 | None |
-| Scraping Robot (`scrapingrobot`) | ? | Free tier (~5,000 req/mo) | Country-level | No – organic listings only | 10 | Query string `token` (or Authorization header) |
-| ScrapingAnt (`scrapingant`) | ? | Pay-as-you-go | Country-level (select markets) | No – organic listings only | 10 | Header `x-api-key` |
-| Serply (`serply`) | ? | Plans from $49/mo | City & region (supported markets) | **Yes** – extracts local map pack | Up to 100 | `X-Api-Key` + `X-Proxy-Location` |
-| SpaceSerp (`spaceserp`) | ? | Lifetime + subscription plans | City-level | **Yes** – extracts local map pack | 10 | Query string `apiKey` |
-| SerpApi (`serpapi`) | ✅ | Free 250/mo + Plans from $75/mo | City-level | **Yes** – extracts local map pack | 10 | Query string `api_key` |
-| SearchApi (`searchapi`) | ✅ | Plans from $40/mo | City-level | **Yes** – extracts local map pack | 10 | Query string `api_key` |
-| ValueSerp (`valueserp`) | ✅ | Pay-as-you-go 10,000 for $25 | City-level | **Yes** – extracts local map pack | 10 | Query string `api_key` |
-| Serper (`serper`) | ✅ | Credit-based 50,000 for $50 | City-level | No – organic listings only | 10 | Query string `api_key` |
-| HasData (`hasdata`) | ✅ | Free 1,000/mo + Plans from $49/mo | City-level | **Yes** – extracts local map pack | 10 | Header `x-api-key` |
+| Custom proxy (`proxy`) | ? | Bring your own | Google default locale | No – organic listings only | Strategy-controlled (10 per page, up to 10 pages) | None |
+| Scraping Robot (`scrapingrobot`) | ? | Free tier (~5,000 req/mo) | Country-level | No – organic listings only | Strategy-controlled (10 per page, up to 10 pages) | Query string `token` |
+| ScrapingAnt (`scrapingant`) | ? | Pay-as-you-go | Country-level (select markets) | No – organic listings only | Strategy-controlled (10 per page, up to 10 pages) | Header `x-api-key` |
+| Serply (`serply`) | ? | Plans from $49/mo | City & region (supported markets) | **Yes** – extracts local map pack | Strategy-controlled (10 per page, up to 10 pages) | `X-Api-Key` + `X-Proxy-Location` |
+| SpaceSerp (`spaceserp`) | ? | Lifetime + subscription plans | City-level | **Yes** – extracts local map pack | Strategy-controlled (10 per page, up to 10 pages) | Query string `apiKey` |
+| SerpApi (`serpapi`) | ✅ | Free 250/mo + Plans from $75/mo | City-level | **Yes** – extracts local map pack | **Native – up to 100 results per request** | Query string `api_key` |
+| SearchApi (`searchapi`) | ✅ | Plans from $40/mo | City-level | **Yes** – extracts local map pack | **Native – up to 100 results per request** | Query string `api_key` |
+| ValueSerp (`valueserp`) | ✅ | Pay-as-you-go 10,000 for $25 | City-level | **Yes** – extracts local map pack | Strategy-controlled (10 per page, up to 10 pages) | Query string `api_key` |
+| Serper (`serper`) | ✅ | Credit-based 50,000 for $50 | City-level | No – organic listings only | Strategy-controlled (10 per page, up to 10 pages) | Query string `api_key` |
+| HasData (`hasdata`) | ✅ | Free 1,000/mo + Plans from $49/mo | City-level | **Yes** – extracts local map pack | Strategy-controlled (10 per page, up to 10 pages) | Header `x-api-key` |
 
 \*Pricing details are indicative; confirm current pricing with each vendor before purchasing. All managed integrations authenticate with the headers or query parameters shown in the final column, exactly as implemented in the `/scrapers/services` directory.
+
+**Results coverage** reflects the scrape strategy in use (see [Scrape Strategy](#scrape-strategy) below). Providers marked **Native** return up to 100 organic results in a single API call and bypass the app-level pagination system entirely. All other providers return 10 results per page; the scrape strategy controls how many pages are fetched per keyword refresh.
 
 ### Per-domain scraper overrides
 
@@ -233,7 +237,7 @@ The **Business Name** field is an optional setting in the domain scraper configu
 
 1. **Add a domain** – supply the host name you want to monitor.
 2. **Create keywords** – capture the query, target country, optional state/city pair (stored as a single location string), and device type (desktop/mobile).
-3. **Run scrapes** – the cron worker queries your configured provider for the top 10 organic results and stores rank positions.
+3. **Run scrapes** – the cron worker queries your configured provider and stores rank positions. The number of result pages checked per keyword is governed by the active [scrape strategy](#scrape-strategy).
 4. **Analyse trends** – interactive charts and tables surface historical rank, average position, and day-over-day change.
 5. **Share insights** – export keyword data via the API or send scheduled email summaries to stakeholders.
 
@@ -245,6 +249,29 @@ Click any keyword row to open the details panel, which shows the full SERP snaps
 - **Coverage summary banner:** When any positions were skipped, a blue banner at the top of the results section shows `X results scraped • Y positions skipped (scrape strategy limits pages checked)` so you can immediately understand the scope of the snapshot.
 - **Adaptive "not found" badge:** If your domain was not found and some positions were skipped, the badge in the panel header reads `Not in First N` (where N is the number of results actually scraped) instead of the generic `Not in First 100`.
 - **Accurate highlight:** The amber highlight that marks your tracked domain in the results list is matched by position value rather than list index, so it works correctly even when the result set is non-contiguous.
+
+### Scrape Strategy
+
+Google's removal of `num=100` support limits most SERP APIs to 10 results per request. The **Scrape Strategy** system lets you trade API credit spend against ranking depth by controlling how many pages (each containing up to 10 results) are fetched per keyword on every refresh.
+
+Three strategies are available:
+
+| Strategy | Behaviour | API credits per keyword |
+| --- | --- | --- |
+| **Basic** (default) | Fetches only the first page – positions 1–10. Fastest and cheapest. | 1 request |
+| **Custom** | Fetches a fixed number of pages you choose (1–10). Useful for sites with stable rankings in a known range. | 1–10 requests |
+| **Smart** | Fetches the page where the keyword was last seen, plus the page immediately before and after it. If the keyword is not found and the **Full Fallback** option is enabled, all remaining pages are checked. | Usually 1–3 requests; up to 10 with full fallback |
+
+> **Native pagination providers:** SerpApi and SearchApi return up to 100 results in a single API call. For those providers the strategy system is bypassed entirely and full top-100 coverage is always available at the cost of one API credit per keyword.
+
+#### Configuring the strategy
+
+- **Globally:** Open **Settings → Scraper** and use the _Scrape Strategy_ drop-down. When **Custom** is selected a page-count selector (1–10 pages) appears. When **Smart** is selected a _Full Fallback_ toggle appears.
+- **Per-domain override:** Open a domain, switch to the **Scraper** tab, and choose a _Scrape Strategy Override_. Selecting any value other than **Use Global Setting** activates domain-level controls. Leave it on **Use Global Setting** to inherit the global configuration.
+
+#### How results are stored
+
+Fetched positions carry real SERP data; positions on pages that were not scraped are stored with a `skipped` flag. The keyword details panel renders skipped ranges as dashed placeholder blocks so you can see at a glance which positions were checked. The "not found" badge in the panel header adapts to display `Not in First N` (where N is the number of positions actually scraped) rather than the generic `Not in First 100`.
 
 ### Google Search Console insights
 
