@@ -173,32 +173,73 @@ const handleProxyError = (error: any, settings: SettingsType): string => {
    return serializeError(error);
 };
 
+type PageScrapeResult = {
+   results: SearchResult[];
+   mapPackTop3: boolean;
+   localResults: any[];
+};
+
 /**
  * Scrape a single page of Google Search results with absolute position offsets applied.
+ * Includes retry logic with exponential backoff and returns mapPackTop3 / localResults.
  */
 const scrapeSinglePage = async (
    keyword: KeywordType,
    settings: SettingsType,
    scraperObj: ScraperSettings | undefined,
    pagination: ScraperPagination,
-): Promise<SearchResult[]> => {
+   maxRetries: number = 3,
+): Promise<PageScrapeResult> => {
    const scraperType = settings?.scraper_type || '';
-   const scraperClient = getScraperClient(keyword, settings, scraperObj, 0, pagination);
-   if (!scraperClient) { return []; }
-   try {
-      const res = scraperType === 'proxy' && settings.proxy ? await scraperClient : await scraperClient.then((result:any) => result.json());
-      const scraperResult = scraperObj?.resultObjectKey && res[scraperObj.resultObjectKey] ? res[scraperObj.resultObjectKey] : '';
-      const scrapeResult: string = (res.data || res.html || res.results || scraperResult || '');
-      if (res && scrapeResult) {
-         const extracted = scraperObj?.serpExtractor
-            ? scraperObj.serpExtractor({ keyword, response: res, result: scrapeResult, settings }).organic
-            : extractScrapedResult(scrapeResult, keyword.device, keyword.domain).organic;
-         return extracted.map((item, i) => ({ ...item, position: pagination.start + i + 1 }));
+   const empty: PageScrapeResult = { results: [], mapPackTop3: false, localResults: [] };
+
+   for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const scraperClient = getScraperClient(keyword, settings, scraperObj, attempt, pagination);
+      if (!scraperClient) { return empty; }
+      try {
+         const res = scraperType === 'proxy' && settings.proxy ? await scraperClient : await scraperClient.then((result:any) => result.json());
+         if (hasScraperError(res)) {
+            if (attempt < maxRetries) {
+               await new Promise(resolve => setTimeout(resolve, getRetryDelay(attempt)));
+               continue;
+            }
+            break;
+         }
+         const scraperResult = scraperObj?.resultObjectKey && res[scraperObj.resultObjectKey] ? res[scraperObj.resultObjectKey] : '';
+         const scrapeResult: string = (res.data || res.html || res.results || scraperResult || '');
+         if (res && scrapeResult) {
+            let organic: SearchResult[];
+            let mapPackTop3 = false;
+            if (scraperObj?.serpExtractor) {
+               const extraction = scraperObj.serpExtractor({ keyword, response: res, result: scrapeResult, settings });
+               organic = extraction.organic;
+               mapPackTop3 = extraction.mapPackTop3 ?? false;
+            } else {
+               const extraction = extractScrapedResult(scrapeResult, keyword.device, keyword.domain);
+               organic = extraction.organic;
+               mapPackTop3 = extraction.mapPackTop3;
+            }
+            const debugMode = process.env.NODE_ENV === 'development';
+            const localResults = extractLocalResultsFromPayload(res, debugMode);
+            return {
+               results: organic.map((item, i) => ({ ...item, position: pagination.start + i + 1 })),
+               mapPackTop3,
+               localResults,
+            };
+         }
+         if (attempt < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, getRetryDelay(attempt)));
+            continue;
+         }
+      } catch (error:any) {
+         logger.debug('[SCRAPE] Scraping page failed', { page: pagination.page, keyword: keyword.keyword, error: error?.message || '' });
+         if (attempt < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, getRetryDelay(attempt)));
+            continue;
+         }
       }
-   } catch (error:any) {
-      logger.debug('[SCRAPE] Scraping page failed', { page: pagination.page, keyword: keyword.keyword, error: error?.message || '' });
    }
-   return [];
+   return empty;
 };
 
 /**
@@ -265,7 +306,7 @@ export const scrapeKeywordWithStrategy = async (
       url: keyword.url,
       result: keyword.lastResult,
       mapPackTop3: keyword.mapPackTop3 ?? false,
-      error: true,
+      error: 'No results scraped',
    };
 
    const { strategy, paginationLimit, smartFullFallback } = resolveStrategy(settings, domainSettings);
@@ -276,7 +317,7 @@ export const scrapeKeywordWithStrategy = async (
       pagesToScrape = Array.from({ length: limit }, (_, i) => i + 1);
    } else if (strategy === 'smart') {
       const lastPos = keyword.position;
-      const lastPage = lastPos > 0 ? Math.ceil(lastPos / PAGE_SIZE) : 1;
+      const lastPage = lastPos > 0 ? Math.min(Math.ceil(lastPos / PAGE_SIZE), TOTAL_PAGES) : 1;
       const neighbors = [lastPage - 1, lastPage, lastPage + 1].filter((p) => p >= 1 && p <= TOTAL_PAGES);
       pagesToScrape = [...new Set(neighbors)];
    } else {
@@ -284,10 +325,21 @@ export const scrapeKeywordWithStrategy = async (
    }
 
    const allScrapedResults: SearchResult[] = [];
+   // Map pack and local results only appear on page 1; retain the previous value when page 1 is not scraped.
+   let page1MapPackTop3 = keyword.mapPackTop3 ?? false;
+   let page1LocalResults: any[] = [];
+   let page1Scraped = false;
    for (const pageNum of pagesToScrape) {
       const pagination: ScraperPagination = { start: (pageNum - 1) * PAGE_SIZE, num: PAGE_SIZE, page: pageNum };
-      const pageResults = await scrapeSinglePage(keyword, settings, scraperObj, pagination);
-      if (pageResults.length > 0) { allScrapedResults.push(...pageResults); }
+      const { results, mapPackTop3, localResults } = await scrapeSinglePage(keyword, settings, scraperObj, pagination);
+      if (results.length > 0) {
+         allScrapedResults.push(...results);
+         if (pageNum === 1) {
+            page1MapPackTop3 = mapPackTop3;
+            page1LocalResults = localResults;
+            page1Scraped = true;
+         }
+      }
    }
 
    if (allScrapedResults.length === 0) { return errorResult; }
@@ -300,8 +352,15 @@ export const scrapeKeywordWithStrategy = async (
          const remainingPages = Array.from({ length: TOTAL_PAGES }, (_, i) => i + 1).filter((p) => !alreadyScraped.has(p));
          for (const pageNum of remainingPages) {
             const pagination: ScraperPagination = { start: (pageNum - 1) * PAGE_SIZE, num: PAGE_SIZE, page: pageNum };
-            const pageResults = await scrapeSinglePage(keyword, settings, scraperObj, pagination);
-            if (pageResults.length > 0) { allScrapedResults.push(...pageResults); }
+            const { results, mapPackTop3, localResults } = await scrapeSinglePage(keyword, settings, scraperObj, pagination);
+            if (results.length > 0) {
+               allScrapedResults.push(...results);
+               if (pageNum === 1 && !page1Scraped) {
+                  page1MapPackTop3 = mapPackTop3;
+                  page1LocalResults = localResults;
+                  page1Scraped = true;
+               }
+            }
          }
       }
    }
@@ -316,7 +375,8 @@ export const scrapeKeywordWithStrategy = async (
       position: finalSerp.position,
       url: finalSerp.url,
       result: fullResults,
-      mapPackTop3: keyword.mapPackTop3 ?? false,
+      mapPackTop3: page1MapPackTop3,
+      localResults: page1LocalResults,
       error: false,
    };
 };
