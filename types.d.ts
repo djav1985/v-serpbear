@@ -63,7 +63,8 @@ type KeywordType = {
 type KeywordLastResult = {
    position: number,
    url: string,
-   title: string
+   title: string,
+   skipped?: boolean,
 }
 
 type KeywordLocalResult = {
