@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file. Releases no
 - Daily notification email now surfaces a tracker mini-summary ahead of the Search Console tables, styled to match the dashboard tracker card and only showing the Map Pack column when the active scraper supports it.
 - White-label deployments can override the platform name and supply a `/app/data` logo that propagates through the UI, emails, and Docker environment defaults.
 - Keyword ideas banner now offers an email action on both research and domain idea tabs, formatting selected ideas into a rich HTML table and bypassing notification throttling while still enforcing domain-specific recipients.
+- Keyword details panel now visualises skipped SERP positions as labelled page-range placeholders between real result cards. An inline banner reports the scraped vs. skipped counts, and the "not found" badge adapts to reflect the actual number of results checked rather than always displaying "Not in First 100".
 
 ### Documentation
 - Documented the fork's stability, security, and performance improvements at the top of the README for quick comparison with upstream SerpBear.

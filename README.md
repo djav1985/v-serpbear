@@ -23,6 +23,8 @@ Not every scraper provider is validated on every release—please report any iss
 > **9. White Labeling:** Easy whitelabling.
 >
 > **10. Per Domain Scraping:** Easily set scrapers per domain globally or both.
+>
+> **11. Transparent SERP result coverage:** The keyword details panel now shows exactly which pages were scraped and which were skipped. Skipped page ranges appear as clearly labelled placeholder blocks between real results, and the "not found" badge adapts to reflect the actual number of results checked rather than always displaying "Not in First 100".
 > 
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/7e7a0030c3f84c6fb56a3ce6273fbc1d)](https://app.codacy.com/gh/djav1985/v-serpbear/dashboard) ![License](https://img.shields.io/github/license/djav1985/v-serpbear) ![Version](https://img.shields.io/github/package-json/v/djav1985/v-serpbear) ![Docker pulls](https://img.shields.io/docker/pulls/vontainment/v-serpbear)
 
@@ -52,6 +54,7 @@ Not every scraper provider is validated on every release—please report any iss
 - **Adaptive desktop canvas:** Domain dashboards, Search Console insights, and the research workspace reuse a shared `desktop-container` utility that expands to 90 % of the viewport on large screens so wide monitors surface more data at once.
 - **Focused loading states:** Keyword tables drive their own loading indicators, so the single-domain and research workspaces stay visible while data refreshes, and only the domains index keeps the full-page bootstrap overlay when first loading.
 - **Robust API:** Manage domains, keywords, settings, and refresh jobs programmatically for automated reporting pipelines.
+- **Transparent SERP coverage in keyword details:** The keyword details panel groups search results into segments. When a scraper strategy skips pages, dashed "Page X: N results skipped" placeholders appear between real result cards so you can see precisely which positions were checked. An inline banner summarises scraped vs. skipped counts, and the position badge on not-found keywords adapts to say "Not in First N" (where N is the actual scraped count) rather than always showing a hardcoded 100.
 
 ### Platform architecture at a glance
 
@@ -233,6 +236,15 @@ The **Business Name** field is an optional setting in the domain scraper configu
 3. **Run scrapes** – the cron worker queries your configured provider for the top 10 organic results and stores rank positions.
 4. **Analyse trends** – interactive charts and tables surface historical rank, average position, and day-over-day change.
 5. **Share insights** – export keyword data via the API or send scheduled email summaries to stakeholders.
+
+### Keyword details panel & SERP coverage
+
+Click any keyword row to open the details panel, which shows the full SERP snapshot alongside rank-history charts. When a scraper strategy skips pages (for example, providers that only return first-page results), the panel makes those gaps explicit:
+
+- **Skipped-page placeholders:** Consecutive skipped positions are collapsed into dashed blocks labelled `Page X: N results skipped` and inserted between the real result cards at the correct position in the list.
+- **Coverage summary banner:** When any positions were skipped, a blue banner at the top of the results section shows `X results scraped • Y positions skipped (scrape strategy limits pages checked)` so you can immediately understand the scope of the snapshot.
+- **Adaptive "not found" badge:** If your domain was not found and some positions were skipped, the badge in the panel header reads `Not in First N` (where N is the number of results actually scraped) instead of the generic `Not in First 100`.
+- **Accurate highlight:** The amber highlight that marks your tracked domain in the results list is matched by position value rather than list index, so it works correctly even when the result set is non-contiguous.
 
 ### Google Search Console insights
 
