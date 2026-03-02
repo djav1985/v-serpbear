@@ -281,10 +281,15 @@ export const updateDomain = async (req: NextApiRequest, res: NextApiResponse<Dom
          updates.scrape_strategy = validStrategies.includes(strategy as ScrapeStrategy | '') ? strategy : '';
       }
       if (Object.prototype.hasOwnProperty.call(payload, 'scrape_pagination_limit')) {
-         updates.scrape_pagination_limit = scrape_pagination_limit || 0;
+         if (typeof scrape_pagination_limit === 'number' && Number.isFinite(scrape_pagination_limit)) {
+            const clampedLimit = Math.min(10, Math.max(0, scrape_pagination_limit));
+            updates.scrape_pagination_limit = clampedLimit;
+         }
       }
       if (Object.prototype.hasOwnProperty.call(payload, 'scrape_smart_full_fallback')) {
-         updates.scrape_smart_full_fallback = !!scrape_smart_full_fallback;
+         if (typeof scrape_smart_full_fallback === 'boolean') {
+            updates.scrape_smart_full_fallback = scrape_smart_full_fallback;
+         }
       }
       if (Object.prototype.hasOwnProperty.call(payload, 'scraper_settings')) {
          const existingScraperSettings = parseDomainScraperSettings(domainPlain?.scraper_settings);
