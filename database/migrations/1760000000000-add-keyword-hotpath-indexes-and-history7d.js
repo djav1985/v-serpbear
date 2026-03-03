@@ -18,8 +18,12 @@ const hasIndex = async (queryInterface, tableName, indexName) => {
 };
 
 module.exports = {
-   up: async function up(params = {}) {
+   up: async function up(params = {}, legacySequelize) {
       const queryInterface = params?.context ?? params;
+      const SequelizeLib = params?.Sequelize
+         ?? legacySequelize
+         ?? queryInterface?.sequelize?.constructor
+         ?? require('sequelize');
       return queryInterface.sequelize.transaction(async (transaction) => {
          let keywordTableDefinition;
          try {
@@ -33,7 +37,7 @@ module.exports = {
             await queryInterface.addColumn(
                TABLE,
                'history7d',
-               { type: queryInterface.sequelize.Sequelize.STRING, allowNull: true, defaultValue: JSON.stringify({}) },
+               { type: SequelizeLib.DataTypes.STRING, allowNull: true, defaultValue: JSON.stringify({}) },
                { transaction }
             );
          }
