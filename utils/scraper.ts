@@ -792,7 +792,7 @@ export const getSerp = (domainURL:string, result:SearchResult[]) : SERPObject =>
    const targetPath = URLToFind.pathname.replace(/\/$/, '');
    const hasSpecificPath = targetPath.length > 0;
 
-   const foundItem = result.find((item) => {
+   const matchingItems = result.filter((item) => {
       const parsedURL = resolveResultURL(item.url);
       if (!parsedURL) { return false; }
 
@@ -806,6 +806,10 @@ export const getSerp = (domainURL:string, result:SearchResult[]) : SERPObject =>
       }
       return parsedURL.hostname === targetHost;
    });
+
+   const foundItem = matchingItems.length > 0
+      ? matchingItems.reduce((best, item) => (item.position < best.position ? item : best))
+      : undefined;
 
    return { position: foundItem ? foundItem.position : 0, url: foundItem && foundItem.url ? foundItem.url : '' };
 };
