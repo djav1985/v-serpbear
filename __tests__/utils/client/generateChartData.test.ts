@@ -11,24 +11,24 @@ describe('generateTheChartData', () => {
    describe('time-windowed mode', () => {
       it('returns a series with one entry per day including today', () => {
          const { labels, series } = generateTheChartData({}, '7');
-         expect(labels).toHaveLength(8); // 7 days ago … today = 8 points
-         expect(series).toHaveLength(8);
+         expect(labels).toHaveLength(7); // 6 days ago … today = 7 points
+         expect(series).toHaveLength(7);
       });
 
       it('uses the actual position when history exists within the window', () => {
          const history: Record<string, number> = { [daysAgo(2)]: 5 };
          const { series } = generateTheChartData(history, '7');
          // The entry 2 days ago should be exactly 5
-         expect(series[5]).toBe(5); // index 5 of 8 = 7-2=5
+         expect(series[4]).toBe(5); // index 4 of 7 = (7-1)-2=4
       });
 
       it('carries the last known position forward for missing dates within the window', () => {
          const history: Record<string, number> = { [daysAgo(4)]: 10 };
          const { series } = generateTheChartData(history, '7');
-         // index 3 = 7-4 = 3 → 10; index 4+ should also be 10 (carry-forward)
+         // index 2 = (7-1)-4 = 2 → 10; index 3+ should also be 10 (carry-forward)
+         expect(series[2]).toBe(10);
          expect(series[3]).toBe(10);
-         expect(series[4]).toBe(10);
-         expect(series[7]).toBe(10); // today still carries 10
+         expect(series[6]).toBe(10); // today still carries 10
       });
 
       it('seeds lastFoundSerp from history before the window so chart is not blank', () => {
