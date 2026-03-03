@@ -3,9 +3,9 @@ import { useQuery } from 'react-query';
 import type { BrandingConfig } from '../utils/branding';
 import { DEFAULT_BRANDING, getBranding } from '../utils/branding';
 
-export const BRANDING_QUERY_KEY = ['branding-config'] as const;
+const BRANDING_QUERY_KEY = ['branding-config'] as const;
 
-export const fetchBrandingConfig = async (): Promise<BrandingConfig> => {
+const fetchBrandingConfig = async (): Promise<BrandingConfig> => {
    const response = await fetch('/api/branding/config', {
       headers: {
          Accept: 'application/json',

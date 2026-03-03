@@ -19,52 +19,38 @@ import {
 import { toDbBool } from '../../utils/dbBooleans';
 import { safeJsonParse } from '../../utils/safeJsonParse';
 import normalizeDomainBooleans from '../../utils/normalizeDomain';
+import { errorResponse } from '../../utils/api/response';
+
+const TRUTHY = new Set(['true', '1', 'on', 'yes']);
+const FALSY = new Set(['false', '0', 'off', 'no']);
 
 /**
- * Parses a query parameter as a boolean value.
- * Maintains backward compatibility with existing API clients.
- * @param value - The query parameter value to parse (if an array, the last element is used)
- * @returns true if value is 'true' or any other non-empty value except 'false', false otherwise
+ * Parses a query parameter as a strict boolean value.
+ * Accepts case-insensitive: true/false/1/0/on/off/yes/no.
+ * Returns null (→ 400) for unknown or empty values, undefined for absent param.
  */
-const parseBooleanQueryParam = (value: string | string[] | undefined): boolean => {
-   if (!value) return false;
-   // Handle arrays by extracting the last element
-   const normalized = Array.isArray(value)
-      ? (value.length > 0 ? value[value.length - 1] : undefined)
+export const parseStrictBooleanQueryParam = (
+   value: string | string[] | undefined,
+): { ok: true; value: boolean } | { ok: false; message: string } | null => {
+   if (value === undefined) { return null; }
+   const raw = Array.isArray(value)
+      ? (value.length > 0 ? value[value.length - 1] : '')
       : value;
-   if (!normalized) return false;
-   if (normalized === 'true') return true;
-   if (normalized === 'false') return false;
-   return true; // Any other non-empty value is considered true (backward compatibility)
+   const lower = raw.trim().toLowerCase();
+   if (lower === '') {
+      return { ok: false, message: 'Boolean query parameter must not be empty' };
+   }
+   if (TRUTHY.has(lower)) { return { ok: true, value: true }; }
+   if (FALSY.has(lower)) { return { ok: true, value: false }; }
+   return { ok: false, message: `Invalid boolean value: "${raw}". Expected one of: true, false, 1, 0, on, off, yes, no` };
 };
 
-type DomainsGetRes = {
-   domains: DomainType[]
-   error?: string|null,
-}
-
-type DomainsAddResponse = {
-   domains: DomainType[]|null,
-   error?: string|null,
-}
-
-type DomainsDeleteRes = {
-   domainRemoved: number,
-   keywordsRemoved: number,
-   SCDataRemoved: boolean,
-   error?: string|null,
-}
-
-type DomainsUpdateRes = {
-   domain: DomainType | null,
-   error?: string|null,
-}
-
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
+   const requestId = (req as ExtendedRequest).requestId;
    // Check authentication for all requests now - changed from previous behavior
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
-      return res.status(401).json({ error: authorized });
+      return res.status(401).json(errorResponse('UNAUTHORIZED', authorized, requestId));
    }
    
    if (req.method === 'GET') {
@@ -79,11 +65,22 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
    if (req.method === 'PUT') {
       return updateDomain(req, res);
    }
-   return res.status(405).json({ error: 'Method not allowed' });
+   return res.status(405).json(errorResponse('METHOD_NOT_ALLOWED', 'Method not allowed', requestId));
 };
 
-export const getDomains = async (req: NextApiRequest, res: NextApiResponse<DomainsGetRes>) => {
-   const withStats = parseBooleanQueryParam(req?.query?.withstats);
+export const getDomains = async (req: NextApiRequest, res: NextApiResponse) => {
+   const requestId = (req as ExtendedRequest).requestId;
+   const withStatsParam = req?.query?.withstats;
+   let withStats = false;
+   if (withStatsParam !== undefined) {
+      const parsed = parseStrictBooleanQueryParam(withStatsParam);
+      if (parsed !== null && !parsed.ok) {
+         return res.status(400).json(errorResponse('BAD_REQUEST', parsed.message, requestId));
+      }
+      if (parsed !== null && parsed.ok) {
+         withStats = parsed.value;
+      }
+   }
    
    try {
       
@@ -115,11 +112,12 @@ export const getDomains = async (req: NextApiRequest, res: NextApiResponse<Domai
       return res.status(200).json({ domains: theDomains });
    } catch (error) {
       logger.error('Getting Domains.', error instanceof Error ? error : new Error(String(error)));
-      return res.status(400).json({ domains: [], error: 'Error Getting Domains.' });
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error Getting Domains.', requestId, error instanceof Error ? error.message : String(error)));
    }
 };
 
-const addDomain = async (req: NextApiRequest, res: NextApiResponse<DomainsAddResponse>) => {
+const addDomain = async (req: NextApiRequest, res: NextApiResponse) => {
+   const requestId = (req as ExtendedRequest).requestId;
    const { domains } = req.body;
    if (domains && Array.isArray(domains) && domains.length > 0) {
       const invalidDomains: string[] = [];
@@ -139,7 +137,7 @@ const addDomain = async (req: NextApiRequest, res: NextApiResponse<DomainsAddRes
 
       if (invalidDomains.length > 0) {
          const formatted = invalidDomains.filter(Boolean).join(', ') || 'blank domain';
-         return res.status(400).json({ domains: [], error: `Invalid domain(s): ${formatted}` });
+         return res.status(400).json(errorResponse('BAD_REQUEST', `Invalid domain(s): ${formatted}`, requestId));
       }
 
       const now = new Date().toJSON();
@@ -153,7 +151,7 @@ const addDomain = async (req: NextApiRequest, res: NextApiResponse<DomainsAddRes
       }));
 
       if (domainsToAdd.length === 0) {
-         return res.status(400).json({ domains: [], error: 'No valid domains provided.' });
+         return res.status(400).json(errorResponse('BAD_REQUEST', 'No valid domains provided.', requestId));
       }
 
       try {
@@ -162,16 +160,17 @@ const addDomain = async (req: NextApiRequest, res: NextApiResponse<DomainsAddRes
          return res.status(201).json({ domains: formattedDomains });
       } catch (error) {
          logger.error('Adding New Domain ', error instanceof Error ? error : new Error(String(error)));
-         return res.status(400).json({ domains: [], error: 'Error Adding Domain.' });
+         return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error Adding Domain.', requestId, error instanceof Error ? error.message : String(error)));
       }
    } else {
-      return res.status(400).json({ domains: [], error: 'Necessary data missing.' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Necessary data missing.', (req as ExtendedRequest).requestId));
    }
 };
 
-export const deleteDomain = async (req: NextApiRequest, res: NextApiResponse<DomainsDeleteRes>) => {
+export const deleteDomain = async (req: NextApiRequest, res: NextApiResponse) => {
+   const requestId = (req as ExtendedRequest).requestId;
    if (!req.query.domain || typeof req.query.domain !== 'string') {
-      return res.status(400).json({ domainRemoved: 0, keywordsRemoved: 0, SCDataRemoved: false, error: 'Domain is Required!' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Domain is Required!', requestId));
    }
    
    const { domain } = req.query || {};
@@ -179,31 +178,29 @@ export const deleteDomain = async (req: NextApiRequest, res: NextApiResponse<Dom
    // Check if domain is currently being refreshed
    if (refreshQueue.isDomainLocked(domain as string)) {
       logger.warn(`Cannot delete domain while refresh is in progress`, { domain });
-      return res.status(409).json({ 
-         domainRemoved: 0, 
-         keywordsRemoved: 0, 
-         SCDataRemoved: false, 
-         error: `Cannot delete domain "${domain}" while a refresh is in progress. Please wait for the refresh to complete or try again later.`,
-      });
+      return res.status(409).json(
+         errorResponse('CONFLICT', `Cannot delete domain "${domain}" while a refresh is in progress. Please wait for the refresh to complete or try again later.`, requestId),
+      );
    }
    
    try {
       const removedDomCount: number = await Domain.destroy({ where: { domain } });
       if (removedDomCount === 0) {
-         return res.status(404).json({ domainRemoved: 0, keywordsRemoved: 0, SCDataRemoved: false, error: 'Domain not found' });
+         return res.status(404).json(errorResponse('NOT_FOUND', 'Domain not found', requestId));
       }
       const removedKeywordCount: number = await Keyword.destroy({ where: { domain } });
       const SCDataRemoved = await removeLocalSCData(domain as string);
       return res.status(200).json({ domainRemoved: removedDomCount, keywordsRemoved: removedKeywordCount, SCDataRemoved });
    } catch (error) {
       logger.error(`Error deleting domain: ${req.query.domain}`, error instanceof Error ? error : new Error(String(error)));
-      return res.status(400).json({ domainRemoved: 0, keywordsRemoved: 0, SCDataRemoved: false, error: 'Error Deleting Domain' });
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error Deleting Domain.', requestId, error instanceof Error ? error.message : String(error)));
    }
 };
 
-export const updateDomain = async (req: NextApiRequest, res: NextApiResponse<DomainsUpdateRes>) => {
+export const updateDomain = async (req: NextApiRequest, res: NextApiResponse) => {
+   const requestId = (req as ExtendedRequest).requestId;
    if (!req.query.domain || typeof req.query.domain !== 'string') {
-      return res.status(400).json({ domain: null, error: 'Domain is Required!' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Domain is Required!', requestId));
    }
    const { domain } = req.query || {};
    const payload = req.body as Partial<DomainSettings>;
@@ -223,7 +220,7 @@ export const updateDomain = async (req: NextApiRequest, res: NextApiResponse<Dom
       const domainToUpdate: Domain|null = await Domain.findOne({ where: { domain } });
 
       if (!domainToUpdate) {
-         return res.status(404).json({ domain: null, error: 'Domain not found' });
+         return res.status(404).json(errorResponse('NOT_FOUND', 'Domain not found', requestId));
       }
 
       const domainPlain = domainToUpdate.get({ plain: true });
@@ -232,7 +229,7 @@ export const updateDomain = async (req: NextApiRequest, res: NextApiResponse<Dom
       if ((search_console?.client_email && search_console?.private_key) || Object.prototype.hasOwnProperty.call(payload, 'scraper_settings')) {
          if (!process.env.SECRET) {
             logger.error('SECRET environment variable not set for domain update encryption');
-            return res.status(500).json({ domain: null, error: 'Server configuration error: encryption key not available' });
+            return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Server configuration error: encryption key not available', requestId));
          }
       }
 
@@ -243,16 +240,15 @@ export const updateDomain = async (req: NextApiRequest, res: NextApiResponse<Dom
          const hasKey = !!(search_console.private_key?.trim());
          
          if (hasEmail !== hasKey) {
-            return res.status(400).json({ 
-               domain: null, 
-               error: 'Both client_email and private_key must be provided together for Search Console integration',
-            });
+            return res.status(400).json(
+               errorResponse('BAD_REQUEST', 'Both client_email and private_key must be provided together for Search Console integration', requestId),
+            );
          }
          
          if (hasEmail && hasKey) {
             const isSearchConsoleAPIValid = await checkSearchConsoleIntegration({ ...domainPlain, search_console: JSON.stringify(search_console) });
             if (!isSearchConsoleAPIValid.isValid) {
-               return res.status(400).json({ domain: null, error: isSearchConsoleAPIValid.error });
+               return res.status(400).json(errorResponse('BAD_REQUEST', isSearchConsoleAPIValid.error ?? 'Invalid Search Console credentials', requestId));
             }
             const cryptr = new Cryptr(process.env.SECRET as string);
             search_console.client_email = cryptr.encrypt(search_console.client_email.trim());
@@ -304,7 +300,7 @@ export const updateDomain = async (req: NextApiRequest, res: NextApiResponse<Dom
       return res.status(200).json({ domain: normalizedDomain });
    } catch (error) {
       logger.error('Updating Domain: ', error instanceof Error ? error : new Error(String(error)), { context: req.query.domain });
-      return res.status(400).json({ domain: null, error: 'Error Updating Domain. An Unknown Error Occurred.' });
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error Updating Domain. An Unknown Error Occurred.', requestId, error instanceof Error ? error.message : String(error)));
    }
 };
 

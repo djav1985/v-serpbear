@@ -128,7 +128,9 @@ describe('POST /api/domains', () => {
 
     expect(DomainMock.bulkCreate).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({ domains: [], error: expect.stringContaining('Invalid domain') });
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      error: expect.objectContaining({ message: expect.stringContaining('Invalid domain') }),
+    }));
   });
 
   it('normalises and deduplicates hostnames before insert', async () => {
@@ -275,7 +277,9 @@ describe('PUT /api/domains', () => {
     await handler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(404);
-    expect(res.json).toHaveBeenCalledWith({ domain: null, error: 'Domain not found' });
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      error: expect.objectContaining({ code: 'NOT_FOUND', message: 'Domain not found' }),
+    }));
   });
 
   it('persists scraper override selections with encrypted API keys', async () => {
@@ -401,10 +405,9 @@ describe('PUT /api/domains', () => {
     await handler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({ 
-      domain: null, 
-      error: 'Server configuration error: encryption key not available' 
-    });
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      error: expect.objectContaining({ message: 'Server configuration error: encryption key not available' }),
+    }));
     expect(domainInstance.save).not.toHaveBeenCalled();
   });
 
@@ -425,10 +428,9 @@ describe('PUT /api/domains', () => {
     await handler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({ 
-      domain: null, 
-      error: 'Server configuration error: encryption key not available' 
-    });
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      error: expect.objectContaining({ message: 'Server configuration error: encryption key not available' }),
+    }));
     expect(domainInstance.save).not.toHaveBeenCalled();
   });
 
@@ -470,10 +472,9 @@ describe('PUT /api/domains', () => {
     await handler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({ 
-      domain: null, 
-      error: 'Both client_email and private_key must be provided together for Search Console integration' 
-    });
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      error: expect.objectContaining({ message: 'Both client_email and private_key must be provided together for Search Console integration' }),
+    }));
     expect(domainInstance.save).not.toHaveBeenCalled();
   });
 
@@ -494,10 +495,9 @@ describe('PUT /api/domains', () => {
     await handler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({ 
-      domain: null, 
-      error: 'Both client_email and private_key must be provided together for Search Console integration' 
-    });
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      error: expect.objectContaining({ message: 'Both client_email and private_key must be provided together for Search Console integration' }),
+    }));
     expect(domainInstance.save).not.toHaveBeenCalled();
   });
 
@@ -578,11 +578,8 @@ describe('DELETE /api/domains', () => {
     expect(KeywordMock.destroy).not.toHaveBeenCalled();
     expect(removeLocalSCDataMock).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(404);
-    expect(res.json).toHaveBeenCalledWith({
-      domainRemoved: 0,
-      keywordsRemoved: 0,
-      SCDataRemoved: false,
-      error: 'Domain not found',
-    });
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      error: expect.objectContaining({ code: 'NOT_FOUND', message: 'Domain not found' }),
+    }));
   });
 });

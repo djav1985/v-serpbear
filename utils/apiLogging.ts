@@ -1,6 +1,7 @@
 import type { NextApiHandler, NextApiRequest, NextApiResponse } from 'next';
 import { logger } from './logger';
 import { ensureDatabase } from '../database/init';
+import { errorResponse } from './api/response';
 
 /**
  * API Logging Middleware - wraps API handlers with request/response logging
@@ -24,6 +25,9 @@ export function withApiLogging(
 
     // Add request ID to the request object for downstream use
     (req as ExtendedRequest).requestId = requestId;
+
+    // Set X-Request-Id header on the response so clients can correlate requests
+    res.setHeader('X-Request-Id', requestId);
 
     // Log body only in DEBUG mode or when explicitly requested
     const shouldLogBody = logBody || process.env.LOG_LEVEL?.toLowerCase() === 'debug';
@@ -91,10 +95,9 @@ export function withApiLogging(
 
       // Send error response if not already sent
       if (!res.headersSent) {
-        res.status(500).json({ 
-          error: 'Internal server error',
-          requestId,
-        });
+        res.status(500).json(
+          errorResponse('INTERNAL_SERVER_ERROR', 'Internal server error', requestId),
+        );
       }
     }
   };

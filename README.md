@@ -305,6 +305,55 @@ Fetched positions carry real SERP data; positions on pages that were not scraped
 
 ---
 
+## API contract
+
+All JSON responses from the core API routes (`/api/domains`, `/api/domain`, `/api/keywords`, `/api/refresh`) follow a shared envelope contract.
+
+### Success responses (2xx)
+
+Successful responses return the resource data directly as the response body and include an `X-Request-Id` response header for request correlation.
+
+```json
+// GET /api/domains - 200 OK
+{
+  "domains": [ /* DomainType[] */ ]
+}
+```
+
+### Failure responses (4xx / 5xx)
+
+Error responses always use the following structured failure envelope:
+
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Domain not found",
+    "details": "optional extra context"
+  },
+  "requestId": "1748901234567-abc123xyz"
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `error.code` | `string` | Machine-readable error code (e.g. `BAD_REQUEST`, `NOT_FOUND`, `UNAUTHORIZED`, `CONFLICT`, `INTERNAL_SERVER_ERROR`) |
+| `error.message` | `string` | Human-readable description of the error |
+| `error.details` | `unknown` (optional) | Additional context such as validation error lists |
+| `requestId` | `string` (optional) | Matches the `X-Request-Id` response header for log correlation |
+
+### Frontend client
+
+Use the centralized `utils/client/apiClient.ts` helpers (`apiGet`, `apiPost`, `apiPut`, `apiDelete`) for all service-layer fetch calls. These helpers automatically:
+
+- Construct full URLs using the detected client origin
+- Set standard `Content-Type: application/json` and `Accept: application/json` headers
+- Parse JSON responses
+- Extract error messages from both structured and legacy error shapes
+- Propagate the `X-Request-Id` from the response headers into thrown `ApiError` instances
+
+---
+
 ## Development workflow
 
 - **Node.js version:** Use `nvm use` to adopt the `20.18.1` runtime pinned in `.nvmrc`.

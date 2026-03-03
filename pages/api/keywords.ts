@@ -14,24 +14,13 @@ import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
 import { toDbBool } from '../../utils/dbBooleans';
 import { refreshQueue } from '../../utils/refreshQueue';
-
-type KeywordsGetResponse = {
-   keywords?: KeywordType[],
-   error?: string|null,
-   details?: string,
-}
-
-type KeywordsDeleteRes = {
-   domainRemoved?: number,
-   keywordsRemoved?: number,
-   error?: string|null,
-   details?: string,
-}
+import { errorResponse } from '../../utils/api/response';
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
+   const requestId = (req as ExtendedRequest).requestId;
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
-      return res.status(401).json({ error: authorized });
+      return res.status(401).json(errorResponse('UNAUTHORIZED', authorized, requestId));
    }
 
    if (req.method === 'GET') {
@@ -46,16 +35,17 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
    if (req.method === 'PUT') {
       return updateKeywords(req, res);
    }
-   return res.status(405).json({ error: 'Method not allowed' });
+   return res.status(405).json(errorResponse('METHOD_NOT_ALLOWED', 'Method not allowed', requestId));
 }
 
 export default withApiLogging(handler, {
    name: 'keywords',
 });
 
-const getKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGetResponse>) => {
+const getKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
+   const requestId = (req as ExtendedRequest).requestId;
    if (!req.query.domain || typeof req.query.domain !== 'string') {
-      return res.status(400).json({ error: 'Domain is Required!' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Domain is Required!', requestId));
    }
    const domain = (req.query.domain as string);
 
@@ -129,7 +119,7 @@ const getKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
    } catch (error) {
       logger.error(`Error getting domain keywords for: ${domain}`, error instanceof Error ? error : new Error(String(error)));
       const message = error instanceof Error ? error.message : 'Unknown error';
-      return res.status(500).json({ error: 'Failed to load keywords for this domain.', details: message });
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Failed to load keywords for this domain.', requestId, message));
    }
 };
 
@@ -201,24 +191,25 @@ const validateKeywordData = (kwrd: any): { isValid: boolean, sanitized?: any, er
    };
 };
 
-const addKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGetResponse>) => {
+const addKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
+   const requestId = (req as ExtendedRequest).requestId;
    const { keywords } = req.body;
    
    // Enhanced input validation
    if (!keywords) {
-      return res.status(400).json({ error: 'Keywords array is required', details: 'Request body must contain a keywords array' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Keywords array is required', requestId, 'Request body must contain a keywords array'));
    }
    
    if (!Array.isArray(keywords)) {
-      return res.status(400).json({ error: 'Keywords must be an array', details: 'The keywords field must be an array of keyword objects' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Keywords must be an array', requestId, 'The keywords field must be an array of keyword objects'));
    }
    
    if (keywords.length === 0) {
-      return res.status(400).json({ error: 'At least one keyword is required', details: 'Keywords array cannot be empty' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'At least one keyword is required', requestId, 'Keywords array cannot be empty'));
    }
    
    if (keywords.length > 100) {
-      return res.status(400).json({ error: 'Too many keywords', details: 'Maximum 100 keywords can be added at once' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Too many keywords', requestId, 'Maximum 100 keywords can be added at once'));
    }
 
    const keywordsToAdd: Array<{
@@ -283,14 +274,11 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
    });
    
    if (validationErrors.length > 0) {
-      return res.status(400).json({ 
-         error: 'Validation failed', 
-         details: validationErrors.join('; ')
-      });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Validation failed', requestId, validationErrors.join('; ')));
    }
    
    if (keywordsToAdd.length === 0) {
-      return res.status(400).json({ error: 'No valid keywords to add', details: 'All provided keywords failed validation' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'No valid keywords to add', requestId, 'All provided keywords failed validation'));
    }
 
    try {
@@ -344,13 +332,14 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
    } catch (error) {
       logger.error('Adding New Keywords ', error instanceof Error ? error : new Error(String(error)));
       const message = error instanceof Error ? error.message : 'Unknown error';
-      return res.status(500).json({ error: 'Failed to add keywords.', details: message });
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Failed to add keywords.', requestId, message));
    }
 };
 
-const deleteKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsDeleteRes>) => {
+const deleteKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
+   const requestId = (req as ExtendedRequest).requestId;
    if (!req.query.id || typeof req.query.id !== 'string') {
-      return res.status(400).json({ error: 'keyword ID is Required!' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'keyword ID is Required!', requestId));
    }
    logger.debug('req.query.id: ', { data: req.query.id });
 
@@ -361,7 +350,7 @@ const deleteKeywords = async (req: NextApiRequest, res: NextApiResponse<Keywords
       }).filter(id => id > 0);
       
       if (keywordsToRemove.length === 0) {
-         return res.status(400).json({ error: 'No valid keyword IDs provided' });
+         return res.status(400).json(errorResponse('BAD_REQUEST', 'No valid keyword IDs provided', requestId));
       }
       
       // Check which domains these keywords belong to
@@ -375,9 +364,9 @@ const deleteKeywords = async (req: NextApiRequest, res: NextApiResponse<Keywords
       
       if (lockedDomains.length > 0) {
          logger.warn(`Cannot delete keywords while domains are being refreshed`, { lockedDomains });
-         return res.status(409).json({ 
-            error: `Cannot delete keywords while their domains are being refreshed: ${lockedDomains.join(', ')}. Please wait for the refresh to complete.`,
-         });
+         return res.status(409).json(
+            errorResponse('CONFLICT', `Cannot delete keywords while their domains are being refreshed: ${lockedDomains.join(', ')}. Please wait for the refresh to complete.`, requestId),
+         );
       }
       
       const removeQuery = { where: { ID: { [Op.in]: keywordsToRemove } } };
@@ -386,16 +375,17 @@ const deleteKeywords = async (req: NextApiRequest, res: NextApiResponse<Keywords
    } catch (error) {
       logger.error('Removing Keyword. ', error instanceof Error ? error : new Error(String(error)));
       const message = error instanceof Error ? error.message : 'Unknown error';
-      return res.status(500).json({ error: 'Failed to remove keywords.', details: message });
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Failed to remove keywords.', requestId, message));
    }
 };
 
-const updateKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGetResponse>) => {
+const updateKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
+   const requestId = (req as ExtendedRequest).requestId;
    if (!req.query.id || typeof req.query.id !== 'string') {
-      return res.status(400).json({ error: 'keyword ID is Required!' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'keyword ID is Required!', requestId));
    }
    if (req.body.sticky === undefined && req.body.tags === undefined) {
-      return res.status(400).json({ error: 'Keyword update payload is required.' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Keyword update payload is required.', requestId));
    }
    const keywordIDs = (req.query.id as string).split(',').map((item) => parseInt(item, 10));
    const { sticky, tags } = req.body;
@@ -412,7 +402,7 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse<Keywords
       }
       if (tags !== undefined) {
          if (!tags || typeof tags !== 'object' || Array.isArray(tags)) {
-            return res.status(400).json({ error: 'Invalid Payload!' });
+            return res.status(400).json(errorResponse('BAD_REQUEST', 'Invalid Payload!', requestId));
          }
 
          const tagsKeywordIDs = Object.keys(tags);
@@ -468,10 +458,10 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse<Keywords
 
          return res.status(200).json({ keywords });
       }
-      return res.status(400).json({ error: 'Invalid Payload!' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Invalid Payload!', requestId));
    } catch (error) {
       logger.error('Updating Keyword. ', error instanceof Error ? error : new Error(String(error)));
       const message = error instanceof Error ? error.message : 'Unknown error';
-      return res.status(500).json({ error: 'Failed to update keywords.', details: message });
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Failed to update keywords.', requestId, message));
    }
 };
