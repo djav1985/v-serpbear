@@ -21,7 +21,8 @@ describe('fetchDomainScreenshot cache resilience', () => {
       ['invalid JSON string', 'not-json'],
       ['a JSON array', '[]'],
       ['a JSON primitive', 'true'],
-      ['an object with non-string values', '{"domain":123}'],
+      ['an object with non-entry values (number)', '{"domain":123}'],
+      ['an object with plain string values (old cache format)', '{"domain.com":"data:image/png;base64,abc"}'],
    ])('clears invalid cached thumbnails (%s) before fetching', async (_name, invalidCache) => {
       localStorage.setItem('domainThumbs', invalidCache);
 
@@ -48,10 +49,10 @@ describe('fetchDomainScreenshot cache resilience', () => {
    });
 
    it('clears cached thumbnails when values contain non-string data', async () => {
-      // Cache with mixed data types
+      // Cache with mixed data types (not valid DomainThumbEntry objects)
       localStorage.setItem('domainThumbs', JSON.stringify({
          'example.com': 'data:image/png;base64,validstring',
-         'test.com': 123, // This is not a string
+         'test.com': 123, // This is not a valid entry
          'another.com': 'valid-string'
       }));
 
@@ -78,7 +79,6 @@ describe('fetchDomainScreenshot cache resilience', () => {
    });
 
    it('clears cached thumbnails when data is an array instead of object', async () => {
-      // Cache with array instead of object
       localStorage.setItem('domainThumbs', JSON.stringify([
          'data:image/png;base64,somedata',
          'data:image/png;base64,otherdata'
@@ -106,11 +106,12 @@ describe('fetchDomainScreenshot cache resilience', () => {
       warnSpy.mockRestore();
    });
 
-   it('preserves valid cached thumbnails with all string values', async () => {
-      // Cache with valid data - all string values
+   it('returns cached data without fetching when entry is fresh', async () => {
+      // Cache with valid { data, ts } entries where ts is within TTL
+      const now = Date.now();
       const validCache = {
-         'example.com': 'data:image/png;base64,validdata',
-         'test.com': 'data:image/png;base64,anothervalid'
+         'example.com': { data: 'data:image/png;base64,validdata', ts: now },
+         'test.com': { data: 'data:image/png;base64,anothervalid', ts: now }
       };
       localStorage.setItem('domainThumbs', JSON.stringify(validCache));
 
@@ -127,16 +128,68 @@ describe('fetchDomainScreenshot cache resilience', () => {
 
       expect(result).toBe('data:image/png;base64,validdata');
       expect(fetchSpy).not.toHaveBeenCalled();
-      expect(localStorage.getItem('domainThumbs')).toBe(JSON.stringify(validCache));
 
       fetchSpy.mockRestore();
       warnSpy.mockRestore();
    });
 
-   it('clears cached thumbnails when values contain objects', async () => {
-      // Cache with object values instead of strings
+   it('refetches when entry is stale (older than TTL)', async () => {
+      // 25-hour-old entry — past the 24h TTL
+      const staleTs = Date.now() - 25 * 60 * 60 * 1000;
+      const staleCache = {
+         'example.com': { data: 'data:image/png;base64,staledata', ts: staleTs }
+      };
+      localStorage.setItem('domainThumbs', JSON.stringify(staleCache));
+
+      let fetchDomainScreenshot: FetchDomainScreenshot | undefined;
+      jest.isolateModules(() => {
+         const mod = require('../../services/domains');
+         fetchDomainScreenshot = mod.fetchDomainScreenshot;
+      });
+
+      const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({
+         status: 500,
+         blob: jest.fn(),
+      } as unknown as Response);
+
+      await (fetchDomainScreenshot as FetchDomainScreenshot)('example.com');
+
+      // Should have attempted a fresh fetch because entry was stale
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+      fetchSpy.mockRestore();
+   });
+
+   it('forceFetch bypasses the TTL check and always refetches', async () => {
+      // Fresh entry — would not be refetched normally
+      const now = Date.now();
+      const freshCache = {
+         'example.com': { data: 'data:image/png;base64,freshdata', ts: now }
+      };
+      localStorage.setItem('domainThumbs', JSON.stringify(freshCache));
+
+      let fetchDomainScreenshot: FetchDomainScreenshot | undefined;
+      jest.isolateModules(() => {
+         const mod = require('../../services/domains');
+         fetchDomainScreenshot = mod.fetchDomainScreenshot;
+      });
+
+      const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({
+         status: 500,
+         blob: jest.fn(),
+      } as unknown as Response);
+
+      await (fetchDomainScreenshot as FetchDomainScreenshot)('example.com', true);
+
+      // forceFetch=true should always hit the network even when cached value is fresh
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+      fetchSpy.mockRestore();
+   });
+
+   it('clears cached thumbnails when values contain objects (not DomainThumbEntry)', async () => {
       localStorage.setItem('domainThumbs', JSON.stringify({
-         'example.com': { url: 'data:image/png;base64,validdata' }, // Object instead of string
+         'example.com': { url: 'data:image/png;base64,validdata' }, // missing ts field
          'test.com': 'valid-string'
       }));
 
@@ -163,7 +216,6 @@ describe('fetchDomainScreenshot cache resilience', () => {
    });
 
    it('handles empty valid object cache correctly', async () => {
-      // Empty but valid object
       localStorage.setItem('domainThumbs', JSON.stringify({}));
 
       let fetchDomainScreenshot: FetchDomainScreenshot | undefined;

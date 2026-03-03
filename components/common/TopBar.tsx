@@ -2,8 +2,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import React, { useState } from 'react';
 import toast from 'react-hot-toast';
+import { useQueryClient } from 'react-query';
 import Icon from './Icon';
 import { BrandTitle } from './Branding';
+import { AUTH_QUERY_KEY } from '../../hooks/useAuth';
 import { getClientOrigin } from '../../utils/client/origin';
 
 type TopbarProps = {
@@ -14,6 +16,7 @@ type TopbarProps = {
 const TopBar = ({ showSettings, showAddModal }:TopbarProps) => {
    const [showMobileMenu, setShowMobileMenu] = useState<boolean>(false);
    const router = useRouter();
+   const queryClient = useQueryClient();
    const isDomainsPage = router.pathname === '/domains';
 
    const logoutUser = async () => {
@@ -24,6 +27,8 @@ const TopBar = ({ showSettings, showAddModal }:TopbarProps) => {
          if (!res.success) {
             toast(res.error, { icon: '⚠️' });
          } else {
+            // Invalidate the cached auth state so protected pages don't see stale authenticated result
+            await queryClient.invalidateQueries(AUTH_QUERY_KEY);
             router.push('/login');
          }
       } catch (_fetchError) {

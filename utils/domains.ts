@@ -1,24 +1,54 @@
+import { Op, literal } from 'sequelize';
 import Keyword from '../database/models/keyword';
-import parseKeywords from './parseKeywords';
 import { readLocalSCData } from './searchConsole';
+
+interface DomainKeywordAggregate {
+   domain: string;
+   keywordsTracked: number | string;
+   maxLastUpdated: string | null;
+}
 
 /**
  * The function `getdomainStats` takes an array of domain objects, retrieves keyword and stats data for
  * each domain, and calculates various statistics for each domain.
+ * Uses a single aggregated query instead of one per domain to avoid the N+1 pattern.
  * @param {DomainType[]} domains - An array of objects of type DomainType.
  * @returns {DomainType[]} - An array of objects of type DomainType.
  */
 const getdomainStats = async (domains:DomainType[]): Promise<DomainType[]> => {
+   if (domains.length === 0) return [];
+
+   const domainNames = domains.map(d => d.domain);
+
+   // Single aggregated query: COUNT(*) + MAX(lastUpdated) grouped by domain
+   const aggregateRows = await Keyword.findAll({
+      attributes: [
+         'domain',
+         [literal('COUNT(*)'), 'keywordsTracked'],
+         [literal('MAX(lastUpdated)'), 'maxLastUpdated'],
+      ],
+      where: { domain: { [Op.in]: domainNames } },
+      group: ['domain'],
+      raw: true,
+   }) as unknown as DomainKeywordAggregate[];
+
+   // Build a lookup map for O(1) access per domain
+   const statsMap = new Map<string, { keywordsTracked: number; maxLastUpdated: string | null }>();
+   for (const row of aggregateRows) {
+      statsMap.set(row.domain, {
+         keywordsTracked: Number(row.keywordsTracked) || 0,
+         maxLastUpdated: row.maxLastUpdated || null,
+      });
+   }
+
    const finalDomains: DomainType[] = [];
 
    for (const domain of domains) {
       const domainWithStat = domain;
 
-      // First Get ALl The Keywords for this Domain
-      const allKeywords:Keyword[] = await Keyword.findAll({ where: { domain: domain.domain } });
-      const keywords: KeywordType[] = parseKeywords(allKeywords.map((e) => e.get({ plain: true })));
-      domainWithStat.keywordsTracked = keywords.length;
-      
+      const stats = statsMap.get(domain.domain) ?? { keywordsTracked: 0, maxLastUpdated: null };
+      domainWithStat.keywordsTracked = stats.keywordsTracked;
+
       const hasPersistedAvgPosition = typeof domain.avgPosition === 'number'
          && Number.isFinite(domain.avgPosition)
          && domain.avgPosition > 0;
@@ -39,10 +69,9 @@ const getdomainStats = async (domains:DomainType[]): Promise<DomainType[]> => {
          delete domainWithStat.mapPackKeywords;
       }
 
-      // Get the last updated time from keywords
-      const KeywordsUpdateDates = keywords.map(keyword => new Date(keyword.lastUpdated).getTime());
-      const lastKeywordUpdateDate = Math.max(...KeywordsUpdateDates, 0);
-      domainWithStat.keywordsUpdated = new Date(lastKeywordUpdateDate || new Date(domain.lastUpdated).getTime()).toJSON();
+      // Derive keywordsUpdated from MAX(lastUpdated) in the aggregate; fall back to domain.lastUpdated
+      const maxTs = stats.maxLastUpdated ? new Date(stats.maxLastUpdated).getTime() : 0;
+      domainWithStat.keywordsUpdated = new Date(maxTs || new Date(domain.lastUpdated).getTime()).toJSON();
 
       // Then Load the SC File and read the stats and calculate the Last 7 days stats
       const localSCData = await readLocalSCData(domain.domain);

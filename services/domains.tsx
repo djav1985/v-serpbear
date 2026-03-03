@@ -8,7 +8,7 @@ type UpdatePayload = {
    domain: DomainType
 };
 
-export const normalizeEnvFlag = (value: string | undefined) => {
+const normalizeEnvFlag = (value: string | undefined) => {
    const normalized = (value || 'true').toLowerCase();
    return !['false', '0', 'off', 'disabled', 'no'].includes(normalized);
 };
@@ -154,11 +154,19 @@ export async function fetchDomain(router: NextRouter, domainName: string): Promi
    return res.json();
 }
 
+type DomainThumbEntry = { data: string; ts: number };
+const THUMB_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+const isValidThumbEntry = (v: unknown): v is DomainThumbEntry =>
+   typeof v === 'object' && v !== null && !Array.isArray(v) &&
+   typeof (v as DomainThumbEntry).data === 'string' &&
+   typeof (v as DomainThumbEntry).ts === 'number';
+
 export async function fetchDomainScreenshot(domain: string, forceFetch = false): Promise<string | false> {
    if (!SCREENSHOTS_ENABLED) { return false; }
    if (typeof window === 'undefined' || !window.localStorage) { return false; }
 
-   let domThumbs: Record<string, string> = {};
+   let domThumbs: Record<string, DomainThumbEntry> = {};
    const domainThumbsRaw = window.localStorage.getItem('domainThumbs');
 
    if (domainThumbsRaw) {
@@ -168,7 +176,7 @@ export async function fetchDomainScreenshot(domain: string, forceFetch = false):
             parsedThumbs &&
             typeof parsedThumbs === 'object' &&
             !Array.isArray(parsedThumbs) &&
-            Object.values(parsedThumbs).every((v) => typeof v === 'string')
+            Object.values(parsedThumbs).every(isValidThumbEntry)
          ) {
             domThumbs = parsedThumbs;
          } else if (parsedThumbs) {
@@ -181,7 +189,10 @@ export async function fetchDomainScreenshot(domain: string, forceFetch = false):
       }
    }
 
-   if (!domThumbs[domain] || forceFetch) {
+   const existing = domThumbs[domain];
+   const isFresh = existing && !forceFetch && (Date.now() - existing.ts) < THUMB_TTL_MS;
+
+   if (!isFresh) {
       try {
          const screenshotURL = `https://image.thum.io/get/maxAge/96/width/200/https://${domain}`;
          const domainImageRes = await fetch(screenshotURL);
@@ -194,7 +205,9 @@ export async function fetchDomainScreenshot(domain: string, forceFetch = false):
                reader.readAsDataURL(domainImageBlob);
             });
             const imageBase: string = reader.result && typeof reader.result === 'string' ? reader.result : '';
-            window.localStorage.setItem('domainThumbs', JSON.stringify({ ...domThumbs, [domain]: imageBase }));
+            // Update only the specific domain entry to avoid rewriting the entire object
+            domThumbs[domain] = { data: imageBase, ts: Date.now() };
+            window.localStorage.setItem('domainThumbs', JSON.stringify(domThumbs));
             return imageBase;
          }
          return false;
@@ -202,11 +215,10 @@ export async function fetchDomainScreenshot(domain: string, forceFetch = false):
            // Silently fail screenshot fetch
            return false;
         }
-   } else if (domThumbs[domain]) {
-      return domThumbs[domain];
    }
 
-   return false;
+   // isFresh is truthy, so existing is guaranteed to be a valid DomainThumbEntry
+   return existing ? existing.data : false;
 }
 
 export function useFetchDomains(router: NextRouter, withStats:boolean = false) {

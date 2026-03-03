@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { render, screen } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from 'react-query';
 import TopBar from '../../components/common/TopBar';
 import { DEFAULT_BRANDING } from '../../utils/branding';
 import { useBranding } from '../../hooks/useBranding';
@@ -20,6 +21,17 @@ jest.mock('next/router', () => ({
    }),
 }));
 
+const createTestQueryClient = () => new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+const renderTopBar = () => {
+   const queryClient = createTestQueryClient();
+   return render(
+      <QueryClientProvider client={queryClient}>
+         <TopBar showSettings={jest.fn} showAddModal={jest.fn} />
+      </QueryClientProvider>,
+   );
+};
+
 describe('TopBar Component', () => {
    beforeEach(() => {
       mockUseBranding.mockReturnValue({
@@ -36,14 +48,14 @@ describe('TopBar Component', () => {
    });
 
    it('renders without crashing', async () => {
-       render(<TopBar showSettings={jest.fn} showAddModal={jest.fn} />);
+       renderTopBar();
        expect(
            await screen.findByText(DEFAULT_BRANDING.platformName),
        ).toBeInTheDocument();
    });
 
    it('aligns the back button with the topbar gutter helper', () => {
-      const { container } = render(<TopBar showSettings={jest.fn} showAddModal={jest.fn} />);
+      const { container } = renderTopBar();
       const backLink = container.querySelector('.topbar__back');
       expect(backLink).toBeInTheDocument();
       expect(backLink).toHaveClass('topbar__back');
@@ -82,7 +94,7 @@ describe('TopBar Component', () => {
    });
 
    it('applies the shared desktop container utility', () => {
-      const { container } = render(<TopBar showSettings={jest.fn} showAddModal={jest.fn} />);
+      const { container } = renderTopBar();
       const topbarElement = container.querySelector('.topbar');
 
       expect(topbarElement).toBeInTheDocument();
