@@ -74,12 +74,10 @@ export const getDomains = async (req: NextApiRequest, res: NextApiResponse) => {
    let withStats = false;
    if (withStatsParam !== undefined) {
       const parsed = parseStrictBooleanQueryParam(withStatsParam);
-      if (parsed !== null && !parsed.ok) {
+      if (!parsed.ok) {
          return res.status(400).json(errorResponse('BAD_REQUEST', parsed.message, requestId));
       }
-      if (parsed !== null && parsed.ok) {
-         withStats = parsed.value;
-      }
+      withStats = parsed.value;
    }
    
    try {
