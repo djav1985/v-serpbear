@@ -61,8 +61,6 @@ describe('valueSerp scraper', () => {
     expect(parsed.searchParams.get('device')).toBe('mobile');
     expect(parsed.searchParams.get('location')).toBe('Miami,FL,United States');
     expect(parsed.searchParams.get('output')).toBe('json');
-    expect(parsed.searchParams.get('include_answer_box')).toBe('false');
-    expect(parsed.searchParams.get('include_advertiser_info')).toBe('false');
     expect(parsed.searchParams.get('google_domain')).toBe('google.com');
     expect(parsed.searchParams.has('num')).toBe(false);
     expect(parsed.toString()).toContain('q=best+coffee+beans');

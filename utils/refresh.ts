@@ -306,7 +306,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
       }));
    }
 
-   logScraperSelectionSummary(settings, domainSpecificSettings, domainsWithScraperOverrides);
+   logScraperSelectionSummary(domainSpecificSettings, domainsWithScraperOverrides);
 
    const skippedKeywords: Keyword[] = [];
    const eligibleKeywordModels = rawkeyword.filter((keyword) => {

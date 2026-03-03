@@ -92,6 +92,13 @@ const getKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
                   lastWeekHistory[dateKey] = position;
                });
             }
+            // Backfill: write computed history7d back for this legacy row (fire-and-forget)
+            if (historyEntries.length > 0) {
+               Keyword.update({ history7d: JSON.stringify(lastWeekHistory) }, { where: { ID: keyword.ID } })
+                  .catch((err: unknown) => {
+                     logger.error('Failed to backfill history7d', err instanceof Error ? err : new Error(String(err)), { keywordId: keyword.ID });
+                  });
+            }
          }
          
          // Create keyword with slim history and reset lastResult
