@@ -8,10 +8,19 @@ type LineOptions = {
       padding?: number;
       autoPadding?: boolean;
    };
+   scales?: {
+      y?: Record<string, unknown>;
+   };
+};
+
+type LineProps = {
+   className?: string;
+   options?: LineOptions;
+   data?: { datasets?: Array<Record<string, unknown>> };
 };
 
 jest.mock('react-chartjs-2', () => ({
-   Line: (props: { className?: string; options?: LineOptions }) => {
+   Line: (props: LineProps) => {
       lineMock(props);
       return null;
    },
@@ -54,5 +63,24 @@ describe('ChartSlim Component', () => {
             }),
          }),
       }));
+   });
+
+   it('uses fixed y-axis range (min:1, max:100) so unranked sentinel values (111) stay just outside the scale and the fill covers the full chart width', () => {
+      render(<ChartSlim labels={['2024-1-1', '2024-1-2']} series={[111, 5]} />);
+
+      const callArgs = lineMock.mock.calls[0][0] as LineProps;
+      const yAxis = (callArgs.options as { scales?: { y?: Record<string, unknown> } })?.scales?.y;
+      expect(yAxis?.min).toBe(1);
+      expect(yAxis?.max).toBe(100);
+   });
+
+   it('passes a dataset with fill:start and showLine:false', () => {
+      render(<ChartSlim labels={['2024-1-1', '2024-1-2']} series={[5, 4]} />);
+
+      const callArgs = lineMock.mock.calls[0][0] as LineProps;
+      const dataset = callArgs.data?.datasets?.[0];
+      expect(dataset).toBeDefined();
+      expect(dataset?.fill).toBe('start');
+      expect(dataset?.showLine).toBe(false);
    });
 });
