@@ -180,7 +180,9 @@ type PageScrapeResult = {
 };
 
 /**
- * Scrape a single page of Google Search results with absolute position offsets applied.
+ * Scrape a single page of Google Search results.
+ * Returns page-relative positions (1..N based on result index) so the caller can apply
+ * the correct absolute offset after accounting for actual prior-page result counts.
  * Includes retry logic with exponential backoff and returns mapPackTop3 / localResults.
  */
 const scrapeSinglePage = async (
@@ -222,7 +224,9 @@ const scrapeSinglePage = async (
             const debugMode = process.env.NODE_ENV === 'development';
             const localResults = extractLocalResultsFromPayload(res, debugMode);
             return {
-               results: organic.map((item, i) => ({ ...item, position: pagination.start + i + 1 })),
+               // Return page-relative positions (1..N). The caller applies the correct
+               // absolute offset based on the actual result count of prior pages.
+               results: organic.map((item, i) => ({ ...item, position: i + 1 })),
                mapPackTop3,
                localResults,
             };
@@ -243,13 +247,19 @@ const scrapeSinglePage = async (
 };
 
 /**
- * Build a full 100-position result array: scraped positions keep their data, unscraped positions are marked skipped.
+ * Build a full result array covering positions 1 through the highest observed position.
+ * Scraped positions keep their data; all other positions are marked as skipped.
+ * Using the actual max position (rather than a fixed TOTAL_PAGES×PAGE_SIZE) correctly
+ * handles providers that return variable-length pages.
+ * Note: always called after the allScrapedResults.length === 0 guard so the empty
+ * path is purely defensive.
  */
 const buildFullResults = (scrapedResults: SearchResult[]): KeywordLastResult[] => {
-   const totalPositions = TOTAL_PAGES * PAGE_SIZE;
+   if (scrapedResults.length === 0) { return []; }
+   const maxPosition = Math.max(...scrapedResults.map((r) => r.position));
    const scrapedByPos = new Map(scrapedResults.map((r) => [r.position, r]));
    const full: KeywordLastResult[] = [];
-   for (let i = 1; i <= totalPositions; i += 1) {
+   for (let i = 1; i <= maxPosition; i += 1) {
       const found = scrapedByPos.get(i);
       full.push(found ? { position: i, url: found.url, title: found.title } : { position: i, url: '', title: '', skipped: true });
    }
@@ -332,17 +342,40 @@ export const scrapeKeywordWithStrategy = async (
    let page1LocalResults: any[] = [];
    let page1Scraped = false;
 
+   // Track the absolute position offset to apply to each page's relative results.
+   // We advance by the *actual* result count returned, not a fixed PAGE_SIZE, so that
+   // pages with fewer organic results still assign correct absolute positions.
+   // For gaps between non-consecutive scraped pages we estimate PAGE_SIZE per unscraped page.
+   let cumulativeOffset = 0;
+   let prevPageNum = 0;
+
    for (const pageNum of pagesToScrape) {
+      // Advance offset for any pages between the last scraped page and this one.
+      if (prevPageNum === 0 && pageNum > 1) {
+         // First page we are scraping is not page 1 – estimate the preceding pages.
+         cumulativeOffset = (pageNum - 1) * PAGE_SIZE;
+      } else if (prevPageNum > 0 && pageNum > prevPageNum + 1) {
+         // There is a gap since the previous scraped page – estimate skipped pages.
+         cumulativeOffset += (pageNum - prevPageNum - 1) * PAGE_SIZE;
+      }
+
       const pagination: ScraperPagination = { start: (pageNum - 1) * PAGE_SIZE, num: PAGE_SIZE, page: pageNum };
       const { results, mapPackTop3, localResults } = await scrapeSinglePage(keyword, settings, scraperObj, pagination);
       if (results.length > 0) {
-         allScrapedResults.push(...results);
+         // results carry page-relative positions (1..N); convert to absolute.
+         allScrapedResults.push(...results.map((r) => ({ ...r, position: cumulativeOffset + r.position })));
+         cumulativeOffset += results.length; // advance by actual count, not PAGE_SIZE
          if (pageNum === 1) {
             page1MapPackTop3 = mapPackTop3;
             page1LocalResults = localResults;
             page1Scraped = true;
          }
+      } else {
+         // Page returned no results; advance by the expected page size so subsequent
+         // pages still land at roughly the right absolute positions.
+         cumulativeOffset += PAGE_SIZE;
       }
+      prevPageNum = pageNum;
    }
 
    if (allScrapedResults.length === 0) { return errorResult; }
@@ -357,7 +390,8 @@ export const scrapeKeywordWithStrategy = async (
             const pagination: ScraperPagination = { start: (pageNum - 1) * PAGE_SIZE, num: PAGE_SIZE, page: pageNum };
             const { results, mapPackTop3, localResults } = await scrapeSinglePage(keyword, settings, scraperObj, pagination);
             if (results.length > 0) {
-               allScrapedResults.push(...results);
+               // Fallback pages use page-number-based offsets (best estimate for gaps).
+               allScrapedResults.push(...results.map((r) => ({ ...r, position: (pageNum - 1) * PAGE_SIZE + r.position })));
                if (pageNum === 1 && !page1Scraped) {
                   page1MapPackTop3 = mapPackTop3;
                   page1LocalResults = localResults;

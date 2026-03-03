@@ -224,10 +224,9 @@ describe('scrapeKeywordWithStrategy – position accuracy', () => {
       }
    });
 
-   it('page-number-based offset: domain on page 2 at index 0 → absolute position 11 regardless of page 1 result count', async () => {
-      // page 1: only 7 results, page 2: domain is first item (index 0).
-      // With page-number-based offsets (pagination.start + i + 1), page 2 always starts
-      // at position 11 (start=10), so the domain lands at 11 even though page 1 had < 10 results.
+   it('variable page size: domain on page 2 at index 0 → absolute position 8 when page 1 returned only 7 results', async () => {
+      // page 1: 7 results, page 2: domain is first item (index 0).
+      // cumulativeOffset after page 1 = 7; domain at index 0 on page 2 → 7+1 = 8.
       fetchSpy = jest.spyOn(global, 'fetch').mockImplementation((url: RequestInfo | URL) => {
          const pageMatch = String(url).match(/[?&]page=(\d+)/);
          const page = pageMatch ? Number(pageMatch[1]) : 1;
@@ -241,8 +240,8 @@ describe('scrapeKeywordWithStrategy – position accuracy', () => {
       const result = await scrapeKeywordWithStrategy({ ...baseKeyword, domain: 'example.com' }, settings);
       expect(result).not.toBe(false);
       if (result) {
-         // page 2 start = (2-1)*PAGE_SIZE = 10; domain at index 0 → position 10+0+1 = 11
-         expect(result.position).toBe(11);
+         // cumulativeOffset after page 1 = 7; domain at index 0 on page 2 → position 7+1 = 8
+         expect(result.position).toBe(8);
       }
    });
 
