@@ -153,7 +153,7 @@ const ScraperSettings = ({ settings, settingsError, updateSettings }:ScraperSett
                         {(!settings.scrape_strategy || settings.scrape_strategy === 'basic')
                            && 'Scrape only the first page (10 results). Fastest, uses least API credits.'}
                         {settings.scrape_strategy === 'custom' && 'Scrape a fixed number of pages per keyword on every refresh.'}
-                        {settings.scrape_strategy === 'smart' && 'Scrape the page where the keyword was last seen, plus its neighbors.'}
+                        {settings.scrape_strategy === 'smart' && 'Scrape page 1 plus the pages around the last known position, so top-10 improvements are never missed.'}
                      </small>
                      </>
                   )}

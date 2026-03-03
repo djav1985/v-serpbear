@@ -318,7 +318,9 @@ export const scrapeKeywordWithStrategy = async (
    } else if (strategy === 'smart') {
       const lastPos = keyword.position;
       const lastPage = lastPos > 0 ? Math.min(Math.ceil(lastPos / PAGE_SIZE), TOTAL_PAGES) : 1;
-      const neighbors = [lastPage - 1, lastPage, lastPage + 1].filter((p) => p >= 1 && p <= TOTAL_PAGES);
+      // Always include page 1 so improvements into the top 10 are never missed, plus the
+      // neighbors of the last-known page to track the existing position.
+      const neighbors = [1, lastPage - 1, lastPage, lastPage + 1].filter((p) => p >= 1 && p <= TOTAL_PAGES);
       pagesToScrape = [...new Set(neighbors)];
    } else {
       pagesToScrape = [1]; // Basic: first page only
