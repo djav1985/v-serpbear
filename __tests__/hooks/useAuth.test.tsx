@@ -15,7 +15,7 @@ describe('useAuth', () => {
     expect(useQuery).toHaveBeenCalledWith(
       ['auth-check'],
       expect.any(Function),
-      expect.objectContaining({ staleTime: 10000, cacheTime: 30000, retry: false }),
+      expect.objectContaining({ staleTime: 0, cacheTime: 30000, retry: false }),
     );
   });
 });

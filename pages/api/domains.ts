@@ -96,11 +96,12 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 
 export const getDomains = async (req: NextApiRequest, res: NextApiResponse<DomainsGetRes>) => {
    const withStats = parseBooleanQueryParam(req?.query?.withstats);
+   const isPaged = req?.query?.limit !== undefined;
    const requestedLimit = parsePagingParam(req?.query?.limit, DEFAULT_LIMIT);
    const requestedOffset = parsePagingParam(req?.query?.offset, 0);
    const limit = Math.min(Math.max(requestedLimit, 1), MAX_LIMIT);
    const offset = Math.max(requestedOffset, 0);
-   
+
    try {
       const domainAttributes = [
          'ID',
@@ -124,8 +125,7 @@ export const getDomains = async (req: NextApiRequest, res: NextApiResponse<Domai
 
       const domainResult = await Domain.findAndCountAll({
          attributes: domainAttributes,
-         limit,
-         offset,
+         ...(isPaged ? { limit, offset } : {}),
          order: [['domain', 'ASC']],
       });
 
