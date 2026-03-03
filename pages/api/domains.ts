@@ -27,7 +27,7 @@ const FALSY = new Set(['false', '0', 'off', 'no']);
 /**
  * Parses a query parameter as a strict boolean value.
  * Accepts case-insensitive: true/false/1/0/on/off/yes/no.
- * Returns null (→ 400) for unknown or empty values, undefined for absent param.
+ * Returns null for absent param (param not present); returns `{ ok: false, message }` for unknown or empty values.
  */
 export const parseStrictBooleanQueryParam = (
    value: string | string[] | undefined,
