@@ -50,6 +50,7 @@ type KeywordType = {
    volume: number,
    sticky: boolean,
    history: KeywordHistory,
+   history7d?: KeywordHistory,
    lastResult: KeywordLastResult[],
    url: string,
    tags: string[],

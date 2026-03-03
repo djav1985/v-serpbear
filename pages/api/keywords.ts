@@ -72,24 +72,26 @@ const getKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
       
       // Consolidate pipeline: do history slicing + lastResult reset + SC integration in a single pass
       const processedKeywords = keywords.map((keyword) => {
-         // Since history is now trimmed to 30 days during writes, we can simplify this
-         // Just get the last 7 entries without complex sorting
-         const historyEntries = Object.entries(keyword.history);
-         let lastWeekHistory: KeywordHistory = {};
-         
-         if (historyEntries.length <= 7) {
-            // If we have 7 or fewer entries, use them all
-            lastWeekHistory = keyword.history;
+         let lastWeekHistory: KeywordHistory;
+
+         if (keyword.history7d && Object.keys(keyword.history7d).length > 0) {
+            // Use pre-computed 7-day history (populated at write time) to skip per-request sort
+            lastWeekHistory = keyword.history7d;
          } else {
-            // Sort and take last 7 (now much faster since history is pre-trimmed to 30 days)
-            const sortedEntries = historyEntries
-               .map(([dateKey, position]) => ({ dateKey, date: new Date(dateKey).getTime(), position }))
-               .sort((a, b) => a.date - b.date)
-               .slice(-7);
-            
-            sortedEntries.forEach(({ dateKey, position }) => {
-               lastWeekHistory[dateKey] = position;
-            });
+            // Fall back: compute from full history using timestamp-based sort (safe for YYYY-M-D keys)
+            const historyEntries = Object.entries(keyword.history);
+            if (historyEntries.length <= 7) {
+               lastWeekHistory = keyword.history;
+            } else {
+               lastWeekHistory = {};
+               const sortedEntries = historyEntries
+                  .map(([dateKey, position]) => ({ dateKey, date: new Date(dateKey).getTime(), position }))
+                  .sort((a, b) => a.date - b.date)
+                  .slice(-7);
+               sortedEntries.forEach(({ dateKey, position }) => {
+                  lastWeekHistory[dateKey] = position;
+               });
+            }
          }
          
          // Create keyword with slim history and reset lastResult

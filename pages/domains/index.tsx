@@ -64,22 +64,36 @@ const Domains: NextPage = () => {
    useEffect(() => {
       if (!SCREENSHOTS_ENABLED) { return; }
       if (domainsData?.domains && domainsData.domains.length > 0) {
+         const SCREENSHOT_CONCURRENCY = 3;
          const fetchAllScreenshots = async () => {
-            const screenshotPromises = domainsData.domains.map(async (domain: DomainType) => {
-               const domainThumb = await fetchDomainScreenshot(domain.domain);
-               if (domainThumb) {
-                  return { domain: domain.domain, thumb: domainThumb };
+            const domains = domainsData.domains;
+            const results: Array<{ domain: string; thumb: string } | null> = new Array(domains.length).fill(null);
+            let nextIndex = 0;
+
+            // Worker function: each worker picks up the next available domain
+            const worker = async (): Promise<void> => {
+               while (nextIndex < domains.length) {
+                  const idx = nextIndex;
+                  nextIndex += 1;
+                  try {
+                     const domainThumb = await fetchDomainScreenshot(domains[idx].domain);
+                     if (domainThumb) {
+                        results[idx] = { domain: domains[idx].domain, thumb: domainThumb };
+                     }
+                  } catch {
+                     // Individual failures are handled inside fetchDomainScreenshot
+                  }
                }
-               return null;
-            });
+            };
 
-            // Use allSettled to handle individual screenshot failures gracefully
-            const screenshots = await Promise.allSettled(screenshotPromises);
-            const validScreenshots = screenshots
-               .filter((result): result is PromiseFulfilledResult<{ domain: string; thumb: string }> =>
-                  result.status === 'fulfilled' && result.value !== null)
-               .map((result) => result.value as { domain: string; thumb: string });
+            // Start at most SCREENSHOT_CONCURRENCY workers in parallel
+            await Promise.all(
+               Array.from({ length: Math.min(SCREENSHOT_CONCURRENCY, domains.length) }, worker),
+            );
 
+            const validScreenshots = results.filter(
+               (r): r is { domain: string; thumb: string } => r !== null,
+            );
             if (validScreenshots.length > 0) {
                setDomainThumbs((currentThumbs) => {
                   const newThumbs = { ...currentThumbs };

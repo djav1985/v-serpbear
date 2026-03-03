@@ -611,6 +611,13 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
 
       // Build single atomic update payload with ALL fields from API response + flags
       // In the success path we perform a single update per keyword row to minimize DB writes,
+      // Compute history7d: last 7 entries from the (already-trimmed) history using timestamp sort
+      const history7dObj = Object.entries(history)
+         .map(([key, value]) => ({ key, date: new Date(key).getTime(), value }))
+         .sort((a, b) => a.date - b.date)
+         .slice(-7)
+         .reduce<Record<string, number>>((acc, { key, value }) => { acc[key] = value; return acc; }, {});
+
       const dbPayload = {
          position: newPos,
          updating: toDbBool(false),
@@ -618,6 +625,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          lastResult: normalizedResult,
          localResults: normalizedLocalResults,
          history: JSON.stringify(history),
+         history7d: JSON.stringify(history7dObj),
          lastUpdated: lastUpdatedValue,
          lastUpdateError: lastUpdateErrorValue,
          mapPackTop3: toDbBool(updatedKeyword.mapPackTop3),

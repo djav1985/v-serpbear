@@ -1,6 +1,5 @@
 import getdomainStats from '../../utils/domains';
 import Keyword from '../../database/models/keyword';
-import parseKeywords from '../../utils/parseKeywords';
 import { readLocalSCData } from '../../utils/searchConsole';
 
 jest.mock('../../database/models/keyword', () => ({
@@ -8,27 +7,23 @@ jest.mock('../../database/models/keyword', () => ({
   default: { findAll: jest.fn() },
 }));
 
-jest.mock('../../utils/parseKeywords', () => ({ __esModule: true, default: jest.fn() }));
-
 jest.mock('../../utils/searchConsole', () => ({
   __esModule: true,
   readLocalSCData: jest.fn(),
 }));
 
 const mockFindAll = (Keyword as any).findAll as jest.Mock;
-const mockParseKeywords = parseKeywords as jest.Mock;
 const mockReadLocalSCData = readLocalSCData as jest.Mock;
 
 describe('getdomainStats', () => {
   beforeEach(() => {
     mockFindAll.mockReset();
-    mockParseKeywords.mockReset();
     mockReadLocalSCData.mockReset();
   });
 
   it('omits avgPosition and mapPackKeywords when the domain lacks persisted values', async () => {
+    // Aggregate query returns no rows for this domain (no keywords)
     mockFindAll.mockResolvedValue([]);
-    mockParseKeywords.mockReturnValue([]);
     mockReadLocalSCData.mockResolvedValue(null);
 
     const domain = {
@@ -49,21 +44,11 @@ describe('getdomainStats', () => {
     expect(result[0].mapPackKeywords).toBeUndefined();
   });
 
-  it('does not recompute stats from keywords when persisted values are missing', async () => {
-    const mockKeywordData = [
-      { get: () => ({ ID: 1, position: 5, lastUpdated: '2023-01-01', mapPackTop3: true }) },
-      { get: () => ({ ID: 2, position: 15, lastUpdated: '2023-01-02', mapPackTop3: false }) },
-      { get: () => ({ ID: 3, position: 10, lastUpdated: '2023-01-03', mapPackTop3: true }) },
-    ];
-
-    const parsedKeywords = [
-      { ID: 1, position: 5, lastUpdated: '2023-01-01', mapPackTop3: true },
-      { ID: 2, position: 15, lastUpdated: '2023-01-02', mapPackTop3: false },
-      { ID: 3, position: 10, lastUpdated: '2023-01-03', mapPackTop3: true },
-    ];
-
-    mockFindAll.mockResolvedValue(mockKeywordData);
-    mockParseKeywords.mockReturnValue(parsedKeywords);
+  it('returns keywordsTracked and keywordsUpdated from the aggregated query result', async () => {
+    // Aggregate query returns one row with count=3 and maxLastUpdated='2023-01-03'
+    mockFindAll.mockResolvedValue([
+      { domain: 'example.com', keywordsTracked: '3', maxLastUpdated: '2023-01-03' },
+    ]);
     mockReadLocalSCData.mockResolvedValue(null);
 
     const domain = {
@@ -86,13 +71,9 @@ describe('getdomainStats', () => {
   });
 
   it('uses persisted avgPosition and mapPackKeywords from domain when available', async () => {
-    const parsedKeywords = [
-      { ID: 1, position: 5, lastUpdated: '2023-01-01', mapPackTop3: true },
-      { ID: 2, position: 15, lastUpdated: '2023-01-02', mapPackTop3: false },
-    ];
-
-    mockFindAll.mockResolvedValue([]);
-    mockParseKeywords.mockReturnValue(parsedKeywords);
+    mockFindAll.mockResolvedValue([
+      { domain: 'persisted.com', keywordsTracked: '2', maxLastUpdated: '2023-01-02' },
+    ]);
     mockReadLocalSCData.mockResolvedValue(null);
 
     const domain = {
@@ -117,7 +98,6 @@ describe('getdomainStats', () => {
 
   it('removes invalid persisted stats when values are zero or non-numeric', async () => {
     mockFindAll.mockResolvedValue([]);
-    mockParseKeywords.mockReturnValue([]);
     mockReadLocalSCData.mockResolvedValue(null);
 
     const domain = {
@@ -137,5 +117,44 @@ describe('getdomainStats', () => {
 
     expect(result[0].avgPosition).toBeUndefined();
     expect(result[0].mapPackKeywords).toBeUndefined();
+  });
+
+  it('issues a single findAll call regardless of how many domains are passed', async () => {
+    mockFindAll.mockResolvedValue([
+      { domain: 'a.com', keywordsTracked: '1', maxLastUpdated: '2023-01-01' },
+      { domain: 'b.com', keywordsTracked: '2', maxLastUpdated: '2023-01-02' },
+    ]);
+    mockReadLocalSCData.mockResolvedValue(null);
+
+    const domains = [
+      { ID: 1, domain: 'a.com', slug: 'a-com', notification: false, notification_interval: '', notification_emails: '', lastUpdated: '2023-01-01T00:00:00.000Z', added: '2023-01-01T00:00:00.000Z' },
+      { ID: 2, domain: 'b.com', slug: 'b-com', notification: false, notification_interval: '', notification_emails: '', lastUpdated: '2023-01-01T00:00:00.000Z', added: '2023-01-01T00:00:00.000Z' },
+    ] as any[];
+
+    await getdomainStats(domains);
+
+    // Only one findAll call regardless of domain count (not N calls)
+    expect(mockFindAll).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to domain.lastUpdated when there are no keywords', async () => {
+    mockFindAll.mockResolvedValue([]); // no aggregate row for domain
+    mockReadLocalSCData.mockResolvedValue(null);
+
+    const domain = {
+      ID: 1,
+      domain: 'empty.com',
+      slug: 'empty-com',
+      notification: false,
+      notification_interval: '',
+      notification_emails: '',
+      lastUpdated: '2022-06-15T12:00:00.000Z',
+      added: '2022-06-01T00:00:00.000Z',
+    } as any;
+
+    const result = await getdomainStats([domain]);
+
+    expect(result[0].keywordsTracked).toBe(0);
+    expect(result[0].keywordsUpdated).toBe('2022-06-15T12:00:00.000Z');
   });
 });

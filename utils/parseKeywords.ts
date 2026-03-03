@@ -27,11 +27,19 @@ const parseKeywords = (allKeywords: Keyword[]) : KeywordType[] => {
    const parsedItems = allKeywords.map((keywrd:Keyword) => {
       const keywordData = keywrd as unknown as Record<string, any>;
 
-      // Use safeJsonParse helper and skip parsing when already an object
       const historyRaw = typeof keywordData.history === 'string' 
          ? safeJsonParse<unknown>(keywordData.history, {}, {})
          : (keywordData.history || {});
       const history = normaliseHistory(historyRaw);
+
+      const rawHistory7d = keywordData.history7d;
+      const history7d = rawHistory7d != null
+         ? normaliseHistory(
+            typeof rawHistory7d === 'string'
+               ? safeJsonParse<unknown>(rawHistory7d, {}, {})
+               : (rawHistory7d || {}),
+         )
+         : undefined;
 
       const tags = typeof keywordData.tags === 'string'
          ? safeJsonParse<string[]>(keywordData.tags, [], {})
@@ -54,6 +62,7 @@ const parseKeywords = (allKeywords: Keyword[]) : KeywordType[] => {
          ...keywordData,
          location: typeof keywordData.location === 'string' ? keywordData.location : '',
          history,
+         ...(history7d !== undefined ? { history7d } : {}),
          tags,
          lastResult,
          localResults,
