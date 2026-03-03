@@ -113,7 +113,7 @@ const fetchSearchConsoleData = async (domain:DomainType, days:number, type?:stri
 
       return finalRows;
    } catch (err:any) {
-      const qType = type === 'stats' ? '(stats)' : `(${days}days)`;
+      const qType = type === 'stat' ? '(stats)' : `(${days}days)`;
       const errorMsg = err?.response?.status && `${err?.response?.statusText}. ${err?.response?.data?.error_description}`;
       logger.error(`Search Console API error for ${domainName} ${qType}`, new Error(errorMsg || err?.code || 'Unknown error'));
       // console.log('SC ERROR :', err);
@@ -236,9 +236,9 @@ export const integrateKeywordSCData = (keyword: KeywordType, SCData:SCDomainData
    const position:any = { yesterday: 0, threeDays: 0, sevenDays: 0, thirtyDays: 0, avgSevenDays: 0, avgThreeDays: 0, avgThirtyDays: 0 };
 
    const threeDaysData = SCData?.threeDays?.find((item:SearchAnalyticsItem) => item.uid === kuid) || {};
-   const SevenDaysData = SCData?.sevenDays?.find((item:SearchAnalyticsItem) => item.uid === kuid) || {};
-   const ThirdyDaysData = SCData?.thirtyDays?.find((item:SearchAnalyticsItem) => item.uid === kuid) || {};
-   const totalData:any = { threeDays: threeDaysData, sevenDays: SevenDaysData, thirtyDays: ThirdyDaysData };
+   const sevenDaysData = SCData?.sevenDays?.find((item:SearchAnalyticsItem) => item.uid === kuid) || {};
+   const thirtyDaysData = SCData?.thirtyDays?.find((item:SearchAnalyticsItem) => item.uid === kuid) || {};
+   const totalData:any = { threeDays: threeDaysData, sevenDays: sevenDaysData, thirtyDays: thirtyDaysData };
 
    Object.keys(totalData).forEach((dataKey) => {
       let avgDataKey = 'avgThreeDays'; let divideBy = 3;
