@@ -70,7 +70,7 @@ const getDomainSearchConsoleData = async (req: NextApiRequest, res: NextApiRespo
    }
 };
 
-const cronRefreshSearchConsoleData = async (req: NextApiRequest, res: NextApiResponse<searchConsoleCRONRes>) => {
+const cronRefreshSearchConsoleData = async (_req: NextApiRequest, res: NextApiResponse<searchConsoleCRONRes>) => {
    try {
       const allDomainsRaw = await Domain.findAll();
       const Domains: DomainType[] = allDomainsRaw.map((el) => el.get({ plain: true }));

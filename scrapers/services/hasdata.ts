@@ -22,7 +22,7 @@ const hasdata: ScraperSettings = {
   name: "HasData",
   website: "hasdata.com",
   allowsCity: true,
-  headers: (keyword: KeywordType, settings: SettingsType) => ({
+  headers: (_keyword: KeywordType, settings: SettingsType) => ({
     // use global types
     "Content-Type": "application/json",
     "x-api-key": settings.scraping_api,

@@ -31,7 +31,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
 export default withApiLogging(handler, { name: 'cron' });
 
-const cronRefreshkeywords = async (req: NextApiRequest, res: NextApiResponse<CRONRefreshRes>) => {
+const cronRefreshkeywords = async (_req: NextApiRequest, res: NextApiResponse<CRONRefreshRes>) => {
    try {
       const settings = await getAppSettings();
       if (!settings || (settings && settings.scraper_type === 'none')) {

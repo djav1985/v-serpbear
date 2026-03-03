@@ -22,7 +22,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
 export default withApiLogging(handler, { name: 'clearfailed' });
 
-const clearFailedQueue = async (req: NextApiRequest, res: NextApiResponse<SettingsGetResponse>) => {
+const clearFailedQueue = async (_req: NextApiRequest, res: NextApiResponse<SettingsGetResponse>) => {
    try {
       await retryQueueManager.clearQueue();
       logger.info('Failed queue cleared successfully');

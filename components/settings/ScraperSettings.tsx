@@ -1,6 +1,5 @@
 /// <reference path="../../types.d.ts" />
 
-import React from 'react';
 import { useClearFailedQueue } from '../../services/settings';
 import Icon from '../common/Icon';
 import SelectField, { SelectionOption } from '../common/SelectField';

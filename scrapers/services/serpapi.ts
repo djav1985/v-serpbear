@@ -17,7 +17,7 @@ const serpapi: ScraperSettings = {
   allowsCity: true,
   supportsMapPack: true,
   nativePagination: true,
-  headers: (keyword: KeywordType, settings: SettingsType) => ({
+  headers: (_keyword: KeywordType, settings: SettingsType) => ({
     "Content-Type": "application/json",
     "X-API-Key": settings.scraping_api,
   }),

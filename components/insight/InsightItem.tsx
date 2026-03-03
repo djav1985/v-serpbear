@@ -1,4 +1,3 @@
-import React from 'react';
 import countries from '../../utils/countries';
 import Icon from '../common/Icon';
 import { formattedNum } from '../../utils/client/helpers';
