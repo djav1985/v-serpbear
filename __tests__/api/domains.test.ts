@@ -20,7 +20,7 @@ jest.mock('../../database/init', () => ({
 
 jest.mock('../../database/models/domain', () => ({
   __esModule: true,
-  default: { findOne: jest.fn(), destroy: jest.fn(), bulkCreate: jest.fn(), findAll: jest.fn(), findAndCountAll: jest.fn() },
+  default: { findOne: jest.fn(), destroy: jest.fn(), bulkCreate: jest.fn(), findAll: jest.fn() },
 }));
 
 jest.mock('../../database/models/keyword', () => ({
@@ -46,7 +46,7 @@ jest.mock('../../utils/apiLogging', () => ({
 
 const verifyUserMock = verifyUser as unknown as jest.Mock;
 const dbMock = db as unknown as { sync: jest.Mock };
-const DomainMock = Domain as unknown as { findOne: jest.Mock; destroy: jest.Mock; bulkCreate: jest.Mock; findAll: jest.Mock; findAndCountAll: jest.Mock };
+const DomainMock = Domain as unknown as { findOne: jest.Mock; destroy: jest.Mock; bulkCreate: jest.Mock; findAll: jest.Mock };
 const KeywordMock = Keyword as unknown as { destroy: jest.Mock };
 const removeLocalSCDataMock = removeLocalSCData as unknown as jest.Mock;
 
@@ -58,7 +58,7 @@ describe('GET /api/domains', () => {
   });
 
    it('masks scraper overrides when returning the domain list', async () => {
-    DomainMock.findAndCountAll.mockResolvedValue({ count: 1, rows: [
+    DomainMock.findAll.mockResolvedValue([
       {
         get: jest.fn().mockReturnValue({
           ID: 1,
@@ -70,7 +70,7 @@ describe('GET /api/domains', () => {
           scraper_settings: JSON.stringify({ scraper_type: 'serpapi', scraping_api: 'encrypted-value' }),
         }),
       },
-    ] });
+    ]);
 
     const req = { method: 'GET', headers: {}, query: {} } as unknown as NextApiRequest;
     const res = createMockResponse();
@@ -85,7 +85,7 @@ describe('GET /api/domains', () => {
    });
 
    it('skips malformed search console JSON without failing the response', async () => {
-     DomainMock.findAndCountAll.mockResolvedValue({ count: 1, rows: [
+     DomainMock.findAll.mockResolvedValue([
        {
          get: jest.fn().mockReturnValue({
            ID: 2,
@@ -95,7 +95,7 @@ describe('GET /api/domains', () => {
            scraper_settings: null,
          }),
        },
-     ] });
+     ]);
 
      const req = { method: 'GET', headers: {}, query: {} } as unknown as NextApiRequest;
      const res = createMockResponse();
@@ -588,27 +588,3 @@ describe('DELETE /api/domains', () => {
 });
 
 
-describe('GET /api/domains pagination', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    verifyUserMock.mockReturnValue('authorized');
-  });
-
-  it('returns paging metadata and applies limit/offset', async () => {
-    DomainMock.findAndCountAll.mockResolvedValue({
-      count: 3,
-      rows: [{ get: jest.fn().mockReturnValue({ ID: 1, domain: 'example.com', slug: 'example-com', notification: 1, search_console: null, scraper_settings: null, lastUpdated: '2024-01-01', added: '2024-01-01' }) }],
-    });
-
-    const req = { method: 'GET', headers: {}, query: { limit: '10', offset: '5' } } as unknown as NextApiRequest;
-    const res = createMockResponse();
-
-    await handler(req, res);
-
-    expect(DomainMock.findAndCountAll).toHaveBeenCalledWith(expect.objectContaining({ limit: 10, offset: 5 }));
-    const payload = (res.json as jest.Mock).mock.calls[0][0];
-    expect(payload.total).toBe(3);
-    expect(payload.limit).toBe(10);
-    expect(payload.offset).toBe(5);
-  });
-});

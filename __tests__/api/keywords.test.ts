@@ -17,7 +17,6 @@ jest.mock('../../database/models/keyword', () => ({
   default: {
     update: jest.fn(),
     findAll: jest.fn(),
-    findAndCountAll: jest.fn(),
     findOne: jest.fn(),
     bulkCreate: jest.fn(),
     destroy: jest.fn(),
@@ -60,7 +59,6 @@ const dbMock = db as unknown as { sync: jest.Mock };
 const keywordMock = Keyword as unknown as {
   update: jest.Mock;
   findAll: jest.Mock;
-  findAndCountAll: jest.Mock;
   findOne: jest.Mock;
   bulkCreate: jest.Mock;
   destroy: jest.Mock;
@@ -249,7 +247,7 @@ describe('PUT /api/keywords error handling', () => {
       }),
     };
 
-    keywordMock.findAndCountAll.mockResolvedValueOnce({ count: 1, rows: [keywordRecord] });
+    keywordMock.findAll.mockResolvedValueOnce([keywordRecord]);
     getAppSettingsMock.mockResolvedValue({});
 
     const req = {
@@ -419,61 +417,3 @@ describe('PUT /api/keywords tags updates', () => {
 });
 
 
-describe('GET /api/keywords pagination', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    verifyUserMock.mockReturnValue('authorized');
-    getAppSettingsMock.mockResolvedValue({});
-  });
-
-  it('returns paginated metadata and compact history payload', async () => {
-    keywordMock.findAndCountAll.mockResolvedValue({
-      count: 1,
-      rows: [{
-        get: () => ({
-          ID: 1, keyword: 'alpha', device: 'desktop', country: 'US', domain: 'example.com',
-          lastUpdated: '2024-01-02T00:00:00.000Z', added: '2024-01-01T00:00:00.000Z', position: 1, volume: 0,
-          sticky: 0, updating: 0, mapPackTop3: 0, location: '', history: JSON.stringify({ '2024-01-01': 4, '2024-01-02': 3 }),
-          history7d: JSON.stringify({ '2024-01-02': 3 }), lastResult: JSON.stringify([{ position: 1 }]),
-          tags: '[]', url: '', lastUpdateError: 'false', localResults: '[]',
-        }),
-      }],
-    });
-
-    const req = { method: 'GET', query: { domain: 'example.com', limit: '10', offset: '5' }, headers: {} } as unknown as NextApiRequest;
-    const res = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
-
-    await handler(req, res);
-
-    expect(keywordMock.findAndCountAll).toHaveBeenCalledWith(expect.objectContaining({ limit: 10, offset: 5 }));
-    const payload = (res.json as jest.Mock).mock.calls[0][0];
-    expect(payload.total).toBe(1);
-    expect(payload.limit).toBe(10);
-    expect(payload.offset).toBe(5);
-    expect(payload.keywords[0].history).toEqual({ '2024-01-02': 3 });
-    expect(payload.keywords[0].lastResult).toEqual([]);
-  });
-  it('falls back to parsed history when compact history is absent', async () => {
-    keywordMock.findAndCountAll.mockResolvedValue({
-      count: 1,
-      rows: [{
-        get: () => ({
-          ID: 2, keyword: 'beta', device: 'desktop', country: 'US', domain: 'example.com',
-          lastUpdated: '2024-01-02T00:00:00.000Z', added: '2024-01-01T00:00:00.000Z', position: 1, volume: 0,
-          sticky: 0, updating: 0, mapPackTop3: 0, location: '',
-          history: JSON.stringify({ '2024-01-01': 5, '2024-01-02': 4, '2024-01-03': 3, '2024-01-04': 2, '2024-01-05': 1, '2024-01-06': 2, '2024-01-07': 3, '2024-01-08': 4 }),
-          history7d: null, lastResult: '[]', tags: '[]', url: '', lastUpdateError: 'false', localResults: '[]',
-        }),
-      }],
-    });
-
-    const req = { method: 'GET', query: { domain: 'example.com' }, headers: {} } as unknown as NextApiRequest;
-    const res = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
-
-    await handler(req, res);
-
-    const payload = (res.json as jest.Mock).mock.calls[0][0];
-    expect(Object.keys(payload.keywords[0].history)).toHaveLength(7);
-  });
-
-});
