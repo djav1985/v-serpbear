@@ -180,9 +180,7 @@ type PageScrapeResult = {
 };
 
 /**
- * Scrape a single page of Google Search results.
- * Returns page-relative positions (1..N based on result index) so the caller can apply
- * the correct absolute offset after accounting for actual prior-page result counts.
+ * Scrape a single page of Google Search results with absolute position offsets applied.
  * Includes retry logic with exponential backoff and returns mapPackTop3 / localResults.
  */
 const scrapeSinglePage = async (
@@ -224,13 +222,7 @@ const scrapeSinglePage = async (
             const debugMode = process.env.NODE_ENV === 'development';
             const localResults = extractLocalResultsFromPayload(res, debugMode);
             return {
-               // Use array index (i+1) for page-relative positions, ignoring any position
-               // the API may return.  Different providers restart numbering at 1 for every
-               // page, so the only safe baseline is the item's rank within this response.
-               // The caller (scrapeKeywordWithStrategy) converts these to absolute positions
-               // using a running offset that accounts for the actual result count on each
-               // prior page, not a fixed PAGE_SIZE assumption.
-               results: organic.map((item, i) => ({ ...item, position: i + 1 })),
+               results: organic.map((item, i) => ({ ...item, position: pagination.start + i + 1 })),
                mapPackTop3,
                localResults,
             };
@@ -340,41 +332,17 @@ export const scrapeKeywordWithStrategy = async (
    let page1LocalResults: any[] = [];
    let page1Scraped = false;
 
-   // Track the absolute position offset to apply to each page's relative results.
-   // We advance by the *actual* result count returned, not a fixed PAGE_SIZE, so that
-   // pages with fewer (or more) than 10 results still assign correct absolute positions.
-   // For gaps between non-consecutive scraped pages (e.g. smart scraping [1,9,10])
-   // we estimate PAGE_SIZE per unscraped page because we have no real data for them.
-   let cumulativeOffset = 0;
-   let prevPageNum = 0;
-
    for (const pageNum of pagesToScrape) {
-      // Advance offset for any pages between the last scraped page and this one.
-      if (prevPageNum === 0 && pageNum > 1) {
-         // First page we are scraping is not page 1 – estimate the preceding pages.
-         cumulativeOffset = (pageNum - 1) * PAGE_SIZE;
-      } else if (prevPageNum > 0 && pageNum > prevPageNum + 1) {
-         // There is a gap since the previous scraped page – estimate skipped pages.
-         cumulativeOffset += (pageNum - prevPageNum - 1) * PAGE_SIZE;
-      }
-
       const pagination: ScraperPagination = { start: (pageNum - 1) * PAGE_SIZE, num: PAGE_SIZE, page: pageNum };
       const { results, mapPackTop3, localResults } = await scrapeSinglePage(keyword, settings, scraperObj, pagination);
       if (results.length > 0) {
-         // results carry page-relative positions (1..N); convert to absolute.
-         allScrapedResults.push(...results.map((r) => ({ ...r, position: cumulativeOffset + r.position })));
-         cumulativeOffset += results.length; // advance by actual count, not PAGE_SIZE
+         allScrapedResults.push(...results);
          if (pageNum === 1) {
             page1MapPackTop3 = mapPackTop3;
             page1LocalResults = localResults;
             page1Scraped = true;
          }
-      } else {
-         // Page returned no results; advance by the expected page size so subsequent
-         // pages still land at roughly the right absolute positions.
-         cumulativeOffset += PAGE_SIZE;
       }
-      prevPageNum = pageNum;
    }
 
    if (allScrapedResults.length === 0) { return errorResult; }
@@ -389,10 +357,7 @@ export const scrapeKeywordWithStrategy = async (
             const pagination: ScraperPagination = { start: (pageNum - 1) * PAGE_SIZE, num: PAGE_SIZE, page: pageNum };
             const { results, mapPackTop3, localResults } = await scrapeSinglePage(keyword, settings, scraperObj, pagination);
             if (results.length > 0) {
-               // For fallback pages use the page-number-based estimate (same as the
-               // original approach).  These pages fill the gaps between already-scraped
-               // pages so a precise running counter cannot be maintained cheaply.
-               allScrapedResults.push(...results.map((r) => ({ ...r, position: (pageNum - 1) * PAGE_SIZE + r.position })));
+               allScrapedResults.push(...results);
                if (pageNum === 1 && !page1Scraped) {
                   page1MapPackTop3 = mapPackTop3;
                   page1LocalResults = localResults;
