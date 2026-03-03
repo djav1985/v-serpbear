@@ -11,7 +11,6 @@ export function withApiLogging(
   handler: NextApiHandler,
   options: {
     logBody?: boolean;
-    skipAuth?: boolean;
     name?: string;
   } = {}
 ) {
@@ -20,7 +19,6 @@ export function withApiLogging(
     const requestId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const { 
       logBody = false,
-      skipAuth: _skipAuth = false,
       name,
     } = options;
 

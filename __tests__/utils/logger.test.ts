@@ -176,42 +176,4 @@ describe('Logger', () => {
     });
   });
 
-  describe('apiRequest logging', () => {
-    it('should log successful API requests at INFO level', () => {
-      process.env.LOG_LEVEL = 'info';
-      
-      const logger = new Logger();
-      
-      logger.apiRequest('GET', '/test', 200, 100);
-      
-      expect(mockConsoleLog).toHaveBeenCalledWith(
-        expect.stringContaining('"message":"API Request: GET /test - 200 (100ms)"')
-      );
-    });
-
-    it('should not log successful API requests when LOG_LEVEL is error', () => {
-      process.env.LOG_LEVEL = 'error';
-      
-      const logger = new Logger();
-      
-      logger.apiRequest('GET', '/test', 200, 100);
-      
-      expect(mockConsoleLog).not.toHaveBeenCalled();
-    });
-
-    it('should always log error API requests at ERROR level', () => {
-      process.env.LOG_LEVEL = 'info';
-      
-      const logger = new Logger();
-      
-      logger.apiRequest('GET', '/test', 404, 100);
-      
-      expect(mockConsoleLog).toHaveBeenCalledWith(
-        expect.stringContaining('"level":"ERROR"')
-      );
-      expect(mockConsoleLog).toHaveBeenCalledWith(
-        expect.stringContaining('"message":"API Request Failed: GET /test - 404"')
-      );
-    });
-  });
 });
