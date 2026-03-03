@@ -161,7 +161,7 @@ const addDomain = async (req: NextApiRequest, res: NextApiResponse) => {
          return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error Adding Domain.', requestId, error instanceof Error ? error.message : String(error)));
       }
    } else {
-      return res.status(400).json(errorResponse('BAD_REQUEST', 'Necessary data missing.', (req as ExtendedRequest).requestId));
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Necessary data missing.', requestId));
    }
 };
 
