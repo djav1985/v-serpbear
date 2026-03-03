@@ -66,13 +66,19 @@ const Domains: NextPage = () => {
       if (domainsData?.domains && domainsData.domains.length > 0) {
          const fetchAllScreenshots = async () => {
             const queue = domainsData.domains.map((domainData) => domainData.domain);
+            let queueIndex = 0;
             const concurrency = 4;
             const validScreenshots: Array<{ domain: string; thumb: string }> = [];
 
             const worker = async () => {
-               while (queue.length > 0) {
-                  const domain = queue.shift();
-                  if (!domain) { return; }
+               while (true) {
+                  if (queueIndex >= queue.length) {
+                     return;
+                  }
+                  const domain = queue[queueIndex++];
+                  if (!domain) {
+                     return;
+                  }
                   const domainThumb = await fetchDomainScreenshot(domain);
                   if (domainThumb) {
                      validScreenshots.push({ domain, thumb: domainThumb });
