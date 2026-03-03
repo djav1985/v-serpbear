@@ -125,15 +125,15 @@ describe('Improved Error Handling in Services', () => {
    });
 
    it('should still handle valid JSON error responses correctly', async () => {
-      // Mock valid JSON error response
+      // Mock valid JSON error response (structured envelope)
       mockFetch.mockResolvedValueOnce({
          status: 400,
          ok: false,
          headers: {
             get: jest.fn().mockReturnValue('application/json')
          },
-         text: jest.fn().mockResolvedValue(JSON.stringify({ error: 'Invalid domain provided' })),
-         json: jest.fn().mockResolvedValue({ error: 'Invalid domain provided' })
+         text: jest.fn().mockResolvedValue(JSON.stringify({ error: { code: 'BAD_REQUEST', message: 'Invalid domain provided' } })),
+         json: jest.fn().mockResolvedValue({ error: { code: 'BAD_REQUEST', message: 'Invalid domain provided' } })
       } as any);
 
       const { useRefreshKeywords } = require('../../services/keywords');
@@ -198,7 +198,7 @@ describe('Improved Error Handling in Services', () => {
          headers: {
             get: jest.fn().mockReturnValue('application/json')
          },
-         text: jest.fn().mockResolvedValue(JSON.stringify({ error: 'No keywords found over the search volume minimum.' }))
+         text: jest.fn().mockResolvedValue(JSON.stringify({ error: { code: 'NOT_FOUND', message: 'No keywords found over the search volume minimum.' } }))
       } as any);
 
       const { useMutateKeywordIdeas } = require('../../services/adwords');
@@ -218,7 +218,7 @@ describe('Improved Error Handling in Services', () => {
          headers: {
             get: jest.fn().mockReturnValue('application/json')
          },
-         text: jest.fn().mockResolvedValue(JSON.stringify({ error: 'Session expired' }))
+         text: jest.fn().mockResolvedValue(JSON.stringify({ error: { code: 'UNAUTHORIZED', message: 'Session expired' } }))
       } as any);
 
       const { useMutateKeywordIdeas } = require('../../services/adwords');
