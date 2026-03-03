@@ -11,10 +11,12 @@ type ChartProps = {
    noMaxLimit?: boolean;
    reverse?: boolean;
    fillContainer?: boolean;
+   mapSentinel?: boolean;
 };
 
-const ChartSlim = ({ labels, series, noMaxLimit = false, reverse = true, fillContainer = false }: ChartProps) => {
-   const { min, max } = calculateChartBounds(series, { reverse, noMaxLimit });
+const ChartSlim = ({ labels, series, noMaxLimit = false, reverse = true, fillContainer = false, mapSentinel = false }: ChartProps) => {
+   const chartSeries = mapSentinel ? series.map(v => (v === 111 ? null : v)) : series;
+   const { min, max } = calculateChartBounds(mapSentinel ? series.filter(v => v !== 111) : series, { reverse, noMaxLimit });
    const options = {
       responsive: true,
       maintainAspectRatio: false,
@@ -82,7 +84,7 @@ const ChartSlim = ({ labels, series, noMaxLimit = false, reverse = true, fillCon
                   {
                      fill: 'start',
                      showLine: true,
-                     data: series.map(v => (v === 111 ? null : v)),
+                     data: chartSeries,
                      pointRadius: 0,
                      borderColor: 'rgb(31, 205, 176)',
                      backgroundColor: 'rgba(31, 205, 176, 0.5)',

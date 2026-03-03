@@ -78,13 +78,22 @@ describe('ChartSlim Component', () => {
       expect(yAxis?.max).toBe(12);
    });
 
-   it('maps sentinel 111 values to null in the dataset so they render as gaps', () => {
-      render(<ChartSlim labels={['2024-1-1', '2024-1-2', '2024-1-3']} series={[111, 5, 4]} />);
+   it('maps sentinel 111 values to null in the dataset when mapSentinel is true', () => {
+      render(<ChartSlim labels={['2024-1-1', '2024-1-2', '2024-1-3']} series={[111, 5, 4]} mapSentinel={true} />);
 
       const callArgs = lineMock.mock.calls[0][0] as LineProps;
       const dataset = callArgs.data?.datasets?.[0];
       expect(dataset).toBeDefined();
       expect(dataset?.data).toEqual([null, 5, 4]);
+   });
+
+   it('does not map 111 to null when mapSentinel is false (default), preserving legitimate values', () => {
+      render(<ChartSlim labels={['2024-1-1', '2024-1-2', '2024-1-3']} series={[111, 500, 400]} reverse={false} noMaxLimit={true} />);
+
+      const callArgs = lineMock.mock.calls[0][0] as LineProps;
+      const dataset = callArgs.data?.datasets?.[0];
+      expect(dataset).toBeDefined();
+      expect(dataset?.data).toEqual([111, 500, 400]);
    });
 
    it('passes a dataset with fill:start, showLine:true and spanGaps:false', () => {
