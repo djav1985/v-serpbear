@@ -25,9 +25,7 @@ const describeScraperType = (scraperType?: SettingsType['scraper_type']): string
 };
 
 const logScraperSelectionSummary = (
-   globalSettings: SettingsType,
    domainSpecificSettings: Map<string, SettingsType>,
-   requestedDomains: string[],
    domainsWithScraperOverrides: Set<string>,
 ) => {
    // Only log when there are overrides or in debug mode
@@ -308,7 +306,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
       }));
    }
 
-   logScraperSelectionSummary(settings, domainSpecificSettings, domainNames, domainsWithScraperOverrides);
+   logScraperSelectionSummary(settings, domainSpecificSettings, domainsWithScraperOverrides);
 
    const skippedKeywords: Keyword[] = [];
    const eligibleKeywordModels = rawkeyword.filter((keyword) => {

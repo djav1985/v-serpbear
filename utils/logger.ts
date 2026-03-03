@@ -111,23 +111,6 @@ export class Logger {
     this.log(LogLevel.DEBUG, 'DEBUG', message, meta);
   }
 
-  // API request logging helper
-  apiRequest(method: string, url: string, statusCode?: number, duration?: number, meta?: Record<string, any>): void {
-    if (statusCode && statusCode >= 400) {
-      // ERROR level: Log failures with details
-      this.error(`API Request Failed: ${method} ${url} - ${statusCode}`, undefined, {
-        method,
-        url,
-        statusCode,
-        duration,
-        ...meta,
-      });
-    } else {
-      // INFO level: Just log basic success info
-      this.info(`API Request: ${method} ${url} - ${statusCode} (${duration}ms)`);
-    }
-  }
-
   // Authentication event logging
   authEvent(event: string, user?: string, success: boolean = true, meta?: Record<string, any>): void {
     if (success) {
