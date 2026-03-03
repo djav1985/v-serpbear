@@ -2,6 +2,7 @@ import { useRouter, NextRouter } from 'next/router';
 import toast from 'react-hot-toast';
 import { useMutation, useQuery, useQueryClient, QueryClient, QueryKey } from 'react-query';
 import { getClientOrigin } from '../utils/client/origin';
+import { throwOnError } from '../utils/client/fetchWithError';
 
 type UpdatePayload = {
    domainSettings: Partial<DomainSettings>,
@@ -104,26 +105,7 @@ const updateDomainRequest = async ({ domainSettings, domain }: UpdatePayload) =>
 export async function fetchDomains(router: NextRouter, withStats:boolean): Promise<{domains: DomainType[]}> {
    const origin = getClientOrigin();
    const res = await fetch(`${origin}/api/domains${withStats ? '?withstats=true' : ''}`, { method: 'GET' });
-   if (res.status >= 400 && res.status < 600) {
-      if (res.status === 401) {
-         router.push('/login');
-      }
-      let errorMessage = 'Bad response from server';
-      try {
-         const contentType = res.headers.get('content-type');
-         if (contentType && contentType.includes('application/json')) {
-            const errorData = await res.json();
-            errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
-         } else {
-            // Handle HTML error pages or other non-JSON responses
-            await res.text();
-            errorMessage = `Server error (${res.status}): Please try again later`;
-         }
-      } catch (_parseError) {
-         errorMessage = `Server error (${res.status}): Please try again later`;
-      }
-      throw new Error(errorMessage);
-   }
+   await throwOnError(res, router);
    return res.json();
 }
 
@@ -131,26 +113,7 @@ export async function fetchDomain(router: NextRouter, domainName: string): Promi
    const origin = getClientOrigin();
    const encodedDomain = encodeURIComponent(domainName);
    const res = await fetch(`${origin}/api/domain?domain=${encodedDomain}`, { method: 'GET' });
-   if (res.status >= 400 && res.status < 600) {
-      if (res.status === 401) {
-         router.push('/login');
-      }
-      let errorMessage = 'Bad response from server';
-      try {
-         const contentType = res.headers.get('content-type');
-         if (contentType && contentType.includes('application/json')) {
-            const errorData = await res.json();
-            errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
-         } else {
-            // Handle HTML error pages or other non-JSON responses
-            await res.text();
-            errorMessage = `Server error (${res.status}): Please try again later`;
-         }
-      } catch (_parseError) {
-         errorMessage = `Server error (${res.status}): Please try again later`;
-      }
-      throw new Error(errorMessage);
-   }
+   await throwOnError(res, router);
    return res.json();
 }
 
@@ -242,23 +205,7 @@ export function useAddDomain(onSuccess:Function) {
       const fetchOpts = { method: 'POST', headers, body: JSON.stringify({ domains }) };
       const origin = getClientOrigin();
       const res = await fetch(`${origin}/api/domains`, fetchOpts);
-      if (res.status >= 400 && res.status < 600) {
-         let errorMessage = 'Bad response from server';
-         try {
-            const contentType = res.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-               const errorData = await res.json();
-               errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
-            } else {
-               // Handle HTML error pages or other non-JSON responses
-               await res.text();
-               errorMessage = `Server error (${res.status}): Please try again later`;
-            }
-         } catch (_parseError) {
-            errorMessage = `Server error (${res.status}): Please try again later`;
-         }
-         throw new Error(errorMessage);
-      }
+      await throwOnError(res);
       return res.json();
    }, {
       onSuccess: async (data) => {
@@ -333,23 +280,7 @@ export function useDeleteDomain(onSuccess:Function) {
    return useMutation(async (domain:DomainType) => {
       const origin = getClientOrigin();
       const res = await fetch(`${origin}/api/domains?domain=${domain.domain}`, { method: 'DELETE' });
-      if (res.status >= 400 && res.status < 600) {
-         let errorMessage = 'Bad response from server';
-         try {
-            const contentType = res.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-               const errorData = await res.json();
-               errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
-            } else {
-               // Handle HTML error pages or other non-JSON responses
-               await res.text();
-               errorMessage = `Server error (${res.status}): Please try again later`;
-            }
-         } catch (_parseError) {
-            errorMessage = `Server error (${res.status}): Please try again later`;
-         }
-         throw new Error(errorMessage);
-      }
+      await throwOnError(res);
       return res.json();
    }, {
       onSuccess: async () => {

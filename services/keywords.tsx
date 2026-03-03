@@ -3,6 +3,7 @@ import { NextRouter } from 'next/router';
 import { useMutation, useQuery, useQueryClient } from 'react-query';
 import { getClientOrigin } from '../utils/client/origin';
 import { normalizeToBoolean } from '../utils/dbBooleans';
+import { throwOnError } from '../utils/client/fetchWithError';
 
 type KeywordsResponse = {
    keywords?: KeywordType[]
@@ -26,27 +27,7 @@ export const fetchKeywords = async (router: NextRouter, domain: string) => {
    if (!domain) { return { keywords: [] }; }
    const origin = getClientOrigin();
    const res = await fetch(`${origin}/api/keywords?domain=${domain}`, { method: 'GET' });
-   if (res.status >= 400 && res.status < 600) {
-      if (res.status === 401) {
-         router.push('/login');
-      }
-
-      let errorMessage = 'Bad response from server';
-      try {
-         const contentType = res.headers.get('content-type');
-         if (contentType && contentType.includes('application/json')) {
-            const errorData = await res.json();
-            errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
-         } else {
-            await res.text();
-            errorMessage = `Server error (${res.status}): Please try again later`;
-         }
-      } catch (_parseError) {
-         errorMessage = `Server error (${res.status}): Please try again later`;
-      }
-
-      throw new Error(errorMessage);
-   }
+   await throwOnError(res, router);
    const data: KeywordsResponse = await res.json();
    if (!data || typeof data !== 'object') { return data; }
    if (!Array.isArray(data.keywords)) { return data; }
@@ -98,23 +79,7 @@ export function useAddKeywords(onSuccess:Function) {
       const fetchOpts = { method: 'POST', headers, body: JSON.stringify({ keywords }) };
       const origin = getClientOrigin();
       const res = await fetch(`${origin}/api/keywords`, fetchOpts);
-      if (res.status >= 400 && res.status < 600) {
-         let errorMessage = 'Bad response from server';
-         try {
-            const contentType = res.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-               const errorData = await res.json();
-               errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
-            } else {
-               // Handle HTML error pages or other non-JSON responses
-               await res.text();
-               errorMessage = `Server error (${res.status}): Please try again later`;
-            }
-         } catch (_parseError) {
-            errorMessage = `Server error (${res.status}): Please try again later`;
-         }
-         throw new Error(errorMessage);
-      }
+      await throwOnError(res);
       return res.json();
    }, {
       onSuccess: async () => {
@@ -134,23 +99,7 @@ export function useDeleteKeywords(onSuccess:Function) {
       const keywordIds = keywordIDs.join(',');
       const origin = getClientOrigin();
       const res = await fetch(`${origin}/api/keywords?id=${keywordIds}`, { method: 'DELETE' });
-      if (res.status >= 400 && res.status < 600) {
-         let errorMessage = 'Bad response from server';
-         try {
-            const contentType = res.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-               const errorData = await res.json();
-               errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
-            } else {
-               // Handle HTML error pages or other non-JSON responses
-               await res.text();
-               errorMessage = `Server error (${res.status}): Please try again later`;
-            }
-         } catch (_parseError) {
-            errorMessage = `Server error (${res.status}): Please try again later`;
-         }
-         throw new Error(errorMessage);
-      }
+      await throwOnError(res);
       return res.json();
    }, {
       onSuccess: async () => {
@@ -171,23 +120,7 @@ export function useFavKeywords(onSuccess:Function) {
       const fetchOpts = { method: 'PUT', headers, body: JSON.stringify({ sticky }) };
       const origin = getClientOrigin();
       const res = await fetch(`${origin}/api/keywords?id=${keywordID}`, fetchOpts);
-      if (res.status >= 400 && res.status < 600) {
-         let errorMessage = 'Bad response from server';
-         try {
-            const contentType = res.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-               const errorData = await res.json();
-               errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
-            } else {
-               // Handle HTML error pages or other non-JSON responses
-               await res.text();
-               errorMessage = `Server error (${res.status}): Please try again later`;
-            }
-         } catch (_parseError) {
-            errorMessage = `Server error (${res.status}): Please try again later`;
-         }
-         throw new Error(errorMessage);
-      }
+      await throwOnError(res);
       return res.json();
    }, {
       onSuccess: async (data) => {
@@ -210,23 +143,7 @@ export function useUpdateKeywordTags(onSuccess:Function) {
       const fetchOpts = { method: 'PUT', headers, body: JSON.stringify({ tags }) };
       const origin = getClientOrigin();
       const res = await fetch(`${origin}/api/keywords?id=${keywordIds}`, fetchOpts);
-      if (res.status >= 400 && res.status < 600) {
-         let errorMessage = 'Bad response from server';
-         try {
-            const contentType = res.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-               const errorData = await res.json();
-               errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
-            } else {
-               // Handle HTML error pages or other non-JSON responses
-               await res.text();
-               errorMessage = `Server error (${res.status}): Please try again later`;
-            }
-         } catch (_parseError) {
-            errorMessage = `Server error (${res.status}): Please try again later`;
-         }
-         throw new Error(errorMessage);
-      }
+      await throwOnError(res);
       return res.json();
    }, {
       onSuccess: async () => {
@@ -247,23 +164,7 @@ export function useRefreshKeywords(onSuccess:Function) {
       const origin = getClientOrigin();
       const query = ids.length === 0 && domain ? `?id=all&domain=${encodeURIComponent(domain)}` : `?id=${keywordIds}`;
       const res = await fetch(`${origin}/api/refresh${query}`, { method: 'POST' });
-      if (res.status >= 400 && res.status < 600) {
-         let errorMessage = 'Bad response from server';
-         try {
-            const contentType = res.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-               const errorData = await res.json();
-               errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
-            } else {
-               // Handle HTML error pages or other non-JSON responses
-               await res.text();
-               errorMessage = `Server error (${res.status}): Please try again later`;
-            }
-         } catch (_parseError) {
-            errorMessage = `Server error (${res.status}): Please try again later`;
-         }
-         throw new Error(errorMessage);
-      }
+      await throwOnError(res);
       return res.json();
    }, {
       onSuccess: async () => {
@@ -284,23 +185,7 @@ export function useFetchSingleKeyword(keywordID:number) {
          const origin = getClientOrigin();
          const fetchURL = `${origin}/api/keyword?id=${keywordID}`;
          const res = await fetch(fetchURL, { method: 'GET' });
-         if (res.status >= 400 && res.status < 600) {
-            let errorMessage = 'Bad response from server';
-            try {
-               const contentType = res.headers.get('content-type');
-               if (contentType && contentType.includes('application/json')) {
-                  const errorData = await res.json();
-                  errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
-               } else {
-                  // Handle HTML error pages or other non-JSON responses
-                  await res.text();
-                  errorMessage = `Server error (${res.status}): Please try again later`;
-               }
-            } catch (_parseError) {
-               errorMessage = `Server error (${res.status}): Please try again later`;
-            }
-            throw new Error(errorMessage);
-         }
+         await throwOnError(res);
          const result = await res.json();
          return { 
             history: result.keyword?.history || [], 
@@ -330,25 +215,6 @@ export async function fetchSearchResults(router:NextRouter, keywordData: Record<
    if (typeof device === 'string') { params.set('device', device); }
    const queryString = params.toString();
    const res = await fetch(`${origin}/api/refresh${queryString ? `?${queryString}` : ''}`, { method: 'GET' });
-   if (res.status >= 400 && res.status < 600) {
-      if (res.status === 401) {
-         router.push('/login');
-      }
-      let errorMessage = 'Bad response from server';
-      try {
-         const contentType = res.headers.get('content-type');
-         if (contentType && contentType.includes('application/json')) {
-            const errorData = await res.json();
-            errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
-         } else {
-            // Handle HTML error pages or other non-JSON responses
-            await res.text();
-            errorMessage = `Server error (${res.status}): Please try again later`;
-         }
-      } catch (_parseError) {
-         errorMessage = `Server error (${res.status}): Please try again later`;
-      }
-      throw new Error(errorMessage);
-   }
+   await throwOnError(res, router);
    return res.json();
 }

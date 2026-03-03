@@ -117,4 +117,3 @@ export function withAuth<P extends Record<string, any>>(
   return AuthenticatedComponent;
 }
 
-export default useAuth;

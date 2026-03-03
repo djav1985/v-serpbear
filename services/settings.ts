@@ -1,6 +1,7 @@
 import toast from 'react-hot-toast';
 import { useMutation, useQuery, useQueryClient } from 'react-query';
 import { getClientOrigin } from '../utils/client/origin';
+import { throwOnError } from '../utils/client/fetchWithError';
 
 export async function fetchSettings() {
    const origin = getClientOrigin();
@@ -22,9 +23,7 @@ export const useUpdateSettings = (onSuccess:Function|undefined) => {
       const fetchOpts = { method: 'PUT', headers, body: JSON.stringify({ settings }) };
       const origin = getClientOrigin();
       const res = await fetch(`${origin}/api/settings`, fetchOpts);
-      if (res.status >= 400 && res.status < 600) {
-         throw new Error('Bad response from server');
-      }
+      await throwOnError(res);
       return res.json();
    }, {
       onSuccess: async () => {
@@ -47,9 +46,7 @@ export function useClearFailedQueue(onSuccess:Function) {
       const fetchOpts = { method: 'PUT', headers };
       const origin = getClientOrigin();
       const res = await fetch(`${origin}/api/clearfailed`, fetchOpts);
-      if (res.status >= 400 && res.status < 600) {
-         throw new Error('Bad response from server');
-      }
+      await throwOnError(res);
       return res.json();
    }, {
       onSuccess: async () => {
