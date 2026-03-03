@@ -114,6 +114,38 @@ describe('scrapeKeywordWithStrategy – page selection', () => {
       expect(capturedPages(fetchSpy)).toEqual([1, 2, 3]);
    });
 
+   it('custom: stops early when keyword is found on page 1 (does not scrape remaining pages)', async () => {
+      // page 1 contains the domain → should stop after page 1, never request pages 2..5
+      fetchSpy.mockImplementation((url: RequestInfo | URL) => {
+         const pageMatch = String(url).match(/[?&]page=(\d+)/);
+         const page = pageMatch ? Number(pageMatch[1]) : 1;
+         return Promise.resolve(makeSerperResponseN(page, 10, page === 1 ? 'example.com' : undefined) as unknown as Response);
+      });
+
+      const settings = { ...baseSettings, scrape_strategy: 'custom' as ScrapeStrategy, scrape_pagination_limit: 5 };
+      const result = await scrapeKeywordWithStrategy({ ...baseKeyword, domain: 'example.com' }, settings);
+      expect(capturedPages(fetchSpy)).toEqual([1]);
+      if (result) {
+         expect(result.position).toBe(1);
+      }
+   });
+
+   it('custom: continues to page 2 when keyword is not found on page 1', async () => {
+      // page 1 has no domain result; domain appears on page 2 → should scrape both pages
+      fetchSpy.mockImplementation((url: RequestInfo | URL) => {
+         const pageMatch = String(url).match(/[?&]page=(\d+)/);
+         const page = pageMatch ? Number(pageMatch[1]) : 1;
+         return Promise.resolve(makeSerperResponseN(page, 10, page === 2 ? 'example.com' : undefined) as unknown as Response);
+      });
+
+      const settings = { ...baseSettings, scrape_strategy: 'custom' as ScrapeStrategy, scrape_pagination_limit: 5 };
+      const result = await scrapeKeywordWithStrategy({ ...baseKeyword, domain: 'example.com' }, settings);
+      expect(capturedPages(fetchSpy)).toEqual([1, 2]);
+      if (result) {
+         expect(result.position).toBe(11);
+      }
+   });
+
    it('custom: clamps page limit to TOTAL_PAGES (10)', async () => {
       const settings = { ...baseSettings, scrape_strategy: 'custom' as ScrapeStrategy, scrape_pagination_limit: 99 };
       await scrapeKeywordWithStrategy(baseKeyword, settings);

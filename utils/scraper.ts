@@ -376,6 +376,11 @@ export const scrapeKeywordWithStrategy = async (
          cumulativeOffset += PAGE_SIZE;
       }
       prevPageNum = pageNum;
+
+      // For the custom strategy, stop scraping as soon as the keyword is found.
+      if (strategy === 'custom' && getSerp(keyword.domain, allScrapedResults).position > 0) {
+         break;
+      }
    }
 
    if (allScrapedResults.length === 0) { return errorResult; }
