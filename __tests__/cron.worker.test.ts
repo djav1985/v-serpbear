@@ -27,26 +27,42 @@ describe('cron worker helpers', () => {
     await makeCronApiCall(undefined, 'http://localhost:3000', '/api/cron', 'ignored');
 
     expect(global.fetch).not.toHaveBeenCalled();
-    expect(consoleSpy).toHaveBeenCalledWith('[CRON] Skipping API call to /api/cron: API key not configured.');
+    // logger.warn emits a JSON log entry via console.log
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('"level":"WARN"')
+    );
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Skipping API call')
+    );
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('"/api/cron"')
+    );
   });
 
   it('sends the authorization header when API key is available', async () => {
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
     (global.fetch as jest.Mock).mockResolvedValue({ 
       ok: true,
+      status: 200,
       headers: {
         get: jest.fn().mockReturnValue('application/json'),
       },
       json: () => Promise.resolve({ ok: true }),
     });
 
-    await makeCronApiCall('secret', 'http://localhost:3000', '/api/cron', 'Success:');
+    await makeCronApiCall('secret', 'http://localhost:3000', '/api/cron', 'CRON: Keyword Scraping Result');
 
     expect(global.fetch).toHaveBeenCalledWith('http://localhost:3000/api/cron', {
       method: 'POST',
       headers: { Authorization: 'Bearer secret' },
     });
-    expect(consoleSpy).toHaveBeenCalledWith('Success:', { data: { ok: true } });
+    // logger.info emits a JSON log entry via console.log
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('"level":"INFO"')
+    );
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('CRON: Keyword Scraping Result')
+    );
   });
 
   it('falls back when falsy non-string values are provided', () => {

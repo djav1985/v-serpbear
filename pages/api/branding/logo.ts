@@ -3,6 +3,7 @@ import { createReadStream, promises as fs } from 'fs';
 import path from 'path';
 import { getBranding } from '../../../utils/branding';
 import { logger } from '../../../utils/logger';
+import { withApiLogging } from '../../../utils/apiLogging';
 
 const respondNotFound = (res: NextApiResponse) => {
    res.status(404).end('Logo not found');
@@ -75,4 +76,4 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
    }
 };
 
-export default handler;
+export default withApiLogging(handler, { name: 'branding/logo' });

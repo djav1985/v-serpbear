@@ -8,6 +8,7 @@ import normalizeDomainBooleans from '../../../utils/normalizeDomain';
 import generateKeywordIdeasEmail, { KeywordIdeasEmailKeyword } from '../../../utils/generateKeywordIdeasEmail';
 import { getBranding } from '../../../utils/branding';
 import { logger } from '../../../utils/logger';
+import { withApiLogging } from '../../../utils/apiLogging';
 
 type EmailKeywordIdeasRequest = {
    domain?: string;
@@ -54,7 +55,7 @@ const normalizeKeywords = (keywords: KeywordIdeasEmailKeyword[] = []): KeywordId
    };
 });
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse<EmailKeywordIdeasResponse>) {
+async function handler(req: NextApiRequest, res: NextApiResponse<EmailKeywordIdeasResponse>) {
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
       return res.status(401).json({ success: false, error: authorized });
@@ -66,6 +67,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
    return emailKeywordIdeas(req, res);
 }
+
+export default withApiLogging(handler, { name: 'ideas/email' });
 
 const emailKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse<EmailKeywordIdeasResponse>) => {
    const body = (req.body || {}) as EmailKeywordIdeasRequest;

@@ -43,6 +43,16 @@ jest.mock('nodemailer', () => ({
    default: { createTransport: jest.fn() },
 }));
 
+jest.mock('../../utils/apiLogging', () => ({
+   __esModule: true,
+   default: (h: any) => h,
+   withApiLogging: (h: any) => h,
+}));
+
+jest.mock('../../database/init', () => ({
+   ensureDatabase: jest.fn().mockResolvedValue(undefined),
+}));
+
 describe('/api/ideas/email', () => {
    let req: Partial<NextApiRequest>;
    let res: MockedResponse;

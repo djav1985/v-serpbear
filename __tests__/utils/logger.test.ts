@@ -135,7 +135,7 @@ describe('Logger', () => {
   });
 
   describe('authEvent logging', () => {
-    it('should log successful auth events at INFO level', () => {
+    it('should log successful auth events at INFO level with structured metadata', () => {
       process.env.LOG_LEVEL = 'info';
       
       const logger = new Logger();
@@ -148,6 +148,25 @@ describe('Logger', () => {
       expect(mockConsoleLog).toHaveBeenCalledWith(
         expect.stringContaining('"message":"Auth: test_event [test_user]"')
       );
+      expect(mockConsoleLog).toHaveBeenCalledWith(
+        expect.stringContaining('"event":"test_event"')
+      );
+      expect(mockConsoleLog).toHaveBeenCalledWith(
+        expect.stringContaining('"user":"test_user"')
+      );
+    });
+
+    it('should include extra meta fields in successful auth event logs', () => {
+      process.env.LOG_LEVEL = 'info';
+      
+      const logger = new Logger();
+      
+      logger.authEvent('login', 'alice', true, { ip: '1.2.3.4' });
+      
+      const call = mockConsoleLog.mock.calls[0][0];
+      const parsed = JSON.parse(call);
+      expect(parsed.level).toBe('INFO');
+      expect(parsed.meta).toMatchObject({ event: 'login', user: 'alice', ip: '1.2.3.4' });
     });
 
     it('should not log successful auth events when LOG_LEVEL is error', () => {

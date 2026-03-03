@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getBranding } from '../../../utils/branding';
 import { logger } from '../../../utils/logger';
+import { withApiLogging } from '../../../utils/apiLogging';
 
 type BrandingResponse = ReturnType<typeof getBranding>;
 
@@ -17,4 +18,4 @@ const handler = (req: NextApiRequest, res: NextApiResponse<BrandingResponse | { 
    res.status(200).json(branding);
 };
 
-export default handler;
+export default withApiLogging(handler, { name: 'branding/config' });
