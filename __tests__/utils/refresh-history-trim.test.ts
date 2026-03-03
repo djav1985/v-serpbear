@@ -79,9 +79,11 @@ describe('History Trimming Optimization', () => {
       expect(keywordMock.update).toHaveBeenCalled();
       const updateCall = (keywordMock.update as jest.Mock).mock.calls[0][0];
       const savedHistory = JSON.parse(updateCall.history);
+      const savedHistory7d = JSON.parse(updateCall.history7d);
       
       // Should have at most 30 entries (plus today's new entry)
       expect(Object.keys(savedHistory).length).toBeLessThanOrEqual(31);
+      expect(Object.keys(savedHistory7d).length).toBeLessThanOrEqual(7);
    });
 
    it('should keep all history when less than 30 days', async () => {
@@ -140,8 +142,10 @@ describe('History Trimming Optimization', () => {
       expect(keywordMock.update).toHaveBeenCalled();
       const updateCall = (keywordMock.update as jest.Mock).mock.calls[0][0];
       const savedHistory = JSON.parse(updateCall.history);
+      const savedHistory7d = JSON.parse(updateCall.history7d);
       
       // Should have all 10 entries plus today's new entry
       expect(Object.keys(savedHistory).length).toBe(11);
+      expect(Object.keys(savedHistory7d).length).toBe(7);
    });
 });

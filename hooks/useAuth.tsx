@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/router';
+import { useQuery } from 'react-query';
 
 export interface AuthStatus {
   isAuthenticated: boolean;
@@ -8,52 +9,53 @@ export interface AuthStatus {
   error?: string;
 }
 
+const AUTH_CHECK_QUERY_KEY = ['auth-check'];
+
+const fetchAuthStatus = async (): Promise<AuthStatus> => {
+  const response = await fetch('/api/auth-check', {
+    method: 'GET',
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    return {
+      isAuthenticated: false,
+      isLoading: false,
+      error: 'Authentication failed',
+    };
+  }
+
+  const data = await response.json();
+  return {
+    isAuthenticated: true,
+    isLoading: false,
+    user: data.user,
+  };
+};
+
 /**
  * Custom hook to check authentication status
  */
 export function useAuth(): AuthStatus {
-  const [authStatus, setAuthStatus] = useState<AuthStatus>({
-    isAuthenticated: false,
-    isLoading: true,
+  const { data, isLoading, isError } = useQuery<AuthStatus>(AUTH_CHECK_QUERY_KEY, fetchAuthStatus, {
+    staleTime: 10000,
+    cacheTime: 30000,
+    retry: false,
   });
 
-  useEffect(() => {
-    checkAuthStatus();
-  }, []);
+  if (isLoading) {
+    return { isAuthenticated: false, isLoading: true };
+  }
 
-  const checkAuthStatus = async () => {
-    try {
-      // Try to access a protected API endpoint to verify authentication
-      const response = await fetch('/api/auth-check', {
-        method: 'GET',
-        credentials: 'include', // Include cookies
-      });
+  if (isError || !data) {
+    return {
+      isAuthenticated: false,
+      isLoading: false,
+      error: 'Failed to check authentication status',
+    };
+  }
 
-      if (response.ok) {
-        const data = await response.json();
-        setAuthStatus({
-          isAuthenticated: true,
-          isLoading: false,
-          user: data.user,
-        });
-      } else {
-        setAuthStatus({
-          isAuthenticated: false,
-          isLoading: false,
-          error: 'Authentication failed',
-        });
-      }
-    } catch (error) {
-      console.error('Failed to check authentication status', error);
-      setAuthStatus({
-        isAuthenticated: false,
-        isLoading: false,
-        error: 'Failed to check authentication status',
-      });
-    }
-  };
-
-  return authStatus;
+  return data;
 }
 
 /**

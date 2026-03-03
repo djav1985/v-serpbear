@@ -1,5 +1,5 @@
 import Keyword from '../database/models/keyword';
-import parseKeywords from './parseKeywords';
+import { col, fn } from 'sequelize';
 import { readLocalSCData } from './searchConsole';
 
 /**
@@ -10,14 +10,32 @@ import { readLocalSCData } from './searchConsole';
  */
 const getdomainStats = async (domains:DomainType[]): Promise<DomainType[]> => {
    const finalDomains: DomainType[] = [];
+   const domainNames = domains.map((domain) => domain.domain);
+   const keywordStatsRows = domainNames.length > 0
+      ? await Keyword.findAll({
+         attributes: [
+            'domain',
+            [fn('COUNT', col('ID')), 'keywordCount'],
+            [fn('MAX', col('lastUpdated')), 'maxLastUpdated'],
+         ],
+         where: { domain: domainNames },
+         group: ['domain'],
+         raw: true,
+      }) as unknown as Array<{ domain: string; keywordCount: string | number; maxLastUpdated: string | null }>
+      : [];
+
+   const keywordStatsByDomain = new Map<string, { keywordCount: number; maxLastUpdated: string | null }>();
+   keywordStatsRows.forEach((row) => {
+      keywordStatsByDomain.set(row.domain, {
+         keywordCount: Number(row.keywordCount) || 0,
+         maxLastUpdated: row.maxLastUpdated,
+      });
+   });
 
    for (const domain of domains) {
       const domainWithStat = domain;
-
-      // First Get ALl The Keywords for this Domain
-      const allKeywords:Keyword[] = await Keyword.findAll({ where: { domain: domain.domain } });
-      const keywords: KeywordType[] = parseKeywords(allKeywords.map((e) => e.get({ plain: true })));
-      domainWithStat.keywordsTracked = keywords.length;
+      const keywordStats = keywordStatsByDomain.get(domain.domain);
+      domainWithStat.keywordsTracked = keywordStats?.keywordCount || 0;
       
       const hasPersistedAvgPosition = typeof domain.avgPosition === 'number'
          && Number.isFinite(domain.avgPosition)
@@ -40,9 +58,8 @@ const getdomainStats = async (domains:DomainType[]): Promise<DomainType[]> => {
       }
 
       // Get the last updated time from keywords
-      const KeywordsUpdateDates = keywords.map(keyword => new Date(keyword.lastUpdated).getTime());
-      const lastKeywordUpdateDate = Math.max(...KeywordsUpdateDates, 0);
-      domainWithStat.keywordsUpdated = new Date(lastKeywordUpdateDate || new Date(domain.lastUpdated).getTime()).toJSON();
+      const fallbackUpdatedAt = new Date(domain.lastUpdated).toJSON();
+      domainWithStat.keywordsUpdated = keywordStats?.maxLastUpdated || fallbackUpdatedAt;
 
       // Then Load the SC File and read the stats and calculate the Last 7 days stats
       const localSCData = await readLocalSCData(domain.domain);

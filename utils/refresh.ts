@@ -530,6 +530,15 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
       const { history } = keyword;
       history[dateKey] = newPos;
 
+      const history7dEntries = Object.entries(history)
+         .map(([key, value]) => ({ key, date: new Date(key).getTime(), value }))
+         .sort((a, b) => a.date - b.date)
+         .slice(-7);
+      const history7d = history7dEntries.reduce<KeywordHistory>((acc, entry) => {
+         acc[entry.key] = entry.value;
+         return acc;
+      }, {});
+
       // Trim history to last 30 days to optimize storage and read performance
       // This prevents history object from growing indefinitely
       const historyEntries = Object.entries(history);
@@ -618,6 +627,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          lastResult: normalizedResult,
          localResults: normalizedLocalResults,
          history: JSON.stringify(history),
+         history7d: JSON.stringify(history7d),
          lastUpdated: lastUpdatedValue,
          lastUpdateError: lastUpdateErrorValue,
          mapPackTop3: toDbBool(updatedKeyword.mapPackTop3),
@@ -680,6 +690,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
             lastResult: parsedNormalizedResult,
             localResults: parsedLocalResults,
             history,
+            history7d,
             lastUpdated: effectiveLastUpdated,
             lastUpdateError: parsedError,
             mapPackTop3: fromDbBool(dbPayload.mapPackTop3),

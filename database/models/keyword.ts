@@ -44,6 +44,9 @@ class Keyword extends Model {
    @Column({ type: DataType.STRING, allowNull: true, defaultValue: JSON.stringify({}) })
    declare history: string;
 
+   @Column({ type: DataType.STRING, allowNull: true, defaultValue: JSON.stringify({}) })
+   declare history7d: string;
+
    @Column({ type: DataType.INTEGER, allowNull: false, defaultValue: 0 })
    declare volume: number;
 

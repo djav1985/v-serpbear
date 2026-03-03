@@ -33,6 +33,11 @@ const parseKeywords = (allKeywords: Keyword[]) : KeywordType[] => {
          : (keywordData.history || {});
       const history = normaliseHistory(historyRaw);
 
+      const history7dRaw = typeof keywordData.history7d === 'string'
+         ? safeJsonParse<unknown>(keywordData.history7d, {}, {})
+         : (keywordData.history7d || {});
+      const history7d = normaliseHistory(history7dRaw);
+
       const tags = typeof keywordData.tags === 'string'
          ? safeJsonParse<string[]>(keywordData.tags, [], {})
          : (Array.isArray(keywordData.tags) ? keywordData.tags : []);
@@ -54,6 +59,7 @@ const parseKeywords = (allKeywords: Keyword[]) : KeywordType[] => {
          ...keywordData,
          location: typeof keywordData.location === 'string' ? keywordData.location : '',
          history,
+         history7d,
          tags,
          lastResult,
          localResults,

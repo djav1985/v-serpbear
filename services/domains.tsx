@@ -154,59 +154,83 @@ export async function fetchDomain(router: NextRouter, domainName: string): Promi
    return res.json();
 }
 
+const SCREENSHOT_TTL_MS = 1000 * 60 * 60 * 24;
+type DomainThumbCacheEntry = { image: string; cachedAt: number };
+
+type DomainThumbsStore = Record<string, DomainThumbCacheEntry>;
+
+const readDomainThumbsStore = (): DomainThumbsStore => {
+   const domainThumbsRaw = window.localStorage.getItem('domainThumbs');
+   if (!domainThumbsRaw) {
+      return {};
+   }
+
+   try {
+      const parsedThumbs = JSON.parse(domainThumbsRaw);
+      if (!parsedThumbs || typeof parsedThumbs !== 'object' || Array.isArray(parsedThumbs)) {
+         throw new Error('Corrupted cache: invalid format');
+      }
+
+      const entries = Object.entries(parsedThumbs as Record<string, unknown>);
+      const validatedEntries = entries.filter(([, value]) => {
+         if (typeof value === 'string') {
+            return false;
+         }
+         return (
+            value
+            && typeof value === 'object'
+            && typeof (value as DomainThumbCacheEntry).image === 'string'
+            && Number.isFinite((value as DomainThumbCacheEntry).cachedAt)
+         );
+      });
+
+      if (validatedEntries.length !== entries.length) {
+         throw new Error('Corrupted cache: invalid item(s)');
+      }
+
+      return Object.fromEntries(validatedEntries) as DomainThumbsStore;
+   } catch (_error) {
+      window.localStorage.removeItem('domainThumbs');
+      return {};
+   }
+};
+
+const writeDomainThumbEntry = (domain: string, entry: DomainThumbCacheEntry) => {
+   const cacheStore = readDomainThumbsStore();
+   cacheStore[domain] = entry;
+   window.localStorage.setItem('domainThumbs', JSON.stringify(cacheStore));
+};
+
 export async function fetchDomainScreenshot(domain: string, forceFetch = false): Promise<string | false> {
    if (!SCREENSHOTS_ENABLED) { return false; }
    if (typeof window === 'undefined' || !window.localStorage) { return false; }
 
-   let domThumbs: Record<string, string> = {};
-   const domainThumbsRaw = window.localStorage.getItem('domainThumbs');
+   const domThumbs = readDomainThumbsStore();
+   const currentEntry = domThumbs[domain];
 
-   if (domainThumbsRaw) {
-      try {
-         const parsedThumbs = JSON.parse(domainThumbsRaw);
-         if (
-            parsedThumbs &&
-            typeof parsedThumbs === 'object' &&
-            !Array.isArray(parsedThumbs) &&
-            Object.values(parsedThumbs).every((v) => typeof v === 'string')
-         ) {
-            domThumbs = parsedThumbs;
-         } else if (parsedThumbs) {
-            throw new Error('Corrupted cache: invalid format or content');
-         }
-      } catch (_error) {
-         // Clear corrupted cache silently
-         window.localStorage.removeItem('domainThumbs');
-         domThumbs = {};
+   if (!forceFetch && currentEntry && Date.now() - currentEntry.cachedAt < SCREENSHOT_TTL_MS) {
+      return currentEntry.image;
+   }
+
+   try {
+      const screenshotURL = `https://image.thum.io/get/maxAge/96/width/200/https://${domain}`;
+      const domainImageRes = await fetch(screenshotURL);
+      const domainImageBlob = domainImageRes.status === 200 ? await domainImageRes.blob() : false;
+      if (domainImageBlob) {
+         const reader = new FileReader();
+         await new Promise((resolve, reject) => {
+            reader.onload = resolve;
+            reader.onerror = reject;
+            reader.readAsDataURL(domainImageBlob);
+         });
+         const imageBase: string = reader.result && typeof reader.result === 'string' ? reader.result : '';
+         writeDomainThumbEntry(domain, { image: imageBase, cachedAt: Date.now() });
+         return imageBase;
       }
+      return false;
+   } catch (_error) {
+      return currentEntry?.image || false;
    }
-
-   if (!domThumbs[domain] || forceFetch) {
-      try {
-         const screenshotURL = `https://image.thum.io/get/maxAge/96/width/200/https://${domain}`;
-         const domainImageRes = await fetch(screenshotURL);
-         const domainImageBlob = domainImageRes.status === 200 ? await domainImageRes.blob() : false;
-         if (domainImageBlob) {
-            const reader = new FileReader();
-            await new Promise((resolve, reject) => {
-               reader.onload = resolve;
-               reader.onerror = reject;
-               reader.readAsDataURL(domainImageBlob);
-            });
-            const imageBase: string = reader.result && typeof reader.result === 'string' ? reader.result : '';
-            window.localStorage.setItem('domainThumbs', JSON.stringify({ ...domThumbs, [domain]: imageBase }));
-            return imageBase;
-         }
-         return false;
-        } catch (_error) {
-           // Silently fail screenshot fetch
-           return false;
-        }
-   } else if (domThumbs[domain]) {
-      return domThumbs[domain];
-   }
-
-   return false;
 }
 
 export function useFetchDomains(router: NextRouter, withStats:boolean = false) {

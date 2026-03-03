@@ -17,9 +17,38 @@ import { refreshQueue } from '../../utils/refreshQueue';
 
 type KeywordsGetResponse = {
    keywords?: KeywordType[],
+   total?: number,
+   limit?: number,
+   offset?: number,
    error?: string|null,
    details?: string,
 }
+
+const DEFAULT_LIMIT = 100;
+const MAX_LIMIT = 500;
+
+const parsePagingParam = (value: string | string[] | undefined, fallback: number): number => {
+   const normalized = Array.isArray(value) ? value[value.length - 1] : value;
+   const parsed = Number.parseInt(normalized || '', 10);
+   return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const sortAndSliceLastWeekHistory = (history: KeywordHistory): KeywordHistory => {
+   const historyEntries = Object.entries(history);
+   if (historyEntries.length <= 7) {
+      return history;
+   }
+
+   const sortedEntries = historyEntries
+      .map(([dateKey, position]) => ({ dateKey, date: new Date(dateKey).getTime(), position }))
+      .sort((a, b) => a.date - b.date)
+      .slice(-7);
+
+   return sortedEntries.reduce<KeywordHistory>((acc, entry) => {
+      acc[entry.dateKey] = entry.position;
+      return acc;
+   }, {});
+};
 
 type KeywordsDeleteRes = {
    domainRemoved?: number,
@@ -58,6 +87,10 @@ const getKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
       return res.status(400).json({ error: 'Domain is Required!' });
    }
    const domain = (req.query.domain as string);
+   const requestedLimit = parsePagingParam(req.query.limit, DEFAULT_LIMIT);
+   const requestedOffset = parsePagingParam(req.query.offset, 0);
+   const limit = Math.min(Math.max(requestedLimit, 1), MAX_LIMIT);
+   const offset = Math.max(requestedOffset, 0);
 
    try {
       const settings = await getAppSettings();
@@ -67,44 +100,33 @@ const getKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
          ? await readLocalSCData(domain)
          : false;
 
-      const allKeywords:Keyword[] = await Keyword.findAll({ where: { domain } });
-      const keywords: KeywordType[] = parseKeywords(allKeywords.map((e) => e.get({ plain: true })));
-      
-      // Consolidate pipeline: do history slicing + lastResult reset + SC integration in a single pass
-      const processedKeywords = keywords.map((keyword) => {
-         // Since history is now trimmed to 30 days during writes, we can simplify this
-         // Just get the last 7 entries without complex sorting
-         const historyEntries = Object.entries(keyword.history);
-         let lastWeekHistory: KeywordHistory = {};
-         
-         if (historyEntries.length <= 7) {
-            // If we have 7 or fewer entries, use them all
-            lastWeekHistory = keyword.history;
-         } else {
-            // Sort and take last 7 (now much faster since history is pre-trimmed to 30 days)
-            const sortedEntries = historyEntries
-               .map(([dateKey, position]) => ({ dateKey, date: new Date(dateKey).getTime(), position }))
-               .sort((a, b) => a.date - b.date)
-               .slice(-7);
-            
-            sortedEntries.forEach(({ dateKey, position }) => {
-               lastWeekHistory[dateKey] = position;
-            });
-         }
-         
-         // Create keyword with slim history and reset lastResult
-         const keywordWithSlimHistory = { ...keyword, lastResult: [], history: lastWeekHistory };
-         
-         // Integrate SC data if available
-         const finalKeyword = domainSCData ? integrateKeywordSCData(keywordWithSlimHistory, domainSCData) : keywordWithSlimHistory;
-         return finalKeyword;
+      const keywordResult = await Keyword.findAndCountAll({
+         where: { domain },
+         limit,
+         offset,
+         order: [['ID', 'DESC']],
+         attributes: [
+            'ID', 'keyword', 'device', 'country', 'domain', 'lastUpdated', 'added',
+            'position', 'volume', 'sticky', 'history', 'history7d', 'lastResult',
+            'url', 'tags', 'updating', 'updatingStartedAt', 'lastUpdateError',
+            'location', 'mapPackTop3', 'localResults',
+         ],
       });
-      
-      return res.status(200).json({ keywords: processedKeywords });
+
+      const keywords: KeywordType[] = parseKeywords(keywordResult.rows.map((e) => e.get({ plain: true })));
+      const processedKeywords = keywords.map((keyword) => {
+         const fallbackHistory = sortAndSliceLastWeekHistory(keyword.history || {});
+         const persistedHistory = (keyword as KeywordType & { history7d?: KeywordHistory }).history7d;
+         const slimHistory = persistedHistory && Object.keys(persistedHistory).length > 0 ? persistedHistory : fallbackHistory;
+         const keywordWithSlimHistory = { ...keyword, lastResult: [], history: slimHistory };
+         return domainSCData ? integrateKeywordSCData(keywordWithSlimHistory, domainSCData) : keywordWithSlimHistory;
+      });
+
+      return res.status(200).json({ keywords: processedKeywords, total: keywordResult.count, limit, offset });
    } catch (error) {
       logger.error(`Error getting domain keywords for: ${domain}`, error instanceof Error ? error : new Error(String(error)));
       const message = error instanceof Error ? error.message : 'Unknown error';
-      return res.status(500).json({ error: 'Failed to load keywords for this domain.', details: message });
+      return res.status(500).json({ error: 'Failed to load keywords for this domain.', details: message, total: 0, limit, offset });
    }
 };
 
@@ -205,6 +227,7 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
       position: number;
       updating: boolean;
       history: string;
+      history7d: string;
       lastResult: string;
       url: string;
       tags: string;
@@ -246,6 +269,7 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
          updating: toDbBool(true),
          updatingStartedAt: now,
          history: JSON.stringify({}),
+         history7d: JSON.stringify({}),
          lastResult: JSON.stringify([]),
          url: '',
          tags: JSON.stringify(dedupedTags.slice(0, 10)), // Limit to 10 tags

@@ -40,8 +40,20 @@ const parseBooleanQueryParam = (value: string | string[] | undefined): boolean =
 
 type DomainsGetRes = {
    domains: DomainType[]
+   total: number,
+   limit: number,
+   offset: number,
    error?: string|null,
 }
+
+const DEFAULT_LIMIT = 50;
+const MAX_LIMIT = 200;
+
+const parsePagingParam = (value: string | string[] | undefined, fallback: number): number => {
+   const normalized = Array.isArray(value) ? value[value.length - 1] : value;
+   const parsed = Number.parseInt(normalized || '', 10);
+   return Number.isFinite(parsed) ? parsed : fallback;
+};
 
 type DomainsAddResponse = {
    domains: DomainType[]|null,
@@ -84,11 +96,40 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 
 export const getDomains = async (req: NextApiRequest, res: NextApiResponse<DomainsGetRes>) => {
    const withStats = parseBooleanQueryParam(req?.query?.withstats);
+   const requestedLimit = parsePagingParam(req?.query?.limit, DEFAULT_LIMIT);
+   const requestedOffset = parsePagingParam(req?.query?.offset, 0);
+   const limit = Math.min(Math.max(requestedLimit, 1), MAX_LIMIT);
+   const offset = Math.max(requestedOffset, 0);
    
    try {
-      
-      const allDomains: Domain[] = await Domain.findAll();
-      const formattedDomains: DomainType[] = allDomains.map((el) => {
+      const domainAttributes = [
+         'ID',
+         'domain',
+         'slug',
+         'notification',
+         'notification_interval',
+         'notification_emails',
+         'lastUpdated',
+         'added',
+         'avgPosition',
+         'mapPackKeywords',
+         'search_console',
+         'scrapeEnabled',
+         'scraper_settings',
+         'business_name',
+         'scrape_strategy',
+         'scrape_pagination_limit',
+         'scrape_smart_full_fallback',
+      ];
+
+      const domainResult = await Domain.findAndCountAll({
+         attributes: domainAttributes,
+         limit,
+         offset,
+         order: [['domain', 'ASC']],
+      });
+
+      const formattedDomains: DomainType[] = domainResult.rows.map((el) => {
          const domainPlain = el.get({ plain: true }) as any;
          const scData = safeJsonParse<Record<string, string> | null>(
             domainPlain?.search_console,
@@ -112,10 +153,10 @@ export const getDomains = async (req: NextApiRequest, res: NextApiResponse<Domai
          return normalizeDomainBooleans(maskedDomain);
       });
       const theDomains: DomainType[] = withStats ? await getdomainStats(formattedDomains) : formattedDomains;
-      return res.status(200).json({ domains: theDomains });
+      return res.status(200).json({ domains: theDomains, total: domainResult.count, limit, offset });
    } catch (error) {
       logger.error('Getting Domains.', error instanceof Error ? error : new Error(String(error)));
-      return res.status(400).json({ domains: [], error: 'Error Getting Domains.' });
+      return res.status(400).json({ domains: [], total: 0, limit, offset, error: 'Error Getting Domains.' });
    }
 };
 

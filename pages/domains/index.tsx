@@ -65,28 +65,28 @@ const Domains: NextPage = () => {
       if (!SCREENSHOTS_ENABLED) { return; }
       if (domainsData?.domains && domainsData.domains.length > 0) {
          const fetchAllScreenshots = async () => {
-            const screenshotPromises = domainsData.domains.map(async (domain: DomainType) => {
-               const domainThumb = await fetchDomainScreenshot(domain.domain);
-               if (domainThumb) {
-                  return { domain: domain.domain, thumb: domainThumb };
-               }
-               return null;
-            });
+            const queue = domainsData.domains.map((domainData) => domainData.domain);
+            const concurrency = 4;
+            const validScreenshots: Array<{ domain: string; thumb: string }> = [];
 
-            // Use allSettled to handle individual screenshot failures gracefully
-            const screenshots = await Promise.allSettled(screenshotPromises);
-            const validScreenshots = screenshots
-               .filter((result): result is PromiseFulfilledResult<{ domain: string; thumb: string }> =>
-                  result.status === 'fulfilled' && result.value !== null)
-               .map((result) => result.value as { domain: string; thumb: string });
+            const worker = async () => {
+               while (queue.length > 0) {
+                  const domain = queue.shift();
+                  if (!domain) { return; }
+                  const domainThumb = await fetchDomainScreenshot(domain);
+                  if (domainThumb) {
+                     validScreenshots.push({ domain, thumb: domainThumb });
+                  }
+               }
+            };
+
+            await Promise.all(Array.from({ length: Math.min(concurrency, queue.length || 1) }, () => worker()));
 
             if (validScreenshots.length > 0) {
                setDomainThumbs((currentThumbs) => {
                   const newThumbs = { ...currentThumbs };
                   validScreenshots.forEach(({ domain, thumb }) => {
-                     if (thumb) {
-                        newThumbs[domain] = thumb;
-                     }
+                     newThumbs[domain] = thumb;
                   });
                   return newThumbs;
                });
