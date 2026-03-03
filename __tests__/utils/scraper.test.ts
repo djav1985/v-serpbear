@@ -133,4 +133,26 @@ describe('getSerp', () => {
     expect(serp.position).toBe(1);
     expect(serp.url).toBe('https://example.com/landing');
   });
+
+  it('returns the highest-ranking (lowest position number) match when the domain appears on multiple pages', () => {
+    const results: SearchResult[] = [
+      { position: 45, url: 'https://example.com/page-a' }, // from page 5, scraped first (smart strategy)
+      { position: 50, url: 'https://other.com/x' },
+      { position: 15, url: 'https://example.com/page-b' }, // from page 2, scraped later
+      { position: 20, url: 'https://other.com/y' },
+    ];
+    const serp = getSerp('example.com', results);
+    expect(serp.position).toBe(15);
+    expect(serp.url).toBe('https://example.com/page-b');
+  });
+
+  it('returns position 0 when no match is found', () => {
+    const results: SearchResult[] = [
+      { position: 1, url: 'https://other.com/a' },
+      { position: 2, url: 'https://another.com/b' },
+    ];
+    const serp = getSerp('example.com', results);
+    expect(serp.position).toBe(0);
+    expect(serp.url).toBe('');
+  });
 });
