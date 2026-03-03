@@ -70,7 +70,10 @@ const getKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
       const allKeywords:Keyword[] = await Keyword.findAll({ where: { domain } });
       const keywords: KeywordType[] = parseKeywords(allKeywords.map((e) => e.get({ plain: true })));
       
-      // Consolidate pipeline: do history slicing + lastResult reset + SC integration in a single pass
+      // Consolidate pipeline: do history slicing + lastResult reset + SC integration in a single pass.
+      // Collect legacy rows that need a history7d backfill; the writes happen after the response is sent.
+      const backfillQueue: Array<{ id: number; history7d: string }> = [];
+
       const processedKeywords = keywords.map((keyword) => {
          let lastWeekHistory: KeywordHistory;
 
@@ -92,6 +95,10 @@ const getKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
                   lastWeekHistory[dateKey] = position;
                });
             }
+            // Queue the backfill — do not write here to avoid per-row DB work on the request path
+            if (historyEntries.length > 0) {
+               backfillQueue.push({ id: keyword.ID, history7d: JSON.stringify(lastWeekHistory) });
+            }
          }
          
          // Create keyword with slim history and reset lastResult
@@ -102,7 +109,23 @@ const getKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
          return finalKeyword;
       });
       
-      return res.status(200).json({ keywords: processedKeywords });
+      // Send the response first, then drain the backfill queue off the request path
+      res.status(200).json({ keywords: processedKeywords });
+
+      if (backfillQueue.length > 0) {
+         setImmediate(() => {
+            backfillQueue.reduce<Promise<void>>(
+               (chain, { id, history7d }) => chain.then(() =>
+                  Keyword.update({ history7d }, { where: { ID: id } }).then(() => undefined)
+               ).catch((err: unknown) => {
+                  logger.error('Failed to backfill history7d', err instanceof Error ? err : new Error(String(err)), { keywordId: id });
+               }),
+               Promise.resolve(),
+            );
+         });
+      }
+
+      return;
    } catch (error) {
       logger.error(`Error getting domain keywords for: ${domain}`, error instanceof Error ? error : new Error(String(error)));
       const message = error instanceof Error ? error.message : 'Unknown error';

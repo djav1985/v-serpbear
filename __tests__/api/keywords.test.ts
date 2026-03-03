@@ -271,6 +271,61 @@ describe('PUT /api/keywords error handling', () => {
   });
 });
 
+describe('GET /api/keywords history7d backfill', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    verifyUserMock.mockReturnValue('authorized');
+  });
+
+  it('backfills history7d for legacy keywords that are missing it', async () => {
+    const legacyKeywordRecord = {
+      get: () => ({
+        ID: 6,
+        keyword: 'legacy kw',
+        history: '{"2024-1-1":5,"2024-1-2":4,"2024-1-3":3,"2024-1-4":2,"2024-1-5":1,"2024-1-6":6,"2024-1-7":7,"2024-1-8":8}',
+        history7d: null,
+        tags: '[]',
+        lastResult: '[]',
+        lastUpdateError: 'false',
+        device: 'desktop',
+        domain: 'example.com',
+        country: 'US',
+        updating: 0,
+        sticky: 0,
+        mapPackTop3: 0,
+        localResults: '[]',
+      }),
+    };
+
+    keywordMock.findAll.mockResolvedValueOnce([legacyKeywordRecord]);
+    keywordMock.update.mockResolvedValue([1]);
+    getAppSettingsMock.mockResolvedValue({});
+
+    const req = {
+      method: 'GET',
+      query: { domain: 'example.com' },
+      headers: {},
+    } as unknown as NextApiRequest;
+
+    const res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+    } as unknown as NextApiResponse;
+
+    await handler(req, res);
+
+    // Flush the setImmediate queue so the off-path backfill runs
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    // Backfill should write history7d for the legacy row
+    expect(keywordMock.update).toHaveBeenCalledWith(
+      { history7d: expect.any(String) },
+      { where: { ID: 6 } },
+    );
+  });
+});
+
 describe('PUT /api/keywords tags updates', () => {
   beforeEach(() => {
     jest.useFakeTimers().setSystemTime(new Date('2024-06-01T12:00:00.000Z'));
