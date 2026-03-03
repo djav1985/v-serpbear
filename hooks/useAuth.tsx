@@ -38,7 +38,7 @@ const fetchAuthStatus = async (): Promise<AuthStatus> => {
  */
 export function useAuth(): AuthStatus {
   const { data, isLoading, isError } = useQuery<AuthStatus>(AUTH_CHECK_QUERY_KEY, fetchAuthStatus, {
-    staleTime: 10000,
+    staleTime: 0,
     cacheTime: 30000,
     retry: false,
   });

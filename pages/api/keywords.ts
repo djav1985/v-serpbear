@@ -87,6 +87,7 @@ const getKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
       return res.status(400).json({ error: 'Domain is Required!' });
    }
    const domain = (req.query.domain as string);
+   const isPaged = req.query.limit !== undefined;
    const requestedLimit = parsePagingParam(req.query.limit, DEFAULT_LIMIT);
    const requestedOffset = parsePagingParam(req.query.offset, 0);
    const limit = Math.min(Math.max(requestedLimit, 1), MAX_LIMIT);
@@ -102,8 +103,7 @@ const getKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsGet
 
       const keywordResult = await Keyword.findAndCountAll({
          where: { domain },
-         limit,
-         offset,
+         ...(isPaged ? { limit, offset } : {}),
          order: [['ID', 'DESC']],
          attributes: [
             'ID', 'keyword', 'device', 'country', 'domain', 'lastUpdated', 'added',
