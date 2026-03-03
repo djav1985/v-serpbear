@@ -266,6 +266,17 @@ describe('PUT /api/keywords error handling', () => {
     expect(res.status).toHaveBeenCalledWith(200);
   });
 
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+});
+
+describe('GET /api/keywords history7d backfill', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    verifyUserMock.mockReturnValue('authorized');
+  });
+
   it('backfills history7d for legacy keywords that are missing it', async () => {
     const legacyKeywordRecord = {
       get: () => ({
@@ -303,8 +314,8 @@ describe('PUT /api/keywords error handling', () => {
 
     await handler(req, res);
 
-    // Allow the fire-and-forget backfill to settle
-    await Promise.resolve();
+    // Flush the setImmediate queue so the off-path backfill runs
+    await new Promise<void>((resolve) => setImmediate(resolve));
 
     expect(res.status).toHaveBeenCalledWith(200);
     // Backfill should write history7d for the legacy row
@@ -312,10 +323,6 @@ describe('PUT /api/keywords error handling', () => {
       { history7d: expect.any(String) },
       { where: { ID: 6 } },
     );
-  });
-
-  afterEach(() => {
-    jest.useRealTimers();
   });
 });
 
