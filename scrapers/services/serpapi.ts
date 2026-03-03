@@ -19,7 +19,7 @@ const serpapi: ScraperSettings = {
   nativePagination: true,
   headers: (keyword: KeywordType, settings: SettingsType) => ({
     "Content-Type": "application/json",
-    "X-API-Key": settings.scraping_api,
+    "X-API-Key": settings.scraping_api ?? '',
   }),
   scrapeURL: (keyword, settings) => {
     const country = resolveCountryCode(keyword.country);

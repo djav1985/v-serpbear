@@ -19,7 +19,7 @@ const scrapingAnt:ScraperSettings = {
       const lang = localeInfo?.[2] ?? 'en';
       const p = pagination || { start: 0, num: 10 };
       const url = encodeURI(`https://www.google.com/search?num=${p.num}&start=${p.start}&hl=${lang}&q=${keyword.keyword}`);
-      return `https://api.scrapingant.com/v2/extended?url=${url}&x-api-key=${settings.scraping_api}&proxy_country=${country}&browser=false`;
+      return `https://api.scrapingant.com/v2/extended?url=${url}&x-api-key=${settings.scraping_api ?? ''}&proxy_country=${country}&browser=false`;
    },
    resultObjectKey: 'result',
 };

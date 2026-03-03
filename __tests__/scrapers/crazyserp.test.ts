@@ -298,5 +298,15 @@ describe('crazyserp scraper', () => {
          );
          expect(headers['Authorization']).toBe('Bearer my-api-key');
       });
+
+      it('uses empty string in Authorization header when scraping_api is undefined', () => {
+         const keyword: Partial<KeywordType> = { keyword: 'test', country: 'US' };
+         const headers = crazyserp.headers!(
+            keyword as KeywordType,
+            {} as SettingsType
+         );
+         expect(headers['Authorization']).toBe('Bearer ');
+         expect(headers['Authorization']).not.toContain('undefined');
+      });
    });
 });

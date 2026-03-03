@@ -16,7 +16,7 @@ const crazyserp: ScraperSettings = {
    resultObjectKey: 'parsed_data',
    headers: (_keyword: KeywordType, settings: SettingsType) => ({
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${settings.scraping_api}`,
+      Authorization: `Bearer ${settings.scraping_api ?? ''}`,
    }),
    scrapeURL: (keyword: KeywordType, _settings: SettingsType, countryData: countryData, pagination?: ScraperPagination) => {
       const country = resolveCountryCode(keyword.country);

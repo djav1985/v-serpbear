@@ -20,7 +20,7 @@ const serply:ScraperSettings = {
       return {
          'Content-Type': 'application/json',
          'X-User-Agent': keyword.device === DEVICE_MOBILE ? 'mobile' : 'desktop',
-         'X-Api-Key': settings.scraping_api,
+         'X-Api-Key': settings.scraping_api ?? '',
          'X-Proxy-Location': country,
       };
    },

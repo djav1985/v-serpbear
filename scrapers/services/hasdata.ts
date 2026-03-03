@@ -25,7 +25,7 @@ const hasdata: ScraperSettings = {
   headers: (keyword: KeywordType, settings: SettingsType) => ({
     // use global types
     "Content-Type": "application/json",
-    "x-api-key": settings.scraping_api,
+    "x-api-key": settings.scraping_api ?? '',
   }),
   scrapeURL: (
     keyword: KeywordType,

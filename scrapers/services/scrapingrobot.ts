@@ -19,7 +19,7 @@ const scrapingRobot:ScraperSettings = {
       googleUrl.searchParams.set('gl', country);
       googleUrl.searchParams.set('q', keyword.keyword);
       const encodedUrl = encodeURIComponent(googleUrl.toString());
-      return `https://api.scrapingrobot.com/?token=${settings.scraping_api}&proxyCountry=${country}&render=false${device}&url=${encodedUrl}`;
+      return `https://api.scrapingrobot.com/?token=${settings.scraping_api ?? ''}&proxyCountry=${country}&render=false${device}&url=${encodedUrl}`;
    },
    resultObjectKey: 'result',
 };

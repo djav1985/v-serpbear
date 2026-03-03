@@ -52,4 +52,23 @@ describe('scrapingRobot scraper', () => {
     expect(googleUrlParsed.searchParams.get('gl')).toBe('US');
     expect(googleUrlParsed.searchParams.get('hl')).toBe('en');
   });
+
+  it('uses the api key from settings in the token parameter', () => {
+    const keyword = { keyword: 'test', country: 'US', device: 'desktop' } as any;
+    const countryData = { US: ['United States', 'Washington, D.C.', 'en', 2840] } as any;
+
+    const url = scrapingRobot.scrapeURL(keyword, { scraping_api: 'my-token' } as any, countryData);
+    const parsed = new URL(url);
+    expect(parsed.searchParams.get('token')).toBe('my-token');
+  });
+
+  it('uses empty string for token when scraping_api is undefined', () => {
+    const keyword = { keyword: 'test', country: 'US', device: 'desktop' } as any;
+    const countryData = { US: ['United States', 'Washington, D.C.', 'en', 2840] } as any;
+
+    const url = scrapingRobot.scrapeURL(keyword, {} as any, countryData);
+    const parsed = new URL(url);
+    expect(parsed.searchParams.get('token')).toBe('');
+    expect(url).not.toContain('undefined');
+  });
 });
