@@ -14,6 +14,17 @@ const parseJsonResponse = async (res: Response) => {
    }
 };
 
+/** Extract a plain error message from either a legacy `error: "string"` or structured `error: { message }` envelope. */
+const extractErrorMessage = (payload: unknown, fallback: string): string => {
+   if (!payload || typeof payload !== 'object') { return fallback; }
+   const p = payload as Record<string, any>;
+   if (p.message && typeof p.message === 'string') { return p.message; }
+   const err = p.error;
+   if (typeof err === 'string') { return err; }
+   if (err && typeof err === 'object' && typeof err.message === 'string') { return err.message; }
+   return fallback;
+};
+
 export function useTestAdwordsIntegration(onSuccess?: Function) {
    return useMutation(async (payload:{developer_token:string, account_id:string}) => {
       const headers = new Headers({ 'Content-Type': 'application/json', Accept: 'application/json' });
@@ -24,7 +35,7 @@ export function useTestAdwordsIntegration(onSuccess?: Function) {
       if (!res.ok) {
          const errorMessage = typeof responsePayload === 'string'
             ? responsePayload
-            : responsePayload?.error || responsePayload?.message || `Server error (${res.status}): Please try again later`;
+            : extractErrorMessage(responsePayload, `Server error (${res.status}): Please try again later`);
          throw new Error(errorMessage);
       }
       return responsePayload;
@@ -54,7 +65,7 @@ export async function fetchAdwordsKeywordIdeas(router: NextRouter, domainSlug: s
          const contentType = res.headers.get('content-type');
          if (contentType && contentType.includes('application/json')) {
             const errorData = await res.json();
-            errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
+            errorMessage = extractErrorMessage(errorData, 'Bad response from server');
          } else {
             // Handle HTML error pages or other non-JSON responses
             await res.text();
@@ -111,12 +122,13 @@ export function useMutateKeywordIdeas(router:NextRouter, onSuccess?: Function) {
       if (!isOk) {
          const errorMessage = typeof responsePayload === 'string'
             ? responsePayload
-            : (responsePayload as any)?.error || (responsePayload as any)?.message || `Server error (${res.status}): Please try again later`;
+            : extractErrorMessage(responsePayload, `Server error (${res.status}): Please try again later`);
          throw new Error(errorMessage);
       }
 
       if ((responsePayload as any)?.error) {
-         throw new Error((responsePayload as any).error);
+         const rawErr = (responsePayload as any).error;
+         throw new Error(typeof rawErr === 'object' && rawErr?.message ? rawErr.message : rawErr);
       }
 
       return responsePayload;
@@ -149,7 +161,7 @@ export function useMutateFavKeywordIdeas(router:NextRouter, onSuccess?: Function
             const contentType = res.headers.get('content-type');
             if (contentType && contentType.includes('application/json')) {
                const errorData = await res.json();
-               errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
+               errorMessage = extractErrorMessage(errorData, 'Bad response from server');
             } else {
                // Handle HTML error pages or other non-JSON responses
                await res.text();
@@ -187,7 +199,7 @@ export function useMutateKeywordsVolume(onSuccess?: Function) {
             const contentType = res.headers.get('content-type');
             if (contentType && contentType.includes('application/json')) {
                const errorData = await res.json();
-               errorMessage = errorData?.error ? errorData.error : 'Bad response from server';
+               errorMessage = extractErrorMessage(errorData, 'Bad response from server');
             } else {
                // Handle HTML error pages or other non-JSON responses
                await res.text();

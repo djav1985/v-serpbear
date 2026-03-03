@@ -13,6 +13,7 @@ import packageJson from '../../package.json';
 import { safeJsonParse } from '../../utils/safeJsonParse';
 import { atomicWriteFile } from '../../utils/atomicWrite';
 import { retryQueueManager } from '../../utils/retryQueueManager';
+import { errorResponse } from '../../utils/api/response';
 
 const buildSettingsDefaults = (): SettingsType => {
    const { platformName } = getBranding();
@@ -49,11 +50,10 @@ const buildSettingsDefaults = (): SettingsType => {
 
 type SettingsGetResponse = {
    settings?: object | null,
-   error?: string,
-   details?: string,
 }
 
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
+   const requestId = (req as ExtendedRequest).requestId;
    // Allow GET requests without authentication for public settings
    if (req.method === 'GET') {
       return getSettings(req, res);
@@ -62,24 +62,34 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
    // All other methods require authentication
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
-      return res.status(401).json({ error: authorized });
+      return res.status(401).json(errorResponse('UNAUTHORIZED', authorized, requestId));
    }
    
    if (req.method === 'PUT') {
       return updateSettings(req, res);
    }
-   return res.status(405).json({ error: 'Method not allowed' });
+   return res.status(405).json(errorResponse('METHOD_NOT_ALLOWED', 'Method not allowed', requestId));
 };
 
 const getSettings = async (req: NextApiRequest, res: NextApiResponse<SettingsGetResponse>) => {
+   const requestId = (req as ExtendedRequest).requestId;
    try {
-      // Check authentication status
-      const authorized = verifyUser(req, res);
-      const isAuthenticated = authorized === 'authorized';
+      // Silently check if user is authenticated without logging auth failures for anonymous GETs
+      let isAuthenticated = false;
+      try {
+         const Cookies = require('cookies');
+         const jwt = require('jsonwebtoken');
+         const cookies = new Cookies(req, res);
+         const token = cookies.get('token');
+         if (token && process.env.SECRET) {
+            jwt.verify(token, process.env.SECRET);
+            isAuthenticated = true;
+         }
+      } catch (_) { /* not authenticated — silent for public endpoint */ }
       
       const settings = await getAppSettings();
       if (!settings) {
-         return res.status(500).json({ error: 'Settings could not be loaded.' });
+         return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Settings could not be loaded.', requestId));
       }
       
       const version = packageJson.version;
@@ -100,22 +110,19 @@ const getSettings = async (req: NextApiRequest, res: NextApiResponse<SettingsGet
    } catch (error) {
       logger.error('Error loading app settings', error instanceof Error ? error : new Error(String(error)));
       const message = error instanceof Error ? error.message : 'Unknown error';
-      return res.status(500).json({ error: 'Failed to load settings.', details: message });
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Failed to load settings.', requestId, { details: message }));
    }
 };
 
 const updateSettings = async (req: NextApiRequest, res: NextApiResponse<SettingsGetResponse>) => {
+   const requestId = (req as ExtendedRequest).requestId;
    const { settings } = req.body || {};
-   // console.log('### settings: ', settings);
    if (!settings) {
-      return res.status(400).json({ error: 'Settings payload is required.' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Settings payload is required.', requestId));
    }
    
    if (!process.env.SECRET) {
-      return res.status(500).json({ 
-         error: 'Server configuration error', 
-         details: 'SECRET environment variable is not configured' 
-      });
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Server configuration error', requestId));
    }
    
    try {
@@ -166,7 +173,7 @@ const updateSettings = async (req: NextApiRequest, res: NextApiResponse<Settings
    } catch (error) {
       logger.error('Error updating app settings', error instanceof Error ? error : new Error(String(error)));
       const message = error instanceof Error ? error.message : 'Unknown error';
-      return res.status(500).json({ error: 'Failed to update settings.', details: message });
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Failed to update settings.', requestId, { details: message }));
    }
 };
 

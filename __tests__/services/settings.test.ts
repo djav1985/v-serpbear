@@ -99,3 +99,59 @@ describe('useSendNotifications success message extraction', () => {
       expect(toastMock).toHaveBeenCalledWith('Notifications Sent!', { icon: '✔️' });
    });
 });
+
+describe('useSendNotifications structured error extraction', () => {
+   beforeEach(() => {
+      jest.clearAllMocks();
+   });
+
+   it('extracts message from structured error envelope on failure', async () => {
+      const structuredEnvelope = { error: { code: 'INTERNAL_SERVER_ERROR', message: 'All notification emails failed to send. Please check your SMTP configuration.' } };
+      (global.fetch as jest.Mock).mockResolvedValue({
+         ok: false,
+         status: 500,
+         json: jest.fn().mockResolvedValue(structuredEnvelope),
+      } as any);
+
+      const wrapper = createWrapper();
+      const { renderHook, act } = require('@testing-library/react');
+      const { useSendNotifications } = require('../../services/settings');
+      const { result } = renderHook(() => useSendNotifications(), { wrapper });
+
+      let caughtMessage = '';
+      await act(async () => {
+         try {
+            await result.current.mutateAsync();
+         } catch (error) {
+            caughtMessage = (error as Error).message;
+         }
+      });
+
+      expect(caughtMessage).toBe('All notification emails failed to send. Please check your SMTP configuration.');
+      expect(toastMock).toHaveBeenCalledWith('All notification emails failed to send. Please check your SMTP configuration.', { icon: '⚠️' });
+   });
+
+   it('falls back to legacy string error on failure', async () => {
+      (global.fetch as jest.Mock).mockResolvedValue({
+         ok: false,
+         status: 400,
+         json: jest.fn().mockResolvedValue({ error: 'SMTP has not been setup properly!' }),
+      } as any);
+
+      const wrapper = createWrapper();
+      const { renderHook, act } = require('@testing-library/react');
+      const { useSendNotifications } = require('../../services/settings');
+      const { result } = renderHook(() => useSendNotifications(), { wrapper });
+
+      let caughtMessage = '';
+      await act(async () => {
+         try {
+            await result.current.mutateAsync();
+         } catch (error) {
+            caughtMessage = (error as Error).message;
+         }
+      });
+
+      expect(caughtMessage).toBe('SMTP has not been setup properly!');
+   });
+});

@@ -74,8 +74,11 @@ export const useSendNotifications = () => useMutation(async () => {
       }
 
       if (!res.ok) {
-         const errorData = data as { message?: string; error?: string };
-         const errorMessage = errorData?.message || errorData?.error || 'Error Sending Notifications.';
+         const errorData = data as { message?: string; error?: string | { message?: string } };
+         const rawError = errorData?.error;
+         const errorMessage = errorData?.message
+            || (rawError && typeof rawError === 'object' ? rawError.message : rawError as string)
+            || 'Error Sending Notifications.';
          throw new Error(errorMessage);
       }
 

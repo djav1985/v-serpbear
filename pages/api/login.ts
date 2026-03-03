@@ -7,6 +7,7 @@ import { timingSafeEqual } from 'crypto';
 import { logger } from '../../utils/logger';
 import isRequestSecure from '../../utils/api/isRequestSecure';
 import { withApiLogging } from '../../utils/apiLogging';
+import { errorResponse } from '../../utils/api/response';
 
 type loginResponse = {
    success?: boolean
@@ -14,6 +15,7 @@ type loginResponse = {
 }
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
+   const requestId = (req as ExtendedRequest).requestId;
    const startTime = Date.now();
    
    logger.info('Login API endpoint accessed', {
@@ -31,7 +33,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       duration: Date.now() - startTime
    });
    
-   return res.status(405).json({ success: false, error: 'Invalid Method' });
+   return res.status(405).json(errorResponse('METHOD_NOT_ALLOWED', 'Method not allowed', requestId));
 }
 
 const loginUser = async (req: NextApiRequest, res: NextApiResponse<loginResponse>, startTime: number) => {

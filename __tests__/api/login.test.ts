@@ -215,6 +215,8 @@ describe('Authentication cookie handling', () => {
       await loginHandler(req as NextApiRequest, res);
 
       expect(res.status).toHaveBeenCalledWith(405);
-      expect(res.json).toHaveBeenCalledWith({ success: false, error: 'Invalid Method' });
+      expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ error: expect.objectContaining({ code: 'METHOD_NOT_ALLOWED' }) }),
+    );
    });
 });

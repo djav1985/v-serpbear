@@ -256,4 +256,43 @@ describe('Improved Error Handling in Services', () => {
 
       logSpy.mockRestore();
    });
+
+   it('extracts message from structured error envelope ({ error: { code, message } })', async () => {
+      const structuredEnvelope = { error: { code: 'NOT_FOUND', message: 'No keywords found over the search volume minimum.' } };
+      mockFetch.mockResolvedValueOnce({
+         status: 404,
+         ok: false,
+         headers: {
+            get: jest.fn().mockReturnValue('application/json')
+         },
+         text: jest.fn().mockResolvedValue(JSON.stringify(structuredEnvelope))
+      } as any);
+
+      const { useMutateKeywordIdeas } = require('../../services/adwords');
+      const mockRouter = { push: mockPush, pathname: '/test', query: { slug: 'test-domain' } };
+
+      const ideasMutation = useMutateKeywordIdeas(mockRouter as any, () => {});
+
+      await expect(ideasMutation.mutate({ keywords: ['test'] })).rejects.toThrow('No keywords found over the search volume minimum.');
+      expect((toast as unknown as jest.Mock)).toHaveBeenCalledWith('No keywords found over the search volume minimum.', { icon: '⚠️' });
+   });
+
+   it('extracts message from structured envelope in useMutateFavKeywordIdeas', async () => {
+      const structuredEnvelope = { error: { code: 'BAD_REQUEST', message: 'Missing Necessary data.' } };
+      mockFetch.mockResolvedValueOnce({
+         status: 400,
+         ok: false,
+         headers: {
+            get: jest.fn().mockReturnValue('application/json')
+         },
+         json: jest.fn().mockResolvedValue(structuredEnvelope)
+      } as any);
+
+      const { useMutateFavKeywordIdeas } = require('../../services/adwords');
+      const mockRouter = { push: mockPush, pathname: '/test', query: { slug: 'test-domain' } };
+
+      const favMutation = useMutateFavKeywordIdeas(mockRouter as any, () => {});
+
+      await expect(favMutation.mutate({ keywordID: 'kw-1', domain: 'example.com' })).rejects.toThrow('Missing Necessary data.');
+   });
 });

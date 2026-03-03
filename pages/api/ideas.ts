@@ -3,25 +3,17 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import verifyUser from '../../utils/verifyUser';
 import {
-   KeywordIdeasDatabase, getAdwordsCredentials, getAdwordsKeywordIdeas, getLocalKeywordIdeas, updateLocalKeywordIdeas,
+   getAdwordsCredentials, getAdwordsKeywordIdeas, getLocalKeywordIdeas, updateLocalKeywordIdeas,
 } from '../../utils/adwords';
 import { withApiLogging } from '../../utils/apiLogging';
 import { logger } from '../../utils/logger';
-
-type keywordsIdeasUpdateResp = {
-   keywords: IdeaKeyword[],
-   error?: string|null,
-}
-
-type keywordsIdeasGetResp = {
-   data: KeywordIdeasDatabase|null,
-   error?: string|null,
-}
+import { errorResponse } from '../../utils/api/response';
 
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
+   const requestId = (req as ExtendedRequest).requestId;
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
-      return res.status(401).json({ error: authorized });
+      return res.status(401).json(errorResponse('UNAUTHORIZED', authorized, requestId));
    }
    if (req.method === 'GET') {
       return getKeywordIdeas(req, res);
@@ -32,27 +24,28 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
    if (req.method === 'PUT') {
       return favoriteKeywords(req, res);
    }
-   return res.status(405).json({ error: 'Method not allowed' });
+   return res.status(405).json(errorResponse('METHOD_NOT_ALLOWED', 'Method not allowed', requestId));
 };
 
-const getKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse<keywordsIdeasGetResp>) => {
+const getKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => {
+   const requestId = (req as ExtendedRequest).requestId;
    try {
       const domain = req.query.domain as string;
       if (domain) {
          const keywordsDatabase = await getLocalKeywordIdeas(domain);
-         // console.log('keywords :', keywordsDatabase);
          if (keywordsDatabase) {
             return res.status(200).json({ data: keywordsDatabase });
          }
       }
-      return res.status(400).json({ data: null, error: 'Error Loading Keyword Ideas.' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Error Loading Keyword Ideas.', requestId));
    } catch (error) {
       logger.error('Error fetching keyword ideas', error instanceof Error ? error : new Error(String(error)));
-      return res.status(400).json({ data: null, error: 'Error Loading Keyword Ideas.' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Error Loading Keyword Ideas.', requestId));
    }
 };
 
-const updateKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse<keywordsIdeasUpdateResp>) => {
+const updateKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => {
+   const requestId = (req as ExtendedRequest).requestId;
    const errMsg = 'Error Fetching Keywords. Please try again!';
    const {
       keywords = [],
@@ -77,23 +70,23 @@ const updateKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse<keyw
    });
 
    if (!country || !language) {
-      return res.status(400).json({ keywords: [], error: 'Please provide both country and language' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Please provide both country and language', requestId));
    }
    if (!domainSlug) {
-      return res.status(400).json({ keywords: [], error: 'Missing domainSlug' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Missing domainSlug', requestId));
    }
    if (seedType === 'auto' && !domainUrl) {
-      return res.status(400).json({ keywords: [], error: 'Missing domainUrl' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Missing domainUrl', requestId));
    }
    if (!seedType) {
-      return res.status(400).json({ keywords: [], error: 'Missing seedType' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Missing seedType', requestId));
    }
    const validSeedTypes = ['auto', 'custom', 'tracking', 'searchconsole'];
    if (!validSeedTypes.includes(seedType)) {
-      return res.status(400).json({ keywords: [], error: 'Invalid seedType' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Invalid seedType', requestId));
    }
    if (seedType === 'custom' && (keywords.length === 0 && !seedSCKeywords && !seedCurrentKeywords)) {
-      return res.status(400).json({ keywords: [], error: 'Error Fetching Keywords. Please Provide one of these: keywords, url or domainSlug' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Error Fetching Keywords. Please Provide one of these: keywords, url or domainSlug', requestId));
    }
    try {
       const adwordsCreds = await getAdwordsCredentials();
@@ -110,7 +103,7 @@ const updateKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse<keyw
       
       if (!adwordsCreds || !client_id || !client_secret || !developer_token || !account_id || !refresh_token) {
          logger.error('Google Ads credentials not configured', undefined, { adwordsCreds: !!adwordsCreds });
-         return res.status(500).json({ keywords: [], error: 'Google Ads credentials not configured' });
+         return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Google Ads credentials not configured', requestId));
       }
       const ideaOptions = { country, language, keywords, domainUrl, domainSlug, seedSCKeywords, seedCurrentKeywords, seedType };
       
@@ -131,27 +124,28 @@ const updateKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse<keyw
          }
          // Surface empty result sets as a not-found condition so the client can warn the user appropriately
          logger.warn('No keywords found over the search volume minimum', { ideaOptions });
-         return res.status(404).json({ keywords: [], error: 'No keywords found over the search volume minimum.' });
+         return res.status(404).json(errorResponse('NOT_FOUND', 'No keywords found over the search volume minimum.', requestId));
       } catch (error: any) {
          logger.error('Error fetching keyword ideas from Google Ads', error instanceof Error ? error : new Error(String(error)), {
             message: error?.message,
             ideaOptions,
          });
          const message = error?.message || errMsg;
-         return res.status(400).json({ keywords: [], error: message });
+         return res.status(400).json(errorResponse('BAD_REQUEST', message, requestId));
       }
    } catch (error) {
       logger.error('Error in updateKeywordIdeas', error instanceof Error ? error : new Error(String(error)));
-      return res.status(400).json({ keywords: [], error: errMsg });
+      return res.status(400).json(errorResponse('BAD_REQUEST', errMsg, requestId));
    }
 };
 
-const favoriteKeywords = async (req: NextApiRequest, res: NextApiResponse<keywordsIdeasUpdateResp>) => {
+const favoriteKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
+   const requestId = (req as ExtendedRequest).requestId;
    const errMsg = 'Error Favorating Keyword Idea. Please try again!';
    const { keywordID = '', domain = '' } = req.body;
 
    if (!keywordID || !domain) {
-      return res.status(400).json({ keywords: [], error: 'Missing Necessary data. Please provide both keywordID and domain values.' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Missing Necessary data. Please provide both keywordID and domain values.', requestId));
    }
 
    try {
@@ -172,10 +166,10 @@ const favoriteKeywords = async (req: NextApiRequest, res: NextApiResponse<keywor
          }
       }
 
-      return res.status(400).json({ keywords: [], error: errMsg });
+      return res.status(400).json(errorResponse('BAD_REQUEST', errMsg, requestId));
    } catch (error) {
       logger.error('Error favorating keyword idea', error instanceof Error ? error : new Error(String(error)));
-      return res.status(400).json({ keywords: [], error: errMsg });
+      return res.status(400).json(errorResponse('BAD_REQUEST', errMsg, requestId));
    }
 };
 
