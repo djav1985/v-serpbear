@@ -1,27 +1,5 @@
-import { successResponse, errorResponse } from '../../../utils/api/response';
-import type { SuccessEnvelope, FailureEnvelope } from '../../../utils/api/response';
-
-describe('successResponse', () => {
-   it('wraps data in the success envelope', () => {
-      const result = successResponse({ domains: [] });
-      expect(result).toEqual({ data: { domains: [] } });
-   });
-
-   it('includes requestId when provided', () => {
-      const result = successResponse({ ok: true }, 'req-123');
-      expect(result).toEqual({ data: { ok: true }, requestId: 'req-123' });
-   });
-
-   it('omits requestId when not provided', () => {
-      const result = successResponse({ ok: true });
-      expect(result.requestId).toBeUndefined();
-   });
-
-   it('preserves TypeScript generic type parameter', () => {
-      const result: SuccessEnvelope<{ count: number }> = successResponse({ count: 42 });
-      expect(result.data.count).toBe(42);
-   });
-});
+import { errorResponse } from '../../../utils/api/response';
+import type { FailureEnvelope } from '../../../utils/api/response';
 
 describe('errorResponse', () => {
    it('constructs a failure envelope with code and message', () => {

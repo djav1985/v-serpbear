@@ -1,14 +1,11 @@
 /**
  * Shared API response contract types and helpers.
  *
- * Success envelope:  { data: T, requestId?: string }
  * Failure envelope:  { error: { code: string, message: string, details?: unknown }, requestId?: string }
+ *
+ * Note: success responses return resource data directly (e.g. `{ domains: [...] }`)
+ * rather than a `{ data: T }` wrapper, to preserve backward compatibility.
  */
-
-export interface SuccessEnvelope<T> {
-   data: T;
-   requestId?: string;
-}
 
 export interface ErrorObject {
    code: string;
@@ -19,15 +16,6 @@ export interface ErrorObject {
 export interface FailureEnvelope {
    error: ErrorObject;
    requestId?: string;
-}
-
-/**
- * Wraps a success payload in the standard success envelope.
- */
-export function successResponse<T>(data: T, requestId?: string): SuccessEnvelope<T> {
-   const envelope: SuccessEnvelope<T> = { data };
-   if (requestId) { envelope.requestId = requestId; }
-   return envelope;
 }
 
 /**

@@ -214,7 +214,7 @@ const getKeywordSearchResults = async (req: NextApiRequest, res: NextApiResponse
    } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       logger.debug('ERROR getKeywordSearchResults: ', { data: errorMessage });
-      return res.status(400).json(errorResponse('BAD_REQUEST', errorMessage, requestId));
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', errorMessage, requestId));
    }
 };
 
