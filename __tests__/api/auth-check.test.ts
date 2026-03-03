@@ -64,7 +64,9 @@ describe('GET /api/auth-check', () => {
     await handler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(405);
-    expect(res.json).toHaveBeenCalledWith({ authenticated: false, error: 'Method not allowed' });
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      error: expect.objectContaining({ code: 'METHOD_NOT_ALLOWED', message: 'Method not allowed' }),
+    }));
   });
 
   it('returns 401 when verifyUser rejects', async () => {
@@ -75,7 +77,9 @@ describe('GET /api/auth-check', () => {
     await handler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(401);
-    expect(res.json).toHaveBeenCalledWith({ authenticated: false, error: 'not authorized' });
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      error: expect.objectContaining({ code: 'UNAUTHORIZED', message: 'not authorized' }),
+    }));
   });
 
   it('returns 200 with decoded user when token is valid', async () => {

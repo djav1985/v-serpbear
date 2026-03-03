@@ -84,7 +84,6 @@ describe('/api/ideas/email', () => {
             ID: 1,
             domain: 'example.com',
             slug: 'example-com',
-            notification: true,
             notification_interval: 'daily',
             notification_emails: 'alerts@example.com',
             lastUpdated: '2024-01-01T00:00:00.000Z',
@@ -121,7 +120,9 @@ describe('/api/ideas/email', () => {
 
       expect(verifyUser).toHaveBeenCalledWith(req, res);
       expect(res.status).toHaveBeenCalledWith(401);
-      expect(res.json).toHaveBeenCalledWith({ success: false, error: 'Unauthorized' });
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+         error: expect.objectContaining({ code: 'UNAUTHORIZED', message: 'Unauthorized' }),
+      }));
       expect(sendMailMock).not.toHaveBeenCalled();
    });
 
@@ -131,7 +132,9 @@ describe('/api/ideas/email', () => {
       await handler(req as NextApiRequest, res as NextApiResponse);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ success: false, error: 'A domain is required to email keyword ideas.' });
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+         error: expect.objectContaining({ code: 'BAD_REQUEST', message: 'A domain is required to email keyword ideas.' }),
+      }));
       expect(sendMailMock).not.toHaveBeenCalled();
    });
 
@@ -148,7 +151,9 @@ describe('/api/ideas/email', () => {
       await handler(req as NextApiRequest, res as NextApiResponse);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ success: false, error: 'SMTP has not been setup properly!' });
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+         error: expect.objectContaining({ code: 'BAD_REQUEST', message: 'SMTP has not been setup properly!' }),
+      }));
       expect(sendMailMock).not.toHaveBeenCalled();
    });
 
@@ -158,7 +163,6 @@ describe('/api/ideas/email', () => {
             ID: 1,
             domain: 'example.com',
             slug: 'example-com',
-            notification: true,
             notification_interval: 'daily',
             notification_emails: '',
             lastUpdated: '2024-01-01T00:00:00.000Z',
@@ -170,7 +174,9 @@ describe('/api/ideas/email', () => {
       await handler(req as NextApiRequest, res as NextApiResponse);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ success: false, error: 'Notification email not configured for this domain.' });
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+         error: expect.objectContaining({ code: 'BAD_REQUEST', message: 'Notification email not configured for this domain.' }),
+      }));
       expect(sendMailMock).not.toHaveBeenCalled();
    });
 

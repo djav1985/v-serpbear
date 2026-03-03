@@ -12,7 +12,9 @@ function createJsonResponse<T>(payload: T, status = 200): Response {
    return {
       ok: status >= 200 && status < 300,
       status,
+      headers: { get: (_name: string) => null },
       json: async () => payload,
+      text: async () => JSON.stringify(payload),
    } as unknown as Response;
 }
 
@@ -63,7 +65,7 @@ describe('useAuth', () => {
       await waitFor(() => expect(result.current.isLoading).toBe(false));
 
       expect(result.current.isAuthenticated).toBe(false);
-      expect(result.current.error).toBe('Authentication failed');
+      expect(result.current.error).toBe('Failed to check authentication status');
       expect(fetchMock).toHaveBeenCalledTimes(1);
    });
 

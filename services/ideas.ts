@@ -1,6 +1,7 @@
 import toast from 'react-hot-toast';
 import { useMutation } from 'react-query';
 import { getClientOrigin } from '../utils/client/origin';
+import { throwOnError } from '../utils/client/fetchWithError';
 
 type EmailIdeaKeywordPayload = {
    keyword: string;
@@ -20,26 +21,6 @@ type EmailKeywordIdeasResponse = {
    error?: string | null;
 };
 
-const parseErrorMessage = async (res: Response): Promise<string> => {
-   try {
-      const contentType = res.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-         const data = await res.json() as EmailKeywordIdeasResponse;
-         if (data?.error) {
-            return data.error;
-         }
-      } else {
-         const text = await res.text();
-         if (text) {
-            return text.slice(0, 200);
-         }
-      }
-   } catch (_error) {
-      // Silently handle parse errors
-   }
-   return `Server error (${res.status}): Please try again later.`;
-};
-
 export function useEmailKeywordIdeas(onSuccess?: () => void) {
    return useMutation(async (payload: EmailKeywordIdeasPayload) => {
       const headers = new Headers({ 'Content-Type': 'application/json', Accept: 'application/json' });
@@ -49,10 +30,7 @@ export function useEmailKeywordIdeas(onSuccess?: () => void) {
          headers,
          body: JSON.stringify(payload),
       });
-      if (response.status >= 400) {
-         const errorMessage = await parseErrorMessage(response);
-         throw new Error(errorMessage);
-      }
+      await throwOnError(response);
       return response.json() as Promise<EmailKeywordIdeasResponse>;
    }, {
       onSuccess: () => {

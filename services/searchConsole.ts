@@ -2,6 +2,7 @@ import { NextRouter } from 'next/router';
 import toast from 'react-hot-toast';
 import { useQuery } from 'react-query';
 import { getClientOrigin } from '../utils/client/origin';
+import { throwOnError } from '../utils/client/fetchWithError';
 
 const getActiveSlug = (router: NextRouter): string | undefined => {
    const slugParam = router?.query?.slug;
@@ -19,12 +20,7 @@ export async function fetchSCKeywords(router: NextRouter, slugOverride?: string)
    }
    const origin = getClientOrigin();
    const res = await fetch(`${origin}/api/searchconsole?domain=${slug}`, { method: 'GET' });
-   if (res.status >= 400 && res.status < 600) {
-      if (res.status === 401) {
-         router.push('/login');
-      }
-      throw new Error('Bad response from server');
-   }
+   await throwOnError(res, router);
    return res.json();
 }
 
@@ -42,12 +38,7 @@ export async function fetchSCInsight(router: NextRouter, slugOverride?: string) 
    }
    const origin = getClientOrigin();
    const res = await fetch(`${origin}/api/insight?domain=${slug}`, { method: 'GET' });
-   if (res.status >= 400 && res.status < 600) {
-      if (res.status === 401) {
-         router.push('/login');
-      }
-      throw new Error('Bad response from server');
-   }
+   await throwOnError(res, router);
    return res.json();
 }
 
@@ -61,9 +52,7 @@ export const refreshSearchConsoleData = async () => {
    try {
       const origin = getClientOrigin();
       const res = await fetch(`${origin}/api/searchconsole`, { method: 'POST' });
-      if (res.status >= 400 && res.status < 600) {
-         throw new Error('Bad response from server');
-      }
+      await throwOnError(res);
       toast('Search Console Data Refreshed!', { icon: '✔️' });
       return res.json();
    } catch (error) {

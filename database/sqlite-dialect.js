@@ -1,6 +1,14 @@
 const path = require('path');
 const { EventEmitter } = require('events');
-const BetterSqlite3 = require('better-sqlite3');  
+const BetterSqlite3 = require('better-sqlite3');
+
+// Use the project logger when available; fall back to console for safety
+let _logger;
+try {
+  _logger = require('../utils/logger').logger;
+} catch (_) {
+  _logger = { warn: (msg, meta) => console.warn(msg, meta ? JSON.stringify(meta) : '') };
+}
 
 const OPEN_READONLY = 0x01;
 const OPEN_READWRITE = 0x02;
@@ -146,7 +154,7 @@ class Database extends EventEmitter {
           const walMessage = walError && typeof walError.message === 'string'
             ? walError.message
             : String(walError);
-          console.warn('Failed to enable WAL mode:', walMessage);
+          _logger.warn('Failed to enable WAL mode', { walMessage });
         }
       }
       

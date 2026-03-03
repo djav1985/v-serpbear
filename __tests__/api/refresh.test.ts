@@ -6,7 +6,7 @@ import Domain from '../../database/models/domain';
 import verifyUser from '../../utils/verifyUser';
 import refreshAndUpdateKeywords from '../../utils/refresh';
 import { getAppSettings } from '../../pages/api/settings';
-import { scrapeKeywordFromGoogle, scrapeKeywordWithStrategy } from '../../utils/scraper';
+import { scrapeKeywordWithStrategy } from '../../utils/scraper';
 
 jest.mock('../../database/database', () => ({
   __esModule: true,

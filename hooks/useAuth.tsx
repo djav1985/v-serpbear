@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useQuery } from 'react-query';
+import { throwOnError } from '../utils/client/fetchWithError';
 
 export interface AuthStatus {
   isAuthenticated: boolean;
@@ -19,11 +20,9 @@ async function fetchAuthStatus(): Promise<AuthStatus> {
     method: 'GET',
     credentials: 'include',
   });
-  if (response.ok) {
-    const data = await response.json();
-    return { isAuthenticated: true, isLoading: false, user: data.user };
-  }
-  return { isAuthenticated: false, isLoading: false, error: 'Authentication failed' };
+  await throwOnError(response);
+  const data = await response.json();
+  return { isAuthenticated: true, isLoading: false, user: data.user };
 }
 
 /**

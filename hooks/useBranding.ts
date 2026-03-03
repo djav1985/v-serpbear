@@ -2,22 +2,11 @@ import { useMemo } from 'react';
 import { useQuery } from 'react-query';
 import type { BrandingConfig } from '../utils/branding';
 import { DEFAULT_BRANDING, getBranding } from '../utils/branding';
+import { apiGet } from '../utils/client/apiClient';
 
 const BRANDING_QUERY_KEY = ['branding-config'] as const;
 
-const fetchBrandingConfig = async (): Promise<BrandingConfig> => {
-   const response = await fetch('/api/branding/config', {
-      headers: {
-         Accept: 'application/json',
-      },
-   });
-
-   if (!response.ok) {
-      throw new Error(`Failed to load branding config: ${response.status}`);
-   }
-
-   return response.json() as Promise<BrandingConfig>;
-};
+const fetchBrandingConfig = async (): Promise<BrandingConfig> => apiGet<BrandingConfig>('/api/branding/config');
 
 const isClient = typeof window !== 'undefined';
 

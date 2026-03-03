@@ -2,17 +2,7 @@ import { NextRouter } from 'next/router';
 import toast from 'react-hot-toast';
 import { useMutation, useQuery, useQueryClient } from 'react-query';
 import { getClientOrigin } from '../utils/client/origin';
-
-const parseJsonResponse = async (res: Response) => {
-   const text = await res.text();
-   if (!text) { return {}; }
-   try {
-      return JSON.parse(text);
-   } catch (_error) {
-      const snippet = text.substring(0, 200) || `status ${res.status}`;
-      throw new Error(res.ok ? `Unexpected response (${res.status}): ${snippet}` : snippet);
-   }
-};
+import { throwOnError } from '../utils/client/fetchWithError';
 
 export function useTestAdwordsIntegration(onSuccess?: Function) {
    return useMutation(async (payload:{developer_token:string, account_id:string}) => {
@@ -20,12 +10,8 @@ export function useTestAdwordsIntegration(onSuccess?: Function) {
       const fetchOpts = { method: 'POST', headers, body: JSON.stringify({ ...payload }) };
       const origin = getClientOrigin();
       const res = await fetch(`${origin}/api/adwords`, fetchOpts);
-      const responsePayload = await parseJsonResponse(res);
-      if (!res.ok) {
-         const errorMessage = (responsePayload as any)?.error?.message || `Server error (${res.status}): Please try again later`;
-         throw new Error(errorMessage);
-      }
-      return responsePayload;
+      await throwOnError(res);
+      return res.json();
    }, {
       onSuccess: async (_data) => {
          toast('Google Ads has been integrated successfully!', { icon: '✔️' });
@@ -43,26 +29,7 @@ export async function fetchAdwordsKeywordIdeas(router: NextRouter, domainSlug: s
    // if (!router.query.slug) { throw new Error('Invalid Domain Name'); }
    const origin = getClientOrigin();
    const res = await fetch(`${origin}/api/ideas?domain=${domainSlug}`, { method: 'GET' });
-   if (res.status >= 400 && res.status < 600) {
-      if (res.status === 401) {
-         router.push('/login');
-      }
-      let errorMessage = 'Bad response from server';
-      try {
-         const contentType = res.headers.get('content-type');
-         if (contentType && contentType.includes('application/json')) {
-            const errorData = await res.json();
-            errorMessage = errorData?.error?.message || 'Bad response from server';
-         } else {
-            // Handle HTML error pages or other non-JSON responses
-            await res.text();
-            errorMessage = `Server error (${res.status}): Please try again later`;
-         }
-      } catch (_parseError) {
-         errorMessage = `Server error (${res.status}): Please try again later`;
-      }
-      throw new Error(errorMessage);
-   }
+   await throwOnError(res, router);
    return res.json();
 }
 
@@ -87,31 +54,8 @@ export function useMutateKeywordIdeas(router:NextRouter, onSuccess?: Function) {
       const fetchOpts = { method: 'POST', headers, body: JSON.stringify({ ...data }) };
       const origin = getClientOrigin();
       const res = await fetch(`${origin}/api/ideas`, fetchOpts);
-      const isOk = typeof res.ok === 'boolean' ? res.ok : (res.status >= 200 && res.status < 300);
-
-      let responsePayload: unknown = null;
-      try {
-         responsePayload = await parseJsonResponse(res);
-      } catch (error) {
-         if (res.status === 401) {
-            router.push('/login');
-         }
-         if (!isOk) {
-            throw new Error(`Server error (${res.status}): Please try again later`);
-         }
-         throw error instanceof Error ? error : new Error('Error Loading Keyword Ideas');
-      }
-
-      if (res.status === 401) {
-         router.push('/login');
-      }
-
-      if (!isOk) {
-         const errorMessage = (responsePayload as any)?.error?.message || `Server error (${res.status}): Please try again later`;
-         throw new Error(errorMessage);
-      }
-
-      return responsePayload;
+      await throwOnError(res, router);
+      return res.json();
    }, {
       onSuccess: async (_data) => {
          toast('Keyword Ideas Loaded Successfully!', { icon: '✔️' });
@@ -135,23 +79,7 @@ export function useMutateFavKeywordIdeas(router:NextRouter, onSuccess?: Function
       const fetchOpts = { method: 'PUT', headers, body: JSON.stringify({ ...payload }) };
       const origin = getClientOrigin();
       const res = await fetch(`${origin}/api/ideas`, fetchOpts);
-      if (res.status >= 400 && res.status < 600) {
-         let errorMessage = 'Bad response from server';
-         try {
-            const contentType = res.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-               const errorData = await res.json();
-               errorMessage = errorData?.error?.message || 'Bad response from server';
-            } else {
-               // Handle HTML error pages or other non-JSON responses
-               await res.text();
-               errorMessage = `Server error (${res.status}): Please try again later`;
-            }
-         } catch (_parseError) {
-            errorMessage = `Server error (${res.status}): Please try again later`;
-         }
-         throw new Error(errorMessage);
-      }
+      await throwOnError(res, router);
       return res.json();
    }, {
       onSuccess: async (_data) => {
@@ -173,23 +101,7 @@ export function useMutateKeywordsVolume(onSuccess?: Function) {
       const fetchOpts = { method: 'POST', headers, body: JSON.stringify({ ...data }) };
       const origin = getClientOrigin();
       const res = await fetch(`${origin}/api/volume`, fetchOpts);
-      if (res.status >= 400 && res.status < 600) {
-         let errorMessage = 'Bad response from server';
-         try {
-            const contentType = res.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-               const errorData = await res.json();
-               errorMessage = errorData?.error?.message || 'Bad response from server';
-            } else {
-               // Handle HTML error pages or other non-JSON responses
-               await res.text();
-               errorMessage = `Server error (${res.status}): Please try again later`;
-            }
-         } catch (_parseError) {
-            errorMessage = `Server error (${res.status}): Please try again later`;
-         }
-         throw new Error(errorMessage);
-      }
+      await throwOnError(res);
       return res.json();
    }, {
       onSuccess: async (_data) => {

@@ -270,7 +270,7 @@ export function useDeleteDomain(onSuccess:Function) {
    const queryClient = useQueryClient();
    return useMutation(async (domain:DomainType) => {
       const origin = getClientOrigin();
-      const res = await fetch(`${origin}/api/domains?domain=${domain.domain}`, { method: 'DELETE' });
+      const res = await fetch(`${origin}/api/domains?domain=${encodeURIComponent(domain.domain)}`, { method: 'DELETE' });
       await throwOnError(res);
       return res.json();
    }, {

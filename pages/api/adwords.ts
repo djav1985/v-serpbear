@@ -141,7 +141,7 @@ const getAdwordsRefreshToken = async (req: NextApiRequest, res: NextApiResponse)
             } else if (errorMsg.includes('redirect_uri_mismatch')) {
                errorMsg += ` Redirected URL: ${redirectURL}`;
             }
-            logger.error('[Error] Getting Google Ads Refresh Token!', { reason: errorMsg, redirectURL });
+            logger.error('[Error] Getting Google Ads Refresh Token!', undefined, { reason: errorMsg, redirectURL });
             return respondWithIntegrationResult(req, res, {
                success: false,
                message: 'Error Saving the Google Ads Refresh Token. Please Try Again!',

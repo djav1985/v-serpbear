@@ -198,7 +198,7 @@ describe('Improved Error Handling in Services', () => {
          headers: {
             get: jest.fn().mockReturnValue('application/json')
          },
-         text: jest.fn().mockResolvedValue(JSON.stringify({ error: { code: 'NOT_FOUND', message: 'No keywords found over the search volume minimum.' } }))
+         json: jest.fn().mockResolvedValue({ error: { code: 'NOT_FOUND', message: 'No keywords found over the search volume minimum.' } })
       } as any);
 
       const { useMutateKeywordIdeas } = require('../../services/adwords');
@@ -218,7 +218,7 @@ describe('Improved Error Handling in Services', () => {
          headers: {
             get: jest.fn().mockReturnValue('application/json')
          },
-         text: jest.fn().mockResolvedValue(JSON.stringify({ error: { code: 'UNAUTHORIZED', message: 'Session expired' } }))
+         json: jest.fn().mockResolvedValue({ error: { code: 'UNAUTHORIZED', message: 'Session expired' } })
       } as any);
 
       const { useMutateKeywordIdeas } = require('../../services/adwords');
@@ -239,7 +239,7 @@ describe('Improved Error Handling in Services', () => {
          headers: {
             get: jest.fn().mockReturnValue('application/json')
          },
-         text: jest.fn().mockResolvedValue(JSON.stringify({ ideas: ['alpha'] }))
+         json: jest.fn().mockResolvedValue({ ideas: ['alpha'] })
       } as any);
 
       const { useMutateKeywordIdeas } = require('../../services/adwords');
@@ -265,7 +265,7 @@ describe('Improved Error Handling in Services', () => {
          headers: {
             get: jest.fn().mockReturnValue('application/json')
          },
-         text: jest.fn().mockResolvedValue(JSON.stringify(structuredEnvelope))
+         json: jest.fn().mockResolvedValue(structuredEnvelope)
       } as any);
 
       const { useMutateKeywordIdeas } = require('../../services/adwords');
