@@ -43,6 +43,7 @@ const ChartSlim = ({ labels, series, noMaxLimit = false, reverse = true, fillCon
          },
          x: {
             display: false,
+            offset: false,
             grid: {
                display: false,
                drawBorder: false,
