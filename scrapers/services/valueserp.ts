@@ -58,8 +58,6 @@ const valueSerp: ScraperSettings = {
     params.set("api_key", settings.scraping_api ?? "");
     params.set("q", decodeIfEncoded(keyword.keyword));
     params.set("output", "json");
-    params.set("include_answer_box", "false");
-    params.set("include_advertiser_info", "false");
     if (locationParts.length) {
       params.set("location", locationParts.join(","));
     }
