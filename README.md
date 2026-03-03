@@ -85,7 +85,7 @@ cp .env.example .env
 docker compose up -d
 ```
 
-The default compose stack maps `./data` to the container so your SQLite database and cached Search Console exports persist between updates.
+The default compose stack uses a named Docker volume (`data`) mounted at `/app/data` inside the container so your SQLite database and cached Search Console exports persist between updates. To inspect or back up the data, use `docker volume inspect serpbear_data` or copy files out with `docker cp`.
 
 ### Option 2 – Node.js runtime
 
@@ -100,7 +100,7 @@ The default compose stack maps `./data` to the container so your SQLite database
 
 ### Database & migrations
 
-- **SQLite files:** Live under `./data` by default; mount that directory when running inside containers to keep your historical data.
+- **SQLite files:** Live under `./data` by default for local Node.js development. Docker deployments use a named Docker volume (`data`) mapped to `/app/data` inside the container; no manual bind-mount is required.
 - **Docker deployments:** Database migrations run automatically from `entrypoint.sh` whenever the container starts. No manual intervention required.
 - **Local Node.js development:** Use `npm run db:migrate` to apply schema changes manually (as shown in the setup steps above). Run `npm run db:revert` to roll back the most recent migration if needed.
 - **Migration tooling:** The bundled Sequelize/Umzug tooling works for both approaches—Docker uses it internally, while local development exposes it through npm scripts.
@@ -112,7 +112,7 @@ The default compose stack maps `./data` to the container so your SQLite database
 
 Runtime behaviour is controlled through environment variables and settings stored in `data/settings.json`. The tables below summarise supported environment variables; defaults mirror `.env.example` where provided.
 
-> **Env files.** Next.js loads `.env.local` for local development, while Docker Compose reads `.env`. The standalone cron worker (`node cron.js`) explicitly loads `.env.local`, so keep local credentials there when running the worker outside Docker.
+> **Env files.** Next.js loads `.env.local` for local development, while Docker Compose reads `.env`. The standalone cron worker (`tsx cron.js` / `npm run cron`) explicitly loads `.env.local`, so keep local credentials there when running the worker outside Docker.
 
 ### Authentication & session management
 
@@ -321,6 +321,7 @@ Fetched positions carry real SERP data; positions on pages that were not scraped
   - Regression specs assert the camelCase `mapPackTop3` keyword flag—update fixtures to keep that property present when adding new cases.
 - **Database scripts:** `npm run db:migrate` / `npm run db:revert`.
 - **Production build:** `npm run build` followed by `npm run start`.
+- **Full stack (web + cron together):** `npm run start:all` (uses `concurrently` to run both the Next.js server and the cron worker in a single terminal).
 - **UI patterns:** Add new icons through the `ICON_RENDERERS` map in `components/common/Icon.tsx` and rely on the exported keyword filtering helpers when building new table views to keep predicates shared and complexity low.
 - **Side panels & dropdowns:** The `SidePanel` component now honours its `width` prop (`small`, `medium`, `large`) and `SelectField` respects `minWidth`, making it easier to tune layouts without hand-editing Tailwind classes.
 - **Settings callouts:** Google Ads and Search Console settings surface the latest `settingsError` message above the form so operators see integration failures immediately.
