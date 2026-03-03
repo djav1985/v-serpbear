@@ -20,7 +20,8 @@ export const generateTheChartData = (history: KeywordHistory, time:string = '30'
       // Without this, a keyword that was ranked before the window but has only 0s inside it
       // produces an all-111 series which chartBounds excludes, leaving the chart blank.
       const windowCutoff = new Date(currentDate);
-      windowCutoff.setDate(windowCutoff.getDate() - windowDays);
+      windowCutoff.setDate(windowCutoff.getDate() - (windowDays - 1));
+      windowCutoff.setHours(0, 0, 0, 0);
       let latestSeedDate: Date | null = null;
       for (const [dateKey, value] of Object.entries(history)) {
          if (typeof value !== 'number' || value <= 0) continue;

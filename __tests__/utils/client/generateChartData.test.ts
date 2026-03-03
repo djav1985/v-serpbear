@@ -50,6 +50,17 @@ describe('generateTheChartData', () => {
          expect(series.every((v) => v === 111)).toBe(true);
       });
 
+      it('seeds from an entry exactly one day before the window start', () => {
+         // With a 7-day window the oldest included day is daysAgo(6).
+         // An entry at daysAgo(7) is just outside the window and must be used as seed.
+         const history: Record<string, number> = {
+            [daysAgo(7)]: 25,
+            [daysAgo(3)]: 0,
+         };
+         const { series } = generateTheChartData(history, '7');
+         expect(series.every((v) => v === 25)).toBe(true);
+      });
+
       it('prefers more recent prior-history entry over an older one as the seed', () => {
          const history: Record<string, number> = {
             [daysAgo(20)]: 50,
@@ -59,6 +70,7 @@ describe('generateTheChartData', () => {
          // Seed should be 20, so the 7-day window is filled with 20
          expect(series.every((v) => v === 20)).toBe(true);
       });
+
    });
 
    describe("'all' mode", () => {
