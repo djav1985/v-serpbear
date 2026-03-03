@@ -2,8 +2,10 @@ import type { NextPage } from 'next';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useState } from 'react';
+import { useQueryClient } from 'react-query';
 import { BrandTitle } from '../../components/common/Branding';
 import { useBranding } from '../../hooks/useBranding';
+import { AUTH_QUERY_KEY } from '../../hooks/useAuth';
 import { getClientOrigin } from '../../utils/client/origin';
 
 type LoginError = {
@@ -16,6 +18,7 @@ const Login: NextPage = () => {
    const [username, setUsername] = useState<string>('');
    const [password, setPassword] = useState<string>('');
    const router = useRouter();
+   const queryClient = useQueryClient();
    const { branding } = useBranding();
    const { platformName } = branding;
 
@@ -52,6 +55,8 @@ const Login: NextPage = () => {
                setError({ type: errorType, msg: res.error });
                setTimeout(() => { setError(null); }, 3000);
             } else {
+               // Invalidate the cached auth state so protected pages see the fresh authenticated result
+               await queryClient.invalidateQueries(AUTH_QUERY_KEY);
                router.push('/');
             }
          } catch (fetchError) {

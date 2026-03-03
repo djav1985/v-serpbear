@@ -9,7 +9,7 @@ export interface AuthStatus {
   error?: string;
 }
 
-const AUTH_QUERY_KEY = ['auth-check'] as const;
+export const AUTH_QUERY_KEY = ['auth-check'] as const;
 // Re-check after 5 minutes; keep result cached for 10 minutes to avoid repeated network calls
 const AUTH_STALE_TIME = 5 * 60 * 1000;
 const AUTH_CACHE_TIME = 10 * 60 * 1000;
