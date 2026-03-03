@@ -1,6 +1,7 @@
 import React from 'react';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js';
 import { Line } from 'react-chartjs-2';
+import { calculateChartBounds } from '../../utils/client/chartBounds';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Title, Tooltip, Legend);
 
@@ -13,6 +14,7 @@ type ChartProps = {
 };
 
 const ChartSlim = ({ labels, series, noMaxLimit = false, reverse = true, fillContainer = false }: ChartProps) => {
+   const { min, max } = calculateChartBounds(series, { reverse, noMaxLimit });
    const options = {
       responsive: true,
       maintainAspectRatio: false,
@@ -25,8 +27,8 @@ const ChartSlim = ({ labels, series, noMaxLimit = false, reverse = true, fillCon
          y: {
             display: false,
             reverse,
-            min: 1,
-            max: noMaxLimit ? undefined : 100,
+            min,
+            max,
             grid: {
                display: false,
                drawBorder: false,
@@ -79,11 +81,12 @@ const ChartSlim = ({ labels, series, noMaxLimit = false, reverse = true, fillCon
                datasets: [
                   {
                      fill: 'start',
-                     showLine: false,
-                     data: series,
+                     showLine: true,
+                     data: series.map(v => (v === 111 ? null : v)),
                      pointRadius: 0,
                      borderColor: 'rgb(31, 205, 176)',
                      backgroundColor: 'rgba(31, 205, 176, 0.5)',
+                     spanGaps: false,
                   },
                ],
             }}
