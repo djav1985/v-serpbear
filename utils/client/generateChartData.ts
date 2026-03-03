@@ -20,7 +20,8 @@ export const generateTheChartData = (history: KeywordHistory, time:string = '30'
       // Without this, a keyword that was ranked before the window but has only 0s inside it
       // produces an all-111 series which chartBounds excludes, leaving the chart blank.
       const windowCutoff = new Date(currentDate);
-      windowCutoff.setDate(windowCutoff.getDate() - windowDays);
+      windowCutoff.setDate(windowCutoff.getDate() - (windowDays - 1));
+      windowCutoff.setHours(0, 0, 0, 0);
       let latestSeedDate: Date | null = null;
       for (const [dateKey, value] of Object.entries(history)) {
          if (typeof value !== 'number' || value <= 0) continue;
@@ -33,7 +34,7 @@ export const generateTheChartData = (history: KeywordHistory, time:string = '30'
       }
 
       // First Generate Labels. The labels should be the last N days dates. Format: Oct 26
-      for (let index = windowDays; index >= 0; index -= 1) {
+      for (let index = windowDays - 1; index >= 0; index -= 1) {
          const pastDate = new Date(new Date().setDate(currentDate.getDate() - index));
          // Then Generate Series. if past date's serp does not exist, use 0.
          // If have a missing serp in between dates, use the previous date's serp to fill the gap.
