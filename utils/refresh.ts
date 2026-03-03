@@ -25,7 +25,6 @@ const describeScraperType = (scraperType?: SettingsType['scraper_type']): string
 };
 
 const logScraperSelectionSummary = (
-   globalSettings: SettingsType,
    domainSpecificSettings: Map<string, SettingsType>,
    domainsWithScraperOverrides: Set<string>,
 ) => {
