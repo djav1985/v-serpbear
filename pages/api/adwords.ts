@@ -9,6 +9,7 @@ import { getAdwordsCredentials, getAdwordsKeywordIdeas } from '../../utils/adwor
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
 import { atomicWriteFile } from '../../utils/atomicWrite';
+import { errorResponse } from '../../utils/api/response';
 
 type adwordsValidateResp = {
    valid: boolean
@@ -90,9 +91,10 @@ const respondWithIntegrationResult = (
 };
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
+   const requestId = (req as ExtendedRequest).requestId;
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
-      return res.status(401).json({ error: authorized });
+      return res.status(401).json(errorResponse('UNAUTHORIZED', authorized, requestId));
    }
    if (req.method === 'GET') {
       return getAdwordsRefreshToken(req, res);
@@ -100,7 +102,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
    if (req.method === 'POST') {
       return validateAdwordsIntegration(req, res);
    }
-   return res.status(405).json({ error: 'Method not allowed' });
+   return res.status(405).json(errorResponse('METHOD_NOT_ALLOWED', 'Method not allowed', requestId));
 }
 
 const getAdwordsRefreshToken = async (req: NextApiRequest, res: NextApiResponse) => {

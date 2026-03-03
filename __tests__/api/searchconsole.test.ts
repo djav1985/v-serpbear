@@ -265,6 +265,8 @@ describe('GET /api/searchconsole', () => {
 
     expect(mockFetchDomainSCData).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(404);
-    expect(res.json).toHaveBeenCalledWith({ data: null, error: 'Domain not found.' });
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ error: expect.objectContaining({ code: 'NOT_FOUND', message: 'Domain not found.' }) }),
+    );
   });
 });

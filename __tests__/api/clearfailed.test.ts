@@ -40,6 +40,8 @@ describe('/api/clearfailed', () => {
       await handler(req, res);
 
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ error: 'disk full' });
+      expect(res.json).toHaveBeenCalledWith(
+         expect.objectContaining({ error: expect.objectContaining({ code: 'INTERNAL_SERVER_ERROR', message: 'disk full' }) }),
+      );
    });
 });

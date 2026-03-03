@@ -12,31 +12,29 @@ import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
 import { fromDbBool } from '../../utils/dbBooleans';
 import { refreshQueue } from '../../utils/refreshQueue';
-
-type CRONRefreshRes = {
-   started: boolean
-   error?: string|null,
-}
+import { errorResponse } from '../../utils/api/response';
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
+   const requestId = (req as ExtendedRequest).requestId;
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
-      return res.status(401).json({ error: authorized });
+      return res.status(401).json(errorResponse('UNAUTHORIZED', authorized, requestId));
    }
    if (req.method === 'POST') {
       return cronRefreshkeywords(req, res);
    }
-   return res.status(405).json({ error: 'Method not allowed' });
+   return res.status(405).json(errorResponse('METHOD_NOT_ALLOWED', 'Method not allowed', requestId));
 }
 
 export default withApiLogging(handler, { name: 'cron' });
 
-const cronRefreshkeywords = async (_req: NextApiRequest, res: NextApiResponse<CRONRefreshRes>) => {
+const cronRefreshkeywords = async (_req: NextApiRequest, res: NextApiResponse) => {
+   const requestId = (_req as ExtendedRequest).requestId;
    try {
       const settings = await getAppSettings();
       if (!settings || (settings && settings.scraper_type === 'none')) {
          logger.warn('Cron refresh skipped: Scraper not configured');
-         return res.status(400).json({ started: false, error: 'Scraper has not been set up yet.' });
+         return res.status(400).json(errorResponse('BAD_REQUEST', 'Scraper has not been set up yet.', requestId));
       }
       const domainToggles = await Domain.findAll({ attributes: ['domain', 'scrapeEnabled'] });
       const enabledDomains = domainToggles
@@ -71,7 +69,7 @@ const cronRefreshkeywords = async (_req: NextApiRequest, res: NextApiResponse<CR
       return res.status(200).json({ started: true });
    } catch (error) {
       logger.error('Error starting cron refresh', error instanceof Error ? error : new Error(String(error)));
-      return res.status(500).json({ started: false, error: 'Error Starting the Cron Job' });
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error Starting the Cron Job', requestId));
    }
 };
 

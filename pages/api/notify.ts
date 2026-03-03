@@ -15,12 +15,7 @@ import { getBranding } from '../../utils/branding';
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
 import normalizeDomainBooleans from '../../utils/normalizeDomain';
-
-type NotifyResponse = {
-   success?: boolean
-   error?: string|null,
-   message?: string,
-}
+import { errorResponse } from '../../utils/api/response';
 
 const trimString = (value?: string | null): string => (typeof value === 'string' ? value.trim() : '');
 
@@ -30,19 +25,21 @@ const sanitizeHostname = (host?: string | null): string => {
 };
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
+   const requestId = (req as ExtendedRequest).requestId;
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
-      return res.status(401).json({ success: false, error: authorized });
+      return res.status(401).json(errorResponse('UNAUTHORIZED', authorized, requestId));
    }
    if (req.method === 'POST') {
       return notify(req, res);
    }
-   return res.status(405).json({ success: false, error: 'Invalid Method' });
+   return res.status(405).json(errorResponse('METHOD_NOT_ALLOWED', 'Method not allowed', requestId));
 }
 
 export default withApiLogging(handler, { name: 'notify' });
 
-const notify = async (req: NextApiRequest, res: NextApiResponse<NotifyResponse>) => {
+const notify = async (req: NextApiRequest, res: NextApiResponse) => {
+   const requestId = (req as ExtendedRequest).requestId;
    const reqDomain = req?.query?.domain as string || '';
    try {
       const settings = await getAppSettings();
@@ -58,7 +55,7 @@ const notify = async (req: NextApiRequest, res: NextApiResponse<NotifyResponse>)
       normalizedSettings.smtp_tls_servername = sanitizeHostname(normalizedSettings.smtp_tls_servername);
 
       if (!sanitizedHost || !sanitizedPort || !sanitizedDefaultEmail) {
-         return res.status(400).json({ success: false, error: 'SMTP has not been setup properly!' });
+         return res.status(400).json(errorResponse('BAD_REQUEST', 'SMTP has not been setup properly!', requestId));
       }
 
       let successCount = 0;
@@ -101,7 +98,7 @@ const notify = async (req: NextApiRequest, res: NextApiResponse<NotifyResponse>)
 
       // If we attempted to send emails but none succeeded, return an error
       if (attemptCount > 0 && successCount === 0) {
-         return res.status(500).json({ success: false, error: 'All notification emails failed to send. Please check your SMTP configuration.' });
+         return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'All notification emails failed to send. Please check your SMTP configuration.', requestId));
       }
 
       // If no emails were attempted (no eligible domains), inform the user
@@ -114,7 +111,7 @@ const notify = async (req: NextApiRequest, res: NextApiResponse<NotifyResponse>)
       logger.error('Error sending notification emails', error instanceof Error ? error : new Error(String(error)));
       const message = error instanceof Error && error.message ? error.message : 'Error Sending Notification Email.';
       const isConfigError = error instanceof Error && error.message === 'Invalid SMTP host configured.';
-      return res.status(isConfigError ? 400 : 500).json({ success: false, error: message });
+      return res.status(isConfigError ? 400 : 500).json(errorResponse(isConfigError ? 'BAD_REQUEST' : 'INTERNAL_SERVER_ERROR', message, requestId));
    }
 };
 
