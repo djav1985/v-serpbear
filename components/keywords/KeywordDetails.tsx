@@ -76,8 +76,8 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
 
    // With variable page sizes the max scraped position may be < 100.
    // When scrapedCount > 0 we always show the actual count (covers both "no gaps" and "has gaps").
-   // The 'Not in First 100' fallback only triggers when keywordSearchResult is empty (no data yet).
-   const notFoundLabel = scrapedCount > 0 ? `Not in First ${scrapedCount}` : 'Not in First 100';
+   // The 'No Results' fallback only triggers when keywordSearchResult is empty (no data yet).
+   const notFoundLabel = scrapedCount > 0 ? `Not in First ${scrapedCount}` : 'No Results';
 
    useLayoutEffect(() => {
       if (keyword.position > 0 && searchResultFound?.current) {

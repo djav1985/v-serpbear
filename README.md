@@ -24,9 +24,9 @@ Not every scraper provider is validated on every release—please report any iss
 >
 > **8. Per Domain Scraping:** Easily set scrapers per domain globally or both.
 >
-> **9. Transparent SERP result coverage:** The keyword details panel now shows exactly which pages were scraped and which were skipped. Skipped page ranges appear as clearly labelled placeholder blocks between real results, and the "not found" badge adapts to reflect the actual number of results checked rather than always displaying "Not in First 100".
+> **9. Transparent SERP result coverage:** The keyword details panel now shows exactly which pages were scraped and which were skipped. Skipped page ranges appear as clearly labelled placeholder blocks between real results, and the "not found" badge adapts to reflect the actual number of results checked rather than always displaying "No Results".
 >
-> **10. Dynamic scraping strategy:** A flexible 3-tier system lets you control how many pages are checked per keyword at both the global and per-domain level. **Basic** (default) scrapes only the first page; **Custom** scrapes a fixed number of pages (1–10); **Smart** targets the page where the keyword was last seen ± one neighbour, with an optional full-10-page fallback. This directly addresses Google's removal of `num=100` support so keywords beyond position 10 are no longer always reported as "Not in First 100".
+> **10. Dynamic scraping strategy:** A flexible 3-tier system lets you control how many pages are checked per keyword at both the global and per-domain level. **Basic** (default) scrapes only the first page; **Custom** scrapes a fixed number of pages (1–10); **Smart** targets the page where the keyword was last seen ± one neighbour, with an optional full-10-page fallback. This directly addresses Google's removal of `num=100` support so keywords beyond position 10 are no longer always reported as "No Results".
 > 
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/7e7a0030c3f84c6fb56a3ce6273fbc1d)](https://app.codacy.com/gh/djav1985/v-serpbear/dashboard) ![License](https://img.shields.io/github/license/djav1985/v-serpbear) ![Version](https://img.shields.io/github/package-json/v/djav1985/v-serpbear) ![Docker pulls](https://img.shields.io/docker/pulls/vontainment/v-serpbear)
 
@@ -248,7 +248,7 @@ Click any keyword row to open the details panel, which shows the full SERP snaps
 
 - **Skipped-page placeholders:** Consecutive skipped positions are collapsed into dashed blocks labelled `Page X: N results skipped` and inserted between the real result cards at the correct position in the list.
 - **Coverage summary banner:** When any positions were skipped, a blue banner at the top of the results section shows `X results scraped • Y positions skipped (scrape strategy limits pages checked)` so you can immediately understand the scope of the snapshot.
-- **Adaptive "not found" badge:** If your domain was not found and some positions were skipped, the badge in the panel header reads `Not in First N` (where N is the number of results actually scraped) instead of the generic `Not in First 100`.
+- **Adaptive "not found" badge:** If your domain was not found and some positions were skipped, the badge in the panel header reads `Not in First N` (where N is the number of results actually scraped) instead of the generic `No Results`.
 - **Accurate highlight:** The amber highlight that marks your tracked domain in the results list is matched by position value rather than list index, so it works correctly even when the result set is non-contiguous.
 
 ### Scrape Strategy
@@ -272,7 +272,7 @@ Three strategies are available:
 
 #### How results are stored
 
-Fetched positions carry real SERP data; positions on pages that were not scraped are stored with a `skipped` flag. The keyword details panel renders skipped ranges as dashed placeholder blocks so you can see at a glance which positions were checked. The "not found" badge in the panel header adapts to display `Not in First N` (where N is the number of positions actually scraped) rather than the generic `Not in First 100`.
+Fetched positions carry real SERP data; positions on pages that were not scraped are stored with a `skipped` flag. The keyword details panel renders skipped ranges as dashed placeholder blocks so you can see at a glance which positions were checked. The "not found" badge in the panel header adapts to display `Not in First N` (where N is the number of positions actually scraped) rather than the generic `No Results`.
 
 ### Google Search Console insights
 

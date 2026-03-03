@@ -40,13 +40,13 @@ describe('KeywordDetails', () => {
       expect(screen.getByText('https://compressimage.io/')).toBeInTheDocument();
    });
 
-   it('shows "Not in First 100" when position is 0 and no results are skipped', () => {
+   it('shows "No Results" when position is 0 and no results are skipped', () => {
       useFetchSingleKeywordMock.mockReturnValue({ data: undefined });
       const keyword = { ...dummyKeywords[0], position: 0, lastResult: [] } as KeywordType;
 
       render(<KeywordDetails keyword={keyword} closeDetails={jest.fn()} />);
 
-      expect(screen.getByText('Not in First 100')).toBeInTheDocument();
+      expect(screen.getByText('No Results')).toBeInTheDocument();
    });
 
    it('shows "Not in First N" when position is 0 and some results were skipped', () => {

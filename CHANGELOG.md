@@ -12,7 +12,7 @@ All notable changes to this project will be documented in this file. Releases no
 - Added CrazySERP scraper integration.
 - Added dynamic scraping strategy modes (`Basic`, `Custom`, and `Smart`) to control provider selection behavior.
 - Keyword ideas banner now offers an email action on both research and domain idea tabs, formatting selected ideas into a rich HTML table and bypassing notification throttling while still enforcing domain-specific recipients.
-- Keyword details panel now visualises skipped SERP positions as labelled page-range placeholders between real result cards. An inline banner reports the scraped vs. skipped counts, and the "not found" badge adapts to reflect the actual number of results checked rather than always displaying "Not in First 100".
+- Keyword details panel now visualises skipped SERP positions as labelled page-range placeholders between real result cards. An inline banner reports the scraped vs. skipped counts, and the "not found" badge adapts to reflect the actual number of results checked rather than always displaying "No Results".
 
 ### Documentation
 - Documented the fork's stability, security, and performance improvements at the top of the README for quick comparison with upstream SerpBear.
