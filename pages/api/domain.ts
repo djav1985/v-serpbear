@@ -9,25 +9,23 @@ import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
 import { safeJsonParse } from '../../utils/safeJsonParse';
 import normalizeDomainBooleans from '../../utils/normalizeDomain';
-
-type DomainGetResponse = {
-   domain?: DomainType | null
-   error?: string|null,
-}
+import { errorResponse } from '../../utils/api/response';
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
+   const requestId = (req as ExtendedRequest).requestId;
    const authorized = verifyUser(req, res);
    if (authorized === 'authorized' && req.method === 'GET') {
       return getDomain(req, res);
    }
-   return res.status(401).json({ error: authorized });
+   return res.status(401).json(errorResponse('UNAUTHORIZED', authorized, requestId));
 }
 
 export default withApiLogging(handler, { name: 'domain' });
 
-const getDomain = async (req: NextApiRequest, res: NextApiResponse<DomainGetResponse>) => {
+const getDomain = async (req: NextApiRequest, res: NextApiResponse) => {
+   const requestId = (req as ExtendedRequest).requestId;
    if (!req.query.domain || typeof req.query.domain !== 'string') {
-       return res.status(400).json({ error: 'Domain Name is Required!' });
+       return res.status(400).json(errorResponse('BAD_REQUEST', 'Domain Name is Required!', requestId));
    }
 
    try {
@@ -35,7 +33,7 @@ const getDomain = async (req: NextApiRequest, res: NextApiResponse<DomainGetResp
       const foundDomain:Domain| null = await Domain.findOne({ where: query });
 
       if (!foundDomain) {
-         return res.status(404).json({ domain: null, error: 'Domain not found' });
+         return res.status(404).json(errorResponse('NOT_FOUND', 'Domain not found', requestId));
       }
 
       const parsedDomain = foundDomain.get({ plain: true }) as DomainType & { scraper_settings?: any };
@@ -65,6 +63,6 @@ const getDomain = async (req: NextApiRequest, res: NextApiResponse<DomainGetResp
       return res.status(200).json({ domain: normalizeDomainBooleans(parsedDomain) });
    } catch (error) {
       logger.error('Getting Domain: ', error instanceof Error ? error : new Error(String(error)));
-      return res.status(400).json({ error: 'Error Loading Domain' });
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error Loading Domain', requestId));
    }
 };

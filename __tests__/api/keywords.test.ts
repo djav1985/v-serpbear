@@ -108,7 +108,9 @@ describe('PUT /api/keywords error handling', () => {
     expect(keywordMock.update).toHaveBeenCalledWith({ sticky: 1 }, { where: { ID: { [Op.in]: [1] } } });
     expect(keywordMock.findAll).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({ error: 'Failed to update keywords.', details: 'update failed' });
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      error: expect.objectContaining({ message: 'Failed to update keywords.' }),
+    }));
   });
 
   it('returns 500 when keyword volume update fails after creation', async () => {
@@ -150,7 +152,9 @@ describe('PUT /api/keywords error handling', () => {
     expect(getKeywordsVolumeMock).toHaveBeenCalled();
     expect(updateKeywordsVolumeDataMock).toHaveBeenCalledWith({ 1: 100 });
     expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({ error: 'Failed to add keywords.', details: 'volume failure' });
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      error: expect.objectContaining({ message: 'Failed to add keywords.' }),
+    }));
   });
 
   it('returns 400 when keyword payload is missing', async () => {
@@ -168,10 +172,9 @@ describe('PUT /api/keywords error handling', () => {
     await handler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({ 
-      error: 'Keywords array is required', 
-      details: 'Request body must contain a keywords array' 
-    });
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      error: expect.objectContaining({ message: 'Keywords array is required' }),
+    }));
     expect(keywordMock.bulkCreate).not.toHaveBeenCalled();
   });
 

@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import { useMutation, useQuery, useQueryClient, QueryClient, QueryKey } from 'react-query';
 import { getClientOrigin } from '../utils/client/origin';
 import { throwOnError } from '../utils/client/fetchWithError';
+import { apiPut } from '../utils/client/apiClient';
 
 type UpdatePayload = {
    domainSettings: Partial<DomainSettings>,
@@ -90,16 +91,8 @@ const applyDomainCachePatch = (
 };
 
 const updateDomainRequest = async ({ domainSettings, domain }: UpdatePayload) => {
-   const headers = new Headers({ 'Content-Type': 'application/json', Accept: 'application/json' });
-   const fetchOpts = { method: 'PUT', headers, body: JSON.stringify(domainSettings) };
-   const origin = getClientOrigin();
    const encodedDomain = encodeURIComponent(domain.domain);
-   const res = await fetch(`${origin}/api/domains?domain=${encodedDomain}`, fetchOpts);
-   const responseObj = await res.json();
-   if (res.status >= 400 && res.status < 600) {
-      throw new Error(responseObj?.error || 'Bad response from server');
-   }
-   return responseObj as { domain: DomainType|null };
+   return apiPut<{ domain: DomainType|null }>(`/api/domains?domain=${encodedDomain}`, domainSettings);
 };
 
 export async function fetchDomains(router: NextRouter, withStats:boolean): Promise<{domains: DomainType[]}> {

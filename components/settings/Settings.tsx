@@ -20,7 +20,7 @@ type SettingsError = {
    msg: string
 }
 
-export const createDefaultSettings = (platformName: string): SettingsType => ({
+const createDefaultSettings = (platformName: string): SettingsType => ({
    scraper_type: 'none',
    scrape_delay: 'none',
    scrape_retry: false,

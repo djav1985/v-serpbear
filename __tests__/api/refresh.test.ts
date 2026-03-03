@@ -100,7 +100,9 @@ describe('/api/refresh', () => {
     await handler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({ error: 'No valid keyword IDs provided' });
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      error: expect.objectContaining({ message: 'No valid keyword IDs provided' }),
+    }));
     expect(Keyword.findAll).not.toHaveBeenCalled();
   });
 
@@ -294,9 +296,9 @@ describe('/api/refresh', () => {
 
     // Should return 409 Conflict
     expect(res.status).toHaveBeenCalledWith(409);
-    expect(res.json).toHaveBeenCalledWith({
-      error: 'Domains are already being refreshed: example.com. Please wait for the current refresh to complete.',
-    });
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      error: expect.objectContaining({ message: 'Domains are already being refreshed: example.com. Please wait for the current refresh to complete.' }),
+    }));
 
     // Should NOT enqueue or update keywords
     expect(keywordRecord.update).not.toHaveBeenCalled();
@@ -343,9 +345,9 @@ describe('/api/refresh', () => {
 
     // Should return error
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({
-      error: 'Domains not found in database: missing-domain.com. Please ensure domains are created before adding keywords.',
-    });
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      error: expect.objectContaining({ message: 'Domains not found in database: missing-domain.com. Please ensure domains are created before adding keywords.' }),
+    }));
 
     // Should NOT call refreshAndUpdateKeywords
     expect(refreshAndUpdateKeywords).not.toHaveBeenCalled();

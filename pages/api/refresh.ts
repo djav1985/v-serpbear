@@ -6,55 +6,18 @@ import Keyword from '../../database/models/keyword';
 import refreshAndUpdateKeywords, { clearKeywordUpdatingFlags, markKeywordsAsUpdating, partitionKeywordsByDomainStatus } from '../../utils/refresh';
 import { getAppSettings } from './settings';
 import verifyUser from '../../utils/verifyUser';
-import { scrapeKeywordFromGoogle, scrapeKeywordWithStrategy } from '../../utils/scraper';
+import { scrapeKeywordWithStrategy } from '../../utils/scraper';
 import { serializeError } from '../../utils/errorSerialization';
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
 import { refreshQueue } from '../../utils/refreshQueue';
-
-type BackgroundKeywordsRefreshRes = {
-   // 202 Accepted: background execution started, no keywords returned yet
-   message: string;
-   keywordCount: number;
-   keywords?: never;
-   error?: string | null;
-};
-
-type ImmediateKeywordsRefreshRes = {
-   // 200 OK: refresh completed immediately and returns keywords (possibly empty)
-   keywords: KeywordType[];
-   message?: string;
-   keywordCount?: number;
-   error?: string | null;
-};
-
-type KeywordsRefreshErrorRes = {
-   // Error responses (e.g., 400) that only carry an error message
-   error: string | null;
-   keywords?: never;
-   message?: never;
-   keywordCount?: never;
-};
-
-type KeywordsRefreshRes =
-   | BackgroundKeywordsRefreshRes
-   | ImmediateKeywordsRefreshRes
-   | KeywordsRefreshErrorRes;
-type KeywordSearchResultRes = {
-   searchResult?: {
-      results: { title: string, url: string, position: number }[],
-      keyword: string,
-      position: number,
-      country: string,
-      device: string,
-   },
-   error?: string|null,
-}
+import { errorResponse } from '../../utils/api/response';
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
+   const requestId = (req as ExtendedRequest).requestId;
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
-      return res.status(401).json({ error: authorized });
+      return res.status(401).json(errorResponse('UNAUTHORIZED', authorized, requestId));
    }
    if (req.method === 'GET') {
       return getKeywordSearchResults(req, res);
@@ -62,15 +25,16 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
    if (req.method === 'POST') {
       return refreshTheKeywords(req, res);
    }
-   return res.status(405).json({ error: 'Method not allowed' });
+   return res.status(405).json(errorResponse('METHOD_NOT_ALLOWED', 'Method not allowed', requestId));
 }
 
-const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<KeywordsRefreshRes>) => {
+const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
+   const requestId = (req as ExtendedRequest).requestId;
    if (!req.query.id || typeof req.query.id !== 'string') {
-      return res.status(400).json({ error: 'keyword ID is Required!' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'keyword ID is Required!', requestId));
    }
    if (req.query.id === 'all' && !req.query.domain) {
-      return res.status(400).json({ error: 'When Refreshing all Keywords of a domian, the Domain name Must be provided.' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'When Refreshing all Keywords of a domian, the Domain name Must be provided.', requestId));
    }
    const keywordIDs = req.query.id !== 'all' && (req.query.id as string).split(',').map((item) => {
       const id = parseInt(item, 10);
@@ -80,7 +44,7 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
    logger.debug('keywordIDs: ', { data: keywordIDs });
 
    if (req.query.id !== 'all' && (!keywordIDs || keywordIDs.length === 0)) {
-      return res.status(400).json({ error: 'No valid keyword IDs provided' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'No valid keyword IDs provided', requestId));
    }
 
    const clearUpdatingFlags = async (keywords: Keyword[], logContext: string, reason: string, onlyWhenUpdating = false) => {
@@ -94,13 +58,13 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
       
       if (!settings || (settings && settings.scraper_type === 'none')) {
          logger.debug('Scraper not configured');
-         return res.status(400).json({ error: 'Scraper has not been set up yet.' });
+         return res.status(400).json(errorResponse('BAD_REQUEST', 'Scraper has not been set up yet.', requestId));
       }
       const query = req.query.id === 'all' && domain ? { domain } : { ID: { [Op.in]: keywordIDs } };
       const keywordQueries: Keyword[] = await Keyword.findAll({ where: query });
 
       if (keywordQueries.length === 0) {
-         return res.status(404).json({ error: 'No keywords found for the provided filters.' });
+         return res.status(404).json(errorResponse('NOT_FOUND', 'No keywords found for the provided filters.', requestId));
       }
 
       const {
@@ -132,9 +96,9 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
          
          // Return error if all keywords have missing domains
          if (keywordsToRefresh.length === 0 && skippedKeywords.length === 0) {
-            return res.status(400).json({ 
-               error: `Domains not found in database: ${missingDomains.join(', ')}. Please ensure domains are created before adding keywords.`,
-            });
+            return res.status(400).json(
+               errorResponse('BAD_REQUEST', `Domains not found in database: ${missingDomains.join(', ')}. Please ensure domains are created before adding keywords.`, requestId),
+            );
          }
       }
 
@@ -152,9 +116,9 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
       
       if (lockedDomains.length > 0) {
          logger.info(`Manual refresh rejected: domains already being refreshed`, { domains: lockedDomains });
-         return res.status(409).json({ 
-            error: `Domains are already being refreshed: ${lockedDomains.join(', ')}. Please wait for the current refresh to complete.`,
-         });
+         return res.status(409).json(
+            errorResponse('CONFLICT', `Domains are already being refreshed: ${lockedDomains.join(', ')}. Please wait for the current refresh to complete.`, requestId),
+         );
       }
 
       // Use the first domain only for task association; the manual refresh itself may span multiple domains
@@ -201,18 +165,19 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse<Keyw
    } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       logger.debug('[REFRESH] ERROR refreshTheKeywords: ', { data: errorMessage });
-      return res.status(400).json({ error: errorMessage });
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', errorMessage, requestId));
    }
 };
 
-const getKeywordSearchResults = async (req: NextApiRequest, res: NextApiResponse<KeywordSearchResultRes>) => {
+const getKeywordSearchResults = async (req: NextApiRequest, res: NextApiResponse) => {
+   const requestId = (req as ExtendedRequest).requestId;
    if (!req.query.keyword || !req.query.country) {
-      return res.status(400).json({ error: 'A Valid keyword and Country Code is Required!' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'A Valid keyword and Country Code is Required!', requestId));
    }
    try {
       const settings = await getAppSettings();
       if (!settings || (settings && settings.scraper_type === 'none')) {
-         return res.status(400).json({ error: 'Scraper has not been set up yet.' });
+         return res.status(400).json(errorResponse('BAD_REQUEST', 'Scraper has not been set up yet.', requestId));
       }
       const requestedDevice = typeof req.query.device === 'string' ? req.query.device : 'desktop';
       const dummyKeyword:KeywordType = {
@@ -245,11 +210,11 @@ const getKeywordSearchResults = async (req: NextApiRequest, res: NextApiResponse
          };
          return res.status(200).json({ error: '', searchResult });
       }
-      return res.status(400).json({ error: 'Error Scraping Search Results for the given keyword!' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Error Scraping Search Results for the given keyword!', requestId));
    } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       logger.debug('ERROR getKeywordSearchResults: ', { data: errorMessage });
-      return res.status(400).json({ error: errorMessage });
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', errorMessage, requestId));
    }
 };
 

@@ -57,6 +57,8 @@ describe('withApiLogging', () => {
       return res as NextApiResponse;
     });
 
+    res.setHeader = jest.fn().mockReturnThis();
+
     return res as NextApiResponse;
   };
 
@@ -154,5 +156,38 @@ describe('withApiLogging', () => {
     const ensureDatabaseCallOrder = ensureDatabase.mock.invocationCallOrder[0];
     const handlerCallOrder = handler.mock.invocationCallOrder[0];
     expect(ensureDatabaseCallOrder).toBeLessThan(handlerCallOrder);
+  });
+
+  it('sets X-Request-Id response header on every request', async () => {
+    const { withApiLogging } = await import('../../utils/apiLogging');
+
+    const handler = jest.fn(async (_req: NextApiRequest, res: NextApiResponse) => {
+      res.status(200).json({ ok: true });
+    });
+
+    const wrapped = withApiLogging(handler);
+    const res = createResponse();
+
+    await wrapped(createRequest(), res);
+
+    expect(res.setHeader).toHaveBeenCalledWith('X-Request-Id', expect.any(String));
+  });
+
+  it('exposes requestId on req object for downstream handlers', async () => {
+    const { withApiLogging } = await import('../../utils/apiLogging');
+    let capturedRequestId: string | undefined;
+
+    const handler = jest.fn(async (req: NextApiRequest, res: NextApiResponse) => {
+      capturedRequestId = (req as any).requestId;
+      res.status(200).json({ ok: true });
+    });
+
+    const wrapped = withApiLogging(handler);
+
+    await wrapped(createRequest(), createResponse());
+
+    expect(capturedRequestId).toBeDefined();
+    expect(typeof capturedRequestId).toBe('string');
+    expect(capturedRequestId!.length).toBeGreaterThan(0);
   });
 });
