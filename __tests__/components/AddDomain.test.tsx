@@ -12,7 +12,6 @@ const baseDomain: DomainType = {
    ID: 1,
    domain: 'existing.com',
    slug: 'existing-com',
-   notification: true,
    notification_interval: 'daily',
    notification_emails: '',
    lastUpdated: '2024-01-01T00:00:00.000Z',

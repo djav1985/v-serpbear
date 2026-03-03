@@ -78,8 +78,7 @@ const showSettingsError = (
 
 const deriveDomainActiveState = (domainData?: DomainType | null): boolean => {
    if (!domainData) { return true; }
-   const { scrapeEnabled, notification } = domainData;
-   return Boolean(scrapeEnabled) && Boolean(notification);
+   return Boolean(domainData.scrapeEnabled);
 };
 
 const defaultSearchConsoleSettings: DomainSearchConsole = {

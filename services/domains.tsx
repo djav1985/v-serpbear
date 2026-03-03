@@ -25,8 +25,6 @@ const normalizeDomainPatch = (
    if (patch.scrapeEnabled !== undefined) {
       const nextValue = Boolean(patch.scrapeEnabled);
       updates.scrapeEnabled = nextValue;
-      // Update the legacy notification field to match scrapeEnabled
-      updates.notification = nextValue;
    }
    if (typeof patch.notification_interval === 'string') {
       updates.notification_interval = patch.notification_interval;

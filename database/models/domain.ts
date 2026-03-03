@@ -30,9 +30,6 @@ class Domain extends Model {
    @Column({ type: DataType.INTEGER, allowNull: false, defaultValue: 1 })
    declare scrapeEnabled: number;
 
-   @Column({ type: DataType.INTEGER, allowNull: true, defaultValue: 1 })
-   declare notification: number;
-
    @Column({ type: DataType.STRING, allowNull: true, defaultValue: 'daily' })
    declare notification_interval: string;
 

@@ -6,6 +6,7 @@ import { throwOnError } from '../utils/client/fetchWithError';
 export async function fetchSettings() {
    const origin = getClientOrigin();
    const res = await fetch(`${origin}/api/settings`, { method: 'GET' });
+   await throwOnError(res);
    return res.json();
 }
 

@@ -66,7 +66,7 @@ const notify = async (req: NextApiRequest, res: NextApiResponse) => {
          if (theDomain) {
             const domainPlain = theDomain.get({ plain: true }) as DomainType;
             const normalizedDomain = normalizeDomainBooleans(domainPlain);
-            if (normalizedDomain.scrapeEnabled && normalizedDomain.notification) {
+            if (normalizedDomain.scrapeEnabled) {
                attemptCount++;
                try {
                   await sendNotificationEmail(normalizedDomain, normalizedSettings);
@@ -82,7 +82,7 @@ const notify = async (req: NextApiRequest, res: NextApiResponse) => {
          if (allDomains && allDomains.length > 0) {
             const domains = allDomains.map((el) => normalizeDomainBooleans(el.get({ plain: true }) as DomainType));
             for (const domain of domains) {
-               if (domain.scrapeEnabled && domain.notification) {
+               if (domain.scrapeEnabled) {
                   attemptCount++;
                   try {
                      await sendNotificationEmail(domain, normalizedSettings);

@@ -57,7 +57,7 @@ const DomainItem = ({
    } = domain;
    const { mutateAsync: updateDomainToggle, isLoading: isToggleUpdating } = useUpdateDomainToggles();
 
-   const isDomainActive = Boolean(domain.scrapeEnabled) && Boolean(domain.notification);
+   const isDomainActive = Boolean(domain.scrapeEnabled);
 
    const renderCompactMetric = (value: number) => {
       const { numeric, unit } = formatCompactNumber(value);

@@ -94,7 +94,6 @@ describe('DomainItem Component', () => {
          ...dummyDomain,
          scrapeEnabled: false,
          notify_enabled: false,
-         notification: false,
       };
 
       render(<DomainItem {...defaultProps} domain={inactiveDomain} />);

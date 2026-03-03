@@ -145,7 +145,6 @@ const addDomain = async (req: NextApiRequest, res: NextApiResponse) => {
          lastUpdated: now,
          added: now,
          scrapeEnabled: toDbBool(true),
-         notification: toDbBool(true),
       }));
 
       if (domainsToAdd.length === 0) {
@@ -260,8 +259,6 @@ export const updateDomain = async (req: NextApiRequest, res: NextApiResponse) =>
       if (typeof scrapeEnabled === 'boolean') {
          // Convert boolean to 1/0 for database storage
          updates.scrapeEnabled = toDbBool(scrapeEnabled);
-         // Update the legacy notification field to match scrapeEnabled
-         updates.notification = toDbBool(scrapeEnabled);
       }
       if (search_console) {
          updates.search_console = JSON.stringify(search_console);
