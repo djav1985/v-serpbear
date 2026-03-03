@@ -337,7 +337,7 @@ Error responses always use the following structured failure envelope:
 
 | Field | Type | Description |
 |---|---|---|
-| `error.code` | `string` | Machine-readable error code (e.g. `BAD_REQUEST`, `NOT_FOUND`, `UNAUTHORIZED`, `CONFLICT`, `INTERNAL_SERVER_ERROR`) |
+| `error.code` | `string` | Machine-readable error code (e.g. `BAD_REQUEST`, `NOT_FOUND`, `UNAUTHORIZED`, `CONFLICT`, `METHOD_NOT_ALLOWED`, `INTERNAL_SERVER_ERROR`) |
 | `error.message` | `string` | Human-readable description of the error |
 | `error.details` | `unknown` (optional) | Additional context such as validation error lists |
 | `requestId` | `string` (optional) | Matches the `X-Request-Id` response header for log correlation |
