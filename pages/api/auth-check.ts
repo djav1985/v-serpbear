@@ -1,4 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import jwt from 'jsonwebtoken';
+import Cookies from 'cookies';
 import { withApiLogging } from '../../utils/apiLogging';
 import verifyUser from '../../utils/verifyUser';
 import { logger } from '../../utils/logger';
@@ -22,10 +24,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<AuthCheckRespon
   if (authorized === 'authorized') {
     // Try to extract user from JWT token for additional info
     try {
-      const jwt = await import('jsonwebtoken');
-      const Cookies = await import('cookies');
-      
-      const cookies = new Cookies.default(req, res);
+      const cookies = new Cookies(req, res);
       const token = cookies.get('token');
       
       let user = 'authenticated_user';

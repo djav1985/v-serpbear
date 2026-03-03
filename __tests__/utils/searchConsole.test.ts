@@ -6,6 +6,7 @@ import { generateGoogleConsoleStats } from '../../utils/generateEmail';
 import {
   fetchDomainSCData,
   getSearchConsoleApiInfo,
+  integrateKeywordSCData,
   isSearchConsoleDataFreshForToday,
   parseSearchConsoleItem,
   readLocalSCData,
@@ -165,6 +166,85 @@ describe('parseSearchConsoleItem', () => {
 
     expect(parseSearchConsoleItem(mappedItem, 'example.com').country).toBe('US');
     expect(parseSearchConsoleItem(fallbackItem, 'example.com').country).toBe('XYZ');
+  });
+});
+
+describe('integrateKeywordSCData field mapping', () => {
+  const baseKeyword = {
+    keyword: 'test keyword',
+    country: 'US',
+    device: 'desktop',
+    scData: null,
+  } as unknown as KeywordType;
+
+  const buildSCData = (overrides = {}): SCDomainDataType => ({
+    threeDays: [],
+    sevenDays: [],
+    thirtyDays: [],
+    lastFetched: '',
+    lastFetchError: '',
+    stats: [],
+    ...overrides,
+  });
+
+  const makeItem = (uid: string, clicks: number, impressions: number, ctr: number, position: number) => ({
+    uid,
+    keyword: 'test keyword',
+    device: 'desktop',
+    country: 'US',
+    page: '',
+    clicks,
+    impressions,
+    ctr,
+    position,
+  });
+
+  it('maps impressions, visits, ctr, and position from threeDays data', () => {
+    const uid = 'us:desktop:test_keyword';
+    const scData = buildSCData({
+      threeDays: [makeItem(uid, 6, 30, 20, 3)],
+    });
+
+    const result = integrateKeywordSCData(baseKeyword, scData);
+
+    expect(result.scData.visits.threeDays).toBe(6);
+    expect(result.scData.impressions.threeDays).toBe(30);
+    expect(result.scData.ctr.threeDays).toBe(20);
+    expect(result.scData.position.threeDays).toBe(3);
+  });
+
+  it('computes averages correctly for sevenDays data', () => {
+    const uid = 'us:desktop:test_keyword';
+    const scData = buildSCData({
+      sevenDays: [makeItem(uid, 14, 70, 14, 7)],
+    });
+
+    const result = integrateKeywordSCData(baseKeyword, scData);
+
+    expect(result.scData.visits.avgSevenDays).toBe(2);
+    expect(result.scData.impressions.avgSevenDays).toBe(10);
+  });
+
+  it('computes averages correctly for thirtyDays data', () => {
+    const uid = 'us:desktop:test_keyword';
+    const scData = buildSCData({
+      thirtyDays: [makeItem(uid, 60, 300, 30, 15)],
+    });
+
+    const result = integrateKeywordSCData(baseKeyword, scData);
+
+    expect(result.scData.visits.avgThirtyDays).toBe(2);
+    expect(result.scData.impressions.avgThirtyDays).toBe(10);
+  });
+
+  it('returns zeros for all fields when no matching SC data exists', () => {
+    const scData = buildSCData();
+
+    const result = integrateKeywordSCData(baseKeyword, scData);
+
+    expect(result.scData.visits.sevenDays).toBe(0);
+    expect(result.scData.impressions.thirtyDays).toBe(0);
+    expect(result.scData.position.threeDays).toBe(0);
   });
 });
 
