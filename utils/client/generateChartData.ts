@@ -21,10 +21,16 @@ export const generateTheChartData = (history: KeywordHistory, time:string = '30'
       // produces an all-111 series which chartBounds excludes, leaving the chart blank.
       const windowCutoff = new Date(currentDate);
       windowCutoff.setDate(windowCutoff.getDate() - windowDays);
-      const priorEntries = Object.entries(history)
-         .filter(([k, v]) => typeof v === 'number' && (v as number) > 0 && new Date(k) < windowCutoff)
-         .sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime());
-      if (priorEntries.length > 0) { lastFoundSerp = priorEntries[0][1] as number; }
+      let latestSeedDate: Date | null = null;
+      for (const [dateKey, value] of Object.entries(history)) {
+         if (typeof value !== 'number' || value <= 0) continue;
+         const entryDate = new Date(dateKey);
+         if (entryDate >= windowCutoff) continue;
+         if (!latestSeedDate || entryDate > latestSeedDate) {
+            latestSeedDate = entryDate;
+            lastFoundSerp = value;
+         }
+      }
 
       // First Generate Labels. The labels should be the last 30 days dates. Format: Oct 26
       for (let index = windowDays; index >= 0; index -= 1) {
