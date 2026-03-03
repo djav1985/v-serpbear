@@ -43,8 +43,18 @@ const createRes = () => ({
 } as unknown as NextApiResponse);
 
 describe('GET /api/auth-check', () => {
+  const originalSecret = process.env.SECRET;
+
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    if (originalSecret === undefined) {
+      delete process.env.SECRET;
+    } else {
+      process.env.SECRET = originalSecret;
+    }
   });
 
   it('returns 405 for non-GET requests', async () => {

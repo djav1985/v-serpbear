@@ -248,22 +248,3 @@ describe('integrateKeywordSCData field mapping', () => {
   });
 });
 
-describe('fetchSearchConsoleData error label', () => {
-  it('uses stat type label when type is stat', () => {
-    // The qType expression: type === 'stat' ? '(stats)' : `(${days}days)`
-    // Verify the corrected branch: 'stat' produces '(stats)'
-    const type = 'stat';
-    const days = 30;
-    const qType = type === 'stat' ? '(stats)' : `(${days}days)`;
-    expect(qType).toBe('(stats)');
-  });
-
-  it('uses days label when type is not stat', () => {
-    const type = undefined;
-    const days = 7;
-    const qType = type === 'stat' ? '(stats)' : `(${days}days)`;
-    expect(qType).toBe('(7days)');
-  });
-});
-
-
