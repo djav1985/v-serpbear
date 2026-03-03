@@ -609,9 +609,8 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          : 'false';
       const urlValue = typeof updatedKeyword.url === 'string' ? updatedKeyword.url : null;
 
-      // Build single atomic update payload with ALL fields from API response + flags
-      // In the success path we perform a single update per keyword row to minimize DB writes,
-      // Compute history7d: last 7 entries from the (already-trimmed) history using timestamp sort
+      // Build single atomic update payload with ALL fields from API response + flags.
+      // In the success path we perform a single update per keyword row to minimize DB writes and precompute derived fields such as history7d (last 7 entries from the already-trimmed history using timestamp sort).
       const history7dObj = Object.entries(history)
          .map(([key, value]) => ({ key, date: new Date(key).getTime(), value }))
          .sort((a, b) => a.date - b.date)
