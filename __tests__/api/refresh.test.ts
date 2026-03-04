@@ -250,7 +250,7 @@ describe('/api/refresh', () => {
 
     expect(scrapeKeywordWithStrategy).toHaveBeenCalledWith(expect.objectContaining({ device: 'mobile', position: 0 }), { scraper_type: 'serpapi' });
     expect(previewRes.status).toHaveBeenCalledWith(200);
-    expect(previewRes.json).toHaveBeenCalledWith({ error: '', searchResult: expect.objectContaining({ device: 'mobile' }) });
+    expect(previewRes.json).toHaveBeenCalledWith({ searchResult: expect.objectContaining({ device: 'mobile' }) });
   });
 
   it('defaults to desktop device when device parameter is not provided', async () => {
@@ -276,7 +276,7 @@ describe('/api/refresh', () => {
 
     expect(scrapeKeywordWithStrategy).toHaveBeenCalledWith(expect.objectContaining({ device: 'desktop', position: 0 }), { scraper_type: 'serpapi' });
     expect(previewRes.status).toHaveBeenCalledWith(200);
-    expect(previewRes.json).toHaveBeenCalledWith({ error: '', searchResult: expect.objectContaining({ device: 'desktop' }) });
+    expect(previewRes.json).toHaveBeenCalledWith({ searchResult: expect.objectContaining({ device: 'desktop' }) });
   });
 
   it('rejects manual refresh when domain is already locked', async () => {

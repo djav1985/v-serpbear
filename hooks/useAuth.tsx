@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useQuery } from 'react-query';
-import { apiGet } from '../utils/client/apiClient';
+import { apiGet, ApiError } from '../utils/client/apiClient';
 
 export interface AuthStatus {
   isAuthenticated: boolean;
@@ -16,8 +16,17 @@ const AUTH_STALE_TIME = 5 * 60 * 1000;
 const AUTH_CACHE_TIME = 10 * 60 * 1000;
 
 async function fetchAuthStatus(): Promise<AuthStatus> {
-  const data = await apiGet<{ user?: string }>('/api/auth-check');
-  return { isAuthenticated: true, isLoading: false, user: data.user };
+  try {
+    const data = await apiGet<{ user?: string }>('/api/auth-check');
+    return { isAuthenticated: true, isLoading: false, user: data.user };
+  } catch (err) {
+    // A 401 means the session has expired or the user is not logged in — not an error.
+    // Re-throw anything else (5xx, network failures) so the query enters isError state.
+    if (err instanceof ApiError && err.statusCode === 401) {
+      return { isAuthenticated: false, isLoading: false };
+    }
+    throw err;
+  }
 }
 
 /**

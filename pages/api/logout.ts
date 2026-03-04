@@ -73,7 +73,7 @@ const logout = async (req: NextApiRequest, res: NextApiResponse, startTime: numb
          ip: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'unknown'
       });
 
-      return res.status(200).json({ success: true, error: null });
+      return res.status(200).json({ success: true });
    } catch (error) {
       logger.error('Logout failed with exception', error instanceof Error ? error : new Error(String(error)), {
          duration: Date.now() - startTime

@@ -6,7 +6,7 @@ import { useQueryClient } from 'react-query';
 import Icon from './Icon';
 import { BrandTitle } from './Branding';
 import { AUTH_QUERY_KEY } from '../../hooks/useAuth';
-import { getClientOrigin } from '../../utils/client/origin';
+import { apiPost, ApiError } from '../../utils/client/apiClient';
 
 type TopbarProps = {
    showSettings: Function,
@@ -20,23 +20,14 @@ const TopBar = ({ showSettings, showAddModal }:TopbarProps) => {
    const isDomainsPage = router.pathname === '/domains';
 
    const logoutUser = async () => {
-      // Intentionally uses raw fetch + res.json() rather than apiPost:
-      // the /api/logout response uses a { success, error } shape rather than the
-      // structured { error: { code, message } } envelope that ApiError expects,
-      // so we read the body manually to display the correct toast message.
       try {
-         const fetchOpts = { method: 'POST', headers: new Headers({ 'Content-Type': 'application/json', Accept: 'application/json' }) };
-         const origin = getClientOrigin();
-         const res = await fetch(`${origin}/api/logout`, fetchOpts).then((result) => result.json());
-         if (!res.success) {
-            toast(res.error, { icon: '⚠️' });
-         } else {
-            // Invalidate the cached auth state so protected pages don't see stale authenticated result
-            await queryClient.invalidateQueries(AUTH_QUERY_KEY);
-            router.push('/login');
-         }
-      } catch (_fetchError) {
-         toast('Failed to log out. Please try again.', { icon: '⚠️' });
+         await apiPost('/api/logout', {});
+         // Invalidate the cached auth state so protected pages don't see stale authenticated result
+         await queryClient.invalidateQueries(AUTH_QUERY_KEY);
+         router.push('/login');
+      } catch (err) {
+         const message = err instanceof ApiError ? err.message : 'Failed to log out. Please try again.';
+         toast(message, { icon: '⚠️' });
       }
    };
 

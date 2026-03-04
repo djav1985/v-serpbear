@@ -102,7 +102,7 @@ describe('Authentication cookie handling', () => {
       expect(cookiesOptions).toEqual({ secure: false });
 
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({ success: true, error: null });
+      expect(res.json).toHaveBeenCalledWith({ success: true });
    });
 
    it('defaults to a 24 hour session when SESSION_DURATION is missing or invalid', async () => {
@@ -156,7 +156,7 @@ describe('Authentication cookie handling', () => {
       expect(cookiesRes).toBe(res);
       expect(cookiesOptions).toEqual({ secure: false });
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({ success: true, error: null });
+      expect(res.json).toHaveBeenCalledWith({ success: true });
    });
 
    it('sets secure cookies when requests are served over HTTPS', async () => {

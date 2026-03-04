@@ -208,7 +208,7 @@ const getKeywordSearchResults = async (req: NextApiRequest, res: NextApiResponse
             country: req.query.country as string,
             device: requestedDevice,
          };
-         return res.status(200).json({ error: '', searchResult });
+         return res.status(200).json({ searchResult });
       }
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Error Scraping Search Results for the given keyword!', requestId));
    } catch (error) {

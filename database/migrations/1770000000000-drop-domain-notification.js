@@ -5,7 +5,7 @@
 // determined solely by `scrapeEnabled`.
 
 module.exports = {
-   up: async function up(params = {}) {
+   up: async function up(params = {}, legacySequelize) {
       const queryInterface = params?.context ?? params;
 
       return queryInterface.sequelize.transaction(async (t) => {
@@ -28,10 +28,11 @@ module.exports = {
       });
    },
 
-   down: async function down(params = {}) {
+   down: async function down(params = {}, legacySequelize) {
       const queryInterface = params?.context ?? params;
-      const Sequelize = params?.Sequelize
-         ?? (params?.context?.sequelize?.constructor)
+      const SequelizeLib = params?.Sequelize
+         ?? legacySequelize
+         ?? queryInterface?.sequelize?.constructor
          ?? require('sequelize');
 
       return queryInterface.sequelize.transaction(async (t) => {
@@ -49,7 +50,7 @@ module.exports = {
             await queryInterface.addColumn(
                'domain',
                'notification',
-               { type: Sequelize.DataTypes.INTEGER, allowNull: true, defaultValue: 1 },
+               { type: SequelizeLib.DataTypes.INTEGER, allowNull: true, defaultValue: 1 },
                { transaction: t },
             );
             console.log('[MIGRATION] Restored column: domain.notification');

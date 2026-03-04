@@ -9,11 +9,6 @@ import isRequestSecure from '../../utils/api/isRequestSecure';
 import { withApiLogging } from '../../utils/apiLogging';
 import { errorResponse } from '../../utils/api/response';
 
-type loginResponse = {
-   success?: boolean
-   error?: string|null,
-}
-
 async function handler(req: NextApiRequest, res: NextApiResponse) {
    const requestId = (req as ExtendedRequest).requestId;
    const startTime = Date.now();
@@ -36,7 +31,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
    return res.status(405).json(errorResponse('METHOD_NOT_ALLOWED', 'Method not allowed', requestId));
 }
 
-const loginUser = async (req: NextApiRequest, res: NextApiResponse<loginResponse>, startTime: number) => {
+const loginUser = async (req: NextApiRequest, res: NextApiResponse, startTime: number) => {
+   const requestId = (req as ExtendedRequest).requestId;
    const { username, password } = req.body;
    
    logger.info('Login attempt started', {
@@ -52,7 +48,7 @@ const loginUser = async (req: NextApiRequest, res: NextApiResponse<loginResponse
          hasPassword: !!password,
          duration: Date.now() - startTime
       });
-      return res.status(401).json({ error });
+      return res.status(401).json(errorResponse('MISSING_CREDENTIALS', error, requestId));
    }
 
    const userName = process.env.USER_NAME ? process.env.USER_NAME : process.env.USER;
@@ -60,17 +56,17 @@ const loginUser = async (req: NextApiRequest, res: NextApiResponse<loginResponse
    // Enhanced environment validation
    if (!userName) {
       logger.error('Login configuration error: USER/USER_NAME not set in environment variables');
-      return res.status(500).json({ error: 'Server configuration error' });
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Server configuration error', requestId));
    }
    
    if (!process.env.PASSWORD) {
       logger.error('Login configuration error: PASSWORD not set in environment variables');
-      return res.status(500).json({ error: 'Server configuration error' });
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Server configuration error', requestId));
    }
    
    if (!process.env.SECRET) {
       logger.error('Login configuration error: SECRET not set in environment variables');
-      return res.status(500).json({ error: 'Server configuration error' });
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Server configuration error', requestId));
    }
 
    // Use timing-safe comparison to prevent timing attacks
@@ -106,7 +102,7 @@ const loginUser = async (req: NextApiRequest, res: NextApiResponse<loginResponse
             ip: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'unknown'
          }
       );
-      return res.status(500).json({ error: 'Internal server error' });
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Internal server error', requestId));
    }
 
    if (isUsernameValid && isPasswordValid) {
@@ -136,13 +132,13 @@ const loginUser = async (req: NextApiRequest, res: NextApiResponse<loginResponse
             ip: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'unknown'
          });
 
-         return res.status(200).json({ success: true, error: null });
+         return res.status(200).json({ success: true });
       } catch (error) {
          logger.error('Login failed: JWT token generation error', error instanceof Error ? error : new Error(String(error)), {
             username: userName,
             duration: Date.now() - startTime
          });
-         return res.status(500).json({ error: 'Internal server error' });
+         return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Internal server error', requestId));
       }
    }
 
@@ -155,7 +151,7 @@ const loginUser = async (req: NextApiRequest, res: NextApiResponse<loginResponse
       ip: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'unknown'
    });
 
-   return res.status(401).json({ success: false, error });
+   return res.status(401).json(errorResponse('INVALID_CREDENTIALS', error, requestId));
 };
 
 export default withApiLogging(handler, { name: 'login' });
