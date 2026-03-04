@@ -14,6 +14,7 @@ import isRequestSecure from '../../../utils/api/isRequestSecure';
 import { parseStrictBooleanQueryParam } from '../../../pages/api/domains';
 import { errorResponse } from '../../../utils/api/response';
 import type { FailureEnvelope } from '../../../utils/api/response';
+import normalizeOrigin from '../../../utils/normalizeOrigin';
 
 // ---------------------------------------------------------------------------
 // isRequestSecure
@@ -182,8 +183,6 @@ describe('errorResponse', () => {
 // ---------------------------------------------------------------------------
 // normalizeOrigin
 // ---------------------------------------------------------------------------
-
-import normalizeOrigin from '../../../utils/normalizeOrigin';
 
 describe('normalizeOrigin', () => {
    it('removes a single trailing slash', () => {

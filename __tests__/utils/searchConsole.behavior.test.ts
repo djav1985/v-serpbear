@@ -1,6 +1,7 @@
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
+import path from 'path';
 
 import { generateGoogleConsoleStats } from '../../utils/generateEmail';
 import {
@@ -13,6 +14,7 @@ import {
   readLocalSCData,
   resolveDomainIdentifier,
 } from '../../utils/searchConsole';
+import { logger } from '../../utils/logger';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -35,6 +37,36 @@ jest.mock('../../utils/searchConsole', () => {
     getSearchConsoleApiInfo: jest.fn(),
   };
 });
+
+jest.mock('../../utils/logger', () => ({
+  logger: {
+    error: jest.fn(),
+    warn: jest.fn(),
+    info: jest.fn(),
+    debug: jest.fn(),
+    verbose: jest.fn(),
+    isSuccessLoggingEnabled: jest.fn(() => true),
+  },
+}));
+
+jest.mock('fs/promises', () => ({
+  readFile: jest.fn().mockRejectedValue(new Error('file not found')),
+  writeFile: jest.fn().mockResolvedValue(undefined),
+  unlink: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock('google-auth-library', () => ({
+  JWT: jest.fn().mockImplementation(() => ({})),
+}));
+
+const mockSCQuery = jest.fn();
+jest.mock('@googleapis/searchconsole', () => ({
+  searchconsole_v1: {
+    Searchconsole: jest.fn().mockImplementation(() => ({
+      searchanalytics: { query: mockSCQuery },
+    })),
+  },
+}));
 
 const mockReadLocalSCData = readLocalSCData as jest.Mock;
 const mockFetchDomainSCData = fetchDomainSCData as jest.Mock;
@@ -255,38 +287,6 @@ describe('integrateKeywordSCData field mapping', () => {
 // fetchSearchConsoleData error logging
 // ---------------------------------------------------------------------------
 
-jest.mock('../../utils/logger', () => ({
-  logger: {
-    error: jest.fn(),
-    warn: jest.fn(),
-    info: jest.fn(),
-    debug: jest.fn(),
-    verbose: jest.fn(),
-    isSuccessLoggingEnabled: jest.fn(() => true),
-  },
-}));
-
-jest.mock('fs/promises', () => ({
-  readFile: jest.fn().mockRejectedValue(new Error('file not found')),
-  writeFile: jest.fn().mockResolvedValue(undefined),
-  unlink: jest.fn().mockResolvedValue(undefined),
-}));
-
-jest.mock('google-auth-library', () => ({
-  JWT: jest.fn().mockImplementation(() => ({})),
-}));
-
-const mockSCQuery = jest.fn();
-jest.mock('@googleapis/searchconsole', () => ({
-  searchconsole_v1: {
-    Searchconsole: jest.fn().mockImplementation(() => ({
-      searchanalytics: { query: mockSCQuery },
-    })),
-  },
-}));
-
-import { logger } from '../../utils/logger';
-
 const mockDomainForSC = {
   domain: 'example.com',
   search_console: JSON.stringify({ property_type: 'domain', url: '' }),
@@ -336,8 +336,6 @@ describe('fetchSearchConsoleData error logging', () => {
 // ---------------------------------------------------------------------------
 // Domain Conversion Fixes (getSafeSCDataFilePath, resolveDomainIdentifier)
 // ---------------------------------------------------------------------------
-
-import path from 'path';
 
 describe('Domain Conversion Fixes', () => {
   let cwdSpy: jest.SpyInstance;
