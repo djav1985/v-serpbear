@@ -2,9 +2,22 @@ import { Sequelize } from 'sequelize';
 
 const sqliteDialect = require('../../database/sqlite-dialect');
 
+// Mock the migration logger so tests assert against logger calls, not console.*
+jest.mock('../../database/migrationLogger', () => ({
+  logger: {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+  },
+}));
+
 describe('Migration Error Handling', () => {
   let sequelize: Sequelize;
-  
+  const { logger } = require('../../database/migrationLogger') as {
+    logger: { info: jest.Mock; warn: jest.Mock; error: jest.Mock; debug: jest.Mock }
+  };
+
   beforeEach(() => {
     sequelize = new Sequelize({
       dialect: 'sqlite',
@@ -12,6 +25,7 @@ describe('Migration Error Handling', () => {
       storage: ':memory:',
       logging: false,
     });
+    jest.clearAllMocks();
   });
 
   afterEach(async () => {
@@ -32,16 +46,11 @@ describe('Migration Error Handling', () => {
       describeTable: jest.fn().mockRejectedValue(new Error('Table does not exist')),
     };
 
-    // Mock console.log to capture skip message
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-    
     // Migration should complete without throwing
     await expect(migration.up({ context: mockQueryInterface })).resolves.not.toThrow();
     
-    // Verify skip message was logged
-    expect(consoleSpy).toHaveBeenCalledWith('[MIGRATION] Skipping migration - keyword table does not exist yet');
-    
-    consoleSpy.mockRestore();
+    // Verify skip message was logged via logger.info (not console.log)
+    expect(logger.info).toHaveBeenCalledWith('[MIGRATION] Skipping migration - keyword table does not exist yet');
   });
 
   test('migration down function should also re-throw errors', async () => {
@@ -56,18 +65,14 @@ describe('Migration Error Handling', () => {
       removeIndex: jest.fn().mockRejectedValue(new Error('Index removal failed')),
     };
 
-    // Mock console.error to capture error logging
-    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    
     try {
       await migration.down({ context: mockQueryInterface });
       throw new Error('Expected migration to throw error but it did not');
     } catch (error) {
       expect(error).toBeInstanceOf(Error);
       expect((error as Error).message).toBe('Index removal failed');
-      expect(consoleSpy).toHaveBeenCalledWith('Migration rollback error:', expect.any(Error));
-    } finally {
-      consoleSpy.mockRestore();
+      // Error is now routed through logger.error, not console.error
+      expect(logger.error).toHaveBeenCalledWith('Migration rollback error', expect.any(Error));
     }
   });
 
@@ -83,16 +88,11 @@ describe('Migration Error Handling', () => {
       describeTable: jest.fn().mockRejectedValue(new Error('Table does not exist')),
     };
 
-    // Mock console.log to capture skip message
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-    
     // Migration rollback should complete without throwing
     await expect(migration.down({ context: mockQueryInterface })).resolves.not.toThrow();
     
-    // Verify skip message was logged
-    expect(consoleSpy).toHaveBeenCalledWith('[MIGRATION] Skipping rollback - keyword table does not exist');
-    
-    consoleSpy.mockRestore();
+    // Verify skip message was logged via logger.info (not console.log)
+    expect(logger.info).toHaveBeenCalledWith('[MIGRATION] Skipping rollback - keyword table does not exist');
   });
 
   test('successful migrations should not throw errors', async () => {

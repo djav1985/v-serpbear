@@ -1,5 +1,7 @@
 // Migration: Collapse keyword city/state metadata into a single location column.
 
+const { logger } = require('../migrationLogger');
+
 const buildLocationString = (city, state, country) => {
    const normalize = (value) => typeof value === 'string' ? value.trim() : '';
    const parts = [normalize(city), normalize(state), normalize(country)].filter((part) => part.length > 0);
@@ -60,7 +62,7 @@ module.exports = {
          } catch (_describeError) {
             // Table doesn't exist yet - skip migration
             // Tables will be created by db.sync() after migrations run
-            console.log('[MIGRATION] Skipping migration - keyword table does not exist yet');
+            logger.info('[MIGRATION] Skipping migration - keyword table does not exist yet');
             return;
          }
 
@@ -104,7 +106,7 @@ module.exports = {
             await queryInterface.removeColumn('keyword', 'settings', { transaction });
          }
 
-         console.log('Collapsed keyword city/state metadata into location column.');
+         logger.info('Collapsed keyword city/state metadata into location column.');
       });
    },
 
@@ -121,7 +123,7 @@ module.exports = {
             keywordTableDefinition = await queryInterface.describeTable('keyword');
          } catch (_describeError) {
             // Table doesn't exist - skip rollback
-            console.log('[MIGRATION] Skipping rollback - keyword table does not exist');
+            logger.info('[MIGRATION] Skipping rollback - keyword table does not exist');
             return;
          }
 
@@ -188,7 +190,7 @@ module.exports = {
             }
          }
 
-         console.log('Restored keyword city/state columns from location.');
+         logger.info('Restored keyword city/state columns from location.');
       });
    }
 };

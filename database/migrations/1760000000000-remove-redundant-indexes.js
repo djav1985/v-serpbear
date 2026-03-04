@@ -10,6 +10,8 @@
 //
 // Removing these duplicate indexes reduces write overhead and storage cost.
 
+const { logger } = require('../migrationLogger');
+
 module.exports = {
    up: async function up(params = {}) {
       const queryInterface = params?.context ?? params;
@@ -35,18 +37,18 @@ module.exports = {
          if (keywordTableExists) {
             try {
                await queryInterface.removeIndex('keyword', 'keyword_domain_idx', { transaction: t });
-               console.log('[MIGRATION] Removed redundant index: keyword_domain_idx');
+               logger.info('[MIGRATION] Removed redundant index: keyword_domain_idx');
             } catch (_error) {
-               console.log('[MIGRATION] keyword_domain_idx not found, skipping');
+               logger.info('[MIGRATION] keyword_domain_idx not found, skipping');
             }
          }
 
          if (domainTableExists) {
             try {
                await queryInterface.removeIndex('domain', 'domain_slug_idx', { transaction: t });
-               console.log('[MIGRATION] Removed redundant index: domain_slug_idx');
+               logger.info('[MIGRATION] Removed redundant index: domain_slug_idx');
             } catch (_error) {
-               console.log('[MIGRATION] domain_slug_idx not found, skipping');
+               logger.info('[MIGRATION] domain_slug_idx not found, skipping');
             }
          }
       });
@@ -87,7 +89,7 @@ module.exports = {
             });
          }
 
-         console.log('[MIGRATION] Restored previously removed indexes.');
+         logger.info('[MIGRATION] Restored previously removed indexes.');
       });
    },
 };

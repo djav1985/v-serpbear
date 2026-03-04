@@ -1,5 +1,7 @@
 // Migration: Adds scrape_strategy, scrape_pagination_limit, and scrape_smart_full_fallback fields to domain table.
 
+const { logger } = require('../migrationLogger');
+
 module.exports = {
    up: async function up(params = {}, legacySequelize) {
       const queryInterface = params?.context ?? params;
@@ -13,7 +15,7 @@ module.exports = {
          try {
             domainTableDefinition = await queryInterface.describeTable('domain');
          } catch (_describeError) {
-            console.log('[MIGRATION] Skipping add-domain-scrape-strategy-fields — table does not exist yet');
+            logger.info('[MIGRATION] Skipping add-domain-scrape-strategy-fields — table does not exist yet');
             return;
          }
 
@@ -36,7 +38,7 @@ module.exports = {
          try {
             domainTableDefinition = await queryInterface.describeTable('domain');
          } catch (_describeError) {
-            console.log('[MIGRATION] Skipping down add-domain-scrape-strategy-fields — table does not exist');
+            logger.info('[MIGRATION] Skipping down add-domain-scrape-strategy-fields — table does not exist');
             return;
          }
 

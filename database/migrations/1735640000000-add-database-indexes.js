@@ -1,5 +1,7 @@
 // Migration: Add database indexes for better query performance
 
+const { logger } = require('../migrationLogger');
+
 module.exports = {
    up: async function up(params = {}) {
       const queryInterface = params?.context ?? params;
@@ -24,7 +26,7 @@ module.exports = {
             }
             
             if (!keywordTableExists && !domainTableExists) {
-               console.log('[MIGRATION] Skipping migration - keyword and domain tables do not exist yet');
+               logger.info('[MIGRATION] Skipping migration - keyword and domain tables do not exist yet');
                return;
             }
 
@@ -62,9 +64,9 @@ module.exports = {
                });
             }
 
-            console.log('[MIGRATION] Added database indexes for improved performance');
+            logger.info('[MIGRATION] Added database indexes for improved performance');
          } catch (error) {
-            console.error('Migration error:', error);
+            logger.error('Migration error', error instanceof Error ? error : new Error(String(error)));
             throw error;
          }
       });
@@ -93,7 +95,7 @@ module.exports = {
             }
             
             if (!keywordTableExists && !domainTableExists) {
-               console.log('[MIGRATION] Skipping rollback - keyword and domain tables do not exist');
+               logger.info('[MIGRATION] Skipping rollback - keyword and domain tables do not exist');
                return;
             }
 
@@ -108,9 +110,9 @@ module.exports = {
                await queryInterface.removeIndex('domain', 'domain_slug_idx', { transaction: t });
             }
             
-            console.log('[MIGRATION] Removed database indexes');
+            logger.info('[MIGRATION] Removed database indexes');
          } catch (error) {
-            console.error('Migration rollback error:', error);
+            logger.error('Migration rollback error', error instanceof Error ? error : new Error(String(error)));
             throw error;
          }
       });

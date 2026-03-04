@@ -2,6 +2,8 @@
 // Stores the last 7 days of position history as a JSON string, pre-computed at write time.
 // This avoids per-request sorting when the GET /api/keywords endpoint slices history.
 
+const { logger } = require('../migrationLogger');
+
 module.exports = {
    up: async function up(params = {}, legacySequelize) {
       const queryInterface = params?.context ?? params;
@@ -15,7 +17,7 @@ module.exports = {
          try {
             tableDefinition = await queryInterface.describeTable('keyword');
          } catch (_describeError) {
-            console.log('[MIGRATION] Skipping migration - keyword table does not exist yet');
+            logger.info('[MIGRATION] Skipping migration - keyword table does not exist yet');
             return;
          }
 
@@ -28,7 +30,7 @@ module.exports = {
             );
          }
 
-         console.log('[MIGRATION] Added keyword.history7d column.');
+         logger.info('[MIGRATION] Added keyword.history7d column.');
       });
    },
 
@@ -40,7 +42,7 @@ module.exports = {
          try {
             tableDefinition = await queryInterface.describeTable('keyword');
          } catch (_describeError) {
-            console.log('[MIGRATION] Skipping rollback - keyword table does not exist');
+            logger.info('[MIGRATION] Skipping rollback - keyword table does not exist');
             return;
          }
 
@@ -48,7 +50,7 @@ module.exports = {
             await queryInterface.removeColumn('keyword', 'history7d', { transaction });
          }
 
-         console.log('[MIGRATION] Removed keyword.history7d column.');
+         logger.info('[MIGRATION] Removed keyword.history7d column.');
       });
    },
 };

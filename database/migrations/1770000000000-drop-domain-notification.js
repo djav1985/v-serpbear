@@ -4,6 +4,8 @@
 // serving no independent purpose. Domain notification eligibility is now
 // determined solely by `scrapeEnabled`.
 
+const { logger } = require('../migrationLogger');
+
 module.exports = {
    up: async function up(params = {}, _legacySequelize) {
       const queryInterface = params?.context ?? params;
@@ -21,9 +23,9 @@ module.exports = {
 
          if (domainTableExists && columns.notification) {
             await queryInterface.removeColumn('domain', 'notification', { transaction: t });
-            console.log('[MIGRATION] Dropped column: domain.notification');
+            logger.info('[MIGRATION] Dropped column: domain.notification');
          } else {
-            console.log('[MIGRATION] domain.notification not found, skipping');
+            logger.info('[MIGRATION] domain.notification not found, skipping');
          }
       });
    },
@@ -53,7 +55,7 @@ module.exports = {
                { type: SequelizeLib.DataTypes.INTEGER, allowNull: true, defaultValue: 1 },
                { transaction: t },
             );
-            console.log('[MIGRATION] Restored column: domain.notification');
+            logger.info('[MIGRATION] Restored column: domain.notification');
          }
       });
    },

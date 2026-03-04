@@ -2,6 +2,8 @@
 // Adds indexes on keyword(updating) and keyword(domain, updating) which appear in
 // refresh/list codepaths and are not covered by the existing indexes.
 
+const { logger } = require('../migrationLogger');
+
 module.exports = {
    up: async function up(params = {}) {
       const queryInterface = params?.context ?? params;
@@ -16,7 +18,7 @@ module.exports = {
          }
 
          if (!keywordTableExists) {
-            console.log('[MIGRATION] Skipping migration - keyword table does not exist yet');
+            logger.info('[MIGRATION] Skipping migration - keyword table does not exist yet');
             return;
          }
 
@@ -33,7 +35,7 @@ module.exports = {
             transaction: t,
          });
 
-         console.log('[MIGRATION] Added keyword hotpath indexes.');
+         logger.info('[MIGRATION] Added keyword hotpath indexes.');
       });
    },
 
@@ -50,14 +52,14 @@ module.exports = {
          }
 
          if (!keywordTableExists) {
-            console.log('[MIGRATION] Skipping rollback - keyword table does not exist');
+            logger.info('[MIGRATION] Skipping rollback - keyword table does not exist');
             return;
          }
 
          await queryInterface.removeIndex('keyword', 'keyword_updating_idx', { transaction: t });
          await queryInterface.removeIndex('keyword', 'keyword_domain_updating_idx', { transaction: t });
 
-         console.log('[MIGRATION] Removed keyword hotpath indexes.');
+         logger.info('[MIGRATION] Removed keyword hotpath indexes.');
       });
    },
 };

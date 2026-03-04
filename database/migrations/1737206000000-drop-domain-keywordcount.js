@@ -1,5 +1,7 @@
 // Migration: Remove keywordCount column from domain table.
 
+const { logger } = require('../migrationLogger');
+
 module.exports = {
    up: async function up(params = {}) {
       const queryInterface = params?.context ?? params;
@@ -11,7 +13,7 @@ module.exports = {
          } catch (_describeError) {
             // Table doesn't exist yet - skip migration
             // Tables will be created by db.sync() after migrations run
-            console.log('[MIGRATION] Skipping migration - domain table does not exist yet');
+            logger.info('[MIGRATION] Skipping migration - domain table does not exist yet');
             return;
          }
 
@@ -19,7 +21,7 @@ module.exports = {
             await queryInterface.removeColumn('domain', 'keywordCount', { transaction });
          }
 
-         console.log('Removed domain.keywordCount column.');
+         logger.info('Removed domain.keywordCount column.');
       });
    },
 
@@ -36,7 +38,7 @@ module.exports = {
             domainTableDefinition = await queryInterface.describeTable('domain');
          } catch (_describeError) {
             // Table doesn't exist - skip rollback
-            console.log('[MIGRATION] Skipping rollback - domain table does not exist');
+            logger.info('[MIGRATION] Skipping rollback - domain table does not exist');
             return;
          }
 
@@ -49,7 +51,7 @@ module.exports = {
             );
          }
 
-         console.log('Restored domain.keywordCount column.');
+         logger.info('Restored domain.keywordCount column.');
       });
    },
 };

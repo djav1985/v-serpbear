@@ -91,6 +91,7 @@ export class Logger {
   private log(level: LogLevel, levelName: string, message: string, meta?: Record<string, any>, error?: Error): void {
     if (level <= this.logLevel) {
       const formattedLog = Logger.formatLogEntry(levelName, message, meta, error);
+      // eslint-disable-next-line no-console
       console.log(formattedLog);
     }
   }
