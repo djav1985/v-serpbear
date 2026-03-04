@@ -6,21 +6,13 @@ import { logger } from '../../utils/logger';
 import { fetchDomainSCData, getSearchConsoleApiInfo, readLocalSCData, resolveDomainIdentifier } from '../../utils/searchConsole';
 import verifyUser from '../../utils/verifyUser';
 import { withApiLogging } from '../../utils/apiLogging';
-
-type searchConsoleRes = {
-   data: SCDomainDataType|null
-   error?: string|null,
-}
-
-type searchConsoleCRONRes = {
-   status: string,
-   error?: string|null,
-}
+import { errorResponse } from '../../utils/api/response';
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
+   const requestId = (req as ExtendedRequest).requestId;
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
-      return res.status(401).json({ error: authorized });
+      return res.status(401).json(errorResponse('UNAUTHORIZED', authorized, requestId));
    }
    if (req.method === 'GET') {
       return getDomainSearchConsoleData(req, res);
@@ -28,14 +20,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
    if (req.method === 'POST') {
       return cronRefreshSearchConsoleData(req, res);
    }
-   return res.status(405).json({ error: 'Method not allowed' });
+   return res.status(405).json(errorResponse('METHOD_NOT_ALLOWED', 'Method not allowed', requestId));
 }
 
-const getDomainSearchConsoleData = async (req: NextApiRequest, res: NextApiResponse<searchConsoleRes>) => {
-   if (!req.query.domain || typeof req.query.domain !== 'string') return res.status(400).json({ data: null, error: 'Domain is Missing.' });
+const getDomainSearchConsoleData = async (req: NextApiRequest, res: NextApiResponse) => {
+   const requestId = (req as ExtendedRequest).requestId;
+   if (!req.query.domain || typeof req.query.domain !== 'string') return res.status(400).json(errorResponse('BAD_REQUEST', 'Domain is Missing.', requestId));
    const domainname = resolveDomainIdentifier(req.query.domain as string);
    if (!domainname) {
-      return res.status(400).json({ data: null, error: 'Domain is Missing.' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Domain is Missing.', requestId));
    }
    const localSCData = await readLocalSCData(domainname);
    const isFresh = localSCData && localSCData.threeDays && localSCData.threeDays.length
@@ -50,7 +43,7 @@ const getDomainSearchConsoleData = async (req: NextApiRequest, res: NextApiRespo
       const query = { domain: domainname };
       const foundDomain:Domain| null = await Domain.findOne({ where: query });
       if (!foundDomain) {
-         return res.status(404).json({ data: null, error: 'Domain not found.' });
+         return res.status(404).json(errorResponse('NOT_FOUND', 'Domain not found.', requestId));
       }
       const domainObj: DomainType = foundDomain.get({ plain: true });
       const scDomainAPI = domainObj?.search_console ? await getSearchConsoleApiInfo(domainObj) : { client_email: '', private_key: '' };
@@ -63,14 +56,15 @@ const getDomainSearchConsoleData = async (req: NextApiRequest, res: NextApiRespo
       if (scData && scData.thirtyDays && scData.thirtyDays.length) {
          return res.status(200).json({ data: scData });
       }
-      return res.status(400).json({ data: null, error: 'Error Fetching Data from Google Search Console.' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Error Fetching Data from Google Search Console.', requestId));
    } catch (error) {
       logger.error('Error getting Search Console data for domain', error instanceof Error ? error : new Error(String(error)), { domain: domainname });
-      return res.status(400).json({ data: null, error: 'Error Fetching Data from Google Search Console.' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Error Fetching Data from Google Search Console.', requestId));
    }
 };
 
-const cronRefreshSearchConsoleData = async (req: NextApiRequest, res: NextApiResponse<searchConsoleCRONRes>) => {
+const cronRefreshSearchConsoleData = async (_req: NextApiRequest, res: NextApiResponse) => {
+   const requestId = (_req as ExtendedRequest).requestId;
    try {
       const allDomainsRaw = await Domain.findAll();
       const Domains: DomainType[] = allDomainsRaw.map((el) => el.get({ plain: true }));
@@ -95,7 +89,7 @@ const cronRefreshSearchConsoleData = async (req: NextApiRequest, res: NextApiRes
       return res.status(200).json({ status: 'completed' });
    } catch (error) {
       logger.error('Error in CRON updating Search Console data', error instanceof Error ? error : new Error(String(error)));
-      return res.status(400).json({ status: 'failed', error: 'Error Fetching Data from Google Search Console.' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Error Fetching Data from Google Search Console.', requestId));
    }
 };
 

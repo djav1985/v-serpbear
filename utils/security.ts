@@ -1,6 +1,17 @@
 /**
  * Shared input hygiene helpers used throughout the application.
  */
+
+/**
+ * Trims a string value; returns '' for null/undefined.
+ */
+export const trimString = (value?: string | null): string => (typeof value === 'string' ? value.trim() : '');
+
+/**
+ * Sanitizes an SMTP hostname: trims whitespace and removes trailing dots.
+ */
+export const sanitizeHostname = (host?: string | null): string => trimString(host).replace(/\.+$/, '');
+
 export const safeTrim = (value: any): string => {
    if (typeof value === 'string') {
       return value.trim();

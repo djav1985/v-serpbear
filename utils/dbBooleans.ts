@@ -19,14 +19,17 @@ export const fromDbBool = (value: number | null | undefined): boolean => value =
  * @param value - The value to normalize
  * @returns boolean representation
  * 
- * IMPORTANT: This function uses a conservative approach for safety.
- * Only explicit truthy values ('true', '1', true, non-zero numbers) return true.
- * All other values (including unrecognized strings, null, undefined, objects, etc.) return false.
- * This prevents API errors or unexpected values from being interpreted as true.
+ * Recognized truthy values:
+ *  - boolean `true`
+ *  - non-zero numbers (e.g. `1`)
+ *  - strings (case-insensitive, trimmed): `'true'`, `'1'`, `'yes'`, `'on'`
+ * All other values (including `false`, `0`, `'false'`, `'0'`, `'no'`, `'off'`,
+ * unrecognized strings, `null`, `undefined`, objects, arrays) return `false`.
  * 
  * @example
  * normalizeToBoolean(1) // true (DB integer)
  * normalizeToBoolean('true') // true (API string)
+ * normalizeToBoolean('yes') // true
  * normalizeToBoolean('0') // false (string number)
  * normalizeToBoolean('error') // false (unrecognized string)
  * normalizeToBoolean(null) // false (null/undefined)
@@ -46,10 +49,10 @@ export const normalizeToBoolean = (value: unknown): boolean => {
    if (typeof value === 'string') {
       const normalized = value.trim().toLowerCase();
       // Only explicitly recognized truthy strings return true
-      if (normalized === 'true' || normalized === '1') {
+      if (normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on') {
          return true;
       }
-      // All other strings (including empty, 'false', '0', errors, etc.) return false
+      // All other strings (including empty, 'false', '0', 'no', 'off', errors, etc.) return false
       return false;
    }
 

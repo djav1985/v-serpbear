@@ -6,13 +6,10 @@ import verifyUser from '../../utils/verifyUser';
 import { withApiLogging } from '../../utils/apiLogging';
 import { logger } from '../../utils/logger';
 import isRequestSecure from '../../utils/api/isRequestSecure';
-
-type logoutResponse = {
-   success?: boolean
-   error?: string|null,
-}
+import { errorResponse } from '../../utils/api/response';
 
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
+   const requestId = (req as ExtendedRequest).requestId;
    const startTime = Date.now();
    
    logger.info('Logout API endpoint accessed', {
@@ -26,7 +23,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
          method: req.method,
          duration: Date.now() - startTime
       });
-      return res.status(405).json({ success: false, error: 'Method not allowed' });
+      return res.status(405).json(errorResponse('METHOD_NOT_ALLOWED', 'Method not allowed', requestId));
    }
 
    const authorized = verifyUser(req, res);
@@ -35,13 +32,14 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
          reason: authorized,
          duration: Date.now() - startTime
       });
-      return res.status(401).json({ error: authorized });
+      return res.status(401).json(errorResponse('UNAUTHORIZED', authorized, requestId));
    }
 
    return logout(req, res, startTime);
 };
 
-const logout = async (req: NextApiRequest, res: NextApiResponse<logoutResponse>, startTime: number) => {
+const logout = async (req: NextApiRequest, res: NextApiResponse, startTime: number) => {
+   const requestId = (req as ExtendedRequest).requestId;
    try {
       const secureCookie = isRequestSecure(req);
       const cookies = new Cookies(req, res, { secure: secureCookie });
@@ -56,7 +54,7 @@ const logout = async (req: NextApiRequest, res: NextApiResponse<logoutResponse>,
             username = decoded?.user || username;
          }
       } catch (error) {
-         logger.debug('Failed to decode logout token during logout', error instanceof Error ? error : new Error(String(error)));
+         logger.debug('Failed to decode logout token during logout', { error: error instanceof Error ? error.message : String(error) });
       }
 
       // Clear the token cookie
@@ -75,12 +73,12 @@ const logout = async (req: NextApiRequest, res: NextApiResponse<logoutResponse>,
          ip: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'unknown'
       });
 
-      return res.status(200).json({ success: true, error: null });
+      return res.status(200).json({ success: true });
    } catch (error) {
       logger.error('Logout failed with exception', error instanceof Error ? error : new Error(String(error)), {
          duration: Date.now() - startTime
       });
-      return res.status(500).json({ success: false, error: 'Internal server error' });
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Internal server error', requestId));
    }
 };
 

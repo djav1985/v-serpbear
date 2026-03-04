@@ -1,12 +1,9 @@
 import toast from 'react-hot-toast';
 import { useMutation, useQuery, useQueryClient } from 'react-query';
-import { getClientOrigin } from '../utils/client/origin';
-import { throwOnError } from '../utils/client/fetchWithError';
+import { apiGet, apiPost, apiPut } from '../utils/client/apiClient';
 
 export async function fetchSettings() {
-   const origin = getClientOrigin();
-   const res = await fetch(`${origin}/api/settings`, { method: 'GET' });
-   return res.json();
+   return apiGet('/api/settings');
 }
 
 export function useFetchSettings() {
@@ -16,16 +13,9 @@ export function useFetchSettings() {
 export const useUpdateSettings = (onSuccess:Function|undefined) => {
    const queryClient = useQueryClient();
 
-   return useMutation(async (settings: SettingsType) => {
-      // console.log('settings: ', JSON.stringify(settings));
-
-      const headers = new Headers({ 'Content-Type': 'application/json', Accept: 'application/json' });
-      const fetchOpts = { method: 'PUT', headers, body: JSON.stringify({ settings }) };
-      const origin = getClientOrigin();
-      const res = await fetch(`${origin}/api/settings`, fetchOpts);
-      await throwOnError(res);
-      return res.json();
-   }, {
+   return useMutation(async (settings: SettingsType) => (
+      apiPut('/api/settings', { settings })
+   ), {
       onSuccess: async () => {
          if (onSuccess) {
             onSuccess();
@@ -41,14 +31,9 @@ export const useUpdateSettings = (onSuccess:Function|undefined) => {
 
 export function useClearFailedQueue(onSuccess:Function) {
    const queryClient = useQueryClient();
-   return useMutation(async () => {
-      const headers = new Headers({ 'Content-Type': 'application/json', Accept: 'application/json' });
-      const fetchOpts = { method: 'PUT', headers };
-      const origin = getClientOrigin();
-      const res = await fetch(`${origin}/api/clearfailed`, fetchOpts);
-      await throwOnError(res);
-      return res.json();
-   }, {
+   return useMutation(async () => (
+      apiPut('/api/clearfailed', {})
+   ), {
       onSuccess: async () => {
          onSuccess();
          toast('Failed Queue Cleared', { icon: '✔️' });
@@ -60,30 +45,11 @@ export function useClearFailedQueue(onSuccess:Function) {
    });
 }
 
-export const useSendNotifications = () => useMutation(async () => {
-      const headers = new Headers({ 'Content-Type': 'application/json', Accept: 'application/json' });
-      const fetchOpts = { method: 'POST', headers };
-      const origin = getClientOrigin();
-      const res = await fetch(`${origin}/api/notify`, fetchOpts);
-      let data: unknown = null;
-
-      try {
-         data = await res.json();
-      } catch (_error) {
-         data = null;
-      }
-
-      if (!res.ok) {
-         const errorData = data as { message?: string; error?: string };
-         const errorMessage = errorData?.message || errorData?.error || 'Error Sending Notifications.';
-         throw new Error(errorMessage);
-      }
-
-      return data;
-   }, {
+export const useSendNotifications = () => useMutation(async () => (
+      apiPost<{ message?: string }>('/api/notify', {})
+   ), {
       onSuccess: (response) => {
-         const successData = response as { message?: string };
-         const successMessage = successData?.message || 'Notifications Sent!';
+         const successMessage = response?.message || 'Notifications Sent!';
          toast(successMessage, { icon: '✔️' });
       },
       onError: (error, _variables, _context) => {

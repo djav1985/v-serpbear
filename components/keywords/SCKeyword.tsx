@@ -1,6 +1,5 @@
 /// <reference path="../../types.d.ts" />
 
-import React from 'react';
 import Icon from '../common/Icon';
 import countries from '../../utils/countries';
 import KeywordPosition from './KeywordPosition';

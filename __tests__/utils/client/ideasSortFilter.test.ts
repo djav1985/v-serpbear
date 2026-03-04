@@ -1,4 +1,4 @@
-import { IdeasfilterKeywords, IdeasSortKeywords, matchesIdeaCountry, matchesIdeaSearch, matchesIdeaTags, normalizeIdeaTag } from '../../../utils/client/sortFilter';
+import { IdeasfilterKeywords, IdeasSortKeywords, matchesCountry, matchesSearch, matchesIdeaTags, normalizeIdeaTag } from '../../../utils/client/sortFilter';
 
 describe('Ideas keyword filters', () => {
    const createIdeaKeyword = (overrides: Partial<IdeaKeyword> = {}): IdeaKeyword => ({
@@ -10,17 +10,17 @@ describe('Ideas keyword filters', () => {
       ...overrides,
    });
 
-   it('matchesIdeaCountry matches configured countries', () => {
-      expect(matchesIdeaCountry('US', [])).toBe(true);
-      expect(matchesIdeaCountry('US', ['US'])).toBe(true);
-      expect(matchesIdeaCountry('US', ['GB'])).toBe(false);
+   it('matchesCountry matches configured countries', () => {
+      expect(matchesCountry('US', [])).toBe(true);
+      expect(matchesCountry('US', ['US'])).toBe(true);
+      expect(matchesCountry('US', ['GB'])).toBe(false);
    });
 
-   it('matchesIdeaSearch runs case insensitive search', () => {
-      expect(matchesIdeaSearch('Amazing Keyword Idea', '')).toBe(true);
-      expect(matchesIdeaSearch('Amazing Keyword Idea', 'keyword')).toBe(true);
-      expect(matchesIdeaSearch('Amazing Keyword Idea', 'IDEA')).toBe(true);
-      expect(matchesIdeaSearch('Amazing Keyword Idea', 'other')).toBe(false);
+   it('matchesSearch runs case insensitive search', () => {
+      expect(matchesSearch('Amazing Keyword Idea', '')).toBe(true);
+      expect(matchesSearch('Amazing Keyword Idea', 'keyword')).toBe(true);
+      expect(matchesSearch('Amazing Keyword Idea', 'IDEA')).toBe(true);
+      expect(matchesSearch('Amazing Keyword Idea', 'other')).toBe(false);
    });
 
    it('normalizeIdeaTag trims counts and whitespace', () => {

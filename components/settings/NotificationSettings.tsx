@@ -1,6 +1,5 @@
 /// <reference path="../../types.d.ts" />
 
-import React from 'react';
 import SelectField from '../common/SelectField';
 import SecretField from '../common/SecretField';
 import InputField from '../common/InputField';

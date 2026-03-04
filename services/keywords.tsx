@@ -1,9 +1,8 @@
 import toast from 'react-hot-toast';
 import { NextRouter } from 'next/router';
 import { useMutation, useQuery, useQueryClient } from 'react-query';
-import { getClientOrigin } from '../utils/client/origin';
 import { normalizeToBoolean } from '../utils/dbBooleans';
-import { throwOnError } from '../utils/client/fetchWithError';
+import { apiGet, apiPost, apiPut, apiDelete } from '../utils/client/apiClient';
 
 type KeywordsResponse = {
    keywords?: KeywordType[]
@@ -25,10 +24,7 @@ const normaliseKeywordFlags = (keyword: unknown): KeywordType => {
 
 export const fetchKeywords = async (router: NextRouter, domain: string) => {
    if (!domain) { return { keywords: [] }; }
-   const origin = getClientOrigin();
-   const res = await fetch(`${origin}/api/keywords?domain=${domain}`, { method: 'GET' });
-   await throwOnError(res, router);
-   const data: KeywordsResponse = await res.json();
+   const data = await apiGet<KeywordsResponse>(`/api/keywords?domain=${domain}`, router);
    if (!data || typeof data !== 'object') { return data; }
    if (!Array.isArray(data.keywords)) { return data; }
    return {
@@ -74,14 +70,9 @@ export function useFetchKeywords(
 
 export function useAddKeywords(onSuccess:Function) {
    const queryClient = useQueryClient();
-   return useMutation(async (keywords:KeywordAddPayload[]) => {
-      const headers = new Headers({ 'Content-Type': 'application/json', Accept: 'application/json' });
-      const fetchOpts = { method: 'POST', headers, body: JSON.stringify({ keywords }) };
-      const origin = getClientOrigin();
-      const res = await fetch(`${origin}/api/keywords`, fetchOpts);
-      await throwOnError(res);
-      return res.json();
-   }, {
+   return useMutation(async (keywords:KeywordAddPayload[]) => (
+      apiPost('/api/keywords', { keywords })
+   ), {
       onSuccess: async () => {
          toast('Keywords Added Successfully!', { icon: '✔️' });
          onSuccess();
@@ -97,10 +88,7 @@ export function useDeleteKeywords(onSuccess:Function) {
    const queryClient = useQueryClient();
    return useMutation(async (keywordIDs:number[]) => {
       const keywordIds = keywordIDs.join(',');
-      const origin = getClientOrigin();
-      const res = await fetch(`${origin}/api/keywords?id=${keywordIds}`, { method: 'DELETE' });
-      await throwOnError(res);
-      return res.json();
+      return apiDelete(`/api/keywords?id=${keywordIds}`);
    }, {
       onSuccess: async () => {
          onSuccess();
@@ -115,14 +103,9 @@ export function useDeleteKeywords(onSuccess:Function) {
 
 export function useFavKeywords(onSuccess:Function) {
    const queryClient = useQueryClient();
-   return useMutation(async ({ keywordID, sticky }:{keywordID:number, sticky:boolean}) => {
-      const headers = new Headers({ 'Content-Type': 'application/json', Accept: 'application/json' });
-      const fetchOpts = { method: 'PUT', headers, body: JSON.stringify({ sticky }) };
-      const origin = getClientOrigin();
-      const res = await fetch(`${origin}/api/keywords?id=${keywordID}`, fetchOpts);
-      await throwOnError(res);
-      return res.json();
-   }, {
+   return useMutation(async ({ keywordID, sticky }:{keywordID:number, sticky:boolean}) => (
+      apiPut(`/api/keywords?id=${keywordID}`, { sticky })
+   ), {
       onSuccess: async (data) => {
          onSuccess();
          const isSticky = data.keywords[0]?.sticky === true;
@@ -139,12 +122,7 @@ export function useUpdateKeywordTags(onSuccess:Function) {
    const queryClient = useQueryClient();
    return useMutation(async ({ tags }:{tags:{ [ID:number]: string[] }}) => {
       const keywordIds = Object.keys(tags).join(',');
-      const headers = new Headers({ 'Content-Type': 'application/json', Accept: 'application/json' });
-      const fetchOpts = { method: 'PUT', headers, body: JSON.stringify({ tags }) };
-      const origin = getClientOrigin();
-      const res = await fetch(`${origin}/api/keywords?id=${keywordIds}`, fetchOpts);
-      await throwOnError(res);
-      return res.json();
+      return apiPut(`/api/keywords?id=${keywordIds}`, { tags });
    }, {
       onSuccess: async () => {
          onSuccess();
@@ -161,11 +139,8 @@ export function useRefreshKeywords(onSuccess:Function) {
    const queryClient = useQueryClient();
    return useMutation(async ({ ids = [], domain = '' } : {ids?: number[], domain?: string}) => {
       const keywordIds = ids.join(',');
-      const origin = getClientOrigin();
       const query = ids.length === 0 && domain ? `?id=all&domain=${encodeURIComponent(domain)}` : `?id=${keywordIds}`;
-      const res = await fetch(`${origin}/api/refresh${query}`, { method: 'POST' });
-      await throwOnError(res);
-      return res.json();
+      return apiPost(`/api/refresh${query}`, {});
    }, {
       onSuccess: async () => {
          onSuccess();
@@ -182,14 +157,10 @@ export function useRefreshKeywords(onSuccess:Function) {
 export function useFetchSingleKeyword(keywordID:number) {
    return useQuery(['keyword', keywordID], async () => {
       try {
-         const origin = getClientOrigin();
-         const fetchURL = `${origin}/api/keyword?id=${keywordID}`;
-         const res = await fetch(fetchURL, { method: 'GET' });
-         await throwOnError(res);
-         const result = await res.json();
-         return { 
-            history: result.keyword?.history || [], 
-            searchResult: result.keyword?.lastResult || [], 
+         const result = await apiGet<{ keyword?: Record<string, unknown> }>(`/api/keyword?id=${keywordID}`);
+         return {
+            history: result.keyword?.history || [],
+            searchResult: result.keyword?.lastResult || [],
             localResults: result.keyword?.localResults || [],
             mapPackTop3: normalizeToBoolean(result.keyword?.mapPackTop3),
          };
@@ -208,13 +179,10 @@ export function useFetchSingleKeyword(keywordID:number) {
 
 export async function fetchSearchResults(router:NextRouter, keywordData: Record<string, string>) {
    const { keyword, country, device } = keywordData;
-   const origin = getClientOrigin();
    const params = new URLSearchParams();
    if (typeof keyword === 'string') { params.set('keyword', keyword); }
    if (typeof country === 'string') { params.set('country', country); }
    if (typeof device === 'string') { params.set('device', device); }
    const queryString = params.toString();
-   const res = await fetch(`${origin}/api/refresh${queryString ? `?${queryString}` : ''}`, { method: 'GET' });
-   await throwOnError(res, router);
-   return res.json();
+   return apiGet(`/api/refresh${queryString ? `?${queryString}` : ''}`, router);
 }

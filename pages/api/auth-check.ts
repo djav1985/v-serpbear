@@ -1,22 +1,23 @@
+/// <reference path="../../types.d.ts" />
+
 import type { NextApiRequest, NextApiResponse } from 'next';
 import jwt from 'jsonwebtoken';
 import Cookies from 'cookies';
 import { withApiLogging } from '../../utils/apiLogging';
 import verifyUser from '../../utils/verifyUser';
 import { logger } from '../../utils/logger';
+import { errorResponse } from '../../utils/api/response';
 
 type AuthCheckResponse = {
   authenticated: boolean;
   user?: string;
-  error?: string;
 };
 
-const handler = async (req: NextApiRequest, res: NextApiResponse<AuthCheckResponse>) => {
+const handler = async (req: NextApiRequest, res: NextApiResponse) => {
+  const requestId = (req as ExtendedRequest).requestId;
+
   if (req.method !== 'GET') {
-    return res.status(405).json({ 
-      authenticated: false, 
-      error: 'Method not allowed' 
-    });
+    return res.status(405).json(errorResponse('METHOD_NOT_ALLOWED', 'Method not allowed', requestId));
   }
 
   const authorized = verifyUser(req, res);
@@ -36,7 +37,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<AuthCheckRespon
       return res.status(200).json({
         authenticated: true,
         user,
-      });
+      } as AuthCheckResponse);
     } catch (error) {
       logger.warn('Failed to decode JWT token in auth check', {
         error: error instanceof Error ? error.message : String(error)
@@ -45,13 +46,10 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<AuthCheckRespon
       return res.status(200).json({
         authenticated: true,
         user: 'authenticated_user',
-      });
+      } as AuthCheckResponse);
     }
   } else {
-    return res.status(401).json({
-      authenticated: false,
-      error: authorized,
-    });
+    return res.status(401).json(errorResponse('UNAUTHORIZED', authorized, requestId));
   }
 };
 

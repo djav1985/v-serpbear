@@ -1,97 +1,86 @@
-import { extractErrorMessage, throwOnError } from '../../../utils/client/fetchWithError';
+/**
+ * These tests verify the error-handling contract of apiFetch (canonical HTTP client).
+ * They replaced the former fetchWithError.test.ts when fetchWithError.ts was removed and
+ * apiFetch became the single source of truth for fetch error parsing.
+ */
 
-function makeResponse(
-   status: number,
-   contentType: string | null,
-   body: unknown,
-): Response {
-   const jsonFn = typeof body === 'object' && body !== null
-      ? jest.fn().mockResolvedValue(body)
-      : jest.fn().mockRejectedValue(new Error('Not JSON'));
-   const textFn = typeof body === 'string'
-      ? jest.fn().mockResolvedValue(body)
-      : jest.fn().mockResolvedValue('');
-   return {
-      status,
-      headers: {
-         get: jest.fn().mockReturnValue(contentType),
-      },
-      json: jsonFn,
-      text: textFn,
-   } as unknown as Response;
-}
+const mockOrigin = 'http://localhost:3000';
 
-describe('extractErrorMessage', () => {
-   it('returns the error field from a JSON response', async () => {
-      const res = makeResponse(400, 'application/json', { error: 'Invalid payload' });
-      await expect(extractErrorMessage(res)).resolves.toBe('Invalid payload');
-   });
+jest.mock('../../../utils/client/origin', () => ({
+   getClientOrigin: () => mockOrigin,
+}));
 
-   it('falls back to status message when JSON has no error field', async () => {
-      const res = makeResponse(422, 'application/json', { message: 'unprocessable' });
-      await expect(extractErrorMessage(res)).resolves.toBe('Server error (422): Please try again later');
-   });
+import { apiFetch, ApiError } from '../../../utils/client/apiClient';
 
-   it('returns status message for non-JSON responses', async () => {
-      const res = makeResponse(503, 'text/html', '<html>error</html>');
-      (res.json as jest.Mock).mockRejectedValue(new Error('Not JSON'));
-      (res.text as jest.Mock).mockResolvedValue('<html>error</html>');
-      await expect(extractErrorMessage(res)).resolves.toBe('Server error (503): Please try again later');
-   });
+const originalFetch = global.fetch;
 
-   it('returns status message when JSON parsing throws', async () => {
-      const res = makeResponse(500, 'application/json', null);
-      (res.json as jest.Mock).mockRejectedValue(new Error('parse error'));
-      await expect(extractErrorMessage(res)).resolves.toBe('Server error (500): Please try again later');
-   });
-
-   it('returns status message when content-type header is null', async () => {
-      const res = makeResponse(404, null, '<html>not found</html>');
-      (res.text as jest.Mock).mockResolvedValue('<html>not found</html>');
-      await expect(extractErrorMessage(res)).resolves.toBe('Server error (404): Please try again later');
-   });
+beforeEach(() => {
+   global.fetch = jest.fn() as unknown as typeof fetch;
 });
 
-describe('throwOnError', () => {
-   it('does not throw for 2xx responses', async () => {
-      const res = makeResponse(200, 'application/json', { ok: true });
-      await expect(throwOnError(res)).resolves.toBeUndefined();
+afterEach(() => {
+   global.fetch = originalFetch;
+   (global.fetch as unknown as jest.Mock)?.mockReset?.();
+});
+
+function mockFetch(status: number, body: unknown, headers: Record<string, string> = {}) {
+   const fetchMock = global.fetch as unknown as jest.Mock;
+   fetchMock.mockResolvedValueOnce({
+      status,
+      ok: status >= 200 && status < 300,
+      headers: {
+         get: (name: string) => headers[name] ?? null,
+      },
+      json: jest.fn().mockResolvedValue(body),
+      text: jest.fn().mockResolvedValue(typeof body === 'string' ? body : ''),
+   });
+}
+
+describe('apiFetch error contract (replaces throwOnError / extractErrorMessage tests)', () => {
+   it('resolves with parsed JSON on 2xx', async () => {
+      mockFetch(200, { ok: true }, { 'content-type': 'application/json' });
+      await expect(apiFetch('/api/test')).resolves.toEqual({ ok: true });
    });
 
-   it('throws with the JSON error message on 400', async () => {
-      const res = makeResponse(400, 'application/json', { error: 'Bad request' });
-      await expect(throwOnError(res)).rejects.toThrow('Bad request');
+   it('throws ApiError with JSON error message on 400', async () => {
+      mockFetch(400, { error: { code: 'BAD_REQUEST', message: 'Bad request' } }, { 'content-type': 'application/json' });
+      await expect(apiFetch('/api/test')).rejects.toMatchObject({
+         message: 'Bad request',
+         statusCode: 400,
+      });
    });
 
-   it('throws with status message for HTML error responses', async () => {
-      const res = makeResponse(500, 'text/html', '<html>error</html>');
-      (res.json as jest.Mock).mockRejectedValue(new Error('Not JSON'));
-      (res.text as jest.Mock).mockResolvedValue('<html>error</html>');
-      await expect(throwOnError(res)).rejects.toThrow('Server error (500): Please try again later');
+   it('throws ApiError with fallback message for non-JSON 500', async () => {
+      const fetchMock = global.fetch as unknown as jest.Mock;
+      fetchMock.mockResolvedValueOnce({
+         status: 500,
+         ok: false,
+         headers: { get: () => 'text/html' },
+         json: jest.fn().mockRejectedValue(new Error('Not JSON')),
+         text: jest.fn().mockResolvedValue('<html>error</html>'),
+      });
+      await expect(apiFetch('/api/test')).rejects.toMatchObject({ statusCode: 500 });
    });
 
    it('calls router.push("/login") on 401 and throws', async () => {
-      const res = makeResponse(401, 'application/json', { error: 'Unauthorized' });
+      mockFetch(401, { error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } }, { 'content-type': 'application/json' });
       const router = { push: jest.fn() };
-      await expect(throwOnError(res, router)).rejects.toThrow('Unauthorized');
+      await expect(apiFetch('/api/test', {}, router)).rejects.toThrow('Unauthorized');
       expect(router.push).toHaveBeenCalledWith('/login');
    });
 
    it('does not call router.push for non-401 errors', async () => {
-      const res = makeResponse(403, 'application/json', { error: 'Forbidden' });
+      mockFetch(403, { error: { code: 'FORBIDDEN', message: 'Forbidden' } }, { 'content-type': 'application/json' });
       const router = { push: jest.fn() };
-      await expect(throwOnError(res, router)).rejects.toThrow('Forbidden');
+      await expect(apiFetch('/api/test', {}, router)).rejects.toThrow('Forbidden');
       expect(router.push).not.toHaveBeenCalled();
    });
 
-   it('does not throw for 3xx responses', async () => {
-      const res = makeResponse(301, null, '');
-      (res.text as jest.Mock).mockResolvedValue('');
-      await expect(throwOnError(res)).resolves.toBeUndefined();
-   });
-
-   it('works without a router argument on 401', async () => {
-      const res = makeResponse(401, 'application/json', { error: 'Unauthorized' });
-      await expect(throwOnError(res)).rejects.toThrow('Unauthorized');
+   it('throws ApiError (instance of Error) on 401 without router', async () => {
+      mockFetch(401, { error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } }, { 'content-type': 'application/json' });
+      const err = await apiFetch('/api/test').catch((e) => e);
+      expect(err).toBeInstanceOf(ApiError);
+      expect(err.message).toBe('Unauthorized');
+      expect(err.statusCode).toBe(401);
    });
 });

@@ -1,29 +1,21 @@
+/// <reference path="../../../types.d.ts" />
+
 import type { NextApiRequest, NextApiResponse } from 'next';
 import nodeMailer from 'nodemailer';
 import Domain from '../../../database/models/domain';
 import verifyUser from '../../../utils/verifyUser';
 import { getAppSettings } from '../settings';
-import { trimStringProperties } from '../../../utils/security';
+import { trimStringProperties, trimString, sanitizeHostname } from '../../../utils/security';
 import normalizeDomainBooleans from '../../../utils/normalizeDomain';
 import generateKeywordIdeasEmail, { KeywordIdeasEmailKeyword } from '../../../utils/generateKeywordIdeasEmail';
 import { getBranding } from '../../../utils/branding';
 import { logger } from '../../../utils/logger';
+import { withApiLogging } from '../../../utils/apiLogging';
+import { errorResponse } from '../../../utils/api/response';
 
 type EmailKeywordIdeasRequest = {
    domain?: string;
    keywords?: KeywordIdeasEmailKeyword[];
-};
-
-type EmailKeywordIdeasResponse = {
-   success?: boolean;
-   error?: string | null;
-};
-
-const trimString = (value?: string | null): string => (typeof value === 'string' ? value.trim() : '');
-
-const sanitizeHostname = (host?: string | null): string => {
-   const trimmed = trimString(host);
-   return trimmed.replace(/\.+$/, '');
 };
 
 const normalizeKeywords = (keywords: KeywordIdeasEmailKeyword[] = []): KeywordIdeasEmailKeyword[] => keywords.map((keyword) => {
@@ -54,29 +46,33 @@ const normalizeKeywords = (keywords: KeywordIdeasEmailKeyword[] = []): KeywordId
    };
 });
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse<EmailKeywordIdeasResponse>) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
+   const requestId = (req as ExtendedRequest).requestId;
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
-      return res.status(401).json({ success: false, error: authorized });
+      return res.status(401).json(errorResponse('UNAUTHORIZED', authorized, requestId));
    }
 
    if (req.method !== 'POST') {
-      return res.status(405).json({ success: false, error: 'Invalid Method' });
+      return res.status(405).json(errorResponse('METHOD_NOT_ALLOWED', 'Method not allowed', requestId));
    }
 
    return emailKeywordIdeas(req, res);
 }
 
-const emailKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse<EmailKeywordIdeasResponse>) => {
+export default withApiLogging(handler, { name: 'ideas/email' });
+
+const emailKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => {
+   const requestId = (req as ExtendedRequest).requestId;
    const body = (req.body || {}) as EmailKeywordIdeasRequest;
    const { platformName } = getBranding();
    const targetDomain = trimString(body.domain);
    if (!targetDomain) {
-      return res.status(400).json({ success: false, error: 'A domain is required to email keyword ideas.' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'A domain is required to email keyword ideas.', requestId));
    }
 
    if (!Array.isArray(body.keywords) || body.keywords.length === 0) {
-      return res.status(400).json({ success: false, error: 'Select at least one keyword idea to email.' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Select at least one keyword idea to email.', requestId));
    }
 
    try {
@@ -92,14 +88,14 @@ const emailKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse<Email
       normalizedSettings.smtp_tls_servername = sanitizeHostname(normalizedSettings.smtp_tls_servername);
 
       if (!sanitizedHost || !sanitizedPort || !sanitizedDefaultEmail) {
-         return res.status(400).json({ success: false, error: 'SMTP has not been setup properly!' });
+         return res.status(400).json(errorResponse('BAD_REQUEST', 'SMTP has not been setup properly!', requestId));
       }
 
       const domainRecord = await Domain.findOne({ where: { domain: targetDomain } })
          || await Domain.findOne({ where: { slug: targetDomain } });
 
       if (!domainRecord) {
-         return res.status(404).json({ success: false, error: 'Domain not found.' });
+         return res.status(404).json(errorResponse('NOT_FOUND', 'Domain not found.', requestId));
       }
 
       const domainPlain = domainRecord.get({ plain: true }) as DomainType;
@@ -107,7 +103,7 @@ const emailKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse<Email
 
       const notificationEmails = trimString(normalizedDomain.notification_emails);
       if (!notificationEmails) {
-         return res.status(400).json({ success: false, error: 'Notification email not configured for this domain.' });
+         return res.status(400).json(errorResponse('BAD_REQUEST', 'Notification email not configured for this domain.', requestId));
       }
 
       const {
@@ -121,7 +117,7 @@ const emailKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse<Email
       } = normalizedSettings;
 
       if (!smtp_server) {
-         return res.status(400).json({ success: false, error: 'SMTP has not been setup properly!' });
+         return res.status(400).json(errorResponse('BAD_REQUEST', 'SMTP has not been setup properly!', requestId));
       }
 
       const mailerSettings: any = {
@@ -172,6 +168,6 @@ const emailKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse<Email
    } catch (error) {
       logger.error('Error sending keyword ideas email', error instanceof Error ? error : new Error(String(error)));
       const message = error instanceof Error && error.message ? error.message : 'Error sending keyword ideas email.';
-      return res.status(500).json({ success: false, error: message });
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', message, requestId));
    }
 };

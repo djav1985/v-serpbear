@@ -14,10 +14,13 @@ import { errorResponse } from '../../utils/api/response';
 async function handler(req: NextApiRequest, res: NextApiResponse) {
    const requestId = (req as ExtendedRequest).requestId;
    const authorized = verifyUser(req, res);
-   if (authorized === 'authorized' && req.method === 'GET') {
+   if (authorized !== 'authorized') {
+      return res.status(401).json(errorResponse('UNAUTHORIZED', authorized, requestId));
+   }
+   if (req.method === 'GET') {
       return getDomain(req, res);
    }
-   return res.status(401).json(errorResponse('UNAUTHORIZED', authorized, requestId));
+   return res.status(405).json(errorResponse('METHOD_NOT_ALLOWED', 'Method not allowed', requestId));
 }
 
 export default withApiLogging(handler, { name: 'domain' });

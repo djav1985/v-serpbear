@@ -1,9 +1,7 @@
 import { useRouter, NextRouter } from 'next/router';
 import toast from 'react-hot-toast';
 import { useMutation, useQuery, useQueryClient, QueryClient, QueryKey } from 'react-query';
-import { getClientOrigin } from '../utils/client/origin';
-import { throwOnError } from '../utils/client/fetchWithError';
-import { apiPut } from '../utils/client/apiClient';
+import { apiGet, apiPost, apiPut, apiDelete } from '../utils/client/apiClient';
 
 type UpdatePayload = {
    domainSettings: Partial<DomainSettings>,
@@ -25,8 +23,6 @@ const normalizeDomainPatch = (
    if (patch.scrapeEnabled !== undefined) {
       const nextValue = Boolean(patch.scrapeEnabled);
       updates.scrapeEnabled = nextValue;
-      // Update the legacy notification field to match scrapeEnabled
-      updates.notification = nextValue;
    }
    if (typeof patch.notification_interval === 'string') {
       updates.notification_interval = patch.notification_interval;
@@ -96,18 +92,12 @@ const updateDomainRequest = async ({ domainSettings, domain }: UpdatePayload) =>
 };
 
 export async function fetchDomains(router: NextRouter, withStats:boolean): Promise<{domains: DomainType[]}> {
-   const origin = getClientOrigin();
-   const res = await fetch(`${origin}/api/domains${withStats ? '?withstats=true' : ''}`, { method: 'GET' });
-   await throwOnError(res, router);
-   return res.json();
+   return apiGet(`/api/domains${withStats ? '?withstats=true' : ''}`, router);
 }
 
 export async function fetchDomain(router: NextRouter, domainName: string): Promise<{domain: DomainType}> {
-   const origin = getClientOrigin();
    const encodedDomain = encodeURIComponent(domainName);
-   const res = await fetch(`${origin}/api/domain?domain=${encodedDomain}`, { method: 'GET' });
-   await throwOnError(res, router);
-   return res.json();
+   return apiGet(`/api/domain?domain=${encodedDomain}`, router);
 }
 
 type DomainThumbEntry = { data: string; ts: number };
@@ -193,14 +183,9 @@ export function useFetchDomain(router: NextRouter, domainName:string, onSuccess:
 export function useAddDomain(onSuccess:Function) {
    const router = useRouter();
    const queryClient = useQueryClient();
-   return useMutation(async (domains:string[]) => {
-      const headers = new Headers({ 'Content-Type': 'application/json', Accept: 'application/json' });
-      const fetchOpts = { method: 'POST', headers, body: JSON.stringify({ domains }) };
-      const origin = getClientOrigin();
-      const res = await fetch(`${origin}/api/domains`, fetchOpts);
-      await throwOnError(res);
-      return res.json();
-   }, {
+   return useMutation(async (domains:string[]) => (
+      apiPost('/api/domains', { domains })
+   ), {
       onSuccess: async (data) => {
          const newDomain:DomainType[] = data.domains;
          const singleDomain = newDomain.length === 1;
@@ -270,12 +255,9 @@ export function useUpdateDomainToggles() {
 
 export function useDeleteDomain(onSuccess:Function) {
    const queryClient = useQueryClient();
-   return useMutation(async (domain:DomainType) => {
-      const origin = getClientOrigin();
-      const res = await fetch(`${origin}/api/domains?domain=${domain.domain}`, { method: 'DELETE' });
-      await throwOnError(res);
-      return res.json();
-   }, {
+   return useMutation(async (domain:DomainType) => (
+      apiDelete(`/api/domains?domain=${encodeURIComponent(domain.domain)}`)
+   ), {
       onSuccess: async () => {
          toast('Domain Removed Successfully!', { icon: '✔️' });
          onSuccess();

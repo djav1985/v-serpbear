@@ -6,6 +6,8 @@
  * in jest.mock() statements. Instead, copy the return value inline into your test file.
  */
 
+import { jest } from '@jest/globals';
+
 /**
  * Mock configuration for the database module.
  * Copy this inline: jest.mock('../../database/database', () => ({ __esModule: true, default: { sync: jest.fn() } }));

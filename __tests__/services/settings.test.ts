@@ -18,6 +18,7 @@ describe('useSendNotifications success message extraction', () => {
       fetchMock.mockResolvedValue({
          ok: true,
          status: 200,
+         headers: { get: jest.fn().mockReturnValue(null) },
          json: jest.fn().mockResolvedValue({ success: true, error: null }),
       } as any);
    });
@@ -39,6 +40,7 @@ describe('useSendNotifications success message extraction', () => {
       fetchMock.mockResolvedValue({
          ok: true,
          status: 200,
+         headers: { get: jest.fn().mockReturnValue(null) },
          json: jest.fn().mockResolvedValue({ 
             success: true, 
             error: null, 
@@ -62,6 +64,7 @@ describe('useSendNotifications success message extraction', () => {
       fetchMock.mockResolvedValue({
          ok: true,
          status: 200,
+         headers: { get: jest.fn().mockReturnValue(null) },
          json: jest.fn().mockResolvedValue(null),
       } as any);
 
@@ -81,6 +84,7 @@ describe('useSendNotifications success message extraction', () => {
       fetchMock.mockResolvedValue({
          ok: true,
          status: 200,
+         headers: { get: jest.fn().mockReturnValue(null) },
          json: jest.fn().mockResolvedValue({ 
             success: true, 
             error: null, 
@@ -97,5 +101,38 @@ describe('useSendNotifications success message extraction', () => {
 
       // Verify that toast was called with the default message since empty string is falsy
       expect(toastMock).toHaveBeenCalledWith('Notifications Sent!', { icon: '✔️' });
+   });
+});
+
+describe('useSendNotifications structured error extraction', () => {
+   beforeEach(() => {
+      jest.clearAllMocks();
+   });
+
+   it('extracts message from structured error envelope on failure', async () => {
+      const structuredEnvelope = { error: { code: 'INTERNAL_SERVER_ERROR', message: 'All notification emails failed to send. Please check your SMTP configuration.' } };
+      (global.fetch as jest.Mock).mockResolvedValue({
+         ok: false,
+         status: 500,
+         headers: { get: (h: string) => (h === 'content-type' ? 'application/json' : null) },
+         json: jest.fn().mockResolvedValue(structuredEnvelope),
+      } as any);
+
+      const wrapper = createWrapper();
+      const { renderHook, act } = require('@testing-library/react');
+      const { useSendNotifications } = require('../../services/settings');
+      const { result } = renderHook(() => useSendNotifications(), { wrapper });
+
+      let caughtMessage = '';
+      await act(async () => {
+         try {
+            await result.current.mutateAsync();
+         } catch (error) {
+            caughtMessage = (error as Error).message;
+         }
+      });
+
+      expect(caughtMessage).toBe('All notification emails failed to send. Please check your SMTP configuration.');
+      expect(toastMock).toHaveBeenCalledWith('All notification emails failed to send. Please check your SMTP configuration.', { icon: '⚠️' });
    });
 });

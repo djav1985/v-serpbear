@@ -13,7 +13,6 @@ type DomainType = {
    slug: string,
    tags?: string,
    scrapeEnabled?: boolean,
-   notification: boolean,
    notification_interval: string,
    notification_emails: string,
    lastUpdated: string,

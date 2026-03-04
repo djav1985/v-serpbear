@@ -12,7 +12,9 @@ function createJsonResponse<T>(payload: T, status = 200): Response {
    return {
       ok: status >= 200 && status < 300,
       status,
+      headers: { get: (_name: string) => null },
       json: async () => payload,
+      text: async () => JSON.stringify(payload),
    } as unknown as Response;
 }
 
@@ -48,9 +50,9 @@ describe('useAuth', () => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
    });
 
-   it('returns isAuthenticated=false when API responds with non-ok status', async () => {
+   it('returns isAuthenticated=false (no error) when API responds with 401', async () => {
       fetchMock.mockResolvedValueOnce(
-         createJsonResponse({ error: 'Unauthorized' }, 401),
+         createJsonResponse({ error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } }, 401),
       );
 
       const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -63,7 +65,26 @@ describe('useAuth', () => {
       await waitFor(() => expect(result.current.isLoading).toBe(false));
 
       expect(result.current.isAuthenticated).toBe(false);
-      expect(result.current.error).toBe('Authentication failed');
+      expect(result.current.error).toBeUndefined();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+   });
+
+   it('returns error state when API responds with 5xx', async () => {
+      fetchMock.mockResolvedValueOnce(
+         createJsonResponse({ error: { code: 'INTERNAL_SERVER_ERROR', message: 'Server error' } }, 500),
+      );
+
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+         <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      );
+
+      const { result } = renderHook(() => useAuth(), { wrapper });
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      expect(result.current.isAuthenticated).toBe(false);
+      expect(result.current.error).toBe('Failed to check authentication status');
       expect(fetchMock).toHaveBeenCalledTimes(1);
    });
 

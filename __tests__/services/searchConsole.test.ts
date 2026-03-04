@@ -19,6 +19,7 @@ describe('Search Console hooks', () => {
       mockUseQuery.mockClear();
       (global as any).fetch = jest.fn().mockResolvedValue({
          status: 200,
+         headers: { get: jest.fn().mockReturnValue(null) },
          json: jest.fn().mockResolvedValue({ data: [] }),
       });
    });
@@ -167,12 +168,12 @@ describe('Search Console hooks', () => {
       expect(global.fetch).toHaveBeenNthCalledWith(
          1,
          expect.stringContaining('domain=live-slug'),
-         { method: 'GET' },
+         expect.objectContaining({ method: 'GET' }),
       );
       expect(global.fetch).toHaveBeenNthCalledWith(
          2,
          expect.stringContaining('domain=live-slug'),
-         { method: 'GET' },
+         expect.objectContaining({ method: 'GET' }),
       );
    });
 });

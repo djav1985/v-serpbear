@@ -6,7 +6,7 @@ import { useQueryClient } from 'react-query';
 import { BrandTitle } from '../../components/common/Branding';
 import { useBranding } from '../../hooks/useBranding';
 import { AUTH_QUERY_KEY } from '../../hooks/useAuth';
-import { getClientOrigin } from '../../utils/client/origin';
+import { apiPost, ApiError } from '../../utils/client/apiClient';
 
 type LoginError = {
    type: string,
@@ -38,30 +38,17 @@ const Login: NextPage = () => {
          setTimeout(() => { setError(null); }, 3000);
       } else {
          try {
-            const header = new Headers({ 'Content-Type': 'application/json', Accept: 'application/json' });
-            const fetchOpts = { method: 'POST', headers: header, body: JSON.stringify({ username, password }) };
-            const origin = getClientOrigin();
-            const fetchRoute = `${origin}/api/login`;
-            const res = await fetch(fetchRoute, fetchOpts).then((result) => result.json());
-            // console.log(res);
-            if (!res.success) {
-               let errorType = '';
-               if (res.error && res.error.toLowerCase().includes('username')) {
-                   errorType = 'incorrect_username';
-               }
-               if (res.error && res.error.toLowerCase().includes('password')) {
-                   errorType = 'incorrect_password';
-               }
-               setError({ type: errorType, msg: res.error });
-               setTimeout(() => { setError(null); }, 3000);
-            } else {
-               // Invalidate the cached auth state so protected pages see the fresh authenticated result
-               await queryClient.invalidateQueries(AUTH_QUERY_KEY);
-               router.push('/');
-            }
-         } catch (fetchError) {
-            console.error('Login request failed:', fetchError);
-            setError({ type: 'network_error', msg: 'Network error: Unable to connect to the server.' });
+            await apiPost<{ success: boolean }>('/api/login', { username, password });
+            // Invalidate the cached auth state so protected pages see the fresh authenticated result
+            await queryClient.invalidateQueries(AUTH_QUERY_KEY);
+            router.push('/');
+         } catch (err) {
+            const msg = err instanceof ApiError
+               ? err.message
+               : 'Network error: Unable to connect to the server.';
+            // The backend returns a generic 'Invalid credentials' message intentionally
+            // (prevents username enumeration), so no field-level error type is set here.
+            setError({ type: '', msg });
             setTimeout(() => { setError(null); }, 3000);
          }
       }

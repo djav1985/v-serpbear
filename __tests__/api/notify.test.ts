@@ -98,7 +98,9 @@ describe('/api/notify - authentication', () => {
 
     expect(verifyUser).toHaveBeenCalledWith(req, res);
     expect(res.status).toHaveBeenCalledWith(401);
-    expect(res.json).toHaveBeenCalledWith({ success: false, error: 'Not authorized' });
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ error: expect.objectContaining({ code: 'UNAUTHORIZED' }) }),
+    );
     expect(sendMailMock).not.toHaveBeenCalled();
   });
 
@@ -109,7 +111,9 @@ describe('/api/notify - authentication', () => {
     await handler(req as NextApiRequest, res as NextApiResponse);
 
     expect(res.status).toHaveBeenCalledWith(405);
-    expect(res.json).toHaveBeenCalledWith({ success: false, error: 'Invalid Method' });
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ error: expect.objectContaining({ code: 'METHOD_NOT_ALLOWED' }) }),
+    );
     expect(sendMailMock).not.toHaveBeenCalled();
   });
 
@@ -283,7 +287,9 @@ describe('/api/notify - authentication', () => {
     await handler(req as NextApiRequest, res as NextApiResponse);
 
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({ success: false, error: 'SMTP has not been setup properly!' });
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ error: expect.objectContaining({ code: 'BAD_REQUEST', message: 'SMTP has not been setup properly!' }) }),
+    );
     expect(nodeMailer.createTransport).not.toHaveBeenCalled();
   });
 
@@ -336,10 +342,9 @@ describe('/api/notify - authentication', () => {
     await handler(req as NextApiRequest, res as NextApiResponse);
 
     expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({ 
-      success: false, 
-      error: 'All notification emails failed to send. Please check your SMTP configuration.' 
-    });
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ error: expect.objectContaining({ code: 'INTERNAL_SERVER_ERROR', message: 'All notification emails failed to send. Please check your SMTP configuration.' }) }),
+    );
     expect(sendMailMock).toHaveBeenCalled();
   });
 
@@ -394,10 +399,9 @@ describe('/api/notify - authentication', () => {
     await handler(req as NextApiRequest, res as NextApiResponse);
 
     expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({ 
-      success: false, 
-      error: 'All notification emails failed to send. Please check your SMTP configuration.' 
-    });
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ error: expect.objectContaining({ code: 'INTERNAL_SERVER_ERROR', message: 'All notification emails failed to send. Please check your SMTP configuration.' }) }),
+    );
     expect(sendMailMock).toHaveBeenCalled();
     expect(Domain.findOne).toHaveBeenCalledWith({ where: { domain: 'example.com' } });
   });
