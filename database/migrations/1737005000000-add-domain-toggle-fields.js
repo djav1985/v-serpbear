@@ -1,6 +1,8 @@
 // Migration: Adds scrape_enabled and notify_enabled flags to the domain table so
 // scraping and notification behaviour can be toggled per domain.
 
+const { logger } = require('../migrationLogger');
+
 module.exports = {
    up: async function up(params = {}, legacySequelize) {
       const queryInterface = params?.context ?? params;
@@ -17,7 +19,7 @@ module.exports = {
             } catch (_describeError) {
                // Table doesn't exist yet - skip migration
                // Tables will be created by db.sync() after migrations run
-               console.log('[MIGRATION] Skipping migration - domain table does not exist yet');
+               logger.info('[MIGRATION] Skipping migration - domain table does not exist yet');
                return;
             }
 
@@ -46,7 +48,7 @@ module.exports = {
                }
             }
          } catch (error) {
-            console.error('error :', error);
+            logger.error('Migration error', error instanceof Error ? error : new Error(String(error)));
             throw error;
          }
       });
@@ -62,7 +64,7 @@ module.exports = {
                domainTableDefinition = await queryInterface.describeTable('domain');
             } catch (_describeError) {
                // Table doesn't exist - skip rollback
-               console.log('[MIGRATION] Skipping rollback - domain table does not exist');
+               logger.info('[MIGRATION] Skipping rollback - domain table does not exist');
                return;
             }
 
@@ -74,7 +76,7 @@ module.exports = {
                await queryInterface.removeColumn('domain', 'scrape_enabled', { transaction: t });
             }
          } catch (error) {
-            console.error('error :', error);
+            logger.error('Migration error', error instanceof Error ? error : new Error(String(error)));
             throw error;
          }
       });

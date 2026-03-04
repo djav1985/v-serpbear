@@ -113,6 +113,12 @@ export default [
       // Security
       "security/detect-non-literal-fs-filename": "error",
 
+      // Logging: use utils/logger instead of console.* in application code.
+      // Approved exceptions: utils/logger.ts (the logger itself), database/migrationLogger.js
+      // (migration-safe fallback), database/sqlite-dialect.js (dialect fallback).
+      // All three use /* eslint-disable no-console */ / /* eslint-enable no-console */ blocks.
+      "no-console": "error",
+
       // Complexity guardrail
       complexity: ["warn", { max: 60 }],
     },
@@ -150,6 +156,7 @@ export default [
       complexity: "off",
       "react/display-name": "off",
       "import/extensions": "off",
+      "no-console": "off",
     },
   },
   {
@@ -161,5 +168,11 @@ export default [
     name: "serpbear/cron",
     files: ["cron.js"],
     rules: { "import/extensions": "off" },
+  },
+  {
+    // Standalone utility scripts (not application code) may use console directly
+    name: "serpbear/scripts",
+    files: ["scripts/**/*.{js,mjs,cjs}"],
+    rules: { "no-console": "off" },
   },
 ];

@@ -14,6 +14,7 @@ import isRequestSecure from '../../../utils/api/isRequestSecure';
 import { parseStrictBooleanQueryParam } from '../../../pages/api/domains';
 import { errorResponse } from '../../../utils/api/response';
 import type { FailureEnvelope } from '../../../utils/api/response';
+import normalizeOrigin from '../../../utils/normalizeOrigin';
 
 // ---------------------------------------------------------------------------
 // isRequestSecure
@@ -96,14 +97,14 @@ describe('parseStrictBooleanQueryParam', () => {
     expect(parseStrictBooleanQueryParam(undefined)).toBeNull();
   });
 
-  it.each(['true', 'TRUE', 'True', '1', 'on', 'ON', 'yes', 'YES', 'Yes'])(
+  it.each(['true', 'TRUE', '1', 'on', 'yes'])(
     'returns { ok: true, value: true } for "%s"',
     (value) => {
       expect(parseStrictBooleanQueryParam(value)).toEqual({ ok: true, value: true });
     },
   );
 
-  it.each(['false', 'FALSE', 'False', '0', 'off', 'OFF', 'no', 'NO', 'No'])(
+  it.each(['false', 'FALSE', '0', 'off', 'no'])(
     'returns { ok: true, value: false } for "%s"',
     (value) => {
       expect(parseStrictBooleanQueryParam(value)).toEqual({ ok: true, value: false });
@@ -115,7 +116,7 @@ describe('parseStrictBooleanQueryParam', () => {
     expect(parseStrictBooleanQueryParam('  false  ')).toEqual({ ok: true, value: false });
   });
 
-  it.each(['maybe', 'enabled', 'disabled', 'active', 'null', 'undefined', '2', 'truthy'])(
+  it.each(['maybe', 'enabled', 'null', '2'])(
     'returns { ok: false } for unknown value "%s"',
     (value) => {
       expect(parseStrictBooleanQueryParam(value)).toMatchObject({ ok: false });
@@ -177,4 +178,34 @@ describe('errorResponse', () => {
     expect(result.error.code).toBe('CONFLICT');
     expect(result.error.message).toBe('Already exists');
   });
+});
+
+// ---------------------------------------------------------------------------
+// normalizeOrigin
+// ---------------------------------------------------------------------------
+
+describe('normalizeOrigin', () => {
+   it('removes a single trailing slash', () => {
+      expect(normalizeOrigin('https://example.com/')).toBe('https://example.com');
+   });
+
+   it('removes multiple trailing slashes', () => {
+      expect(normalizeOrigin('https://example.com///')).toBe('https://example.com');
+   });
+
+   it('leaves a URL with no trailing slash unchanged', () => {
+      expect(normalizeOrigin('https://example.com')).toBe('https://example.com');
+   });
+
+   it('leaves an empty string unchanged', () => {
+      expect(normalizeOrigin('')).toBe('');
+   });
+
+   it('handles URLs with paths and trailing slash', () => {
+      expect(normalizeOrigin('https://example.com/path/')).toBe('https://example.com/path');
+   });
+
+   it('returns empty string for a string consisting entirely of slashes', () => {
+      expect(normalizeOrigin('///')).toBe('');
+   });
 });

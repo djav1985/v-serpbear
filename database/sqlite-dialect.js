@@ -7,6 +7,7 @@ let _logger;
 try {
   _logger = require('../utils/logger').logger;
 } catch (_) {
+  // eslint-disable-next-line no-console
   _logger = { warn: (msg, meta) => console.warn(msg, meta ? JSON.stringify(meta) : '') };
 }
 

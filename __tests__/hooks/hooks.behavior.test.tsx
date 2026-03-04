@@ -1,16 +1,76 @@
-import { renderHook } from '@testing-library/react';
+import { renderHook, waitFor } from '@testing-library/react';
+import mockRouter from 'next-router-mock';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { useBranding } from '../../hooks/useBranding';
+import { useFetchDomains } from '../../services/domains';
 import { DEFAULT_BRANDING, getBranding, BrandingConfig } from '../../utils/branding';
+import { createWrapper } from '../../__mocks__/utils';
+import { dummyDomain } from '../../__mocks__/data';
 
 jest.mock('../../utils/branding', () => ({
    ...jest.requireActual('../../utils/branding'),
    getBranding: jest.fn(),
 }));
 
+jest.mock('next/router', () => jest.requireActual('next-router-mock'));
+
 const mockGetBranding = getBranding as jest.MockedFunction<typeof getBranding>;
 
-// Mock fetch for client-side API calls
+// ---------------------------------------------------------------------------
+// useFetchDomains
+// ---------------------------------------------------------------------------
+
+const originalFetch = global.fetch;
+const fetchMock = jest.fn<Promise<Response>, [RequestInfo | URL, RequestInit | undefined]>();
+
+const asUrlString = (input: RequestInfo | URL): string => {
+   if (typeof input === 'string') return input;
+   if (input instanceof URL) return input.toString();
+   if (typeof (input as Request).url === 'string') return (input as Request).url;
+   return String(input);
+};
+
+function createJsonResponse<T>(payload: T, status = 200): Response {
+   return {
+      ok: status >= 200 && status < 300,
+      status,
+      json: async () => payload,
+   } as unknown as Response;
+}
+
+beforeAll(() => {
+   global.fetch = fetchMock as unknown as typeof fetch;
+});
+
+afterAll(() => {
+   global.fetch = originalFetch;
+});
+
+beforeEach(() => {
+   fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = asUrlString(input);
+      if (url.startsWith(`${window.location.origin}/api/domains`)) {
+         return createJsonResponse({ domains: [dummyDomain] });
+      }
+      throw new Error(`Unhandled fetch request: ${url}`);
+   });
+});
+
+afterEach(() => {
+   fetchMock.mockReset();
+});
+
+describe('DomainHooks', () => {
+   it('useFetchDomains should fetch the Domains', async () => {
+      const { result } = renderHook(() => useFetchDomains(mockRouter, false), { wrapper: createWrapper() });
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+   });
+});
+
+// ---------------------------------------------------------------------------
+// useBranding hook
+// ---------------------------------------------------------------------------
+
 global.fetch = jest.fn();
 const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>;
 
@@ -54,7 +114,6 @@ describe('useBranding hook', () => {
          logoMimeType: 'image/png',
       };
 
-      // Mock Next.js __NEXT_DATA__ structure
       if (typeof window !== 'undefined') {
          (window as any).__NEXT_DATA__ = {
             props: {
@@ -70,7 +129,6 @@ describe('useBranding hook', () => {
       expect(result.current.branding.platformName).toBe('Acme SEO');
       expect(result.current.branding.whiteLabelEnabled).toBe(true);
 
-      // Cleanup
       if (typeof window !== 'undefined') {
          delete (window as any).__NEXT_DATA__;
       }
@@ -87,7 +145,6 @@ describe('useBranding hook', () => {
    });
 
    it('provides refetch function for manual updates', () => {
-      // Clear any existing __NEXT_DATA__
       if (typeof window !== 'undefined') {
          delete (window as any).__NEXT_DATA__;
       }
@@ -99,14 +156,12 @@ describe('useBranding hook', () => {
    });
 
    it('handles missing __NEXT_DATA__ gracefully on client', () => {
-      // Ensure __NEXT_DATA__ is not defined
       if (typeof window !== 'undefined') {
          delete (window as any).__NEXT_DATA__;
       }
 
       const { result } = renderHook(() => useBranding(), { wrapper });
 
-      // Should fall back to default branding
       expect(result.current.branding).toEqual(DEFAULT_BRANDING);
    });
 
@@ -138,7 +193,6 @@ describe('useBranding hook', () => {
       expect(result.current.branding.hasCustomLogo).toBe(true);
       expect(result.current.branding.logoFile).toBe('whitelabel-logo.svg');
 
-      // Cleanup
       if (typeof window !== 'undefined') {
          delete (window as any).__NEXT_DATA__;
       }

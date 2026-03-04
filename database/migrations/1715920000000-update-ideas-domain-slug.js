@@ -1,5 +1,7 @@
 // Migration: ensure keyword ideas files use domainSlug and domainUrl fields.
 
+const { logger } = require('../migrationLogger');
+
 module.exports = {
    up: async () => {
        
@@ -35,7 +37,7 @@ module.exports = {
                // eslint-disable-next-line security/detect-non-literal-fs-filename
                await fs.writeFile(filePath, JSON.stringify(content, null, 2), 'utf-8');
             } catch (err) {
-               console.error('[Migration] Failed to update', file, err);
+               logger.error('[Migration] Failed to update', err instanceof Error ? err : new Error(String(err)), { file });
             }
          }
       } catch (_err) {

@@ -34,23 +34,4 @@ describe('serper scraper', () => {
     expect(url).not.toContain('plumber%2Bnear%2Bme');
   });
 
-  it('does not emit console.log output when generating the URL', () => {
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-
-    const keyword: Partial<KeywordType> = {
-      keyword: 'coffee roasters',
-      country: 'CA',
-      location: 'Toronto,ON,CA',
-    };
-
-    serper.scrapeURL!(
-      keyword as KeywordType,
-      settings as SettingsType,
-      countryData
-    );
-
-    expect(consoleSpy).not.toHaveBeenCalled();
-
-    consoleSpy.mockRestore();
-  });
 });

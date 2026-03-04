@@ -1,14 +1,16 @@
 import fs from 'fs';
 import path from 'path';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from 'react-query';
+import Sidebar from '../../components/common/Sidebar';
 import TopBar from '../../components/common/TopBar';
+import { dummyDomain } from '../../__mocks__/data';
 import { DEFAULT_BRANDING } from '../../utils/branding';
 import { useBranding } from '../../hooks/useBranding';
 
-jest.mock('../../hooks/useBranding');
+const addDomainMock = jest.fn();
 
-const mockUseBranding = useBranding as jest.MockedFunction<typeof useBranding>;
+jest.mock('../../hooks/useBranding');
 
 jest.mock('../../utils/client/origin', () => ({
    getClientOrigin: () => (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'),
@@ -21,6 +23,8 @@ jest.mock('next/router', () => ({
    }),
 }));
 
+const mockUseBranding = useBranding as jest.MockedFunction<typeof useBranding>;
+
 const createTestQueryClient = () => new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
 const renderTopBar = () => {
@@ -31,6 +35,37 @@ const renderTopBar = () => {
       </QueryClientProvider>,
    );
 };
+
+describe('Sidebar Component', () => {
+   beforeEach(() => {
+      mockUseBranding.mockReturnValue({
+         branding: DEFAULT_BRANDING,
+         isLoading: false,
+         isError: false,
+         isFetching: false,
+         refetch: jest.fn(),
+      });
+   });
+
+   afterEach(() => {
+      jest.clearAllMocks();
+   });
+
+   it('renders without crashing', async () => {
+       render(<Sidebar domains={[dummyDomain]} showAddModal={addDomainMock} />);
+       expect(screen.getByText(DEFAULT_BRANDING.platformName)).toBeInTheDocument();
+   });
+   it('renders domain list', async () => {
+      render(<Sidebar domains={[dummyDomain]} showAddModal={addDomainMock} />);
+      expect(screen.getByText('compressimage.io')).toBeInTheDocument();
+   });
+   it('calls showAddModal on Add Domain button click', async () => {
+      render(<Sidebar domains={[dummyDomain]} showAddModal={addDomainMock} />);
+      const addDomainBtn = screen.getByTestId('add_domain');
+      fireEvent.click(addDomainBtn);
+      expect(addDomainMock).toHaveBeenCalledWith(true);
+   });
+});
 
 describe('TopBar Component', () => {
    beforeEach(() => {
@@ -65,8 +100,6 @@ describe('TopBar Component', () => {
       const globalsPath = path.join(process.cwd(), 'styles', 'globals.css');
       const css = fs.readFileSync(globalsPath, 'utf8');
 
-      // More robust CSS validation with better error reporting and maintainability
-      // Extract the mobile media query section for targeted testing
       const mobileMediaQueryRegex = /@media\s*\(\s*max-width:\s*767px\s*\)\s*\{([\s\S]*?)\}/;
       const mobileMediaMatch = css.match(mobileMediaQueryRegex);
 
@@ -75,10 +108,8 @@ describe('TopBar Component', () => {
       if (mobileMediaMatch) {
          const mobileSection = mobileMediaMatch[1];
 
-         // Validate topbar class exists in mobile section
          expect(mobileSection).toMatch(/\.topbar\s*\{/);
 
-         // Validate specific CSS properties with flexible whitespace handling
          expect(mobileSection).toMatch(/margin-left:\s*calc\(\s*-1\s*\*\s*var\(\s*--layout-inline\s*\)\s*\)\s*;/);
          expect(mobileSection).toMatch(/margin-right:\s*calc\(\s*-1\s*\*\s*var\(\s*--layout-inline\s*\)\s*\)\s*;/);
          expect(mobileSection).toMatch(/padding-left:\s*var\(\s*--layout-inline\s*\)\s*;/);
@@ -88,7 +119,6 @@ describe('TopBar Component', () => {
          );
       }
 
-      // Ensure no body overrides in mobile media queries (maintains body gutters)
       const mobileBodyOverride = /@media\s*\(\s*max-width:\s*767px\s*\)\s*\{[^}]*body\s*\{/;
       expect(css).not.toMatch(mobileBodyOverride);
    });

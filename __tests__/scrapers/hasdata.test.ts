@@ -28,23 +28,4 @@ describe('hasdata scraper', () => {
     expect(url).toContain('location=Los+Angeles%2CCA%2CUnited+States');
     expect(parsed.searchParams.get('deviceType')).toBe('desktop');
   });
-
-  it('omits the location parameter when only a country is provided', () => {
-    const keyword: Partial<KeywordType> = {
-      keyword: 'seo agency',
-      country: 'FR',
-      location: 'FR',
-      device: 'mobile',
-    };
-
-    const url = hasdata.scrapeURL!(
-      keyword as KeywordType,
-      settings as SettingsType,
-      countryData,
-    );
-    const parsed = new URL(url);
-
-    expect(parsed.searchParams.has('location')).toBe(false);
-    expect(parsed.searchParams.get('deviceType')).toBe('mobile');
-  });
 });

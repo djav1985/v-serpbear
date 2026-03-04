@@ -1,5 +1,7 @@
 // Migration: Adds search_console field to domain table to assign search console property type, url and api.
 
+const { logger } = require('../migrationLogger');
+
 // CLI Migration
 module.exports = {
    up: async function up(params = {}, legacySequelize) {
@@ -16,7 +18,7 @@ module.exports = {
          } catch (_describeError) {
             // Table doesn't exist yet - skip migration
             // Tables will be created by db.sync() after migrations run
-            console.log('[MIGRATION] Skipping migration - domain table does not exist yet');
+            logger.info('[MIGRATION] Skipping migration - domain table does not exist yet');
             return;
          }
          if (domainTableDefinition && !domainTableDefinition.search_console) {
@@ -28,7 +30,7 @@ module.exports = {
             );
          }
       } catch (error) {
-         console.error('error :', error);
+         logger.error('Migration error', error instanceof Error ? error : new Error(String(error)));
          throw error;
       }
      });
@@ -42,14 +44,14 @@ module.exports = {
                domainTableDefinition = await queryInterface.describeTable('domain');
             } catch (_describeError) {
                // Table doesn't exist - skip rollback
-               console.log('[MIGRATION] Skipping rollback - domain table does not exist');
+               logger.info('[MIGRATION] Skipping rollback - domain table does not exist');
                return;
             }
             if (domainTableDefinition && domainTableDefinition.search_console) {
                await queryInterface.removeColumn('domain', 'search_console', { transaction: t });
             }
          } catch (error) {
-            console.error('error :', error);
+            logger.error('Migration error', error instanceof Error ? error : new Error(String(error)));
             throw error;
          }
       });

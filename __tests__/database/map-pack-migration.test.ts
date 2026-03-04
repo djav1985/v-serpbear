@@ -4,9 +4,22 @@ import { Sequelize } from 'sequelize';
 
 const sqliteDialect = require('../../database/sqlite-dialect');
 
+// Mock the migration logger so tests assert against logger calls, not console.*
+jest.mock('../../database/migrationLogger', () => ({
+  logger: {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+  },
+}));
+
 describe('Map Pack Top3 Migration', () => {
   let sequelize: Sequelize;
-  
+  const { logger } = require('../../database/migrationLogger') as {
+    logger: { info: jest.Mock; warn: jest.Mock; error: jest.Mock; debug: jest.Mock }
+  };
+
   beforeEach(() => {
     sequelize = new Sequelize({
       dialect: 'sqlite',
@@ -14,6 +27,7 @@ describe('Map Pack Top3 Migration', () => {
       storage: ':memory:',
       logging: false,
     });
+    jest.clearAllMocks();
   });
 
   afterEach(async () => {
@@ -136,15 +150,10 @@ describe('Map Pack Top3 Migration', () => {
       describeTable: jest.fn().mockRejectedValue(new Error('Table does not exist')),
     };
 
-    // Mock console.log to capture skip message
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-    
     // Migration should complete without throwing
     await expect(migration.up({ context: mockQueryInterface })).resolves.not.toThrow();
     
-    // Verify skip message was logged
-    expect(consoleSpy).toHaveBeenCalledWith('[MIGRATION] Skipping migration - keyword table does not exist yet');
-    
-    consoleSpy.mockRestore();
+    // Verify skip message was logged via logger.info (not console.log)
+    expect(logger.info).toHaveBeenCalledWith('[MIGRATION] Skipping migration - keyword table does not exist yet');
   });
 });
