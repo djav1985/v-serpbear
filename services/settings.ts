@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from 'react-query';
 import { apiGet, apiPost, apiPut } from '../utils/client/apiClient';
 
 export async function fetchSettings() {
-   return apiGet('/api/settings');
+   return apiGet<{ settings: SettingsType }>('/api/settings');
 }
 
 export function useFetchSettings() {
