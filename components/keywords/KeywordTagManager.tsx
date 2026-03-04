@@ -6,7 +6,7 @@ import AddTags from './AddTags';
 
 type keywordTagManagerProps = {
    keyword: KeywordType|undefined,
-   closeModal: Function,
+   closeModal: (show?: boolean) => void,
    allTags: string[]
 }
 

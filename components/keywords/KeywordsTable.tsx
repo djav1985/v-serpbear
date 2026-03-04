@@ -20,7 +20,7 @@ type KeywordsTableProps = {
    keywords: KeywordType[],
    isLoading: boolean,
    showAddModal: boolean,
-   setShowAddModal: Function,
+   setShowAddModal: (show: boolean) => void,
    isConsoleIntegrated: boolean,
    settings?: SettingsType
 }

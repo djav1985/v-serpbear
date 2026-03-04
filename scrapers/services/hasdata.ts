@@ -101,7 +101,7 @@ const hasdata: ScraperSettings = {
       }
     }
 
-    const businessName = (settings as any)?.business_name ?? null;
+    const businessName = (settings as ExtendedSettings)?.business_name ?? null;
     const mapPackTop3 = computeMapPackTop3(keyword.domain, response, businessName);
 
     return { organic: extractedResult, mapPackTop3 };

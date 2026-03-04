@@ -6,16 +6,16 @@ import countries from '../../utils/countries';
 type KeywordFilterProps = {
    device: string,
    allTags: string[],
-   setDevice: Function,
+   setDevice: (device: string) => void,
    filterParams: KeywordFilters,
-   filterKeywords: Function,
+   filterKeywords: (params: KeywordFilters) => void,
    keywords: KeywordType[] | SearchAnalyticsItem[],
-   updateSort: Function,
+   updateSort: (sorted: string) => void,
    sortBy: string,
    integratedConsole?: boolean,
    isConsole?: boolean,
    SCcountries?: string[];
-   updateColumns?: Function,
+   updateColumns?: (column: string) => void,
    tableColumns?: string[]
 }
 

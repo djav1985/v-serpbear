@@ -8,10 +8,10 @@ import { formattedNum } from '../../utils/client/helpers';
 type SCKeywordProps = {
    keywordData: SearchAnalyticsItem,
    selected: boolean,
-   selectKeyword: Function,
+   selectKeyword: (uid: string, isTracked: boolean) => void,
    lastItem?:boolean,
    isTracked: boolean,
-   style: Object
+   style: React.CSSProperties
 }
 
 const SCKeyword = (props: SCKeywordProps) => {

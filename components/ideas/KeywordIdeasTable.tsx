@@ -31,7 +31,7 @@ type IdeasKeywordsTableProps = {
    noIdeasDatabase: boolean,
    isLoading: boolean,
    showFavorites: boolean,
-   setShowFavorites: Function,
+   setShowFavorites: (show: boolean) => void,
    isAdwordsIntegrated: boolean,
 }
 

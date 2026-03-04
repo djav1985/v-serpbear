@@ -11,7 +11,7 @@ type SelectFieldProps = {
    selected: string[],
    label?: string,
    multiple?: boolean,
-   updateField: Function,
+   updateField: (values: string[]) => void,
    fullWidth?: boolean,
    minWidth?: number,
    maxHeight?: number|string,

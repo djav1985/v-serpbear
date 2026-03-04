@@ -25,7 +25,7 @@ type keywordIdeasMetrics = {
 type keywordIdeasResponseItem = {
    keywordIdeaMetrics: keywordIdeasMetrics,
    text: string,
-   keywordAnnotations: Object
+   keywordAnnotations: Record<string, unknown>
 };
 
 type IdeaSettings = {

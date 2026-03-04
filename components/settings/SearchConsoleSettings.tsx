@@ -11,7 +11,7 @@ type SearchConsoleSettingsProps = {
       type: string,
       msg: string
    },
-   updateSettings: Function,
+   updateSettings: (key: string, value: string | number | boolean) => void,
 }
 
 const SearchConsoleSettings = ({ settings, settingsError, updateSettings }:SearchConsoleSettingsProps) => {

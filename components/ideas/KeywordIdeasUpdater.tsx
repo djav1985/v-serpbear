@@ -6,7 +6,7 @@ import SelectField from '../common/SelectField';
 import Icon from '../common/Icon';
 
 interface KeywordIdeasUpdaterProps {
-   onUpdate?: Function,
+   onUpdate?: () => void,
    domain?: DomainType,
    searchConsoleConnected: boolean,
    adwordsConnected: boolean,

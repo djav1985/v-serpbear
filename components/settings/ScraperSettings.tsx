@@ -12,7 +12,7 @@ type ScraperSettingsProps = {
       type: string,
       msg: string
    },
-   updateSettings: Function,
+   updateSettings: (key: string, value: string | number | boolean) => void,
 }
 
 const ScraperSettings = ({ settings, settingsError, updateSettings }:ScraperSettingsProps) => {
@@ -62,7 +62,7 @@ const ScraperSettings = ({ settings, settingsError, updateSettings }:ScraperSett
             options={scraperOptions}
             selected={[settings.scraper_type || 'none']}
             defaultLabel="Select Scraper"
-            updateField={(updatedTime:[string]) => updateSettings('scraper_type', updatedTime[0])}
+            updateField={(updatedTime: string[]) => updateSettings('scraper_type', updatedTime[0])}
             multiple={false}
             rounded={'rounded'}
             minWidth={220}

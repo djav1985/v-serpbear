@@ -36,7 +36,7 @@ export const fetchKeywords = async (router: NextRouter, domain: string) => {
 export function useFetchKeywords(
    router: NextRouter,
    domain: string,
-   setKeywordSPollInterval?:Function,
+   setKeywordSPollInterval?: (interval: number | undefined) => void,
    keywordSPollInterval:undefined|number = undefined,
 ) {
    const { data: keywordsData, isLoading: keywordsLoading, isError } = useQuery(
@@ -68,7 +68,7 @@ export function useFetchKeywords(
    return { keywordsData, keywordsLoading, isError };
 }
 
-export function useAddKeywords(onSuccess:Function) {
+export function useAddKeywords(onSuccess: () => void) {
    const queryClient = useQueryClient();
    return useMutation(async (keywords:KeywordAddPayload[]) => (
       apiPost('/api/keywords', { keywords })
@@ -84,7 +84,7 @@ export function useAddKeywords(onSuccess:Function) {
    });
 }
 
-export function useDeleteKeywords(onSuccess:Function) {
+export function useDeleteKeywords(onSuccess: () => void) {
    const queryClient = useQueryClient();
    return useMutation(async (keywordIDs:number[]) => {
       const keywordIds = keywordIDs.join(',');
@@ -101,7 +101,7 @@ export function useDeleteKeywords(onSuccess:Function) {
    });
 }
 
-export function useFavKeywords(onSuccess:Function) {
+export function useFavKeywords(onSuccess: () => void) {
    const queryClient = useQueryClient();
    return useMutation(async ({ keywordID, sticky }:{keywordID:number, sticky:boolean}) => (
       apiPut<{ keywords: KeywordType[] }>(`/api/keywords?id=${keywordID}`, { sticky })
@@ -118,7 +118,7 @@ export function useFavKeywords(onSuccess:Function) {
    });
 }
 
-export function useUpdateKeywordTags(onSuccess:Function) {
+export function useUpdateKeywordTags(onSuccess: () => void) {
    const queryClient = useQueryClient();
    return useMutation(async ({ tags }:{tags:{ [ID:number]: string[] }}) => {
       const keywordIds = Object.keys(tags).join(',');
@@ -135,7 +135,7 @@ export function useUpdateKeywordTags(onSuccess:Function) {
    });
 }
 
-export function useRefreshKeywords(onSuccess:Function) {
+export function useRefreshKeywords(onSuccess: () => void) {
    const queryClient = useQueryClient();
    return useMutation(async ({ ids = [], domain = '' } : {ids?: number[], domain?: string}) => {
       const keywordIds = ids.join(',');

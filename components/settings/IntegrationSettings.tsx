@@ -11,9 +11,9 @@ type IntegrationSettingsProps = {
       type: string,
       msg: string
    },
-   updateSettings: Function,
-   performUpdate: Function,
-   closeSettings: Function
+   updateSettings: (key: string, value: string | number | boolean) => void,
+   performUpdate: () => void | Promise<void>,
+   closeSettings: () => void
 }
 const IntegrationSettings = ({ settings, settingsError, updateSettings, performUpdate, closeSettings }:IntegrationSettingsProps) => {
    const [currentTab, setCurrentTab] = useState<string>('searchconsole');

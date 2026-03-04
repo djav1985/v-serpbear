@@ -7,7 +7,7 @@ type ModalProps = {
    width?: string,
    title?: string,
    verticalCenter?: boolean,
-   closeModal: Function,
+   closeModal: () => void,
 }
 
 const Modal = React.forwardRef<HTMLDivElement, ModalProps>(({
