@@ -15,3 +15,12 @@ export {
   mockDomainModel,
   mockKeywordModel,
 } from './commonMocks';
+export {
+  assertUnauthorized,
+  assertMethodNotAllowed,
+  assertErrorShape,
+  assertBadRequest,
+  assertNotFound,
+} from './apiTestHarness';
+export type { ScraperContractConfig } from './scraperContract';
+export { runScraperURLContracts } from './scraperContract';
