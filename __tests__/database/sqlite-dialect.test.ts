@@ -352,7 +352,7 @@ describe('sqlite dialect wrapper', () => {
           const prepareSpy = jest.spyOn(db.driver, 'prepare');
           prepareSpy.mockImplementation((sql: string, ...prepareArgs: unknown[]) => {
             const statement = originalPrepare(sql, ...prepareArgs);
-            return new Proxy(statement, {
+            return new Proxy(statement as object, {
               get(target, prop, receiver) {
                 const value = Reflect.get(target, prop, receiver);
                 if (

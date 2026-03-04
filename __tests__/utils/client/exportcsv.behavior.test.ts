@@ -5,8 +5,7 @@
  * createKeywordIdeasCsvPayload) and Blob/download path via exportCSV.
  */
 
-import { createKeywordCsvPayload, createKeywordIdeasCsvPayload } from '../../../utils/client/exportcsv';
-import exportCSV from '../../../utils/client/exportcsv';
+import exportCSV, { createKeywordCsvPayload, createKeywordIdeasCsvPayload } from '../../../utils/client/exportcsv';
 
 const parseCsvRow = (row: string): string[] => {
   const sanitizedRow = row.replace(/\r?$/, '');

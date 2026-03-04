@@ -1,7 +1,15 @@
 import { EventEmitter } from 'events';
 
 declare namespace SqliteDialect {
+  interface RunResult {
+    lastID: number;
+    changes: number;
+  }
+
   type Callback<T = unknown> = (error: Error | null, result?: T) => void;
+  type RunCallback = (this: RunResult, error: Error | null) => void;
+  type AllCallback<T> = (error: Error | null, rows: T[]) => void;
+  type GetCallback<T> = (error: Error | null, row: T | undefined) => void;
 
   class Database extends EventEmitter {
     constructor(filename: string, mode?: number, callback?: Callback<void>);
@@ -10,11 +18,23 @@ declare namespace SqliteDialect {
 
     open: boolean;
 
-    run(sql: string, params?: unknown[] | Record<string, unknown>, callback?: Callback<void>): this;
+    /** Underlying better-sqlite3 driver instance */
+    driver: {
+      prepare(sql: string, ...args: unknown[]): unknown;
+      [key: string]: unknown;
+    };
 
-    all<T = unknown>(sql: string, params?: unknown[] | Record<string, unknown>, callback?: Callback<T[]>): this;
+    run(sql: string, callback?: RunCallback): this;
+    run(sql: string, params: unknown, callback?: RunCallback): this;
+    run(sql: string, param1: unknown, param2: unknown, callback?: RunCallback): this;
 
-    get<T = unknown>(sql: string, params?: unknown[] | Record<string, unknown>, callback?: Callback<T | undefined>): this;
+    all<T = unknown>(sql: string, callback?: AllCallback<T>): this;
+    all<T = unknown>(sql: string, params: unknown, callback?: AllCallback<T>): this;
+    all<T = unknown>(sql: string, param1: unknown, param2: unknown, callback?: AllCallback<T>): this;
+
+    get<T = unknown>(sql: string, callback?: GetCallback<T>): this;
+    get<T = unknown>(sql: string, params: unknown, callback?: GetCallback<T>): this;
+    get<T = unknown>(sql: string, param1: unknown, param2: unknown, callback?: GetCallback<T>): this;
 
     exec(sql: string, callback?: Callback<void>): this;
 

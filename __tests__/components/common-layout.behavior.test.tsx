@@ -3,7 +3,7 @@
  * SpinnerMessage, and Branding/BrandTitle.
  */
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { DEFAULT_BRANDING, BrandingConfig } from '../../utils/branding';
 import { useBranding } from '../../hooks/useBranding';
 
