@@ -7,7 +7,7 @@ import countries from '../../utils/countries';
 import Chart from '../common/Chart';
 import useOnKey from '../../hooks/useOnKey';
 import { formattedNum } from '../../utils/client/helpers';
-import { fetchSearchResults } from '../../services/keywords';
+import { fetchSearchResults, type SearchResultsResponse } from '../../services/keywords';
 
 type IdeaDetailsProps = {
    keyword: IdeaKeyword,
@@ -27,7 +27,7 @@ const IdeaDetails = ({ keyword, closeDetails }:IdeaDetailsProps) => {
    const searchResultContainer = useRef<HTMLDivElement>(null);
    const searchResultFound = useRef<HTMLDivElement>(null);
    const searchResultReqPayload = { keyword: keyword.keyword, country: keyword.country, device: 'desktop' };
-   const { data: keywordSearchResultData, refetch: fetchKeywordSearchResults, isLoading: fetchingResult } = useQuery(
+   const { data: keywordSearchResultData, refetch: fetchKeywordSearchResults, isLoading: fetchingResult } = useQuery<SearchResultsResponse | null>(
    `ideas:${keyword.uid}`,
       () => fetchSearchResults(router, searchResultReqPayload),
       { refetchOnWindowFocus: false, enabled: false },

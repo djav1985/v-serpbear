@@ -177,12 +177,22 @@ export function useFetchSingleKeyword(keywordID:number) {
    });
 }
 
-export async function fetchSearchResults(router:NextRouter, keywordData: Record<string, string>) {
+export type SearchResultsResponse = {
+   searchResult: {
+      results: KeywordLastResult[],
+      keyword: string,
+      position: number,
+      country: string,
+      device: string
+   }
+};
+
+export async function fetchSearchResults(router:NextRouter, keywordData: Record<string, string>): Promise<SearchResultsResponse | null> {
    const { keyword, country, device } = keywordData;
    const params = new URLSearchParams();
    if (typeof keyword === 'string') { params.set('keyword', keyword); }
    if (typeof country === 'string') { params.set('country', country); }
    if (typeof device === 'string') { params.set('device', device); }
    const queryString = params.toString();
-   return apiGet(`/api/refresh${queryString ? `?${queryString}` : ''}`, router);
+   return apiGet<SearchResultsResponse>(`/api/refresh${queryString ? `?${queryString}` : ''}`, router);
 }
