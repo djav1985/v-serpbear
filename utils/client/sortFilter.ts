@@ -31,24 +31,6 @@ export const matchesTags = (keywordTags: string[], tags: string[]): boolean => (
    tags.length === 0 || tags.some((tag) => keywordTags.includes(tag))
 );
 
-// ── Array filters (derived from predicates) ──────────────────────────────────
-
-export const filterByCountry = <T extends { country: string }>(items: T[], countries: string[]): T[] => (
-   items.filter((item) => matchesCountry(item.country, countries))
-);
-
-export const filterBySearch = <T extends { keyword: string }>(
-   items: T[],
-   search: string,
-   options: { caseSensitive?: boolean } = {}
-): T[] => {
-   if (!search) { return [...items]; }
-   if (options.caseSensitive) {
-      return items.filter((item) => item.keyword.includes(search));
-   }
-   return items.filter((item) => matchesSearch(item.keyword, search));
-};
-
 export const filterByDevice = <T extends { device: string }>(items: T[], device: string): {[key: string]: T[] } => {
    const deviceKeywords: {[key:string] : T[]} = { desktop: [], mobile: [] };
    items.forEach((keyword) => {
@@ -164,10 +146,11 @@ export const keywordsByDevice = (sortedKeywords: KeywordType[], device: string):
  * @returns {KeywordType[]}
  */
 export const filterKeywords = (keywords: KeywordType[], filterParams: KeywordFilters):KeywordType[] => (
-   filterBySearch(
-      filterByCountry(keywords, filterParams.countries),
-      filterParams.search
-   ).filter((keyword) => matchesTags(keyword.tags, filterParams.tags))
+   keywords.filter((keyword) => (
+      matchesCountry(keyword.country, filterParams.countries)
+      && matchesSearch(keyword.keyword, filterParams.search)
+      && matchesTags(keyword.tags, filterParams.tags)
+   ))
 );
 
 /**
@@ -233,10 +216,12 @@ export const SCkeywordsByDevice = (sortedKeywords: SCKeywordType[], device: stri
  * @param {KeywordFilters} filterParams - The user Selected filter object.
  * @returns {SCKeywordType[]}
  */
-export const SCfilterKeywords = (keywords: SCKeywordType[], filterParams: KeywordFilters):SCKeywordType[] => {
-   const countryFiltered = filterByCountry(keywords, filterParams.countries);
-   return filterBySearch(countryFiltered, filterParams.search, { caseSensitive: true });
-};
+export const SCfilterKeywords = (keywords: SCKeywordType[], filterParams: KeywordFilters):SCKeywordType[] => (
+   keywords.filter((keyword) => (
+      matchesCountry(keyword.country, filterParams.countries)
+      && (!filterParams.search || keyword.keyword.includes(filterParams.search))
+   ))
+);
 
 export const IdeasSortKeywords = (theKeywords: IdeaKeyword[], sortBy: string): IdeaKeyword[] => {
    const keywordsToSort = [...theKeywords];
@@ -254,14 +239,6 @@ export const IdeasSortKeywords = (theKeywords: IdeaKeyword[], sortBy: string): I
          return [...theKeywords];
    }
 };
-
-// Delegates to matchesCountry — kept for backward compatibility with callers that
-// import it from this module by name.
-export const matchesIdeaCountry = (country: string, countries: string[]): boolean => (
-   matchesCountry(country, countries)
-);
-
-export const matchesIdeaSearch = (keyword: string, search: string): boolean => matchesSearch(keyword, search);
 
 export const normalizeIdeaTag = (tag: string): string => tag.replace(/\s*\(\d+\)/, '').trim();
 
