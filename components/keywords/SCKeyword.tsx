@@ -1,5 +1,6 @@
 /// <reference path="../../types.d.ts" />
 
+import type { CSSProperties } from 'react';
 import Icon from '../common/Icon';
 import countries from '../../utils/countries';
 import KeywordPosition from './KeywordPosition';
@@ -11,7 +12,7 @@ type SCKeywordProps = {
    selectKeyword: (uid: string, isTracked: boolean) => void,
    lastItem?:boolean,
    isTracked: boolean,
-   style: React.CSSProperties
+   style: CSSProperties
 }
 
 const SCKeyword = (props: SCKeywordProps) => {
