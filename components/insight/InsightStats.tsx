@@ -84,13 +84,13 @@ const InsightStats = ({ stats = [], totalKeywords = 0, totalPages = 0 }:InsightS
             className='flex-1 border border-gray-200 px-6 py-5 rounded mb-4 text-2xl text-violet-700 mr-5'
             title={`${formattedNum(totalStat.clicks || 0)} Visits`}>
                <span className=' block text-sm font-normal text-gray-500'>Visits</span>
-               {new Intl.NumberFormat('en-US', { notation: 'compact', compactDisplay: 'short' }).format(totalStat.clicks || 0)}
+               {new Intl.NumberFormat('en-US', { notation: 'compact', compactDisplay: 'short' }).format(totalStat.clicks || 0).replace('T', 'K')}
             </div>
             <div
             className='flex-1 border border-gray-200 px-6 py-5 rounded mb-4 text-2xl text-[#1fcdb0] lg:mr-5'
             title={`${formattedNum(totalStat.impressions || 0)} Impressions`}>
                <span className=' block text-sm font-normal text-gray-500'>Impressions</span>
-               {new Intl.NumberFormat('en-US', { notation: 'compact', compactDisplay: 'short' }).format(totalStat.impressions || 0)}
+               {new Intl.NumberFormat('en-US', { notation: 'compact', compactDisplay: 'short' }).format(totalStat.impressions || 0).replace('T', 'K')}
             </div>
             <div className='flex-1 border border-gray-200 px-6 py-5 rounded mb-4 text-2xl text-gray-500 font-semibold mr-5'>
                <span className=' block text-sm font-normal text-gray-500'>Avg Position</span>
