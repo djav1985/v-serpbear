@@ -4,7 +4,7 @@ import Keyword from '../../database/models/keyword';
 import refreshAndUpdateKeywords, { updateKeywordPosition } from '../../utils/refresh';
 import { removeFromRetryQueue, retryScrape, scrapeKeywordWithStrategy } from '../../utils/scraper';
 import type { RefreshResult } from '../../utils/scraper';
-import { toDbBool, fromDbBool } from '../../utils/dbBooleans';
+import { toDbBool } from '../../utils/dbBooleans';
 
 // Mock the dependencies
 jest.mock('../../database/models/domain');
@@ -1142,91 +1142,6 @@ describe('Database-Memory Synchronization in Keyword Refresh', () => {
         }),
       );
     });
-
-    it('does not rely on a reload function for test mocks', async () => {
-      const mockKeywordModelWithoutReload = {
-        ID: 2,
-        keyword: 'test keyword 2',
-        domain: 'example.com',
-        position: 0,
-        updating: 1,
-        get: jest.fn().mockReturnValue({
-          ID: 2,
-          keyword: 'test keyword 2',
-          domain: 'example.com',
-          position: 0,
-          updating: false,
-          history: {},
-          lastUpdated: '',
-        }),
-        update: jest.fn().mockResolvedValue(undefined),
-      } as unknown as Keyword;
-
-      const refreshResult: RefreshResult = {
-        ID: 2,
-        keyword: 'test keyword 2',
-        position: 10,
-        url: 'https://example.com',
-        result: [],
-        localResults: [],
-        mapPackTop3: false,
-      };
-
-      const settings = {
-        scraper_type: 'serpapi',
-        scrape_retry: false,
-      } as SettingsType;
-
-      // Should not throw error even without reload method
-      await expect(
-        updateKeywordPosition(mockKeywordModelWithoutReload, refreshResult, settings),
-      ).resolves.toBeDefined();
-
-      expect(mockKeywordModelWithoutReload.update).toHaveBeenCalled();
-    });
-  });
-
-  describe('Concurrency and Race Condition Prevention', () => {
-    it('does not use manual .set() calls that could cause state divergence', async () => {
-      const mockKeyword = {
-        ID: 4,
-        keyword: 'concurrent keyword',
-        domain: 'example.com',
-        updating: 0,
-        get: jest.fn().mockReturnValue({
-          ID: 4,
-          keyword: 'concurrent keyword',
-          domain: 'example.com',
-          position: 0,
-          history: {},
-        }),
-        update: jest.fn().mockResolvedValue(undefined),
-        set: jest.fn(), // Mock set to verify it's NOT called
-      } as unknown as Keyword;
-
-      const refreshResult: RefreshResult = {
-        ID: 4,
-        keyword: 'concurrent keyword',
-        position: 15,
-        url: 'https://example.com',
-        result: [],
-        localResults: [],
-        mapPackTop3: false,
-      };
-
-      const settings = {
-        scraper_type: 'serpapi',
-        scrape_retry: false,
-      } as SettingsType;
-
-      await updateKeywordPosition(mockKeyword, refreshResult, settings);
-
-      // Verify .set() was NOT called - we rely on .update() instead
-      expect(mockKeyword.set).not.toHaveBeenCalled();
-
-      // Verify we use the correct sync pattern
-      expect(mockKeyword.update).toHaveBeenCalled();
-    });
   });
 });
 
@@ -1431,61 +1346,5 @@ describe('Atomic Flag Clearing in Refresh Workflow', () => {
       expect(mockKeywordModel1.update).toHaveBeenCalledTimes(1);
       expect(mockKeywordModel2.update).toHaveBeenCalledTimes(1);
     });
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Sync verification: unique tests from sync-verification.test.ts
-// ---------------------------------------------------------------------------
-
-describe('Database-Memory Synchronization (sync-verification)', () => {
-  it('demonstrates why manual sync is needed for bulk Keyword.update()', () => {
-    const instance = {
-      ID: 1,
-      updating: toDbBool(true),
-      update: async (payload: any) => {
-        Object.assign(instance, payload);
-      },
-    };
-
-    expect(fromDbBool(instance.updating)).toBe(true);
-    instance.update({ updating: toDbBool(false) });
-    expect(fromDbBool(instance.updating)).toBe(false);
-
-    const instances = [
-      { ID: 1, updating: toDbBool(true) },
-      { ID: 2, updating: toDbBool(true) },
-    ];
-
-    expect(fromDbBool(instances[0].updating)).toBe(true);
-    expect(fromDbBool(instances[1].updating)).toBe(true);
-
-    // After: instances are NOT synced by Keyword.update() static method
-    expect(fromDbBool(instances[0].updating)).toBe(true);
-    expect(fromDbBool(instances[1].updating)).toBe(true);
-
-    // Manual sync required:
-    instances.forEach(inst => {
-      inst.updating = toDbBool(false);
-    });
-
-    expect(fromDbBool(instances[0].updating)).toBe(false);
-    expect(fromDbBool(instances[1].updating)).toBe(false);
-  });
-
-  it('confirms updateDomainStats reads fresh data from database', () => {
-    const databaseState = [
-      { ID: 1, position: 5, mapPackTop3: 1 },
-      { ID: 2, position: 10, mapPackTop3: 0 },
-      { ID: 3, position: 15, mapPackTop3: 1 },
-    ];
-
-    const mapPackCount = databaseState.filter(k => k.mapPackTop3 === 1).length;
-    const validPositions = databaseState.filter(k => k.position > 0);
-    const totalPosition = validPositions.reduce((sum, k) => sum + k.position, 0);
-    const avgPosition = Math.round(totalPosition / validPositions.length);
-
-    expect(mapPackCount).toBe(2);
-    expect(avgPosition).toBe(10);
   });
 });

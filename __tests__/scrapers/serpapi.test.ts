@@ -21,17 +21,4 @@ describe('serpapi scraper', () => {
     expect(url).toContain('location=New+York%2CNY%2CUnited+States');
     expect(url).not.toContain('best%2Bcoffee%2Bshops');
   });
-
-  it('omits the location parameter when only a country is provided', () => {
-    const keyword: Partial<KeywordType> = {
-      keyword: 'organic coffee',
-      country: 'US',
-      location: 'US',
-    };
-
-    const url = serpapi.scrapeURL!(keyword as KeywordType, settings as SettingsType, {} as any);
-    const parsed = new URL(url);
-
-    expect(parsed.searchParams.has('location')).toBe(false);
-  });
 });

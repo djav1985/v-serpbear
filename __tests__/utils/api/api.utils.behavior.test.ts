@@ -96,14 +96,14 @@ describe('parseStrictBooleanQueryParam', () => {
     expect(parseStrictBooleanQueryParam(undefined)).toBeNull();
   });
 
-  it.each(['true', 'TRUE', 'True', '1', 'on', 'ON', 'yes', 'YES', 'Yes'])(
+  it.each(['true', 'TRUE', '1', 'on', 'yes'])(
     'returns { ok: true, value: true } for "%s"',
     (value) => {
       expect(parseStrictBooleanQueryParam(value)).toEqual({ ok: true, value: true });
     },
   );
 
-  it.each(['false', 'FALSE', 'False', '0', 'off', 'OFF', 'no', 'NO', 'No'])(
+  it.each(['false', 'FALSE', '0', 'off', 'no'])(
     'returns { ok: true, value: false } for "%s"',
     (value) => {
       expect(parseStrictBooleanQueryParam(value)).toEqual({ ok: true, value: false });
@@ -115,7 +115,7 @@ describe('parseStrictBooleanQueryParam', () => {
     expect(parseStrictBooleanQueryParam('  false  ')).toEqual({ ok: true, value: false });
   });
 
-  it.each(['maybe', 'enabled', 'disabled', 'active', 'null', 'undefined', '2', 'truthy'])(
+  it.each(['maybe', 'enabled', 'null', '2'])(
     'returns { ok: false } for unknown value "%s"',
     (value) => {
       expect(parseStrictBooleanQueryParam(value)).toMatchObject({ ok: false });

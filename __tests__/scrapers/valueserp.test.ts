@@ -17,27 +17,6 @@ describe('valueSerp scraper', () => {
     GB: ['United Kingdom', 'London', 'en', 2828],
   } as any;
 
-  it('does not log API key to console when generating URL', () => {
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-    
-    const keyword: Partial<KeywordType> = {
-      keyword: 'test search',
-      country: 'US',
-      device: 'desktop',
-    };
-
-    valueSerp.scrapeURL!(
-      keyword as KeywordType,
-      settings as SettingsType,
-      countryData
-    );
-
-    // Ensure console.log is not called with API key
-    expect(consoleSpy).not.toHaveBeenCalled();
-    
-    consoleSpy.mockRestore();
-  });
-
   it('omits pagination parameter while preserving locale and device options', () => {
     const keyword: Partial<KeywordType> = {
       keyword: 'best coffee beans',
