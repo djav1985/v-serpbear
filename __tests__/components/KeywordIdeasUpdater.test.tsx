@@ -35,14 +35,12 @@ const mockDomain: DomainType = {
    ID: 1,
    domain: 'example.com',
    slug: 'example-com',
-   lastAccessed: '2023-01-01',
+   lastUpdated: '2023-01-01',
    added: '2023-01-01',
-   updated: '2023-01-01',
    tags: '',
    notification_interval: '0',
-   notification_email: '',
+   notification_emails: '',
    search_console: '',
-   notifications: '',
    keywordsTracked: 0,
 };
 

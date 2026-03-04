@@ -58,6 +58,7 @@ describe('scraper error handling', () => {
     );
 
     // Should capture the error with the correct status code
+    if (!result) throw new Error('Expected a scrape result');
     expect(result.error).toBeTruthy();
     expect(result.error).toContain('429');
   });
@@ -99,6 +100,7 @@ describe('scraper error handling', () => {
     );
 
     // Should capture both the status code and message
+    if (!result) throw new Error('Expected a scrape result');
     expect(result.error).toBeTruthy();
     expect(result.error).toContain('503');
     expect(result.error).toContain('VALUE SERP was unable to fulfil your request');
@@ -142,6 +144,7 @@ describe('scraper error handling', () => {
     );
 
     // Should use error field over message
+    if (!result) throw new Error('Expected a scrape result');
     expect(result.error).toBeTruthy();
     expect(result.error).toContain('Invalid API key');
     expect(result.error).not.toContain('Some other message');
@@ -183,6 +186,7 @@ describe('scraper error handling', () => {
     );
 
     // Should still capture the error with Unknown Status
+    if (!result) throw new Error('Expected a scrape result');
     expect(result.error).toBeTruthy();
     expect(result.error).toContain('Unknown Status');
     expect(result.error).toContain('Something went wrong');

@@ -33,6 +33,7 @@ describe('SCKeyword Component', () => {
       ctr: 0.05,
       clicks: 50,
       device: 'desktop',
+      page: '/test',
    };
 
    const defaultProps = {

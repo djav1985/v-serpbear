@@ -2,6 +2,49 @@
 
 This directory contains shared test utilities to reduce code duplication across test files.
 
+## Test Suite Structure
+
+Tests are grouped by runtime boundary:
+
+| Directory | Purpose |
+|-----------|---------|
+| `__tests__/api/` | API route handlers (`pages/api/`) |
+| `__tests__/utils/` | Server/shared utility logic |
+| `__tests__/utils/client/` | Browser/client utility logic |
+| `__tests__/services/` | React Query hooks and service fetch wrappers |
+| `__tests__/components/` | UI component behavior |
+
+### File Naming Conventions
+
+- **`*.behavior.test.ts(x)`** – broad, thematic suites that consolidate related concerns (preferred for new work)
+- **`*.test.ts(x)`** – retained for isolated, single-module tests with no overlap
+
+### Merge vs Split Guidelines
+
+**Merge** tests into a single `*.behavior.test.ts` file when:
+- Multiple source files test different aspects of the same module or feature area
+- Setup (mocks, fixtures) is nearly identical across files
+- Total combined line count remains manageable (< ~600 lines)
+- Use `describe` blocks to preserve readability within the merged file
+
+**Keep separate** when:
+- Modules are genuinely independent (different imports, different mocks)
+- The component/module is complex and stateful (tables, forms, multi-step flows)
+- The test file already serves a clear, bounded purpose
+
+### Consolidated Suites (Reference)
+
+| New file | Replaces |
+|----------|---------|
+| `utils/refresh.core.behavior.test.ts` | refresh.test.ts, refresh-sync.test.ts, refresh-atomic-flag-clearing.test.ts |
+| `utils/refresh.side-effects.behavior.test.ts` | refresh-history-trim.test.ts, refresh-business-name.test.ts, refresh-parallel-domain-stats.test.ts, refresh-override-logging.test.ts |
+| `utils/refresh-queue.behavior.test.ts` | refreshQueue.test.ts, refreshQueue-config.test.ts |
+| `utils/searchConsole.behavior.test.ts` | searchConsole.test.ts |
+| `services/searchConsole-hooks.behavior.test.ts` | services/searchConsole.test.ts |
+| `utils/client/exportcsv.behavior.test.ts` | utils/exportcsv.test.ts, utils/client/exportcsv.test.ts |
+| `components/common-layout.behavior.test.tsx` | Footer.test.tsx, PageLoader.test.tsx, SpinnerMessage.test.tsx, Branding.test.tsx |
+| `components/settings-panels.behavior.test.tsx` | SearchConsoleSettings.test.tsx, Settings.test.tsx |
+
 ## Available Helpers
 
 ### Response & Request Mocks
@@ -60,9 +103,9 @@ describe('My API Handler', () => {
   it('should handle requests', async () => {
     const req = createMockRequest({ method: 'POST' });
     const res = createMockResponse();
-    
+
     await myHandler(req, res);
-    
+
     expect(res.status).toHaveBeenCalledWith(200);
   });
 });

@@ -13,7 +13,6 @@ export const dummyDomain = {
    added: '2022-11-11T10:00:32.244',
    tags: '',
    scrapeEnabled: true,
-   notification: true,
    notification_interval: 'daily',
    notification_emails: '',
 };

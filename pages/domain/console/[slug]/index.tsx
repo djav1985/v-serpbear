@@ -64,7 +64,10 @@ export const DomainConsolePage: NextPage = () => {
       [scraper_type, available_scapers],
    );
 
-   const theKeywords: SearchAnalyticsItem[] = useMemo(() => keywordsData?.data && keywordsData.data[scDateFilter] ? keywordsData.data[scDateFilter] : [], [keywordsData, scDateFilter]);
+   const theKeywords: SearchAnalyticsItem[] = useMemo(() => {
+      const scData = keywordsData?.data as (SCDomainDataType & Record<string, SearchAnalyticsItem[]>) | undefined;
+      return scData && scData[scDateFilter] ? scData[scDateFilter] : [];
+   }, [keywordsData, scDateFilter]);
 
    const theKeywordsCount = useMemo(() => theKeywords.reduce<Map<string, number>>((r, o) => {
          const key = `${o.device}-${o.country}-${o.keyword}`;

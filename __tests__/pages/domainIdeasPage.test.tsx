@@ -19,8 +19,8 @@ jest.mock('../../services/domains');
 jest.mock('../../services/adwords');
 jest.mock('../../services/settings');
 
-const KeywordIdeasTableMock = jest.fn(() => <div data-testid="ideas-table" />);
-const KeywordIdeasUpdaterMock = jest.fn(() => <div data-testid="ideas-updater" />);
+const KeywordIdeasTableMock = jest.fn((_props?: any) => <div data-testid="ideas-table" />);
+const KeywordIdeasUpdaterMock = jest.fn((_props?: any) => <div data-testid="ideas-updater" />);
 
 jest.mock('../../components/ideas/KeywordIdeasTable', () => (props: any) => KeywordIdeasTableMock(props));
 jest.mock('../../components/ideas/KeywordIdeasUpdater', () => (props: any) => KeywordIdeasUpdaterMock(props));
@@ -33,7 +33,6 @@ const baseDomain: DomainType = {
    ID: 1,
    domain: 'example.com',
    slug: 'example-slug',
-   notification: true,
    notification_interval: 'daily',
    notification_emails: '',
    lastUpdated: '2024-01-01',

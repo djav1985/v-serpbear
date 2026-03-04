@@ -1,3 +1,4 @@
+export {};
 describe('cron worker helpers', () => {
   let makeCronApiCall: (apiKey: string | undefined | null, baseUrl: string, endpoint: string, successMessage: string) => Promise<void>;
   let normalizeValue: (value: unknown, fallback: string) => string;
@@ -116,7 +117,6 @@ describe('getAppSettings', () => {
       throw new Error('Missing secret');
     }));
 
-    // @ts-expect-error - test case for missing secret
     delete process.env.SECRET;
     const { getAppSettings } = require('../cron.js');
     const settings = await getAppSettings();

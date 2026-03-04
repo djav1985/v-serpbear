@@ -44,7 +44,7 @@ describe('GET /api/insight', () => {
       json: jest.fn(),
     };
     (verifyUser as jest.Mock).mockReturnValue('authorized');
-    mockReadLocalSCData.mockResolvedValue(null);
+    mockReadLocalSCData.mockResolvedValue(false);
     mockGetSearchConsoleApiInfo.mockResolvedValue({ client_email: 'client', private_key: 'key' });
   });
 

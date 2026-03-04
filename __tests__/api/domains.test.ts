@@ -168,6 +168,7 @@ describe('PUT /api/domains', () => {
     slug: string;
     scrapeEnabled: boolean | number;
     scraper_settings: string | null;
+    business_name?: string;
   };
   let domainInstance: {
     get: jest.Mock;

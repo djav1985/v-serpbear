@@ -37,8 +37,8 @@ const asUrlString = (input: RequestInfo | URL): string => {
 };
 
 const footerTextMatcher = (version: string, platformName = DEFAULT_BRANDING.platformName) => (_: string, element?: Element | null) =>
-   element?.tagName === 'SPAN'
-   && element.textContent?.replace(/\s+/g, ' ').includes(`${platformName} v${version} by Vontainment`);
+   (element?.tagName === 'SPAN'
+   && element.textContent?.replace(/\s+/g, ' ').includes(`${platformName} v${version} by Vontainment`)) ?? false;
 
 function createJsonResponse<T>(payload: T, status = 200): Response {
    return {
@@ -101,7 +101,7 @@ beforeEach(() => {
       isFetching: false,
       refetch: jest.fn(),
    });
-   useQuerySpy.mockImplementation(buildUseQueryImplementation());
+   useQuerySpy.mockImplementation(buildUseQueryImplementation() as Parameters<typeof useQuerySpy.mockImplementation>[0]);
    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
       const url = asUrlString(input);
       if (url.startsWith(`${window.location.origin}/api/domains`)) {
@@ -147,7 +147,7 @@ describe('Domains Page', () => {
             isLoading: false,
             isSuccess: true,
          },
-      }));
+      }) as Parameters<typeof useQuerySpy.mockImplementation>[0]);
 
       render(
          <QueryClientProvider client={queryClient}>
@@ -162,7 +162,7 @@ describe('Domains Page', () => {
       useQuerySpy.mockImplementation(buildUseQueryImplementation({
          settings: { isLoading: true, data: undefined },
          domains: { isLoading: true, data: undefined },
-      }));
+      }) as Parameters<typeof useQuerySpy.mockImplementation>[0]);
 
       render(
           <QueryClientProvider client={queryClient}>

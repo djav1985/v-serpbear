@@ -10,6 +10,7 @@ describe('SCsortKeywords', () => {
       impressions: 10,
       clicks: 1,
       ctr: 0.1,
+      page: '/test',
       ...overrides,
    });
 
@@ -70,6 +71,7 @@ describe('SCfilterKeywords', () => {
       impressions: 10,
       clicks: 1,
       ctr: 0.1,
+      page: '/test',
       ...overrides,
    });
 
@@ -102,6 +104,7 @@ describe('SCkeywordsByDevice', () => {
             impressions: 10,
             clicks: 1,
             ctr: 0.1,
+            page: '/test',
          },
          {
             uid: 'b',
@@ -112,6 +115,7 @@ describe('SCkeywordsByDevice', () => {
             impressions: 20,
             clicks: 2,
             ctr: 0.2,
+            page: '/test',
          },
       ];
 

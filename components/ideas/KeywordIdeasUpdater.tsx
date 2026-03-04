@@ -16,7 +16,7 @@ interface KeywordIdeasUpdaterProps {
       seedDomain: boolean,
       language: string,
       countries: string[],
-      keywords: string,
+      keywords: string | string[],
       seedType: string
    }
 }

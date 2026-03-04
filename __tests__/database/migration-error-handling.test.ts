@@ -64,7 +64,7 @@ describe('Migration Error Handling', () => {
       throw new Error('Expected migration to throw error but it did not');
     } catch (error) {
       expect(error).toBeInstanceOf(Error);
-      expect(error.message).toBe('Index removal failed');
+      expect((error as Error).message).toBe('Index removal failed');
       expect(consoleSpy).toHaveBeenCalledWith('Migration rollback error:', expect.any(Error));
     } finally {
       consoleSpy.mockRestore();

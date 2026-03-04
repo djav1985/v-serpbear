@@ -20,7 +20,7 @@ export function useTestAdwordsIntegration(onSuccess?: Function) {
 }
 
 export async function fetchAdwordsKeywordIdeas(router: NextRouter, domainSlug: string) {
-   return apiGet(`/api/ideas?domain=${domainSlug}`, router);
+   return apiGet<{ data: { keywords: IdeaKeyword[], favorites: IdeaKeyword[], settings: DomainIdeasSettings } }>(`/api/ideas?domain=${domainSlug}`, router);
 }
 
 // React hook; should be used within a React component or another hook
@@ -30,7 +30,7 @@ export function useFetchKeywordIdeas(router: NextRouter, _adwordsConnected = fal
    const enabled = !!domainSlug && _adwordsConnected;
    return useQuery(
       `keywordIdeas-${domainSlug}`,
-      () => domainSlug && fetchAdwordsKeywordIdeas(router, domainSlug),
+      () => fetchAdwordsKeywordIdeas(router, domainSlug),
       { enabled, retry: false },
    );
 }

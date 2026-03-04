@@ -249,7 +249,7 @@ describe('GET /api/searchconsole', () => {
     };
     jest.clearAllMocks();
     (verifyUser as jest.Mock).mockReturnValue('authorized');
-    mockReadLocalSCData.mockResolvedValue(null);
+    mockReadLocalSCData.mockResolvedValue(false);
     mockResolveDomainIdentifier.mockImplementation((value: string) => {
       if (!value) {
         return '';

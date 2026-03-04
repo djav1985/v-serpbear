@@ -207,10 +207,10 @@ describe('integrateKeywordSCData field mapping', () => {
 
     const result = integrateKeywordSCData(baseKeyword, scData);
 
-    expect(result.scData.visits.threeDays).toBe(6);
-    expect(result.scData.impressions.threeDays).toBe(30);
-    expect(result.scData.ctr.threeDays).toBe(20);
-    expect(result.scData.position.threeDays).toBe(3);
+    expect(result.scData!.visits.threeDays).toBe(6);
+    expect(result.scData!.impressions.threeDays).toBe(30);
+    expect(result.scData!.ctr.threeDays).toBe(20);
+    expect(result.scData!.position.threeDays).toBe(3);
   });
 
   it('computes averages correctly for sevenDays data', () => {
@@ -221,8 +221,8 @@ describe('integrateKeywordSCData field mapping', () => {
 
     const result = integrateKeywordSCData(baseKeyword, scData);
 
-    expect(result.scData.visits.avgSevenDays).toBe(2);
-    expect(result.scData.impressions.avgSevenDays).toBe(10);
+    expect(result.scData!.visits.avgSevenDays).toBe(2);
+    expect(result.scData!.impressions.avgSevenDays).toBe(10);
   });
 
   it('computes averages correctly for thirtyDays data', () => {
@@ -233,8 +233,8 @@ describe('integrateKeywordSCData field mapping', () => {
 
     const result = integrateKeywordSCData(baseKeyword, scData);
 
-    expect(result.scData.visits.avgThirtyDays).toBe(2);
-    expect(result.scData.impressions.avgThirtyDays).toBe(10);
+    expect(result.scData!.visits.avgThirtyDays).toBe(2);
+    expect(result.scData!.impressions.avgThirtyDays).toBe(10);
   });
 
   it('returns zeros for all fields when no matching SC data exists', () => {
@@ -242,9 +242,9 @@ describe('integrateKeywordSCData field mapping', () => {
 
     const result = integrateKeywordSCData(baseKeyword, scData);
 
-    expect(result.scData.visits.sevenDays).toBe(0);
-    expect(result.scData.impressions.thirtyDays).toBe(0);
-    expect(result.scData.position.threeDays).toBe(0);
+    expect(result.scData!.visits.sevenDays).toBe(0);
+    expect(result.scData!.impressions.thirtyDays).toBe(0);
+    expect(result.scData!.position.threeDays).toBe(0);
   });
 });
 

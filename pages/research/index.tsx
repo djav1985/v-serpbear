@@ -38,8 +38,10 @@ const Research: NextPage = () => {
 
    const keywordIdeas:IdeaKeyword[] = keywordIdeasData?.data?.keywords || [];
    const favorites:IdeaKeyword[] = keywordIdeasData?.data?.favorites || [];
-   const keywordIdeasSettings = keywordIdeasData?.data?.settings || undefined;
-   const { country: previousCountry, language: previousLang, keywords: previousSeedKeywords } = keywordIdeasSettings || {};
+   const keywordIdeasSettings = keywordIdeasData?.data?.settings;
+   const previousCountry = keywordIdeasSettings?.country;
+   const previousLang = keywordIdeasSettings?.language;
+   const previousSeedKeywords = keywordIdeasSettings?.keywords;
 
    useEffect(() => {
       if (previousCountry) { setCountry(previousCountry); }

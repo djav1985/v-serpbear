@@ -12,7 +12,7 @@ describe('scrapingRobot scraper', () => {
       US: ['United States', 'Washington, D.C.', 'en', 2840],
     } as any;
 
-    const url = scrapingRobot.scrapeURL(keyword, settings, countryData);
+    const url = scrapingRobot.scrapeURL!(keyword, settings, countryData);
 
     // Parse the scraping robot URL to extract the encoded Google URL
     const scrapingRobotUrl = new URL(url);
@@ -39,7 +39,7 @@ describe('scrapingRobot scraper', () => {
       US: ['United States', 'Washington, D.C.', 'en', 2840],
     } as any;
 
-    const url = scrapingRobot.scrapeURL(keyword, settings, countryData);
+    const url = scrapingRobot.scrapeURL!(keyword, settings, countryData);
 
     const scrapingRobotUrl = new URL(url);
     expect(scrapingRobotUrl.searchParams.get('proxyCountry')).toBe('US');

@@ -56,7 +56,7 @@ export const DomainInsightPage: NextPage = () => {
       domainsLoaded && domainHasScAPI,
    );
 
-   const theInsight: InsightDataType = insightData && insightData.data ? insightData.data : {};
+   const theInsight: InsightDataType = insightData && insightData.data ? insightData.data : { stats: null, keywords: [], countries: [], pages: [] };
    const { keywordsData: trackedKeywordsData } = useFetchKeywords(router, activDomain?.domain || '');
    const trackedKeywords: KeywordType[] = (trackedKeywordsData?.keywords || []) as KeywordType[];
    const { scraper_type = '', available_scapers = [] } = appSettingsData;
