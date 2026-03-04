@@ -6,10 +6,12 @@ import { generateGoogleConsoleStats } from '../../utils/generateEmail';
 import {
   fetchDomainSCData,
   getSearchConsoleApiInfo,
+  getSafeSCDataFilePath,
   integrateKeywordSCData,
   isSearchConsoleDataFreshForToday,
   parseSearchConsoleItem,
   readLocalSCData,
+  resolveDomainIdentifier,
 } from '../../utils/searchConsole';
 
 dayjs.extend(utc);
@@ -248,3 +250,158 @@ describe('integrateKeywordSCData field mapping', () => {
   });
 });
 
+
+// ---------------------------------------------------------------------------
+// fetchSearchConsoleData error logging
+// ---------------------------------------------------------------------------
+
+jest.mock('../../utils/logger', () => ({
+  logger: {
+    error: jest.fn(),
+    warn: jest.fn(),
+    info: jest.fn(),
+    debug: jest.fn(),
+    verbose: jest.fn(),
+    isSuccessLoggingEnabled: jest.fn(() => true),
+  },
+}));
+
+jest.mock('fs/promises', () => ({
+  readFile: jest.fn().mockRejectedValue(new Error('file not found')),
+  writeFile: jest.fn().mockResolvedValue(undefined),
+  unlink: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock('google-auth-library', () => ({
+  JWT: jest.fn().mockImplementation(() => ({})),
+}));
+
+const mockSCQuery = jest.fn();
+jest.mock('@googleapis/searchconsole', () => ({
+  searchconsole_v1: {
+    Searchconsole: jest.fn().mockImplementation(() => ({
+      searchanalytics: { query: mockSCQuery },
+    })),
+  },
+}));
+
+import { logger } from '../../utils/logger';
+
+const mockDomainForSC = {
+  domain: 'example.com',
+  search_console: JSON.stringify({ property_type: 'domain', url: '' }),
+} as any;
+
+const mockApiForSC = { client_email: 'test@example.com', private_key: 'test-key' };
+
+describe('fetchSearchConsoleData error logging', () => {
+  const { fetchDomainSCData: realFetchDomainSCData } = jest.requireActual('../../utils/searchConsole');
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSCQuery.mockRejectedValue(new Error('simulated API error'));
+  });
+
+  it('logs with (stats) suffix when the stat fetch fails', async () => {
+    await realFetchDomainSCData(mockDomainForSC, mockApiForSC);
+
+    const errorMessages: string[] = (logger.error as jest.Mock).mock.calls.map(
+      ([msg]: [string]) => msg,
+    );
+    expect(errorMessages.some((m) => m.includes('(stats)'))).toBe(true);
+  });
+
+  it('logs with (<days>days) suffix when a non-stat fetch fails', async () => {
+    await realFetchDomainSCData(mockDomainForSC, mockApiForSC);
+
+    const errorMessages: string[] = (logger.error as jest.Mock).mock.calls.map(
+      ([msg]: [string]) => msg,
+    );
+    expect(errorMessages.some((m) => /\(\d+days\)/.test(m))).toBe(true);
+  });
+
+  it('never logs (stats) suffix for non-stat fetches', async () => {
+    await realFetchDomainSCData(mockDomainForSC, mockApiForSC);
+
+    const errorMessages: string[] = (logger.error as jest.Mock).mock.calls.map(
+      ([msg]: [string]) => msg,
+    );
+    const daysCalls = errorMessages.filter((m) => /\(\d+days\)/.test(m));
+    daysCalls.forEach((m) => {
+      expect(m).not.toContain('(stats)');
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Domain Conversion Fixes (getSafeSCDataFilePath, resolveDomainIdentifier)
+// ---------------------------------------------------------------------------
+
+import path from 'path';
+
+describe('Domain Conversion Fixes', () => {
+  let cwdSpy: jest.SpyInstance;
+  let resolveSpy: jest.SpyInstance;
+
+  beforeAll(() => {
+    cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue('/test');
+    resolveSpy = jest.spyOn(path, 'resolve').mockImplementation((...segments: string[]) => {
+      const joined = segments.join('/').replace(/\/+/g, '/');
+      return joined.startsWith('/') ? joined : `/${joined}`;
+    });
+  });
+
+  afterAll(() => {
+    cwdSpy.mockRestore();
+    resolveSpy.mockRestore();
+  });
+
+  describe('resolveDomainIdentifier', () => {
+    it('should convert slugs back to proper domains', () => {
+      expect(resolveDomainIdentifier('vontainment-com')).toBe('vontainment.com');
+      expect(resolveDomainIdentifier('example-org')).toBe('example.org');
+      expect(resolveDomainIdentifier('my-test-domain-com')).toBe('my.test.domain.com');
+      expect(resolveDomainIdentifier('my_site-com')).toBe('my-site.com');
+      expect(resolveDomainIdentifier('research')).toBe('research');
+    });
+
+    it('should preserve domains that already contain dots and hyphens', () => {
+      expect(resolveDomainIdentifier('my-site.com')).toBe('my-site.com');
+      expect(resolveDomainIdentifier('my.site.com')).toBe('my.site.com');
+    });
+  });
+
+  describe('Search Console File Path Generation', () => {
+    it('should convert domain identifiers to distinct file paths', () => {
+      const hyphenatedDomainPath = getSafeSCDataFilePath('my-site.com');
+      const dottedDomainPath = getSafeSCDataFilePath('my.site.com');
+      const hyphenSlugPath = getSafeSCDataFilePath('my_site-com');
+      const dottedSlugPath = getSafeSCDataFilePath('my-site-com');
+
+      expect(hyphenatedDomainPath).toBe('/test/data/SC_my-site.com.json');
+      expect(dottedDomainPath).toBe('/test/data/SC_my.site.com.json');
+      expect(hyphenSlugPath).toBe('/test/data/SC_my-site.com.json');
+      expect(dottedSlugPath).toBe('/test/data/SC_my.site.com.json');
+      expect(hyphenatedDomainPath).not.toBe(dottedDomainPath);
+    });
+
+    it('should convert historical slugs to proper SC file paths', () => {
+      const result1 = getSafeSCDataFilePath('vontainment-com');
+      expect(result1).toBe('/test/data/SC_vontainment.com.json');
+
+      const result2 = getSafeSCDataFilePath('example-org');
+      expect(result2).toBe('/test/data/SC_example.org.json');
+
+      const result3 = getSafeSCDataFilePath('my-test-domain-co-uk');
+      expect(result3).toBe('/test/data/SC_my.test.domain.co.uk.json');
+
+      const result4 = getSafeSCDataFilePath('research');
+      expect(result4).toBe('/test/data/SC_research.json');
+    });
+
+    it('should handle invalid characters safely', () => {
+      const result = getSafeSCDataFilePath('test@domain#with$special-chars');
+      expect(result).toBe('/test/data/SC_test_domain_with_special-chars.json');
+    });
+  });
+});

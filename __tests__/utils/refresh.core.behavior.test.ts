@@ -4,7 +4,7 @@ import Keyword from '../../database/models/keyword';
 import refreshAndUpdateKeywords, { updateKeywordPosition } from '../../utils/refresh';
 import { removeFromRetryQueue, retryScrape, scrapeKeywordWithStrategy } from '../../utils/scraper';
 import type { RefreshResult } from '../../utils/scraper';
-import { toDbBool } from '../../utils/dbBooleans';
+import { toDbBool, fromDbBool } from '../../utils/dbBooleans';
 
 // Mock the dependencies
 jest.mock('../../database/models/domain');
@@ -1431,5 +1431,61 @@ describe('Atomic Flag Clearing in Refresh Workflow', () => {
       expect(mockKeywordModel1.update).toHaveBeenCalledTimes(1);
       expect(mockKeywordModel2.update).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Sync verification: unique tests from sync-verification.test.ts
+// ---------------------------------------------------------------------------
+
+describe('Database-Memory Synchronization (sync-verification)', () => {
+  it('demonstrates why manual sync is needed for bulk Keyword.update()', () => {
+    const instance = {
+      ID: 1,
+      updating: toDbBool(true),
+      update: async (payload: any) => {
+        Object.assign(instance, payload);
+      },
+    };
+
+    expect(fromDbBool(instance.updating)).toBe(true);
+    instance.update({ updating: toDbBool(false) });
+    expect(fromDbBool(instance.updating)).toBe(false);
+
+    const instances = [
+      { ID: 1, updating: toDbBool(true) },
+      { ID: 2, updating: toDbBool(true) },
+    ];
+
+    expect(fromDbBool(instances[0].updating)).toBe(true);
+    expect(fromDbBool(instances[1].updating)).toBe(true);
+
+    // After: instances are NOT synced by Keyword.update() static method
+    expect(fromDbBool(instances[0].updating)).toBe(true);
+    expect(fromDbBool(instances[1].updating)).toBe(true);
+
+    // Manual sync required:
+    instances.forEach(inst => {
+      inst.updating = toDbBool(false);
+    });
+
+    expect(fromDbBool(instances[0].updating)).toBe(false);
+    expect(fromDbBool(instances[1].updating)).toBe(false);
+  });
+
+  it('confirms updateDomainStats reads fresh data from database', () => {
+    const databaseState = [
+      { ID: 1, position: 5, mapPackTop3: 1 },
+      { ID: 2, position: 10, mapPackTop3: 0 },
+      { ID: 3, position: 15, mapPackTop3: 1 },
+    ];
+
+    const mapPackCount = databaseState.filter(k => k.mapPackTop3 === 1).length;
+    const validPositions = databaseState.filter(k => k.position > 0);
+    const totalPosition = validPositions.reduce((sum, k) => sum + k.position, 0);
+    const avgPosition = Math.round(totalPosition / validPositions.length);
+
+    expect(mapPackCount).toBe(2);
+    expect(avgPosition).toBe(10);
   });
 });

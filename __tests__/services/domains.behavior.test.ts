@@ -1,5 +1,140 @@
 export {};
+import type { NextRouter } from 'next/router';
+
+const mockOrigin = 'http://localhost:3000';
+
+jest.mock('../../utils/client/origin', () => ({
+   getClientOrigin: () => mockOrigin,
+}));
+
+import { fetchDomain } from '../../services/domains';
+
+// ---------------------------------------------------------------------------
+// domains service environment toggle
+// ---------------------------------------------------------------------------
+
 type FetchDomainScreenshot = (domain: string, forceFetch?: boolean) => Promise<string | false>;
+
+describe('domains service environment toggle', () => {
+   const originalEnv = process.env;
+
+   afterEach(() => {
+      process.env = { ...originalEnv };
+      jest.resetModules();
+   });
+
+   it('enables screenshots by default', () => {
+      let screenshotsEnabled: boolean | undefined;
+      jest.isolateModules(() => {
+         const mod = require('../../services/domains');
+         screenshotsEnabled = mod.SCREENSHOTS_ENABLED;
+      });
+      expect(screenshotsEnabled).toBe(true);
+   });
+
+   it('disables screenshot fetching when NEXT_PUBLIC_SCREENSHOTS is false', async () => {
+      process.env = { ...originalEnv, NEXT_PUBLIC_SCREENSHOTS: 'false' };
+      jest.resetModules();
+
+      let fetchDomainScreenshot: FetchDomainScreenshot | undefined;
+      jest.isolateModules(() => {
+         const mod = require('../../services/domains');
+         expect(mod.SCREENSHOTS_ENABLED).toBe(false);
+         fetchDomainScreenshot = mod.fetchDomainScreenshot;
+      });
+
+      const originalFetch = global.fetch;
+      if (!originalFetch) {
+         (global as typeof globalThis & { fetch: jest.Mock }).fetch = jest.fn();
+      }
+      const fetchSpy = jest.spyOn(global, 'fetch');
+      const result = await (fetchDomainScreenshot as FetchDomainScreenshot)('example.com');
+      expect(result).toBe(false);
+      expect(fetchSpy).not.toHaveBeenCalled();
+      fetchSpy.mockRestore();
+      if (!originalFetch) {
+         delete (global as unknown as { fetch?: jest.Mock }).fetch;
+      }
+   });
+});
+
+// ---------------------------------------------------------------------------
+// fetchDomain
+// ---------------------------------------------------------------------------
+
+describe('fetchDomain', () => {
+   const originalFetch = global.fetch;
+   const pushMock = jest.fn();
+   const router = { push: pushMock } as unknown as NextRouter;
+
+   beforeEach(() => {
+      pushMock.mockClear();
+      global.fetch = jest.fn() as unknown as typeof fetch;
+   });
+
+   afterEach(() => {
+      const fetchMock = global.fetch as unknown as jest.Mock;
+      fetchMock.mockReset();
+   });
+
+   afterAll(() => {
+      global.fetch = originalFetch;
+   });
+
+   const mockSuccessfulFetch = (body: unknown) => {
+      const fetchMock = global.fetch as unknown as jest.Mock;
+      fetchMock.mockResolvedValue({
+         status: 200,
+         headers: { get: jest.fn().mockReturnValue(null) },
+         json: jest.fn().mockResolvedValue(body),
+      });
+   };
+
+   it('URL-encodes provided domain names before requesting the API', async () => {
+      const payload = { domain: { ID: 42 } };
+      mockSuccessfulFetch(payload);
+
+      const domainWithPath = 'example.com/path? q';
+      const response = await fetchDomain(router, domainWithPath);
+
+      const fetchMock = global.fetch as unknown as jest.Mock;
+      expect(fetchMock).toHaveBeenCalledWith(
+         `${mockOrigin}/api/domain?domain=${encodeURIComponent(domainWithPath)}`,
+         expect.objectContaining({ method: 'GET' }),
+      );
+      expect(response).toBe(payload);
+   });
+
+   it('defers empty domain validation to the API', async () => {
+      const payload = { domain: null };
+      mockSuccessfulFetch(payload);
+
+      const response = await fetchDomain(router, '');
+
+      const fetchMock = global.fetch as unknown as jest.Mock;
+      expect(fetchMock).toHaveBeenCalledWith(
+         `${mockOrigin}/api/domain?domain=`,
+         expect.objectContaining({ method: 'GET' }),
+      );
+      expect(response).toBe(payload);
+   });
+
+   it('throws a descriptive error when the API returns 404', async () => {
+      const fetchMock = global.fetch as unknown as jest.Mock;
+      fetchMock.mockResolvedValueOnce({
+         status: 404,
+         headers: { get: jest.fn().mockReturnValue('application/json') },
+         json: jest.fn().mockResolvedValue({ error: 'Domain not found' }),
+      });
+
+      await expect(fetchDomain(router, 'unknown.example.com')).rejects.toThrow('Domain not found');
+      expect(pushMock).not.toHaveBeenCalled();
+   });
+});
+
+// ---------------------------------------------------------------------------
+// fetchDomainScreenshot cache resilience
+// ---------------------------------------------------------------------------
 
 describe('fetchDomainScreenshot cache resilience', () => {
    const originalFetch = global.fetch;
@@ -50,10 +185,9 @@ describe('fetchDomainScreenshot cache resilience', () => {
    });
 
    it('clears cached thumbnails when values contain non-string data', async () => {
-      // Cache with mixed data types (not valid DomainThumbEntry objects)
       localStorage.setItem('domainThumbs', JSON.stringify({
          'example.com': 'data:image/png;base64,validstring',
-         'test.com': 123, // This is not a valid entry
+         'test.com': 123,
          'another.com': 'valid-string'
       }));
 
@@ -108,7 +242,6 @@ describe('fetchDomainScreenshot cache resilience', () => {
    });
 
    it('returns cached data without fetching when entry is fresh', async () => {
-      // Cache with valid { data, ts } entries where ts is within TTL
       const now = Date.now();
       const validCache = {
          'example.com': { data: 'data:image/png;base64,validdata', ts: now },
@@ -135,7 +268,6 @@ describe('fetchDomainScreenshot cache resilience', () => {
    });
 
    it('refetches when entry is stale (older than TTL)', async () => {
-      // 25-hour-old entry — past the 24h TTL
       const staleTs = Date.now() - 25 * 60 * 60 * 1000;
       const staleCache = {
          'example.com': { data: 'data:image/png;base64,staledata', ts: staleTs }
@@ -155,14 +287,12 @@ describe('fetchDomainScreenshot cache resilience', () => {
 
       await (fetchDomainScreenshot as FetchDomainScreenshot)('example.com');
 
-      // Should have attempted a fresh fetch because entry was stale
       expect(fetchSpy).toHaveBeenCalledTimes(1);
 
       fetchSpy.mockRestore();
    });
 
    it('forceFetch bypasses the TTL check and always refetches', async () => {
-      // Fresh entry — would not be refetched normally
       const now = Date.now();
       const freshCache = {
          'example.com': { data: 'data:image/png;base64,freshdata', ts: now }
@@ -182,7 +312,6 @@ describe('fetchDomainScreenshot cache resilience', () => {
 
       await (fetchDomainScreenshot as FetchDomainScreenshot)('example.com', true);
 
-      // forceFetch=true should always hit the network even when cached value is fresh
       expect(fetchSpy).toHaveBeenCalledTimes(1);
 
       fetchSpy.mockRestore();
@@ -190,7 +319,7 @@ describe('fetchDomainScreenshot cache resilience', () => {
 
    it('clears cached thumbnails when values contain objects (not DomainThumbEntry)', async () => {
       localStorage.setItem('domainThumbs', JSON.stringify({
-         'example.com': { url: 'data:image/png;base64,validdata' }, // missing ts field
+         'example.com': { url: 'data:image/png;base64,validdata' },
          'test.com': 'valid-string'
       }));
 
@@ -234,7 +363,6 @@ describe('fetchDomainScreenshot cache resilience', () => {
 
       expect(result).toBe(false);
       expect(fetchSpy).toHaveBeenCalledTimes(1);
-      // Empty cache should be preserved as it's valid
       expect(localStorage.getItem('domainThumbs')).toBe('{}');
 
       fetchSpy.mockRestore();

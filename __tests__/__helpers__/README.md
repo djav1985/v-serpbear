@@ -2,6 +2,24 @@
 
 This directory contains shared test utilities to reduce code duplication across test files.
 
+## Test Suite Budget
+
+| Metric | Value |
+|--------|-------|
+| **Baseline (2026-03 pass 1)** | 114 `*.test.*` files |
+| **First-pass target** | ≤ 91 files (~20% reduction) |
+| **Acceptance criteria** | No meaningful coverage loss; no increase in duplicated setup logic |
+
+Completed passes are tracked in the **Consolidated Suites** table below.
+
+### Budget Rules
+
+1. A new `*.test.*` file may be added only when it tests a genuinely new module or feature that has no natural home in an existing suite.
+2. When two or more files share the same mock setup and test different aspects of the same module/feature area, prefer merging them into a `*.behavior.test.ts(x)` file.
+3. After each consolidation pass, update the table below and re-verify all tests pass.
+
+---
+
 ## Test Suite Structure
 
 Tests are grouped by runtime boundary:
@@ -71,14 +89,25 @@ it('returns 401 when not authorised', async () => {
 | `utils/refresh.core.behavior.test.ts` | refresh.test.ts, refresh-sync.test.ts, refresh-atomic-flag-clearing.test.ts |
 | `utils/refresh.side-effects.behavior.test.ts` | refresh-history-trim.test.ts, refresh-business-name.test.ts, refresh-parallel-domain-stats.test.ts, refresh-override-logging.test.ts |
 | `utils/refresh-queue.behavior.test.ts` | refreshQueue.test.ts, refreshQueue-config.test.ts |
-| `utils/searchConsole.behavior.test.ts` | searchConsole.test.ts |
+| `utils/searchConsole.behavior.test.ts` | searchConsole.test.ts, searchConsoleErrorLogging.test.ts, domain-conversion.test.ts |
 | `services/searchConsole-hooks.behavior.test.ts` | services/searchConsole.test.ts |
 | `utils/client/exportcsv.behavior.test.ts` | utils/exportcsv.test.ts, utils/client/exportcsv.test.ts |
 | `components/common-layout.behavior.test.tsx` | Footer.test.tsx, PageLoader.test.tsx, SpinnerMessage.test.tsx, Branding.test.tsx |
 | `components/settings-panels.behavior.test.tsx` | SearchConsoleSettings.test.tsx, Settings.test.tsx |
-| `utils/api/api.utils.behavior.test.ts` | utils/api/isRequestSecure.test.ts, utils/api/parseBooleanQueryParam.test.ts, utils/api/response.test.ts |
+| `components/ui-primitives.behavior.test.tsx` | Icon.test.tsx, Modal.test.tsx, ToggleField.test.tsx, toggleStyles.test.ts |
+| `components/navigation.behavior.test.tsx` | Sidebar.test.tsx, Topbar.test.tsx |
+| `utils/api/api.utils.behavior.test.ts` | utils/api/isRequestSecure.test.ts, utils/api/parseBooleanQueryParam.test.ts, utils/api/response.test.ts, utils/normalizeOrigin.test.ts |
 | `utils/dbBooleans.test.ts` (extended) | utils/boolean-normalization.test.ts (merged in) |
+| `utils/scraper.test.ts` (extended) | scraperHelpers.test.ts, scraperError.test.ts, google-filter.test.ts |
+| `utils/client/apiClient.test.ts` (extended) | utils/client/fetchWithError.test.ts |
+| `utils/client/client-utils.behavior.test.ts` | chartBounds.test.ts, validators.test.ts, helpers.test.ts |
+| `utils/codebase-contracts.behavior.test.ts` | breakpointConsistency.test.ts, mapPackScraperSupport.test.ts |
+| `utils/refresh.core.behavior.test.ts` (extended) | sync-verification.test.ts |
+| `services/domains.behavior.test.ts` | domains.env.test.ts, domains.fetchDomain.test.ts, domains.screenshot-cache.test.ts |
+| `services/keywords.behavior.test.ts` | keywordIdeasFetch.test.ts, keywords.fetchKeywords.test.ts |
+| `pages/page-renders.behavior.test.tsx` | pages/index.test.tsx, pages/researchPage.test.tsx, pages/_app.test.tsx |
 | `scrapers/scrapers.matrix.test.ts` | shared URL-contract checks previously duplicated across provider files |
+| `hooks/hooks.behavior.test.tsx` | hooks/useBranding.test.tsx, hooks/domains.test.tsx |
 
 ## Available Helpers
 
