@@ -45,6 +45,5 @@ data/database.sqlite
 data/database.sqlite-shm
 data/database.sqlite-wal
 data/verify-fix.js
-data/SC_*.json
 SARIF test files
 *.sarif
