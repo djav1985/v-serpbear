@@ -8,11 +8,6 @@ import { logger } from '../../utils/logger';
 import isRequestSecure from '../../utils/api/isRequestSecure';
 import { errorResponse } from '../../utils/api/response';
 
-type logoutResponse = {
-   success?: boolean
-   error?: string|null,
-}
-
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
    const startTime = Date.now();
@@ -43,7 +38,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
    return logout(req, res, startTime);
 };
 
-const logout = async (req: NextApiRequest, res: NextApiResponse<logoutResponse>, startTime: number) => {
+const logout = async (req: NextApiRequest, res: NextApiResponse, startTime: number) => {
    const requestId = (req as ExtendedRequest).requestId;
    try {
       const secureCookie = isRequestSecure(req);

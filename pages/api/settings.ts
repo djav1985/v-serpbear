@@ -48,10 +48,6 @@ const buildSettingsDefaults = (): SettingsType => {
    };
 };
 
-type SettingsGetResponse = {
-   settings?: object | null,
-}
-
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
    // Allow GET requests without authentication for public settings
@@ -71,7 +67,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
    return res.status(405).json(errorResponse('METHOD_NOT_ALLOWED', 'Method not allowed', requestId));
 };
 
-const getSettings = async (req: NextApiRequest, res: NextApiResponse<SettingsGetResponse>) => {
+const getSettings = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
    try {
       // Silently check if user is authenticated without logging auth failures for anonymous GETs
@@ -114,7 +110,7 @@ const getSettings = async (req: NextApiRequest, res: NextApiResponse<SettingsGet
    }
 };
 
-const updateSettings = async (req: NextApiRequest, res: NextApiResponse<SettingsGetResponse>) => {
+const updateSettings = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
    const { settings } = req.body || {};
    if (!settings) {
