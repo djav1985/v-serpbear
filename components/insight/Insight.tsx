@@ -94,7 +94,6 @@ const SCInsight = ({ insight, isLoading = true, isConsoleIntegrated = true, doma
                <InsightStats
                stats={insight?.stats ? insight.stats : []}
                totalKeywords={insight?.keywords?.length || 0}
-               totalCountries={insight?.countries?.length || 0}
                totalPages={insight?.pages?.length || 0}
                />
             )}

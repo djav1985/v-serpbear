@@ -11,12 +11,6 @@ import { errorResponse } from '../../utils/api/response';
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
    const startTime = Date.now();
-   
-   logger.info('Logout API endpoint accessed', {
-      method: req.method,
-      ip: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'unknown',
-      userAgent: req.headers['user-agent']
-   });
 
    if (req.method !== 'POST') {
       logger.warn('Invalid method used for logout endpoint', {
