@@ -5,7 +5,7 @@ const nextConfig = {
 
   // Performance optimizations
   experimental: {
-    optimizePackageImports: ['react-icons', 'react-chartjs-2', 'react-query'],
+    optimizePackageImports: ['react-chartjs-2', 'react-query'],
   },
 
   turbopack: {
@@ -37,7 +37,7 @@ const nextConfig = {
   },
 
   // Webpack optimizations
-  webpack: (config, { dev, isServer: _isServer, defaultLoaders: _defaultLoaders, nextRuntime: _nextRuntime, webpack: _webpack }) => {
+  webpack: (config, { isServer: _isServer, defaultLoaders: _defaultLoaders, nextRuntime: _nextRuntime, webpack: _webpack }) => {
     // Exclude unused Sequelize dialect dependencies
     // Handle externals safely whether it's an array, function, or undefined
     const existingExternals = Array.isArray(config.externals) ? config.externals : [];
@@ -47,25 +47,6 @@ const nextConfig = {
         'pg-hstore': 'commonjs pg-hstore',
       }
     ];
-
-    // Bundle size optimizations
-    if (!dev) {
-      config.optimization.splitChunks.cacheGroups = {
-        ...config.optimization.splitChunks.cacheGroups,
-        vendor: {
-          test: /[\\/]node_modules[\\/]/,
-          name: 'vendors',
-          chunks: 'all',
-          priority: 10
-        },
-        common: {
-          name: 'common',
-          minChunks: 2,
-          chunks: 'all',
-          priority: 5
-        }
-      };
-    }
 
     return config;
   }
