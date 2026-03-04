@@ -20,6 +20,10 @@ const TopBar = ({ showSettings, showAddModal }:TopbarProps) => {
    const isDomainsPage = router.pathname === '/domains';
 
    const logoutUser = async () => {
+      // Intentionally uses raw fetch + res.json() rather than apiPost:
+      // the /api/logout response uses a { success, error } shape rather than the
+      // structured { error: { code, message } } envelope that ApiError expects,
+      // so we read the body manually to display the correct toast message.
       try {
          const fetchOpts = { method: 'POST', headers: new Headers({ 'Content-Type': 'application/json', Accept: 'application/json' }) };
          const origin = getClientOrigin();

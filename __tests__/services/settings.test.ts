@@ -18,6 +18,7 @@ describe('useSendNotifications success message extraction', () => {
       fetchMock.mockResolvedValue({
          ok: true,
          status: 200,
+         headers: { get: jest.fn().mockReturnValue(null) },
          json: jest.fn().mockResolvedValue({ success: true, error: null }),
       } as any);
    });
@@ -39,6 +40,7 @@ describe('useSendNotifications success message extraction', () => {
       fetchMock.mockResolvedValue({
          ok: true,
          status: 200,
+         headers: { get: jest.fn().mockReturnValue(null) },
          json: jest.fn().mockResolvedValue({ 
             success: true, 
             error: null, 
@@ -62,6 +64,7 @@ describe('useSendNotifications success message extraction', () => {
       fetchMock.mockResolvedValue({
          ok: true,
          status: 200,
+         headers: { get: jest.fn().mockReturnValue(null) },
          json: jest.fn().mockResolvedValue(null),
       } as any);
 
@@ -81,6 +84,7 @@ describe('useSendNotifications success message extraction', () => {
       fetchMock.mockResolvedValue({
          ok: true,
          status: 200,
+         headers: { get: jest.fn().mockReturnValue(null) },
          json: jest.fn().mockResolvedValue({ 
             success: true, 
             error: null, 
@@ -110,6 +114,7 @@ describe('useSendNotifications structured error extraction', () => {
       (global.fetch as jest.Mock).mockResolvedValue({
          ok: false,
          status: 500,
+         headers: { get: (h: string) => (h === 'content-type' ? 'application/json' : null) },
          json: jest.fn().mockResolvedValue(structuredEnvelope),
       } as any);
 

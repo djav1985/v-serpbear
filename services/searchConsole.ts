@@ -1,8 +1,7 @@
 import { NextRouter } from 'next/router';
 import toast from 'react-hot-toast';
 import { useQuery } from 'react-query';
-import { getClientOrigin } from '../utils/client/origin';
-import { throwOnError } from '../utils/client/fetchWithError';
+import { apiGet, apiPost } from '../utils/client/apiClient';
 
 const getActiveSlug = (router: NextRouter): string | undefined => {
    const slugParam = router?.query?.slug;
@@ -18,10 +17,7 @@ export async function fetchSCKeywords(router: NextRouter, slugOverride?: string)
    if (!slug) {
       return null;
    }
-   const origin = getClientOrigin();
-   const res = await fetch(`${origin}/api/searchconsole?domain=${slug}`, { method: 'GET' });
-   await throwOnError(res, router);
-   return res.json();
+   return apiGet(`/api/searchconsole?domain=${slug}`, router);
 }
 
 export function useFetchSCKeywords(router: NextRouter, domainLoaded: boolean = false, domainHasCredentials: boolean = false) {
@@ -36,10 +32,7 @@ export async function fetchSCInsight(router: NextRouter, slugOverride?: string) 
    if (!slug) {
       return null;
    }
-   const origin = getClientOrigin();
-   const res = await fetch(`${origin}/api/insight?domain=${slug}`, { method: 'GET' });
-   await throwOnError(res, router);
-   return res.json();
+   return apiGet(`/api/insight?domain=${slug}`, router);
 }
 
 export function useFetchSCInsight(router: NextRouter, domainLoaded: boolean = false, domainHasCredentials: boolean = false) {
@@ -50,11 +43,9 @@ export function useFetchSCInsight(router: NextRouter, domainLoaded: boolean = fa
 
 export const refreshSearchConsoleData = async () => {
    try {
-      const origin = getClientOrigin();
-      const res = await fetch(`${origin}/api/searchconsole`, { method: 'POST' });
-      await throwOnError(res);
+      const result = await apiPost('/api/searchconsole', {});
       toast('Search Console Data Refreshed!', { icon: '✔️' });
-      return res.json();
+      return result;
    } catch (error) {
       toast('Error Refreshing Search Console Data', { icon: '⚠️' });
       throw error;

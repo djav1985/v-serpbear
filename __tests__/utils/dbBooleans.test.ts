@@ -58,7 +58,6 @@ describe('db boolean helpers', () => {
 
     it('uses conservative approach for unrecognized values (returns false)', () => {
       // Unrecognized strings should be treated as false for safety
-      expect(normalizeToBoolean('yes')).toBe(false);
       expect(normalizeToBoolean('no')).toBe(false);
       expect(normalizeToBoolean('error')).toBe(false);
       expect(normalizeToBoolean('timeout')).toBe(false);
@@ -66,6 +65,13 @@ describe('db boolean helpers', () => {
       // Objects and arrays should also be false
       expect(normalizeToBoolean([])).toBe(false);
       expect(normalizeToBoolean({})).toBe(false);
+    });
+
+    it('returns true for yes/on (recognized truthy synonyms)', () => {
+      expect(normalizeToBoolean('yes')).toBe(true);
+      expect(normalizeToBoolean('YES')).toBe(true);
+      expect(normalizeToBoolean('on')).toBe(true);
+      expect(normalizeToBoolean('ON')).toBe(true);
     });
   });
 });

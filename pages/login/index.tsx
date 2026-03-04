@@ -38,6 +38,10 @@ const Login: NextPage = () => {
          setTimeout(() => { setError(null); }, 3000);
       } else {
          try {
+            // Intentionally uses raw fetch + res.json() rather than apiPost:
+            // the /api/login response uses a { success, error } shape with a plain string
+            // error field (not the structured { error: { code, message } } envelope), so
+            // the error message must be read directly to display the correct UI feedback.
             const header = new Headers({ 'Content-Type': 'application/json', Accept: 'application/json' });
             const fetchOpts = { method: 'POST', headers: header, body: JSON.stringify({ username, password }) };
             const origin = getClientOrigin();

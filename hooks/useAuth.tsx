@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useQuery } from 'react-query';
-import { throwOnError } from '../utils/client/fetchWithError';
+import { apiGet } from '../utils/client/apiClient';
 
 export interface AuthStatus {
   isAuthenticated: boolean;
@@ -16,12 +16,7 @@ const AUTH_STALE_TIME = 5 * 60 * 1000;
 const AUTH_CACHE_TIME = 10 * 60 * 1000;
 
 async function fetchAuthStatus(): Promise<AuthStatus> {
-  const response = await fetch('/api/auth-check', {
-    method: 'GET',
-    credentials: 'include',
-  });
-  await throwOnError(response);
-  const data = await response.json();
+  const data = await apiGet<{ user?: string }>('/api/auth-check');
   return { isAuthenticated: true, isLoading: false, user: data.user };
 }
 

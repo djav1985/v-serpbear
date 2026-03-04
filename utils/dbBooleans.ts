@@ -19,9 +19,12 @@ export const fromDbBool = (value: number | null | undefined): boolean => value =
  * @param value - The value to normalize
  * @returns boolean representation
  * 
- * Recognized truthy strings: 'true', '1', 'yes', 'on' (case-insensitive, trimmed).
- * All other strings (including empty, 'false', '0', 'no', 'off', unrecognized) return false.
- * This prevents API errors or unexpected values from being interpreted as true.
+ * Recognized truthy values:
+ *  - boolean `true`
+ *  - non-zero numbers (e.g. `1`)
+ *  - strings (case-insensitive, trimmed): `'true'`, `'1'`, `'yes'`, `'on'`
+ * All other values (including `false`, `0`, `'false'`, `'0'`, `'no'`, `'off'`,
+ * unrecognized strings, `null`, `undefined`, objects, arrays) return `false`.
  * 
  * @example
  * normalizeToBoolean(1) // true (DB integer)

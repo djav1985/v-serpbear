@@ -31,6 +31,7 @@ describe('fetchDomain', () => {
       const fetchMock = global.fetch as unknown as jest.Mock;
       fetchMock.mockResolvedValue({
          status: 200,
+         headers: { get: jest.fn().mockReturnValue(null) },
          json: jest.fn().mockResolvedValue(body),
       });
    };
@@ -45,7 +46,7 @@ describe('fetchDomain', () => {
       const fetchMock = global.fetch as unknown as jest.Mock;
       expect(fetchMock).toHaveBeenCalledWith(
          `${mockOrigin}/api/domain?domain=${encodeURIComponent(domainWithPath)}`,
-         { method: 'GET' },
+         expect.objectContaining({ method: 'GET' }),
       );
       expect(response).toBe(payload);
    });
@@ -59,7 +60,7 @@ describe('fetchDomain', () => {
    const fetchMock = global.fetch as unknown as jest.Mock;
    expect(fetchMock).toHaveBeenCalledWith(
       `${mockOrigin}/api/domain?domain=`,
-      { method: 'GET' },
+      expect.objectContaining({ method: 'GET' }),
    );
    expect(response).toBe(payload);
  });

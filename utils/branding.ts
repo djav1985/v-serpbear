@@ -1,4 +1,5 @@
 import { normalizeToBoolean } from './dbBooleans';
+import { trimString } from './security';
 
 export type BrandingConfig = {
    defaultPlatformName: string;
@@ -21,8 +22,6 @@ const LOGO_MIME_TYPES: Record<string, string> = {
    '.svg': 'image/svg+xml',
    '.webp': 'image/webp',
 };
-
-const trimString = (value?: string | null): string => (value || '').trim();
 
 const stripTrailingSlash = (value: string): string => (value.endsWith('/') ? value.slice(0, -1) : value);
 

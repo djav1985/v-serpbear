@@ -55,6 +55,7 @@ describe('fetchKeywords normalisation', () => {
 
       fetchMock.mockResolvedValue({
          status: 200,
+         headers: { get: jest.fn().mockReturnValue(null) },
          json: jest.fn().mockResolvedValue({ keywords: [keywordPayload] }),
       });
 
@@ -62,7 +63,7 @@ describe('fetchKeywords normalisation', () => {
 
       expect(fetchMock).toHaveBeenCalledWith(
          `${mockOrigin}/api/keywords?domain=example.com`,
-         { method: 'GET' },
+         expect.objectContaining({ method: 'GET' }),
       );
 
       expect(response).toBeTruthy();
@@ -92,7 +93,7 @@ describe('fetchKeywords normalisation', () => {
       fetchMock.mockResolvedValueOnce({
          status: 401,
          headers,
-         json: jest.fn().mockResolvedValue({ error: 'Unauthorized' }),
+         json: jest.fn().mockResolvedValue({ error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } }),
       });
 
       await expect(fetchKeywords({ push: pushMock } as any, 'example.com')).rejects.toThrow('Unauthorized');

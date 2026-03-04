@@ -1,7 +1,6 @@
 import toast from 'react-hot-toast';
 import { useMutation } from 'react-query';
-import { getClientOrigin } from '../utils/client/origin';
-import { throwOnError } from '../utils/client/fetchWithError';
+import { apiPost } from '../utils/client/apiClient';
 
 type EmailIdeaKeywordPayload = {
    keyword: string;
@@ -22,17 +21,9 @@ type EmailKeywordIdeasResponse = {
 };
 
 export function useEmailKeywordIdeas(onSuccess?: () => void) {
-   return useMutation(async (payload: EmailKeywordIdeasPayload) => {
-      const headers = new Headers({ 'Content-Type': 'application/json', Accept: 'application/json' });
-      const origin = getClientOrigin();
-      const response = await fetch(`${origin}/api/ideas/email`, {
-         method: 'POST',
-         headers,
-         body: JSON.stringify(payload),
-      });
-      await throwOnError(response);
-      return response.json() as Promise<EmailKeywordIdeasResponse>;
-   }, {
+   return useMutation(async (payload: EmailKeywordIdeasPayload) => (
+      apiPost<EmailKeywordIdeasResponse>('/api/ideas/email', payload)
+   ), {
       onSuccess: () => {
          toast('Keyword ideas emailed successfully!', { icon: '✔️' });
          if (onSuccess) {
