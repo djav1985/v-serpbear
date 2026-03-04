@@ -20,4 +20,8 @@ describe('normalizeOrigin', () => {
    it('handles URLs with paths and trailing slash', () => {
       expect(normalizeOrigin('https://example.com/path/')).toBe('https://example.com/path');
    });
+
+   it('returns empty string for a string consisting entirely of slashes', () => {
+      expect(normalizeOrigin('///')).toBe('');
+   });
 });
