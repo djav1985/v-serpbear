@@ -84,5 +84,4 @@ const logout = async (req: NextApiRequest, res: NextApiResponse, startTime: numb
 
 export default withApiLogging(handler, {
    name: 'logout',
-   logBody: false,
 });

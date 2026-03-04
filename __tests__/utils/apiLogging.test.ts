@@ -92,9 +92,37 @@ describe('withApiLogging', () => {
         body: undefined,
       })
     );
-    
-    // Note: Response body logging has been removed for simplicity
-    // We now only log status codes, not response bodies
+  });
+
+  it('does NOT log body when LOG_LEVEL is not debug', async () => {
+    delete process.env.LOG_LEVEL;
+    const { withApiLogging } = await import('../../utils/apiLogging');
+
+    const handler = jest.fn(async (_req: NextApiRequest, res: NextApiResponse) => {
+      res.status(200).json({ ok: true });
+    });
+
+    const wrapped = withApiLogging(handler);
+
+    await wrapped(createRequest(), createResponse());
+
+    expect(logger.debug).not.toHaveBeenCalled();
+  });
+
+  it('withApiLogging accepts only name option (no logBody)', async () => {
+    const { withApiLogging } = await import('../../utils/apiLogging');
+
+    const handler = jest.fn(async (_req: NextApiRequest, res: NextApiResponse) => {
+      res.status(200).json({ ok: true });
+    });
+
+    // Should compile and run with name only (no logBody option)
+    const wrapped = withApiLogging(handler, { name: 'test-route' });
+    const res = createResponse();
+    await wrapped(createRequest(), res);
+
+    expect(res.setHeader).toHaveBeenCalledWith('X-Request-Id', expect.any(String));
+    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('[test-route]'));
   });
 
   it('logs warning severity when handler sets res.statusCode directly', async () => {

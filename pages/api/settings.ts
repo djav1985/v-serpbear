@@ -243,6 +243,18 @@ export const getAppSettings = async () : Promise<SettingsType> => {
          };
       } catch (error) {
          logger.error('Error decrypting settings API keys', error instanceof Error ? error : new Error(String(error)));
+         decryptedSettings = {
+            ...baseSettings,
+            scraping_api: '',
+            smtp_password: '',
+            search_console_client_email: '',
+            search_console_private_key: '',
+            adwords_client_id: '',
+            adwords_client_secret: '',
+            adwords_refresh_token: '',
+            adwords_developer_token: '',
+            adwords_account_id: '',
+         };
       }
 
       const { platformName } = getBranding();
@@ -300,5 +312,4 @@ export const getAppSettings = async () : Promise<SettingsType> => {
 
 export default withApiLogging(handler, {
    name: 'settings',
-   logBody: false,
 });

@@ -274,6 +274,61 @@ describe('PUT /api/domains', () => {
     }));
   });
 
+  it('returns masked scraper_settings and safe search_console in PUT response (parity with GET)', async () => {
+    const cryptr = new Cryptr(process.env.SECRET as string);
+    domainState.scraper_settings = JSON.stringify({
+      scraper_type: 'serpapi',
+      scraping_api: cryptr.encrypt('my-api-key'),
+    });
+    (domainState as any).search_console = JSON.stringify({
+      client_email: cryptr.encrypt('svc@project.iam.gserviceaccount.com'),
+      private_key: cryptr.encrypt('-----BEGIN PRIVATE KEY-----\n...'),
+      property_url: 'https://example.com',
+    });
+
+    const req = {
+      method: 'PUT',
+      query: { domain: domainState.domain },
+      body: { scrapeEnabled: true },
+      headers: {},
+    } as unknown as NextApiRequest;
+
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    const { domain: returned } = (res.json as jest.Mock).mock.calls[0][0];
+
+    // scraper_settings should be masked: no raw API key, has_api_key flag instead
+    expect(returned.scraper_settings).toEqual({ scraper_type: 'serpapi', has_api_key: true });
+
+    // search_console should be safe: sensitive fields replaced with 'true' sentinel
+    const sc = JSON.parse(returned.search_console);
+    expect(sc.client_email).toBe('true');
+    expect(sc.private_key).toBe('true');
+    expect(sc.property_url).toBe('https://example.com');
+  });
+
+  it('returns empty search_console object in PUT response when no search_console data is stored', async () => {
+    (domainState as any).search_console = null;
+
+    const req = {
+      method: 'PUT',
+      query: { domain: domainState.domain },
+      body: { scrapeEnabled: false },
+      headers: {},
+    } as unknown as NextApiRequest;
+
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    const { domain: returned } = (res.json as jest.Mock).mock.calls[0][0];
+    expect(returned.search_console).toBe(JSON.stringify({}));
+  });
+
   it('persists scraper override selections with encrypted API keys', async () => {
     const cryptr = new Cryptr(process.env.SECRET as string);
     domainState.scraper_settings = JSON.stringify({

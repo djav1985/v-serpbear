@@ -1,8 +1,9 @@
 import {
    trimStringProperties,
-   safeTrim,
+   trimString,
    hasTrimmedLength
 } from '../../utils/security';
+import { sanitizeHostname } from '../../utils/validators/hostname';
 
 describe('Security Utilities', () => {
    describe('trimStringProperties', () => {
@@ -57,31 +58,19 @@ describe('Security Utilities', () => {
       });
    });
 
-   describe('safeTrim', () => {
-      it('should trim string values', () => {
-         expect(safeTrim('  hello  ')).toBe('hello');
-         expect(safeTrim('\t\nworld\r\n')).toBe('world');
+   describe('trimString', () => {
+      it('trims whitespace from strings', () => {
+         expect(trimString('  hello  ')).toBe('hello');
+         expect(trimString('\t\nworld\r\n')).toBe('world');
       });
 
-      it('should handle numeric values by converting to string', () => {
-         expect(safeTrim(587)).toBe('587');
-         expect(safeTrim(0)).toBe('0');
-         expect(safeTrim(-42)).toBe('-42');
+      it('returns empty string for null and undefined', () => {
+         expect(trimString(null)).toBe('');
+         expect(trimString(undefined)).toBe('');
       });
 
-      it('should handle null and undefined values', () => {
-         expect(safeTrim(null)).toBe('');
-         expect(safeTrim(undefined)).toBe('');
-      });
-
-      it('should handle boolean values', () => {
-         expect(safeTrim(true)).toBe('true');
-         expect(safeTrim(false)).toBe('false');
-      });
-
-      it('should handle object values by converting to string', () => {
-         expect(safeTrim({})).toBe('[object Object]');
-         expect(safeTrim([])).toBe('');
+      it('returns empty string for an empty string', () => {
+         expect(trimString('')).toBe('');
       });
    });
 
@@ -113,5 +102,27 @@ describe('Security Utilities', () => {
          expect(hasTrimmedLength(true)).toBe(true);
          expect(hasTrimmedLength(false)).toBe(true);
       });
+   });
+});
+
+describe('sanitizeHostname (canonical, from validators/hostname)', () => {
+   it('returns a valid hostname as-is (normalized)', () => {
+      expect(sanitizeHostname('smtp.example.com')).toBe('smtp.example.com');
+      expect(sanitizeHostname('MAIL.EXAMPLE.COM')).toBe('mail.example.com');
+   });
+
+   it('strips a trailing dot from a valid hostname', () => {
+      expect(sanitizeHostname('smtp.example.com.')).toBe('smtp.example.com');
+   });
+
+   it('returns empty string for invalid hostnames', () => {
+      expect(sanitizeHostname('not-a-hostname')).toBe('');
+      expect(sanitizeHostname('')).toBe('');
+      expect(sanitizeHostname(null as any)).toBe('');
+      expect(sanitizeHostname(undefined as any)).toBe('');
+   });
+
+   it('returns empty string for a hostname with invalid characters', () => {
+      expect(sanitizeHostname('bad host.com')).toBe('');
    });
 });

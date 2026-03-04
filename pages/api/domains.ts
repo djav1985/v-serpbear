@@ -291,8 +291,27 @@ export const updateDomain = async (req: NextApiRequest, res: NextApiResponse) =>
       domainToUpdate.set(updates);
       await domainToUpdate.save();
 
-      const normalizedDomain = normalizeDomainBooleans(domainToUpdate.get({ plain: true }) as DomainType);
-      return res.status(200).json({ domain: normalizedDomain });
+      const savedPlain = domainToUpdate.get({ plain: true }) as any;
+      const scData = safeJsonParse<Record<string, string> | null>(
+         savedPlain?.search_console,
+         null,
+         { context: `domain ${savedPlain?.domain ?? savedPlain?.ID ?? ''} search_console`, logError: true },
+      );
+      const { client_email, private_key } = scData || {};
+      const searchConsoleData = scData
+         ? {
+            ...scData,
+            client_email: client_email ? 'true' : '',
+            private_key: private_key ? 'true' : '',
+         }
+         : {};
+      const persistedScraperSettingsAfter = parseDomainScraperSettings(savedPlain?.scraper_settings);
+      const maskedDomain = {
+         ...savedPlain,
+         search_console: JSON.stringify(searchConsoleData),
+         scraper_settings: maskDomainScraperSettings(persistedScraperSettingsAfter),
+      } as DomainType;
+      return res.status(200).json({ domain: normalizeDomainBooleans(maskedDomain) });
    } catch (error) {
       logger.error('Updating Domain: ', error instanceof Error ? error : new Error(String(error)), { context: req.query.domain });
       return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error Updating Domain. An Unknown Error Occurred.', requestId, error instanceof Error ? error.message : String(error)));
@@ -301,5 +320,4 @@ export const updateDomain = async (req: NextApiRequest, res: NextApiResponse) =>
 
 export default withApiLogging(handler, {
    name: 'domains',
-   logBody: false,
 });
