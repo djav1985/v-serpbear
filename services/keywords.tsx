@@ -104,7 +104,7 @@ export function useDeleteKeywords(onSuccess:Function) {
 export function useFavKeywords(onSuccess:Function) {
    const queryClient = useQueryClient();
    return useMutation(async ({ keywordID, sticky }:{keywordID:number, sticky:boolean}) => (
-      apiPut(`/api/keywords?id=${keywordID}`, { sticky })
+      apiPut<{ keywords: KeywordType[] }>(`/api/keywords?id=${keywordID}`, { sticky })
    ), {
       onSuccess: async (data) => {
          onSuccess();

@@ -48,7 +48,7 @@ export const DomainIdeasPage: NextPage = () => {
    const theDomains: DomainType[] = (domainsData && domainsData.domains) || [];
    const keywordIdeas:IdeaKeyword[] = keywordIdeasData?.data?.keywords || [];
    const favorites:IdeaKeyword[] = keywordIdeasData?.data?.favorites || [];
-   const keywordIdeasSettings = keywordIdeasData?.data?.settings || undefined;
+   const keywordIdeasSettings = keywordIdeasData?.data?.settings;
 
    const activDomain: DomainType|null = useMemo(() => {
       let active:DomainType|null = null;

@@ -184,7 +184,7 @@ export function useAddDomain(onSuccess:Function) {
    const router = useRouter();
    const queryClient = useQueryClient();
    return useMutation(async (domains:string[]) => (
-      apiPost('/api/domains', { domains })
+      apiPost<{ domains: DomainType[] }>('/api/domains', { domains })
    ), {
       onSuccess: async (data) => {
          const newDomain:DomainType[] = data.domains;

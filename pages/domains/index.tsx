@@ -31,7 +31,7 @@ const Domains: NextPage = () => {
    const { data: appSettingsData, isLoading: isAppSettingsLoading } = useFetchSettings();
    const { data: domainsData, isLoading: isDomainsLoading } = useFetchDomains(router, true);
 
-   const appSettings:SettingsType = appSettingsData?.settings || {};
+   const appSettings:SettingsType = (appSettingsData?.settings || {}) as SettingsType;
    const { scraper_type = '', available_scapers = [] } = appSettings;
 
    const activeScraper = useMemo(

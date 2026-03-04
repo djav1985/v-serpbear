@@ -241,8 +241,10 @@ type DomainIdeasSettings = {
    seedCurrentKeywords: boolean,
    seedDomain: boolean,
    language: string,
+   country?: string,
    countries: string[],
-   keywords: string
+   keywords: string[],
+   seedType: string,
 }
 
 type AdwordsCredentials = {
