@@ -36,7 +36,7 @@ export const DomainIdeasPage: NextPage = () => {
    const addKeywordsNodeRef = useRef<HTMLDivElement>(null);
 
    const { data: appSettings } = useFetchSettings();
-   const appSettingsData: SettingsType = appSettings?.settings || {};
+   const appSettingsData: SettingsType = appSettings?.settings || {} as SettingsType;
    const { data: domainsData } = useFetchDomains(router, false);
    const adwordsConnected = Boolean(
       appSettingsData?.adwords_refresh_token
