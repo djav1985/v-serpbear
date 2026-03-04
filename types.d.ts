@@ -76,7 +76,7 @@ type KeywordLocalResult = {
    position: number,
    url?: string,
    title?: string,
-   [key: string]: any
+   [key: string]: unknown
 }
 
 type KeywordFilters = {
@@ -314,7 +314,7 @@ interface ScraperSettings {
    /** Set your own custom HTTP header properties when making the scraper API request.
     * The function should return an object that contains all the header properties you want to pass to API request's header.
     * Example: `{'Cache-Control': 'max-age=0', 'Content-Type': 'application/json'}` */
-   headers?(keyword:KeywordType, settings: SettingsType): Object,
+   headers?(keyword:KeywordType, settings: SettingsType): Record<string, string | undefined>,
    /** Construct the API URL for scraping the data through your Scraper's API */
    scrapeURL?(keyword:KeywordType, settings:SettingsType, countries:countryData, pagination?: ScraperPagination): string,
    /**

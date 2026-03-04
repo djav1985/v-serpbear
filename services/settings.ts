@@ -10,7 +10,7 @@ export function useFetchSettings() {
    return useQuery('settings', () => fetchSettings());
 }
 
-export const useUpdateSettings = (onSuccess:Function|undefined) => {
+export const useUpdateSettings = (onSuccess: (() => void) | undefined) => {
    const queryClient = useQueryClient();
 
    return useMutation(async (settings: SettingsType) => (
@@ -29,7 +29,7 @@ export const useUpdateSettings = (onSuccess:Function|undefined) => {
    });
 };
 
-export function useClearFailedQueue(onSuccess:Function) {
+export function useClearFailedQueue(onSuccess: () => void) {
    const queryClient = useQueryClient();
    return useMutation(async () => (
       apiPut('/api/clearfailed', {})

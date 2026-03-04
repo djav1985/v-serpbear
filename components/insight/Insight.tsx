@@ -76,7 +76,7 @@ const SCInsight = ({ insight, isLoading = true, isConsoleIntegrated = true, doma
                      options={['stats', 'keywords', 'countries', 'pages'].map((d) => ({ label: d, value: d }))}
                      selected={[activeTab]}
                      defaultLabel="Select Tab"
-                     updateField={(updatedTab:[string]) => switchTab(updatedTab[0])}
+                     updateField={(updatedTab: string[]) => switchTab(updatedTab[0])}
                      multiple={false}
                      rounded={'rounded'}
                      />

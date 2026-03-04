@@ -13,7 +13,7 @@ import { safeJsonParse } from '../../utils/safeJsonParse';
 
 type DomainSettingsProps = {
    domain:DomainType|null,
-   closeModal: Function,
+   closeModal: (show: boolean) => void,
    availableScrapers?: SettingsType['available_scapers'],
    systemScraperType?: string,
 }
@@ -333,9 +333,9 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
                            options={[{ label: 'Domain', value: 'domain' }, { label: 'URL', value: 'url' }]}
                            selected={[domainSettings.search_console?.property_type || 'domain']}
                            defaultLabel="Select Search Console Property Type"
-                           updateField={(updated:['domain'|'url']) => setDomainSettings({
+                           updateField={(updated: string[]) => setDomainSettings({
                               ...domainSettings,
-                              search_console: { ...(domainSettings.search_console as DomainSearchConsole), property_type: updated[0] || 'domain' },
+                              search_console: { ...(domainSettings.search_console as DomainSearchConsole), property_type: (updated[0] || 'domain') as 'domain' | 'url' },
                            })}
                            multiple={false}
                            rounded={'rounded'}

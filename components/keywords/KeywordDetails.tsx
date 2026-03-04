@@ -10,7 +10,7 @@ import { generateTheChartData } from '../../utils/client/generateChartData';
 
 type KeywordDetailsProps = {
    keyword: KeywordType,
-   closeDetails: Function
+   closeDetails: () => void
 }
 
 type ResultSegment = { type: 'result', item: KeywordLastResult } | { type: 'skipped', from: number, to: number };
@@ -131,7 +131,7 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
                            options={dateOptions}
                            selected={[chartTime]}
                            defaultLabel="Select Date"
-                           updateField={(updatedTime:[string]) => setChartTime(updatedTime[0])}
+                           updateField={(updatedTime: string[]) => setChartTime(updatedTime[0])}
                            multiple={false}
                            rounded={'rounded'}
                            />
@@ -150,8 +150,8 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
                         {keywordLocalResults && Array.isArray(keywordLocalResults) && keywordLocalResults.length > 0 ? (
                            keywordLocalResults.map((item, index) => {
                               const position = item.position || index + 1;
-                              const title = item.title || item.name || `Local Result ${position}`;
-                              const url = item.url || item.website || item.link || item.business_website || item.place_link || '';
+                              const title = item.title || (item.name as string | undefined) || `Local Result ${position}`;
+                              const url = item.url || (item.website as string | undefined) || (item.link as string | undefined) || (item.business_website as string | undefined) || (item.place_link as string | undefined) || '';
                               
                               return (
                                  <div

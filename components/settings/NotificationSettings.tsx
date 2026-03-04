@@ -14,7 +14,7 @@ type NotificationSettingsProps = {
       type: string,
       msg: string
    },
-   updateSettings: Function,
+   updateSettings: (key: string, value: string | number | boolean) => void,
 }
 
 const NotificationSettings = ({ settings, settingsError, updateSettings }:NotificationSettingsProps) => {

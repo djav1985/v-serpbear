@@ -5,11 +5,11 @@ import SelectField, { SelectionOption } from '../common/SelectField';
 type IdeasFilterProps = {
    allTags: string[],
    filterParams: KeywordFilters,
-   filterKeywords: Function,
+   filterKeywords: (params: KeywordFilters) => void,
    keywords: IdeaKeyword[],
    favorites: IdeaKeyword[],
-   updateSort: Function,
-   showFavorites: Function,
+   updateSort: (sorted: string) => void,
+   showFavorites: (show: boolean) => void,
    sortBy: string,
 }
 

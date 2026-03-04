@@ -9,10 +9,10 @@ type KeywordIdeaProps = {
    selected: boolean,
    lastItem?:boolean,
    isFavorite: boolean,
-   style: Object,
-   selectKeyword: Function,
-   favoriteKeyword:Function,
-   showKeywordDetails: Function,
+   style: React.CSSProperties,
+   selectKeyword: (uid: string, isTracked: boolean) => void,
+   favoriteKeyword: () => void,
+   showKeywordDetails: () => void,
    isTracked: boolean,
 }
 

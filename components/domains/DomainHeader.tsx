@@ -8,12 +8,12 @@ import SelectField from '../common/SelectField';
 type DomainHeaderProps = {
    domain: DomainType,
    domains: DomainType[],
-   showAddModal: Function,
-   showSettingsModal: Function,
-   exportCsv:Function,
+   showAddModal: (show: boolean) => void,
+   showSettingsModal: (show: boolean) => void,
+   exportCsv: () => void,
    scFilter?: string
-   setScFilter?: Function
-   showIdeaUpdateModal?:Function
+   setScFilter?: (filter: string) => void
+   showIdeaUpdateModal?: () => void
 }
 
 const DomainHeader = (
@@ -44,7 +44,7 @@ const DomainHeader = (
                options={domains && domains.length > 0 ? domains.map((d) => ({ label: d.domain, value: d.slug })) : []}
                selected={[domain.slug]}
                defaultLabel="Select Domain"
-               updateField={(updateSlug:[string]) => updateSlug && updateSlug[0] && router.push(`${updateSlug[0]}`)}
+               updateField={(updateSlug: string[]) => updateSlug && updateSlug[0] && router.push(`${updateSlug[0]}`)}
                multiple={false}
                rounded={'rounded'}
                />

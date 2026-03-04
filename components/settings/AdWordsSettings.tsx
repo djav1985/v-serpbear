@@ -13,9 +13,9 @@ type AdWordsSettingsProps = {
       type: string,
       msg: string
    },
-   updateSettings: Function,
-   performUpdate: Function,
-   closeSettings: Function
+   updateSettings: (key: string, value: string | number | boolean) => void,
+   performUpdate: () => void | Promise<void>,
+   closeSettings: () => void
 }
 
 const AdWordsSettings = ({ settings, settingsError, updateSettings, performUpdate, closeSettings }:AdWordsSettingsProps) => {

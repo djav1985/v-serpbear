@@ -31,7 +31,7 @@ type DomainItemProps = {
    selected: boolean,
    isConsoleIntegrated: boolean,
    thumb: string,
-   updateThumb: Function,
+   updateThumb: (domain: string) => void,
    screenshotsEnabled?: boolean,
    showMapPackStat?: boolean,
 }

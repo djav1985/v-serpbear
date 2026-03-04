@@ -9,8 +9,8 @@ import { AUTH_QUERY_KEY } from '../../hooks/useAuth';
 import { apiPost, ApiError } from '../../utils/client/apiClient';
 
 type TopbarProps = {
-   showSettings: Function,
-   showAddModal: Function,
+   showSettings: () => void,
+   showAddModal: () => void,
 }
 
 const TopBar = ({ showSettings, showAddModal }:TopbarProps) => {

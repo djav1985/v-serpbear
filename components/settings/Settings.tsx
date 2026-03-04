@@ -11,7 +11,7 @@ import { DEFAULT_BRANDING } from '../../utils/branding';
 import { useBranding } from '../../hooks/useBranding';
 
 type SettingsProps = {
-   closeSettings: Function,
+   closeSettings: () => void,
    settings?: SettingsType
 }
 

@@ -10,7 +10,7 @@ type AddKeywordsProps = {
    keywords: KeywordType[],
    scraperName: string,
    allowsCity: boolean,
-   closeModal: Function,
+   closeModal: (show?: boolean) => void,
    domain: string,
    scraperCountries?: string[],
 }

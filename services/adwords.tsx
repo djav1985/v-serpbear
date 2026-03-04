@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import { useMutation, useQuery, useQueryClient } from 'react-query';
 import { apiGet, apiPost, apiPut } from '../utils/client/apiClient';
 
-export function useTestAdwordsIntegration(onSuccess?: Function) {
+export function useTestAdwordsIntegration(onSuccess?: (show?: boolean) => void) {
    return useMutation(async (payload:{developer_token:string, account_id:string}) => (
       apiPost('/api/adwords', { ...payload })
    ), {
@@ -36,7 +36,7 @@ export function useFetchKeywordIdeas(router: NextRouter, _adwordsConnected = fal
 }
 
 // React hook; should be used within a React component or another hook
-export function useMutateKeywordIdeas(router:NextRouter, onSuccess?: Function) {
+export function useMutateKeywordIdeas(router:NextRouter, onSuccess?: (show?: boolean) => void) {
    const queryClient = useQueryClient();
    const domainSlug = router.pathname === '/research' ? 'research' : router.query.slug as string;
    return useMutation(async (data:Record<string, any>) => (
@@ -56,7 +56,7 @@ export function useMutateKeywordIdeas(router:NextRouter, onSuccess?: Function) {
    });
 }
 
-export function useMutateFavKeywordIdeas(router:NextRouter, onSuccess?: Function) {
+export function useMutateFavKeywordIdeas(router:NextRouter, onSuccess?: (show?: boolean) => void) {
    const queryClient = useQueryClient();
    const domainSlug = router.pathname === '/research' ? 'research' : router.query.slug as string;
    return useMutation(async (payload:Record<string, any>) => (
@@ -75,7 +75,7 @@ export function useMutateFavKeywordIdeas(router:NextRouter, onSuccess?: Function
    });
 }
 
-export function useMutateKeywordsVolume(onSuccess?: Function) {
+export function useMutateKeywordsVolume(onSuccess?: (show?: boolean) => void) {
    return useMutation(async (data:Record<string, any>) => (
       apiPost('/api/volume', { ...data })
    ), {

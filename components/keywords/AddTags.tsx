@@ -6,7 +6,7 @@ import Modal from '../common/Modal';
 type AddTagsProps = {
    keywords: KeywordType[],
    existingTags: string[],
-   closeModal: Function
+   closeModal: (show?: boolean) => void
 }
 
 const AddTags = ({ keywords = [], existingTags = [], closeModal }: AddTagsProps) => {

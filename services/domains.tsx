@@ -171,7 +171,7 @@ export function useFetchDomains(router: NextRouter, withStats:boolean = false) {
    return useQuery(['domains', withStats], () => fetchDomains(router, withStats));
 }
 
-export function useFetchDomain(router: NextRouter, domainName:string, onSuccess: Function) {
+export function useFetchDomain(router: NextRouter, domainName:string, onSuccess: (domain: DomainType) => void) {
    return useQuery(['domain', domainName], () => fetchDomain(router, domainName), {
       enabled: !!domainName,
       onSuccess: async (data) => {
@@ -180,7 +180,7 @@ export function useFetchDomain(router: NextRouter, domainName:string, onSuccess:
    });
 }
 
-export function useAddDomain(onSuccess:Function) {
+export function useAddDomain(onSuccess: (show?: boolean) => void) {
    const router = useRouter();
    const queryClient = useQueryClient();
    return useMutation(async (domains:string[]) => (
@@ -202,7 +202,7 @@ export function useAddDomain(onSuccess:Function) {
    });
 }
 
-export function useUpdateDomain(onSuccess:Function) {
+export function useUpdateDomain(onSuccess: () => void) {
    const queryClient = useQueryClient();
    return useMutation(updateDomainRequest, {
       onSuccess: async () => {
@@ -253,7 +253,7 @@ export function useUpdateDomainToggles() {
    });
 }
 
-export function useDeleteDomain(onSuccess:Function) {
+export function useDeleteDomain(onSuccess: () => void) {
    const queryClient = useQueryClient();
    return useMutation(async (domain:DomainType) => (
       apiDelete(`/api/domains?domain=${encodeURIComponent(domain.domain)}`)

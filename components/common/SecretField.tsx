@@ -4,7 +4,7 @@ import Icon from './Icon';
 type SecretFieldProps = {
    label: string;
    value: string;
-   onChange: Function;
+   onChange: (value: string) => void;
    placeholder?: string;
    classNames?: string;
    hasError?: boolean;

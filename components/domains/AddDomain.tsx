@@ -6,7 +6,7 @@ import { normalizeHostFromString } from '../../utils/validators/hostname';
 
 type AddDomainProps = {
    domains: DomainType[],
-   closeModal: Function
+   closeModal: (show?: boolean) => void
 }
 
 const AddDomain = forwardRef<HTMLDivElement, AddDomainProps>(({ closeModal, domains = [] }: AddDomainProps, ref) => {

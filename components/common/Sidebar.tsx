@@ -5,7 +5,7 @@ import { BrandTitle } from './Branding';
 
 type SidebarProps = {
    domains: DomainType[],
-   showAddModal: Function
+   showAddModal: (show: boolean) => void
 }
 
 const Sidebar = ({ domains, showAddModal } : SidebarProps) => {
