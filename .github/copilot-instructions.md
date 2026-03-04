@@ -401,6 +401,8 @@ When working on this project:
 - [ ] Use test helpers from `__tests__/__helpers__/`
 - [ ] Run linters before committing: `npm run lint && npm run lint:css`
 - [ ] Ensure all tests pass: `npm test`
+- [ ] Update CHANGELOG.md (if applicable)  
+- [ ] Update EADME.md (if applicable)  
 
 ### Common Tasks
 
