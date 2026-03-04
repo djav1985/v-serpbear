@@ -8,11 +8,14 @@
 export const trimString = (value?: string | null): string => (typeof value === 'string' ? value.trim() : '');
 
 /**
- * Sanitizes an SMTP hostname: trims whitespace and removes trailing dots.
+ * Sanitizes a host string for SMTP use: trims whitespace, strips trailing dots,
+ * and lowercases. Intentionally permissive — accepts localhost, IP addresses,
+ * and single-label Docker/service names that strict DNS validators reject.
  */
-export const sanitizeHostname = (host?: string | null): string => trimString(host).replace(/\.+$/, '');
+export const sanitizeSmtpHost = (host?: string | null): string =>
+   trimString(host).replace(/\.+$/, '').toLowerCase();
 
-export const safeTrim = (value: any): string => {
+const safeTrim = (value: any): string => {
    if (typeof value === 'string') {
       return value.trim();
    }

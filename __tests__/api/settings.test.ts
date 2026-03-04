@@ -274,4 +274,42 @@ describe('GET /api/settings and configuration requirements', () => {
     expect(settings.failed_queue).toEqual(mockQueue);
     expect(retryQueueManager.getQueue).toHaveBeenCalled();
   });
+
+  it('blanks all sensitive fields when decryption fails', async () => {
+    // Provide settings with values that look like encrypted blobs
+    const encryptedPayload = JSON.stringify({
+      scraper_type: 'serpapi',
+      scraping_api: 'encrypted-blob',
+      smtp_password: 'encrypted-smtp',
+      search_console_client_email: 'encrypted-email',
+      search_console_private_key: 'encrypted-key',
+      adwords_client_id: 'encrypted-client-id',
+      adwords_client_secret: 'encrypted-client-secret',
+      adwords_refresh_token: 'encrypted-refresh',
+      adwords_developer_token: 'encrypted-dev-token',
+      adwords_account_id: 'encrypted-account-id',
+    });
+
+    readFileMock.mockResolvedValueOnce(encryptedPayload);
+
+    // Make Cryptr's decrypt throw to simulate a bad SECRET / corrupted ciphertext
+    const Cryptr = require('cryptr').default;
+    (Cryptr as jest.Mock).mockImplementationOnce(() => ({
+      decrypt: () => { throw new Error('invalid ciphertext'); },
+    }));
+
+    const settings = await settingsApi.getAppSettings();
+
+    expect(settings.scraping_api).toBe('');
+    expect(settings.smtp_password).toBe('');
+    expect(settings.search_console_client_email).toBe('');
+    expect(settings.search_console_private_key).toBe('');
+    expect(settings.adwords_client_id).toBe('');
+    expect(settings.adwords_client_secret).toBe('');
+    expect(settings.adwords_refresh_token).toBe('');
+    expect(settings.adwords_developer_token).toBe('');
+    expect(settings.adwords_account_id).toBe('');
+    // Non-sensitive fields should still be present
+    expect(settings.scraper_type).toBe('serpapi');
+  });
 });

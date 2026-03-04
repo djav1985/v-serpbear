@@ -55,5 +55,4 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 
 export default withApiLogging(handler, {
   name: 'auth-check',
-  logBody: false,
 });

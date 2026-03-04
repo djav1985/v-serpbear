@@ -11,17 +11,13 @@ import { errorResponse } from './api/response';
 export function withApiLogging(
   handler: NextApiHandler,
   options: {
-    logBody?: boolean;
     name?: string;
   } = {}
 ) {
   return async (req: NextApiRequest, res: NextApiResponse) => {
     const startTime = Date.now();
     const requestId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const { 
-      logBody = false,
-      name,
-    } = options;
+    const { name } = options;
 
     // Add request ID to the request object for downstream use
     (req as ExtendedRequest).requestId = requestId;
@@ -29,8 +25,8 @@ export function withApiLogging(
     // Set X-Request-Id header on the response so clients can correlate requests
     res.setHeader('X-Request-Id', requestId);
 
-    // Log body only in DEBUG mode or when explicitly requested
-    const shouldLogBody = logBody || process.env.LOG_LEVEL?.toLowerCase() === 'debug';
+    // Log body in DEBUG mode
+    const shouldLogBody = process.env.LOG_LEVEL?.toLowerCase() === 'debug';
 
     // INFO level: Just log the request method and URL
     logger.info(`${req.method} ${req.url}${name ? ` [${name}]` : ''}`);

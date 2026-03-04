@@ -1,7 +1,8 @@
 import {
    trimStringProperties,
-   safeTrim,
-   hasTrimmedLength
+   trimString,
+   hasTrimmedLength,
+   sanitizeSmtpHost,
 } from '../../utils/security';
 
 describe('Security Utilities', () => {
@@ -57,31 +58,19 @@ describe('Security Utilities', () => {
       });
    });
 
-   describe('safeTrim', () => {
-      it('should trim string values', () => {
-         expect(safeTrim('  hello  ')).toBe('hello');
-         expect(safeTrim('\t\nworld\r\n')).toBe('world');
+   describe('trimString', () => {
+      it('trims whitespace from strings', () => {
+         expect(trimString('  hello  ')).toBe('hello');
+         expect(trimString('\t\nworld\r\n')).toBe('world');
       });
 
-      it('should handle numeric values by converting to string', () => {
-         expect(safeTrim(587)).toBe('587');
-         expect(safeTrim(0)).toBe('0');
-         expect(safeTrim(-42)).toBe('-42');
+      it('returns empty string for null and undefined', () => {
+         expect(trimString(null)).toBe('');
+         expect(trimString(undefined)).toBe('');
       });
 
-      it('should handle null and undefined values', () => {
-         expect(safeTrim(null)).toBe('');
-         expect(safeTrim(undefined)).toBe('');
-      });
-
-      it('should handle boolean values', () => {
-         expect(safeTrim(true)).toBe('true');
-         expect(safeTrim(false)).toBe('false');
-      });
-
-      it('should handle object values by converting to string', () => {
-         expect(safeTrim({})).toBe('[object Object]');
-         expect(safeTrim([])).toBe('');
+      it('returns empty string for an empty string', () => {
+         expect(trimString('')).toBe('');
       });
    });
 
@@ -113,5 +102,34 @@ describe('Security Utilities', () => {
          expect(hasTrimmedLength(true)).toBe(true);
          expect(hasTrimmedLength(false)).toBe(true);
       });
+   });
+});
+
+describe('sanitizeSmtpHost', () => {
+   it('returns a domain hostname trimmed and lowercased', () => {
+      expect(sanitizeSmtpHost('smtp.example.com')).toBe('smtp.example.com');
+      expect(sanitizeSmtpHost('  MAIL.EXAMPLE.COM  ')).toBe('mail.example.com');
+   });
+
+   it('strips a trailing dot', () => {
+      expect(sanitizeSmtpHost('smtp.example.com.')).toBe('smtp.example.com');
+   });
+
+   it('accepts localhost and single-label Docker service names', () => {
+      expect(sanitizeSmtpHost('localhost')).toBe('localhost');
+      expect(sanitizeSmtpHost('mail')).toBe('mail');
+      expect(sanitizeSmtpHost('  mailserver  ')).toBe('mailserver');
+   });
+
+   it('accepts IP addresses', () => {
+      expect(sanitizeSmtpHost('192.168.1.1')).toBe('192.168.1.1');
+      expect(sanitizeSmtpHost('10.0.0.1')).toBe('10.0.0.1');
+   });
+
+   it('returns empty string for null, undefined, or blank input', () => {
+      expect(sanitizeSmtpHost(null)).toBe('');
+      expect(sanitizeSmtpHost(undefined)).toBe('');
+      expect(sanitizeSmtpHost('')).toBe('');
+      expect(sanitizeSmtpHost('   ')).toBe('');
    });
 });
