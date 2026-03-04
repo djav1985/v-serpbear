@@ -4,6 +4,7 @@ import Keyword from '../../database/models/keyword';
 import refreshAndUpdateKeywords, { updateKeywordPosition } from '../../utils/refresh';
 import { removeFromRetryQueue, retryScrape, scrapeKeywordWithStrategy } from '../../utils/scraper';
 import type { RefreshResult } from '../../utils/scraper';
+import { toDbBool } from '../../utils/dbBooleans';
 
 // Mock the dependencies
 jest.mock('../../database/models/domain');
@@ -22,6 +23,11 @@ jest.mock('../../utils/retryQueueManager', () => ({
     removeBatch: jest.fn().mockResolvedValue(undefined),
     getQueue: jest.fn().mockResolvedValue([]),
   },
+}));
+
+// Mock updateDomainStats so it doesn't require real DB access
+jest.mock('../../utils/updateDomainStats', () => ({
+  updateDomainStats: jest.fn().mockResolvedValue(undefined),
 }));
 
 describe('refreshAndUpdateKeywords', () => {
@@ -292,7 +298,7 @@ describe('refreshAndUpdateKeywords', () => {
 
     // Execute the function
     await refreshAndUpdateKeywords(mockKeywords, mockSettings);
-    
+
     // Verify per-row updates were called (not bulk Keyword.update)
     // Each keyword instance should have its update method called
     expect(mockKeywords[0].update).toHaveBeenCalledWith(
@@ -474,7 +480,7 @@ describe('refreshAndUpdateKeywords', () => {
 
     const updated = await updateKeywordPosition(keywordModel, updatedKeyword, settings);
 
-    // Verify the array was properly JSON.stringified 
+    // Verify the array was properly JSON.stringified
     expect(keywordModel.update).toHaveBeenCalledWith(
       expect.objectContaining({
         lastResult: JSON.stringify(arrayResult),
@@ -660,7 +666,7 @@ describe('refreshAndUpdateKeywords', () => {
 
   it('respects domain scraper overrides when determining parallel vs sequential mode', async () => {
     const cryptr = new Cryptr(process.env.SECRET as string);
-    
+
     // Setup: global settings use parallel-friendly scraper (serpapi)
     // but domain override uses custom scraper (not parallel-friendly)
     (Domain.findAll as jest.Mock).mockResolvedValue([
@@ -762,17 +768,16 @@ describe('refreshAndUpdateKeywords', () => {
 
     // Should use sequential mode because keyword2 has a custom-scraper override
     // which is not in the parallel-friendly list
-    // Note: START SCRAPE is logged at DEBUG level, which may not be visible by default
     expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"level":"INFO"'));
     expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Keyword refresh completed'));
-    expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('Parallel keyword refresh completed')); // This is only logged in parallel mode
+    expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('Parallel keyword refresh completed'));
 
     consoleSpy.mockRestore();
   });
 
   it('uses parallel mode when all domain overrides are parallel-friendly', async () => {
     const cryptr = new Cryptr(process.env.SECRET as string);
-    
+
     // Setup: domain overrides use parallel-friendly scrapers
     (Domain.findAll as jest.Mock).mockResolvedValue([
       {
@@ -876,7 +881,7 @@ describe('refreshAndUpdateKeywords', () => {
 
     // Should use parallel mode because both domain overrides are parallel-friendly
     expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"level":"INFO"'));
-    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Parallel keyword refresh completed')); // This is only logged in parallel mode
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Parallel keyword refresh completed'));
     expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('START SCRAPE:'));
 
     consoleSpy.mockRestore();
@@ -1021,7 +1026,6 @@ describe('refreshAndUpdateKeywords', () => {
     ]);
 
     // Mock scraper to return false (failure), which creates an error result in refreshParallel
-    // This error result will be processed by updateKeywordPosition, which sets updating: 0
     (scrapeKeywordWithStrategy as jest.Mock).mockResolvedValueOnce(false);
     const settings = {
       scraper_type: 'serpapi', // parallel scraper
@@ -1030,8 +1034,6 @@ describe('refreshAndUpdateKeywords', () => {
 
     const results = await refreshAndUpdateKeywords([keywordModel], settings);
 
-    // When scraper returns false, refreshParallel creates an error result that is processed
-    // by updateKeywordPosition, which sets updating: 0 in the database via keywordModel.update
     expect(keywordModel.update).toHaveBeenCalledWith(expect.objectContaining({
       updating: 0,
       updatingStartedAt: null,
@@ -1067,7 +1069,6 @@ describe('refreshAndUpdateKeywords', () => {
     ]);
 
     // Simulate errors in the scraping process
-    // refreshParallel catches these and creates error results, so no exception is thrown
     (scrapeKeywordWithStrategy as jest.Mock).mockRejectedValue(new Error('Unexpected error'));
     const settings = {
       scraper_type: 'serpapi', // parallel scraper
@@ -1079,7 +1080,7 @@ describe('refreshAndUpdateKeywords', () => {
 
     // Verify that keywords were processed despite errors
     expect(results).toHaveLength(2);
-    
+
     // Verify all keywords have updating: 0
     expect(results[0].updating).toBe(false);
     expect(results[1].updating).toBe(false);
@@ -1087,5 +1088,348 @@ describe('refreshAndUpdateKeywords', () => {
     // Verify that update was called to clear the updating flags
     expect(keywords[0].update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0, updatingStartedAt: null }));
     expect(keywords[1].update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0, updatingStartedAt: null }));
+  });
+});
+
+describe('Database-Memory Synchronization in Keyword Refresh', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env.SECRET = 'test-secret';
+  });
+
+  describe('updateKeywordPosition sync behavior', () => {
+    it('updates the database to sync in-memory state', async () => {
+      const mockKeywordModel = {
+        ID: 1,
+        keyword: 'test keyword',
+        domain: 'example.com',
+        position: 0,
+        updating: 1,
+        get: jest.fn().mockReturnValue({
+          ID: 1,
+          keyword: 'test keyword',
+          domain: 'example.com',
+          position: 0,
+          updating: false,
+          history: {},
+          lastUpdated: '',
+        }),
+        update: jest.fn().mockResolvedValue(undefined),
+      } as unknown as Keyword;
+
+      const refreshResult: RefreshResult = {
+        ID: 1,
+        keyword: 'test keyword',
+        position: 5,
+        url: 'https://example.com',
+        result: [],
+        localResults: [],
+        mapPackTop3: false,
+      };
+
+      const settings = {
+        scraper_type: 'serpapi',
+        scrape_retry: false,
+      } as SettingsType;
+
+      await updateKeywordPosition(mockKeywordModel, refreshResult, settings);
+
+      expect(mockKeywordModel.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          position: 5,
+          updating: 0,
+          updatingStartedAt: null,
+        }),
+      );
+    });
+
+    it('does not rely on a reload function for test mocks', async () => {
+      const mockKeywordModelWithoutReload = {
+        ID: 2,
+        keyword: 'test keyword 2',
+        domain: 'example.com',
+        position: 0,
+        updating: 1,
+        get: jest.fn().mockReturnValue({
+          ID: 2,
+          keyword: 'test keyword 2',
+          domain: 'example.com',
+          position: 0,
+          updating: false,
+          history: {},
+          lastUpdated: '',
+        }),
+        update: jest.fn().mockResolvedValue(undefined),
+      } as unknown as Keyword;
+
+      const refreshResult: RefreshResult = {
+        ID: 2,
+        keyword: 'test keyword 2',
+        position: 10,
+        url: 'https://example.com',
+        result: [],
+        localResults: [],
+        mapPackTop3: false,
+      };
+
+      const settings = {
+        scraper_type: 'serpapi',
+        scrape_retry: false,
+      } as SettingsType;
+
+      // Should not throw error even without reload method
+      await expect(
+        updateKeywordPosition(mockKeywordModelWithoutReload, refreshResult, settings),
+      ).resolves.toBeDefined();
+
+      expect(mockKeywordModelWithoutReload.update).toHaveBeenCalled();
+    });
+  });
+
+  describe('Concurrency and Race Condition Prevention', () => {
+    it('does not use manual .set() calls that could cause state divergence', async () => {
+      const mockKeyword = {
+        ID: 4,
+        keyword: 'concurrent keyword',
+        domain: 'example.com',
+        updating: 0,
+        get: jest.fn().mockReturnValue({
+          ID: 4,
+          keyword: 'concurrent keyword',
+          domain: 'example.com',
+          position: 0,
+          history: {},
+        }),
+        update: jest.fn().mockResolvedValue(undefined),
+        set: jest.fn(), // Mock set to verify it's NOT called
+      } as unknown as Keyword;
+
+      const refreshResult: RefreshResult = {
+        ID: 4,
+        keyword: 'concurrent keyword',
+        position: 15,
+        url: 'https://example.com',
+        result: [],
+        localResults: [],
+        mapPackTop3: false,
+      };
+
+      const settings = {
+        scraper_type: 'serpapi',
+        scrape_retry: false,
+      } as SettingsType;
+
+      await updateKeywordPosition(mockKeyword, refreshResult, settings);
+
+      // Verify .set() was NOT called - we rely on .update() instead
+      expect(mockKeyword.set).not.toHaveBeenCalled();
+
+      // Verify we use the correct sync pattern
+      expect(mockKeyword.update).toHaveBeenCalled();
+    });
+  });
+});
+
+describe('Atomic Flag Clearing in Refresh Workflow', () => {
+  const mockSettings = {
+    scraper_type: 'serpapi',
+    scrape_retry: false,
+  } as SettingsType;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env.SECRET = 'test-secret';
+  });
+
+  describe('updateKeywordPosition atomic flag behavior', () => {
+    it('should clear updating flag atomically in the same update', async () => {
+      const mockKeywordModel = {
+        ID: 1,
+        domain: 'example.com',
+        keyword: 'test keyword',
+        updating: toDbBool(true),
+        updatingStartedAt: new Date().toJSON(),
+        get: jest.fn().mockReturnValue({
+          ID: 1,
+          domain: 'example.com',
+          keyword: 'test keyword',
+          position: 5,
+          history: {},
+          lastUpdated: '',
+          url: '',
+        }),
+        update: jest.fn().mockResolvedValue(undefined),
+      };
+
+      const mockRefreshResult: RefreshResult = {
+        ID: 1,
+        keyword: 'test keyword',
+        position: 3,
+        url: 'https://example.com',
+        result: [],
+        localResults: [],
+        mapPackTop3: false,
+        error: false,
+      };
+
+      await updateKeywordPosition(
+        mockKeywordModel as unknown as Keyword,
+        mockRefreshResult,
+        mockSettings
+      );
+
+      expect(mockKeywordModel.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          updating: toDbBool(false),
+          updatingStartedAt: null,
+          position: 3,
+        })
+      );
+
+      // Verify it was only called once (atomic update)
+      expect(mockKeywordModel.update).toHaveBeenCalledTimes(1);
+    });
+
+    it('should clear updating flag even when scraper returns error', async () => {
+      const mockKeywordModel = {
+        ID: 2,
+        domain: 'example.com',
+        keyword: 'error keyword',
+        updating: toDbBool(true),
+        updatingStartedAt: new Date().toJSON(),
+        get: jest.fn().mockReturnValue({
+          ID: 2,
+          domain: 'example.com',
+          keyword: 'error keyword',
+          position: 0,
+          history: {},
+          lastUpdated: '',
+          url: '',
+        }),
+        update: jest.fn().mockResolvedValue(undefined),
+      };
+
+      const errorRefreshResult: RefreshResult = {
+        ID: 2,
+        keyword: 'error keyword',
+        position: 0,
+        url: '',
+        result: [],
+        localResults: [],
+        mapPackTop3: false,
+        error: 'Scraper API error',
+      };
+
+      await updateKeywordPosition(
+        mockKeywordModel as unknown as Keyword,
+        errorRefreshResult,
+        mockSettings
+      );
+
+      expect(mockKeywordModel.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          updating: toDbBool(false),
+          updatingStartedAt: null,
+        })
+      );
+
+      expect(mockKeywordModel.update).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('Parallel refresh workflow atomic behavior', () => {
+    it('should clear flags atomically for parallel scrapers', async () => {
+      const mockKeywordModel1 = {
+        ID: 6,
+        domain: 'example.com',
+        keyword: 'parallel keyword 1',
+        updating: toDbBool(true),
+        get: jest.fn().mockReturnValue({
+          ID: 6,
+          domain: 'example.com',
+          keyword: 'parallel keyword 1',
+          position: 0,
+          history: {},
+          lastUpdated: '',
+          url: '',
+        }),
+        update: jest.fn().mockResolvedValue(undefined),
+      };
+
+      const mockKeywordModel2 = {
+        ID: 7,
+        domain: 'example.com',
+        keyword: 'parallel keyword 2',
+        updating: toDbBool(true),
+        get: jest.fn().mockReturnValue({
+          ID: 7,
+          domain: 'example.com',
+          keyword: 'parallel keyword 2',
+          position: 0,
+          history: {},
+          lastUpdated: '',
+          url: '',
+        }),
+        update: jest.fn().mockResolvedValue(undefined),
+      };
+
+      (Domain.findAll as jest.Mock).mockResolvedValue([
+        {
+          get: () => ({
+            domain: 'example.com',
+            scrapeEnabled: 1,
+          }),
+        },
+      ]);
+
+      // Mock parallel scraper
+      (scrapeKeywordWithStrategy as jest.Mock)
+        .mockResolvedValueOnce({
+          ID: 6,
+          keyword: 'parallel keyword 1',
+          position: 1,
+          url: 'https://example.com/1',
+          result: [],
+          localResults: [],
+          mapPackTop3: false,
+          error: false,
+        })
+        .mockResolvedValueOnce({
+          ID: 7,
+          keyword: 'parallel keyword 2',
+          position: 2,
+          url: 'https://example.com/2',
+          result: [],
+          localResults: [],
+          mapPackTop3: false,
+          error: false,
+        });
+
+      await refreshAndUpdateKeywords(
+        [
+          mockKeywordModel1 as unknown as Keyword,
+          mockKeywordModel2 as unknown as Keyword,
+        ],
+        { ...mockSettings, scraper_type: 'serpapi' } // Parallel scraper
+      );
+
+      // Verify both keywords had their flags cleared atomically
+      expect(mockKeywordModel1.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          updating: toDbBool(false),
+          updatingStartedAt: null,
+        })
+      );
+      expect(mockKeywordModel2.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          updating: toDbBool(false),
+          updatingStartedAt: null,
+        })
+      );
+
+      // Verify each keyword was only updated once (atomic)
+      expect(mockKeywordModel1.update).toHaveBeenCalledTimes(1);
+      expect(mockKeywordModel2.update).toHaveBeenCalledTimes(1);
+    });
   });
 });
