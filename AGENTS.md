@@ -3,66 +3,113 @@
 ## Purpose
 This document defines baseline expectations for all contributors to maintain code quality, test coverage, and project stability.
 
+> **📖 For technical documentation and architecture details, see [.github/copilot-instructions.md](.github/copilot-instructions.md)**
+
 ---
 
-## Development Guidelines
+## Quick Reference
 
-### Big picture
-- Next.js 15 app with UI + REST API in [pages/](pages/).
-- SQLite via Sequelize with custom better-sqlite3 dialect in [database/](database/).
-- Background worker in [cron.js](cron.js) drives scraping, retries, Search Console refresh, and email digests.
-- Scraper integrations live in [scrapers/](scrapers/) with per-domain overrides.
-- Settings are encrypted in data/settings.json using `Cryptr(SECRET)` and accessed via settings API.
+### Essential Reading
+1. **Architecture & Patterns:** [.github/copilot-instructions.md](.github/copilot-instructions.md)
+2. **Requirements:** Node.js 20.18.1 (check `.nvmrc`)
+3. **Setup:** `npm ci && npm run db:migrate`
+4. **Development:** `npm run start:all` (web + cron worker)
+5. **Testing:** `npm test` (Jest + happy-dom)
 
-### Key flows & integration points
-- Keyword tracking: Domain → Keywords → Scheduled scrapes → History → Email digests (see [utils/refresh.ts](utils/refresh.ts), [cron.js](cron.js)).
-- Auth: JWT + `verifyUser` middleware for API routes (see [utils/verifyUser.ts](utils/verifyUser.ts)).
-- API logging: wrap handlers with `withApiLogging` (see [utils/apiLogging.ts](utils/apiLogging.ts)).
-- Search Console: credentials from settings or env (`SEARCH_CONSOLE_*`), refresh orchestrated in cron.
-- Email: templates in [email/](email/) and send logic in [utils/generateEmail.ts](utils/generateEmail.ts).
+### Key Conventions
+- **API routes:** Wrap with `withApiLogging` + `verifyUser` middleware
+- **Database:** Use `toDbBool()`/`fromDbBool()` for boolean fields (stored as 0/1)
+- **JSON fields:** Must `.get({ plain: true })` before API responses
+- **Tests:** Use helpers from `__tests__/__helpers__/` (never re-roll mocks)
+- **Linting:** No trailing commas in configs (enforced)
 
-### Conventions & patterns
-- API routes use the pages router and often follow `withApiLogging` + `verifyUser` + model access.
-- Domain scraper settings are masked/decrypted; use helpers in [utils/domainScraperSettings.ts](utils/domainScraperSettings.ts).
-- Use shared test helpers from [__tests__/__helpers__/](__tests__/__helpers__/) instead of re-rolling mocks.
-- Icons are registered in [components/common/Icon.tsx](components/common/Icon.tsx).
-- Respect the no-trailing-commas rule in configs (linted).
+---
 
-### Developer workflows (project-specific)
-- Node.js 20.18.1 per `.nvmrc` (README notes Node 18 is unsupported).
-- Install: `npm ci` (preferred) or `npm install`.
-- Migrations: `npm run db:migrate` (Docker runs them in [entrypoint.sh](entrypoint.sh)).
-- Dev: `npm run dev`; full stack: `npm run start:all` (runs web + cron).
-- Tests: `npm test` (Jest + happy-dom). Lint: `npm run lint` and `npm run lint:css`.
+## Testing Requirements
 
-### Where to look first
-- API routes: [pages/api/](pages/api/)
-- DB models/migrations: [database/models/](database/models/), [database/migrations/](database/migrations/)
-- Scraper providers: [scrapers/services/](scrapers/services/)
-- Email templates: [email/](email/)
-- Core utilities: [utils/](utils/)
+### Every change MUST include tests
 
-### When changing behavior
-- Update or add tests in [__tests__/](__tests__/) (see [AGENTS.md](AGENTS.md)).
-- Keep API error handling consistent with existing handlers and `withApiLogging`.
+**For API routes:**
+- ✓ 401 when not authorized
+- ✓ 405 for wrong HTTP method
+- ✓ 400 for missing/invalid params
+- ✓ 404 when resource not found
+- ✓ 200/201 for success cases
+- ✓ Error handling (database errors, validation errors)
+
+**For utilities:**
+- ✓ Core functionality with valid inputs
+- ✓ Edge cases (empty, null, undefined)
+- ✓ Error conditions
+
+**Test patterns:**
+- Mock dependencies at file top (before imports)
+- Use `createMockRequest()` and `createMockResponse()` for API tests
+- Always `jest.clearAllMocks()` in beforeEach
+- Save/restore environment variables in afterEach
+
+See [.github/copilot-instructions.md](.github/copilot-instructions.md#testing-patterns) for detailed testing patterns.
+
+---
+
+## Code Quality Standards
+
+### Before Committing
+```bash
+npm run lint           # ESLint check
+npm run lint:css       # Stylelint check
+npm test               # Full test suite
+```
+
+### API Route Pattern
+```typescript
+export default withApiLogging(async (req, res) => {
+  const authorized = verifyUser(req, res);
+  if (authorized !== 'authorized') {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  
+  // Validate input
+  // Query database
+  // Return response
+});
+```
+
+### Database Queries
+```typescript
+// Always get plain objects for API responses
+const domain = await Domain.findOne({ where: { domain: 'example.com' } });
+if (!domain) return res.status(404).json({ error: 'Not found' });
+
+const plainDomain = domain.get({ plain: true });
+// Convert booleans: toDbBool(true) → 1, fromDbBool(1) → true
+```
+
+### Migrations
+```typescript
+// ALWAYS check table existence
+const [results] = await queryInterface.sequelize.query(
+  `SELECT name FROM sqlite_master WHERE type='table' AND name='keyword'`,
+  { transaction: t }
+);
+if (results.length === 0) return;
+
+// ALWAYS wrap in transaction
+return queryInterface.sequelize.transaction(async (t) => {
+  // Your changes here
+});
+```
 
 ---
 
 ## Final Touches Guidelines
 
-- [ ] Tests updated or created for all features, fixes, or refactors  
-- [ ] Tests placed in the correct test directory or existing test suite  
-- [ ] Tests cover core logic and edge cases  
 - [ ] Full test suite passes locally  
 - [ ] Linting and formatting tools run locally  
-- [ ] All linting and formatting issues fixed  
-- [ ] Changes committed in small, reviewable chunks  
-- [ ] Commit messages are clear and descriptive  
-- [ ] No untested or lint-failing code committed  
-- [ ] Changelog updated (if applicable)  
-- [ ] Pull request passes all automated checks (tests, lint, build)  
+- [ ] All linting and formatting issues fixed   
+- [ ] CHANGELOG.md updated (if applicable)  
+- [ ] README.md updated (if applicable)  
 - [ ] Pull request includes a concise summary of what changed and why  
-- [ ] Related issues or tickets referenced (if applicable)
 
 ---
 
