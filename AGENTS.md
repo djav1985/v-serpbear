@@ -50,6 +50,58 @@ This document defines baseline expectations for all contributors to maintain cod
 
 See [.github/copilot-instructions.md](.github/copilot-instructions.md#testing-patterns) for detailed testing patterns.
 
+### Contract + Delta Pattern
+
+To prevent suite explosion, follow the **contract + delta** pattern when multiple implementations share an interface:
+
+**Contract tests** assert shared behaviour every implementation must satisfy.  
+**Delta tests** (per-provider/per-route files) assert only what is unique.
+
+#### Scraper services
+
+- **Contract:** Use `runScraperURLContracts()` from `__tests__/__helpers__/scraperContract.ts` inside a `describe` block, or register the provider in `__tests__/scrapers/scrapers.matrix.test.ts`.
+- **Delta:** Keep only assertions about provider-specific params, custom extractors, pagination logic, or map-pack detection in the individual `*.test.ts` file.
+
+```typescript
+// In scrapers.matrix.test.ts – add your new provider here:
+{
+  providerName: 'myprovider',
+  scrapeURL: myprovider.scrapeURL!,
+  settingsFactory: () => ({ scraping_api: 'key' }),
+  keywordWithSpaces: { keyword: 'coffee shops', country: 'US', device: 'desktop' },
+},
+```
+
+#### API routes
+
+Use the shared harness instead of duplicating auth/method checks in every suite:
+
+```typescript
+import {
+  assertUnauthorized,
+  assertMethodNotAllowed,
+  assertBadRequest,
+  assertNotFound,
+  createMockRequest,
+} from '../__helpers__';
+
+it('returns 401 when not authorised', async () => {
+  verifyUserMock.mockReturnValue('not authorized');
+  await assertUnauthorized(handler, createMockRequest({ method: 'GET' }));
+});
+
+it('returns 405 for wrong method', async () => {
+  verifyUserMock.mockReturnValue('authorized');
+  await assertMethodNotAllowed(handler, createMockRequest({ method: 'PATCH' }));
+});
+```
+
+#### Consolidating small utility test files
+
+When adding tests for a utility module that lives alongside closely related modules already tested in a `*.behavior.test.ts` file, add a new `describe` block inside that file rather than creating a new micro-file.  Merge candidates share the same imports and mock setup.
+
+See `__tests__/__helpers__/README.md` for the full consolidation reference table and naming conventions.
+
 ---
 
 ## Code Quality Standards

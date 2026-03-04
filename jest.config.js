@@ -25,7 +25,33 @@ const customJestConfig = {
     'better-sqlite3': '<rootDir>/__mocks__/better-sqlite3.js',
     '^until-async$': '<rootDir>/__mocks__/until-async.js'
   },
-  modulePathIgnorePatterns: ['<rootDir>/.next/']
+  modulePathIgnorePatterns: ['<rootDir>/.next/'],
+  coverageThreshold: {
+    global: {
+      branches: 50,
+      functions: 50,
+      lines: 50,
+      statements: 50
+    },
+    './utils/refresh.ts': {
+      branches: 60,
+      functions: 60,
+      lines: 60,
+      statements: 60
+    },
+    './pages/api/': {
+      branches: 40,
+      functions: 40,
+      lines: 40,
+      statements: 40
+    },
+    './scrapers/services/': {
+      branches: 40,
+      functions: 40,
+      lines: 40,
+      statements: 40
+    }
+  }
 };
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async
