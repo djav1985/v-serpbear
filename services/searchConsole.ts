@@ -11,13 +11,13 @@ const getActiveSlug = (router: NextRouter): string | undefined => {
    return slugParam;
 };
 
-export async function fetchSCKeywords(router: NextRouter, slugOverride?: string) {
+export async function fetchSCKeywords(router: NextRouter, slugOverride?: string): Promise<{ data: SCDomainDataType | null } | null> {
    // if (!router.query.slug) { throw new Error('Invalid Domain Name'); }
    const slug = slugOverride ?? getActiveSlug(router);
    if (!slug) {
       return null;
    }
-   return apiGet(`/api/searchconsole?domain=${slug}`, router);
+   return apiGet<{ data: SCDomainDataType | null }>(`/api/searchconsole?domain=${slug}`, router);
 }
 
 export function useFetchSCKeywords(router: NextRouter, domainLoaded: boolean = false, domainHasCredentials: boolean = false) {

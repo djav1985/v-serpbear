@@ -33,7 +33,7 @@ export const DomainConsolePage: NextPage = () => {
    const domainSettingsNodeRef = useRef<HTMLDivElement>(null);
    const settingsNodeRef = useRef<HTMLDivElement>(null);
    const addKeywordsNodeRef = useRef<HTMLDivElement>(null);
-   const [scDateFilter, setSCDateFilter] = useState('thirtyDays');
+   const [scDateFilter, setSCDateFilter] = useState<'threeDays' | 'sevenDays' | 'thirtyDays'>('thirtyDays');
    const { data: appSettings } = useFetchSettings();
    const appSettingsData: SettingsType = appSettings?.settings || {} as SettingsType;
    const { data: domainsData } = useFetchDomains(router, false);
@@ -121,7 +121,7 @@ export const DomainConsolePage: NextPage = () => {
                   showSettingsModal={setShowDomainSettings}
                   exportCsv={() => exportCSV(theKeywordsGrouped, activDomain.domain, scDateFilter)}
                   scFilter={scDateFilter}
-                  setScFilter={(item:string) => setSCDateFilter(item)}
+                   setScFilter={(item: 'threeDays' | 'sevenDays' | 'thirtyDays') => setSCDateFilter(item)}
                   />
                   : <div className='w-full lg:h-[100px]'></div>
                }
