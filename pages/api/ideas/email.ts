@@ -6,7 +6,6 @@ import Domain from '../../../database/models/domain';
 import verifyUser from '../../../utils/verifyUser';
 import { getAppSettings } from '../settings';
 import { trimStringProperties, trimString } from '../../../utils/security';
-import { sanitizeHostname } from '../../../utils/validators/hostname';
 import normalizeDomainBooleans from '../../../utils/normalizeDomain';
 import generateKeywordIdeasEmail, { KeywordIdeasEmailKeyword } from '../../../utils/generateKeywordIdeasEmail';
 import { getBranding } from '../../../utils/branding';
