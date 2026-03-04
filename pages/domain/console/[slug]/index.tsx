@@ -35,7 +35,7 @@ export const DomainConsolePage: NextPage = () => {
    const addKeywordsNodeRef = useRef<HTMLDivElement>(null);
    const [scDateFilter, setSCDateFilter] = useState('thirtyDays');
    const { data: appSettings } = useFetchSettings();
-   const appSettingsData: SettingsType = appSettings?.settings || {};
+   const appSettingsData: SettingsType = appSettings?.settings || {} as SettingsType;
    const { data: domainsData } = useFetchDomains(router, false);
    const theDomains: DomainType[] = (domainsData && domainsData.domains) || [];
    const activDomain: DomainType|null = useMemo(() => {

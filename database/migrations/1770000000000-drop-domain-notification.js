@@ -5,7 +5,7 @@
 // determined solely by `scrapeEnabled`.
 
 module.exports = {
-   up: async function up(params = {}, legacySequelize) {
+   up: async function up(params = {}, _legacySequelize) {
       const queryInterface = params?.context ?? params;
 
       return queryInterface.sequelize.transaction(async (t) => {
