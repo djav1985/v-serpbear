@@ -10,6 +10,7 @@ import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
 import { atomicWriteFile } from '../../utils/atomicWrite';
 import { errorResponse } from '../../utils/api/response';
+import normalizeOrigin from '../../utils/normalizeOrigin';
 
 type adwordsValidateResp = {
    valid: boolean
@@ -27,7 +28,6 @@ const respondWithIntegrationResult = (
    res: NextApiResponse,
    { success, message = '', statusCode }: IntegrationResultOptions,
 ) => {
-   const normalizeOrigin = (value: string) => value.replace(/\/+$/, '');
    const getHeaderValue = (value: string | string[] | undefined) => {
       if (!value) {
          return undefined;

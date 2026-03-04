@@ -1,4 +1,4 @@
-const normalizeOrigin = (value: string): string => value.replace(/\/$/, '');
+import normalizeOrigin from '../normalizeOrigin';
 
 export const getClientOrigin = (): string => {
    if (typeof window !== 'undefined' && window.location?.origin) {

@@ -8,7 +8,6 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, T
 type InsightStatsProps = {
    stats: SearchAnalyticsStat[],
    totalKeywords: number,
-   totalCountries: number,
    totalPages: number,
 }
 

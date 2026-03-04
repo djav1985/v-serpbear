@@ -159,7 +159,7 @@ export function useFetchSingleKeyword(keywordID:number) {
       try {
          const result = await apiGet<{ keyword?: Record<string, unknown> }>(`/api/keyword?id=${keywordID}`);
          return {
-            history: result.keyword?.history || [],
+            history: (result.keyword?.history || {}) as KeywordHistory,
             searchResult: result.keyword?.lastResult || [],
             localResults: result.keyword?.localResults || [],
             mapPackTop3: normalizeToBoolean(result.keyword?.mapPackTop3),
