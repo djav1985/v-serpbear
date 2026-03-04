@@ -1,3 +1,5 @@
+import { normalizeToBoolean } from './dbBooleans';
+
 export type BrandingConfig = {
    defaultPlatformName: string;
    whiteLabelEnabled: boolean;
@@ -19,8 +21,6 @@ const LOGO_MIME_TYPES: Record<string, string> = {
    '.svg': 'image/svg+xml',
    '.webp': 'image/webp',
 };
-
-const normalizeBoolean = (value?: string): boolean => (value || '').toLowerCase() === 'true';
 
 const trimString = (value?: string | null): string => (value || '').trim();
 
@@ -47,7 +47,7 @@ export const getLogoMimeType = (fileName: string): string => {
 };
 
 export const getBranding = (): BrandingConfig => {
-   const whiteLabelEnabled = normalizeBoolean(process.env.NEXT_PUBLIC_WHITE_LABEL);
+   const whiteLabelEnabled = normalizeToBoolean(process.env.NEXT_PUBLIC_WHITE_LABEL);
    const platformNameSetting = trimString(process.env.NEXT_PUBLIC_PLATFORM_NAME);
    const logoFileSetting = trimString(process.env.WHITE_LABEL_LOGO_FILE || DEFAULT_LOGO_FILE);
    const logoMimeType = getLogoMimeType(logoFileSetting);

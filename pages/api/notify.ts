@@ -10,19 +10,12 @@ import getdomainStats from '../../utils/domains';
 import verifyUser from '../../utils/verifyUser';
 import { canSendEmail, recordEmailSent } from '../../utils/emailThrottle';
 import { getAppSettings } from './settings';
-import { trimStringProperties } from '../../utils/security';
+import { trimStringProperties, trimString, sanitizeHostname } from '../../utils/security';
 import { getBranding } from '../../utils/branding';
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
 import normalizeDomainBooleans from '../../utils/normalizeDomain';
 import { errorResponse } from '../../utils/api/response';
-
-const trimString = (value?: string | null): string => (typeof value === 'string' ? value.trim() : '');
-
-const sanitizeHostname = (host?: string | null): string => {
-   const trimmed = trimString(host);
-   return trimmed.replace(/\.+$/, '');
-};
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
    const requestId = (req as ExtendedRequest).requestId;

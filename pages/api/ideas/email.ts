@@ -5,7 +5,7 @@ import nodeMailer from 'nodemailer';
 import Domain from '../../../database/models/domain';
 import verifyUser from '../../../utils/verifyUser';
 import { getAppSettings } from '../settings';
-import { trimStringProperties } from '../../../utils/security';
+import { trimStringProperties, trimString, sanitizeHostname } from '../../../utils/security';
 import normalizeDomainBooleans from '../../../utils/normalizeDomain';
 import generateKeywordIdeasEmail, { KeywordIdeasEmailKeyword } from '../../../utils/generateKeywordIdeasEmail';
 import { getBranding } from '../../../utils/branding';
@@ -16,13 +16,6 @@ import { errorResponse } from '../../../utils/api/response';
 type EmailKeywordIdeasRequest = {
    domain?: string;
    keywords?: KeywordIdeasEmailKeyword[];
-};
-
-const trimString = (value?: string | null): string => (typeof value === 'string' ? value.trim() : '');
-
-const sanitizeHostname = (host?: string | null): string => {
-   const trimmed = trimString(host);
-   return trimmed.replace(/\.+$/, '');
 };
 
 const normalizeKeywords = (keywords: KeywordIdeasEmailKeyword[] = []): KeywordIdeasEmailKeyword[] => keywords.map((keyword) => {

@@ -15,7 +15,7 @@ export const sortByStringField = <T>(items: T[], getValue: (item: T) => string, 
 );
 
 export const filterByCountry = <T extends { country: string }>(items: T[], countries: string[]): T[] => (
-   countries.length === 0 ? [...items] : items.filter((item) => countries.includes(item.country))
+   items.filter((item) => matchesCountry(item.country, countries))
 );
 
 export const filterBySearch = <T extends { keyword: string }>(
@@ -27,8 +27,7 @@ export const filterBySearch = <T extends { keyword: string }>(
    if (options.caseSensitive) {
       return items.filter((item) => item.keyword.includes(search));
    }
-   const normalizedSearch = search.toLowerCase();
-   return items.filter((item) => item.keyword.toLowerCase().includes(normalizedSearch));
+   return items.filter((item) => matchesSearch(item.keyword, search));
 };
 
 export const filterByDevice = <T extends { device: string }>(items: T[], device: string): {[key: string]: T[] } => {
