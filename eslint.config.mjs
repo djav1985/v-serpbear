@@ -69,7 +69,7 @@ export default [
       ...reactHooksPlugin.configs.recommended.rules,
       ...importPlugin.configs.recommended.rules,
       ...importPlugin.configs.typescript.rules,
-      ...nextPlugin.flatConfig.coreWebVitals.rules,
+      ...nextPlugin.configs['core-web-vitals'].rules,
 
       // Accessibility
       "jsx-a11y/alt-text": ["warn", { elements: ["img"], img: ["Image"] }],
