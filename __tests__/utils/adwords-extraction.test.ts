@@ -83,6 +83,7 @@ describe('extractAdwordskeywordIdeas - avgMonthlySearches handling', () => {
 
       expect(result).toBeDefined();
       expect(Array.isArray(result)).toBe(true);
+      if (!Array.isArray(result)) throw new Error('Expected array');
       expect(result.length).toBe(1);
       expect(result[0].keyword).toBe('high volume keyword');
       expect(result[0].avgMonthlySearches).toBe(5000);
@@ -140,6 +141,7 @@ describe('extractAdwordskeywordIdeas - avgMonthlySearches handling', () => {
       // The default value '0' will be used, parsed to 0, and will be included (>= 0 check)
       expect(result).toBeDefined();
       expect(Array.isArray(result)).toBe(true);
+      if (!Array.isArray(result)) throw new Error('Expected array');
       // The keyword will now be included because searchVolume (0) >= 0
       expect(result.length).toBe(1);
       expect(result[0].keyword).toBe('keyword without explicit volume');
@@ -213,6 +215,7 @@ describe('extractAdwordskeywordIdeas - avgMonthlySearches handling', () => {
 
       expect(result).toBeDefined();
       expect(Array.isArray(result)).toBe(true);
+      if (!Array.isArray(result)) throw new Error('Expected array');
       // Both keywords should be included (volume >= 0), sorted by volume descending
       expect(result.length).toBe(2);
       expect(result[0].keyword).toBe('medium volume keyword');
@@ -272,6 +275,7 @@ describe('extractAdwordskeywordIdeas - avgMonthlySearches handling', () => {
       // With the fix, this should process and include the keyword (volume 0 >= 0)
       expect(result).toBeDefined();
       expect(Array.isArray(result)).toBe(true);
+      if (!Array.isArray(result)) throw new Error('Expected array');
       expect(result.length).toBe(1);
       expect(result[0].keyword).toBe('zero volume keyword');
       expect(result[0].avgMonthlySearches).toBe(0);

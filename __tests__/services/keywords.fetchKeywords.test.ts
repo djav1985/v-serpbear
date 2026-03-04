@@ -84,7 +84,7 @@ describe('fetchKeywords normalisation', () => {
       expect(typeof response).toBe('object');
       expect(response.keywords).toBeDefined();
       expect(Array.isArray(response.keywords)).toBe(true);
-      expect(response.keywords.length).toBe(0);
+      expect(response.keywords?.length).toBe(0);
    });
 
    it('redirects to login and throws when the API responds with 401', async () => {

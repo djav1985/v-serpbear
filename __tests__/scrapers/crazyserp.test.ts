@@ -296,7 +296,7 @@ describe('crazyserp scraper', () => {
             keyword as KeywordType,
             { scraping_api: 'my-api-key' } as SettingsType
          );
-         expect(headers['Authorization']).toBe('Bearer my-api-key');
+         expect((headers as Record<string, string>)['Authorization']).toBe('Bearer my-api-key');
       });
    });
 });

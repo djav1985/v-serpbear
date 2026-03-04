@@ -135,11 +135,11 @@ describe('getSerp', () => {
   });
 
   it('returns the highest-ranking (lowest position number) match when the domain appears on multiple pages', () => {
-    const results: SearchResult[] = [
-      { position: 45, url: 'https://example.com/page-a' }, // from page 5, scraped first (smart strategy)
-      { position: 50, url: 'https://other.com/x' },
-      { position: 15, url: 'https://example.com/page-b' }, // from page 2, scraped later
-      { position: 20, url: 'https://other.com/y' },
+    const results: Array<{ title: string; url: string; position: number }> = [
+      { position: 45, url: 'https://example.com/page-a', title: '' }, // from page 5, scraped first (smart strategy)
+      { position: 50, url: 'https://other.com/x', title: '' },
+      { position: 15, url: 'https://example.com/page-b', title: '' }, // from page 2, scraped later
+      { position: 20, url: 'https://other.com/y', title: '' },
     ];
     const serp = getSerp('example.com', results);
     expect(serp.position).toBe(15);
@@ -147,9 +147,9 @@ describe('getSerp', () => {
   });
 
   it('returns position 0 when no match is found', () => {
-    const results: SearchResult[] = [
-      { position: 1, url: 'https://other.com/a' },
-      { position: 2, url: 'https://another.com/b' },
+    const results: Array<{ title: string; url: string; position: number }> = [
+      { position: 1, url: 'https://other.com/a', title: '' },
+      { position: 2, url: 'https://another.com/b', title: '' },
     ];
     const serp = getSerp('example.com', results);
     expect(serp.position).toBe(0);

@@ -59,7 +59,6 @@ describe('KeywordIdeasTable DRY Principle Implementation', () => {
       ID: 1,
       domain: 'example.com',
       slug: 'example-com',
-      notification: true,
       notification_interval: 'daily',
       notification_emails: '',
       lastUpdated: '2024-01-01T00:00:00.000Z',

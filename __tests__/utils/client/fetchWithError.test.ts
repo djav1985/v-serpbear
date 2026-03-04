@@ -80,7 +80,7 @@ describe('apiFetch error contract (replaces throwOnError / extractErrorMessage t
       mockFetch(401, { error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } }, { 'content-type': 'application/json' });
       const err = await apiFetch('/api/test').catch((e) => e);
       expect(err).toBeInstanceOf(ApiError);
-      expect(err.message).toBe('Unauthorized');
-      expect(err.statusCode).toBe(401);
+      expect((err as ApiError).message).toBe('Unauthorized');
+      expect((err as ApiError).statusCode).toBe(401);
    });
 });

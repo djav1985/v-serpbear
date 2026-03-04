@@ -1,7 +1,7 @@
 import { render } from '@testing-library/react';
 import ChartSlim from '../../components/common/ChartSlim';
 
-const lineMock = jest.fn(() => null);
+const lineMock = jest.fn<null, [LineProps]>(() => null);
 
 type LineOptions = {
    layout?: {

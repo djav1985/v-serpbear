@@ -64,13 +64,13 @@ const baseKeyword: KeywordType = {
    location: '',
 };
 
-const baseSettings: SettingsType = {
+const baseSettings = {
    scraper_type: 'serper',
    scraping_api: 'test-key',
    scrape_strategy: 'basic',
    scrape_pagination_limit: 5,
    scrape_smart_full_fallback: false,
-};
+} as unknown as SettingsType;
 
 /** Returns the unique page numbers from all fetch calls in ascending order. */
 function capturedPages(fetchSpy: jest.SpyInstance): number[] {
@@ -202,7 +202,7 @@ describe('scrapeKeywordWithStrategy – page selection', () => {
       fetchSpy.mockImplementation((url: RequestInfo | URL) => {
          const pageMatch = String(url).match(/[?&]page=(\d+)/);
          const page = pageMatch ? Number(pageMatch[1]) : 1;
-         let organic;
+         let organic: Array<{ title: string; link: string; position: number }>;
          if (page === 1) {
             organic = [
                { title: 'Other 1', link: 'https://other1.com/', position: 1 },

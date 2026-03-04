@@ -1,3 +1,4 @@
+export {};
 type FetchDomainScreenshot = (domain: string, forceFetch?: boolean) => Promise<string | false>;
 
 describe('domains service environment toggle', () => {
@@ -38,7 +39,7 @@ describe('domains service environment toggle', () => {
       expect(fetchSpy).not.toHaveBeenCalled();
       fetchSpy.mockRestore();
       if (!originalFetch) {
-         delete (global as typeof globalThis & { fetch?: jest.Mock }).fetch;
+         delete (global as unknown as { fetch?: jest.Mock }).fetch;
       }
    });
 });

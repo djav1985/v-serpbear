@@ -104,9 +104,10 @@ describe('SCKeywordsTable', () => {
          impressions: 1000,
          clicks: 50,
          ctr: 0.05,
+         page: '/',
       },
       {
-         uid: 'sc-keyword-2', 
+         uid: 'sc-keyword-2',
          keyword: 'untracked keyword',
          country: 'US',
          device: 'desktop',
@@ -114,6 +115,7 @@ describe('SCKeywordsTable', () => {
          impressions: 500,
          clicks: 25,
          ctr: 0.05,
+         page: '/',
       },
    ];
 

@@ -24,7 +24,7 @@ describe('_app.tsx server-side branding', () => {
          Component: () => <div>Test Page</div>,
          ctx: {} as any,
          router: {} as any,
-      } as AppContext;
+      } as unknown as AppContext;
 
       const result = await MyApp.getInitialProps!(mockContext);
 
@@ -49,7 +49,7 @@ describe('_app.tsx server-side branding', () => {
          Component: () => <div>Test Page</div>,
          ctx: {} as any,
          router: {} as any,
-      } as AppContext;
+      } as unknown as AppContext;
 
       const result = await MyApp.getInitialProps!(mockContext);
 

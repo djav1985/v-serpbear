@@ -245,7 +245,7 @@ describe('refreshAndUpdateKeywords - business_name handling', () => {
       ],
       mapPackTop3: true,
       error: false,
-    } as RefreshResult);
+    } as unknown as RefreshResult);
 
     await refreshAndUpdateKeywords([keywordModel], mockSettings);
 
@@ -318,7 +318,7 @@ describe('refreshAndUpdateKeywords - business_name handling', () => {
       result: [],
       mapPackTop3: false,
       error: false,
-    } as RefreshResult);
+    } as unknown as RefreshResult);
 
     await refreshAndUpdateKeywords([keywordModel], mockSettings);
 
@@ -378,7 +378,7 @@ describe('refreshAndUpdateKeywords - business_name handling', () => {
       result: [],
       mapPackTop3: false,
       error: false,
-    } as RefreshResult);
+    } as unknown as RefreshResult);
 
     await refreshAndUpdateKeywords([keywordModel], mockSettings);
 
@@ -598,17 +598,17 @@ describe('refreshAndUpdateKeywords - scraper override logging', () => {
       result: [],
       mapPackTop3: false,
       error: false,
-    } as RefreshResult);
+    } as unknown as RefreshResult);
 
     await refreshAndUpdateKeywords([keywordModel], mockSettings);
 
-    const overrideCalls = consoleSpy.mock.calls.filter(call =>
-      call[0]?.includes('Override for vontainment.com')
+    const overrideCalls = consoleSpy.mock.calls.filter((call: unknown[]) =>
+      (call[0] as string | undefined)?.includes('Override for vontainment.com')
     );
     expect(overrideCalls).toHaveLength(0);
 
-    const allOverridesCalls = consoleSpy.mock.calls.filter(call =>
-      call[0]?.includes('All requested domains use scraper overrides')
+    const allOverridesCalls = consoleSpy.mock.calls.filter((call: unknown[]) =>
+      (call[0] as string | undefined)?.includes('All requested domains use scraper overrides')
     );
     expect(allOverridesCalls).toHaveLength(0);
   });
@@ -668,21 +668,21 @@ describe('refreshAndUpdateKeywords - scraper override logging', () => {
       result: [],
       mapPackTop3: false,
       error: false,
-    } as RefreshResult);
+    } as unknown as RefreshResult);
 
     await refreshAndUpdateKeywords([keywordModel], mockSettings);
 
     // If [REFRESH] logs are visible, they should show override (debug level may suppress)
-    const overrideLogPresent = consoleSpy.mock.calls.some(call =>
-      call[0]?.includes('[REFRESH] Override for vontainment.com')
+    const overrideLogPresent = consoleSpy.mock.calls.some((call: unknown[]) =>
+      (call[0] as string | undefined)?.includes('[REFRESH] Override for vontainment.com')
     );
-    if (consoleSpy.mock.calls.some(call => call[0]?.includes('[REFRESH]'))) {
+    if (consoleSpy.mock.calls.some((call: unknown[]) => (call[0] as string | undefined)?.includes('[REFRESH]'))) {
       expect(overrideLogPresent).toBe(true);
     }
 
     // Should NOT log "using global scraper fallback"
-    const fallbackCalls = consoleSpy.mock.calls.filter(call =>
-      call[0]?.includes('Domain vontainment.com using global scraper fallback')
+    const fallbackCalls = consoleSpy.mock.calls.filter((call: unknown[]) =>
+      (call[0] as string | undefined)?.includes('Domain vontainment.com using global scraper fallback')
     );
     expect(fallbackCalls).toHaveLength(0);
   });
@@ -750,14 +750,14 @@ describe('refreshAndUpdateKeywords - scraper override logging', () => {
 
     (Keyword.update as jest.Mock).mockResolvedValue([1]);
     (scrapeKeywordWithStrategy as jest.Mock)
-      .mockResolvedValueOnce({ ID: 1, position: 1, url: 'https://with-override.com/', result: [], mapPackTop3: false, error: false } as RefreshResult)
-      .mockResolvedValueOnce({ ID: 2, position: 2, url: 'https://only-business-name.com/', result: [], mapPackTop3: false, error: false } as RefreshResult);
+      .mockResolvedValueOnce({ ID: 1, position: 1, url: 'https://with-override.com/', result: [], mapPackTop3: false, error: false } as unknown as RefreshResult)
+      .mockResolvedValueOnce({ ID: 2, position: 2, url: 'https://only-business-name.com/', result: [], mapPackTop3: false, error: false } as unknown as RefreshResult);
 
     await refreshAndUpdateKeywords([keywordModel1, keywordModel2], mockSettings);
 
     // Should NOT log "All requested domains use scraper overrides" since one is a fallback
-    const allOverridesCalls = consoleSpy.mock.calls.filter(call =>
-      call[0]?.includes('All requested domains use scraper overrides')
+    const allOverridesCalls = consoleSpy.mock.calls.filter((call: unknown[]) =>
+      (call[0] as string | undefined)?.includes('All requested domains use scraper overrides')
     );
     expect(allOverridesCalls).toHaveLength(0);
   });

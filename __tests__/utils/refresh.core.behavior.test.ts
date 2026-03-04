@@ -190,7 +190,7 @@ describe('refreshAndUpdateKeywords', () => {
       result: [],
       mapPackTop3: false,
       error: false,
-    } as RefreshResult);
+    } as unknown as RefreshResult);
 
     const settings = {
       scraper_type: 'custom-scraper',
@@ -297,7 +297,7 @@ describe('refreshAndUpdateKeywords', () => {
     const { retryQueueManager } = require('../../utils/retryQueueManager');
 
     // Execute the function
-    await refreshAndUpdateKeywords(mockKeywords, mockSettings);
+    await refreshAndUpdateKeywords(mockKeywords as unknown as Keyword[], mockSettings);
 
     // Verify per-row updates were called (not bulk Keyword.update)
     // Each keyword instance should have its update method called
@@ -337,7 +337,7 @@ describe('refreshAndUpdateKeywords', () => {
       { get: () => ({ domain: 'enabled.com', scrapeEnabled: 1 }) },
     ]);
 
-    await refreshAndUpdateKeywords(mockKeywords, mockSettings);
+    await refreshAndUpdateKeywords(mockKeywords as unknown as Keyword[], mockSettings);
 
     // Should not call retry queue operations when no keywords are skipped
     const { retryQueueManager } = require('../../utils/retryQueueManager');
@@ -360,7 +360,7 @@ describe('refreshAndUpdateKeywords', () => {
       { get: () => ({ domain: 'disabled.com', scrapeEnabled: 0 }) },
     ]);
 
-    await refreshAndUpdateKeywords(mockKeywords, mockSettings);
+    await refreshAndUpdateKeywords(mockKeywords as unknown as Keyword[], mockSettings);
 
     // Should call removeBatch for skipped keywords from disabled domains
     const { retryQueueManager } = require('../../utils/retryQueueManager');
@@ -411,7 +411,7 @@ describe('refreshAndUpdateKeywords', () => {
       result: undefined,
       mapPackTop3: false,
       error: 'temporary failure',
-    } as RefreshResult;
+    } as unknown as RefreshResult;
 
     const updated = await updateKeywordPosition(keywordModel, updatedKeyword, settings);
 
@@ -476,7 +476,7 @@ describe('refreshAndUpdateKeywords', () => {
       result: arrayResult,
       mapPackTop3: false,
       error: false,
-    } as RefreshResult;
+    } as unknown as RefreshResult;
 
     const updated = await updateKeywordPosition(keywordModel, updatedKeyword, settings);
 
@@ -535,7 +535,7 @@ describe('refreshAndUpdateKeywords', () => {
       result: [],
       mapPackTop3: false,
       error: false,
-    } as RefreshResult;
+    } as unknown as RefreshResult;
 
     const updated = await updateKeywordPosition(keywordModel, updatedKeyword, settings);
 
@@ -586,7 +586,7 @@ describe('refreshAndUpdateKeywords', () => {
       result: [],
       mapPackTop3: false,
       error: false,
-    } as RefreshResult;
+    } as unknown as RefreshResult;
 
     try {
       await updateKeywordPosition(keywordModel, updatedKeyword, settings);
@@ -648,7 +648,7 @@ describe('refreshAndUpdateKeywords', () => {
       result: [],
       mapPackTop3: false,
       error: false,
-    } as RefreshResult;
+    } as unknown as RefreshResult;
 
     try {
       const updated = await updateKeywordPosition(keywordModel, updatedKeyword, settings);
@@ -755,7 +755,7 @@ describe('refreshAndUpdateKeywords', () => {
       result: [],
       mapPackTop3: false,
       error: false,
-    } as RefreshResult);
+    } as unknown as RefreshResult);
 
     const settings = {
       scraper_type: 'serpapi', // Global setting is parallel-friendly
@@ -868,7 +868,7 @@ describe('refreshAndUpdateKeywords', () => {
       result: [],
       mapPackTop3: false,
       error: false,
-    } as RefreshResult);
+    } as unknown as RefreshResult);
 
     const settings = {
       scraper_type: 'custom-scraper', // Global is NOT parallel-friendly
@@ -930,7 +930,7 @@ describe('refreshAndUpdateKeywords', () => {
       result: [],
       mapPackTop3: false,
       error: false,
-    } as RefreshResult;
+    } as unknown as RefreshResult;
 
     await updateKeywordPosition(keywordModel, updatedKeyword, settings);
     expect((keywordModel.update as jest.Mock).mock.calls[0][0].position).toBe(3);
@@ -943,7 +943,7 @@ describe('refreshAndUpdateKeywords', () => {
       result: [],
       mapPackTop3: false,
       error: false,
-    } as RefreshResult;
+    } as unknown as RefreshResult;
 
     await updateKeywordPosition(keywordModel, updatedKeyword, settings);
     expect((keywordModel.update as jest.Mock).mock.calls[0][0].position).toBe(7);
@@ -956,7 +956,7 @@ describe('refreshAndUpdateKeywords', () => {
       result: [],
       mapPackTop3: false,
       error: false,
-    } as RefreshResult;
+    } as unknown as RefreshResult;
 
     await updateKeywordPosition(keywordModel, updatedKeyword, settings);
     expect((keywordModel.update as jest.Mock).mock.calls[0][0].position).toBe(5); // fallback to keyword.position
@@ -969,7 +969,7 @@ describe('refreshAndUpdateKeywords', () => {
       result: [],
       mapPackTop3: false,
       error: false,
-    } as RefreshResult;
+    } as unknown as RefreshResult;
 
     await updateKeywordPosition(keywordModel, updatedKeyword, settings);
     expect((keywordModel.update as jest.Mock).mock.calls[0][0].position).toBe(5); // fallback to keyword.position
@@ -984,7 +984,7 @@ describe('refreshAndUpdateKeywords', () => {
       result: [],
       mapPackTop3: false,
       error: false,
-    } as RefreshResult;
+    } as unknown as RefreshResult;
 
     await updateKeywordPosition(keywordModel, updatedKeyword, settings);
     expect((keywordModel.update as jest.Mock).mock.calls[0][0].position).toBe(0); // final fallback

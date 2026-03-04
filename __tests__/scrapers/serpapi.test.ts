@@ -10,7 +10,7 @@ describe('serpapi scraper', () => {
       location: 'New York,NY,US',
     };
 
-    const url = serpapi.scrapeURL!(keyword as KeywordType, settings as SettingsType);
+    const url = serpapi.scrapeURL!(keyword as KeywordType, settings as SettingsType, {} as any);
     const parsed = new URL(url);
 
     expect(parsed.origin).toBe('https://serpapi.com');
@@ -29,7 +29,7 @@ describe('serpapi scraper', () => {
       location: 'US',
     };
 
-    const url = serpapi.scrapeURL!(keyword as KeywordType, settings as SettingsType);
+    const url = serpapi.scrapeURL!(keyword as KeywordType, settings as SettingsType, {} as any);
     const parsed = new URL(url);
 
     expect(parsed.searchParams.has('location')).toBe(false);

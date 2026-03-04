@@ -1,14 +1,13 @@
 import { IdeasfilterKeywords, IdeasSortKeywords, matchesCountry, matchesSearch, matchesIdeaTags, normalizeIdeaTag } from '../../../utils/client/sortFilter';
 
 describe('Ideas keyword filters', () => {
-   const createIdeaKeyword = (overrides: Partial<IdeaKeyword> = {}): IdeaKeyword => ({
-      text: 'Example Idea',
+   const createIdeaKeyword = (overrides: Partial<IdeaKeyword> = {}) => ({
       keyword: 'Example Idea',
       country: 'US',
       avgMonthlySearches: 100,
       competitionIndex: 0.5,
       ...overrides,
-   });
+   } as IdeaKeyword);
 
    it('matchesCountry matches configured countries', () => {
       expect(matchesCountry('US', [])).toBe(true);

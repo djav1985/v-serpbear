@@ -10,7 +10,7 @@ describe('serply scraper', () => {
       device: 'desktop',
     };
 
-    const url = serply.scrapeURL!(keyword as KeywordType, settings as SettingsType, undefined);
+    const url = serply.scrapeURL!(keyword as KeywordType, settings as SettingsType, {} as any);
     const parsed = new URL(url);
 
     expect(parsed.origin).toBe('https://api.serply.io');
@@ -33,8 +33,8 @@ describe('serply scraper', () => {
       device: 'desktop',
     };
 
-    const mobileHeaders = serply.headers!(mobileKeyword as KeywordType, settings as SettingsType);
-    const desktopHeaders = serply.headers!(desktopKeyword as KeywordType, settings as SettingsType);
+    const mobileHeaders = serply.headers!(mobileKeyword as KeywordType, settings as SettingsType) as Record<string, string>;
+    const desktopHeaders = serply.headers!(desktopKeyword as KeywordType, settings as SettingsType) as Record<string, string>;
 
     expect(mobileHeaders['X-User-Agent']).toBe('mobile');
     expect(mobileHeaders['X-Proxy-Location']).toBe('CA');
