@@ -14,6 +14,25 @@ export const sortByStringField = <T>(items: T[], getValue: (item: T) => string, 
    })
 );
 
+// ── Predicates (single-item checks) ─────────────────────────────────────────
+
+export const matchesCountry = (keywordCountry: string, countries: string[]): boolean => (
+   countries.length === 0 || countries.includes(keywordCountry)
+);
+
+export const matchesSearch = (keyword: string, search: string): boolean => {
+   if (!search) { return true; }
+   const normalizedKeyword = keyword.toLowerCase();
+   const normalizedSearch = search.toLowerCase();
+   return normalizedKeyword.includes(normalizedSearch);
+};
+
+export const matchesTags = (keywordTags: string[], tags: string[]): boolean => (
+   tags.length === 0 || tags.some((tag) => keywordTags.includes(tag))
+);
+
+// ── Array filters (derived from predicates) ──────────────────────────────────
+
 export const filterByCountry = <T extends { country: string }>(items: T[], countries: string[]): T[] => (
    items.filter((item) => matchesCountry(item.country, countries))
 );
@@ -138,21 +157,6 @@ export const keywordsByDevice = (sortedKeywords: KeywordType[], device: string):
    filterByDevice(sortedKeywords, device)
 );
 
-export const matchesCountry = (keywordCountry: string, countries: string[]): boolean => (
-   countries.length === 0 || countries.includes(keywordCountry)
-);
-
-export const matchesSearch = (keyword: string, search: string): boolean => {
-   if (!search) { return true; }
-   const normalizedKeyword = keyword.toLowerCase();
-   const normalizedSearch = search.toLowerCase();
-   return normalizedKeyword.includes(normalizedSearch);
-};
-
-export const matchesTags = (keywordTags: string[], tags: string[]): boolean => (
-   tags.length === 0 || tags.some((tag) => keywordTags.includes(tag))
-);
-
 /**
  * Filters the keywords by country, search string or tags.
  * @param {KeywordType[]} keywords - The keywords.
@@ -251,8 +255,10 @@ export const IdeasSortKeywords = (theKeywords: IdeaKeyword[], sortBy: string): I
    }
 };
 
+// Delegates to matchesCountry — kept for backward compatibility with callers that
+// import it from this module by name.
 export const matchesIdeaCountry = (country: string, countries: string[]): boolean => (
-   countries.length === 0 || countries.includes(country)
+   matchesCountry(country, countries)
 );
 
 export const matchesIdeaSearch = (keyword: string, search: string): boolean => matchesSearch(keyword, search);
@@ -274,8 +280,8 @@ export const matchesIdeaTags = (keyword: string, tags: string[]): boolean => {
 
 export const IdeasfilterKeywords = (keywords: IdeaKeyword[], filterParams: KeywordFilters): IdeaKeyword[] => (
    keywords.filter((keywrd) => (
-      matchesIdeaCountry(keywrd.country, filterParams.countries)
-      && matchesIdeaSearch(keywrd.keyword, filterParams.search)
+      matchesCountry(keywrd.country, filterParams.countries)
+      && matchesSearch(keywrd.keyword, filterParams.search)
       && matchesIdeaTags(keywrd.keyword, filterParams.tags)
    ))
 );

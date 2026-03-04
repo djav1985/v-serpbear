@@ -1,9 +1,8 @@
 import toast from 'react-hot-toast';
 import { NextRouter } from 'next/router';
 import { useMutation, useQuery, useQueryClient } from 'react-query';
-import { getClientOrigin } from '../utils/client/origin';
 import { normalizeToBoolean } from '../utils/dbBooleans';
-import { throwOnError } from '../utils/client/fetchWithError';
+import { apiGet, apiPost, apiPut, apiDelete } from '../utils/client/apiClient';
 
 type KeywordsResponse = {
    keywords?: KeywordType[]
@@ -25,10 +24,7 @@ const normaliseKeywordFlags = (keyword: unknown): KeywordType => {
 
 export const fetchKeywords = async (router: NextRouter, domain: string) => {
    if (!domain) { return { keywords: [] }; }
-   const origin = getClientOrigin();
-   const res = await fetch(`${origin}/api/keywords?domain=${domain}`, { method: 'GET' });
-   await throwOnError(res, router);
-   const data: KeywordsResponse = await res.json();
+   const data = await apiGet<KeywordsResponse>(`/api/keywords?domain=${domain}`, router);
    if (!data || typeof data !== 'object') { return data; }
    if (!Array.isArray(data.keywords)) { return data; }
    return {
