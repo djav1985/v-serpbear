@@ -1,9 +1,9 @@
 import {
    trimStringProperties,
    trimString,
-   hasTrimmedLength
+   hasTrimmedLength,
+   sanitizeSmtpHost,
 } from '../../utils/security';
-import { sanitizeHostname } from '../../utils/validators/hostname';
 
 describe('Security Utilities', () => {
    describe('trimStringProperties', () => {
@@ -105,24 +105,31 @@ describe('Security Utilities', () => {
    });
 });
 
-describe('sanitizeHostname (canonical, from validators/hostname)', () => {
-   it('returns a valid hostname as-is (normalized)', () => {
-      expect(sanitizeHostname('smtp.example.com')).toBe('smtp.example.com');
-      expect(sanitizeHostname('MAIL.EXAMPLE.COM')).toBe('mail.example.com');
+describe('sanitizeSmtpHost', () => {
+   it('returns a domain hostname trimmed and lowercased', () => {
+      expect(sanitizeSmtpHost('smtp.example.com')).toBe('smtp.example.com');
+      expect(sanitizeSmtpHost('  MAIL.EXAMPLE.COM  ')).toBe('mail.example.com');
    });
 
-   it('strips a trailing dot from a valid hostname', () => {
-      expect(sanitizeHostname('smtp.example.com.')).toBe('smtp.example.com');
+   it('strips a trailing dot', () => {
+      expect(sanitizeSmtpHost('smtp.example.com.')).toBe('smtp.example.com');
    });
 
-   it('returns empty string for invalid hostnames', () => {
-      expect(sanitizeHostname('not-a-hostname')).toBe('');
-      expect(sanitizeHostname('')).toBe('');
-      expect(sanitizeHostname(null as any)).toBe('');
-      expect(sanitizeHostname(undefined as any)).toBe('');
+   it('accepts localhost and single-label Docker service names', () => {
+      expect(sanitizeSmtpHost('localhost')).toBe('localhost');
+      expect(sanitizeSmtpHost('mail')).toBe('mail');
+      expect(sanitizeSmtpHost('  mailserver  ')).toBe('mailserver');
    });
 
-   it('returns empty string for a hostname with invalid characters', () => {
-      expect(sanitizeHostname('bad host.com')).toBe('');
+   it('accepts IP addresses', () => {
+      expect(sanitizeSmtpHost('192.168.1.1')).toBe('192.168.1.1');
+      expect(sanitizeSmtpHost('10.0.0.1')).toBe('10.0.0.1');
+   });
+
+   it('returns empty string for null, undefined, or blank input', () => {
+      expect(sanitizeSmtpHost(null)).toBe('');
+      expect(sanitizeSmtpHost(undefined)).toBe('');
+      expect(sanitizeSmtpHost('')).toBe('');
+      expect(sanitizeSmtpHost('   ')).toBe('');
    });
 });

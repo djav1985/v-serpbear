@@ -5,7 +5,7 @@ import nodeMailer from 'nodemailer';
 import Domain from '../../../database/models/domain';
 import verifyUser from '../../../utils/verifyUser';
 import { getAppSettings } from '../settings';
-import { trimStringProperties, trimString } from '../../../utils/security';
+import { trimStringProperties, trimString, sanitizeSmtpHost } from '../../../utils/security';
 import normalizeDomainBooleans from '../../../utils/normalizeDomain';
 import generateKeywordIdeasEmail, { KeywordIdeasEmailKeyword } from '../../../utils/generateKeywordIdeasEmail';
 import { getBranding } from '../../../utils/branding';
@@ -78,14 +78,14 @@ const emailKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => {
    try {
       const settings = await getAppSettings();
       const normalizedSettings: SettingsType = trimStringProperties({ ...settings });
-      const sanitizedHost = sanitizeHostname(normalizedSettings.smtp_server);
+      const sanitizedHost = sanitizeSmtpHost(normalizedSettings.smtp_server);
       const sanitizedPort = normalizedSettings.smtp_port;
       const sanitizedDefaultEmail = normalizedSettings.notification_email;
 
       normalizedSettings.smtp_server = sanitizedHost;
       normalizedSettings.smtp_port = sanitizedPort;
       normalizedSettings.notification_email = sanitizedDefaultEmail;
-      normalizedSettings.smtp_tls_servername = sanitizeHostname(normalizedSettings.smtp_tls_servername);
+      normalizedSettings.smtp_tls_servername = sanitizeSmtpHost(normalizedSettings.smtp_tls_servername);
 
       if (!sanitizedHost || !sanitizedPort || !sanitizedDefaultEmail) {
          return res.status(400).json(errorResponse('BAD_REQUEST', 'SMTP has not been setup properly!', requestId));
@@ -131,7 +131,7 @@ const emailKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => {
          })(),
       };
 
-      const tlsServername = sanitizeHostname(smtp_tls_servername);
+      const tlsServername = sanitizeSmtpHost(smtp_tls_servername);
       if (tlsServername) {
          mailerSettings.tls = { servername: tlsServername };
       }

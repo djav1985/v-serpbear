@@ -10,8 +10,7 @@ import getdomainStats from '../../utils/domains';
 import verifyUser from '../../utils/verifyUser';
 import { canSendEmail, recordEmailSent } from '../../utils/emailThrottle';
 import { getAppSettings } from './settings';
-import { trimStringProperties, trimString } from '../../utils/security';
-import { sanitizeHostname } from '../../utils/validators/hostname';
+import { trimStringProperties, trimString, sanitizeSmtpHost } from '../../utils/security';
 import { getBranding } from '../../utils/branding';
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
@@ -39,14 +38,14 @@ const notify = async (req: NextApiRequest, res: NextApiResponse) => {
       const settings = await getAppSettings();
       const normalizedSettings: SettingsType = trimStringProperties({ ...settings });
 
-      const sanitizedHost = sanitizeHostname(normalizedSettings.smtp_server);
+      const sanitizedHost = sanitizeSmtpHost(normalizedSettings.smtp_server);
       const sanitizedPort = normalizedSettings.smtp_port;
       const sanitizedDefaultEmail = normalizedSettings.notification_email;
 
       normalizedSettings.smtp_server = sanitizedHost;
       normalizedSettings.smtp_port = sanitizedPort;
       normalizedSettings.notification_email = sanitizedDefaultEmail;
-      normalizedSettings.smtp_tls_servername = sanitizeHostname(normalizedSettings.smtp_tls_servername);
+      normalizedSettings.smtp_tls_servername = sanitizeSmtpHost(normalizedSettings.smtp_tls_servername);
 
       if (!sanitizedHost || !sanitizedPort || !sanitizedDefaultEmail) {
          return res.status(400).json(errorResponse('BAD_REQUEST', 'SMTP has not been setup properly!', requestId));
@@ -137,7 +136,7 @@ const sendNotificationEmail = async (domain: DomainType | Domain, settings: Sett
       throw new Error('Invalid SMTP host configured.');
    }
 
-   const tlsServername = sanitizeHostname(smtp_tls_servername);
+   const tlsServername = sanitizeSmtpHost(smtp_tls_servername);
    const fromAddress = notification_email_from || 'no-reply@serpbear.com';
    const fromName = notification_email_from_name || platformName;
    const fromEmail = `${fromName} <${fromAddress}>`;
