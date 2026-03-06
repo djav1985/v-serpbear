@@ -35,6 +35,7 @@ const KeywordsTable = (props: KeywordsTableProps) => {
    const [showRemoveModal, setShowRemoveModal] = useState<boolean>(false);
    const [showTagManager, setShowTagManager] = useState<null|number>(null);
    const [showAddTags, setShowAddTags] = useState<boolean>(false);
+   const [showRemoveTags, setShowRemoveTags] = useState<boolean>(false);
    const [SCListHeight, setSCListHeight] = useState(500);
    const [filterParams, setFilterParams] = useState<KeywordFilters>({ countries: [], tags: [], search: '' });
    const [sortBy, setSortBy] = useState<string>('date_asc');
@@ -82,6 +83,14 @@ const KeywordsTable = (props: KeywordsTableProps) => {
       const allTags = keywords.reduce((acc: string[], keyword) => [...acc, ...keyword.tags], []).filter((t) => t && t.trim() !== '');
       return [...new Set(allTags)];
    }, [keywords]);
+
+   const selectedKeywordsTags: string[] = useMemo(() => {
+      const selectedKeywordRows = keywords.filter((k) => selectedKeywords.includes(k.ID));
+      const selectedTags = selectedKeywordRows
+         .reduce((acc: string[], keyword) => [...acc, ...keyword.tags], [])
+         .filter((tag) => tag && tag.trim() !== '');
+      return [...new Set(selectedTags)];
+   }, [keywords, selectedKeywords]);
 
    const selectKeyword = (keywordID: number) => {
       let updatedSelected = [...selectedKeywords, keywordID];
@@ -205,6 +214,13 @@ const KeywordsTable = (props: KeywordsTableProps) => {
                         >
                            <span className=' bg-green-100 text-green-500  px-1 rounded'><Icon type="tags" size={14} /></span> Tag Keywords</a>
                      </li>
+                     <li className='inline-block mr-4'>
+                        <a
+                        className='block px-2 py-2 cursor-pointer hover:text-indigo-600'
+                        onClick={() => setShowRemoveTags(true)}
+                        >
+                           <span className=' bg-orange-100 text-orange-500  px-1 rounded'><Icon type="tags" size={14} /></span> Remove Tags</a>
+                     </li>
                   </ul>
                </div>
             )}
@@ -324,6 +340,14 @@ const KeywordsTable = (props: KeywordsTableProps) => {
                existingTags={allDomainTags}
                keywords={keywords.filter((k) => selectedKeywords.includes(k.ID))}
                closeModal={() => setShowAddTags(false)}
+               />
+         )}
+         {showRemoveTags && (
+            <AddTags
+               mode='remove'
+               existingTags={selectedKeywordsTags}
+               keywords={keywords.filter((k) => selectedKeywords.includes(k.ID))}
+               closeModal={() => setShowRemoveTags(false)}
                />
          )}
       </div>

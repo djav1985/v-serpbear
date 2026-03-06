@@ -50,4 +50,30 @@ describe('AddTags', () => {
 
       expect(mutateMock).toHaveBeenCalledWith({ tags: { 1: ['primary', 'secondary'] } });
    });
+
+   it('removes matching tags across selected keywords in remove mode', () => {
+      const secondKeyword = {
+         ...baseKeyword,
+         ID: 2,
+         keyword: 'beta keyword',
+         tags: ['Charlotte', 'PPC'],
+      };
+
+      render(
+         <AddTags
+            mode='remove'
+            keywords={[{ ...baseKeyword, tags: ['SEO', 'Charlotte'] }, secondKeyword]}
+            existingTags={['SEO', 'Charlotte', 'PPC']}
+            closeModal={closeModal}
+         />,
+      );
+
+      const input = screen.getByPlaceholderText('Remove Tags. eg: tag1, tag2');
+      fireEvent.change(input, { target: { value: 'seo' } });
+
+      const applyButton = screen.getByText('Apply');
+      fireEvent.click(applyButton);
+
+      expect(mutateMock).toHaveBeenCalledWith({ tags: { 1: ['Charlotte'], 2: ['Charlotte', 'PPC'] } });
+   });
 });
