@@ -50,9 +50,7 @@ const AddTags = ({ keywords = [], existingTags = [], mode = 'add', closeModal }:
       keywords.forEach((keyword:KeywordType) => {
          tagsPayload[keyword.ID] = mode === 'remove'
             ? keyword.tags.filter((tag) => !tagsArrayNormalized.includes(tag.toLowerCase()))
-            : keywords.length === 1
-               ? tagsArray
-               : Array.from(new Set([...keyword.tags, ...tagsArray]));
+            : Array.from(new Set([...keyword.tags, ...tagsArray]));
       });
       updateMutate({ tags: tagsPayload });
    };

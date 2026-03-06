@@ -51,6 +51,21 @@ describe('AddTags', () => {
       expect(mutateMock).toHaveBeenCalledWith({ tags: { 1: ['primary', 'secondary'] } });
    });
 
+   it('merges new tags with existing tags for a single keyword in add mode', () => {
+      const keywordWithTags = { ...baseKeyword, tags: ['SEO', 'content'] };
+      render(
+         <AddTags keywords={[keywordWithTags]} existingTags={['SEO', 'content']} closeModal={closeModal} />,
+      );
+
+      const input = screen.getByPlaceholderText('Insert Tags. eg: tag1, tag2');
+      fireEvent.change(input, { target: { value: 'PPC' } });
+
+      const applyButton = screen.getByText('Apply');
+      fireEvent.click(applyButton);
+
+      expect(mutateMock).toHaveBeenCalledWith({ tags: { 1: ['SEO', 'content', 'PPC'] } });
+   });
+
    it('removes matching tags across selected keywords in remove mode', () => {
       const secondKeyword = {
          ...baseKeyword,
