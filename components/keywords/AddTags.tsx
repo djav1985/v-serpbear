@@ -6,11 +6,12 @@ import Modal from '../common/Modal';
 type AddTagsProps = {
    keywords: KeywordType[],
    existingTags: string[],
+   mode?: 'add' | 'remove',
    closeModal: (show?: boolean) => void
 }
 
-const AddTags = ({ keywords = [], existingTags = [], closeModal }: AddTagsProps) => {
-   const [tagInput, setTagInput] = useState(() => (keywords.length === 1 ? keywords[0].tags.join(', ') : ''));
+const AddTags = ({ keywords = [], existingTags = [], mode = 'add', closeModal }: AddTagsProps) => {
+   const [tagInput, setTagInput] = useState('');
    const [inputError, setInputError] = useState('');
    const [showSuggestions, setShowSuggestions] = useState(false);
    const { mutate: updateMutate } = useUpdateKeywordTags(() => { setTagInput(''); });
@@ -24,13 +25,13 @@ const AddTags = ({ keywords = [], existingTags = [], closeModal }: AddTagsProps)
          }
       }, []);
 
-   const addTag = () => {
+   const applyTags = () => {
       if (keywords.length === 0) { return; }
-      if (!tagInput && keywords.length > 1) {
+      if (!tagInput.trim()) {
          if (errorTimeoutRef.current) {
             clearTimeout(errorTimeoutRef.current);
          }
-         setInputError('Please Insert a Tag!');
+         setInputError(`Please Insert ${mode === 'remove' ? 'a Tag to Remove' : 'a Tag'}!`);
          errorTimeoutRef.current = setTimeout(() => {
             setInputError('');
             errorTimeoutRef.current = null;
@@ -45,16 +46,20 @@ const AddTags = ({ keywords = [], existingTags = [], closeModal }: AddTagsProps)
             .filter((tag) => tag.length > 0),
       ));
       const tagsPayload: Record<number, string[]> = {};
+      const tagsArrayNormalized = tagsArray.map((tag) => tag.toLowerCase());
       keywords.forEach((keyword:KeywordType) => {
-         tagsPayload[keyword.ID] = keywords.length === 1
-            ? tagsArray
+         tagsPayload[keyword.ID] = mode === 'remove'
+            ? keyword.tags.filter((tag) => !tagsArrayNormalized.includes(tag.toLowerCase()))
             : Array.from(new Set([...keyword.tags, ...tagsArray]));
       });
       updateMutate({ tags: tagsPayload });
    };
 
    return (
-      <Modal closeModal={() => { closeModal(false); }} title={`Add New Tags to ${keywords.length} Selected Keyword`}>
+      <Modal
+         closeModal={() => { closeModal(false); }}
+         title={`${mode === 'remove' ? 'Remove Tags from' : 'Add New Tags to'} ${keywords.length} Selected Keyword${keywords.length > 1 ? 's' : ''}`}
+      >
          <div className="relative">
             {inputError && <span className="absolute top-[-24px] text-red-400 text-sm font-semibold">{inputError}</span>}
             <span className='absolute text-gray-400 top-3 left-2 cursor-pointer' onClick={() => setShowSuggestions(!showSuggestions)}>
@@ -64,13 +69,13 @@ const AddTags = ({ keywords = [], existingTags = [], closeModal }: AddTagsProps)
             <input
                ref={inputRef}
                className='w-full border rounded border-gray-200 py-3 px-4 pl-12 outline-none focus:border-indigo-300'
-               placeholder='Insert Tags. eg: tag1, tag2'
+               placeholder={`${mode === 'remove' ? 'Remove Tags' : 'Insert Tags'}. eg: tag1, tag2`}
                value={tagInput}
                onChange={(e) => setTagInput(e.target.value)}
                onKeyDown={(e) => {
                   if (e.code === 'Enter') {
                     e.preventDefault();
-                    addTag();
+                    applyTags();
                   }
                }}
             />
@@ -99,7 +104,7 @@ const AddTags = ({ keywords = [], existingTags = [], closeModal }: AddTagsProps)
 
             <button
             className=" absolute right-2 top-2 cursor-pointer rounded p-2 px-4 bg-indigo-600 text-white font-semibold text-sm"
-            onClick={addTag}>
+            onClick={applyTags}>
                Apply
             </button>
          </div>
