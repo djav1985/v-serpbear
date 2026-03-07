@@ -342,8 +342,8 @@ describe('PUT /api/keywords tags updates', () => {
     const secondUpdate = jest.fn().mockResolvedValue(undefined);
 
     keywordMock.findOne
-      .mockResolvedValueOnce({ tags: JSON.stringify(['existing']), update: firstUpdate })
-      .mockResolvedValueOnce({ tags: JSON.stringify([]), update: secondUpdate });
+      .mockResolvedValueOnce({ update: firstUpdate })
+      .mockResolvedValueOnce({ update: secondUpdate });
 
     keywordMock.findAll.mockResolvedValueOnce([
       {
@@ -382,10 +382,12 @@ describe('PUT /api/keywords tags updates', () => {
       },
     ]);
 
+    // The client always sends the full desired final tag list per keyword.
+    // For add mode, the client pre-merges existing + new tags before calling the API.
     const req = {
       method: 'PUT',
       query: { id: '1,2' },
-      body: { tags: { 1: ['new'], 2: ['second'] } },
+      body: { tags: { 1: ['existing', 'new'], 2: ['second'] } },
       headers: {},
     } as unknown as NextApiRequest;
 
@@ -406,6 +408,82 @@ describe('PUT /api/keywords tags updates', () => {
       keywords: expect.arrayContaining([
         expect.objectContaining({ keyword: 'alpha', tags: ['existing', 'new'] }),
         expect.objectContaining({ keyword: 'beta', tags: ['second'] }),
+      ]),
+    });
+  });
+
+  it('removes tags from multiple keywords without restoring removed tags', async () => {
+    const firstUpdate = jest.fn().mockResolvedValue(undefined);
+    const secondUpdate = jest.fn().mockResolvedValue(undefined);
+
+    // findOne mocks return the current DB state (which includes the tag being removed).
+    // If union-merge logic were reintroduced, 'PPC' would be added back — this test
+    // would then fail, catching the regression.
+    keywordMock.findOne
+      .mockResolvedValueOnce({ tags: JSON.stringify(['SEO', 'PPC']), update: firstUpdate })
+      .mockResolvedValueOnce({ tags: JSON.stringify(['PPC', 'Content']), update: secondUpdate });
+
+    keywordMock.findAll.mockResolvedValueOnce([
+      {
+        get: () => ({
+          ID: 3,
+          keyword: 'gamma',
+          domain: 'example.com',
+          device: 'desktop',
+          country: 'US',
+          location: '',
+          history: '{}',
+          tags: JSON.stringify(['SEO']),
+          lastResult: '[]',
+          lastUpdateError: 'false',
+          sticky: false,
+          updating: false,
+          mapPackTop3: false,
+        }),
+      },
+      {
+        get: () => ({
+          ID: 4,
+          keyword: 'delta',
+          domain: 'example.com',
+          device: 'desktop',
+          country: 'US',
+          location: '',
+          history: '{}',
+          tags: JSON.stringify(['Content']),
+          lastResult: '[]',
+          lastUpdateError: 'false',
+          sticky: false,
+          updating: false,
+          mapPackTop3: false,
+        }),
+      },
+    ]);
+
+    // The client computes the final tag list with the removed tag already filtered out.
+    // Keyword 3 had ['SEO', 'PPC'], keyword 4 had ['PPC', 'Content']. Removing 'PPC'.
+    const req = {
+      method: 'PUT',
+      query: { id: '3,4' },
+      body: { tags: { 3: ['SEO'], 4: ['Content'] } },
+      headers: {},
+    } as unknown as NextApiRequest;
+
+    const res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+    } as unknown as NextApiResponse;
+
+    await handler(req, res);
+
+    // 'PPC' must NOT be restored – the API saves exactly what the client sends.
+    expect(firstUpdate).toHaveBeenCalledWith({ tags: JSON.stringify(['SEO']) });
+    expect(secondUpdate).toHaveBeenCalledWith({ tags: JSON.stringify(['Content']) });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      keywords: expect.arrayContaining([
+        expect.objectContaining({ keyword: 'gamma', tags: ['SEO'] }),
+        expect.objectContaining({ keyword: 'delta', tags: ['Content'] }),
       ]),
     });
   });

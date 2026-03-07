@@ -410,7 +410,6 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
             return res.status(200).json({ keywords: [] });
          }
 
-         const multipleKeywords = tagsKeywordIDs.length > 1;
          const updatedKeywordIDs = new Set<number>();
 
          for (const keywordID of tagsKeywordIDs) {
@@ -423,29 +422,17 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
             const tagsForKeyword = Array.isArray(tagsForKeywordRaw)
                ? tagsForKeywordRaw
                : [];
-            const sanitizedTags = tagsForKeyword
-               .filter((tag): tag is string => typeof tag === 'string')
-               .map((tag) => tag.trim())
-               .filter((tag) => tag.length > 0);
+            const sanitizedTags = Array.from(new Set(
+               tagsForKeyword
+                  .filter((tag): tag is string => typeof tag === 'string')
+                  .map((tag) => tag.trim())
+                  .filter((tag) => tag.length > 0),
+            )).sort();
 
             const selectedKeyword = await Keyword.findOne({ where: { ID: numericId } });
-            let currentTags: string[] = [];
-            
-            if (selectedKeyword && selectedKeyword.tags) {
-               try {
-                  const parsedTags = JSON.parse(selectedKeyword.tags);
-                  currentTags = Array.isArray(parsedTags) ? parsedTags : [];
-               } catch (parseError) {
-                  logger.warn('Failed to parse tags for keyword', { keywordId: numericId, tags: selectedKeyword.tags, error: parseError instanceof Error ? parseError.message : String(parseError) });
-                  currentTags = [];
-               }
-            }
-            
-            const mergedTags = Array.from(new Set([...currentTags, ...sanitizedTags])).sort();
 
             if (selectedKeyword) {
-               const tagsToSave = multipleKeywords ? mergedTags : sanitizedTags.sort();
-               await selectedKeyword.update({ tags: JSON.stringify(tagsToSave) });
+               await selectedKeyword.update({ tags: JSON.stringify(sanitizedTags) });
                updatedKeywordIDs.add(numericId);
             }
          }
