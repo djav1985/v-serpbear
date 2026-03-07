@@ -422,15 +422,17 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
             const tagsForKeyword = Array.isArray(tagsForKeywordRaw)
                ? tagsForKeywordRaw
                : [];
-            const sanitizedTags = tagsForKeyword
-               .filter((tag): tag is string => typeof tag === 'string')
-               .map((tag) => tag.trim())
-               .filter((tag) => tag.length > 0);
+            const sanitizedTags = Array.from(new Set(
+               tagsForKeyword
+                  .filter((tag): tag is string => typeof tag === 'string')
+                  .map((tag) => tag.trim())
+                  .filter((tag) => tag.length > 0),
+            )).sort();
 
             const selectedKeyword = await Keyword.findOne({ where: { ID: numericId } });
 
             if (selectedKeyword) {
-               await selectedKeyword.update({ tags: JSON.stringify(sanitizedTags.sort()) });
+               await selectedKeyword.update({ tags: JSON.stringify(sanitizedTags) });
                updatedKeywordIDs.add(numericId);
             }
          }

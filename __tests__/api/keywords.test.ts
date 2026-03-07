@@ -416,9 +416,12 @@ describe('PUT /api/keywords tags updates', () => {
     const firstUpdate = jest.fn().mockResolvedValue(undefined);
     const secondUpdate = jest.fn().mockResolvedValue(undefined);
 
+    // findOne mocks return the current DB state (which includes the tag being removed).
+    // If union-merge logic were reintroduced, 'PPC' would be added back — this test
+    // would then fail, catching the regression.
     keywordMock.findOne
-      .mockResolvedValueOnce({ update: firstUpdate })
-      .mockResolvedValueOnce({ update: secondUpdate });
+      .mockResolvedValueOnce({ tags: JSON.stringify(['SEO', 'PPC']), update: firstUpdate })
+      .mockResolvedValueOnce({ tags: JSON.stringify(['PPC', 'Content']), update: secondUpdate });
 
     keywordMock.findAll.mockResolvedValueOnce([
       {
