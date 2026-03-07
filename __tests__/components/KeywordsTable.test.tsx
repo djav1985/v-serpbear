@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import KeywordsTable from '../../components/keywords/KeywordsTable';
 
@@ -41,10 +41,24 @@ jest.mock('../../components/common/Icon', () => {
 });
 
 jest.mock('../../components/keywords/KeywordFilter', () => {
-   const MockKeywordFilters = ({ filterParams, allTags }: { filterParams: any; allTags: string[] }) => (
+   const MockKeywordFilters = ({
+      filterParams,
+      allTags,
+      filterKeywords,
+   }: {
+      filterParams: any;
+      allTags: string[];
+      filterKeywords: (params: any) => void;
+   }) => (
       <div data-testid="keyword-filters">
          <span data-testid="active-tags">{filterParams.tags.join(',')}</span>
          <span data-testid="all-tags">{allTags.join(',')}</span>
+         <button
+            data-testid="set-seo-filter"
+            onClick={() => filterKeywords({ countries: [], tags: ['seo'], search: '' })}
+         >
+            Filter by seo
+         </button>
       </div>
    );
    MockKeywordFilters.displayName = 'MockKeywordFilters';
@@ -111,14 +125,14 @@ const buildClient = () => new QueryClient({ defaultOptions: { queries: { retry: 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('KeywordsTable – stale tag filter cleanup', () => {
-   it('clears a filtered tag when all keywords with that tag are removed', async () => {
-      const keywordsWithTag = [makeKeyword(1, 'seo tips', ['seo'])];
+   it('clears stale tag from filterParams when all keywords with that tag are removed', async () => {
+      const initialKeywords = [makeKeyword(1, 'seo tips', ['seo'])];
 
       const { rerender } = render(
          <QueryClientProvider client={buildClient()}>
             <KeywordsTable
                domain={mockDomain}
-               keywords={keywordsWithTag}
+               keywords={initialKeywords}
                isLoading={false}
                showAddModal={false}
                setShowAddModal={jest.fn()}
@@ -127,9 +141,11 @@ describe('KeywordsTable – stale tag filter cleanup', () => {
          </QueryClientProvider>
       );
 
-      // Simulate user selecting tag filter – rerender with the same keywords but force a
-      // tag-filter selection by injecting a keyword whose tag will disappear.
-      // After deleting the only 'seo'-tagged keyword, keywords prop becomes [].
+      // Activate the 'seo' tag filter via the mock button
+      fireEvent.click(screen.getByTestId('set-seo-filter'));
+      expect(screen.getByTestId('active-tags').textContent).toBe('seo');
+
+      // Delete all keywords that have the 'seo' tag
       await act(async () => {
          rerender(
             <QueryClientProvider client={buildClient()}>
@@ -145,12 +161,12 @@ describe('KeywordsTable – stale tag filter cleanup', () => {
          );
       });
 
-      // allDomainTags should now be empty (no keywords left), so active-tags should be cleared.
-      expect(screen.getByTestId('all-tags').textContent).toBe('');
+      // The stale 'seo' tag should have been stripped from the active filter
+      expect(screen.getByTestId('active-tags').textContent).toBe('');
    });
 
-   it('does not alter filterParams when all selected tags are still present', async () => {
-      const keywords = [
+   it('preserves tag in filterParams when keywords with that tag still exist after deletion', async () => {
+      const initialKeywords = [
          makeKeyword(1, 'seo tips', ['seo']),
          makeKeyword(2, 'link building', ['seo', 'links']),
       ];
@@ -159,7 +175,7 @@ describe('KeywordsTable – stale tag filter cleanup', () => {
          <QueryClientProvider client={buildClient()}>
             <KeywordsTable
                domain={mockDomain}
-               keywords={keywords}
+               keywords={initialKeywords}
                isLoading={false}
                showAddModal={false}
                setShowAddModal={jest.fn()}
@@ -168,7 +184,11 @@ describe('KeywordsTable – stale tag filter cleanup', () => {
          </QueryClientProvider>
       );
 
-      // Remove one keyword but keep the 'seo' tag alive in the remaining keyword
+      // Activate the 'seo' tag filter
+      fireEvent.click(screen.getByTestId('set-seo-filter'));
+      expect(screen.getByTestId('active-tags').textContent).toBe('seo');
+
+      // Remove keyword 1 but keep keyword 2 which still carries the 'seo' tag
       await act(async () => {
          rerender(
             <QueryClientProvider client={buildClient()}>
@@ -184,18 +204,22 @@ describe('KeywordsTable – stale tag filter cleanup', () => {
          );
       });
 
-      // 'seo' and 'links' tags still exist on the remaining keyword
-      expect(screen.getByTestId('all-tags').textContent).toBe('seo,links');
+      // 'seo' still exists on the remaining keyword, so the active filter must not change
+      expect(screen.getByTestId('active-tags').textContent).toBe('seo');
    });
 
-   it('shows no-keywords message (not a blank screen) when filter leaves no results', async () => {
-      const keywords = [makeKeyword(1, 'seo tips', ['seo'])];
+   it('shows remaining keywords instead of a blank screen when a stale tag filter is cleared', async () => {
+      // Two keywords: one tagged 'seo', one tagged 'links'
+      const initialKeywords = [
+         makeKeyword(1, 'seo tips', ['seo']),
+         makeKeyword(2, 'link building', ['links']),
+      ];
 
       const { rerender } = render(
          <QueryClientProvider client={buildClient()}>
             <KeywordsTable
                domain={mockDomain}
-               keywords={keywords}
+               keywords={initialKeywords}
                isLoading={false}
                showAddModal={false}
                setShowAddModal={jest.fn()}
@@ -204,13 +228,19 @@ describe('KeywordsTable – stale tag filter cleanup', () => {
          </QueryClientProvider>
       );
 
-      // Delete all keywords
+      // Activate the 'seo' tag filter; only keyword 1 should be visible
+      fireEvent.click(screen.getByTestId('set-seo-filter'));
+      expect(screen.getByTestId('active-tags').textContent).toBe('seo');
+      expect(screen.getByTestId('keyword-1')).toBeInTheDocument();
+      expect(screen.queryByTestId('keyword-2')).not.toBeInTheDocument();
+
+      // Delete the 'seo tips' keyword; only 'link building' (tagged 'links') remains
       await act(async () => {
          rerender(
             <QueryClientProvider client={buildClient()}>
                <KeywordsTable
                   domain={mockDomain}
-                  keywords={[]}
+                  keywords={[makeKeyword(2, 'link building', ['links'])]}
                   isLoading={false}
                   showAddModal={false}
                   setShowAddModal={jest.fn()}
@@ -220,7 +250,8 @@ describe('KeywordsTable – stale tag filter cleanup', () => {
          );
       });
 
-      // Should display the empty state message, not a blank screen
-      expect(screen.getByText('No Keywords Added for this Device Type.')).toBeInTheDocument();
+      // Stale 'seo' filter should be cleared and the remaining keyword should be visible
+      expect(screen.getByTestId('active-tags').textContent).toBe('');
+      expect(screen.getByTestId('keyword-2')).toBeInTheDocument();
    });
 });
