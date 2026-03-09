@@ -51,7 +51,7 @@
     "umzug": "^3.8.2"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.3",
+    "@eslint/js": "^9.39.4",
     "@happy-dom/jest-environment": "^20.7.0",
     "@next/eslint-plugin-next": "^16.1.6",
     "@stylistic/stylelint-plugin": "^4.0.1",
