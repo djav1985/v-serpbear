@@ -44,7 +44,7 @@
     "react-timeago": "^7.1.0",
     "react-transition-group": "^4.4.5",
     "react-window": "^1.8.11",
-    "sequelize": "^6.37.7",
+    "sequelize": "^6.37.8",
     "sequelize-cli": "^6.6.5",
     "sequelize-typescript": "^2.1.6",
     "tsx": "^4.21.0",
