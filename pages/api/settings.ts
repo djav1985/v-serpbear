@@ -106,7 +106,7 @@ const getSettings = async (req: NextApiRequest, res: NextApiResponse) => {
    } catch (error) {
       logger.error('Error loading app settings', error instanceof Error ? error : new Error(String(error)));
       const message = error instanceof Error ? error.message : 'Unknown error';
-      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Failed to load settings.', requestId, { details: message }));
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Failed to load settings.', requestId, message));
    }
 };
 
@@ -169,7 +169,7 @@ const updateSettings = async (req: NextApiRequest, res: NextApiResponse) => {
    } catch (error) {
       logger.error('Error updating app settings', error instanceof Error ? error : new Error(String(error)));
       const message = error instanceof Error ? error.message : 'Unknown error';
-      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Failed to update settings.', requestId, { details: message }));
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Failed to update settings.', requestId, message));
    }
 };
 

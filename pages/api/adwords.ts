@@ -12,10 +12,6 @@ import { atomicWriteFile } from '../../utils/atomicWrite';
 import { errorResponse } from '../../utils/api/response';
 import normalizeOrigin from '../../utils/normalizeOrigin';
 
-type adwordsValidateResp = {
-   valid: boolean
-   error?: string|null,
-}
 
 type IntegrationResultOptions = {
    success: boolean;
@@ -165,11 +161,12 @@ const getAdwordsRefreshToken = async (req: NextApiRequest, res: NextApiResponse)
    }
 };
 
-const validateAdwordsIntegration = async (req: NextApiRequest, res: NextApiResponse<adwordsValidateResp>) => {
+const validateAdwordsIntegration = async (req: NextApiRequest, res: NextApiResponse) => {
+   const requestId = (req as ExtendedRequest).requestId;
    const errMsg = 'Error Validating Google Ads Integration. Please make sure your provided data are correct!';
    const { developer_token, account_id } = req.body;
    if (!developer_token || !account_id) {
-      return res.status(400).json({ valid: false, error: 'Please Provide the Google Ads Developer Token and Test Account ID' });
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Please Provide the Google Ads Developer Token and Test Account ID', requestId));
    }
    try {
       const settingsRaw = await readFile(`${process.cwd()}/data/settings.json`, { encoding: 'utf-8' });
@@ -198,7 +195,7 @@ const validateAdwordsIntegration = async (req: NextApiRequest, res: NextApiRespo
       );
 
       if (!keywords || !Array.isArray(keywords)) {
-         return res.status(400).json({ valid: false, error: errMsg });
+         return res.status(400).json(errorResponse('BAD_REQUEST', errMsg, requestId));
       }
 
       const securedSettings = {
@@ -212,7 +209,7 @@ const validateAdwordsIntegration = async (req: NextApiRequest, res: NextApiRespo
       return res.status(200).json({ valid: true });
    } catch (error) {
       logger.error('Validating Google Ads Integration: ', error instanceof Error ? error : new Error(String(error)));
-      return res.status(400).json({ valid: false, error: errMsg });
+      return res.status(400).json(errorResponse('BAD_REQUEST', errMsg, requestId));
    }
 };
 

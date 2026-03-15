@@ -282,4 +282,74 @@ describe('POST /api/adwords - validate integration', () => {
       expect(res.json).toHaveBeenCalledWith({ valid: true });
    });
 
+   it('returns 400 with standard error envelope when developer_token or account_id is missing', async () => {
+      const req = {
+         method: 'POST',
+         body: { developer_token: 'dev' },
+         headers: { host: 'localhost:3000' },
+      } as unknown as NextApiRequest;
+
+      const res = {
+         status: jest.fn().mockReturnThis(),
+         json: jest.fn(),
+      } as unknown as NextApiResponse;
+
+      await handler(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+         expect.objectContaining({
+            error: expect.objectContaining({ code: 'BAD_REQUEST' }),
+         }),
+      );
+   });
+
+   it('returns 400 with standard error envelope when getAdwordsKeywordIdeas returns null', async () => {
+      (getAdwordsKeywordIdeas as jest.Mock).mockResolvedValueOnce(null);
+
+      const req = {
+         method: 'POST',
+         body: { developer_token: 'dev', account_id: '123-456-7890' },
+         headers: { host: 'localhost:3000' },
+      } as unknown as NextApiRequest;
+
+      const res = {
+         status: jest.fn().mockReturnThis(),
+         json: jest.fn(),
+      } as unknown as NextApiResponse;
+
+      await handler(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+         expect.objectContaining({
+            error: expect.objectContaining({ code: 'BAD_REQUEST', message: expect.any(String) }),
+         }),
+      );
+   });
+
+   it('returns 400 with standard error envelope when getAdwordsCredentials throws', async () => {
+      (getAdwordsCredentials as jest.Mock).mockRejectedValueOnce(new Error('oauth error'));
+
+      const req = {
+         method: 'POST',
+         body: { developer_token: 'dev', account_id: '123-456-7890' },
+         headers: { host: 'localhost:3000' },
+      } as unknown as NextApiRequest;
+
+      const res = {
+         status: jest.fn().mockReturnThis(),
+         json: jest.fn(),
+      } as unknown as NextApiResponse;
+
+      await handler(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+         expect.objectContaining({
+            error: expect.objectContaining({ code: 'BAD_REQUEST', message: expect.any(String) }),
+         }),
+      );
+   });
+
 });
