@@ -101,7 +101,7 @@ describe('PUT /api/settings validation and errors', () => {
     expect(writeFileMock).not.toHaveBeenCalled();
   });
 
-  it('returns 500 when persisting encrypted settings fails', async () => {
+  it('returns 500 with non-nested details when persisting encrypted settings fails', async () => {
     writeFileMock.mockRejectedValue(new Error('disk full'));
 
     const req = {
@@ -119,9 +119,11 @@ describe('PUT /api/settings validation and errors', () => {
 
     expect(writeFileMock).toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({ error: expect.objectContaining({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to update settings.' }) }),
-    );
+    const jsonCall = (res.json as jest.Mock).mock.calls[0][0];
+    expect(jsonCall.error.code).toBe('INTERNAL_SERVER_ERROR');
+    expect(jsonCall.error.message).toBe('Failed to update settings.');
+    expect(jsonCall.error.details).toBe('disk full');
+    expect(jsonCall.error.details).not.toEqual(expect.objectContaining({ details: expect.anything() }));
   });
 });
 
