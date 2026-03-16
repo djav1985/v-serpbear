@@ -84,6 +84,15 @@ const KeywordsTable = (props: KeywordsTableProps) => {
       return [...new Set(allTags)];
    }, [keywords]);
 
+   useEffect(() => {
+      setFilterParams((prev) => {
+         if (prev.tags.length === 0) { return prev; }
+         const validTags = prev.tags.filter((tag) => allDomainTags.includes(tag));
+         if (validTags.length === prev.tags.length) { return prev; }
+         return { ...prev, tags: validTags };
+      });
+   }, [allDomainTags]);
+
    const selectedKeywordsTags: string[] = useMemo(() => {
       const selectedKeywordRows = keywords.filter((k) => selectedKeywords.includes(k.ID));
       const selectedTags = selectedKeywordRows
