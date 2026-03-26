@@ -22,7 +22,7 @@
     "@isaacs/ttlcache": "^1.4.1",
     "@types/react-transition-group": "^4.4.12",
     "axios": "^1.13.6",
-    "better-sqlite3": "^12.6.2",
+    "better-sqlite3": "^12.8.0",
     "chart.js": "^3.9.1",
     "cheerio": "^1.2.0",
     "cookies": "^0.9.1",
