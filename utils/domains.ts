@@ -6,6 +6,9 @@ interface DomainKeywordAggregate {
    domain: string;
    keywordsTracked: number | string;
    maxLastUpdated: string | null;
+   totalPosition: number | string;
+   positionCount: number | string;
+   mapPackKeywords: number | string;
 }
 
 /**
@@ -20,12 +23,15 @@ const getdomainStats = async (domains:DomainType[]): Promise<DomainType[]> => {
 
    const domainNames = domains.map(d => d.domain);
 
-   // Single aggregated query: COUNT(*) + MAX(lastUpdated) grouped by domain
+   // Single aggregated query: keyword counts + avg position + map pack stats, grouped by domain
    const aggregateRows = await Keyword.findAll({
       attributes: [
          'domain',
          [literal('COUNT(*)'), 'keywordsTracked'],
          [literal('MAX(lastUpdated)'), 'maxLastUpdated'],
+         [literal('COALESCE(SUM(CASE WHEN position > 0 THEN position ELSE 0 END), 0)'), 'totalPosition'],
+         [literal('COALESCE(SUM(CASE WHEN position > 0 THEN 1 ELSE 0 END), 0)'), 'positionCount'],
+         [literal('COALESCE(SUM(CASE WHEN mapPackTop3 = 1 THEN 1 ELSE 0 END), 0)'), 'mapPackKeywords'],
       ],
       where: { domain: { [Op.in]: domainNames } },
       group: ['domain'],
@@ -33,11 +39,15 @@ const getdomainStats = async (domains:DomainType[]): Promise<DomainType[]> => {
    }) as unknown as DomainKeywordAggregate[];
 
    // Build a lookup map for O(1) access per domain
-   const statsMap = new Map<string, { keywordsTracked: number; maxLastUpdated: string | null }>();
+   const statsMap = new Map<string, { keywordsTracked: number; maxLastUpdated: string | null; avgPosition: number; mapPackKeywords: number }>();
    for (const row of aggregateRows) {
+      const positionCount = Number(row.positionCount) || 0;
+      const totalPosition = Number(row.totalPosition) || 0;
       statsMap.set(row.domain, {
          keywordsTracked: Number(row.keywordsTracked) || 0,
          maxLastUpdated: row.maxLastUpdated || null,
+         avgPosition: positionCount > 0 ? Math.round(totalPosition / positionCount) : 0,
+         mapPackKeywords: Number(row.mapPackKeywords) || 0,
       });
    }
 
@@ -46,25 +56,17 @@ const getdomainStats = async (domains:DomainType[]): Promise<DomainType[]> => {
    for (const domain of domains) {
       const domainWithStat = domain;
 
-      const stats = statsMap.get(domain.domain) ?? { keywordsTracked: 0, maxLastUpdated: null };
+      const stats = statsMap.get(domain.domain) ?? { keywordsTracked: 0, maxLastUpdated: null, avgPosition: 0, mapPackKeywords: 0 };
       domainWithStat.keywordsTracked = stats.keywordsTracked;
 
-      const hasPersistedAvgPosition = typeof domain.avgPosition === 'number'
-         && Number.isFinite(domain.avgPosition)
-         && domain.avgPosition > 0;
-
-      if (hasPersistedAvgPosition) {
-         domainWithStat.avgPosition = domain.avgPosition;
+      if (stats.avgPosition > 0) {
+         domainWithStat.avgPosition = stats.avgPosition;
       } else if ('avgPosition' in domainWithStat) {
          delete domainWithStat.avgPosition;
       }
 
-      const hasPersistedMapPackKeywords = typeof domain.mapPackKeywords === 'number'
-         && Number.isFinite(domain.mapPackKeywords)
-         && domain.mapPackKeywords > 0;
-
-      if (hasPersistedMapPackKeywords) {
-         domainWithStat.mapPackKeywords = domain.mapPackKeywords;
+      if (stats.mapPackKeywords > 0) {
+         domainWithStat.mapPackKeywords = stats.mapPackKeywords;
       } else if ('mapPackKeywords' in domainWithStat) {
          delete domainWithStat.mapPackKeywords;
       }
