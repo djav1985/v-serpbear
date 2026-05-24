@@ -135,6 +135,29 @@ describe('verifyUser', () => {
          expect(result).toBe('authorized');
       });
 
+
+      it('should allow API key access to ideas GET route', () => {
+         process.env.APIKEY = 'test-api-key';
+         req.headers = { authorization: 'Bearer test-api-key' };
+         req.url = '/api/ideas';
+         req.method = 'GET';
+
+         const result = verifyUser(req as NextApiRequest, res as NextApiResponse);
+
+         expect(result).toBe('authorized');
+      });
+
+      it('should allow API key access to ideas POST route', () => {
+         process.env.APIKEY = 'test-api-key';
+         req.headers = { authorization: 'Bearer test-api-key' };
+         req.url = '/api/ideas';
+         req.method = 'POST';
+
+         const result = verifyUser(req as NextApiRequest, res as NextApiResponse);
+
+         expect(result).toBe('authorized');
+      });
+
       it('should reject API key access to non-allowed routes', () => {
          process.env.APIKEY = 'test-api-key';
          req.headers = { authorization: 'Bearer test-api-key' };
