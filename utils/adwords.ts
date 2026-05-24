@@ -9,7 +9,7 @@ import countries from './countries';
 import { readLocalSCData } from './searchConsole';
 import { logger } from './logger';
 
-export const GOOGLE_ADS_API_VERSION = 'v21';
+export const GOOGLE_ADS_API_VERSION = 'v23';
 
 const memoryCache = new TTLCache({ max: 10000 });
 

@@ -25,7 +25,7 @@ jest.mock('../../database/models/domain', () => ({
 
 jest.mock('../../database/models/keyword', () => ({
   __esModule: true,
-  default: { destroy: jest.fn() },
+  default: { destroy: jest.fn(), findAll: jest.fn() },
 }));
 
 jest.mock('../../utils/verifyUser', () => ({
@@ -47,7 +47,7 @@ jest.mock('../../utils/apiLogging', () => ({
 const verifyUserMock = verifyUser as unknown as jest.Mock;
 const dbMock = db as unknown as { sync: jest.Mock };
 const DomainMock = Domain as unknown as { findOne: jest.Mock; destroy: jest.Mock; bulkCreate: jest.Mock; findAll: jest.Mock };
-const KeywordMock = Keyword as unknown as { destroy: jest.Mock };
+const KeywordMock = Keyword as unknown as { destroy: jest.Mock; findAll: jest.Mock };
 const removeLocalSCDataMock = removeLocalSCData as unknown as jest.Mock;
 
 describe('GET /api/domains', () => {
@@ -605,6 +605,7 @@ describe('DELETE /api/domains', () => {
     dbMock.sync.mockResolvedValue(undefined);
     DomainMock.destroy.mockResolvedValue(1);
     KeywordMock.destroy.mockResolvedValue(0);
+    KeywordMock.findAll.mockResolvedValue([]);
     removeLocalSCDataMock.mockResolvedValue(false);
   });
 
@@ -623,6 +624,7 @@ describe('DELETE /api/domains', () => {
 
     expect(DomainMock.destroy).toHaveBeenCalledWith({ where: { domain: 'missing.example.com' } });
     expect(KeywordMock.destroy).not.toHaveBeenCalled();
+    expect(KeywordMock.findAll).not.toHaveBeenCalled();
     expect(removeLocalSCDataMock).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(404);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({

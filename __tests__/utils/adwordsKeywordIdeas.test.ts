@@ -183,22 +183,22 @@ describe('getKeywordsVolume', () => {
     // and endpoint format for generateKeywordHistoricalMetrics, addressing the issue request
     
     // Verify the GOOGLE_ADS_API_VERSION constant is properly exported and used
-    expect(adwordsUtils.GOOGLE_ADS_API_VERSION).toBe('v21');
+    expect(adwordsUtils.GOOGLE_ADS_API_VERSION).toBe('v23');
     
     // Test URL construction pattern by checking what the function would build
     const testAccountId = '123-456-7890';
     const expectedUrlPattern = `https://googleads.googleapis.com/${adwordsUtils.GOOGLE_ADS_API_VERSION}/customers/${testAccountId.replace(/-/g, '')}:generateKeywordHistoricalMetrics`;
-    const expectedUrl = `https://googleads.googleapis.com/v21/customers/1234567890:generateKeywordHistoricalMetrics`;
+    const expectedUrl = `https://googleads.googleapis.com/v23/customers/1234567890:generateKeywordHistoricalMetrics`;
     
     expect(expectedUrlPattern).toBe(expectedUrl);
     
     // Verify this matches the pattern from the successful getAdwordsKeywordIdeas test 
     const keywordIdeasUrl = `https://googleads.googleapis.com/${adwordsUtils.GOOGLE_ADS_API_VERSION}/customers/1234567890:generateKeywordIdeas`;
-    expect(keywordIdeasUrl).toBe('https://googleads.googleapis.com/v21/customers/1234567890:generateKeywordIdeas');
+    expect(keywordIdeasUrl).toBe('https://googleads.googleapis.com/v23/customers/1234567890:generateKeywordIdeas');
     
     // The key insight: both functions should use the same API version and URL pattern
-    // getKeywordsVolume should construct: .../v21/customers/[ID]:generateKeywordHistoricalMetrics 
-    // getAdwordsKeywordIdeas constructs: .../v21/customers/[ID]:generateKeywordIdeas
+    // getKeywordsVolume should construct: .../v23/customers/[ID]:generateKeywordHistoricalMetrics 
+    // getAdwordsKeywordIdeas constructs: .../v23/customers/[ID]:generateKeywordIdeas
     expect(expectedUrl.replace(':generateKeywordHistoricalMetrics', ':generateKeywordIdeas')).toBe(keywordIdeasUrl);
     
     // Additional verification: test the URL construction with the specific constants
@@ -206,7 +206,7 @@ describe('getKeywordsVolume', () => {
     const baseUrl = `https://googleads.googleapis.com/${adwordsUtils.GOOGLE_ADS_API_VERSION}/customers/${customerId}`;
     
     expect(`${baseUrl}:generateKeywordHistoricalMetrics`).toBe(
-      'https://googleads.googleapis.com/v21/customers/1234567890:generateKeywordHistoricalMetrics'
+      'https://googleads.googleapis.com/v23/customers/1234567890:generateKeywordHistoricalMetrics'
     );
     
     console.log('✓ Verified getKeywordsVolume uses correct API version and URL format');
