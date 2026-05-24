@@ -304,7 +304,17 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
 
       try {
          // API: https://developers.google.com/google-ads/api/rest/reference/rest/v21/customers/generateKeywordIdeas
-         const customerID = account_id.replaceAll('-', '');
+         // Accept only Google Ads customer IDs in expected format: digits with optional dashes.
+         const normalizedAccountId = typeof account_id === 'string' ? account_id.trim() : '';
+         if (!/^\d[\d-]*\d$|^\d$/.test(normalizedAccountId)) {
+            logger.warn('Skipping keyword idea lookup: invalid Google Ads account_id format');
+            return [];
+         }
+         const customerID = normalizedAccountId.replaceAll('-', '');
+         if (!/^\d{10}$/.test(customerID)) {
+            logger.warn('Skipping keyword idea lookup: invalid Google Ads customerID length');
+            return [];
+         }
          const countryData = countries[country];
          const geoTargetConstants = countryData ? countryData[3] : undefined;
 
