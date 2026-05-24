@@ -59,7 +59,7 @@ jest.mock('../../utils/apiLogging', () => ({
 }));
 
 const extractScriptContent = (html: string) => {
-   const match = html.match(/<script>([\s\S]*?)<\/script>/);
+   const match = html.match(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/i);
    if (!match) {
       throw new Error('Script tag not found.');
    }
