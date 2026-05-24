@@ -21,7 +21,7 @@
     "@googleapis/searchconsole": "^5.0.0",
     "@isaacs/ttlcache": "^1.4.1",
     "@types/react-transition-group": "^4.4.12",
-    "axios": "^1.13.6",
+    "axios": "^1.14.0",
     "better-sqlite3": "^12.8.0",
     "chart.js": "^3.9.1",
     "cheerio": "^1.2.0",
