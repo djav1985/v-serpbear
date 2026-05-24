@@ -34,7 +34,7 @@
     "https-proxy-agent": "^5.0.1",
     "jsonwebtoken": "^9.0.3",
     "next": "^16.2.6",
-    "nodemailer": "^7.0.13",
+    "nodemailer": "8.0.8",
     "proper-lockfile": "^4.1.2",
     "react": "18.3.1",
     "react-chartjs-2": "^4.3.1",
@@ -98,6 +98,10 @@
     "follow-redirects": "^1.16.0",
     "qs": "^6.15.2",
     "lodash": "^4.18.1",
-    "undici": "^7.24.0"
+    "undici": "^7.24.0",
+    "flatted": "3.4.2",
+    "happy-dom": "20.9.0",
+    "fast-uri": "3.1.2",
+    "js-cookie": "3.0.7"
   }
 }
