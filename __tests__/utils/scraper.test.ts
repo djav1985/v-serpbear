@@ -184,6 +184,14 @@ describe('getSerp', () => {
   });
 });
 
+
+  it('matches domains when only www prefix differs', () => {
+    const results: Array<{ title: string; url: string; position: number }> = [
+      { position: 1, url: 'https://www.example.com/a', title: '' },
+    ];
+    const serp = getSerp('example.com', results);
+    expect(serp.position).toBe(1);
+  });
 describe('scraper error handling', () => {
   const originalFetch = global.fetch;
 

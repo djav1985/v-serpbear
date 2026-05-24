@@ -15,6 +15,7 @@ import { withApiLogging } from '../../utils/apiLogging';
 import { toDbBool } from '../../utils/dbBooleans';
 import { refreshQueue } from '../../utils/refreshQueue';
 import { errorResponse } from '../../utils/api/response';
+import { retryQueueManager } from '../../utils/retryQueueManager';
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
    const requestId = (req as ExtendedRequest).requestId;
@@ -371,6 +372,7 @@ const deleteKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
       
       const removeQuery = { where: { ID: { [Op.in]: keywordsToRemove } } };
       const removedKeywordCount: number = await Keyword.destroy(removeQuery);
+      await retryQueueManager.removeBatch(new Set(keywordsToRemove));
       return res.status(200).json({ keywordsRemoved: removedKeywordCount });
    } catch (error) {
       logger.error('Removing Keyword. ', error instanceof Error ? error : new Error(String(error)));

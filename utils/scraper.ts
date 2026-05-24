@@ -819,6 +819,8 @@ const resolveResultURL = (value: string | undefined | null): URL | null => {
    }
 };
 
+const normalizeComparableHost = (host: string): string => host.replace(/^www\./i, '').toLowerCase();
+
 export const getSerp = (domainURL:string, result:SearchResult[]) : SERPObject => {
    if (result.length === 0 || !domainURL) { return { position: 0, url: '' }; }
 
@@ -830,7 +832,7 @@ export const getSerp = (domainURL:string, result:SearchResult[]) : SERPObject =>
       return { position: 0, url: '' };
    }
 
-   const targetHost = URLToFind.hostname;
+   const targetHost = normalizeComparableHost(URLToFind.hostname);
    const targetPath = URLToFind.pathname.replace(/\/$/, '');
    const hasSpecificPath = targetPath.length > 0;
 
@@ -844,9 +846,9 @@ export const getSerp = (domainURL:string, result:SearchResult[]) : SERPObject =>
 
       const itemPath = parsedURL.pathname.replace(/\/$/, '');
       if (hasSpecificPath) {
-         return parsedURL.hostname === targetHost && itemPath === targetPath;
+         return normalizeComparableHost(parsedURL.hostname) === targetHost && itemPath === targetPath;
       }
-      return parsedURL.hostname === targetHost;
+      return normalizeComparableHost(parsedURL.hostname) === targetHost;
    });
 
    const foundItem = matchingItems.length > 0

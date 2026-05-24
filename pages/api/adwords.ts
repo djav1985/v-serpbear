@@ -88,6 +88,11 @@ const respondWithIntegrationResult = (
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
    const requestId = (req as ExtendedRequest).requestId;
+
+   if (req.method === 'GET' && typeof req.query.code === 'string' && req.query.code.trim()) {
+      return getAdwordsRefreshToken(req, res);
+   }
+
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
       return res.status(401).json(errorResponse('UNAUTHORIZED', authorized, requestId));
