@@ -52,7 +52,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
-    "@happy-dom/jest-environment": "^20.8.4",
+    "@happy-dom/jest-environment": "^20.9.0",
     "@next/eslint-plugin-next": "^16.2.1",
     "@stylistic/stylelint-plugin": "^4.0.1",
     "@testing-library/jest-dom": "^6.8.0",
