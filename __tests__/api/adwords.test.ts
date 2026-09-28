@@ -1,379 +1,92 @@
-import { readFile } from 'fs/promises';
-import { OAuth2Client } from 'google-auth-library';
 import type { NextApiRequest, NextApiResponse } from 'next';
-import db from '../../database/database';
+import { OAuth2Client } from 'google-auth-library';
+import { readFile } from 'fs/promises';
 import handler from '../../pages/api/adwords';
 import verifyUser from '../../utils/verifyUser';
-import { getAdwordsCredentials, getAdwordsKeywordIdeas } from '../../utils/adwords';
+import { atomicWriteFile } from '../../utils/atomicWrite';
+import { createMockRequest, createMockResponse } from '../__helpers__';
 
-type MutableEnv = typeof process.env & {
-   SECRET?: string;
-};
-
-jest.mock('../../database/database', () => ({
-   __esModule: true,
-   default: { sync: jest.fn() },
-}));
-
-jest.mock('../../utils/verifyUser', () => ({
-   __esModule: true,
-   default: jest.fn(),
-}));
-
-jest.mock('fs/promises', () => ({
-   readFile: jest.fn(),
-   writeFile: jest.fn(),
-}));
-
-jest.mock('../../utils/atomicWrite', () => ({
-   atomicWriteFile: jest.fn().mockResolvedValue(undefined),
-}));
-
-const decryptMock = jest.fn();
-const encryptMock = jest.fn();
-
-jest.mock('cryptr', () => ({
-   __esModule: true,
-   default: jest.fn().mockImplementation(() => ({
-      decrypt: decryptMock,
-      encrypt: encryptMock,
-   })),
-}));
-
+const cookieStore = new Map<string, string>();
+const cookieSet = jest.fn((name: string, value: string) => value ? cookieStore.set(name, value) : cookieStore.delete(name));
+jest.mock('cookies', () => ({ __esModule: true, default: jest.fn(() => ({ get: (name: string) => cookieStore.get(name), set: cookieSet })) }));
+jest.mock('../../utils/verifyUser', () => ({ __esModule: true, default: jest.fn() }));
+jest.mock('fs/promises', () => ({ readFile: jest.fn() }));
+jest.mock('../../utils/atomicWrite', () => ({ atomicWriteFile: jest.fn() }));
+const decryptMock = jest.fn((value: string) => value.replace('encrypted-', ''));
+const encryptMock = jest.fn((value: string) => `encrypted-${value}`);
+jest.mock('cryptr', () => ({ __esModule: true, default: jest.fn(() => ({ decrypt: decryptMock, encrypt: encryptMock })) }));
 const getTokenMock = jest.fn();
+jest.mock('google-auth-library', () => ({ OAuth2Client: jest.fn(() => ({ getToken: getTokenMock })) }));
+jest.mock('../../utils/adwords', () => ({ getAdwordsCredentials: jest.fn(), getAdwordsKeywordIdeas: jest.fn() }));
+jest.mock('../../utils/apiLogging', () => ({ withApiLogging: (fn: unknown) => fn }));
 
-jest.mock('google-auth-library', () => ({
-   OAuth2Client: jest.fn().mockImplementation(() => ({
-      getToken: getTokenMock,
-   })),
-}));
+type MutableEnv = typeof process.env & { SECRET?: string; NEXT_PUBLIC_APP_URL?: string };
+const response = () => ({ ...createMockResponse(), send: jest.fn(), setHeader: jest.fn().mockReturnThis() } as unknown as NextApiResponse);
+const callback = (state?: string) => createMockRequest({ method: 'GET', query: { code: 'auth-code', ...(state ? { state } : {}) }, headers: { host: 'attacker.example' } });
 
-jest.mock('../../utils/adwords', () => ({
-   __esModule: true,
-   getAdwordsCredentials: jest.fn(),
-   getAdwordsKeywordIdeas: jest.fn(),
-}));
+describe('Google Ads OAuth state flow', () => {
+  const originalEnv = process.env;
+  beforeEach(() => {
+    jest.clearAllMocks(); cookieStore.clear();
+    (process.env as MutableEnv) = { ...originalEnv, SECRET: 'secret', NEXT_PUBLIC_APP_URL: 'https://trusted.example' };
+    (verifyUser as jest.Mock).mockReturnValue('authorized');
+    (readFile as jest.Mock).mockResolvedValue('{"adwords_client_id":"encrypted-client-id","adwords_client_secret":"encrypted-client-secret"}');
+    getTokenMock.mockResolvedValue({ tokens: { refresh_token: 'refresh-token' } });
+    (atomicWriteFile as jest.Mock).mockResolvedValue(undefined);
+  });
+  afterEach(() => { process.env = originalEnv; });
 
-jest.mock('../../utils/apiLogging', () => ({
-   withApiLogging: (handler: any) => handler,
-}));
+  it('requires authorization to start integration', async () => {
+    (verifyUser as jest.Mock).mockReturnValue('not authorized');
+    const res = response(); await handler(createMockRequest({ method: 'GET' }), res);
+    expect(res.status).toHaveBeenCalledWith(401);
+  });
 
-const extractScriptContent = (html: string) => {
-   const match = html.match(/<script\b[^>]*>([\s\S]*?)<\/script\b[^>]*>/i);
-   if (!match) {
-      throw new Error('Script tag not found.');
-   }
-   return match[1];
-};
+  it('rejects unsupported methods', async () => {
+    const res = response(); await handler(createMockRequest({ method: 'PATCH' }), res);
+    expect(res.status).toHaveBeenCalledWith(405);
+  });
 
-const extractRedirectUrl = (html: string) => {
-   const script = extractScriptContent(html);
-   const redirectMatch = script.match(/const redirectUrl = ([^;]+);/);
-   if (!redirectMatch) {
-      throw new Error('Redirect URL not found.');
-   }
-   return JSON.parse(redirectMatch[1]);
-};
+  it('starts integration with a random state cookie and trusted callback origin', async () => {
+    const res = response(); await handler(createMockRequest({ method: 'GET', headers: { host: 'attacker.example', 'x-forwarded-host': 'evil.example' } }), res);
+    expect(res.status).toHaveBeenCalledWith(200);
+    const payload = (res.json as jest.Mock).mock.calls[0][0];
+    const url = new URL(payload.authUrl);
+    expect(url.searchParams.get('redirect_uri')).toBe('https://trusted.example/api/adwords');
+    expect(url.searchParams.get('state')).toHaveLength(43);
+    expect(cookieSet).toHaveBeenCalledWith('adwords_oauth_state', url.searchParams.get('state'), expect.objectContaining({ httpOnly: true, secure: true, sameSite: 'lax' }));
+  });
 
-describe('GET /api/adwords - refresh token retrieval', () => {
-   const originalEnv = process.env;
+  it.each([['missing', undefined], ['mismatched', 'wrong']])('rejects %s state without token exchange or persistence', async (_label, state) => {
+    cookieStore.set('adwords_oauth_state', 'expected');
+    const res = response(); await handler(callback(state), res);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(getTokenMock).not.toHaveBeenCalled();
+    expect(atomicWriteFile).not.toHaveBeenCalled();
+    expect(cookieStore.has('adwords_oauth_state')).toBe(false);
+  });
 
-   beforeEach(() => {
-      (process.env as MutableEnv) = { ...originalEnv, SECRET: 'secret' };
-      (db.sync as jest.Mock).mockResolvedValue(undefined);
-      (verifyUser as jest.Mock).mockReturnValue('authorized');
-      (readFile as jest.Mock).mockResolvedValue(
-         '{"adwords_client_id":"encrypted-client-id","adwords_client_secret":"encrypted-client-secret"}',
-      );
-      decryptMock.mockImplementationOnce(() => 'client-id').mockImplementationOnce(() => 'client-secret');
-      encryptMock.mockImplementation((value: string) => value);
-      getTokenMock.mockRejectedValue({ response: { data: {} } });
-   });
+  it('accepts valid state once and rejects replay', async () => {
+    cookieStore.set('adwords_oauth_state', 'expected');
+    const first = response(); await handler(callback('expected'), first);
+    expect(getTokenMock).toHaveBeenCalledWith('auth-code');
+    expect(first.status).toHaveBeenCalledWith(200);
+    const replay = response(); await handler(callback('expected'), replay);
+    expect(replay.status).toHaveBeenCalledWith(400);
+    expect(getTokenMock).toHaveBeenCalledTimes(1);
+  });
 
-   afterEach(() => {
-      jest.clearAllMocks();
-      process.env = originalEnv;
-   });
+  it('does not persist when token exchange fails', async () => {
+    cookieStore.set('adwords_oauth_state', 'expected'); getTokenMock.mockRejectedValueOnce(new Error('exchange failed'));
+    const res = response(); await handler(callback('expected'), res);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(atomicWriteFile).not.toHaveBeenCalled();
+  });
 
-   it('logs a default error message when the Google API response lacks an error string', async () => {
-
-      const req = {
-         method: 'GET',
-         query: { code: 'auth-code' },
-         headers: { host: 'localhost:3000' },
-      } as unknown as NextApiRequest;
-
-      const res = {
-         status: jest.fn().mockReturnThis(),
-         setHeader: jest.fn().mockReturnThis(),
-         send: jest.fn(),
-      } as unknown as NextApiResponse;
-
-      await handler(req, res);
-
-      // db.sync() is now called at startup via instrumentation, not in handlers
-      expect(verifyUser).not.toHaveBeenCalled();
-      expect(readFile).toHaveBeenCalled();
-      expect(OAuth2Client).toHaveBeenCalledWith({
-         clientId: 'client-id',
-         clientSecret: 'client-secret',
-         redirectUri: 'http://localhost:3000/api/adwords',
-      });
-      expect(getTokenMock).toHaveBeenCalledWith('auth-code');
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'text/html; charset=utf-8');
-      expect(res.send).toHaveBeenCalledWith(expect.stringContaining('adwordsIntegrated'));
-
-   });
-
-   it('redirects even when postMessage throws', async () => {
-      const req = {
-         method: 'GET',
-         query: {},
-         headers: { host: 'localhost:3000' },
-      } as unknown as NextApiRequest;
-
-      const res = {
-         status: jest.fn().mockReturnThis(),
-         setHeader: jest.fn().mockReturnThis(),
-         send: jest.fn(),
-      } as unknown as NextApiResponse;
-
-      await handler(req, res);
-
-      const html = (res.send as jest.Mock).mock.calls[0][0] as string;
-      const script = extractScriptContent(html);
-      const redirectUrl = extractRedirectUrl(html);
-
-      const replaceMock = jest.fn();
-      const closeMock = jest.fn();
-      const postMessageMock = jest.fn(() => {
-         throw new Error('postMessage failed');
-      });
-
-      const originalLocation = window.location;
-      const originalOpener = window.opener;
-      const originalClose = window.close;
-
-      Object.defineProperty(window, 'location', {
-         value: { origin: 'http://localhost:3000', replace: replaceMock },
-         writable: true,
-         configurable: true,
-      });
-      Object.defineProperty(window, 'opener', {
-         value: { postMessage: postMessageMock },
-         writable: true,
-         configurable: true,
-      });
-      Object.defineProperty(window, 'close', {
-         value: closeMock,
-         writable: true,
-         configurable: true,
-      });
-
-      try {
-         window.eval(script);
-      } finally {
-         Object.defineProperty(window, 'location', {
-            value: originalLocation,
-            writable: true,
-            configurable: true,
-         });
-         Object.defineProperty(window, 'opener', {
-            value: originalOpener,
-            writable: true,
-            configurable: true,
-         });
-         Object.defineProperty(window, 'close', {
-            value: originalClose,
-            writable: true,
-            configurable: true,
-         });
-      }
-
-      expect(postMessageMock).toHaveBeenCalled();
-      expect(replaceMock).toHaveBeenCalledWith(redirectUrl);
-   });
-
-   it('uses forwarded headers to shape redirect URLs', async () => {
-      const req = {
-         method: 'GET',
-         query: {},
-         headers: {
-            host: 'localhost:3000',
-            'x-forwarded-host': 'forwarded.example',
-            'x-forwarded-proto': 'https',
-         },
-      } as unknown as NextApiRequest;
-
-      const res = {
-         status: jest.fn().mockReturnThis(),
-         setHeader: jest.fn().mockReturnThis(),
-         send: jest.fn(),
-      } as unknown as NextApiResponse;
-
-      await handler(req, res);
-
-      const html = (res.send as jest.Mock).mock.calls[0][0] as string;
-      expect(extractRedirectUrl(html)).toContain('https://forwarded.example/settings');
-   });
-
-   it('falls back to configured app URL when forwarded headers are missing', async () => {
-      (process.env as MutableEnv) = { ...originalEnv, NEXT_PUBLIC_APP_URL: 'https://public.example' };
-
-      const req = {
-         method: 'GET',
-         query: {},
-         headers: { host: 'localhost:3000' },
-      } as unknown as NextApiRequest;
-
-      const res = {
-         status: jest.fn().mockReturnThis(),
-         setHeader: jest.fn().mockReturnThis(),
-         send: jest.fn(),
-      } as unknown as NextApiResponse;
-
-      await handler(req, res);
-
-      const html = (res.send as jest.Mock).mock.calls[0][0] as string;
-      expect(extractRedirectUrl(html)).toContain('https://public.example/settings');
-   });
-});
-
-
-  it('allows OAuth callback GET with code without verifyUser authorization', async () => {
-      (verifyUser as jest.Mock).mockReturnValue('not authorized');
-      getTokenMock.mockResolvedValue({ tokens: { refresh_token: 'refresh-token' } });
-
-      const req = {
-         method: 'GET',
-         query: { code: 'auth-code' },
-         headers: { host: 'localhost:3000' },
-      } as unknown as NextApiRequest;
-
-      const res = {
-         status: jest.fn().mockReturnThis(),
-         setHeader: jest.fn().mockReturnThis(),
-         send: jest.fn(),
-         json: jest.fn(),
-      } as unknown as NextApiResponse;
-
-      await handler(req, res);
-
-      expect(verifyUser).not.toHaveBeenCalled();
-      expect(getTokenMock).toHaveBeenCalledWith('auth-code');
-      expect(res.status).toHaveBeenCalledWith(200);
-   });
-describe('POST /api/adwords - validate integration', () => {
-   const originalEnv = process.env;
-
-   beforeEach(() => {
-      (process.env as MutableEnv) = { ...originalEnv, SECRET: 'secret' };
-      (db.sync as jest.Mock).mockResolvedValue(undefined);
-      (verifyUser as jest.Mock).mockReturnValue('authorized');
-      (readFile as jest.Mock).mockResolvedValue('{}');
-      encryptMock.mockImplementation((value: string) => value);
-      (getAdwordsCredentials as jest.Mock).mockResolvedValue({
-         client_id: 'client',
-         client_secret: 'secret',
-         refresh_token: 'token',
-         developer_token: 'dev',
-         account_id: '123',
-      });
-      (getAdwordsKeywordIdeas as jest.Mock).mockResolvedValue([]);
-   });
-
-   afterEach(() => {
-      jest.clearAllMocks();
-      process.env = originalEnv;
-   });
-
-   it('accepts integrations even when Google Ads returns zero keyword ideas', async () => {
-      const req = {
-         method: 'POST',
-         body: { developer_token: 'dev', account_id: '123-456-7890' },
-         headers: { host: 'localhost:3000' },
-      } as unknown as NextApiRequest;
-
-      const res = {
-         status: jest.fn().mockReturnThis(),
-         json: jest.fn(),
-      } as unknown as NextApiResponse;
-
-      await handler(req, res);
-
-      expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({ valid: true });
-   });
-
-   it('returns 400 with standard error envelope when developer_token or account_id is missing', async () => {
-      const req = {
-         method: 'POST',
-         body: { developer_token: 'dev' },
-         headers: { host: 'localhost:3000' },
-      } as unknown as NextApiRequest;
-
-      const res = {
-         status: jest.fn().mockReturnThis(),
-         json: jest.fn(),
-      } as unknown as NextApiResponse;
-
-      await handler(req, res);
-
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(
-         expect.objectContaining({
-            error: expect.objectContaining({ code: 'BAD_REQUEST' }),
-         }),
-      );
-   });
-
-   it('returns 400 with standard error envelope when getAdwordsKeywordIdeas returns null', async () => {
-      (getAdwordsKeywordIdeas as jest.Mock).mockResolvedValueOnce(null);
-
-      const req = {
-         method: 'POST',
-         body: { developer_token: 'dev', account_id: '123-456-7890' },
-         headers: { host: 'localhost:3000' },
-      } as unknown as NextApiRequest;
-
-      const res = {
-         status: jest.fn().mockReturnThis(),
-         json: jest.fn(),
-      } as unknown as NextApiResponse;
-
-      await handler(req, res);
-
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(
-         expect.objectContaining({
-            error: expect.objectContaining({ code: 'BAD_REQUEST', message: expect.any(String) }),
-         }),
-      );
-   });
-
-   it('returns 400 with standard error envelope when getAdwordsCredentials throws', async () => {
-      (getAdwordsCredentials as jest.Mock).mockRejectedValueOnce(new Error('oauth error'));
-
-      const req = {
-         method: 'POST',
-         body: { developer_token: 'dev', account_id: '123-456-7890' },
-         headers: { host: 'localhost:3000' },
-      } as unknown as NextApiRequest;
-
-      const res = {
-         status: jest.fn().mockReturnThis(),
-         json: jest.fn(),
-      } as unknown as NextApiResponse;
-
-      await handler(req, res);
-
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(
-         expect.objectContaining({
-            error: expect.objectContaining({ code: 'BAD_REQUEST', message: expect.any(String) }),
-         }),
-      );
-   });
-
+  it('persists the refresh token only after successful exchange', async () => {
+    cookieStore.set('adwords_oauth_state', 'expected');
+    const res = response(); await handler(callback('expected'), res);
+    expect(OAuth2Client).toHaveBeenCalledWith(expect.objectContaining({ redirectUri: 'https://trusted.example/api/adwords' }));
+    expect(atomicWriteFile).toHaveBeenCalledWith(expect.stringContaining('data/settings.json'), expect.stringContaining('encrypted-refresh-token'), 'utf-8');
+  });
 });

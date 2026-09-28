@@ -200,13 +200,13 @@ describe('/api/cron', () => {
       1,
       expect.stringMatching(/^cron-refresh-first\.com-/),
       expect.any(Function),
-      'first.com'
+      ['first.com']
     );
     expect(refreshQueue.enqueue).toHaveBeenNthCalledWith(
       2,
       expect.stringMatching(/^cron-refresh-second\.com-/),
       expect.any(Function),
-      'second.com'
+      ['second.com']
     );
   });
 

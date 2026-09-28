@@ -99,9 +99,13 @@ const AdWordsSettings = ({ settings, settingsError, updateSettings, performUpdat
          if (performUpdate) {
             await performUpdate();
          }
-         const origin = getClientOrigin();
-         const url = `https://accounts.google.com/o/oauth2/v2/auth/oauthchooseaccount?access_type=offline&prompt=consent&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fadwords&response_type=code&client_id=${adwords_client_id}&redirect_uri=${`${encodeURIComponent(origin)}/api/adwords`}&service=lso&o2v=2&theme=glif&flowName=GeneralOAuthFlow`;
-         window.open(url, '_blank');
+         const response = await fetch('/api/adwords', { method: 'GET', credentials: 'same-origin' });
+         const result = await response.json() as { authUrl?: string };
+         if (!response.ok || !result.authUrl) {
+            toast('Unable to start Google Ads integration.', { icon: '⚠️' });
+            return;
+         }
+         window.open(result.authUrl, '_blank');
          closeSettings();
       }
    };

@@ -121,9 +121,6 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse) => 
          );
       }
 
-      // Use the first domain only for task association; the manual refresh itself may span multiple domains
-      const refreshDomain = domainsToRefresh[0];
-
       const keywordIdsToRefresh = keywordsToRefresh.map((keyword) => keyword.ID);
       await markKeywordsAsUpdating(keywordsToRefresh, 'before manual refresh', {
          keywordIds: keywordIdsToRefresh,
@@ -134,7 +131,7 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse) => 
       const taskId = req.query.id === 'all' 
          ? `manual-refresh-domain-${domain}-${uniqueId}` 
          : `manual-refresh-ids-${keywordIdsToRefresh.join(',')}-${uniqueId}`;
-      logger.info(`Manual refresh enqueued: ${taskId} (${keywordsToRefresh.length} keywords)`, { domain: refreshDomain });
+      logger.info(`Manual refresh enqueued: ${taskId} (${keywordsToRefresh.length} keywords)`, { domains: domainsToRefresh });
 
       // Enqueue the manual refresh task with domain for per-domain locking
       // This prevents the same domain from being refreshed multiple times simultaneously
@@ -154,7 +151,7 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse) => 
                throw refreshError; // Re-throw to be caught by queue error handler
             }
          },
-         refreshDomain // Pass domain for per-domain locking
+         domainsToRefresh
       );
 
       // Return immediately with 200 OK status

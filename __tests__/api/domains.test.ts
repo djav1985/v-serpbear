@@ -6,11 +6,12 @@ import Domain from '../../database/models/domain';
 import Keyword from '../../database/models/keyword';
 import verifyUser from '../../utils/verifyUser';
 import { removeLocalSCData } from '../../utils/searchConsole';
+import { retryQueueManager } from '../../utils/retryQueueManager';
 import { createMockResponse } from '../__helpers__';
 
 jest.mock('../../database/database', () => ({
   __esModule: true,
-  default: { sync: jest.fn() },
+  default: { sync: jest.fn(), transaction: jest.fn() },
 }));
 
 jest.mock('../../database/init', () => ({
@@ -39,16 +40,19 @@ jest.mock('../../utils/searchConsole', () => ({
   removeLocalSCData: jest.fn(),
 }));
 
+jest.mock('../../utils/retryQueueManager', () => ({ retryQueueManager: { removeBatch: jest.fn() } }));
+
 jest.mock('../../utils/apiLogging', () => ({
   __esModule: true,
   withApiLogging: (apiHandler: any) => apiHandler,
 }));
 
 const verifyUserMock = verifyUser as unknown as jest.Mock;
-const dbMock = db as unknown as { sync: jest.Mock };
+const dbMock = db as unknown as { sync: jest.Mock; transaction: jest.Mock };
 const DomainMock = Domain as unknown as { findOne: jest.Mock; destroy: jest.Mock; bulkCreate: jest.Mock; findAll: jest.Mock };
 const KeywordMock = Keyword as unknown as { destroy: jest.Mock; findAll: jest.Mock };
 const removeLocalSCDataMock = removeLocalSCData as unknown as jest.Mock;
+const removeBatchMock = retryQueueManager.removeBatch as jest.Mock;
 
 describe('GET /api/domains', () => {
    beforeEach(() => {
@@ -600,35 +604,56 @@ describe('PUT /api/domains', () => {
 });
 
 describe('DELETE /api/domains', () => {
+  const request = (domain = 'example.com') => ({ method: 'DELETE', query: { domain }, headers: {} } as unknown as NextApiRequest);
   beforeEach(() => {
+    jest.clearAllMocks();
     verifyUserMock.mockReturnValue('authorized');
-    dbMock.sync.mockResolvedValue(undefined);
+    dbMock.transaction.mockImplementation(async (callback: (transaction: object) => Promise<void>) => callback({ id: 'tx' }));
+    DomainMock.findOne.mockResolvedValue({ ID: 1 });
     DomainMock.destroy.mockResolvedValue(1);
-    KeywordMock.destroy.mockResolvedValue(0);
-    KeywordMock.findAll.mockResolvedValue([]);
-    removeLocalSCDataMock.mockResolvedValue(false);
+    KeywordMock.destroy.mockResolvedValue(2);
+    KeywordMock.findAll.mockResolvedValue([{ ID: 10 }, { ID: 11 }]);
+    removeBatchMock.mockResolvedValue(undefined);
+    removeLocalSCDataMock.mockResolvedValue(true);
   });
 
   it('returns 404 when the target domain is missing', async () => {
-    DomainMock.destroy.mockResolvedValueOnce(0);
-
-    const req = {
-      method: 'DELETE',
-      query: { domain: 'missing.example.com' },
-      headers: {},
-    } as unknown as NextApiRequest;
-
-    const res = createMockResponse();
-
-    await handler(req, res);
-
-    expect(DomainMock.destroy).toHaveBeenCalledWith({ where: { domain: 'missing.example.com' } });
-    expect(KeywordMock.destroy).not.toHaveBeenCalled();
-    expect(KeywordMock.findAll).not.toHaveBeenCalled();
-    expect(removeLocalSCDataMock).not.toHaveBeenCalled();
+    DomainMock.findOne.mockResolvedValue(null);
+    const res = createMockResponse(); await handler(request('missing.example.com'), res);
+    expect(DomainMock.destroy).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(404);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-      error: expect.objectContaining({ code: 'NOT_FOUND', message: 'Domain not found' }),
-    }));
+  });
+
+  it('deletes keywords before the domain in one transaction and reports accurate counts', async () => {
+    const order: string[] = [];
+    KeywordMock.destroy.mockImplementation(async () => { order.push('keywords'); return 2; });
+    DomainMock.destroy.mockImplementation(async () => { order.push('domain'); return 1; });
+    const res = createMockResponse(); await handler(request(), res);
+    expect(order).toEqual(['keywords', 'domain']);
+    expect(KeywordMock.destroy).toHaveBeenCalledWith(expect.objectContaining({ transaction: { id: 'tx' } }));
+    expect(DomainMock.destroy).toHaveBeenCalledWith(expect.objectContaining({ transaction: { id: 'tx' } }));
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ domainRemoved: 1, keywordsRemoved: 2, cleanup: { complete: true, failed: [], retryPending: false } }));
+  });
+
+  it.each([['keyword', 'keyword'], ['domain', 'domain']])('does not run auxiliary cleanup when %s deletion fails', async (_label, stage) => {
+    if (stage === 'keyword') KeywordMock.destroy.mockRejectedValueOnce(new Error('keyword failure'));
+    else DomainMock.destroy.mockRejectedValueOnce(new Error('domain failure'));
+    const res = createMockResponse(); await handler(request(), res);
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(removeBatchMock).not.toHaveBeenCalled();
+    expect(removeLocalSCDataMock).not.toHaveBeenCalled();
+  });
+
+  it('reports auxiliary failures and permits idempotent cleanup retry', async () => {
+    removeBatchMock.mockRejectedValueOnce(new Error('file busy'));
+    removeLocalSCDataMock.mockRejectedValueOnce(new Error('file busy'));
+    const first = createMockResponse(); await handler(request('retry.example'), first);
+    expect(first.json).toHaveBeenCalledWith(expect.objectContaining({ cleanup: { complete: false, failed: ['retryQueue', 'searchConsole'], retryPending: true } }));
+
+    DomainMock.findOne.mockResolvedValue(null);
+    const second = createMockResponse(); await handler(request('retry.example'), second);
+    expect(second.status).toHaveBeenCalledWith(200);
+    expect(second.json).toHaveBeenCalledWith(expect.objectContaining({ domainRemoved: 0, keywordsRemoved: 0, cleanup: { complete: true, failed: [], retryPending: false } }));
+    expect(removeBatchMock).toHaveBeenCalledTimes(2);
   });
 });

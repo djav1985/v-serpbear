@@ -60,7 +60,7 @@ const cronRefreshkeywords = async (_req: NextApiRequest, res: NextApiResponse) =
             async () => {
                await processSingleDomain(domain, settings);
             },
-            domain // Pass domain for per-domain locking
+            [domain]
          ).catch((queueError) => {
             logger.error(`[CRON] ERROR enqueueing refresh task for ${domain}: `, queueError instanceof Error ? queueError : new Error(String(queueError)));
          });
