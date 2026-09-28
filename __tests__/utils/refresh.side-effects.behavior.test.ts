@@ -94,7 +94,7 @@ describe('History Trimming Optimization', () => {
     };
 
     const settings = {
-      scraper_type: 'scrapingant',
+      scraper_type: 'serpapi',
       scrape_retry: false,
     } as SettingsType;
 
@@ -155,7 +155,7 @@ describe('History Trimming Optimization', () => {
     };
 
     const settings = {
-      scraper_type: 'scrapingant',
+      scraper_type: 'serpapi',
       scrape_retry: false,
     } as SettingsType;
 

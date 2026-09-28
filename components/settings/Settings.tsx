@@ -122,7 +122,7 @@ const Settings = forwardRef<HTMLDivElement, SettingsProps>(({ closeSettings }:Se
          }
       }
 
-      if (scraper_type !== 'proxy' && scraper_type !== 'none' && !scraping_api) {
+      if (scraper_type !== 'none' && !scraping_api) {
          error = { type: 'no_api_key', msg: 'Insert a Valid API Key or Token for the Scraper Service.' };
       }
 

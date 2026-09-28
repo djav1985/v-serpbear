@@ -14,13 +14,13 @@ import { safeJsonParse } from '../../utils/safeJsonParse';
 import { atomicWriteFile } from '../../utils/atomicWrite';
 import { retryQueueManager } from '../../utils/retryQueueManager';
 import { errorResponse } from '../../utils/api/response';
+import { normalizeLegacyGlobalScraperType } from '../../utils/removedScrapers';
 
 const buildSettingsDefaults = (): SettingsType => {
    const { platformName } = getBranding();
    return {
       scraper_type: 'none',
       scraping_api: '',
-      proxy: '',
       notification_interval: 'never',
       notification_email: '',
       notification_email_from: '',
@@ -46,6 +46,21 @@ const buildSettingsDefaults = (): SettingsType => {
       adwords_account_id: '',
       keywordsColumns: ['Best', 'History', 'Volume', 'Search Console'],
    };
+};
+
+
+const normalizeLegacySettings = (settings: Partial<SettingsType>): Partial<SettingsType> => {
+   const normalizedSettings = { ...settings } as Partial<SettingsType> & { proxy?: string };
+
+   if (Object.prototype.hasOwnProperty.call(normalizedSettings, 'scraper_type')) {
+      normalizedSettings.scraper_type = normalizeLegacyGlobalScraperType(normalizedSettings.scraper_type);
+   }
+
+   if (Object.prototype.hasOwnProperty.call(normalizedSettings, 'proxy')) {
+      delete normalizedSettings.proxy;
+   }
+
+   return normalizedSettings;
 };
 
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
@@ -122,7 +137,7 @@ const updateSettings = async (req: NextApiRequest, res: NextApiResponse) => {
    }
    
    try {
-      const normalizedSettings: SettingsType = trimStringProperties({ ...settings });
+      const normalizedSettings: SettingsType = trimStringProperties(normalizeLegacySettings({ ...settings })) as SettingsType;
 
       const cryptr = new Cryptr(process.env.SECRET);
       const encrypt = (value?: string) => (value ? cryptr.encrypt(value) : '');
@@ -188,7 +203,7 @@ export const getAppSettings = async () : Promise<SettingsType> => {
 
    try {
       const settingsRaw = await readFile(settingsPath, { encoding: 'utf-8' });
-      const settings = safeJsonParse<Partial<SettingsType>>(settingsRaw, {}, { context: 'settings.json', logError: true });
+      const settings = normalizeLegacySettings(safeJsonParse<Partial<SettingsType>>(settingsRaw, {}, { context: 'settings.json', logError: true }));
       const baseSettings: SettingsType = { ...buildSettingsDefaults(), ...settings };
       let decryptedSettings: SettingsType = baseSettings;
 

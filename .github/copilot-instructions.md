@@ -135,9 +135,8 @@ await queryInterface.addColumn('keyword', 'newField', {
 ### Service Structure
 
 **Registry:** [scrapers/index.ts](scrapers/index.ts) exports array of all scrapers:
-- SerpApi, SearchApi, Serper, ValueSerp, SpaceSerp
-- ScrapingAnt, ScrapingRobot, HasData, CrazyScraper
-- Proxy (direct Google scraping via HTTPS proxy)
+- SerpApi, SearchApi, Serper, ValueSerp
+- Serply, HasData, CrazySERP
 
 **Interface:** [types.d.ts](types.d.ts) defines `ScraperSettings`:
 ```typescript

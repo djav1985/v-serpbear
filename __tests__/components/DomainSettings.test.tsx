@@ -42,7 +42,7 @@ const mockDomain: DomainType = {
 
 const defaultAvailableScrapers = [
    { label: 'SerpAPI', value: 'serpapi' },
-   { label: 'ScrapingAnt', value: 'scrapingant' },
+   { label: 'SearchApi', value: 'searchapi' },
 ];
 
 describe('DomainSettings Component', () => {

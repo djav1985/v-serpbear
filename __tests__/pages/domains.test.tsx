@@ -59,7 +59,7 @@ const useQuerySpy = jest.spyOn(ReactQuery, 'useQuery');
 
 const buildUseQueryImplementation = (overrides?: QueryOverrides) => {
    const defaultSettings = {
-      data: { settings: { version: '4.0.0', scraper_type: 'proxy', search_console_integrated: false } },
+      data: { settings: { version: '4.0.0', scraper_type: 'serpapi', search_console_integrated: false } },
       isLoading: false,
       isSuccess: true,
    };

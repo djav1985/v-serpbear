@@ -115,7 +115,6 @@ type DomainSettings = {
 type SettingsType = {
    scraper_type: string,
    scraping_api?: string,
-   proxy?: string,
    notification_interval: string,
    notification_email: string,
    notification_email_from: string,
@@ -322,7 +321,7 @@ interface ScraperSettings {
     * Should return the organic listings and, when available, whether the tracked
     * domain appears in the top-three map-pack results.
    */
-   serpExtractor?(content:ScraperExtractorInput): ScraperExtractorResult,
+   serpExtractor(content:ScraperExtractorInput): ScraperExtractorResult,
    /**
     * Indicates whether the provider exposes enough data to compute
     * map pack visibility for tracked keywords.

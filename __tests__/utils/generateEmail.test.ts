@@ -188,7 +188,7 @@ describe('generateEmail', () => {
 
     const settings = createSettings({
       available_scapers: [
-        { label: 'Proxy', value: 'mock-scraper', supportsMapPack: false },
+        { label: 'Mock Scraper', value: 'mock-scraper', supportsMapPack: false },
       ],
     });
 

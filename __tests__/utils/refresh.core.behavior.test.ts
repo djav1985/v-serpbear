@@ -147,7 +147,7 @@ describe('refreshAndUpdateKeywords', () => {
           domain: 'override.com',
           scrapeEnabled: 1,
           scraper_settings: JSON.stringify({
-            scraper_type: 'scrapingant',
+            scraper_type: 'serpapi',
             scraping_api: cryptr.encrypt('domain-key'),
           }),
         }),
@@ -201,7 +201,7 @@ describe('refreshAndUpdateKeywords', () => {
 
     expect(scrapeKeywordWithStrategy).toHaveBeenCalledWith(
       expect.objectContaining({ keyword: 'override keyword' }),
-      expect.objectContaining({ scraper_type: 'scrapingant', scraping_api: 'domain-key' }),
+      expect.objectContaining({ scraper_type: 'serpapi', scraping_api: 'domain-key' }),
       expect.objectContaining({}),
     );
   });
@@ -785,7 +785,7 @@ describe('refreshAndUpdateKeywords', () => {
           domain: 'domain1.com',
           scrapeEnabled: 1,
           scraper_settings: JSON.stringify({
-            scraper_type: 'scrapingant',
+            scraper_type: 'serpapi',
             scraping_api: cryptr.encrypt('key1'),
           }),
         }),

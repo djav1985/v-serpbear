@@ -1,5 +1,5 @@
 import { serializeError } from '../../utils/errorSerialization';
-import { extractScrapedResult, getSerp, scrapeKeywordFromGoogle } from '../../utils/scraper';
+import { getSerp, scrapeKeywordFromGoogle } from '../../utils/scraper';
 import { resolveCountryCode } from '../../utils/scraperHelpers';
 import countries from '../../utils/countries';
 import { GOOGLE_BASE_URL } from '../../utils/constants';
@@ -134,33 +134,6 @@ describe('serializeError', () => {
 });
 
 describe('getSerp', () => {
-  it('resolves Google interstitial links before matching domains', () => {
-    const html = `
-      <body>
-        <div id="search">
-          <div>
-            <div>
-              <div>
-                <a href="/interstitial?url=https://example.com/landing">
-                  <h3>Example site</h3>
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-      </body>
-    `;
-
-    const extraction = extractScrapedResult(html, 'desktop', 'example.com');
-    expect(extraction.organic).toHaveLength(1);
-    expect(extraction.organic[0].url).toBe('https://example.com/landing');
-    expect(extraction.mapPackTop3).toBe(false);
-
-    const serp = getSerp('example.com', extraction.organic);
-    expect(serp.position).toBe(1);
-    expect(serp.url).toBe('https://example.com/landing');
-  });
-
   it('returns the highest-ranking (lowest position number) match when the domain appears on multiple pages', () => {
     const results: Array<{ title: string; url: string; position: number }> = [
       { position: 45, url: 'https://example.com/page-a', title: '' }, // from page 5, scraped first (smart strategy)

@@ -60,7 +60,7 @@ export const DomainPage: NextPage = () => {
       <div className="Domain">
          {(!isAppSettingsLoading && scraper_type === 'none') && (
                <div className=' p-3 bg-red-600 text-white text-sm text-center'>
-                  A Scrapper/Proxy has not been set up Yet. Open Settings to set it up and start using the app.
+                  A scraper has not been set up yet. Open Settings to configure it and start using the app.
                </div>
          )}
          {activDomain && activDomain.domain
