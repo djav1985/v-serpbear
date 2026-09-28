@@ -50,6 +50,11 @@ jest.mock('../../scrapers/index', () => ({
   default: [],
 }));
 
+jest.mock('../../utils/retryQueueManager', () => ({
+  __esModule: true,
+  retryQueueManager: { removeBatch: jest.fn().mockResolvedValue(undefined) },
+}));
+
 jest.mock('../../utils/apiLogging', () => ({
   __esModule: true,
   withApiLogging: (handler: any) => handler,
@@ -556,5 +561,23 @@ describe('PUT /api/keywords tags updates', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+  });
+});
+
+
+describe('DELETE /api/keywords retry queue cleanup', () => {
+  it('removes deleted keyword IDs from retry queue', async () => {
+    const { retryQueueManager } = require('../../utils/retryQueueManager');
+    verifyUserMock.mockReturnValue('authorized');
+    keywordMock.findAll.mockResolvedValue([{ ID: 1, domain: 'example.com' }, { ID: 2, domain: 'example.com' }]);
+    keywordMock.destroy.mockResolvedValue(2);
+
+    const req = { method: 'DELETE', query: { id: '1,2' }, headers: {} } as unknown as NextApiRequest;
+    const res = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
+
+    await handler(req, res);
+
+    expect(retryQueueManager.removeBatch).toHaveBeenCalledWith(new Set([1, 2]));
+    expect(res.status).toHaveBeenCalledWith(200);
   });
 });

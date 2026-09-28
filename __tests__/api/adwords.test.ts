@@ -59,7 +59,7 @@ jest.mock('../../utils/apiLogging', () => ({
 }));
 
 const extractScriptContent = (html: string) => {
-   const match = html.match(/<script>([\s\S]*?)<\/script>/);
+   const match = html.match(/<script\b[^>]*>([\s\S]*?)<\/script\b[^>]*>/i);
    if (!match) {
       throw new Error('Script tag not found.');
    }
@@ -112,7 +112,7 @@ describe('GET /api/adwords - refresh token retrieval', () => {
       await handler(req, res);
 
       // db.sync() is now called at startup via instrumentation, not in handlers
-      expect(verifyUser).toHaveBeenCalledWith(req, res);
+      expect(verifyUser).not.toHaveBeenCalled();
       expect(readFile).toHaveBeenCalled();
       expect(OAuth2Client).toHaveBeenCalledWith({
          clientId: 'client-id',
@@ -240,6 +240,30 @@ describe('GET /api/adwords - refresh token retrieval', () => {
    });
 });
 
+
+  it('allows OAuth callback GET with code without verifyUser authorization', async () => {
+      (verifyUser as jest.Mock).mockReturnValue('not authorized');
+      getTokenMock.mockResolvedValue({ tokens: { refresh_token: 'refresh-token' } });
+
+      const req = {
+         method: 'GET',
+         query: { code: 'auth-code' },
+         headers: { host: 'localhost:3000' },
+      } as unknown as NextApiRequest;
+
+      const res = {
+         status: jest.fn().mockReturnThis(),
+         setHeader: jest.fn().mockReturnThis(),
+         send: jest.fn(),
+         json: jest.fn(),
+      } as unknown as NextApiResponse;
+
+      await handler(req, res);
+
+      expect(verifyUser).not.toHaveBeenCalled();
+      expect(getTokenMock).toHaveBeenCalledWith('auth-code');
+      expect(res.status).toHaveBeenCalledWith(200);
+   });
 describe('POST /api/adwords - validate integration', () => {
    const originalEnv = process.env;
 

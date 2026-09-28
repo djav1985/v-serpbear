@@ -25,6 +25,8 @@ const verifyUser = (req: NextApiRequest, res: NextApiResponse): string => {
       'POST:/api/searchconsole',
       'GET:/api/searchconsole',
       'GET:/api/insight',
+      'GET:/api/ideas',
+      'POST:/api/ideas',
    ];
    
    // Validate Bearer prefix before extracting API key
