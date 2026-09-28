@@ -311,7 +311,7 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
                   logger.error('Failed to refresh keywords after adding', error instanceof Error ? error : new Error(String(error)));
                }
             },
-            domainName
+            [domainName]
          );
       } else {
          // Fallback: if no domain, just call it directly

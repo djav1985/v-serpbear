@@ -21,9 +21,11 @@ import { safeJsonParse } from '../../utils/safeJsonParse';
 import normalizeDomainBooleans from '../../utils/normalizeDomain';
 import { errorResponse } from '../../utils/api/response';
 import { retryQueueManager } from '../../utils/retryQueueManager';
+import db from '../../database/database';
 
 const TRUTHY = new Set(['true', '1', 'on', 'yes']);
 const FALSY = new Set(['false', '0', 'off', 'no']);
+const pendingDeletionCleanup = new Map<string, Set<number>>();
 
 /**
  * Parses a query parameter as a strict boolean value.
@@ -182,18 +184,55 @@ export const deleteDomain = async (req: NextApiRequest, res: NextApiResponse) =>
    }
    
    try {
-      const removedDomCount: number = await Domain.destroy({ where: { domain } });
-      if (removedDomCount === 0) {
+      const domainToRemove = await Domain.findOne({ where: { domain }, attributes: ['ID'] });
+      const pendingKeywordIds = pendingDeletionCleanup.get(domain);
+      if (!domainToRemove && !pendingKeywordIds) {
          return res.status(404).json(errorResponse('NOT_FOUND', 'Domain not found', requestId));
       }
-      const keywordsToRemove = await Keyword.findAll({ where: { domain }, attributes: ['ID'] });
+      const keywordsToRemove = domainToRemove
+         ? await Keyword.findAll({ where: { domain }, attributes: ['ID'] })
+         : [];
       const keywordIdsToRemove = new Set<number>(keywordsToRemove.map((keyword) => keyword.ID).filter((id): id is number => Number.isFinite(id)));
-      const removedKeywordCount: number = await Keyword.destroy({ where: { domain } });
-      if (keywordIdsToRemove.size > 0) {
-         await retryQueueManager.removeBatch(keywordIdsToRemove);
+      pendingKeywordIds?.forEach((id) => keywordIdsToRemove.add(id));
+      let removedKeywordCount = 0;
+      let removedDomCount = 0;
+      if (domainToRemove) {
+         await db.transaction(async (transaction) => {
+            removedKeywordCount = await Keyword.destroy({ where: { domain }, transaction });
+            removedDomCount = await Domain.destroy({ where: { domain }, transaction });
+            if (removedDomCount !== 1) {
+               throw new Error('Domain disappeared during deletion transaction.');
+            }
+         });
       }
-      const SCDataRemoved = await removeLocalSCData(domain as string);
-      return res.status(200).json({ domainRemoved: removedDomCount, keywordsRemoved: removedKeywordCount, SCDataRemoved });
+
+      const cleanupFailures: string[] = [];
+      if (keywordIdsToRemove.size > 0) {
+         try {
+            await retryQueueManager.removeBatch(keywordIdsToRemove);
+         } catch (error) {
+            cleanupFailures.push('retryQueue');
+            logger.error('Domain deleted, but retry queue cleanup failed', error instanceof Error ? error : new Error(String(error)), { domain });
+         }
+      }
+      let SCDataRemoved = false;
+      try {
+         SCDataRemoved = await removeLocalSCData(domain);
+      } catch (error) {
+         cleanupFailures.push('searchConsole');
+         logger.error('Domain deleted, but Search Console cleanup failed', error instanceof Error ? error : new Error(String(error)), { domain });
+      }
+      if (cleanupFailures.length > 0) {
+         pendingDeletionCleanup.set(domain, keywordIdsToRemove);
+      } else {
+         pendingDeletionCleanup.delete(domain);
+      }
+      return res.status(200).json({
+         domainRemoved: removedDomCount,
+         keywordsRemoved: removedKeywordCount,
+         SCDataRemoved,
+         cleanup: { complete: cleanupFailures.length === 0, failed: cleanupFailures, retryPending: cleanupFailures.length > 0 },
+      });
    } catch (error) {
       logger.error(`Error deleting domain: ${req.query.domain}`, error instanceof Error ? error : new Error(String(error)));
       return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error Deleting Domain.', requestId, error instanceof Error ? error.message : String(error)));

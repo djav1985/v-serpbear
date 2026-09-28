@@ -4,6 +4,8 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { OAuth2Client } from 'google-auth-library';
 import { readFile } from 'fs/promises';
 import Cryptr from 'cryptr';
+import Cookies from 'cookies';
+import { randomBytes, timingSafeEqual } from 'crypto';
 import verifyUser from '../../utils/verifyUser';
 import { getAdwordsCredentials, getAdwordsKeywordIdeas } from '../../utils/adwords';
 import { logger } from '../../utils/logger';
@@ -11,6 +13,7 @@ import { withApiLogging } from '../../utils/apiLogging';
 import { atomicWriteFile } from '../../utils/atomicWrite';
 import { errorResponse } from '../../utils/api/response';
 import normalizeOrigin from '../../utils/normalizeOrigin';
+import isRequestSecure from '../../utils/api/isRequestSecure';
 
 
 type IntegrationResultOptions = {
@@ -19,34 +22,33 @@ type IntegrationResultOptions = {
    statusCode?: number;
 };
 
+const OAUTH_STATE_COOKIE = 'adwords_oauth_state';
+const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
+
+const getTrustedOrigin = (req: NextApiRequest) => {
+   const configuredOrigin = normalizeOrigin(process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || '');
+   if (configuredOrigin) {
+      return configuredOrigin;
+   }
+   const host = req.headers.host || '';
+   const protocol = host.includes('localhost:') ? 'http' : 'https';
+   return normalizeOrigin(`${protocol}://${host}`);
+};
+
+const oauthCookies = (req: NextApiRequest, res: NextApiResponse) => {
+   const secure = isRequestSecure(req) || !req.headers.host?.includes('localhost:');
+   return {
+      cookies: new Cookies(req, res, { secure }),
+      options: { httpOnly: true, secure, sameSite: 'lax' as const, path: '/api/adwords' },
+   };
+};
+
 const respondWithIntegrationResult = (
    req: NextApiRequest,
    res: NextApiResponse,
    { success, message = '', statusCode }: IntegrationResultOptions,
 ) => {
-   const getHeaderValue = (value: string | string[] | undefined) => {
-      if (!value) {
-         return undefined;
-      }
-      if (Array.isArray(value)) {
-         return value[0];
-      }
-      return value.split(',')[0]?.trim();
-   };
-   const forwardedHost = getHeaderValue(req.headers['x-forwarded-host']);
-   const forwardedProto = getHeaderValue(req.headers['x-forwarded-proto']);
-   const configuredOrigin = normalizeOrigin(process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || '');
-   const host = req.headers.host || '';
-   const fallbackProtocol = host.includes('localhost:') ? 'http' : 'https';
-   const isValidProto = (proto: string | undefined) => proto === 'http' || proto === 'https';
-   const isValidHost = (value: string | undefined) =>
-      !!value && /^[a-zA-Z0-9.-]+(:\d+)?$/.test(value);
-   const safeForwardedProto = isValidProto(forwardedProto || undefined) ? (forwardedProto as string) : undefined;
-   const safeForwardedHost = isValidHost(forwardedHost || undefined) ? (forwardedHost as string) : undefined;
-   const originFromForwarded =
-      safeForwardedProto && safeForwardedHost ? `${safeForwardedProto}://${safeForwardedHost}` : undefined;
-   const originBase = originFromForwarded || configuredOrigin || `${fallbackProtocol}://${host}`;
-   const origin = normalizeOrigin(originBase);
+   const origin = getTrustedOrigin(req);
    const status = success ? 'success' : 'error';
    const payload = { type: 'adwordsIntegrated', status, message };
    const redirectUrl = `${origin}/settings?ads=integrated&status=${status}${message ? `&detail=${encodeURIComponent(message)}` : ''}`;
@@ -98,7 +100,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(401).json(errorResponse('UNAUTHORIZED', authorized, requestId));
    }
    if (req.method === 'GET') {
-      return getAdwordsRefreshToken(req, res);
+      return beginAdwordsIntegration(req, res);
    }
    if (req.method === 'POST') {
       return validateAdwordsIntegration(req, res);
@@ -106,13 +108,51 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
    return res.status(405).json(errorResponse('METHOD_NOT_ALLOWED', 'Method not allowed', requestId));
 }
 
+const beginAdwordsIntegration = async (req: NextApiRequest, res: NextApiResponse) => {
+   const requestId = (req as ExtendedRequest).requestId;
+   try {
+      const settingsRaw = await readFile(`${process.cwd()}/data/settings.json`, { encoding: 'utf-8' });
+      const settings: SettingsType = settingsRaw ? JSON.parse(settingsRaw) : {};
+      const cryptr = new Cryptr(process.env.SECRET as string);
+      const clientId = settings.adwords_client_id ? cryptr.decrypt(settings.adwords_client_id) : '';
+      if (!clientId) {
+         return res.status(400).json(errorResponse('BAD_REQUEST', 'Google Ads client ID is not configured.', requestId));
+      }
+      const state = randomBytes(32).toString('base64url');
+      const { cookies, options } = oauthCookies(req, res);
+      cookies.set(OAUTH_STATE_COOKIE, state, { ...options, maxAge: OAUTH_STATE_TTL_MS, expires: new Date(Date.now() + OAUTH_STATE_TTL_MS) });
+      const redirectUri = `${getTrustedOrigin(req)}/api/adwords`;
+      const params = new URLSearchParams({
+         access_type: 'offline', prompt: 'consent', scope: 'https://www.googleapis.com/auth/adwords',
+         response_type: 'code', client_id: clientId, redirect_uri: redirectUri, state,
+      });
+      return res.status(200).json({ authUrl: `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}` });
+   } catch (error) {
+      logger.error('Starting Google Ads OAuth integration', error instanceof Error ? error : new Error(String(error)));
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Unable to start Google Ads integration.', requestId));
+   }
+};
+
 const getAdwordsRefreshToken = async (req: NextApiRequest, res: NextApiResponse) => {
    try {
       const code = (req.query.code as string);
-      const https = req.headers.host?.includes('localhost:') ? 'http://' : 'https://';
-      const redirectURL = `${https}${req.headers.host}/api/adwords`;
+      const redirectURL = `${getTrustedOrigin(req)}/api/adwords`;
 
       if (code) {
+         const suppliedState = typeof req.query.state === 'string' ? req.query.state : '';
+         const { cookies, options } = oauthCookies(req, res);
+         const expectedState = cookies.get(OAUTH_STATE_COOKIE) || '';
+         // Consume before any asynchronous work so every callback attempt is one-time.
+         cookies.set(OAUTH_STATE_COOKIE, '', { ...options, maxAge: 0, expires: new Date(0) });
+         const stateMatches = suppliedState.length === expectedState.length && suppliedState.length > 0
+            && timingSafeEqual(Buffer.from(suppliedState), Buffer.from(expectedState));
+         if (!stateMatches) {
+            return respondWithIntegrationResult(req, res, {
+               success: false,
+               message: 'Invalid or expired OAuth state. Please start the integration again.',
+               statusCode: 400,
+            });
+         }
          try {
             const settingsRaw = await readFile(`${process.cwd()}/data/settings.json`, { encoding: 'utf-8' });
             const settings: SettingsType = settingsRaw ? JSON.parse(settingsRaw) : {};

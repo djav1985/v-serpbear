@@ -15,7 +15,7 @@ import { logger } from './logger';
 
 type RefreshTask = {
    id: string;
-   domain?: string; // Domain being refreshed (for per-domain locking)
+   domains: Set<string>;
    execute: () => Promise<void>;
 };
 
@@ -45,20 +45,21 @@ class RefreshQueue {
    /**
     * Add a refresh task to the queue
     * @param taskId Unique identifier for this task
-    * @param domain Optional domain name for per-domain locking
+    * @param domains Complete set of domain names touched by the task
     * @param task The async function to execute
     */
-   async enqueue(taskId: string, task: () => Promise<void>, domain?: string): Promise<void> {
-      logger.info(`Enqueueing refresh task: ${taskId}`, { domain });
+   async enqueue(taskId: string, task: () => Promise<void>, domains: Iterable<string> = []): Promise<void> {
+      const normalizedDomains = new Set(Array.from(domains, (domain) => domain.trim().toLowerCase()).filter(Boolean));
+      logger.info(`Enqueueing refresh task: ${taskId}`, { domains: Array.from(normalizedDomains) });
       
-      // Check if this domain is already being processed
-      if (domain && this.activeDomains.has(domain)) {
-         logger.info(`Domain ${domain} is already being processed, queueing task`, { taskId });
+      // Check whether any task domain is already being processed
+      if (Array.from(normalizedDomains).some((domain) => this.activeDomains.has(domain))) {
+         logger.info('One or more task domains are already being processed, queueing task', { taskId, domains: Array.from(normalizedDomains) });
       }
       
       this.queue.push({
          id: taskId,
-         domain,
+         domains: normalizedDomains,
          execute: task,
       });
 
@@ -80,7 +81,7 @@ class RefreshQueue {
       while (this.activeProcesses.size < this.maxConcurrency && this.queue.length > 0) {
          // Find the next task that can be processed (not blocked by domain lock)
          const taskIndex = this.queue.findIndex(task => 
-            !task.domain || !this.activeDomains.has(task.domain)
+            Array.from(task.domains).every((domain) => !this.activeDomains.has(domain))
          );
          
          if (taskIndex === -1) {
@@ -102,30 +103,29 @@ class RefreshQueue {
     * Start processing a single task
     */
    private startTask(task: RefreshTask): void {
-      logger.info(`Starting refresh task: ${task.id}`, { domain: task.domain });
+      const domains = Array.from(task.domains);
+      logger.info(`Starting refresh task: ${task.id}`, { domains });
       const startTime = Date.now();
 
       // Mark domain as active if specified
-      if (task.domain) {
-         this.activeDomains.add(task.domain);
-      }
+      // processQueue is synchronous, so marking the complete set here is atomic
+      // with respect to selection of the next task.
+      domains.forEach((domain) => this.activeDomains.add(domain));
 
       // Create and track the promise
       const taskPromise = task.execute()
          .then(() => {
             const duration = Date.now() - startTime;
-            logger.info(`Completed refresh task: ${task.id} (${duration}ms)`, { domain: task.domain });
+            logger.info(`Completed refresh task: ${task.id} (${duration}ms)`, { domains });
          })
          .catch((error) => {
             const duration = Date.now() - startTime;
-            logger.error(`Failed refresh task: ${task.id} (${duration}ms)`, error instanceof Error ? error : new Error(String(error)), { domain: task.domain });
+            logger.error(`Failed refresh task: ${task.id} (${duration}ms)`, error instanceof Error ? error : new Error(String(error)), { domains });
          })
          .finally(() => {
             // Clean up: remove from active tracking
             this.activeProcesses.delete(task.id);
-            if (task.domain) {
-               this.activeDomains.delete(task.domain);
-            }
+            domains.forEach((domain) => this.activeDomains.delete(domain));
             
             // Try to process more tasks now that we have a free slot
             this.processQueue();
@@ -138,9 +138,10 @@ class RefreshQueue {
     * Check if a domain is currently being processed or queued
     */
    isDomainLocked(domain: string): boolean {
+      const normalizedDomain = domain.trim().toLowerCase();
       // A domain is considered locked if it is either actively being processed
       // or has a pending task in the queue.
-      return this.activeDomains.has(domain) || this.queue.some(task => task.domain === domain);
+      return this.activeDomains.has(normalizedDomain) || this.queue.some(task => task.domains.has(normalizedDomain));
    }
 
    /**

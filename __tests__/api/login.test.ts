@@ -201,6 +201,21 @@ describe('Authentication cookie handling', () => {
       expect(logoutCookieConstructorCall?.[2]).toEqual({ secure: true });
    });
 
+   it('rejects credentials that only share the first 256 characters', async () => {
+      (process.env as MutableEnv).USER = 'a'.repeat(256) + 'expected';
+      (process.env as MutableEnv).PASSWORD = 'b'.repeat(256) + 'expected';
+      const req = { method: 'POST', headers: {}, body: { username: 'a'.repeat(256) + 'different', password: 'b'.repeat(256) + 'different' } } as unknown as NextApiRequest;
+      const res = createResponse(); await loginHandler(req, res);
+      expect(res.status).toHaveBeenCalledWith(401);
+      expect(setCookieMock).not.toHaveBeenCalled();
+   });
+
+   it.each([{ username: {}, password: 'password' }, { username: 'admin', password: 123 }, { username: ['admin'], password: 'password' }])('returns a client error for malformed credentials', async (body) => {
+      const req = { method: 'POST', headers: {}, body } as unknown as NextApiRequest;
+      const res = createResponse(); await loginHandler(req, res);
+      expect(res.status).toHaveBeenCalledWith(401);
+   });
+
    it('returns 405 Method Not Allowed for non-POST requests', async () => {
       const req = {
          method: 'GET',

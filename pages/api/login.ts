@@ -3,7 +3,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import jwt from 'jsonwebtoken';
 import Cookies from 'cookies';
-import { timingSafeEqual } from 'crypto';
+import { createHash, timingSafeEqual } from 'crypto';
 import { logger } from '../../utils/logger';
 import isRequestSecure from '../../utils/api/isRequestSecure';
 import { withApiLogging } from '../../utils/apiLogging';
@@ -41,7 +41,10 @@ const loginUser = async (req: NextApiRequest, res: NextApiResponse, startTime: n
       ip: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'unknown'
    });
 
-   if (!username || !password) {
+   const MAX_CREDENTIAL_LENGTH = 1024;
+   if (typeof username !== 'string' || typeof password !== 'string'
+      || username.length === 0 || password.length === 0
+      || username.length > MAX_CREDENTIAL_LENGTH || password.length > MAX_CREDENTIAL_LENGTH) {
       const error = 'Username Password Missing';
       logger.warn('Login failed: missing credentials', {
          hasUsername: !!username,
@@ -74,23 +77,9 @@ const loginUser = async (req: NextApiRequest, res: NextApiResponse, startTime: n
    let isPasswordValid = false;
    
    try {
-      // Pad strings to a fixed maximum length to prevent length-based timing attacks
-      const MAX_CREDENTIAL_LENGTH = 256;
-      const maxLength = MAX_CREDENTIAL_LENGTH;
-      const paddedUserName = userName.padEnd(maxLength, '\0').slice(0, maxLength);
-      const paddedUsername = username.padEnd(maxLength, '\0').slice(0, maxLength);
-      const paddedPassword = process.env.PASSWORD.padEnd(maxLength, '\0').slice(0, maxLength);
-      const paddedInputPassword = password.padEnd(maxLength, '\0').slice(0, maxLength);
-      
-      // Compare with fixed-length buffers
-      const userNameBuffer = Buffer.from(paddedUserName);
-      const usernameBuffer = Buffer.from(paddedUsername);
-      const passwordBuffer = Buffer.from(paddedPassword);
-      const inputPasswordBuffer = Buffer.from(paddedInputPassword);
-      
-      // These comparisons are now always on same-length buffers
-      isUsernameValid = timingSafeEqual(userNameBuffer, usernameBuffer);
-      isPasswordValid = timingSafeEqual(passwordBuffer, inputPasswordBuffer);
+      const digest = (value: string) => createHash('sha256').update(value, 'utf8').digest();
+      isUsernameValid = timingSafeEqual(digest(userName), digest(username));
+      isPasswordValid = timingSafeEqual(digest(process.env.PASSWORD), digest(password));
    } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       logger.error(

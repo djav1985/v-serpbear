@@ -75,9 +75,9 @@ describe('RefreshQueue behavior', () => {
       executionOrder.push('B-end');
     });
 
-    await refreshQueue.enqueue('task-a1', domainATask1, 'domainA');
-    await refreshQueue.enqueue('task-a2', domainATask2, 'domainA');
-    await refreshQueue.enqueue('task-b', domainBTask, 'domainB');
+    await refreshQueue.enqueue('task-a1', domainATask1, ['domainA']);
+    await refreshQueue.enqueue('task-a2', domainATask2, ['domainA']);
+    await refreshQueue.enqueue('task-b', domainBTask, ['domainB']);
 
     // Wait for all tasks to complete
     await new Promise(resolve => setTimeout(resolve, 150));
@@ -94,6 +94,31 @@ describe('RefreshQueue behavior', () => {
     // B can start before A1 ends (parallel processing)
     const bStartIndex = executionOrder.indexOf('B-start');
     expect(bStartIndex).toBeLessThan(a1EndIndex);
+  });
+
+
+
+  it('atomically locks every domain in a task while allowing unrelated work', async () => {
+    const order: string[] = [];
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+
+    await refreshQueue.enqueue('multi', async () => { order.push('AB-start'); await gate; order.push('AB-end'); }, ['A', 'B', 'a', '']);
+    await refreshQueue.enqueue('only-a', async () => { order.push('A-start'); }, ['A']);
+    await refreshQueue.enqueue('only-b', async () => { order.push('B-start'); }, ['B']);
+    await refreshQueue.enqueue('only-c', async () => { order.push('C-start'); }, ['C']);
+
+    await new Promise(resolve => setTimeout(resolve, 10));
+    expect(refreshQueue.isDomainLocked('A')).toBe(true);
+    expect(refreshQueue.isDomainLocked('B')).toBe(true);
+    expect(order).toContain('C-start');
+    expect(order).not.toContain('A-start');
+    expect(order).not.toContain('B-start');
+
+    release();
+    await new Promise(resolve => setTimeout(resolve, 20));
+    expect(order.indexOf('A-start')).toBeGreaterThan(order.indexOf('AB-end'));
+    expect(order.indexOf('B-start')).toBeGreaterThan(order.indexOf('AB-end'));
   });
 
   it('continues processing after task failure', async () => {
@@ -124,14 +149,14 @@ describe('RefreshQueue behavior', () => {
       await new Promise(resolve => setTimeout(resolve, 50));
     });
 
-    await refreshQueue.enqueue('long-task', longRunningTask, 'testDomain');
+    await refreshQueue.enqueue('long-task', longRunningTask, ['testDomain']);
 
     // Check status immediately (should be processing)
     await new Promise(resolve => setTimeout(resolve, 5));
     const status = refreshQueue.getStatus();
 
     expect(status.activeProcesses).toBeGreaterThan(0);
-    expect(status.activeDomains).toContain('testDomain');
+    expect(status.activeDomains).toContain('testdomain');
     expect(status.maxConcurrency).toBe(3);
   });
 });
