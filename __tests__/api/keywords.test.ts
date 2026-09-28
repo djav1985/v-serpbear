@@ -6,6 +6,7 @@ import Keyword from '../../database/models/keyword';
 import verifyUser from '../../utils/verifyUser';
 import { getAppSettings } from '../../pages/api/settings';
 import { getKeywordsVolume, updateKeywordsVolumeData } from '../../utils/adwords';
+import { refreshQueue } from '../../utils/refreshQueue';
 
 jest.mock('../../database/database', () => ({
   __esModule: true,
@@ -55,6 +56,11 @@ jest.mock('../../utils/retryQueueManager', () => ({
   retryQueueManager: { removeBatch: jest.fn().mockResolvedValue(undefined) },
 }));
 
+jest.mock('../../utils/refreshQueue', () => ({
+  __esModule: true,
+  refreshQueue: { enqueue: jest.fn().mockResolvedValue(undefined), isDomainLocked: jest.fn(() => false) },
+}));
+
 jest.mock('../../utils/apiLogging', () => ({
   __esModule: true,
   withApiLogging: (handler: any) => handler,
@@ -73,6 +79,7 @@ const verifyUserMock = verifyUser as unknown as jest.Mock;
 const getAppSettingsMock = getAppSettings as unknown as jest.Mock;
 const getKeywordsVolumeMock = getKeywordsVolume as unknown as jest.Mock;
 const updateKeywordsVolumeDataMock = updateKeywordsVolumeData as unknown as jest.Mock;
+const refreshQueueMock = refreshQueue as unknown as { enqueue: jest.Mock; isDomainLocked: jest.Mock };
 
 describe('PUT /api/keywords error handling', () => {
   beforeEach(() => {
@@ -234,6 +241,38 @@ describe('PUT /api/keywords error handling', () => {
       }),
     ]);
     expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it('locks all represented domains when enqueuing refresh after bulk add', async () => {
+    const now = new Date().toJSON();
+    keywordMock.bulkCreate.mockResolvedValue([]);
+    keywordMock.findAll.mockResolvedValue([
+      { get: () => ({ ID: 1, keyword: 'one', history: '{}', tags: '[]', lastResult: '[]', lastUpdateError: 'false', device: 'desktop', domain: 'Example.com', country: 'US', added: now, lastUpdated: now }) },
+      { get: () => ({ ID: 2, keyword: 'two', history: '{}', tags: '[]', lastResult: '[]', lastUpdateError: 'false', device: 'desktop', domain: 'second.com', country: 'US', added: now, lastUpdated: now }) },
+      { get: () => ({ ID: 3, keyword: 'three', history: '{}', tags: '[]', lastResult: '[]', lastUpdateError: 'false', device: 'desktop', domain: 'example.com', country: 'US', added: now, lastUpdated: now }) },
+    ]);
+    getKeywordsVolumeMock.mockResolvedValue({ volumes: false });
+
+    const req = {
+      method: 'POST',
+      body: {
+        keywords: [
+          { keyword: 'one', device: 'desktop', country: 'US', domain: 'Example.com' },
+          { keyword: 'two', device: 'desktop', country: 'US', domain: 'second.com' },
+          { keyword: 'three', device: 'desktop', country: 'US', domain: 'example.com' },
+        ],
+      },
+      headers: {},
+    } as unknown as NextApiRequest;
+    const res = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
+
+    await handler(req, res);
+
+    expect(refreshQueueMock.enqueue).toHaveBeenCalledWith(
+      expect.stringContaining('addKeywords-'),
+      expect.any(Function),
+      ['example.com', 'second.com'],
+    );
   });
 
   it('returns keywords without invoking stale update cleanup', async () => {

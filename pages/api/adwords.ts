@@ -25,14 +25,12 @@ type IntegrationResultOptions = {
 const OAUTH_STATE_COOKIE = 'adwords_oauth_state';
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 
-const getTrustedOrigin = (req: NextApiRequest) => {
+const getTrustedOrigin = (_req: NextApiRequest) => {
    const configuredOrigin = normalizeOrigin(process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || '');
    if (configuredOrigin) {
       return configuredOrigin;
    }
-   const host = req.headers.host || '';
-   const protocol = host.includes('localhost:') ? 'http' : 'https';
-   return normalizeOrigin(`${protocol}://${host}`);
+   return '';
 };
 
 const oauthCookies = (req: NextApiRequest, res: NextApiResponse) => {
@@ -111,6 +109,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 const beginAdwordsIntegration = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
    try {
+      const trustedOrigin = getTrustedOrigin(req);
+      if (!trustedOrigin) {
+         return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'A trusted APP_URL or NEXT_PUBLIC_APP_URL must be configured for OAuth.', requestId));
+      }
       const settingsRaw = await readFile(`${process.cwd()}/data/settings.json`, { encoding: 'utf-8' });
       const settings: SettingsType = settingsRaw ? JSON.parse(settingsRaw) : {};
       const cryptr = new Cryptr(process.env.SECRET as string);
@@ -120,8 +122,8 @@ const beginAdwordsIntegration = async (req: NextApiRequest, res: NextApiResponse
       }
       const state = randomBytes(32).toString('base64url');
       const { cookies, options } = oauthCookies(req, res);
-      cookies.set(OAUTH_STATE_COOKIE, state, { ...options, maxAge: OAUTH_STATE_TTL_MS, expires: new Date(Date.now() + OAUTH_STATE_TTL_MS) });
-      const redirectUri = `${getTrustedOrigin(req)}/api/adwords`;
+      cookies.set(OAUTH_STATE_COOKIE, state, { ...options, maxAge: OAUTH_STATE_TTL_MS / 1000, expires: new Date(Date.now() + OAUTH_STATE_TTL_MS) });
+      const redirectUri = `${trustedOrigin}/api/adwords`;
       const params = new URLSearchParams({
          access_type: 'offline', prompt: 'consent', scope: 'https://www.googleapis.com/auth/adwords',
          response_type: 'code', client_id: clientId, redirect_uri: redirectUri, state,
@@ -136,7 +138,15 @@ const beginAdwordsIntegration = async (req: NextApiRequest, res: NextApiResponse
 const getAdwordsRefreshToken = async (req: NextApiRequest, res: NextApiResponse) => {
    try {
       const code = (req.query.code as string);
-      const redirectURL = `${getTrustedOrigin(req)}/api/adwords`;
+      const trustedOrigin = getTrustedOrigin(req);
+      if (!trustedOrigin) {
+         return respondWithIntegrationResult(req, res, {
+            success: false,
+            message: 'OAuth callback rejected because trusted app origin is not configured.',
+            statusCode: 500,
+         });
+      }
+      const redirectURL = `${trustedOrigin}/api/adwords`;
 
       if (code) {
          const suppliedState = typeof req.query.state === 'string' ? req.query.state : '';
@@ -209,7 +219,10 @@ const getAdwordsRefreshToken = async (req: NextApiRequest, res: NextApiResponse)
 const validateAdwordsIntegration = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
    const errMsg = 'Error Validating Google Ads Integration. Please make sure your provided data are correct!';
-   const { developer_token, account_id } = req.body;
+   const { developer_token, account_id } = (req.body ?? {}) as {
+      developer_token?: string;
+      account_id?: string;
+   };
    if (!developer_token || !account_id) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Please Provide the Google Ads Developer Token and Test Account ID', requestId));
    }

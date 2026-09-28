@@ -1,5 +1,6 @@
 import type { NextApiRequest } from 'next';
 import Cryptr from 'cryptr';
+import { readFile } from 'fs/promises';
 import handler from '../../pages/api/domains';
 import db from '../../database/database';
 import Domain from '../../database/models/domain';
@@ -7,6 +8,8 @@ import Keyword from '../../database/models/keyword';
 import verifyUser from '../../utils/verifyUser';
 import { removeLocalSCData } from '../../utils/searchConsole';
 import { retryQueueManager } from '../../utils/retryQueueManager';
+import { atomicWriteFile } from '../../utils/atomicWrite';
+import { refreshQueue } from '../../utils/refreshQueue';
 import { createMockResponse } from '../__helpers__';
 
 jest.mock('../../database/database', () => ({
@@ -41,6 +44,14 @@ jest.mock('../../utils/searchConsole', () => ({
 }));
 
 jest.mock('../../utils/retryQueueManager', () => ({ retryQueueManager: { removeBatch: jest.fn() } }));
+jest.mock('../../utils/atomicWrite', () => ({ atomicWriteFile: jest.fn() }));
+jest.mock('fs/promises', () => ({ readFile: jest.fn(), mkdir: jest.fn().mockResolvedValue(undefined) }));
+jest.mock('../../utils/refreshQueue', () => ({
+  refreshQueue: {
+    enqueue: jest.fn(async (_taskId: string, task: () => Promise<void>) => { await task(); }),
+    isDomainLocked: jest.fn(() => false),
+  },
+}));
 
 jest.mock('../../utils/apiLogging', () => ({
   __esModule: true,
@@ -53,6 +64,9 @@ const DomainMock = Domain as unknown as { findOne: jest.Mock; destroy: jest.Mock
 const KeywordMock = Keyword as unknown as { destroy: jest.Mock; findAll: jest.Mock };
 const removeLocalSCDataMock = removeLocalSCData as unknown as jest.Mock;
 const removeBatchMock = retryQueueManager.removeBatch as jest.Mock;
+const readFileMock = readFile as unknown as jest.Mock;
+const atomicWriteFileMock = atomicWriteFile as jest.Mock;
+const refreshQueueMock = refreshQueue as unknown as { enqueue: jest.Mock; isDomainLocked: jest.Mock };
 
 describe('GET /api/domains', () => {
    beforeEach(() => {
@@ -605,6 +619,7 @@ describe('PUT /api/domains', () => {
 
 describe('DELETE /api/domains', () => {
   const request = (domain = 'example.com') => ({ method: 'DELETE', query: { domain }, headers: {} } as unknown as NextApiRequest);
+  let cleanupState = '{}';
   beforeEach(() => {
     jest.clearAllMocks();
     verifyUserMock.mockReturnValue('authorized');
@@ -615,6 +630,19 @@ describe('DELETE /api/domains', () => {
     KeywordMock.findAll.mockResolvedValue([{ ID: 10 }, { ID: 11 }]);
     removeBatchMock.mockResolvedValue(undefined);
     removeLocalSCDataMock.mockResolvedValue(true);
+    cleanupState = '{}';
+    readFileMock.mockImplementation(async (path: string) => {
+      if (path.includes('domain_cleanup_retry.json')) {
+        return cleanupState;
+      }
+      const error = new Error('ENOENT') as Error & { code?: string };
+      error.code = 'ENOENT';
+      throw error;
+    });
+    atomicWriteFileMock.mockImplementation(async (_path: string, content: string) => {
+      cleanupState = content;
+    });
+    refreshQueueMock.enqueue.mockImplementation(async (_taskId: string, task: () => Promise<void>) => { await task(); });
   });
 
   it('returns 404 when the target domain is missing', async () => {
@@ -632,6 +660,7 @@ describe('DELETE /api/domains', () => {
     expect(order).toEqual(['keywords', 'domain']);
     expect(KeywordMock.destroy).toHaveBeenCalledWith(expect.objectContaining({ transaction: { id: 'tx' } }));
     expect(DomainMock.destroy).toHaveBeenCalledWith(expect.objectContaining({ transaction: { id: 'tx' } }));
+    expect(refreshQueueMock.enqueue).toHaveBeenCalledWith(expect.stringContaining('delete-domain-example.com-'), expect.any(Function), ['example.com']);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ domainRemoved: 1, keywordsRemoved: 2, cleanup: { complete: true, failed: [], retryPending: false } }));
   });
 
@@ -655,5 +684,15 @@ describe('DELETE /api/domains', () => {
     expect(second.status).toHaveBeenCalledWith(200);
     expect(second.json).toHaveBeenCalledWith(expect.objectContaining({ domainRemoved: 0, keywordsRemoved: 0, cleanup: { complete: true, failed: [], retryPending: false } }));
     expect(removeBatchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('treats false return from local Search Console cleanup as an explicit cleanup failure', async () => {
+    removeLocalSCDataMock.mockResolvedValueOnce(false);
+    const res = createMockResponse(); await handler(request('cleanup-false.example'), res);
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      cleanup: { complete: false, failed: ['searchConsole'], retryPending: true },
+      SCDataRemoved: false,
+    }));
   });
 });

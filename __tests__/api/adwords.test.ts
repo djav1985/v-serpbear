@@ -1,9 +1,10 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
+import type { NextApiResponse } from 'next';
 import { OAuth2Client } from 'google-auth-library';
 import { readFile } from 'fs/promises';
 import handler from '../../pages/api/adwords';
 import verifyUser from '../../utils/verifyUser';
 import { atomicWriteFile } from '../../utils/atomicWrite';
+import { getAdwordsCredentials, getAdwordsKeywordIdeas } from '../../utils/adwords';
 import { createMockRequest, createMockResponse } from '../__helpers__';
 
 const cookieStore = new Map<string, string>();
@@ -20,7 +21,9 @@ jest.mock('google-auth-library', () => ({ OAuth2Client: jest.fn(() => ({ getToke
 jest.mock('../../utils/adwords', () => ({ getAdwordsCredentials: jest.fn(), getAdwordsKeywordIdeas: jest.fn() }));
 jest.mock('../../utils/apiLogging', () => ({ withApiLogging: (fn: unknown) => fn }));
 
-type MutableEnv = typeof process.env & { SECRET?: string; NEXT_PUBLIC_APP_URL?: string };
+const getAdwordsCredentialsMock = getAdwordsCredentials as jest.Mock;
+const getAdwordsKeywordIdeasMock = getAdwordsKeywordIdeas as jest.Mock;
+type MutableEnv = typeof process.env & { SECRET?: string; NEXT_PUBLIC_APP_URL?: string; APP_URL?: string };
 const response = () => ({ ...createMockResponse(), send: jest.fn(), setHeader: jest.fn().mockReturnThis() } as unknown as NextApiResponse);
 const callback = (state?: string) => createMockRequest({ method: 'GET', query: { code: 'auth-code', ...(state ? { state } : {}) }, headers: { host: 'attacker.example' } });
 
@@ -54,7 +57,14 @@ describe('Google Ads OAuth state flow', () => {
     const url = new URL(payload.authUrl);
     expect(url.searchParams.get('redirect_uri')).toBe('https://trusted.example/api/adwords');
     expect(url.searchParams.get('state')).toHaveLength(43);
-    expect(cookieSet).toHaveBeenCalledWith('adwords_oauth_state', url.searchParams.get('state'), expect.objectContaining({ httpOnly: true, secure: true, sameSite: 'lax' }));
+    expect(cookieSet).toHaveBeenCalledWith('adwords_oauth_state', url.searchParams.get('state'), expect.objectContaining({ httpOnly: true, secure: true, sameSite: 'lax', maxAge: 600 }));
+  });
+
+  it('rejects oauth flow startup when no trusted app origin is configured', async () => {
+    delete (process.env as MutableEnv).NEXT_PUBLIC_APP_URL;
+    delete (process.env as MutableEnv).APP_URL;
+    const res = response(); await handler(createMockRequest({ method: 'GET', headers: { host: 'attacker.example' } }), res);
+    expect(res.status).toHaveBeenCalledWith(500);
   });
 
   it.each([['missing', undefined], ['mismatched', 'wrong']])('rejects %s state without token exchange or persistence', async (_label, state) => {
@@ -88,5 +98,63 @@ describe('Google Ads OAuth state flow', () => {
     const res = response(); await handler(callback('expected'), res);
     expect(OAuth2Client).toHaveBeenCalledWith(expect.objectContaining({ redirectUri: 'https://trusted.example/api/adwords' }));
     expect(atomicWriteFile).toHaveBeenCalledWith(expect.stringContaining('data/settings.json'), expect.stringContaining('encrypted-refresh-token'), 'utf-8');
+  });
+});
+
+describe('POST /api/adwords validation flow', () => {
+  const originalEnv = process.env;
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (process.env as MutableEnv) = { ...originalEnv, SECRET: 'secret', NEXT_PUBLIC_APP_URL: 'https://trusted.example' };
+    (verifyUser as jest.Mock).mockReturnValue('authorized');
+    (readFile as jest.Mock).mockResolvedValue('{}');
+    getAdwordsCredentialsMock.mockResolvedValue({
+      client_id: 'cid',
+      client_secret: 'csecret',
+      refresh_token: 'rtoken',
+    });
+    getAdwordsKeywordIdeasMock.mockResolvedValue([{ text: 'compress' }]);
+    (atomicWriteFile as jest.Mock).mockResolvedValue(undefined);
+  });
+  afterEach(() => { process.env = originalEnv; });
+
+  it('returns 400 when developer token or account id is missing', async () => {
+    const res = response();
+    await handler(createMockRequest({ method: 'POST', body: { developer_token: 'dev' } }), res);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(getAdwordsKeywordIdeasMock).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when oauth credentials are missing', async () => {
+    getAdwordsCredentialsMock.mockResolvedValueOnce({ client_id: '', client_secret: '', refresh_token: '' });
+    const res = response();
+    await handler(createMockRequest({ method: 'POST', body: { developer_token: 'dev', account_id: 'acc' } }), res);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(atomicWriteFile).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when keyword ideas exchange fails', async () => {
+    getAdwordsKeywordIdeasMock.mockRejectedValueOnce(new Error('bad creds'));
+    const res = response();
+    await handler(createMockRequest({ method: 'POST', body: { developer_token: 'dev', account_id: 'acc' } }), res);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(atomicWriteFile).not.toHaveBeenCalled();
+  });
+
+  it('returns 200 and persists encrypted values when validation succeeds', async () => {
+    const res = response();
+    await handler(createMockRequest({ method: 'POST', body: { developer_token: ' dev ', account_id: ' acc ' } }), res);
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ valid: true });
+    expect(atomicWriteFile).toHaveBeenCalledWith(
+      expect.stringContaining('data/settings.json'),
+      expect.stringContaining('"adwords_developer_token":"encrypted-dev"'),
+      'utf-8',
+    );
+    expect(atomicWriteFile).toHaveBeenCalledWith(
+      expect.stringContaining('data/settings.json'),
+      expect.stringContaining('"adwords_account_id":"encrypted-acc"'),
+      'utf-8',
+    );
   });
 });
