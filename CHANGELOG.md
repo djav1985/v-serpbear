@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file. Releases no
 
 ## [Unreleased]
 
+### Changed
+- Removed the deprecated SpaceSerp, ScrapingAnt, ScrapingRobot, and custom proxy scraper integrations along with the legacy raw Google HTML fallback path.
+- Legacy global scraper selections for removed providers now normalize to `none`, and stale per-domain overrides for removed providers are cleared during migration.
+- Updated README, Copilot instructions, and related tests to reflect the supported managed scraper integrations only.
+
 ### Bug Fixes
 - Startup now clears any keyword `updating` flags left set by a previous process (e.g. a container restart mid-scrape), so the UI no longer shows stuck loading spinners after a restart.
 

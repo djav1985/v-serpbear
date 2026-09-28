@@ -2,6 +2,7 @@
 
 import Cryptr from 'cryptr';
 import { logger } from './logger';
+import { normalizeLegacyDomainScraperType } from './removedScrapers';
 
 export type PersistedDomainScraperSettings = {
    scraper_type?: string | null;
@@ -28,13 +29,12 @@ export const parseDomainScraperSettings = (
       return null;
    }
 
-   const scraperType = isNonEmptyString(payload.scraper_type) ? payload.scraper_type.trim() : null;
-   const scrapingApi = isNonEmptyString(payload.scraping_api) ? payload.scraping_api : null;
-
-   // Return null only if there's no meaningful data at all
-   if (!scraperType && !scrapingApi) {
+   const scraperType = normalizeLegacyDomainScraperType(isNonEmptyString(payload.scraper_type) ? payload.scraper_type : null);
+   if (!scraperType) {
       return null;
    }
+
+   const scrapingApi = isNonEmptyString(payload.scraping_api) ? payload.scraping_api : null;
 
    return { scraper_type: scraperType, scraping_api: scrapingApi };
 };
@@ -66,7 +66,7 @@ export const buildPersistedScraperSettings = (
       return existing ?? null;
    }
 
-   const nextType = isNonEmptyString(incoming.scraper_type) ? incoming.scraper_type.trim() : null;
+   const nextType = normalizeLegacyDomainScraperType(isNonEmptyString(incoming.scraper_type) ? incoming.scraper_type : null);
 
    if (!nextType) {
       return null;

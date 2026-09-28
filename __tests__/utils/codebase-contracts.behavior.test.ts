@@ -41,6 +41,12 @@ describe('Breakpoint Consistency', () => {
 });
 
 describe('Map Pack Support Flag Enforcement', () => {
+  it('ensures all registered scrapers provide a serpExtractor', () => {
+    allScrapers.forEach((scraper) => {
+      expect(typeof scraper.serpExtractor).toBe('function');
+    });
+  });
+
   it('ensures all scrapers have explicit supportsMapPack flag', () => {
     allScrapers.forEach((scraper) => {
       expect(scraper).toHaveProperty('supportsMapPack');

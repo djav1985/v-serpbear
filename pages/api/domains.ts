@@ -204,7 +204,7 @@ export const deleteDomain = async (req: NextApiRequest, res: NextApiResponse) =>
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Domain is Required!', requestId));
    }
    
-   const { domain } = req.query || {};
+   const domain = req.query.domain as string;
    
 
    try {
@@ -297,7 +297,8 @@ export const deleteDomain = async (req: NextApiRequest, res: NextApiResponse) =>
       if (!responsePayload) {
          return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error Deleting Domain.', requestId));
       }
-      return res.status(responsePayload.status).json(responsePayload.body);
+      const finalizedResponse = responsePayload as { status: number; body: unknown };
+      return res.status(finalizedResponse.status).json(finalizedResponse.body);
    } catch (error) {
       logger.error(`Error deleting domain: ${req.query.domain}`, error instanceof Error ? error : new Error(String(error)));
       return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error Deleting Domain.', requestId, error instanceof Error ? error.message : String(error)));

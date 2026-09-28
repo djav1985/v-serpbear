@@ -53,7 +53,7 @@ describe('Settings scraper reload behaviour', () => {
     const settingsData: SettingsType = {
       ...defaultSettings,
       notification_interval: 'never',
-      available_scapers: [{ label: 'Proxy', value: 'proxy' }],
+      available_scapers: [{ label: 'SerpApi', value: 'serpapi' }],
       scraper_type: 'none',
     };
 
@@ -79,8 +79,11 @@ describe('Settings scraper reload behaviour', () => {
       }
       fireEvent.click(scraperSelect);
 
-      const proxyOption = await screen.findByText('Proxy');
-      fireEvent.click(proxyOption);
+      const scraperOption = await screen.findByText('SerpApi');
+      fireEvent.click(scraperOption);
+
+      const apiKeyInput = await screen.findByPlaceholderText('API Key/Token');
+      fireEvent.change(apiKeyInput, { target: { value: 'serpapi-key' } });
 
       const updateButton = container.querySelector('button.bg-blue-700') as HTMLElement | null;
       if (!updateButton) {
@@ -94,7 +97,7 @@ describe('Settings scraper reload behaviour', () => {
       });
 
       const payload = mutateAsync.mock.calls[0][0] as SettingsType;
-      expect(payload.scraper_type).toBe('proxy');
+      expect(payload.scraper_type).toBe('serpapi');
     } finally {
       reloadSpy.mockRestore();
     }

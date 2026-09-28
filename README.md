@@ -47,7 +47,7 @@ Not every scraper provider is validated on every release—please report any iss
 ### Core capabilities
 
 - **Unlimited domains & keywords:** Organise an unrestricted number of tracked keywords across multiple sites.
-- **Turn-key scraping integrations:** Connect a managed SERP data provider or bring your own proxy, then run high-volume organic rank checks with built-in retries.
+- **Turn-key scraping integrations:** Connect a managed SERP data provider and run high-volume organic rank checks with built-in retries.
 - **Keyword research & ideas:** Pull search volumes and suggested keywords straight from your Google Ads test account.
 - **Google Search Console enrichment:** Overlay verified impression and click data on keyword trends to see which rankings actually drive traffic.
 - **Scheduled notifications:** Deliver branded summaries of ranking changes, winners/losers, and visit counts to your inbox. Each digest now opens with a tracker summary—styled like the dashboard card—that highlights total tracked keywords, the rolling average position, and, when supported by your scraper, how many queries sit inside the local map pack before diving into Search Console charts. The summary still derives the averages from the live keyword data, but now prefers any persisted domain map-pack totals and only falls back to keyword counts when that stat is unavailable so missing aggregates no longer drop either figure to zero.
@@ -98,7 +98,7 @@ The default compose stack uses a named Docker volume (`data`) mounted at `/app/d
 5. Start the development server via `npm run dev` or build and serve production assets with `npm run build && npm run start`.
 
 > [!NOTE]
-> Node.js 18 is no longer supported because core dependencies—such as `better-sqlite3`, `happy-dom`, and `cheerio`—now require Node.js 20+ runtime features.
+> Node.js 18 is no longer supported because core dependencies—such as `better-sqlite3` and `happy-dom`—now require Node.js 20+ runtime features.
 
 ### Database & migrations
 
@@ -159,7 +159,7 @@ Search Console credentials can also be supplied via the Settings UI (stored in `
 
 Use the Settings UI (or `/api/settings`) to manage values that are persisted in `data/settings.json` and encrypted with `SECRET`. Key configuration areas include:
 
-- **Scraper settings:** `scraper_type`, `scraping_api`, `proxy`, `scrape_interval`, `scrape_delay`, `scrape_retry`, `scrape_strategy`, `scrape_pagination_limit`, `scrape_smart_full_fallback`
+- **Scraper settings:** `scraper_type`, `scraping_api`, `scrape_interval`, `scrape_delay`, `scrape_retry`, `scrape_strategy`, `scrape_pagination_limit`, `scrape_smart_full_fallback`
 - **Notification defaults:** `notification_email`, `notification_email_from`, `notification_email_from_name`
 - **SMTP credentials:** `smtp_server`, `smtp_port`, `smtp_username`, `smtp_password`, `smtp_tls_servername`
 - **Google integrations:** `search_console_client_email`, `search_console_private_key`, and the `adwords_*` credentials used for keyword ideas
@@ -191,15 +191,11 @@ Set `ANALYZE=true` before running `next build` to generate a static bundle analy
 
 ## Supported SERP data providers
 
-SerpBear integrates with several managed APIs in addition to a "bring your own proxy" option. The table below summarises their capabilities as implemented in the current codebase.
+SerpBear integrates with several managed SERP APIs. The table below summarises their capabilities as implemented in the current codebase.
 
 | Provider | Working | Pricing snapshot* | Geo targeting | Map Pack coverage | Results coverage | API key header |
 | --- | --- | --- | --- | --- | --- | --- |
-| Custom proxy (`proxy`) | ? | Bring your own | Google default locale | No – organic listings only | Strategy-controlled (10 per page, up to 10 pages) | None |
-| Scraping Robot (`scrapingrobot`) | ? | Free tier (~5,000 req/mo) | Country-level | No – organic listings only | Strategy-controlled (10 per page, up to 10 pages) | Query string `token` |
-| ScrapingAnt (`scrapingant`) | ? | Pay-as-you-go | Country-level (select markets) | No – organic listings only | Strategy-controlled (10 per page, up to 10 pages) | Header `x-api-key` |
 | Serply (`serply`) | ? | Plans from $49/mo | City & region (supported markets) | **Yes** – extracts local map pack | Strategy-controlled (10 per page, up to 10 pages) | `X-Api-Key` + `X-Proxy-Location` |
-| SpaceSerp (`spaceSerp`) | ? | Lifetime + subscription plans | City-level | **Yes** – extracts local map pack | Strategy-controlled (10 per page, up to 10 pages) | Query string `apiKey` |
 | SerpApi (`serpapi`) | ✅ | Free 250/mo + Plans from $75/mo | City-level | **Yes** – extracts local map pack | **Native – up to 100 results per request** | Query string `api_key` |
 | SearchApi (`searchapi`) | ✅ | Plans from $40/mo | City-level | **Yes** – extracts local map pack | **Native – up to 100 results per request** | Query string `api_key` |
 | ValueSerp (`valueserp`) | ✅ | Pay-as-you-go 10,000 for $25 | City-level | **Yes** – extracts local map pack | Strategy-controlled (10 per page, up to 10 pages) | Query string `api_key` |
@@ -227,7 +223,7 @@ The **Business Name** field is an optional setting in the domain scraper configu
 **When to use it:**
 - Your domain targets local search queries
 - You're tracking mobile keywords (mobile local results often lack direct website links)
-- Your scraper supports map pack detection (ValueSerp, SerpAPI, SearchAPI, HasData, Serply, SpaceSerp)
+- Your scraper supports map pack detection (ValueSerp, SerpAPI, SearchAPI, HasData, or Serply)
 - Your business name in Google My Business matches a consistent format
 
 **Example:** If your domain is `vontainment.com` and your business name in Google My Business is "Vontainment", enter "Vontainment" in this field. When mobile local results don't include a website link but show "Vontainment" as the business title, SerpBear will correctly identify it as a map pack appearance.

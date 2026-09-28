@@ -68,7 +68,7 @@ const ScraperSettings = ({ settings, settingsError, updateSettings }:ScraperSett
             minWidth={220}
             />
          </div>
-         {settings.scraper_type !== 'none' && settings.scraper_type !== 'proxy' && (
+         {settings.scraper_type !== 'none' && (
             <div className="settings__section__secret mb-5">
                <SecretField
                label='Scraper API Key or Token'
@@ -76,19 +76,6 @@ const ScraperSettings = ({ settings, settingsError, updateSettings }:ScraperSett
                value={settings?.scraping_api || ''}
                hasError={settingsError?.type === 'no_api_key'}
                onChange={(value:string) => updateSettings('scraping_api', value)}
-               />
-            </div>
-         )}
-         {settings.scraper_type === 'proxy' && (
-            <div className="settings__section__input mb-5">
-               <label className={labelStyle}>Proxy List</label>
-               <textarea
-                  className={`w-full p-2 border border-gray-200 rounded mb-3 text-xs 
-                  focus:outline-none min-h-[160px] focus:border-blue-200 
-                  ${settingsError?.type === 'no_email' ? ' border-red-400 focus:border-red-400' : ''} `}
-                  value={settings?.proxy}
-                  placeholder={'http://122.123.22.45:5049\nhttps://user:password@122.123.22.45:5049'}
-                  onChange={(event) => updateSettings('proxy', event.target.value)}
                />
             </div>
          )}

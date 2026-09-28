@@ -198,7 +198,6 @@ describe('GET /api/settings and configuration requirements', () => {
     expect(settings).toMatchObject({
       scraper_type: 'none',
       scraping_api: '',
-      proxy: '',
       notification_interval: 'never',
       notification_email: '',
       notification_email_from: '',
@@ -223,6 +222,20 @@ describe('GET /api/settings and configuration requirements', () => {
       available_scapers: [],
       failed_queue: [],
     });
+  });
+
+  it('normalizes removed global scraper selections and drops proxy settings', async () => {
+    readFileMock.mockResolvedValueOnce(JSON.stringify({
+      scraper_type: 'proxy',
+      proxy: 'http://legacy-proxy',
+      notification_interval: 'weekly',
+    }));
+
+    const settings = await settingsApi.getAppSettings();
+
+    expect(settings.scraper_type).toBe('none');
+    expect(settings.notification_interval).toBe('weekly');
+    expect(settings).not.toHaveProperty('proxy');
   });
 
   it('returns defaults when files are missing', async () => {
