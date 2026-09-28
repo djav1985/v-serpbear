@@ -2,6 +2,8 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import Cryptr from 'cryptr';
+import { mkdir, readFile } from 'fs/promises';
+import { dirname } from 'path';
 import Domain from '../../database/models/domain';
 import Keyword from '../../database/models/keyword';
 import getdomainStats from '../../utils/domains';
@@ -22,10 +24,39 @@ import normalizeDomainBooleans from '../../utils/normalizeDomain';
 import { errorResponse } from '../../utils/api/response';
 import { retryQueueManager } from '../../utils/retryQueueManager';
 import db from '../../database/database';
+import { atomicWriteFile } from '../../utils/atomicWrite';
 
 const TRUTHY = new Set(['true', '1', 'on', 'yes']);
 const FALSY = new Set(['false', '0', 'off', 'no']);
-const pendingDeletionCleanup = new Map<string, Set<number>>();
+const DOMAIN_CLEANUP_RETRY_FILE = `${process.cwd()}/data/domain_cleanup_retry.json`;
+type PendingCleanupMap = Map<string, Set<number>>;
+
+const readPendingCleanupMap = async (): Promise<PendingCleanupMap> => {
+   try {
+      const raw = await readFile(DOMAIN_CLEANUP_RETRY_FILE, { encoding: 'utf-8' });
+      const parsed = JSON.parse(raw) as Record<string, number[]>;
+      const entries = Object.entries(parsed).map(([domain, ids]) => [
+         domain,
+         new Set((Array.isArray(ids) ? ids : []).filter((id): id is number => Number.isInteger(id) && id > 0)),
+      ] as const);
+      return new Map(entries);
+   } catch (error: any) {
+      if (error?.code === 'ENOENT') {
+         return new Map();
+      }
+      logger.error('Failed reading domain cleanup retry state', error instanceof Error ? error : new Error(String(error)));
+      return new Map();
+   }
+};
+
+const persistPendingCleanupMap = async (map: PendingCleanupMap): Promise<void> => {
+   const serialized: Record<string, number[]> = {};
+   map.forEach((ids, domain) => {
+      serialized[domain] = Array.from(ids);
+   });
+   await mkdir(dirname(DOMAIN_CLEANUP_RETRY_FILE), { recursive: true });
+   await atomicWriteFile(DOMAIN_CLEANUP_RETRY_FILE, JSON.stringify(serialized), 'utf-8');
+};
 
 /**
  * Parses a query parameter as a strict boolean value.
@@ -175,64 +206,98 @@ export const deleteDomain = async (req: NextApiRequest, res: NextApiResponse) =>
    
    const { domain } = req.query || {};
    
-   // Check if domain is currently being refreshed
-   if (refreshQueue.isDomainLocked(domain as string)) {
-      logger.warn(`Cannot delete domain while refresh is in progress`, { domain });
-      return res.status(409).json(
-         errorResponse('CONFLICT', `Cannot delete domain "${domain}" while a refresh is in progress. Please wait for the refresh to complete or try again later.`, requestId),
-      );
-   }
-   
-   try {
-      const domainToRemove = await Domain.findOne({ where: { domain }, attributes: ['ID'] });
-      const pendingKeywordIds = pendingDeletionCleanup.get(domain);
-      if (!domainToRemove && !pendingKeywordIds) {
-         return res.status(404).json(errorResponse('NOT_FOUND', 'Domain not found', requestId));
-      }
-      const keywordsToRemove = domainToRemove
-         ? await Keyword.findAll({ where: { domain }, attributes: ['ID'] })
-         : [];
-      const keywordIdsToRemove = new Set<number>(keywordsToRemove.map((keyword) => keyword.ID).filter((id): id is number => Number.isFinite(id)));
-      pendingKeywordIds?.forEach((id) => keywordIdsToRemove.add(id));
-      let removedKeywordCount = 0;
-      let removedDomCount = 0;
-      if (domainToRemove) {
-         await db.transaction(async (transaction) => {
-            removedKeywordCount = await Keyword.destroy({ where: { domain }, transaction });
-            removedDomCount = await Domain.destroy({ where: { domain }, transaction });
-            if (removedDomCount !== 1) {
-               throw new Error('Domain disappeared during deletion transaction.');
-            }
-         });
-      }
 
-      const cleanupFailures: string[] = [];
-      if (keywordIdsToRemove.size > 0) {
-         try {
-            await retryQueueManager.removeBatch(keywordIdsToRemove);
-         } catch (error) {
-            cleanupFailures.push('retryQueue');
-            logger.error('Domain deleted, but retry queue cleanup failed', error instanceof Error ? error : new Error(String(error)), { domain });
-         }
-      }
-      let SCDataRemoved = false;
-      try {
-         SCDataRemoved = await removeLocalSCData(domain);
-      } catch (error) {
-         cleanupFailures.push('searchConsole');
-         logger.error('Domain deleted, but Search Console cleanup failed', error instanceof Error ? error : new Error(String(error)), { domain });
-      }
-      if (cleanupFailures.length > 0) {
-         pendingDeletionCleanup.set(domain, keywordIdsToRemove);
-      } else {
-         pendingDeletionCleanup.delete(domain);
-      }
-      return res.status(200).json({
-         domainRemoved: removedDomCount,
-         keywordsRemoved: removedKeywordCount,
-         SCDataRemoved,
-         cleanup: { complete: cleanupFailures.length === 0, failed: cleanupFailures, retryPending: cleanupFailures.length > 0 },
+   try {
+      const normalizedDomain = domain.trim().toLowerCase();
+      const taskId = `delete-domain-${normalizedDomain}-${Date.now()}`;
+      let responsePayload: {
+        status: number;
+        body: unknown;
+      } | null = null;
+
+      await new Promise<void>((resolve, reject) => {
+         refreshQueue.enqueue(
+            taskId,
+            async () => {
+               try {
+                  const pendingCleanupMap = await readPendingCleanupMap();
+                  const pendingKeywordIds = pendingCleanupMap.get(normalizedDomain);
+                  const domainToRemove = await Domain.findOne({ where: { domain: normalizedDomain }, attributes: ['ID'] });
+                  if (!domainToRemove && !pendingKeywordIds) {
+                     responsePayload = { status: 404, body: errorResponse('NOT_FOUND', 'Domain not found', requestId) };
+                     resolve();
+                     return;
+                  }
+
+                  const keywordsToRemove = domainToRemove
+                     ? await Keyword.findAll({ where: { domain: normalizedDomain }, attributes: ['ID'] })
+                     : [];
+                  const keywordIdsToRemove = new Set<number>(keywordsToRemove.map((keyword) => keyword.ID).filter((id): id is number => Number.isFinite(id)));
+                  pendingKeywordIds?.forEach((id) => keywordIdsToRemove.add(id));
+
+                  let removedKeywordCount = 0;
+                  let removedDomCount = 0;
+                  if (domainToRemove) {
+                     await db.transaction(async (transaction) => {
+                        removedKeywordCount = await Keyword.destroy({ where: { domain: normalizedDomain }, transaction });
+                        removedDomCount = await Domain.destroy({ where: { domain: normalizedDomain }, transaction });
+                        if (removedDomCount !== 1) {
+                           throw new Error('Domain disappeared during deletion transaction.');
+                        }
+                     });
+                  }
+
+                  const cleanupFailures: string[] = [];
+                  if (keywordIdsToRemove.size > 0) {
+                     try {
+                        await retryQueueManager.removeBatch(keywordIdsToRemove);
+                     } catch (error) {
+                        cleanupFailures.push('retryQueue');
+                        logger.error('Domain deleted, but retry queue cleanup failed', error instanceof Error ? error : new Error(String(error)), { domain: normalizedDomain });
+                     }
+                  }
+
+                  let SCDataRemoved = false;
+                  try {
+                     SCDataRemoved = await removeLocalSCData(normalizedDomain);
+                     if (!SCDataRemoved) {
+                        cleanupFailures.push('searchConsole');
+                        logger.warn('Domain deleted, but Search Console cleanup did not complete', { domain: normalizedDomain });
+                     }
+                  } catch (error) {
+                     cleanupFailures.push('searchConsole');
+                     logger.error('Domain deleted, but Search Console cleanup failed', error instanceof Error ? error : new Error(String(error)), { domain: normalizedDomain });
+                  }
+
+                  if (cleanupFailures.length > 0) {
+                     pendingCleanupMap.set(normalizedDomain, keywordIdsToRemove);
+                  } else {
+                     pendingCleanupMap.delete(normalizedDomain);
+                  }
+                  await persistPendingCleanupMap(pendingCleanupMap);
+
+                  responsePayload = {
+                     status: 200,
+                     body: {
+                        domainRemoved: removedDomCount,
+                        keywordsRemoved: removedKeywordCount,
+                        SCDataRemoved,
+                        cleanup: { complete: cleanupFailures.length === 0, failed: cleanupFailures, retryPending: cleanupFailures.length > 0 },
+                     },
+                  };
+                  resolve();
+               } catch (error) {
+                  reject(error);
+               }
+            },
+            [normalizedDomain],
+         ).catch(reject);
       });
+
+      if (!responsePayload) {
+         return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error Deleting Domain.', requestId));
+      }
+      return res.status(responsePayload.status).json(responsePayload.body);
    } catch (error) {
       logger.error(`Error deleting domain: ${req.query.domain}`, error instanceof Error ? error : new Error(String(error)));
       return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error Deleting Domain.', requestId, error instanceof Error ? error.message : String(error)));

@@ -299,6 +299,7 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
       // Queue the SERP Scraping Process through refreshQueue to manage concurrency
       const settings = await getAppSettings();
       const domainName = keywordsParsed[0]?.domain;
+      const taskDomains = Array.from(new Set(keywordsParsed.map((keyword) => keyword.domain?.trim().toLowerCase()).filter(Boolean)));
       if (domainName) {
          // Generate unique task ID using crypto to prevent collisions in concurrent scenarios
          const uniqueId = crypto.randomUUID();
@@ -311,7 +312,7 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
                   logger.error('Failed to refresh keywords after adding', error instanceof Error ? error : new Error(String(error)));
                }
             },
-            [domainName]
+            taskDomains
          );
       } else {
          // Fallback: if no domain, just call it directly

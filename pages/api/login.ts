@@ -3,7 +3,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import jwt from 'jsonwebtoken';
 import Cookies from 'cookies';
-import { createHash, timingSafeEqual } from 'crypto';
+import { timingSafeEqual } from 'crypto';
 import { logger } from '../../utils/logger';
 import isRequestSecure from '../../utils/api/isRequestSecure';
 import { withApiLogging } from '../../utils/apiLogging';
@@ -77,9 +77,18 @@ const loginUser = async (req: NextApiRequest, res: NextApiResponse, startTime: n
    let isPasswordValid = false;
    
    try {
-      const digest = (value: string) => createHash('sha256').update(value, 'utf8').digest();
-      isUsernameValid = timingSafeEqual(digest(userName), digest(username));
-      isPasswordValid = timingSafeEqual(digest(process.env.PASSWORD), digest(password));
+      const safeCompare = (left: string, right: string): boolean => {
+         const leftBuffer = Buffer.from(left, 'utf8');
+         const rightBuffer = Buffer.from(right, 'utf8');
+         const comparisonLength = Math.max(leftBuffer.length, rightBuffer.length, 1);
+         const paddedLeft = Buffer.alloc(comparisonLength);
+         const paddedRight = Buffer.alloc(comparisonLength);
+         leftBuffer.copy(paddedLeft);
+         rightBuffer.copy(paddedRight);
+         return timingSafeEqual(paddedLeft, paddedRight) && leftBuffer.length === rightBuffer.length;
+      };
+      isUsernameValid = safeCompare(userName, username);
+      isPasswordValid = safeCompare(process.env.PASSWORD, password);
    } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       logger.error(
