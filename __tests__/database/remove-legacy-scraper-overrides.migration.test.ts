@@ -1,5 +1,7 @@
 /** @jest-environment node */
 
+export {};
+
 jest.mock('../../database/migrationLogger', () => ({
   logger: {
     info: jest.fn(),

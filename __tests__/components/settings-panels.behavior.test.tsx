@@ -82,6 +82,9 @@ describe('Settings scraper reload behaviour', () => {
       const scraperOption = await screen.findByText('SerpApi');
       fireEvent.click(scraperOption);
 
+      const apiKeyInput = await screen.findByPlaceholderText('API Key/Token');
+      fireEvent.change(apiKeyInput, { target: { value: 'serpapi-key' } });
+
       const updateButton = container.querySelector('button.bg-blue-700') as HTMLElement | null;
       if (!updateButton) {
         throw new Error('Could not locate update button');

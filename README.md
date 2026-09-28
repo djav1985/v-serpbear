@@ -98,7 +98,7 @@ The default compose stack uses a named Docker volume (`data`) mounted at `/app/d
 5. Start the development server via `npm run dev` or build and serve production assets with `npm run build && npm run start`.
 
 > [!NOTE]
-> Node.js 18 is no longer supported because core dependencies—such as `better-sqlite3`, `happy-dom`, and `cheerio`—now require Node.js 20+ runtime features.
+> Node.js 18 is no longer supported because core dependencies—such as `better-sqlite3` and `happy-dom`—now require Node.js 20+ runtime features.
 
 ### Database & migrations
 

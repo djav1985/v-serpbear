@@ -21,8 +21,8 @@ describe('searchapi scraper', () => {
     expect(parsed.origin).toBe('https://www.searchapi.io');
     expect(parsed.pathname).toBe('/api/v1/search');
     expect(parsed.searchParams.get('engine')).toBe('google');
-    expect(parsed.searchParams.get('q')).toBe('coffee shops');
-    expect(parsed.searchParams.get('location')).toBe('Austin,TX,United States');
+    expect(parsed.searchParams.get('q')).toBe('coffee+shops');
+    expect(parsed.searchParams.get('location')).toBe('Austin,TX,United+States');
     expect(parsed.searchParams.get('device')).toBe('mobile');
     expect(parsed.searchParams.get('api_key')).toBe('searchapi-key');
   });
