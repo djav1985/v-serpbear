@@ -377,6 +377,13 @@ export const scrapeKeywordWithStrategy = async (
       }
       prevPageNum = pageNum;
 
+      // Each page already retried internally (scrapeSinglePage); a real SERP page almost
+      // never returns zero organic results, so an empty page means the request failed —
+      // stop here instead of compounding delays across the remaining pages.
+      if (results.length === 0) {
+         break;
+      }
+
       // For the custom strategy, stop scraping as soon as the keyword is found.
       if (strategy === 'custom' && getSerp(keyword.domain, allScrapedResults).position > 0) {
          break;
@@ -394,14 +401,16 @@ export const scrapeKeywordWithStrategy = async (
          for (const pageNum of remainingPages) {
             const pagination: ScraperPagination = { start: (pageNum - 1) * PAGE_SIZE, num: PAGE_SIZE, page: pageNum };
             const { results, mapPackTop3, localResults } = await scrapeSinglePage(keyword, settings, scraperObj, pagination);
-            if (results.length > 0) {
-               // Fallback pages use page-number-based offsets (best estimate for gaps).
-               allScrapedResults.push(...results.map((r) => ({ ...r, position: (pageNum - 1) * PAGE_SIZE + r.position })));
-               if (pageNum === 1 && !page1Scraped) {
-                  page1MapPackTop3 = mapPackTop3;
-                  page1LocalResults = localResults;
-                  page1Scraped = true;
-               }
+            if (results.length === 0) {
+               // Empty page after internal retries means the request failed; stop the fallback scan.
+               break;
+            }
+            // Fallback pages use page-number-based offsets (best estimate for gaps).
+            allScrapedResults.push(...results.map((r) => ({ ...r, position: (pageNum - 1) * PAGE_SIZE + r.position })));
+            if (pageNum === 1 && !page1Scraped) {
+               page1MapPackTop3 = mapPackTop3;
+               page1LocalResults = localResults;
+               page1Scraped = true;
             }
          }
       }

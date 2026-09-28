@@ -103,8 +103,8 @@ describe('valueSerp scraper', () => {
     expect(parsed.searchParams.get('google_domain')).toBe('google.co.uk');
   });
 
-  it('has a timeout override of 35 seconds to handle longer response times', () => {
-    expect(valueSerp.timeoutMs).toBe(35000);
+  it('has a timeout override to fail fast on hung requests', () => {
+    expect(valueSerp.timeoutMs).toBe(20000);
   });
 
   it('omits location parameter when only country is provided (no city or state)', () => {
