@@ -25,7 +25,7 @@ const valueSerp: ScraperSettings = {
   name: "Value Serp",
   website: "valueserp.com",
   allowsCity: true,
-  timeoutMs: 120000, // ValueSerp responses often take longer, allow 120 seconds
+  timeoutMs: 20000, // 20s — fail fast; long hangs are usually a broken connection, not a slow response
   scrapeURL: (
     keyword: KeywordType,
     settings: SettingsType,
