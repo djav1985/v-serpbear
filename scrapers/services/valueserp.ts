@@ -25,7 +25,7 @@ const valueSerp: ScraperSettings = {
   name: "Value Serp",
   website: "valueserp.com",
   allowsCity: true,
-  timeoutMs: 35000, // ValueSerp responses often take longer, allow 35 seconds
+  timeoutMs: 120000, // ValueSerp responses often take longer, allow 120 seconds
   scrapeURL: (
     keyword: KeywordType,
     settings: SettingsType,

@@ -4,11 +4,19 @@
 
 import { initializeDatabase, isDatabaseInitialized, resetDatabaseInitialization, ensureDatabase } from '../../database/init';
 import db from '../../database/database';
+import Keyword from '../../database/models/keyword';
 
 jest.mock('../../database/database', () => ({
    __esModule: true,
    default: {
       sync: jest.fn(),
+   },
+}));
+
+jest.mock('../../database/models/keyword', () => ({
+   __esModule: true,
+   default: {
+      update: jest.fn(),
    },
 }));
 
@@ -23,6 +31,7 @@ describe('Database Initialization', () => {
    beforeEach(() => {
       jest.clearAllMocks();
       resetDatabaseInitialization();
+      (Keyword.update as jest.Mock).mockResolvedValue([0]);
    });
 
    it('should initialize database on first call', async () => {
@@ -31,6 +40,27 @@ describe('Database Initialization', () => {
       await initializeDatabase();
 
       expect(db.sync).toHaveBeenCalledTimes(1);
+      expect(isDatabaseInitialized()).toBe(true);
+   });
+
+   it('should reset stale keyword updating flags on startup', async () => {
+      (db.sync as jest.Mock).mockResolvedValue(undefined);
+      (Keyword.update as jest.Mock).mockResolvedValue([2]);
+
+      await initializeDatabase();
+
+      expect(Keyword.update).toHaveBeenCalledWith(
+         { updating: 0, updatingStartedAt: null },
+         { where: { updating: 1 } },
+      );
+   });
+
+   it('should still initialize successfully if clearing stale flags fails', async () => {
+      (db.sync as jest.Mock).mockResolvedValue(undefined);
+      (Keyword.update as jest.Mock).mockRejectedValue(new Error('locked'));
+
+      await initializeDatabase();
+
       expect(isDatabaseInitialized()).toBe(true);
    });
 

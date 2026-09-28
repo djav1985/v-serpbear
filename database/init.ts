@@ -5,10 +5,29 @@
  */
 
 import db from './database';
+import Keyword from './models/keyword';
 import { logger } from '../utils/logger';
 
 let dbInitialized = false;
 let dbInitPromise: Promise<void> | null = null;
+
+/**
+ * Clears any keyword `updating` flags left set from a previous process (e.g. container
+ * restart/crash mid-scrape), otherwise the UI shows stuck loading spinners forever.
+ */
+async function resetStaleUpdatingFlags(): Promise<void> {
+   try {
+      const [affectedCount] = await Keyword.update(
+         { updating: 0, updatingStartedAt: null },
+         { where: { updating: 1 } },
+      );
+      if (affectedCount > 0) {
+         logger.info('Reset stale keyword updating flags on startup', { count: affectedCount });
+      }
+   } catch (error) {
+      logger.error('Failed to reset stale keyword updating flags on startup', error instanceof Error ? error : new Error(String(error)));
+   }
+}
 
 /**
  * Initialize the database connection and sync models
@@ -28,6 +47,7 @@ export async function initializeDatabase(): Promise<void> {
       try {
          logger.info('Initializing database...');
          await db.sync();
+         await resetStaleUpdatingFlags();
          dbInitialized = true;
          logger.info('Database initialized successfully');
       } catch (error) {

@@ -190,7 +190,7 @@ const scrapeSinglePage = async (
    settings: SettingsType,
    scraperObj: ScraperSettings | undefined,
    pagination: ScraperPagination,
-   maxRetries: number = 3,
+   maxRetries: number = 1,
 ): Promise<PageScrapeResult> => {
    const scraperType = settings?.scraper_type || '';
    const empty: PageScrapeResult = { results: [], mapPackTop3: false, localResults: [] };
@@ -430,7 +430,7 @@ export const scrapeKeywordWithStrategy = async (
  * @param {number} maxRetries - Maximum number of retry attempts
  * @returns {Promise<RefreshResult>}
  */
-export const scrapeKeywordFromGoogle = async (keyword:KeywordType, settings:SettingsType, maxRetries: number = 3) : Promise<RefreshResult> => {
+export const scrapeKeywordFromGoogle = async (keyword:KeywordType, settings:SettingsType, maxRetries: number = 1) : Promise<RefreshResult> => {
    let refreshedResults:RefreshResult = {
       ID: keyword.ID,
       keyword: keyword.keyword,

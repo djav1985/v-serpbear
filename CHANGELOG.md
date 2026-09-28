@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file. Releases no
 
 ## [Unreleased]
 
+### Bug Fixes
+- Startup now clears any keyword `updating` flags left set by a previous process (e.g. a container restart mid-scrape), so the UI no longer shows stuck loading spinners after a restart.
+
+### Performance
+- Reduced per-request scrape retry attempts from 3 to 1 so failing keywords fall through to the hourly failed-queue retry faster instead of blocking on repeated in-request retries.
+
+### Configuration
+- Increased the ValueSerp scraper timeout from 35 to 120 seconds to reduce aborted requests on slow API responses.
+
 # [4.0.0](https://github.com/djav1985/v-serpbear/compare/v3.0.0...v4.0.0) (2026-01-27)
 
 ### Features

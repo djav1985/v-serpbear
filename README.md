@@ -27,6 +27,8 @@ Not every scraper provider is validated on every release—please report any iss
 > **9. Transparent SERP result coverage:** The keyword details panel now shows exactly which pages were scraped and which were skipped. Skipped page ranges appear as clearly labelled placeholder blocks between real results, and the "not found" badge adapts to reflect the actual number of results checked rather than always displaying "No Results".
 >
 > **10. Dynamic scraping strategy:** A flexible 3-tier system lets you control how many pages are checked per keyword at both the global and per-domain level. **Basic** (default) scrapes only the first page; **Custom** scrapes a fixed number of pages (1–10); **Smart** targets the page where the keyword was last seen ± one neighbour, with an optional full-10-page fallback. This directly addresses Google's removal of `num=100` support so keywords beyond position 10 are no longer always reported as "No Results".
+>
+> **11. Resilient restarts:** Any keyword left in a stuck "updating" state by a crash or container restart mid-scrape is automatically reset on the next startup, so the UI never shows permanently stuck loading spinners.
 > 
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/7e7a0030c3f84c6fb56a3ce6273fbc1d)](https://app.codacy.com/gh/djav1985/v-serpbear/dashboard) ![License](https://img.shields.io/github/license/djav1985/v-serpbear) ![Version](https://img.shields.io/github/package-json/v/djav1985/v-serpbear) ![Docker pulls](https://img.shields.io/docker/pulls/vontainment/v-serpbear)
 
