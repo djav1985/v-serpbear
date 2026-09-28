@@ -25,7 +25,7 @@ type IntegrationResultOptions = {
 const OAUTH_STATE_COOKIE = 'adwords_oauth_state';
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 
-const getTrustedOrigin = (req: NextApiRequest) => {
+const getTrustedOrigin = (_req: NextApiRequest) => {
    const configuredOrigin = normalizeOrigin(process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || '');
    if (configuredOrigin) {
       return configuredOrigin;

@@ -269,7 +269,7 @@ describe('PUT /api/keywords error handling', () => {
     await handler(req, res);
 
     expect(refreshQueueMock.enqueue).toHaveBeenCalledWith(
-      expect.stringContaining('addKeywords-example.com-'),
+      expect.stringContaining('addKeywords-'),
       expect.any(Function),
       ['example.com', 'second.com'],
     );

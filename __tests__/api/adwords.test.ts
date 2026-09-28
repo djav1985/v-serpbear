@@ -1,4 +1,4 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
+import type { NextApiResponse } from 'next';
 import { OAuth2Client } from 'google-auth-library';
 import { readFile } from 'fs/promises';
 import handler from '../../pages/api/adwords';
