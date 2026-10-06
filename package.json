@@ -31,7 +31,7 @@
     "google-auth-library": "^10.6.2",
     "jsonwebtoken": "^9.0.3",
     "next": "^16.4.0",
-    "nodemailer": "8.0.8",
+    "nodemailer": "10.0.9",
     "proper-lockfile": "^4.1.2",
     "react": "18.3.1",
     "react-chartjs-2": "^4.3.1",
@@ -83,17 +83,17 @@
     "resize-observer-polyfill": "^1.5.1",
     "stylelint": "^16.26.1",
     "stylelint-config-standard": "^39.0.1",
-    "tailwindcss": "^3.4.19",
+    "tailwindcss": "^4.3.3",
     "typescript": "^4.9.5",
     "undici": "^7.24.0",
-    "uuid": "^11.1.0"
+    "uuid": "^14.0.0"
   },
   "optionalDependencies": {
     "pg-hstore": "^2.3.4"
   },
   "overrides": {
     "follow-redirects": "^1.16.0",
-    "qs": "^6.15.2",
+    "qs": "^6.16.0",
     "lodash": "^4.18.1",
     "undici": "^7.24.0",
     "flatted": "3.4.2",
