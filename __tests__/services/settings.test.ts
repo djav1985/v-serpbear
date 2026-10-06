@@ -1,6 +1,7 @@
 import { renderHook, act } from '@testing-library/react';
-import { useSendNotifications } from '../../services/settings';
-import { createWrapper } from '../../__mocks__/utils';
+import { useRetryFailedQueue, useSendNotifications } from '../../services/settings';
+import React from 'react';
+import { QueryClient, QueryClientProvider } from 'react-query';
 import toast from 'react-hot-toast';
 
 // Mock react-hot-toast
@@ -10,6 +11,56 @@ const toastMock = toast as jest.MockedFunction<typeof toast>;
 // Mock fetch
 global.fetch = jest.fn();
 const fetchMock = fetch as jest.MockedFunction<typeof fetch>;
+
+const createWrapper = () => {
+   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+   return ({ children }: { children: React.ReactNode }) => React.createElement(
+      QueryClientProvider,
+      { client: queryClient },
+      children,
+   );
+};
+
+describe('useRetryFailedQueue', () => {
+   beforeEach(() => {
+      jest.clearAllMocks();
+   });
+
+   it('stays pending until every targeted keyword stops updating', async () => {
+      const response = (body: unknown) => ({
+         ok: true,
+         status: 200,
+         headers: { get: jest.fn().mockReturnValue(null) },
+         json: jest.fn().mockResolvedValue(body),
+      } as any);
+      fetchMock
+         .mockResolvedValueOnce(response({ message: 'Refresh started' }))
+         .mockResolvedValueOnce(response({ keywords: [{ ID: 11, updating: true }, { ID: 12, updating: false }] }))
+         .mockResolvedValueOnce(response({ keywords: [{ ID: 11, updating: false }] }));
+
+      const wrapper = createWrapper();
+      const { result } = renderHook(() => useRetryFailedQueue(), { wrapper });
+      let retryPromise!: Promise<void>;
+
+      await act(async () => {
+         retryPromise = result.current.mutateAsync([11, 12]);
+      });
+
+      await act(async () => {
+         await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+      expect(result.current.isLoading).toBe(true);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+
+      await act(async () => {
+         await retryPromise;
+      });
+
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(result.current.isLoading).toBe(false);
+      expect(toastMock).toHaveBeenCalledWith('Failed keyword retries completed', { icon: '✔️' });
+   });
+});
 
 describe('useSendNotifications success message extraction', () => {
    beforeEach(() => {

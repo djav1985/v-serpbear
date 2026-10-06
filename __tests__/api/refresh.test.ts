@@ -83,6 +83,8 @@ describe('/api/refresh', () => {
 
   beforeEach(() => {
     jest.useFakeTimers().setSystemTime(new Date('2024-06-01T12:00:00.000Z'));
+    req.method = 'POST';
+    req.query = {};
     res = {
       status: jest.fn().mockReturnThis(),
       json: jest.fn(),
@@ -92,6 +94,28 @@ describe('/api/refresh', () => {
     (verifyUser as jest.Mock).mockReturnValue('authorized');
     (getAppSettings as jest.Mock).mockResolvedValue({ scraper_type: 'serpapi' });
     (refreshAndUpdateKeywords as jest.Mock).mockResolvedValue([]);
+  });
+
+  it('returns updating state for retry keyword IDs', async () => {
+    req.method = 'GET';
+    req.query = { status: 'retry', id: '11,12' };
+    (Keyword.findAll as jest.Mock).mockResolvedValue([
+      { get: () => ({ ID: 11, updating: 1 }) },
+      { get: () => ({ ID: 12, updating: 0 }) },
+    ]);
+
+    await handler(req, res);
+
+    expect(Keyword.findAll).toHaveBeenCalledWith(expect.objectContaining({
+      attributes: ['ID', 'updating'],
+    }));
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      keywords: [
+        { ID: 11, updating: true },
+        { ID: 12, updating: false },
+      ],
+    });
   });
 
   it('rejects requests with no valid keyword IDs', async () => {

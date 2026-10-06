@@ -47,11 +47,23 @@ export function useClearFailedQueue(onSuccess: () => void) {
 
 export function useRetryFailedQueue() {
    const queryClient = useQueryClient();
-   return useMutation(async (keywordIDs: number[]) => (
-      apiPost(`/api/refresh?id=${keywordIDs.join(',')}`, {})
-   ), {
+   return useMutation(async (keywordIDs: number[]) => {
+      const ids = keywordIDs.join(',');
+      await apiPost(`/api/refresh?id=${ids}`, {});
+
+      let pendingKeywordIDs = keywordIDs;
+      while (pendingKeywordIDs.length > 0) {
+         const status = await apiGet<{ keywords: Array<{ ID: number; updating: boolean }> }>(
+            `/api/refresh?status=retry&id=${pendingKeywordIDs.join(',')}`,
+         );
+         pendingKeywordIDs = status.keywords.filter((keyword) => keyword.updating).map((keyword) => keyword.ID);
+         if (pendingKeywordIDs.length > 0) {
+            await new Promise<void>((resolve) => setTimeout(resolve, 1000));
+         }
+      }
+   }, {
       onSuccess: async () => {
-         toast('Failed keyword retries started', { icon: '✔️' });
+         toast('Failed keyword retries completed', { icon: '✔️' });
          queryClient.invalidateQueries(['settings']);
       },
       onError: (error) => {

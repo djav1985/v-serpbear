@@ -12,6 +12,7 @@ import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
 import { refreshQueue } from '../../utils/refreshQueue';
 import { errorResponse } from '../../utils/api/response';
+import { fromDbBool } from '../../utils/dbBooleans';
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
    const requestId = (req as ExtendedRequest).requestId;
@@ -20,6 +21,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(401).json(errorResponse('UNAUTHORIZED', authorized, requestId));
    }
    if (req.method === 'GET') {
+      if (req.query.status === 'retry') {
+         return getRetryStatus(req, res);
+      }
       return getKeywordSearchResults(req, res);
    }
    if (req.method === 'POST') {
@@ -27,6 +31,37 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
    }
    return res.status(405).json(errorResponse('METHOD_NOT_ALLOWED', 'Method not allowed', requestId));
 }
+
+const getRetryStatus = async (req: NextApiRequest, res: NextApiResponse) => {
+   const requestId = (req as ExtendedRequest).requestId;
+   if (!req.query.id || typeof req.query.id !== 'string') {
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'keyword ID is Required!', requestId));
+   }
+
+   const keywordIDs = Array.from(new Set(req.query.id.split(',')
+      .map((item) => Number.parseInt(item, 10))
+      .filter((id) => Number.isInteger(id) && id > 0)));
+   if (keywordIDs.length === 0) {
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'No valid keyword IDs provided', requestId));
+   }
+
+   try {
+      const keywords = await Keyword.findAll({
+         where: { ID: { [Op.in]: keywordIDs } },
+         attributes: ['ID', 'updating'],
+      });
+      return res.status(200).json({
+         keywords: keywords.map((keyword) => {
+            const plainKeyword = keyword.get({ plain: true });
+            return { ID: plainKeyword.ID, updating: fromDbBool(plainKeyword.updating) };
+         }),
+      });
+   } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error reading retry status', error instanceof Error ? error : new Error(message));
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Failed to read retry status', requestId, message));
+   }
+};
 
 const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
