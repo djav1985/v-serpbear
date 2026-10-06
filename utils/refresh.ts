@@ -397,10 +397,11 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
             const domainResults = await Promise.allSettled(
                Array.from(keywordsByDomain.entries()).map(async ([domain, domainKeywords]) => {
                   const phaseKeywords = domainKeywords.filter((keyword) => normalizeDevice(keyword.device) === device);
+                  let nextKeywordIndex = 0;
 
-                  for (let index = 0; index < phaseKeywords.length; index += parallelScrapeConcurrency) {
-                     const batch = phaseKeywords.slice(index, index + parallelScrapeConcurrency);
-                     const batchResults = await Promise.allSettled(batch.map(async (keyword) => {
+                  const processNextKeyword = async () => {
+                     while (nextKeywordIndex < phaseKeywords.length) {
+                        const keyword = phaseKeywords[nextKeywordIndex++];
                         const keywordPlain = keyword.get({ plain: true });
                         logger.info('Processing keyword refresh', { keywordId: keywordPlain.ID, keyword: keywordPlain.keyword });
                         const keywordKey = generateKeywordCacheKey(keywordPlain);
@@ -416,29 +417,26 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                            domainStrategy,
                         );
 
-                        return { keywordKey, updatedKeyword };
-                     }));
-
-                     const rejectedBatchResult = batchResults.find(
-                        (result): result is PromiseRejectedResult => result.status === 'rejected',
-                     );
-                     if (rejectedBatchResult) {
-                        throw rejectedBatchResult.reason;
-                     }
-
-                     for (const result of batchResults) {
-                        if (result.status !== 'fulfilled') {
-                           continue;
+                        updatedKeywords.push(updatedKeyword);
+                        if (device === DEVICE_DESKTOP && updatedKeyword.mapPackTop3 !== undefined) {
+                           desktopMapPackCache.set(keywordKey, toDbBool(updatedKeyword.mapPackTop3));
                         }
-                        updatedKeywords.push(result.value.updatedKeyword);
-                        if (device === DEVICE_DESKTOP && result.value.updatedKeyword.mapPackTop3 !== undefined) {
-                           desktopMapPackCache.set(result.value.keywordKey, toDbBool(result.value.updatedKeyword.mapPackTop3));
+
+                        if (batchDelay > 0 && nextKeywordIndex < phaseKeywords.length) {
+                           await sleep(batchDelay);
                         }
                      }
+                  };
 
-                     if (batchDelay > 0 && index + batch.length < phaseKeywords.length) {
-                        await sleep(batchDelay);
-                     }
+                  const workerCount = Math.min(parallelScrapeConcurrency, phaseKeywords.length);
+                  const workerResults = await Promise.allSettled(
+                     Array.from({ length: workerCount }, () => processNextKeyword()),
+                  );
+                  const rejectedWorkerResult = workerResults.find(
+                     (result): result is PromiseRejectedResult => result.status === 'rejected',
+                  );
+                  if (rejectedWorkerResult) {
+                     throw rejectedWorkerResult.reason;
                   }
                }),
             );

@@ -98,9 +98,14 @@ describe('refreshAndUpdateKeywords', () => {
     const activeByDomain = new Map<string, number>();
     const peakByDomain = new Map<string, number>();
     const completedIds = new Set<number>();
-    const desktopBatchChecks: boolean[] = [];
+    const desktopQueueRefillChecks: boolean[] = [];
     const mobileBarrierChecks: boolean[] = [];
     const mobileFallbackValues: unknown[] = [];
+    const slowDesktopReleases: Array<() => void> = [];
+    const refillSignals = new Map<string, () => void>();
+    const refillPromises = domains.map((domain) => new Promise<void>((resolve) => {
+      refillSignals.set(domain, resolve);
+    }));
     let activeTotal = 0;
     let peakTotal = 0;
 
@@ -112,8 +117,14 @@ describe('refreshAndUpdateKeywords', () => {
         mobileBarrierChecks.push(Array.from(desktopIdsByDomain.values()).flat().every((id) => completedIds.has(id)));
         mobileFallbackValues.push(effectiveSettings.fallback_mapPackTop3);
       } else if (keywordId % 100 === 4) {
-        const earlierDesktopIds = desktopIdsByDomain.get(domain)?.filter((id) => id < keywordId) || [];
-        desktopBatchChecks.push(earlierDesktopIds.every((id) => completedIds.has(id)));
+        const firstDesktopId = desktopIdsByDomain.get(domain)?.[0];
+        const laterDesktopIds = desktopIdsByDomain.get(domain)?.slice(1, 3) || [];
+        desktopQueueRefillChecks.push(
+          laterDesktopIds.every((id) => completedIds.has(id))
+            && firstDesktopId !== undefined
+            && !completedIds.has(firstDesktopId),
+        );
+        refillSignals.get(domain)?.();
       }
 
       const activeForDomain = (activeByDomain.get(domain) || 0) + 1;
@@ -121,7 +132,11 @@ describe('refreshAndUpdateKeywords', () => {
       peakByDomain.set(domain, Math.max(peakByDomain.get(domain) || 0, activeForDomain));
       activeTotal += 1;
       peakTotal = Math.max(peakTotal, activeTotal);
-      await Promise.resolve();
+      if (device === 'desktop' && keywordId % 100 === 1) {
+        await new Promise<void>((resolve) => slowDesktopReleases.push(resolve));
+      } else {
+        await Promise.resolve();
+      }
       activeByDomain.set(domain, activeByDomain.get(domain)! - 1);
       activeTotal -= 1;
       completedIds.add(keywordId);
@@ -135,13 +150,28 @@ describe('refreshAndUpdateKeywords', () => {
       } as unknown as RefreshResult;
     });
 
-    try {
-      await refreshAndUpdateKeywords(keywords, {
+    const refreshPromise = refreshAndUpdateKeywords(keywords, {
         scraper_type: 'valueserp',
         scrape_retry: false,
         scrape_delay: '0',
       } as SettingsType);
+
+    try {
+      const refillStarted = await new Promise<boolean>((resolve) => {
+        const timeout = setTimeout(() => resolve(false), 1000);
+        Promise.all(refillPromises).then(() => {
+          clearTimeout(timeout);
+          resolve(true);
+        });
+      });
+
+      expect(refillStarted).toBe(true);
+      expect(slowDesktopReleases).toHaveLength(2);
+      await Promise.all(slowDesktopReleases.map((release) => release()));
+      await refreshPromise;
     } finally {
+      slowDesktopReleases.forEach((release) => release());
+      await refreshPromise.catch(() => undefined);
       if (previousConcurrency === undefined) {
         delete process.env.PARALLEL_SCRAPE_CONCURRENCY;
       } else {
@@ -151,7 +181,7 @@ describe('refreshAndUpdateKeywords', () => {
 
     expect(Array.from(peakByDomain.values())).toEqual([3, 3]);
     expect(peakTotal).toBe(6);
-    expect(desktopBatchChecks).toEqual([true, true]);
+    expect(desktopQueueRefillChecks).toEqual([true, true]);
     expect(mobileBarrierChecks).toEqual([true, true]);
     expect(mobileFallbackValues).toEqual([1, 1]);
   });
