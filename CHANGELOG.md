@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file. Releases no
 
 ## [Unreleased]
 
+### Features
+- Added a Settings action to immediately retry all keywords in the failed retry queue.
+- Added `PARALLEL_SCRAPE_CONCURRENCY` to control simultaneous keyword scrapes per domain for sequential scraper providers.
+
 ### Changed
 - Removed the deprecated SpaceSerp, ScrapingAnt, ScrapingRobot, and custom proxy scraper integrations along with the legacy raw Google HTML fallback path.
 - Legacy global scraper selections for removed providers now normalize to `none`, and stale per-domain overrides for removed providers are cleared during migration.

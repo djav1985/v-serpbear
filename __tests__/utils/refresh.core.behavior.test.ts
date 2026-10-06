@@ -41,6 +41,121 @@ describe('refreshAndUpdateKeywords', () => {
     process.env.SECRET = 'test-secret';
   });
 
+  it('limits sequential scraper concurrency per domain and completes desktop work before mobile', async () => {
+    const previousConcurrency = process.env.PARALLEL_SCRAPE_CONCURRENCY;
+    process.env.PARALLEL_SCRAPE_CONCURRENCY = '3';
+
+    const domains = ['first.example', 'second.example'];
+    (Domain.findAll as jest.Mock).mockResolvedValue(domains.map((domain) => ({
+      get: () => ({ domain, scrapeEnabled: 1 }),
+    })));
+
+    const keywords: Keyword[] = [];
+    const desktopIdsByDomain = new Map<string, number[]>();
+    domains.forEach((domain, domainIndex) => {
+      const firstId = (domainIndex + 1) * 100;
+      const desktopKeywords = Array.from({ length: 4 }, (_, index) => ({
+        id: firstId + index + 1,
+        keyword: `query-${index + 1}-${domain}`,
+        device: 'desktop',
+      }));
+      desktopIdsByDomain.set(domain, desktopKeywords.map((keyword) => keyword.id));
+      const domainKeywords = [
+        ...desktopKeywords,
+        { id: firstId + 5, keyword: desktopKeywords[0].keyword, device: 'mobile' },
+      ];
+
+      domainKeywords.forEach(({ id, keyword, device }) => {
+        const keywordPlain = {
+          ID: id,
+          keyword,
+          domain,
+          device,
+          country: 'US',
+          location: '',
+          position: 0,
+          volume: 0,
+          updating: 1,
+          sticky: 0,
+          history: '{}',
+          lastResult: '[]',
+          lastUpdateError: 'false',
+          lastUpdated: '2024-01-01T00:00:00.000Z',
+          added: '2024-01-01T00:00:00.000Z',
+          url: '',
+          tags: '[]',
+          mapPackTop3: false,
+        };
+        keywords.push({
+          ...keywordPlain,
+          get: jest.fn().mockReturnValue(keywordPlain),
+          set: jest.fn(),
+          update: jest.fn().mockResolvedValue(undefined),
+        } as unknown as Keyword);
+      });
+    });
+
+    const activeByDomain = new Map<string, number>();
+    const peakByDomain = new Map<string, number>();
+    const completedIds = new Set<number>();
+    const desktopBatchChecks: boolean[] = [];
+    const mobileBarrierChecks: boolean[] = [];
+    const mobileFallbackValues: unknown[] = [];
+    let activeTotal = 0;
+    let peakTotal = 0;
+
+    (scrapeKeywordWithStrategy as jest.Mock).mockImplementation(async (keyword, effectiveSettings) => {
+      const keywordId = keyword.ID as number;
+      const domain = keyword.domain as string;
+      const device = keyword.device as string;
+      if (device === 'mobile') {
+        mobileBarrierChecks.push(Array.from(desktopIdsByDomain.values()).flat().every((id) => completedIds.has(id)));
+        mobileFallbackValues.push(effectiveSettings.fallback_mapPackTop3);
+      } else if (keywordId % 100 === 4) {
+        const earlierDesktopIds = desktopIdsByDomain.get(domain)?.filter((id) => id < keywordId) || [];
+        desktopBatchChecks.push(earlierDesktopIds.every((id) => completedIds.has(id)));
+      }
+
+      const activeForDomain = (activeByDomain.get(domain) || 0) + 1;
+      activeByDomain.set(domain, activeForDomain);
+      peakByDomain.set(domain, Math.max(peakByDomain.get(domain) || 0, activeForDomain));
+      activeTotal += 1;
+      peakTotal = Math.max(peakTotal, activeTotal);
+      await Promise.resolve();
+      activeByDomain.set(domain, activeByDomain.get(domain)! - 1);
+      activeTotal -= 1;
+      completedIds.add(keywordId);
+
+      return {
+        ID: keywordId,
+        position: 1,
+        result: [],
+        mapPackTop3: device === 'desktop',
+        error: false,
+      } as unknown as RefreshResult;
+    });
+
+    try {
+      await refreshAndUpdateKeywords(keywords, {
+        scraper_type: 'valueserp',
+        scrape_retry: false,
+        scrape_delay: '0',
+      } as SettingsType);
+    } finally {
+      if (previousConcurrency === undefined) {
+        delete process.env.PARALLEL_SCRAPE_CONCURRENCY;
+      } else {
+        process.env.PARALLEL_SCRAPE_CONCURRENCY = previousConcurrency;
+      }
+    }
+
+    expect(Array.from(peakByDomain.values())).toEqual([3, 3]);
+    expect(peakTotal).toBe(6);
+    expect(desktopBatchChecks).toEqual([true, true]);
+    expect(mobileBarrierChecks).toEqual([true, true]);
+    expect(mobileFallbackValues).toEqual([1, 1]);
+  });
+
   it('forces updating reset when scrape fails before updateKeywordPosition', async () => {
     const mockKeywordModel = {
       ID: 101,

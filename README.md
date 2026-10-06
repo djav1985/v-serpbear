@@ -48,6 +48,7 @@ Not every scraper provider is validated on every release—please report any iss
 
 - **Unlimited domains & keywords:** Organise an unrestricted number of tracked keywords across multiple sites.
 - **Turn-key scraping integrations:** Connect a managed SERP data provider and run high-volume organic rank checks with built-in retries.
+- **Failed scrape controls:** Retry all failed keyword scrapes immediately or clear the failed retry queue from Settings.
 - **Keyword research & ideas:** Pull search volumes and suggested keywords straight from your Google Ads test account.
 - **Google Search Console enrichment:** Overlay verified impression and click data on keyword trends to see which rankings actually drive traffic.
 - **Scheduled notifications:** Deliver branded summaries of ranking changes, winners/losers, and visit counts to your inbox. Each digest now opens with a tracker summary—styled like the dashboard card—that highlights total tracked keywords, the rolling average position, and, when supported by your scraper, how many queries sit inside the local map pack before diving into Search Console charts. The summary still derives the averages from the live keyword data, but now prefers any persisted domain map-pack totals and only falls back to keyword counts when that stat is unavailable so missing aggregates no longer drop either figure to zero.
@@ -184,6 +185,7 @@ All cron expressions are normalised at runtime—quotes and stray whitespace are
 | `LOG_SUCCESS_EVENTS` | — | Optional | Reserved for future use; ignored in the current codebase. |
 | `NEXT_REMOVE_CONSOLE` | — | Optional | Not wired in `next.config.js`; currently has no effect. |
 | `REFRESH_QUEUE_CONCURRENCY` | `3` | Optional | Maximum number of domains that can be refreshed in parallel. The queue still prevents duplicate refreshes for the same domain. |
+| `PARALLEL_SCRAPE_CONCURRENCY` | `3` | Optional | Maximum simultaneous keyword scrapes per domain for sequential scraper providers. SerpApi and SearchApi keep their existing parallel behavior. |
 
 Set `ANALYZE=true` before running `next build` to generate a static bundle analysis report (`bundle-analyzer-report.html`) as configured in [`next.config.js`](./next.config.js).
 

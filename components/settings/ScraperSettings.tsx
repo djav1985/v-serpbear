@@ -1,6 +1,6 @@
 /// <reference path="../../types.d.ts" />
 
-import { useClearFailedQueue } from '../../services/settings';
+import { useClearFailedQueue, useRetryFailedQueue } from '../../services/settings';
 import Icon from '../common/Icon';
 import SelectField, { SelectionOption } from '../common/SelectField';
 import SecretField from '../common/SecretField';
@@ -17,6 +17,7 @@ type ScraperSettingsProps = {
 
 const ScraperSettings = ({ settings, settingsError, updateSettings }:ScraperSettingsProps) => {
    const { mutate: clearFailedMutate, isLoading: clearingQueue } = useClearFailedQueue(() => {});
+   const { mutate: retryFailedMutate, isLoading: retryingQueue } = useRetryFailedQueue();
 
    const scrapingOptions: SelectionOption[] = [
       { label: 'Daily', value: 'daily' },
@@ -180,6 +181,15 @@ const ScraperSettings = ({ settings, settingsError, updateSettings }:ScraperSett
                   className=' py-3 px-5 w-full rounded cursor-pointer bg-gray-100 text-gray-800
                   font-semibold text-sm hover:bg-gray-200'>
                      {clearingQueue && <Icon type="loading" size={14} />} Clear Failed Queue
+                       ({settings.failed_queue?.length || 0} Keywords)
+                  </button>
+                  <label className={`${labelStyle} mt-5`}>Retry Failed Keywords</label>
+                  <button
+                  onClick={() => retryFailedMutate(settings.failed_queue || [])}
+                  disabled={retryingQueue}
+                  className=' py-3 px-5 w-full rounded cursor-pointer bg-gray-100 text-gray-800
+                  font-semibold text-sm hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-60'>
+                     {retryingQueue && <Icon type="loading" size={14} />} Retry All Failed Now
                        ({settings.failed_queue?.length || 0} Keywords)
                   </button>
                </div>

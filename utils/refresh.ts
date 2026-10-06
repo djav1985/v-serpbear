@@ -88,6 +88,21 @@ const normalizeLocationForCache = (location?: string | null): string => {
 const normalizeDevice = (device?: string): 'desktop' | 'mobile' =>
    device === DEVICE_MOBILE ? DEVICE_MOBILE : DEVICE_DESKTOP;
 
+const getParallelScrapeConcurrency = (): number => {
+   const configuredConcurrency = process.env.PARALLEL_SCRAPE_CONCURRENCY;
+   if (configuredConcurrency === undefined) {
+      return 3;
+   }
+
+   const parsedConcurrency = Number(configuredConcurrency);
+   if (!Number.isInteger(parsedConcurrency) || parsedConcurrency < 1) {
+      logger.warn(`Invalid PARALLEL_SCRAPE_CONCURRENCY value "${configuredConcurrency}", using default: 3`);
+      return 3;
+   }
+
+   return parsedConcurrency;
+};
+
 /**
  * Generates a cache key for matching desktop and mobile keyword pairs.
  * The key is used to store and retrieve desktop mapPackTop3 values for mobile keywords.
@@ -365,34 +380,79 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
          // This cache allows scrapers like valueserp to use desktop mapPackTop3 for mobile when needed
          const desktopMapPackCache = new Map<string, number>();
 
+         const parallelScrapeConcurrency = getParallelScrapeConcurrency();
+         const keywordsByDomain = new Map<string, Keyword[]>();
          for (const keyword of sortedKeywords) {
-            const keywordPlain = keyword.get({ plain: true });
-            logger.info('Processing keyword refresh', { keywordId: keywordPlain.ID, keyword: keywordPlain.keyword });
-            const normalizedDevice = normalizeDevice(keywordPlain.device);
-            const keywordKey = generateKeywordCacheKey(keywordPlain);
-            
-            // If this is a mobile keyword, check if we have desktop mapPackTop3 cached
-            const fallbackMapPackTop3 = (normalizedDevice === DEVICE_MOBILE) 
-               ? desktopMapPackCache.get(keywordKey) 
-               : undefined;
-
-            const domainStrategy = domainStrategyMap.get(keywordPlain.domain);
-            const updatedkeyword = await refreshAndUpdateKeyword(keyword, settings, domainSpecificSettings, fallbackMapPackTop3, domainStrategy);
-            updatedKeywords.push(updatedkeyword);
-
-            // If this was a desktop keyword, cache its mapPackTop3
-            // Note: undefined/null device is treated as desktop for consistency
-            if (normalizedDevice === DEVICE_DESKTOP && updatedkeyword.mapPackTop3 !== undefined) {
-               desktopMapPackCache.set(keywordKey, toDbBool(updatedkeyword.mapPackTop3));
-            }
-
-            if (keywords.length > 0 && settings.scrape_delay && settings.scrape_delay !== '0') {
-               const delay = parseInt(settings.scrape_delay, 10);
-               if (!isNaN(delay) && delay > 0) {
-                  await sleep(Math.min(delay, 30000)); // Cap delay at 30 seconds for safety
-               }
-            }
+            const domainKeywords = keywordsByDomain.get(keyword.domain) || [];
+            domainKeywords.push(keyword);
+            keywordsByDomain.set(keyword.domain, domainKeywords);
          }
+
+         const configuredDelay = settings.scrape_delay ? parseInt(settings.scrape_delay, 10) : 0;
+         const batchDelay = Number.isFinite(configuredDelay) && configuredDelay > 0
+            ? Math.min(configuredDelay, 30000)
+            : 0;
+
+         const processDevicePhase = async (device: 'desktop' | 'mobile') => {
+            const domainResults = await Promise.allSettled(
+               Array.from(keywordsByDomain.entries()).map(async ([domain, domainKeywords]) => {
+                  const phaseKeywords = domainKeywords.filter((keyword) => normalizeDevice(keyword.device) === device);
+
+                  for (let index = 0; index < phaseKeywords.length; index += parallelScrapeConcurrency) {
+                     const batch = phaseKeywords.slice(index, index + parallelScrapeConcurrency);
+                     const batchResults = await Promise.allSettled(batch.map(async (keyword) => {
+                        const keywordPlain = keyword.get({ plain: true });
+                        logger.info('Processing keyword refresh', { keywordId: keywordPlain.ID, keyword: keywordPlain.keyword });
+                        const keywordKey = generateKeywordCacheKey(keywordPlain);
+                        const fallbackMapPackTop3 = device === DEVICE_MOBILE
+                           ? desktopMapPackCache.get(keywordKey)
+                           : undefined;
+                        const domainStrategy = domainStrategyMap.get(domain);
+                        const updatedKeyword = await refreshAndUpdateKeyword(
+                           keyword,
+                           settings,
+                           domainSpecificSettings,
+                           fallbackMapPackTop3,
+                           domainStrategy,
+                        );
+
+                        return { keywordKey, updatedKeyword };
+                     }));
+
+                     const rejectedBatchResult = batchResults.find(
+                        (result): result is PromiseRejectedResult => result.status === 'rejected',
+                     );
+                     if (rejectedBatchResult) {
+                        throw rejectedBatchResult.reason;
+                     }
+
+                     for (const result of batchResults) {
+                        if (result.status !== 'fulfilled') {
+                           continue;
+                        }
+                        updatedKeywords.push(result.value.updatedKeyword);
+                        if (device === DEVICE_DESKTOP && result.value.updatedKeyword.mapPackTop3 !== undefined) {
+                           desktopMapPackCache.set(result.value.keywordKey, toDbBool(result.value.updatedKeyword.mapPackTop3));
+                        }
+                     }
+
+                     if (batchDelay > 0 && index + batch.length < phaseKeywords.length) {
+                        await sleep(batchDelay);
+                     }
+                  }
+               }),
+            );
+
+            const rejectedDomainResult = domainResults.find(
+               (result): result is PromiseRejectedResult => result.status === 'rejected',
+            );
+            if (rejectedDomainResult) {
+               throw rejectedDomainResult.reason;
+            }
+         };
+
+         await processDevicePhase(DEVICE_DESKTOP);
+         await processDevicePhase(DEVICE_MOBILE);
       }
    } catch (error: any) {
       logger.error('[ERROR] Unexpected error during keyword refresh:', error);

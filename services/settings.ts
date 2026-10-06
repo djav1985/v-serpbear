@@ -45,6 +45,21 @@ export function useClearFailedQueue(onSuccess: () => void) {
    });
 }
 
+export function useRetryFailedQueue() {
+   const queryClient = useQueryClient();
+   return useMutation(async (keywordIDs: number[]) => (
+      apiPost(`/api/refresh?id=${keywordIDs.join(',')}`, {})
+   ), {
+      onSuccess: async () => {
+         toast('Failed keyword retries started', { icon: '✔️' });
+         queryClient.invalidateQueries(['settings']);
+      },
+      onError: (error) => {
+         toast((error as Error)?.message || 'Error Retrying Failed Keywords.', { icon: '⚠️' });
+      },
+   });
+}
+
 export const useSendNotifications = () => useMutation(async () => (
       apiPost<{ message?: string }>('/api/notify', {})
    ), {

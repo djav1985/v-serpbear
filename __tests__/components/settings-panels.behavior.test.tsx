@@ -31,7 +31,7 @@ const buildBrandingState = () => ({
 jest.mock('../../services/settings');
 
 describe('Settings scraper reload behaviour', () => {
-  const { useFetchSettings, useUpdateSettings, useClearFailedQueue } = require('../../services/settings');
+  const { useFetchSettings, useUpdateSettings, useClearFailedQueue, useRetryFailedQueue } = require('../../services/settings');
   const { defaultSettings } = require('../../components/settings/Settings');
 
   const closeSettings = jest.fn();
@@ -59,6 +59,7 @@ describe('Settings scraper reload behaviour', () => {
 
     useFetchSettings.mockReturnValue({ data: { settings: settingsData }, isLoading: false });
     useClearFailedQueue.mockReturnValue({ mutate: jest.fn(), isLoading: false });
+    useRetryFailedQueue.mockReturnValue({ mutate: jest.fn(), isLoading: false });
   });
 
   afterEach(() => {
@@ -101,6 +102,30 @@ describe('Settings scraper reload behaviour', () => {
     } finally {
       reloadSpy.mockRestore();
     }
+  });
+
+  it('retries all failed keywords from the settings panel', async () => {
+    const retryMutate = jest.fn();
+    useRetryFailedQueue.mockReturnValue({ mutate: retryMutate, isLoading: false });
+    useUpdateSettings.mockReturnValue({ mutateAsync: jest.fn(), isLoading: false });
+    useFetchSettings.mockReturnValue({
+      data: {
+        settings: {
+          ...defaultSettings,
+          notification_interval: 'never',
+          scrape_retry: true,
+          failed_queue: [12, 34],
+        },
+      },
+      isLoading: false,
+    });
+
+    renderComponent();
+
+    const retryButton = await screen.findByRole('button', { name: /retry all failed now/i });
+    fireEvent.click(retryButton);
+
+    expect(retryMutate).toHaveBeenCalledWith([12, 34]);
   });
 });
 
