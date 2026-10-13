@@ -87,7 +87,7 @@
     "minimatch": "^9.0.7",
     "msw": "^2.14.6",
     "next-router-mock": "^0.9.13",
-    "postcss": "^8.5.15",
+    "postcss": "^8.5.29",
     "postcss-selector-parser": "^7.1.6",
     "resize-observer-polyfill": "^1.5.1",
     "shell-quote": "^1.9.0",
