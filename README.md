@@ -92,14 +92,14 @@ The default compose stack uses a named Docker volume (`data`) mounted at `/app/d
 
 ### Option 2 – Node.js runtime
 
-1. Install Node.js **20.18.1 or newer**, matching the version pinned in [`.nvmrc`](./.nvmrc).
+1. Install Node.js **24.22.1 or newer** (24.x line), matching the version pinned in [`.nvmrc`](./.nvmrc).
 2. Install dependencies with `npm install` (or `npm ci`).
 3. Copy `.env.example` to `.env.local` for local development (Docker Compose uses `.env`) and fill in the required keys.
 4. **Apply database migrations:** `npm run db:migrate` to set up the SQLite database schema.
 5. Start the development server via `npm run dev` or build and serve production assets with `npm run build && npm run start`.
 
 > [!NOTE]
-> Node.js 18 is no longer supported because core dependencies—such as `better-sqlite3` and `happy-dom`—now require Node.js 20+ runtime features.
+> Node.js 20 and older are no longer supported. Node.js 20 is end-of-life and its bundled Brotli decoder is affected by CVE-2026-111497; use Node.js 24.22.1 or a later 24.x release.
 
 ### Database & migrations
 
@@ -356,7 +356,7 @@ Use the centralized `utils/client/apiClient.ts` helpers (`apiGet`, `apiPost`, `a
 
 ## Development workflow
 
-- **Node.js version:** Use `nvm use` to adopt the `20.18.1` runtime pinned in `.nvmrc`.
+- **Node.js version:** Use `nvm use` to adopt the `24.22.1` runtime pinned in `.nvmrc`.
 - **Install dependencies:** `npm install`
 - **Code quality:**
   - `npm run lint` for ESLint (JavaScript/TypeScript).

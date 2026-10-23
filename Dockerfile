@@ -1,4 +1,4 @@
-FROM node:20.18.1-alpine3.20 AS base
+FROM node:24.22.1-alpine3.24 AS base
 ENV NEXT_TELEMETRY_DISABLED=1 \
     NPM_VERSION=11.6.0
 WORKDIR /app
