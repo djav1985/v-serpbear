@@ -39,7 +39,7 @@ See [utils/refresh.ts](utils/refresh.ts) and [cron.js](cron.js).
 ## Development Setup
 
 ### Requirements
-- **Node.js 20.18.1** per `.nvmrc` (Node 18 is unsupported)
+- **Node.js 24.22.1** per `.nvmrc` (Node 20 and older are unsupported)
 - SQLite database file: `./data/database.sqlite`
 
 ### Commands
@@ -392,7 +392,7 @@ For each API route, test:
 When working on this project:
 
 - [ ] Review [AGENTS.md](AGENTS.md) for contribution guidelines
-- [ ] Use Node.js 20.18.1 (check `.nvmrc`)
+- [ ] Use Node.js 24.22.1 (check `.nvmrc`)
 - [ ] Run `npm ci` to install dependencies
 - [ ] Run migrations with `npm run db:migrate`
 - [ ] Start dev server with `npm run start:all` (web + cron)

@@ -11,7 +11,7 @@ This document defines baseline expectations for all contributors to maintain cod
 
 ### Essential Reading
 1. **Architecture & Patterns:** [.github/copilot-instructions.md](.github/copilot-instructions.md)
-2. **Requirements:** Node.js 20.18.1 (check `.nvmrc`)
+2. **Requirements:** Node.js 24.22.1 (check `.nvmrc`)
 3. **Setup:** `npm ci && npm run db:migrate`
 4. **Development:** `npm run start:all` (web + cron worker)
 5. **Testing:** `npm test` (Jest + happy-dom)

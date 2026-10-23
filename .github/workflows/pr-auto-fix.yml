@@ -20,7 +20,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: 20.18.1
+          node-version-file: .nvmrc
 
       - name: Install dependencies (with dev)
         run: npm ci --include=dev
