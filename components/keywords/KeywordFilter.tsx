@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import Icon from '../common/Icon';
 import SelectField, { SelectionOption } from '../common/SelectField';
 import countries from '../../utils/countries';
-import { NO_TAGS_FILTER } from '../../utils/client/sortFilter';
+import { NO_TAGS_FILTER, resolveTagSelection } from '../../utils/client/sortFilter';
 
 type KeywordFilterProps = {
    device: string,
@@ -56,7 +56,7 @@ const KeywordFilters = (props: KeywordFilterProps) => {
 
    const filterCountry = (cntrs:string[]) => filterKeywords({ ...filterParams, countries: cntrs });
 
-   const filterTags = (tags:string[]) => filterKeywords({ ...filterParams, tags });
+   const filterTags = (tags:string[]) => filterKeywords({ ...filterParams, tags: resolveTagSelection(filterParams.tags, tags) });
 
    const searchKeywords = (event:React.FormEvent<HTMLInputElement>) => {
       const filtered = filterKeywords({ ...filterParams, search: event.currentTarget.value });

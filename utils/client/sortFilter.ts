@@ -36,6 +36,14 @@ export const matchesTags = (keywordTags: string[], tags: string[]): boolean => {
    return tags.some((tag) => keywordTags.includes(tag));
 };
 
+// "No Tags" cannot be combined with specific tags. Picking it clears the other selections,
+// and picking a specific tag while it is selected removes it.
+export const resolveTagSelection = (previous: string[], next: string[]): string[] => {
+   const newlyAdded = next.filter((tag) => !previous.includes(tag));
+   if (newlyAdded.includes(NO_TAGS_FILTER)) { return [NO_TAGS_FILTER]; }
+   return next.filter((tag) => tag !== NO_TAGS_FILTER);
+};
+
 export const filterByDevice = <T extends { device: string }>(items: T[], device: string): {[key: string]: T[] } => {
    const deviceKeywords: {[key:string] : T[]} = { desktop: [], mobile: [] };
    items.forEach((keyword) => {

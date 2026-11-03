@@ -1,4 +1,4 @@
-import { filterKeywords, matchesCountry, matchesSearch, matchesTags, NO_TAGS_FILTER, sortKeywords } from '../../../utils/client/sortFilter';
+import { filterKeywords, matchesCountry, matchesSearch, matchesTags, NO_TAGS_FILTER, resolveTagSelection, sortKeywords } from '../../../utils/client/sortFilter';
 
 describe('filterKeywords helpers', () => {
    const createKeyword = (overrides: Partial<KeywordType> = {}): KeywordType => ({
@@ -50,6 +50,20 @@ describe('filterKeywords helpers', () => {
       expect(matchesTags([], [NO_TAGS_FILTER, 'ppc'])).toBe(true);
       expect(matchesTags(['ppc'], [NO_TAGS_FILTER, 'ppc'])).toBe(true);
       expect(matchesTags(['seo'], [NO_TAGS_FILTER, 'ppc'])).toBe(false);
+   });
+
+   it('resolveTagSelection makes picking no-tags clear the other selections', () => {
+      expect(resolveTagSelection(['seo'], ['seo', NO_TAGS_FILTER])).toEqual([NO_TAGS_FILTER]);
+      expect(resolveTagSelection(['seo', 'ppc'], [NO_TAGS_FILTER, 'seo', 'ppc'])).toEqual([NO_TAGS_FILTER]);
+   });
+
+   it('resolveTagSelection drops no-tags when a specific tag is picked', () => {
+      expect(resolveTagSelection([NO_TAGS_FILTER], [NO_TAGS_FILTER, 'seo'])).toEqual(['seo']);
+   });
+
+   it('resolveTagSelection keeps normal multi-tag selections and removing no-tags', () => {
+      expect(resolveTagSelection(['seo'], ['seo', 'ppc'])).toEqual(['seo', 'ppc']);
+      expect(resolveTagSelection([NO_TAGS_FILTER], [])).toEqual([]);
    });
 
    it('filterKeywords filters by combined predicates', () => {
