@@ -31,7 +31,7 @@ describe('AddKeywordsMetaStep', () => {
       );
 
       fireEvent.change(screen.getByPlaceholderText('Insert Tags (Optional). eg: tag1, tag2'), { target: { value: 'seo, , content ' } });
-      fireEvent.click(screen.getByRole('button', { name: 'Add Keywords' }));
+      fireEvent.click(screen.getAllByRole('button', { name: 'Add' }).at(-1) as HTMLElement);
 
       expect(onConfirm).toHaveBeenCalledWith({ tags: ['seo', 'content'], location: 'US' });
    });
@@ -49,7 +49,7 @@ describe('AddKeywordsMetaStep', () => {
       );
 
       fireEvent.change(screen.getByPlaceholderText(/City \(Optional/), { target: { value: 'Austin' } });
-      fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+      fireEvent.click(screen.getAllByRole('button', { name: 'Add' }).at(0) as HTMLElement);
 
       expect(screen.getByText('City and state must be provided together.')).toBeInTheDocument();
    });
@@ -69,8 +69,8 @@ describe('AddKeywordsMetaStep', () => {
 
       fireEvent.change(screen.getByPlaceholderText(/City \(Optional/), { target: { value: 'Austin' } });
       fireEvent.change(screen.getByPlaceholderText(/State \(Optional/), { target: { value: 'TX' } });
-      fireEvent.click(screen.getByRole('button', { name: 'Add' }));
-      fireEvent.click(screen.getByRole('button', { name: 'Add Keywords' }));
+      fireEvent.click(screen.getAllByRole('button', { name: 'Add' }).at(0) as HTMLElement);
+      fireEvent.click(screen.getAllByRole('button', { name: 'Add' }).at(-1) as HTMLElement);
 
       expect(onConfirm).toHaveBeenCalledWith({ tags: [], location: 'Austin,TX,US' });
    });
@@ -174,7 +174,7 @@ describe('ChangeLocationModal', () => {
 
       fireEvent.change(screen.getByPlaceholderText(/City \(Optional/), { target: { value: 'Dallas' } });
       fireEvent.change(screen.getByPlaceholderText(/State \(Optional/), { target: { value: 'TX' } });
-      fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+      fireEvent.click(screen.getAllByRole('button', { name: 'Add' }).at(0) as HTMLElement);
       fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
 
       expect(mutateMock).toHaveBeenCalledWith({ keywordIDs: [1, 2], location: 'Dallas,TX,US' });

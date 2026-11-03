@@ -61,10 +61,10 @@ const AddKeywordsMetaStep = ({
                </button>
                <button
                   type='button'
-                  className=' py-2 px-5 rounded cursor-pointer bg-blue-700 text-white'
+                  className=' py-2 px-5 min-w-[80px] text-center text-sm font-semibold rounded cursor-pointer bg-blue-700 text-white'
                   disabled={isAdding}
                   onClick={() => onConfirm({ tags: parseTags(tagInput), location })}>
-                  {isAdding ? 'Adding....' : 'Add Keywords'}
+                  {isAdding ? 'Adding....' : 'Add'}
                </button>
             </div>
          </div>
