@@ -7,21 +7,24 @@ RUN npm install -g npm@"${NPM_VERSION}"
 RUN addgroup --system --gid 1001 nodejs \
     && adduser --system --uid 1001 nextjs
 
+# Runtime dependencies only, copied into the final image
+FROM base AS prod-deps
+RUN apk add --no-cache python3 make g++
+COPY package.json package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --omit=dev
+
+# Full dependency tree (including devDependencies), used to build the app
 FROM base AS deps
 RUN apk add --no-cache python3 make g++
 COPY package.json package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm \
-    npm ci --only=production && \
-    cp -R node_modules production_node_modules && \
     npm ci
 
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# Remove unnecessary files for security and smaller image
-RUN --mount=type=cache,target=/root/.npm \
-    --mount=type=cache,target=/app/.next/cache \
-    rm -rf __tests__ __mocks__ *.md docs && \
+RUN --mount=type=cache,target=/app/.next/cache \
     npm run build && \
     chmod +x entrypoint.sh
 
@@ -30,7 +33,7 @@ ENV NODE_ENV=production
 WORKDIR /app
 
 # Copy production dependencies
-COPY --from=deps --chown=nextjs:nodejs /app/production_node_modules ./node_modules
+COPY --from=prod-deps --chown=nextjs:nodejs /app/node_modules ./node_modules
 
 # Copy built application
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
@@ -49,9 +52,6 @@ COPY --from=builder --chown=nextjs:nodejs /app/entrypoint.sh ./entrypoint.sh
 RUN mkdir -p /app/data && \
     chown -R nextjs:nodejs /app/data && \
     chmod 755 /app/data
-
-# Security: Remove package managers and unnecessary files
-RUN rm -rf /root/.npm /tmp/* /var/cache/apk/*
 
 USER nextjs
 EXPOSE 3000

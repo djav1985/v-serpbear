@@ -39,12 +39,14 @@ coverage.lcov
 # Tooling and configs
 .github
 .vscode
+.claude
+.swc
+scripts
 fly.toml
 TODO
 jest.config.js
 jest.setup.js
 
 # App data that should not be baked into the image
-data/database.sqlite
-data/settings.json
-data/failed_queue.json
+# (runtime state is read from process.cwd()/data at runtime only; the runner stage creates an empty dir)
+data
