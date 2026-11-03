@@ -21,6 +21,7 @@ jest.mock('../../services/keywords', () => ({
 
 jest.mock('../../services/settings', () => ({
    useUpdateSettings: () => ({ mutate: jest.fn() }),
+   useFetchSettings: () => ({ data: undefined }),
 }));
 
 jest.mock('../../hooks/useIsMobile', () => () => [false]);

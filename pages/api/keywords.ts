@@ -391,11 +391,11 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
    if (!req.query.id || typeof req.query.id !== 'string') {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'keyword ID is Required!', requestId));
    }
-   if (req.body.sticky === undefined && req.body.tags === undefined) {
+   if (req.body.sticky === undefined && req.body.tags === undefined && req.body.location === undefined) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Keyword update payload is required.', requestId));
    }
    const keywordIDs = (req.query.id as string).split(',').map((item) => parseInt(item, 10));
-   const { sticky, tags } = req.body;
+   const { sticky, tags, location } = req.body;
 
    try {
       let keywords: KeywordType[] = [];
@@ -448,6 +448,18 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
             keywords = parseKeywords(formattedKeywords);
          }
 
+         return res.status(200).json({ keywords });
+      }
+      if (location !== undefined) {
+         const rawLocation = typeof location === 'string' ? location.trim().substring(0, 255) : '';
+         if (!rawLocation) {
+            return res.status(400).json(errorResponse('BAD_REQUEST', 'Location is required!', requestId));
+         }
+         const formattedLocation = formatLocation(parseLocation(rawLocation)).substring(0, 255);
+         await Keyword.update({ location: formattedLocation }, { where: { ID: { [Op.in]: keywordIDs } } });
+         const updatedKeywords:Keyword[] = await Keyword.findAll({ where: { ID: { [Op.in]: keywordIDs } } });
+         const formattedKeywords = updatedKeywords.map((el) => el.get({ plain: true }));
+         keywords = parseKeywords(formattedKeywords);
          return res.status(200).json({ keywords });
       }
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Invalid Payload!', requestId));

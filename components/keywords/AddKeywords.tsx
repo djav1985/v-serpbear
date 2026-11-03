@@ -2,9 +2,11 @@ import React, { forwardRef, useCallback, useEffect, useMemo, useRef, useState } 
 import Icon from '../common/Icon';
 import Modal from '../common/Modal';
 import SelectField from '../common/SelectField';
+import TagInput from './TagInput';
 import countries from '../../utils/countries';
 import { useAddKeywords } from '../../services/keywords';
 import { formatLocation, hasValidCityStatePair, parseLocation } from '../../utils/location';
+import { getDomainTags } from '../../utils/keywordMeta';
 
 type AddKeywordsProps = {
    keywords: KeywordType[],
@@ -33,10 +35,8 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
    allowsCity = false,
    scraperCountries,
 }: AddKeywordsProps, ref) => {
-   const inputRef = useRef(null);
    const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
    const [error, setError] = useState<string>('');
-   const [showTagSuggestions, setShowTagSuggestions] = useState(false);
    const [newKeywordsData, setNewKeywordsData] = useState<KeywordsInput>({
       keywords: '',
       device: 'desktop',
@@ -106,10 +106,7 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
          }));
    }, [scraperCountries]);
 
-   const existingTags: string[] = useMemo(() => {
-      const allTags = keywords.reduce((acc: string[], keyword) => [...acc, ...keyword.tags], []).filter((t) => t && t.trim() !== '');
-      return [...new Set(allTags)];
-   }, [keywords]);
+   const existingTags: string[] = useMemo(() => getDomainTags(keywords), [keywords]);
 
    const setDeviceType = useCallback((input:string) => {
       let updatedDevice = '';
@@ -231,44 +228,12 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
                         </li>
                   </ul>
                </div>
-               <div className='relative'>
-                  <input
-                     className='w-full border rounded border-gray-200 py-2 px-4 pl-12 outline-none focus:border-indigo-300'
-                     placeholder='Insert Tags (Optional)'
-                     value={newKeywordsData.tags}
-                     onChange={(e) => setNewKeywordsData({ ...newKeywordsData, tags: e.target.value })}
-                  />
-                  <span className='absolute text-gray-400 top-3 left-2 cursor-pointer' onClick={() => setShowTagSuggestions(!showTagSuggestions)}>
-                     <Icon type="tags" size={16} color={showTagSuggestions ? '#777' : '#aaa'} />
-                     <Icon type={showTagSuggestions ? 'caret-up' : 'caret-down'} size={14} color={showTagSuggestions ? '#666' : '#aaa'} />
-                  </span>
-                  {showTagSuggestions && (
-                     <ul className={`absolute z-50
-                     bg-white border border-t-0 border-gray-200 rounded rounded-t-none w-full`}>
-                        {existingTags.length > 0 && existingTags.map((tag, index) => (
-                              newKeywordsData.tags
-                                 .split(',')
-                                 .map((t) => t.trim())
-                                 .includes(tag) === false && (
-                                    <li
-                                       className=' p-2 cursor-pointer hover:text-indigo-600 hover:bg-indigo-50 transition'
-                                       key={index}
-                                       onClick={() => {
-                                          const tagInput = newKeywordsData.tags;
-                                           
-                                          const tagToInsert = tagInput + (tagInput.trim().slice(-1) === ',' ? '' : tagInput.trim() ? ', ' : '') + tag;
-                                          setNewKeywordsData({ ...newKeywordsData, tags: tagToInsert });
-                                          setShowTagSuggestions(false);
-                                          if (inputRef?.current) (inputRef.current as HTMLInputElement).focus();
-                                       }}>
-                                       <Icon type='tags' size={14} color='#bbb' /> {tag}
-                                    </li>
-                                 )
-                           ))}
-               {existingTags.length === 0 && <p>No Existing Tags Found... </p>}
-                    </ul>
-                 )}
-              </div>
+               <TagInput
+                  value={newKeywordsData.tags}
+                  onChange={(tags) => setNewKeywordsData({ ...newKeywordsData, tags })}
+                  existingTags={existingTags}
+                  placeholder='Insert Tags (Optional)'
+               />
                <div className='relative mt-2'>
                   <input
                      className={`w-full border rounded border-gray-200 py-2 px-4 pl-8

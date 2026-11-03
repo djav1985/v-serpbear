@@ -135,6 +135,23 @@ export function useUpdateKeywordTags(onSuccess: () => void) {
    });
 }
 
+export function useUpdateKeywordLocation(onSuccess: () => void) {
+   const queryClient = useQueryClient();
+   return useMutation(async ({ keywordIDs, location }:{keywordIDs: number[], location: string}) => {
+      const keywordIds = keywordIDs.join(',');
+      return apiPut(`/api/keywords?id=${keywordIds}`, { location });
+   }, {
+      onSuccess: async () => {
+         onSuccess();
+         toast('Keyword Locations Updated!', { icon: '✔️' });
+         queryClient.invalidateQueries(['keywords']);
+      },
+      onError: (_error, _variables, _context) => {
+         toast('Error Updating Keyword Locations.', { icon: '⚠️' });
+      },
+   });
+}
+
 export function useRefreshKeywords(onSuccess: () => void) {
    const queryClient = useQueryClient();
    return useMutation(async ({ ids = [], domain = '' } : {ids?: number[], domain?: string}) => {

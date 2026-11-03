@@ -26,6 +26,10 @@ jest.mock('../../services/adwords', () => ({
    useMutateFavKeywordIdeas: () => ({ mutate: jest.fn(), isLoading: false }),
 }));
 
+jest.mock('../../services/settings', () => ({
+   useFetchSettings: () => ({ data: undefined }),
+}));
+
 jest.mock('../../services/domains', () => ({
    fetchDomains: jest.fn().mockResolvedValue({ domains: [] }),
 }));

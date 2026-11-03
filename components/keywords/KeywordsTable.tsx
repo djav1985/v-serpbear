@@ -12,8 +12,10 @@ import KeywordTagManager from './KeywordTagManager';
 import AddTags from './AddTags';
 import useWindowResize from '../../hooks/useWindowResize';
 import useIsMobile from '../../hooks/useIsMobile';
-import { useUpdateSettings } from '../../services/settings';
+import { useFetchSettings, useUpdateSettings } from '../../services/settings';
 import { defaultSettings } from '../settings/Settings';
+import { getDomainLocations, getDomainTags, scraperAllowsCity } from '../../utils/keywordMeta';
+import ChangeLocationModal from './ChangeLocationModal';
 
 type KeywordsTableProps = {
    domain: DomainType | null,
@@ -36,6 +38,9 @@ const KeywordsTable = (props: KeywordsTableProps) => {
    const [showTagManager, setShowTagManager] = useState<null|number>(null);
    const [showAddTags, setShowAddTags] = useState<boolean>(false);
    const [showRemoveTags, setShowRemoveTags] = useState<boolean>(false);
+   const [showChangeLocation, setShowChangeLocation] = useState<boolean>(false);
+   const { data: appSettingsData } = useFetchSettings();
+   const allowsCity = scraperAllowsCity(appSettingsData?.settings);
    const [SCListHeight, setSCListHeight] = useState(500);
    const [filterParams, setFilterParams] = useState<KeywordFilters>({ countries: [], tags: [], search: '' });
    const [sortBy, setSortBy] = useState<string>('date_asc');
@@ -79,10 +84,8 @@ const KeywordsTable = (props: KeywordsTableProps) => {
       return keywordsByDevice(sortedKeywords, device);
    }, [keywords, device, sortBy, filterParams, scDataType]);
 
-   const allDomainTags: string[] = useMemo(() => {
-      const allTags = keywords.reduce((acc: string[], keyword) => [...acc, ...keyword.tags], []).filter((t) => t && t.trim() !== '');
-      return [...new Set(allTags)];
-   }, [keywords]);
+   const allDomainTags: string[] = useMemo(() => getDomainTags(keywords), [keywords]);
+   const existingLocations: string[] = useMemo(() => getDomainLocations(keywords), [keywords]);
 
    useEffect(() => {
       setFilterParams((prev) => {
@@ -230,6 +233,13 @@ const KeywordsTable = (props: KeywordsTableProps) => {
                         >
                            <span className=' bg-orange-100 text-orange-500  px-1 rounded'><Icon type="tags" size={14} /></span> Remove Tags</a>
                      </li>
+                     <li className='inline-block mr-4'>
+                        <a
+                        className='block px-2 py-2 cursor-pointer hover:text-indigo-600'
+                        onClick={() => setShowChangeLocation(true)}
+                        >
+                           <span className=' bg-blue-100 text-blue-600 px-1 rounded'><Icon type="city" size={14} /></span> Change Location</a>
+                     </li>
                   </ul>
                </div>
             )}
@@ -357,6 +367,14 @@ const KeywordsTable = (props: KeywordsTableProps) => {
                existingTags={selectedKeywordsTags}
                keywords={keywords.filter((k) => selectedKeywords.includes(k.ID))}
                closeModal={() => setShowRemoveTags(false)}
+               />
+         )}
+         {showChangeLocation && (
+            <ChangeLocationModal
+               existingLocations={existingLocations}
+               allowsCity={allowsCity}
+               keywords={keywords.filter((k) => selectedKeywords.includes(k.ID))}
+               closeModal={() => setShowChangeLocation(false)}
                />
          )}
       </div>

@@ -604,6 +604,87 @@ describe('PUT /api/keywords tags updates', () => {
 });
 
 
+describe('PUT /api/keywords location updates', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    dbMock.sync.mockResolvedValue(undefined);
+    verifyUserMock.mockReturnValue('authorized');
+  });
+
+  const buildRes = () => ({
+    status: jest.fn().mockReturnThis(),
+    json: jest.fn(),
+  } as unknown as NextApiResponse);
+
+  it('applies one location to every keyword in the ID list', async () => {
+    keywordMock.update.mockResolvedValue([2]);
+    keywordMock.findAll.mockResolvedValueOnce([
+      {
+        get: () => ({
+          ID: 1,
+          keyword: 'alpha',
+          domain: 'example.com',
+          device: 'desktop',
+          country: 'US',
+          location: 'Austin,TX,US',
+          history: '{}',
+          tags: '[]',
+          lastResult: '[]',
+          lastUpdateError: 'false',
+          sticky: false,
+          updating: false,
+          mapPackTop3: false,
+        }),
+      },
+    ]);
+    const req = {
+      method: 'PUT',
+      query: { id: '1,2' },
+      body: { location: '  Austin,TX,US  ' },
+      headers: {},
+    } as unknown as NextApiRequest;
+    const res = buildRes();
+
+    await handler(req, res);
+
+    expect(keywordMock.update).toHaveBeenCalledWith(
+      { location: 'Austin,TX,US' },
+      { where: { ID: { [Op.in]: [1, 2] } } },
+    );
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('returns 400 when the location is empty', async () => {
+    const req = {
+      method: 'PUT',
+      query: { id: '1' },
+      body: { location: '   ' },
+      headers: {},
+    } as unknown as NextApiRequest;
+    const res = buildRes();
+
+    await handler(req, res);
+
+    expect(keywordMock.update).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(400);
+  });
+
+  it('returns 500 when the location update fails', async () => {
+    keywordMock.update.mockRejectedValueOnce(new Error('db down'));
+    const req = {
+      method: 'PUT',
+      query: { id: '1' },
+      body: { location: 'US' },
+      headers: {},
+    } as unknown as NextApiRequest;
+    const res = buildRes();
+
+    await handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+  });
+});
+
 describe('DELETE /api/keywords retry queue cleanup', () => {
   it('removes deleted keyword IDs from retry queue', async () => {
     const { retryQueueManager } = require('../../utils/retryQueueManager');
