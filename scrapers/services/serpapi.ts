@@ -1,6 +1,5 @@
 import countries, { getGoogleDomain } from "../../utils/countries";
-import { resolveCountryCode } from "../../utils/scraperHelpers";
-import { parseLocation } from "../../utils/location";
+import { resolveCountryCode, getKeywordLocationParts } from "../../utils/scraperHelpers";
 import { computeMapPackTop3 } from "../../utils/mapPack";
 import { DEVICE_MOBILE } from "../../utils/constants";
 
@@ -22,8 +21,6 @@ const serpapi: ScraperSettings = {
   }),
   scrapeURL: (keyword, settings, _countryData, pagination) => {
     const country = resolveCountryCode(keyword.country);
-    const countryInfo = countries[country] ?? countries.US;
-    const countryName = countryInfo?.[0] ?? countries.US[0];
     const decodeIfEncoded = (value: string): string => {
       try {
         return decodeURIComponent(value);
@@ -31,18 +28,8 @@ const serpapi: ScraperSettings = {
         return value;
       }
     };
-    const decodedLocation =
-      typeof keyword.location === "string"
-        ? decodeIfEncoded(keyword.location)
-        : keyword.location;
-    const { city, state } = parseLocation(decodedLocation, keyword.country);
-    const decodePart = (part?: string) =>
-      typeof part === "string" ? decodeIfEncoded(part) : undefined;
-    const locationParts = [decodePart(city), decodePart(state)]
-      .filter((v): v is string => Boolean(v));
-    if (locationParts.length && countryName) {
-      locationParts.push(countryName);
-    }
+    const locationParts = getKeywordLocationParts(keyword.location);
+    const countryInfo = countries[country] ?? countries.US;
     const googleDomain = getGoogleDomain(country);
     const params = new URLSearchParams();
     params.set("engine", "google");

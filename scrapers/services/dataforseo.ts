@@ -1,6 +1,5 @@
 import countries, { getGoogleDomain } from "../../utils/countries";
-import { resolveCountryCode } from "../../utils/scraperHelpers";
-import { parseLocation } from "../../utils/location";
+import { resolveCountryCode, getKeywordLocationParts } from "../../utils/scraperHelpers";
 import { computeMapPackTop3 } from "../../utils/mapPack";
 import { DEVICE_MOBILE } from "../../utils/constants";
 
@@ -28,17 +27,10 @@ interface DataForSeoTask {
   result?: { items?: DataForSeoItem[] }[];
 }
 
+// DataForSEO requires a location_name: the stored location when present, otherwise the country name
 const buildLocationName = (keyword: KeywordType, countryName: string): string => {
-  const decodedLocation =
-    typeof keyword.location === "string"
-      ? decodeIfEncoded(keyword.location)
-      : keyword.location;
-  const { city, state } = parseLocation(decodedLocation, keyword.country);
-  const parts = [city, state]
-    .map((part) => (typeof part === "string" ? decodeIfEncoded(part) : undefined))
-    .filter((part): part is string => Boolean(part));
-  parts.push(countryName);
-  return parts.join(",");
+  const [location] = getKeywordLocationParts(keyword.location);
+  return location || countryName;
 };
 
 const getTask = (response: any): DataForSeoTask | undefined => {

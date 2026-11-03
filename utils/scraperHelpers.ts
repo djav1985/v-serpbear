@@ -48,3 +48,16 @@ export const resolveCountryCode = (
 
    return safeFallback;
 };
+
+// The keyword's stored location ("City,State,Country Name") as one value, or [] for country-only keywords.
+// Scrapers send it as-is when present and skip the location parameter when it is empty; the country still comes from the country column.
+export const getKeywordLocationParts = (location?: string | null): string[] => {
+  if (typeof location !== "string") return [];
+  const trimmed = location.trim();
+  if (!trimmed) return [];
+  try {
+    return [decodeURIComponent(trimmed)];
+  } catch (_error) {
+    return [trimmed];
+  }
+};

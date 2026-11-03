@@ -20,7 +20,7 @@ const countryData = {
 const settings = { scraping_api: 'prism-test-key' } as SettingsType;
 
 const buildKeyword = (overrides: Partial<KeywordType> = {}) =>
-  ({ keyword: 'plumbers', country: 'US', device: 'desktop', location: 'US', domain: 'plumbers.example', ...overrides } as KeywordType);
+  ({ keyword: 'plumbers', country: 'US', device: 'desktop', location: '', domain: 'plumbers.example', ...overrides } as KeywordType);
 
 describe('prismcrawl scraper', () => {
   afterEach(() => {
@@ -75,7 +75,7 @@ describe('prismcrawl scraper', () => {
 
   it('includes city, state and country in location when provided', () => {
     const body = bodyOf(
-      buildKeyword({ location: 'Port Charlotte,FL,US' }),
+      buildKeyword({ location: 'Port Charlotte,FL,United States' }),
       settings,
       countryData,
     );
@@ -193,7 +193,7 @@ describe('getScraperClient with a POST scraper', () => {
     const fetchMock = jest.fn().mockResolvedValue({ ok: true });
     global.fetch = fetchMock as any;
 
-    const keyword = buildKeyword({ location: 'Port Charlotte,FL,US' });
+    const keyword = buildKeyword({ location: 'Port Charlotte,FL,United States' });
     await getScraperClient(keyword, settings as SettingsType, prismcrawl, 0, { start: 10, num: 10, page: 2 });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);

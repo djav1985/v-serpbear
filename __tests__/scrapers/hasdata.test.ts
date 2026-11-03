@@ -11,7 +11,7 @@ describe('hasdata scraper', () => {
     const keyword: Partial<KeywordType> = {
       keyword: 'best vegan restaurants',
       country: 'US',
-      location: 'Los Angeles,CA,US',
+      location: 'Los Angeles,CA,United States',
       device: 'desktop',
     };
 

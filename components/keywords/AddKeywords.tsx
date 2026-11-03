@@ -5,7 +5,7 @@ import SelectField from '../common/SelectField';
 import TagInput from './TagInput';
 import countries from '../../utils/countries';
 import { useAddKeywords } from '../../services/keywords';
-import { formatLocation, hasValidCityStatePair, parseLocation } from '../../utils/location';
+import { buildStoredLocation, hasValidCityStatePair } from '../../utils/location';
 import { getDomainTags } from '../../utils/keywordMeta';
 
 type AddKeywordsProps = {
@@ -125,11 +125,7 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
          const multiDevice = nkwrds.device.includes(',') && devices.length > 1;
          const keywordsArray = [...new Set(nkwrds.keywords.split('\n').map((item) => item.trim()).filter((item) => !!item))];
 
-         const currentKeywords = keywords.map((k) => {
-            const locationParts = parseLocation(k.location, k.country);
-            const locationKey = formatLocation({ ...locationParts, country: k.country });
-            return `${k.keyword}-${k.device}-${locationKey || k.country}`;
-         });
+         const currentKeywords = keywords.map((k) => `${k.keyword}-${k.device}-${k.location || k.country}`);
 
          const trimmedCity = (nkwrds.city || '').trim();
          const trimmedState = (nkwrds.state || '').trim();
@@ -139,9 +135,10 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
             return;
          }
 
+         // Stored as "City,State,Country Name"; a country-only keyword stores a blank location
          const locationString = allowsCity
-            ? formatLocation({ city: trimmedCity, state: trimmedState, country: nkwrds.country })
-            : formatLocation({ country: nkwrds.country });
+            ? buildStoredLocation({ city: trimmedCity, state: trimmedState, countryCode: nkwrds.country })
+            : '';
 
           const keywordExist = keywordsArray.filter((k) =>
              devices.some((device) => {

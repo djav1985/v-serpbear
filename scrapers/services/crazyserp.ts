@@ -1,6 +1,5 @@
-import countries, { getGoogleDomain } from '../../utils/countries';
-import { resolveCountryCode } from '../../utils/scraperHelpers';
-import { parseLocation } from '../../utils/location';
+import { getGoogleDomain } from "../../utils/countries";
+import { resolveCountryCode, getKeywordLocationParts } from "../../utils/scraperHelpers";
 
 interface CrazySerpResult {
    position: number;
@@ -23,13 +22,8 @@ const crazyserp: ScraperSettings = {
       const country = resolveCountryCode(keyword.country);
       const localeInfo = countryData[country] ?? countryData.US ?? Object.values(countryData)[0];
       const lang = localeInfo?.[2] ?? 'en';
-      const countryInfo = countries[country] ?? countries.US;
-      const countryName = countryInfo?.[0] ?? 'United States';
-      // The stored location is "City,State,CountryCode" (see formatLocation). Rebuild it as "City,State,Country name"
-      // so the country is not repeated as a code and then appended again.
-      const { city, state } = parseLocation(keyword.location, keyword.country);
-      const locationParts = [city, state].filter((part): part is string => Boolean(part));
-      const location = locationParts.length ? [...locationParts, countryName].join(',') : countryName;
+      // The stored location ("City,State,Country Name") is sent as-is; country-only keywords have no location
+      const [location] = getKeywordLocationParts(keyword.location);
       const googleDomain = getGoogleDomain(country);
       const p = pagination || { start: 0, num: 10, page: 1 };
       // CrazySERP paging: page = how many pages to fetch, pageOffset = 0-based index of the first page.
@@ -38,7 +32,9 @@ const crazyserp: ScraperSettings = {
       params.set('q', keyword.keyword);
       params.set('page', '1');
       params.set('pageOffset', String(Math.floor(p.start / p.num)));
-      params.set('location', location);
+      if (location) {
+        params.set('location', location);
+      }
       params.set('googleDomain', googleDomain);
       params.set('gl', country.toLowerCase());
       params.set('hl', lang);

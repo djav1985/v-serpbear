@@ -140,9 +140,9 @@ export function useUpdateKeywordTags(onSuccess: () => void) {
 
 export function useUpdateKeywordLocation(onSuccess: () => void) {
    const queryClient = useQueryClient();
-   return useMutation(async ({ keywordIDs, location }:{keywordIDs: number[], location: string}) => {
+   return useMutation(async ({ keywordIDs, location, country }:{keywordIDs: number[], location: string, country: string}) => {
       const keywordIds = keywordIDs.join(',');
-      return apiPut<{ updatedCount?: number, skipped?: string[] }>(`/api/keywords?id=${keywordIds}`, { location });
+      return apiPut<{ updatedCount?: number, skipped?: string[] }>(`/api/keywords?id=${keywordIds}`, { location, country });
    }, {
       onSuccess: async (data) => {
          onSuccess();

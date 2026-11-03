@@ -1,6 +1,5 @@
-import countries, { getGoogleDomain } from '../../utils/countries';
-import { resolveCountryCode } from '../../utils/scraperHelpers';
-import { parseLocation } from '../../utils/location';
+import { getGoogleDomain } from "../../utils/countries";
+import { resolveCountryCode, getKeywordLocationParts } from "../../utils/scraperHelpers";
 import { computeMapPackTop3 } from '../../utils/mapPack';
 import { DEVICE_MOBILE } from '../../utils/constants';
 
@@ -22,8 +21,6 @@ const searchapi:ScraperSettings = {
    scrapeURL: (keyword, settings, countryData, pagination) => {
       const resolvedCountry = resolveCountryCode(keyword.country);
       const country = resolvedCountry;
-      const countryInfo = countries[country] ?? countries.US;
-      const countryName = countryInfo?.[0] ?? countries.US[0];
       const localeInfo = countryData?.[country] ?? countryData?.US ?? Object.values(countryData ?? {})[0];
       const lang = localeInfo?.[2] ?? "en";
       const plusEncode = (str: string) => str.replace(/ /g, '+');
@@ -35,14 +32,7 @@ const searchapi:ScraperSettings = {
          }
       };
       // Build location parts from city/state/country only (no zip)
-      const decodedLocation = typeof keyword.location === 'string' ? decodeIfEncoded(keyword.location) : keyword.location;
-      const { city, state } = parseLocation(decodedLocation, keyword.country);
-      const decodePart = (part?: string) => typeof part === 'string' ? plusEncode(decodeIfEncoded(part)) : undefined;
-      const locationParts = [decodePart(city), decodePart(state)]
-         .filter((v): v is string => Boolean(v));
-      if (locationParts.length && countryName) {
-         locationParts.push(plusEncode(countryName));
-      }
+      const locationParts = getKeywordLocationParts(keyword.location).map(plusEncode);
       const params = new URLSearchParams();
       // Set params in required order
       params.set('api_key', settings.scraping_api ?? '');

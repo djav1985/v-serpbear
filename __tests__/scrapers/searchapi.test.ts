@@ -12,7 +12,7 @@ describe('searchapi scraper', () => {
       keyword: 'coffee shops',
       country: 'US',
       device: 'mobile',
-      location: 'Austin,TX,US',
+      location: 'Austin,TX,United States',
     };
 
     const url = searchapi.scrapeURL!(keyword as KeywordType, settings as SettingsType, countryData);

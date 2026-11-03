@@ -1,5 +1,4 @@
-import { resolveCountryCode } from "../../utils/scraperHelpers";
-import { parseLocation } from "../../utils/location";
+import { resolveCountryCode, getKeywordLocationParts } from "../../utils/scraperHelpers";
 
 const decodeIfEncoded = (value: string): string => {
   try {
@@ -29,19 +28,7 @@ const serper: ScraperSettings = {
       Object.values(countryData)[0];
     const gl = countryCode;
     const lang = fallbackInfo?.[2] ?? "en";
-    const countryName = fallbackInfo?.[0];
-    const decodedLocation =
-      typeof keyword.location === "string"
-        ? decodeIfEncoded(keyword.location)
-        : keyword.location;
-    const { city, state } = parseLocation(decodedLocation, keyword.country);
-    const decodePart = (part?: string) =>
-      typeof part === "string" ? decodeIfEncoded(part) : undefined;
-    const locationParts = [decodePart(city), decodePart(state)]
-      .filter((v): v is string => Boolean(v));
-    if (locationParts.length && countryName) {
-      locationParts.push(countryName);
-    }
+    const locationParts = getKeywordLocationParts(keyword.location);
     const p = pagination || { start: 0, num: 10, page: 1 };
     const params = new URLSearchParams();
     params.set("q", decodeIfEncoded(keyword.keyword));

@@ -22,7 +22,7 @@ describe('valueSerp scraper', () => {
       keyword: 'best coffee beans',
       country: 'US',
       device: 'mobile',
-      location: 'Miami,FL,US',
+      location: 'Miami,FL,United States',
     };
 
     const url = valueSerp.scrapeURL!(
@@ -130,7 +130,7 @@ describe('valueSerp scraper', () => {
     const keyword: Partial<KeywordType> = {
       keyword: 'coffee shops',
       country: 'US',
-      location: 'Seattle,WA,US',
+      location: 'Seattle,WA,United States',
       device: 'desktop',
     };
 
@@ -164,7 +164,7 @@ describe('valueSerp scraper', () => {
         updating: false,
         lastUpdateError: false,
         mapPackTop3: false,
-        location: 'Austin,TX,US',
+        location: 'Austin,TX,United States',
       };
 
       const mockResponse = {
@@ -209,7 +209,7 @@ describe('valueSerp scraper', () => {
         updating: false,
         lastUpdateError: false,
         mapPackTop3: false,
-        location: 'Austin,TX,US',
+        location: 'Austin,TX,United States',
       };
 
       const mockResponse = {

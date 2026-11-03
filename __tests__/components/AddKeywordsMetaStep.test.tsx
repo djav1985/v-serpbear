@@ -17,7 +17,7 @@ describe('AddKeywordsMetaStep', () => {
       jest.clearAllMocks();
    });
 
-   it('confirms with parsed tags and the default location when nothing is chosen', () => {
+   it('confirms with parsed tags and a blank location when nothing is chosen', () => {
       const onConfirm = jest.fn();
       render(
          <AddKeywordsMetaStep
@@ -33,7 +33,26 @@ describe('AddKeywordsMetaStep', () => {
       fireEvent.change(screen.getByPlaceholderText('Insert Tags (Optional). eg: tag1, tag2'), { target: { value: 'seo, , content ' } });
       fireEvent.click(screen.getByRole('button', { name: 'Track' }));
 
-      expect(onConfirm).toHaveBeenCalledWith({ tags: ['seo', 'content'], location: 'US' });
+      expect(onConfirm).toHaveBeenCalledWith({ tags: ['seo', 'content'], location: '', country: '' });
+   });
+
+   it('confirms a country-only choice with a blank location and the picked country', () => {
+      const onConfirm = jest.fn();
+      render(
+         <AddKeywordsMetaStep
+            selectedCount={1}
+            existingTags={[]}
+            existingLocations={[]}
+            allowsCity={false}
+            onConfirm={onConfirm}
+            closeModal={jest.fn()}
+         />,
+      );
+
+      fireEvent.click(screen.getAllByRole('button', { name: 'Add' }).at(0) as HTMLElement);
+      fireEvent.click(screen.getByRole('button', { name: 'Track' }));
+
+      expect(onConfirm).toHaveBeenCalledWith({ tags: [], location: '', country: 'US' });
    });
 
    it('shows the city and state error and does not add a location when only one is filled', () => {
@@ -72,7 +91,7 @@ describe('AddKeywordsMetaStep', () => {
       fireEvent.click(screen.getAllByRole('button', { name: 'Add' }).at(0) as HTMLElement);
       fireEvent.click(screen.getByRole('button', { name: 'Track' }));
 
-      expect(onConfirm).toHaveBeenCalledWith({ tags: [], location: 'Austin,TX,US' });
+      expect(onConfirm).toHaveBeenCalledWith({ tags: [], location: 'Austin,TX,United States', country: 'US' });
    });
 
    it('cancels through the Cancel button', () => {
@@ -177,6 +196,22 @@ describe('ChangeLocationModal', () => {
       fireEvent.click(screen.getAllByRole('button', { name: 'Add' }).at(0) as HTMLElement);
       fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
 
-      expect(mutateMock).toHaveBeenCalledWith({ keywordIDs: [1, 2], location: 'Dallas,TX,US' });
+      expect(mutateMock).toHaveBeenCalledWith({ keywordIDs: [1, 2], location: 'Dallas,TX,United States', country: 'US' });
+   });
+
+   it('applies a country-only choice with a blank location', () => {
+      render(
+         <ChangeLocationModal
+            keywords={[baseKeyword, { ...baseKeyword, ID: 2 }]}
+            existingLocations={['Austin,TX,United States']}
+            allowsCity={false}
+            closeModal={jest.fn()}
+         />,
+      );
+
+      fireEvent.click(screen.getAllByRole('button', { name: 'Add' }).at(0) as HTMLElement);
+      fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+
+      expect(mutateMock).toHaveBeenCalledWith({ keywordIDs: [1, 2], location: '', country: 'US' });
    });
 });

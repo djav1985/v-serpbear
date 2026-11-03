@@ -51,11 +51,11 @@ describe('crazyserp scraper', () => {
          expect(parsed.searchParams.get('googleDomain')).toBe('google.co.uk');
       });
 
-      it('uses keyword.location to build a city+country location string', () => {
+      it('sends the stored keyword.location as-is', () => {
          const keyword: Partial<KeywordType> = {
             keyword: 'plumber',
             country: 'US',
-            location: 'Austin,TX',
+            location: 'Austin,TX,United States',
             device: 'desktop',
          };
 
@@ -87,7 +87,7 @@ describe('crazyserp scraper', () => {
          expect(parsed.searchParams.get('location')).toBe('Austin,TX,United States');
       });
 
-      it('defaults location to country name when keyword.location is not set', () => {
+      it('omits the location parameter when keyword.location is blank for a country-only keyword', () => {
          const keyword: Partial<KeywordType> = {
             keyword: 'seo tools',
             country: 'DE',
@@ -101,7 +101,7 @@ describe('crazyserp scraper', () => {
          );
          const parsed = new URL(url);
 
-         expect(parsed.searchParams.get('location')).toBe('Germany');
+         expect(parsed.searchParams.has('location')).toBe(false);
          expect(parsed.searchParams.get('gl')).toBe('de');
          expect(parsed.searchParams.get('hl')).toBe('de');
       });

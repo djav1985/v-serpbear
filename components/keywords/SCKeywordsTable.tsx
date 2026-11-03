@@ -118,16 +118,17 @@ const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleInt
       if (addDevices.length > 0) { setShowAddStep(true); }
    };
 
-   const submitSCKeywordsToTracker = ({ tags, location }: { tags: string[], location: string }) => {
+   const submitSCKeywordsToTracker = ({ tags, location, country }: { tags: string[], location: string, country: string }) => {
       const selectedItems = finalKeywords[device]
          .filter((kitem:SCKeywordType) => selectedKeywords.includes(kitem.uid))
-         .map(({ keyword, country }) => ({ keyword, country }));
+         .map(({ keyword, country: itemCountry }) => ({ keyword, country: itemCountry }));
       const { payloads, skipped } = splitAlreadyTracked(buildKeywordAddPayloads({
          items: selectedItems,
          domain: domain?.domain || '',
          devices: addDevices,
          tags,
          location,
+         country,
       }), trackedKeywordLookup);
       addKeywords({ payloads, skipped });
       setSelectedKeywords([]);

@@ -77,7 +77,7 @@ describe('buildKeywordAddPayloads', () => {
          domain: 'example.com',
          devices: ['desktop', 'mobile'],
          tags: ['seo', 'content'],
-         location: 'Austin,TX,US',
+         location: 'Austin,TX,United States',
       });
 
       expect(payloads).toHaveLength(4);
@@ -87,14 +87,14 @@ describe('buildKeywordAddPayloads', () => {
          country: 'US',
          domain: 'example.com',
          tags: 'seo, content',
-         location: 'Austin,TX,US',
+         location: 'Austin,TX,United States',
       });
       expect(payloads.map((p) => `${p.keyword}:${p.device}`)).toEqual([
          'alpha:desktop', 'alpha:mobile', 'beta:desktop', 'beta:mobile',
       ]);
    });
 
-   it('falls back to each keyword country when no location is chosen', () => {
+   it('keeps a blank location and each keyword country when no location is chosen', () => {
       const payloads = buildKeywordAddPayloads({
          items,
          domain: 'example.com',
@@ -103,8 +103,24 @@ describe('buildKeywordAddPayloads', () => {
          location: '',
       });
 
-      expect(payloads.map((p) => p.location)).toEqual(['US', 'DE']);
+      expect(payloads.map((p) => p.location)).toEqual(['', '']);
+      expect(payloads.map((p) => p.country)).toEqual(['US', 'DE']);
       expect(payloads.every((p) => p.tags === '')).toBe(true);
+   });
+
+   it('uses the picked country for a country-only location so the market matches', () => {
+      const payloads = buildKeywordAddPayloads({
+         items: [{ keyword: 'alpha', country: 'US' }],
+         domain: 'example.com',
+         devices: ['desktop'],
+         tags: [],
+         location: '',
+         country: 'GB',
+      });
+
+      expect(payloads).toEqual([
+         expect.objectContaining({ keyword: 'alpha', country: 'GB', location: '' }),
+      ]);
    });
 
    it('uses the chosen location country as the keyword country so the market matches', () => {
@@ -113,11 +129,11 @@ describe('buildKeywordAddPayloads', () => {
          domain: 'example.com',
          devices: ['desktop'],
          tags: [],
-         location: 'London,England,GB',
+         location: 'London,England,United Kingdom',
       });
 
       expect(payloads).toEqual([
-         expect.objectContaining({ keyword: 'alpha', country: 'GB', location: 'London,England,GB' }),
+         expect.objectContaining({ keyword: 'alpha', country: 'GB', location: 'London,England,United Kingdom' }),
       ]);
    });
 

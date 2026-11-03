@@ -1,6 +1,5 @@
-import countries, { getGoogleDomain } from "../../utils/countries";
-import { resolveCountryCode } from "../../utils/scraperHelpers";
-import { parseLocation } from "../../utils/location";
+import { getGoogleDomain } from "../../utils/countries";
+import { resolveCountryCode, getKeywordLocationParts } from "../../utils/scraperHelpers";
 import { computeMapPackTop3 } from "../../utils/mapPack";
 import { DEVICE_MOBILE } from "../../utils/constants";
 
@@ -33,20 +32,7 @@ const valueSerp: ScraperSettings = {
   ) => {
     const resolvedCountry = resolveCountryCode(keyword.country);
     const country = resolvedCountry;
-    const countryInfo = countries[country] ?? countries.US;
-    const countryName = countryInfo?.[0] ?? countries.US[0];
-    const decodedLocation =
-      typeof keyword.location === "string"
-        ? decodeIfEncoded(keyword.location)
-        : keyword.location;
-    const { city, state } = parseLocation(decodedLocation, keyword.country);
-    const decodePart = (part?: string) =>
-      typeof part === "string" ? decodeIfEncoded(part) : undefined;
-    const locationParts = [decodePart(city), decodePart(state)]
-      .filter((part): part is string => Boolean(part));
-    if (locationParts.length && countryName) {
-      locationParts.push(countryName);
-    }
+    const locationParts = getKeywordLocationParts(keyword.location);
     const localeInfo =
       countryData[country] ?? countryData.US ?? Object.values(countryData)[0];
     const lang = localeInfo?.[2] ?? "en";
