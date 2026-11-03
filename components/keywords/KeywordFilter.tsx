@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import Icon from '../common/Icon';
 import SelectField, { SelectionOption } from '../common/SelectField';
 import countries from '../../utils/countries';
+import { NO_TAGS_FILTER } from '../../utils/client/sortFilter';
 
 type KeywordFilterProps = {
    device: string,
@@ -165,7 +166,10 @@ const KeywordFilters = (props: KeywordFilterProps) => {
                   <div className={'tags_filter mb-2 lg:mb-0'}>
                      <SelectField
                         selected={filterParams.tags}
-                        options={allTags.map((tag:string) => ({ label: tag, value: tag }))}
+                        options={[
+                           { label: 'No Tags', value: NO_TAGS_FILTER },
+                           ...allTags.map((tag:string) => ({ label: tag, value: tag })),
+                        ]}
                         defaultLabel='All Tags'
                         updateField={(updated:string[]) => filterTags(updated)}
                         emptyMsg="No Tags Found for this Domain"

@@ -1,4 +1,4 @@
-import { filterKeywords, matchesCountry, matchesSearch, matchesTags, sortKeywords } from '../../../utils/client/sortFilter';
+import { filterKeywords, matchesCountry, matchesSearch, matchesTags, NO_TAGS_FILTER, sortKeywords } from '../../../utils/client/sortFilter';
 
 describe('filterKeywords helpers', () => {
    const createKeyword = (overrides: Partial<KeywordType> = {}): KeywordType => ({
@@ -38,6 +38,18 @@ describe('filterKeywords helpers', () => {
       expect(matchesTags(['seo', 'ppc'], [])).toBe(true);
       expect(matchesTags(['seo', 'ppc'], ['ppc'])).toBe(true);
       expect(matchesTags(['seo'], ['ppc'])).toBe(false);
+   });
+
+   it('matchesTags matches keywords without tags only when the no-tags option is selected', () => {
+      expect(matchesTags([], [NO_TAGS_FILTER])).toBe(true);
+      expect(matchesTags([], ['ppc'])).toBe(false);
+      expect(matchesTags(['seo'], [NO_TAGS_FILTER])).toBe(false);
+   });
+
+   it('matchesTags combines the no-tags option with specific tags', () => {
+      expect(matchesTags([], [NO_TAGS_FILTER, 'ppc'])).toBe(true);
+      expect(matchesTags(['ppc'], [NO_TAGS_FILTER, 'ppc'])).toBe(true);
+      expect(matchesTags(['seo'], [NO_TAGS_FILTER, 'ppc'])).toBe(false);
    });
 
    it('filterKeywords filters by combined predicates', () => {
