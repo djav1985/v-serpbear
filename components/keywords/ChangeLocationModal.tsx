@@ -23,8 +23,8 @@ const ChangeLocationModal = ({ keywords = [], existingLocations = [], allowsCity
    return (
       <Modal
          closeModal={closeModal}
-         title={`Change Location for ${keywords.length} Selected Keyword${keywords.length > 1 ? 's' : ''}`}
-         width="[420px]"
+         title={`Change Location for ${keywords.length} Keyword${keywords.length > 1 ? 's' : ''}`}
+         width="[340px]"
       >
          <div data-testid="change_location_modal">
             <LocationPicker
