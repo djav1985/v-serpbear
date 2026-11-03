@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from 'react-query';
 import KeywordIdeasTable from '../../components/ideas/KeywordIdeasTable';
 import { useFetchKeywords } from '../../services/keywords';
 import { useEmailKeywordIdeas } from '../../services/ideas';
+import { fetchDomains } from '../../services/domains';
 
 const toastMock = jest.fn();
 
@@ -149,6 +150,7 @@ describe('KeywordIdeasTable DRY Principle Implementation', () => {
       } as any);
       useEmailKeywordIdeasMock.mockReturnValue({ mutate: emailMutateMock, isLoading: false } as any);
       toastMock.mockClear();
+      (fetchDomains as jest.Mock).mockResolvedValue({ domains: [] });
       Object.assign(mockRouter, { pathname: '/domain/ideas/example-domain' });
    });
 
@@ -238,6 +240,27 @@ describe('KeywordIdeasTable DRY Principle Implementation', () => {
       fireEvent.click(emailButton);
       expect(emailMutateMock).not.toHaveBeenCalled();
       expect(toastMock).toHaveBeenCalledWith('Please select a domain before emailing keywords.', { icon: '⚠️' });
+   });
+
+   it('shows the chosen domain in the research page selector and uses it for actions', async () => {
+      mockRouter.pathname = '/research';
+      (fetchDomains as jest.Mock).mockResolvedValue({
+         domains: [{ ...domain, ID: 2, domain: 'other.com', slug: 'other-com' }, domain],
+      });
+      renderTable();
+
+      const untrackedRow = screen.getByText('new term').closest('div.keyword') as HTMLElement;
+      fireEvent.click(within(untrackedRow).getByRole('button', { name: /select keyword idea/i }));
+
+      fireEvent.click(await screen.findByText('Select a Domain'));
+      fireEvent.click(await screen.findByText('example.com'));
+
+      expect(screen.queryByText('Select a Domain')).not.toBeInTheDocument();
+      expect(screen.getByText('example.com')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Email Keywords' }));
+      expect(emailMutateMock).toHaveBeenCalledWith(expect.objectContaining({ domain: 'example.com' }));
+      expect(toastMock).not.toHaveBeenCalled();
    });
 
    it('renders duplicate keyword ideas with distinct rows', async () => {

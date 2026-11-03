@@ -113,6 +113,17 @@ describe('DomainSettings Component', () => {
       expect(screen.getByText('Scraper')).toBeInTheDocument();
    });
 
+   it('keeps the settings tabs on one row without scrollbars', () => {
+      mockUseFetchDomain.mockImplementation(() => {});
+
+      renderDomainSettings();
+
+      const tabList = screen.getByText('Notification').closest('ul') as HTMLElement;
+      expect(tabList).not.toHaveClass('flex-wrap');
+      expect(tabList).not.toHaveClass('overflow-x-auto');
+      expect(screen.getByText('Search Console').closest('li')).toHaveClass('truncate', 'whitespace-nowrap');
+   });
+
    it('syncs scrape and notify flags when toggling the unified active control', async () => {
       mockUseFetchDomain.mockImplementation(() => {});
       const mutateMock = jest.fn();

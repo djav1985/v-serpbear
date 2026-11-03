@@ -22,6 +22,8 @@ All notable changes to this project will be documented in this file. Releases no
 
 ### Bug Fixes
 - Startup now clears any keyword `updating` flags left set by a previous process (e.g. a container restart mid-scrape), so the UI no longer shows stuck loading spinners after a restart.
+- The research page domain selector shows the chosen domain. It previously stayed on "Select a Domain" after a pick, even though the chosen domain was used for Add and Email.
+- The Domain Settings tabs stay on one row and shrink on narrow screens, instead of showing horizontal and vertical scrollbars.
 
 ### Performance
 - Reduced per-request scrape retry attempts from 3 to 1 so failing keywords fall through to the hourly failed-queue retry faster instead of blocking on repeated in-request retries.

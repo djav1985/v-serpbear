@@ -300,7 +300,7 @@ const IdeasKeywordsTable = ({
                   >
                      {isResearchPage && (
                         <SelectField
-                        selected={[]}
+                        selected={addKeywordDomain ? [addKeywordDomain] : []}
                         options={theDomains.map((d) => ({ label: d.domain, value: d.domain }))}
                         defaultLabel={'Select a Domain'}
                         updateField={(updated:string[]) => updated[0] && setAddKeywordDomain(updated[0])}
