@@ -26,6 +26,8 @@ import { retryQueueManager } from '../../utils/retryQueueManager';
 import db from '../../database/database';
 import { atomicWriteFile } from '../../utils/atomicWrite';
 
+// Sent in place of a saved Search Console credential: GET responses mask it, and a save that sends it back keeps the stored value
+const SC_CREDENTIAL_MARKER = 'true';
 const TRUTHY = new Set(['true', '1', 'on', 'yes']);
 const FALSY = new Set(['false', '0', 'off', 'no']);
 const DOMAIN_CLEANUP_RETRY_FILE = `${process.cwd()}/data/domain_cleanup_retry.json`;
@@ -179,6 +181,8 @@ const addDomain = async (req: NextApiRequest, res: NextApiResponse) => {
          lastUpdated: now,
          added: now,
          scrapeEnabled: toDbBool(true),
+         // Emails are controlled by the domain's notification address; the interval is set explicitly, not left to the model default
+         notification_interval: 'daily',
       }));
 
       if (domainsToAdd.length === 0) {
@@ -351,17 +355,35 @@ export const updateDomain = async (req: NextApiRequest, res: NextApiResponse) =>
 
       // Validate Search Console API Data
       if (search_console) {
+         const storedSearchConsole = safeJsonParse<Record<string, string> | null>(
+            domainPlain?.search_console,
+            null,
+            { context: `domain ${domainPlain?.domain ?? ''} search_console`, logError: true },
+         );
+         const keepsStoredCredentials = search_console.client_email === SC_CREDENTIAL_MARKER
+            && search_console.private_key === SC_CREDENTIAL_MARKER;
+
+         if (keepsStoredCredentials) {
+            // The form sends the marker back when the credentials were not changed: keep the stored encrypted values
+            search_console.client_email = storedSearchConsole?.client_email ?? '';
+            search_console.private_key = storedSearchConsole?.private_key ?? '';
+         } else if (search_console.client_email === SC_CREDENTIAL_MARKER || search_console.private_key === SC_CREDENTIAL_MARKER) {
+            return res.status(400).json(
+               errorResponse('BAD_REQUEST', 'Enter both client_email and private_key to change the Search Console credentials', requestId),
+            );
+         }
+
          // Ensure both credentials are provided together, or neither
          const hasEmail = !!(search_console.client_email?.trim());
          const hasKey = !!(search_console.private_key?.trim());
-         
+
          if (hasEmail !== hasKey) {
             return res.status(400).json(
                errorResponse('BAD_REQUEST', 'Both client_email and private_key must be provided together for Search Console integration', requestId),
             );
          }
-         
-         if (hasEmail && hasKey) {
+
+         if (hasEmail && hasKey && !keepsStoredCredentials) {
             const isSearchConsoleAPIValid = await checkSearchConsoleIntegration({ ...domainPlain, search_console: JSON.stringify(search_console) });
             if (!isSearchConsoleAPIValid.isValid) {
                return res.status(400).json(errorResponse('BAD_REQUEST', isSearchConsoleAPIValid.error ?? 'Invalid Search Console credentials', requestId));

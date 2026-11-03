@@ -134,6 +134,8 @@ describe('DomainSettings Component', () => {
       });
 
       renderDomainSettings();
+      // The Active toggle lives on the Scraper tab
+      fireEvent.click(screen.getByText('Scraper'));
 
       expect(screen.getByText('Active')).toBeInTheDocument();
       const toggle = screen.getByLabelText('Toggle domain active status');

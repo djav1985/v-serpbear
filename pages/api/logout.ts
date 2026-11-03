@@ -7,6 +7,7 @@ import { withApiLogging } from '../../utils/apiLogging';
 import { logger } from '../../utils/logger';
 import isRequestSecure from '../../utils/api/isRequestSecure';
 import { errorResponse } from '../../utils/api/response';
+import { revokeAllSessions } from '../../utils/sessionStore';
 
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
@@ -57,7 +58,9 @@ const logout = async (req: NextApiRequest, res: NextApiResponse, startTime: numb
          logger.debug('Failed to decode logout token during logout', { error: error instanceof Error ? error.message : String(error) });
       }
 
-      // Clear the token cookie
+      // Revoke every issued token, including copies taken before logout, then clear the cookie
+      await revokeAllSessions();
+
       cookies.set('token', '', {
          httpOnly: true,
          sameSite: 'lax',

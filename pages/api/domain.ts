@@ -1,7 +1,6 @@
 /// <reference path="../../types.d.ts" />
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import Cryptr from 'cryptr';
 import Domain from '../../database/models/domain';
 import verifyUser from '../../utils/verifyUser';
 import { maskDomainScraperSettings, parseDomainScraperSettings } from '../../utils/domainScraperSettings';
@@ -42,16 +41,18 @@ const getDomain = async (req: NextApiRequest, res: NextApiResponse) => {
       const parsedDomain = foundDomain.get({ plain: true }) as DomainType & { scraper_settings?: any };
 
       if (parsedDomain.search_console) {
-         const cryptr = new Cryptr(process.env.SECRET as string);
+         // The Search Console key stays on the server: only a 'true' marker says whether credentials are saved.
          const scData = safeJsonParse<Record<string, string> | null>(
             parsedDomain.search_console,
             null,
             { context: `domain ${parsedDomain.domain || parsedDomain.ID || ''} search_console`, logError: true },
          );
          if (scData) {
-            scData.client_email = scData.client_email ? cryptr.decrypt(scData.client_email) : '';
-            scData.private_key = scData.private_key ? cryptr.decrypt(scData.private_key) : '';
-            parsedDomain.search_console = JSON.stringify(scData);
+            parsedDomain.search_console = JSON.stringify({
+               ...scData,
+               client_email: scData.client_email ? 'true' : '',
+               private_key: scData.private_key ? 'true' : '',
+            });
          } else {
             // Ensure malformed search_console values are not returned unchanged
             parsedDomain.search_console = JSON.stringify({});

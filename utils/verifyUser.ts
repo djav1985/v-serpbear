@@ -3,6 +3,7 @@ import Cookies from 'cookies';
 import jwt from 'jsonwebtoken';
 import { timingSafeEqual } from 'crypto';
 import { logger } from './logger';
+import { getSessionVersion } from './sessionStore';
 
 /**
  * Compares two secrets in constant time. Returns false when either side is missing.
@@ -62,6 +63,11 @@ const verifyUser = (req: NextApiRequest, res: NextApiResponse): string => {
       try {
          // Verify JWT token and extract user information
          const decoded = jwt.verify(token, process.env.SECRET) as JwtDecodedPayload;
+         // Tokens issued before a logout carry an older version and are rejected (a missing version counts as 0)
+         const tokenVersion = Number((decoded as { sv?: unknown })?.sv ?? 0);
+         if (tokenVersion !== getSessionVersion()) {
+            throw new Error('Session has been revoked');
+         }
          authorized = 'authorized';
          authMethod = 'jwt_token';
          username = decoded?.user;

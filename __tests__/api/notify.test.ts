@@ -173,7 +173,7 @@ describe('/api/notify - authentication', () => {
 
     expect(verifyUser).toHaveBeenCalledWith(req, res);
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ success: true, error: null });
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, error: null }));
     expect(Domain.findAll).toHaveBeenCalledTimes(1);
     expect(Keyword.findAll).toHaveBeenCalledWith({ where: { domain: 'example.com' } });
     expect(sendMailMock).toHaveBeenCalledWith(expect.objectContaining({
@@ -239,7 +239,7 @@ describe('/api/notify - authentication', () => {
     await handler(req as NextApiRequest, res as NextApiResponse);
 
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ success: true, error: null });
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, error: null }));
     expect(nodeMailer.createTransport).toHaveBeenCalledWith(expect.objectContaining({
       host: 'smtp.test.com',
       port: 587,
@@ -268,7 +268,7 @@ describe('/api/notify - authentication', () => {
     await handler(req as NextApiRequest, res as NextApiResponse);
 
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ success: true, error: null, message: 'No domains are enabled for notifications.' });
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, error: null, message: 'No domains are enabled for notifications.' }));
     expect(nodeMailer.createTransport).not.toHaveBeenCalled();
   });
 
@@ -467,7 +467,7 @@ describe('/api/notify - authentication', () => {
     await handler(req as NextApiRequest, res as NextApiResponse);
 
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ success: true, error: null });
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, error: null }));
     expect(sendMailMock).toHaveBeenCalledTimes(2);
   });
 
@@ -488,7 +488,7 @@ describe('/api/notify - authentication', () => {
     await handler(req as NextApiRequest, res as NextApiResponse);
 
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ success: true, error: null, message: 'No domains are enabled for notifications.' });
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, error: null, message: 'No domains are enabled for notifications.' }));
     expect(nodeMailer.createTransport).not.toHaveBeenCalled();
     expect(sendMailMock).not.toHaveBeenCalled();
   });

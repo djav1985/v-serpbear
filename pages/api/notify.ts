@@ -51,21 +51,22 @@ const notify = async (req: NextApiRequest, res: NextApiResponse) => {
          return res.status(400).json(errorResponse('BAD_REQUEST', 'SMTP has not been setup properly!', requestId));
       }
 
-      let successCount = 0;
-      let attemptCount = 0;
+      let sentCount = 0;
+      let skippedCount = 0;
+      let failedCount = 0;
 
       // A domain takes part only when scraping is enabled and it has a notification interval other than "never".
       const isNotifiable = (domain: DomainType) => domain.scrapeEnabled
          && domain.notification_interval !== 'never';
 
-      // Counts a domain as successful only when an email was actually sent. A send skipped by the
-      // throttle is neither a success nor a failure, so it must not hide a real problem.
+      // A send skipped on purpose (no address, or throttled) is counted apart from a failure, so skipped
+      // domains never turn the response into an error.
       const notifyDomain = async (domain: DomainType) => {
-         attemptCount++;
          try {
-            const sent = await sendNotificationEmail(domain, normalizedSettings);
-            if (sent) { successCount++; }
+            const outcome = await sendNotificationEmail(domain, normalizedSettings);
+            if (outcome === 'sent') { sentCount++; } else { skippedCount++; }
          } catch (error) {
+            failedCount++;
             const domainName = domain?.domain || 'unknown domain';
             logger.error(`Failed to send notification for ${domainName}`, error instanceof Error ? error : new Error(String(error)));
          }
@@ -91,17 +92,17 @@ const notify = async (req: NextApiRequest, res: NextApiResponse) => {
          }
       }
 
-      // If we attempted to send emails but none succeeded, return an error
-      if (attemptCount > 0 && successCount === 0) {
+      // Only real send failures are errors: every eligible domain failed and none was sent
+      if (failedCount > 0 && sentCount === 0) {
          return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'All notification emails failed to send. Please check your SMTP configuration.', requestId));
       }
 
-      // If no emails were attempted (no eligible domains), inform the user
-      if (attemptCount === 0) {
-         return res.status(200).json({ success: true, error: null, message: 'No domains are enabled for notifications.' });
+      // No eligible domains at all: tell the user nothing was sent
+      if (sentCount === 0 && skippedCount === 0) {
+         return res.status(200).json({ success: true, error: null, sent: 0, skipped: 0, message: 'No domains are enabled for notifications.' });
       }
 
-      return res.status(200).json({ success: true, error: null });
+      return res.status(200).json({ success: true, error: null, sent: sentCount, skipped: skippedCount });
    } catch (error) {
       logger.error('Error sending notification emails', error instanceof Error ? error : new Error(String(error)));
       const message = error instanceof Error && error.message ? error.message : 'Error Sending Notification Email.';
@@ -111,17 +112,22 @@ const notify = async (req: NextApiRequest, res: NextApiResponse) => {
 };
 
 /**
- * Sends the notification email for one domain. Resolves to true when an email was sent and false when
- * the throttle skipped it.
+ * Sends the notification email for one domain. Resolves to 'sent', or to 'skipped' when the domain has no
+ * notification address or the throttle held it back. A domain with no address never falls back to the global address.
  */
-const sendNotificationEmail = async (domain: DomainType, settings: SettingsType): Promise<boolean> => {
+const sendNotificationEmail = async (domain: DomainType, settings: SettingsType): Promise<'sent' | 'skipped'> => {
    const domainName = domain.domain;
+   const recipients = trimString(domain.notification_emails);
+   if (!recipients) {
+      logger.info(`Skipping email for ${domainName}: no notification address set for this domain`);
+      return 'skipped';
+   }
 
    // Check email throttling
    const throttleCheck = await canSendEmail(domainName);
    if (!throttleCheck.canSend) {
       logger.info(`Skipping email for ${domainName}: ${throttleCheck.reason}`);
-      return false;
+      return 'skipped';
    }
 
    const { platformName } = getBranding();
@@ -131,7 +137,6 @@ const sendNotificationEmail = async (domain: DomainType, settings: SettingsType)
       smtp_port = '',
       smtp_username = '',
       smtp_password = '',
-      notification_email = '',
       notification_email_from = '',
       notification_email_from_name = platformName,
       smtp_tls_servername = '',
@@ -172,20 +177,17 @@ const sendNotificationEmail = async (domain: DomainType, settings: SettingsType)
       
       const emailHTML = await generateEmail(domainWithStats, keywords, settings);
 
-      const domainNotificationEmails = trimString(domain.notification_emails);
-      const fallbackNotification = notification_email;
-
       await transporter.sendMail({
          from: fromEmail,
-         to: domainNotificationEmails || fallbackNotification,
+         to: recipients,
          subject: `[${domainName}] Keyword Positions Update`,
          html: emailHTML,
       });
-      
+
       // Record successful email send
       await recordEmailSent(domainName);
       logger.info(`Successfully sent notification for ${domainName}`);
-      return true;
+      return 'sent';
 
    } catch (error:any) {
       logger.error('Error sending notification email', error instanceof Error ? error : new Error(String(error)), { domain: domainName });

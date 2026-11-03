@@ -5,6 +5,9 @@ import Cookies from 'cookies';
 
 jest.mock('jsonwebtoken');
 jest.mock('cookies');
+jest.mock('../../utils/sessionStore', () => ({
+   getSessionVersion: jest.fn(() => 0),
+}));
 jest.mock('../../utils/logger', () => ({
    logger: {
       authEvent: jest.fn(),

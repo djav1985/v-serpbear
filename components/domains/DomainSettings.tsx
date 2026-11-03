@@ -81,6 +81,11 @@ const deriveDomainActiveState = (domainData?: DomainType | null): boolean => {
    return Boolean(domainData.scrapeEnabled);
 };
 
+// The server sends this marker in place of a saved Search Console credential and keeps the stored value when it is sent back.
+const SAVED_CREDENTIAL_MARKER = 'true';
+const SAVED_CREDENTIAL_PLACEHOLDER = 'Saved. Type a new value to replace it.';
+const isSavedCredential = (value?: string | null): boolean => value === SAVED_CREDENTIAL_MARKER;
+
 const defaultSearchConsoleSettings: DomainSearchConsole = {
    property_type: 'domain',
    url: '',
@@ -298,23 +303,6 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
                <div>
                   {currentTab === 'notification' && (
                      <>
-                        <div className="mb-4 flex flex-col gap-3 w-full">
-                           <label className='flex items-center justify-between gap-3 text-sm font-medium text-gray-700'>
-                              <span>{isDomainActive ? 'Active' : 'Deactive'}</span>
-                              <input
-                                 type='checkbox'
-                                 className='sr-only peer'
-                                 checked={isDomainActive}
-                                 value={isDomainActive.toString()}
-                                 aria-label='Toggle domain active status'
-                                 onChange={(event) => {
-                                    event.preventDefault();
-                                    updateDomainActiveState(!isDomainActive);
-                                 }}
-                              />
-                              <div className={TOGGLE_TRACK_CLASS_NAME} />
-                           </label>
-                        </div>
                         <div className="mb-4 flex justify-between items-center w-full">
                            <InputField
                            label='Notification Emails'
@@ -323,6 +311,9 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
                            placeholder='Your Emails'
                            />
                         </div>
+                        <p className='text-xs text-gray-500 mb-4 w-full text-left'>
+                           Leave blank to turn off notification emails for this domain.
+                        </p>
                      </>
                   )}
                   {currentTab === 'searchconsole' && (
@@ -361,8 +352,8 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
                               ...domainSettings,
                               search_console: { ...(domainSettings.search_console as DomainSearchConsole), client_email },
                            })}
-                           value={domainSettings?.search_console?.client_email || ''}
-                           placeholder='myapp@appspot.gserviceaccount.com'
+                           value={isSavedCredential(domainSettings?.search_console?.client_email) ? '' : (domainSettings?.search_console?.client_email || '')}
+                           placeholder={isSavedCredential(domainSettings?.search_console?.client_email) ? SAVED_CREDENTIAL_PLACEHOLDER : 'myapp@appspot.gserviceaccount.com'}
                            />
                         </div>
                         <div className="mb-4 flex flex-col justify-between items-center w-full">
@@ -370,8 +361,8 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
                            <textarea
                               className={`w-full p-2 border border-gray-200 rounded mb-3 text-xs 
                               focus:outline-none h-[100px] focus:border-blue-200`}
-                              value={domainSettings?.search_console?.private_key || ''}
-                              placeholder={'-----BEGIN PRIVATE KEY-----/ssssaswdkihad....'}
+                              value={isSavedCredential(domainSettings?.search_console?.private_key) ? '' : (domainSettings?.search_console?.private_key || '')}
+                              placeholder={isSavedCredential(domainSettings?.search_console?.private_key) ? SAVED_CREDENTIAL_PLACEHOLDER : '-----BEGIN PRIVATE KEY-----/ssssaswdkihad....'}
                               onChange={(event) => setDomainSettings({
                                  ...domainSettings,
                                  search_console: { ...(domainSettings.search_console as DomainSearchConsole), private_key: event.target.value },
@@ -382,6 +373,23 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
                   )}
                   {currentTab === 'scraper' && (
                      <>
+                        <div className="mb-4 flex flex-col gap-3 w-full">
+                           <label className='flex items-center justify-between gap-3 text-sm font-medium text-gray-700'>
+                              <span>{isDomainActive ? 'Active' : 'Deactive'}</span>
+                              <input
+                                 type='checkbox'
+                                 className='sr-only peer'
+                                 checked={isDomainActive}
+                                 value={isDomainActive.toString()}
+                                 aria-label='Toggle domain active status'
+                                 onChange={(event) => {
+                                    event.preventDefault();
+                                    updateDomainActiveState(!isDomainActive);
+                                 }}
+                              />
+                              <div className={TOGGLE_TRACK_CLASS_NAME} />
+                           </label>
+                        </div>
                         <div className="mb-4 flex justify-between items-center w-full">
                            <label className='mb-2 font-semibold inline-block text-sm text-gray-700 capitalize'>Scraper</label>
                            <SelectField
