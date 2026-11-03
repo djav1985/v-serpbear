@@ -106,7 +106,22 @@ describe('/api/cron', () => {
       updatingStartedAt: '2024-06-01T12:00:00.000Z',
     });
     expect(Keyword.findAll).toHaveBeenCalledWith({ where: { domain: 'enabled.com' } });
-    expect(refreshAndUpdateKeywords).toHaveBeenCalledWith([keywordRecord], { scraper_type: 'serpapi' });
+    expect(refreshAndUpdateKeywords).toHaveBeenCalledWith([keywordRecord], { scraper_type: 'serpapi' }, expect.any(Array));
+  });
+
+  it('loads domains once per run and reuses them for every queued domain', async () => {
+    (Domain.findAll as jest.Mock).mockResolvedValue([
+      { get: () => ({ domain: 'one.com', scrapeEnabled: 1 }) },
+      { get: () => ({ domain: 'two.com', scrapeEnabled: 1 }) },
+    ]);
+    (Keyword.findAll as jest.Mock).mockResolvedValue([]);
+
+    await handler(req, res as NextApiResponse);
+    await jest.runAllTimersAsync();
+
+    expect(Domain.findAll).toHaveBeenCalledTimes(1);
+    // One Keyword lookup per domain; the domain lookup is not repeated inside the refresh path.
+    expect(Keyword.findAll).toHaveBeenCalledTimes(2);
   });
 
   it('returns early when no domains have scraping enabled', async () => {
@@ -162,8 +177,8 @@ describe('/api/cron', () => {
     expect(Keyword.findAll).toHaveBeenNthCalledWith(2, { where: { domain: 'second.com' } });
 
     expect(refreshAndUpdateKeywords).toHaveBeenCalledTimes(2);
-    expect(refreshAndUpdateKeywords).toHaveBeenNthCalledWith(1, [firstKeyword], { scraper_type: 'serpapi' });
-    expect(refreshAndUpdateKeywords).toHaveBeenNthCalledWith(2, [secondKeyword], { scraper_type: 'serpapi' });
+    expect(refreshAndUpdateKeywords).toHaveBeenNthCalledWith(1, [firstKeyword], { scraper_type: 'serpapi' }, expect.any(Array));
+    expect(refreshAndUpdateKeywords).toHaveBeenNthCalledWith(2, [secondKeyword], { scraper_type: 'serpapi' }, expect.any(Array));
   });
 
   it('generates unique task IDs for each domain using crypto.randomUUID()', async () => {

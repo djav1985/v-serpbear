@@ -34,7 +34,10 @@ const getTrustedOrigin = (_req: NextApiRequest) => {
 };
 
 const oauthCookies = (req: NextApiRequest, res: NextApiResponse) => {
-   const secure = isRequestSecure(req) || !req.headers.host?.includes('localhost:');
+   // The callback always returns to the trusted origin, so the cookie is Secure when either the request
+   // or that origin is HTTPS (reverse proxies may not forward the protocol). Browsers drop Secure cookies
+   // set over plain HTTP, so an HTTP-only origin must not get the flag.
+   const secure = isRequestSecure(req) || getTrustedOrigin(req).startsWith('https://');
    return {
       cookies: new Cookies(req, res, { secure }),
       options: { httpOnly: true, secure, sameSite: 'lax' as const, path: '/api/adwords' },
@@ -157,6 +160,16 @@ const getAdwordsRefreshToken = async (req: NextApiRequest, res: NextApiResponse)
          const stateMatches = suppliedState.length === expectedState.length && suppliedState.length > 0
             && timingSafeEqual(Buffer.from(suppliedState), Buffer.from(expectedState));
          if (!stateMatches) {
+            // Log only presence and lengths so the cause is visible without recording the state value.
+            logger.warn('OAuth callback state check failed', {
+               statePresent: suppliedState.length > 0,
+               cookiePresent: expectedState.length > 0,
+               stateLength: suppliedState.length,
+               cookieLength: expectedState.length,
+               host: req.headers.host,
+               forwardedHost: req.headers['x-forwarded-host'],
+               forwardedProto: req.headers['x-forwarded-proto'],
+            });
             return respondWithIntegrationResult(req, res, {
                success: false,
                message: 'Invalid or expired OAuth state. Please start the integration again.',

@@ -10,6 +10,7 @@ import { integrateKeywordSCData, readLocalSCData } from '../../utils/searchConso
 import refreshAndUpdateKeywords from '../../utils/refresh';
 import { getKeywordsVolume, updateKeywordsVolumeData } from '../../utils/adwords';
 import { formatLocation, hasValidCityStatePair, parseLocation } from '../../utils/location';
+import { isValidHostname } from '../../utils/validators/hostname';
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
 import { toDbBool } from '../../utils/dbBooleans';
@@ -144,10 +145,9 @@ const validateKeywordData = (kwrd: any): { isValid: boolean, sanitized?: any, er
       errors.push('Keyword cannot be empty');
    }
    
-   // Validate domain format (basic validation)
+   // Same hostname rules as adding a domain (utils/validators/hostname)
    const domain = typeof kwrd.domain === 'string' ? kwrd.domain.trim().toLowerCase().substring(0, 100) : '';
-   const domainRegex = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\.(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?))*$/i;
-   if (domain.length === 0 || !domainRegex.test(domain)) {
+   if (!isValidHostname(domain)) {
       errors.push('Invalid domain format');
    }
    

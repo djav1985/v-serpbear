@@ -7,7 +7,7 @@ import Domain from '../../database/models/domain';
 import { getAppSettings } from './settings';
 import verifyUser from '../../utils/verifyUser';
 
-import refreshAndUpdateKeywords, { clearKeywordUpdatingFlags, markKeywordsAsUpdating, partitionKeywordsByDomainStatus } from '../../utils/refresh';
+import refreshAndUpdateKeywords, { clearKeywordUpdatingFlags, DOMAIN_REFRESH_ATTRIBUTES, markKeywordsAsUpdating, partitionKeywordsByDomainStatus } from '../../utils/refresh';
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
 import { fromDbBool } from '../../utils/dbBooleans';
@@ -36,8 +36,9 @@ const cronRefreshkeywords = async (_req: NextApiRequest, res: NextApiResponse) =
          logger.warn('Cron refresh skipped: Scraper not configured');
          return res.status(400).json(errorResponse('BAD_REQUEST', 'Scraper has not been set up yet.', requestId));
       }
-      const domainToggles = await Domain.findAll({ attributes: ['domain', 'scrapeEnabled'] });
-      const enabledDomains = domainToggles
+      // Load every domain once for this run. Each queued domain reuses these records instead of querying again.
+      const domainRecords = await Domain.findAll({ attributes: DOMAIN_REFRESH_ATTRIBUTES });
+      const enabledDomains = domainRecords
          .map((dom) => dom.get({ plain: true }))
          .filter((dom) => fromDbBool(dom.scrapeEnabled))
          .map((dom) => dom.domain);
@@ -58,7 +59,7 @@ const cronRefreshkeywords = async (_req: NextApiRequest, res: NextApiResponse) =
          refreshQueue.enqueue(
             `cron-refresh-${domain}-${uniqueId}`,
             async () => {
-               await processSingleDomain(domain, settings);
+               await processSingleDomain(domain, settings, domainRecords);
             },
             [domain]
          ).catch((queueError) => {
@@ -78,7 +79,7 @@ const cronRefreshkeywords = async (_req: NextApiRequest, res: NextApiResponse) =
  * This function is called for each domain independently, allowing parallel processing
  * while the queue ensures no domain is processed twice simultaneously.
  */
-const processSingleDomain = async (domain: string, settings: SettingsType): Promise<void> => {
+const processSingleDomain = async (domain: string, settings: SettingsType, domainRecords: Domain[]): Promise<void> => {
    let keywordQueries: Keyword[] = [];
    let keywordsToRefresh: Keyword[] = [];
    try {
@@ -95,7 +96,7 @@ const processSingleDomain = async (domain: string, settings: SettingsType): Prom
          keywordsToRefresh: eligibleKeywords,
          skippedKeywords,
          missingDomainKeywords,
-      } = await partitionKeywordsByDomainStatus(keywordQueries);
+      } = await partitionKeywordsByDomainStatus(keywordQueries, domainRecords);
 
       keywordsToRefresh = eligibleKeywords;
 
@@ -126,7 +127,7 @@ const processSingleDomain = async (domain: string, settings: SettingsType): Prom
       logger.info(`Processing ${keywordsToRefresh.length} keywords for domain: ${domain}`);
       
       // Process this domain's keywords
-      await refreshAndUpdateKeywords(keywordsToRefresh, settings);
+      await refreshAndUpdateKeywords(keywordsToRefresh, settings, domainRecords);
       
       logger.info(`Completed processing domain: ${domain}`);
    } catch (domainError) {

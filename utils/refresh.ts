@@ -101,7 +101,12 @@ type KeywordRefreshPartition = {
    scrapeEnabledMap: Map<string, boolean>;
 };
 
-export const partitionKeywordsByDomainStatus = async (keywordQueries: Keyword[]): Promise<KeywordRefreshPartition> => {
+/** Domain columns the refresh pipeline reads. Loaded once per cron run and passed down. */
+export const DOMAIN_REFRESH_ATTRIBUTES = ['domain', 'scrapeEnabled', 'scraper_settings', 'business_name', 'scrape_strategy', 'scrape_pagination_limit', 'scrape_smart_full_fallback'];
+
+const domainNameOf = (record: Domain): string => (record.get({ plain: true }) as { domain: string }).domain;
+
+export const partitionKeywordsByDomainStatus = async (keywordQueries: Keyword[], preloadedDomains?: Domain[]): Promise<KeywordRefreshPartition> => {
    if (!keywordQueries || keywordQueries.length === 0) {
       return {
          keywordsToRefresh: [],
@@ -112,9 +117,13 @@ export const partitionKeywordsByDomainStatus = async (keywordQueries: Keyword[])
    }
 
    const domainNames = Array.from(new Set(keywordQueries.map((keyword) => keyword.domain).filter(Boolean)));
-   const domainRecords = domainNames.length > 0
-      ? await Domain.findAll({ where: { domain: domainNames }, attributes: ['domain', 'scrapeEnabled'] })
-      : [];
+   let domainRecords: Domain[] = [];
+   if (preloadedDomains) {
+      const domainNameSet = new Set(domainNames);
+      domainRecords = preloadedDomains.filter((record) => domainNameSet.has(domainNameOf(record)));
+   } else if (domainNames.length > 0) {
+      domainRecords = await Domain.findAll({ where: { domain: domainNames }, attributes: ['domain', 'scrapeEnabled'] });
+   }
 
    const scrapeEnabledMap = new Map<string, boolean>(
       domainRecords.map((record) => {
@@ -240,7 +249,7 @@ export const clearKeywordUpdatingFlags = async (
  * @param {SettingsType} settings - The App Settings that contain the Scraper settings
  * @returns {Promise}
  */
-const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsType): Promise<KeywordType[]> => {
+const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsType, preloadedDomains?: Domain[]): Promise<KeywordType[]> => {
    if (!rawkeyword || rawkeyword.length === 0) { return []; }
 
    const domainNames = Array.from(new Set(rawkeyword.map((el) => el.domain).filter(Boolean)));
@@ -251,10 +260,13 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
 
    // Precompute per-domain "effective settings" map once
    if (domainNames.length > 0) {
-      const domains = await Domain.findAll({
-         where: { domain: domainNames },
-         attributes: ['domain', 'scrapeEnabled', 'scraper_settings', 'business_name', 'scrape_strategy', 'scrape_pagination_limit', 'scrape_smart_full_fallback'],
-      });
+      const domainNameSet = new Set(domainNames);
+      const domains = preloadedDomains
+         ? preloadedDomains.filter((record) => domainNameSet.has(domainNameOf(record)))
+         : await Domain.findAll({
+            where: { domain: domainNames },
+            attributes: DOMAIN_REFRESH_ATTRIBUTES,
+         });
       const secret = process.env.SECRET;
       const cryptr = secret ? new Cryptr(secret) : null;
       scrapePermissions = new Map(domains.map((domain) => {

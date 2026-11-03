@@ -126,6 +126,84 @@ describe('PUT /api/settings validation and errors', () => {
     expect(jsonCall.error.details).toBe('disk full');
     expect(jsonCall.error.details).not.toEqual(expect.objectContaining({ details: expect.anything() }));
   });
+
+  it('returns 400 and does not save when a field has an invalid value', async () => {
+    const req = {
+      method: 'PUT',
+      body: { settings: { scrape_strategy: 'everything' } },
+      headers: {},
+    } as unknown as NextApiRequest;
+
+    const res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+    } as unknown as NextApiResponse;
+
+    await handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ error: expect.objectContaining({ code: 'BAD_REQUEST', message: expect.stringContaining('scrape_strategy') }) }),
+    );
+    expect(writeFileMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('validateSettingsPayload', () => {
+  const { validateSettingsPayload } = settingsApi;
+
+  it('accepts a valid payload', () => {
+    expect(validateSettingsPayload({
+      scraper_type: 'none',
+      scrape_strategy: 'custom',
+      scrape_pagination_limit: 5,
+      notification_interval: 'weekly',
+      scrape_retry: true,
+      smtp_port: '587',
+      notification_email: 'me@example.com',
+      keywordsColumns: ['Best', 'Volume'],
+    })).toEqual([]);
+  });
+
+  it('accepts empty optional values', () => {
+    expect(validateSettingsPayload({ smtp_port: '', notification_email: '' })).toEqual([]);
+  });
+
+  it('ignores fields that are not in the payload', () => {
+    expect(validateSettingsPayload({})).toEqual([]);
+  });
+
+  it('rejects an unknown scraper type', () => {
+    expect(validateSettingsPayload({ scraper_type: 'made-up' })[0]).toMatch(/Unknown scraper type/);
+  });
+
+  it('rejects an unknown scrape strategy', () => {
+    expect(validateSettingsPayload({ scrape_strategy: 'everything' })[0]).toMatch(/scrape_strategy/);
+  });
+
+  it.each([0, 11, 2.5, 'abc'])('rejects pagination limit %p', (limit) => {
+    expect(validateSettingsPayload({ scrape_pagination_limit: limit })[0]).toMatch(/scrape_pagination_limit/);
+  });
+
+  it('rejects an unknown notification interval', () => {
+    expect(validateSettingsPayload({ notification_interval: 'hourly' })[0]).toMatch(/notification_interval/);
+  });
+
+  it('rejects non-boolean flags', () => {
+    expect(validateSettingsPayload({ scrape_retry: 'yes' })[0]).toMatch(/scrape_retry must be true or false/);
+  });
+
+  it('rejects a port outside 1-65535', () => {
+    expect(validateSettingsPayload({ smtp_port: '70000' })[0]).toMatch(/smtp_port/);
+  });
+
+  it('rejects a malformed notification email', () => {
+    expect(validateSettingsPayload({ notification_email: 'not-an-email' })[0]).toMatch(/notification_email/);
+  });
+
+  it('rejects keywordsColumns that are not a list of strings', () => {
+    expect(validateSettingsPayload({ keywordsColumns: 'Best' })[0]).toMatch(/keywordsColumns/);
+  });
 });
 
 describe('GET /api/settings and configuration requirements', () => {

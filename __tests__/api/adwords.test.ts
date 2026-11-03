@@ -51,13 +51,22 @@ describe('Google Ads OAuth state flow', () => {
   });
 
   it('starts integration with a random state cookie and trusted callback origin', async () => {
-    const res = response(); await handler(createMockRequest({ method: 'GET', headers: { host: 'attacker.example', 'x-forwarded-host': 'evil.example' } }), res);
+    const res = response(); await handler(createMockRequest({ method: 'GET', headers: { host: 'attacker.example', 'x-forwarded-host': 'evil.example', 'x-forwarded-proto': 'https' } }), res);
     expect(res.status).toHaveBeenCalledWith(200);
     const payload = (res.json as jest.Mock).mock.calls[0][0];
     const url = new URL(payload.authUrl);
     expect(url.searchParams.get('redirect_uri')).toBe('https://trusted.example/api/adwords');
     expect(url.searchParams.get('state')).toHaveLength(43);
     expect(cookieSet).toHaveBeenCalledWith('adwords_oauth_state', url.searchParams.get('state'), expect.objectContaining({ httpOnly: true, secure: true, sameSite: 'lax', maxAge: 600 }));
+  });
+
+  it('does not mark the state cookie Secure when the trusted origin is plain HTTP (LAN installs)', async () => {
+    (process.env as MutableEnv).NEXT_PUBLIC_APP_URL = 'http://192.168.1.10:3000';
+    const res = response(); await handler(createMockRequest({ method: 'GET', headers: { host: '192.168.1.10:3000' } }), res);
+    expect(res.status).toHaveBeenCalledWith(200);
+    const payload = (res.json as jest.Mock).mock.calls[0][0];
+    const state = new URL(payload.authUrl).searchParams.get('state');
+    expect(cookieSet).toHaveBeenCalledWith('adwords_oauth_state', state, expect.objectContaining({ secure: false }));
   });
 
   it('rejects oauth flow startup when no trusted app origin is configured', async () => {

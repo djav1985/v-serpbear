@@ -3,6 +3,7 @@ import * as path from 'path';
 import Cryptr from 'cryptr';
 import TTLCache from '@isaacs/ttlcache';
 import { setTimeout as sleep } from 'timers/promises';
+import { Op } from 'sequelize';
 import Keyword from '../database/models/keyword';
 import parseKeywords from './parseKeywords';
 import countries from './countries';
@@ -637,12 +638,20 @@ export const getKeywordsVolume = async (keywords: KeywordType[]): Promise<{ erro
 export const updateKeywordsVolumeData = async (volumesData: false | Record<number, number>) => {
    if (volumesData === false) { return false; }
 
+   // Group keyword IDs by volume so each distinct volume is one UPDATE instead of one per keyword.
+   const idsByVolume = new Map<number, number[]>();
    for (const [keywordID, volume] of Object.entries(volumesData)) {
       const keyID = Number(keywordID);
       if (!Number.isNaN(keyID)) {
          const volumeData = typeof volume === 'number' ? volume : 0;
-         await Keyword.update({ volume: volumeData }, { where: { ID: keyID } });
+         const ids = idsByVolume.get(volumeData) ?? [];
+         ids.push(keyID);
+         idsByVolume.set(volumeData, ids);
       }
+   }
+
+   for (const [volumeData, ids] of idsByVolume) {
+      await Keyword.update({ volume: volumeData }, { where: { ID: { [Op.in]: ids } } });
    }
 
    return true;

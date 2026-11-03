@@ -63,6 +63,59 @@ const normalizeLegacySettings = (settings: Partial<SettingsType>): Partial<Setti
    return normalizedSettings;
 };
 
+const SCRAPE_STRATEGIES = ['basic', 'custom', 'smart'];
+const NOTIFICATION_INTERVALS = ['daily', 'weekly', 'monthly', 'never'];
+const MAX_PAGINATION_LIMIT = 10;
+const BOOLEAN_SETTINGS = ['scrape_retry', 'scrape_smart_full_fallback', 'search_console'];
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * Checks only the fields present in the payload. Returns one message per invalid field
+ * (an empty array when the payload is valid).
+ */
+export const validateSettingsPayload = (settings: Record<string, unknown>): string[] => {
+   const errors: string[] = [];
+   const has = (key: string) => settings[key] !== undefined;
+
+   if (has('scraper_type')) {
+      const validScrapers = ['none', ...allScrapers.map((scraper) => scraper.id)];
+      if (!validScrapers.includes(settings.scraper_type as string)) {
+         errors.push(`Unknown scraper type: ${String(settings.scraper_type)}.`);
+      }
+   }
+   if (has('scrape_strategy') && !SCRAPE_STRATEGIES.includes(settings.scrape_strategy as string)) {
+      errors.push('scrape_strategy must be basic, custom or smart.');
+   }
+   if (has('scrape_pagination_limit')) {
+      const limit = Number(settings.scrape_pagination_limit);
+      if (!Number.isInteger(limit) || limit < 1 || limit > MAX_PAGINATION_LIMIT) {
+         errors.push(`scrape_pagination_limit must be a whole number from 1 to ${MAX_PAGINATION_LIMIT}.`);
+      }
+   }
+   if (has('notification_interval') && !NOTIFICATION_INTERVALS.includes(settings.notification_interval as string)) {
+      errors.push('notification_interval must be daily, weekly, monthly or never.');
+   }
+   BOOLEAN_SETTINGS.forEach((key) => {
+      if (has(key) && typeof settings[key] !== 'boolean') {
+         errors.push(`${key} must be true or false.`);
+      }
+   });
+   if (has('smtp_port') && settings.smtp_port !== '') {
+      const port = Number(settings.smtp_port);
+      if (!Number.isInteger(port) || port < 1 || port > 65535) {
+         errors.push('smtp_port must be a number from 1 to 65535.');
+      }
+   }
+   if (has('notification_email') && settings.notification_email !== '' && !EMAIL_PATTERN.test(String(settings.notification_email))) {
+      errors.push('notification_email must be a valid email address.');
+   }
+   if (has('keywordsColumns') && (!Array.isArray(settings.keywordsColumns) || !settings.keywordsColumns.every((column) => typeof column === 'string'))) {
+      errors.push('keywordsColumns must be a list of column names.');
+   }
+
+   return errors;
+};
+
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
    // Allow GET requests without authentication for public settings
@@ -138,6 +191,11 @@ const updateSettings = async (req: NextApiRequest, res: NextApiResponse) => {
    
    try {
       const normalizedSettings: SettingsType = trimStringProperties(normalizeLegacySettings({ ...settings })) as SettingsType;
+
+      const validationErrors = validateSettingsPayload(normalizedSettings as unknown as Record<string, unknown>);
+      if (validationErrors.length > 0) {
+         return res.status(400).json(errorResponse('BAD_REQUEST', validationErrors.join(' '), requestId));
+      }
 
       const cryptr = new Cryptr(process.env.SECRET);
       const encrypt = (value?: string) => (value ? cryptr.encrypt(value) : '');

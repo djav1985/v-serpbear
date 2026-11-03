@@ -1,3 +1,4 @@
+import { Op } from 'sequelize';
 import Keyword from '../../database/models/keyword';
 import * as scUtils from '../../utils/searchConsole';
 import * as adwordsUtils from '../../utils/adwords';
@@ -220,21 +221,30 @@ describe('updateKeywordsVolumeData', () => {
     jest.restoreAllMocks();
   });
 
-  it('awaits all keyword updates before resolving', async () => {
-    const completionOrder: number[] = [];
-    jest.spyOn(Keyword, 'update').mockImplementation((_, options: any) =>
-      new Promise((resolve) => {
-        setTimeout(() => {
-          completionOrder.push(options?.where?.ID);
-          resolve([1] as any);
-        }, 0);
-      }),
-    );
+  it('groups keywords with the same volume into one update', async () => {
+    const updateSpy = jest.spyOn(Keyword, 'update').mockResolvedValue([1] as any);
 
-    const promise = adwordsUtils.updateKeywordsVolumeData({ 1: 100, 2: 200 });
-    await expect(promise).resolves.toBe(true);
-    expect(completionOrder).toHaveLength(2);
-    expect(completionOrder).toEqual(expect.arrayContaining([1, 2]));
+    await expect(adwordsUtils.updateKeywordsVolumeData({ 1: 100, 2: 100, 3: 200 })).resolves.toBe(true);
+
+    expect(updateSpy).toHaveBeenCalledTimes(2);
+    expect(updateSpy).toHaveBeenCalledWith({ volume: 100 }, { where: { ID: { [Op.in]: [1, 2] } } });
+    expect(updateSpy).toHaveBeenCalledWith({ volume: 200 }, { where: { ID: { [Op.in]: [3] } } });
+  });
+
+  it('skips non-numeric IDs and treats non-numeric volumes as 0', async () => {
+    const updateSpy = jest.spyOn(Keyword, 'update').mockResolvedValue([1] as any);
+
+    await adwordsUtils.updateKeywordsVolumeData({ abc: 50, 4: undefined } as any);
+
+    expect(updateSpy).toHaveBeenCalledTimes(1);
+    expect(updateSpy).toHaveBeenCalledWith({ volume: 0 }, { where: { ID: { [Op.in]: [4] } } });
+  });
+
+  it('returns false without writing when volume data is unavailable', async () => {
+    const updateSpy = jest.spyOn(Keyword, 'update');
+
+    await expect(adwordsUtils.updateKeywordsVolumeData(false)).resolves.toBe(false);
+    expect(updateSpy).not.toHaveBeenCalled();
   });
 
   it('propagates update errors', async () => {
