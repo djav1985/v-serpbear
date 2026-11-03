@@ -351,8 +351,15 @@ export const readLocalSCData = async (domain:string): Promise<SCDomainDataType|f
    try {
       const filePath = getSafeSCDataFilePath(domain);
       if (!filePath) throw new Error('Invalid domain for file path');
-      // eslint-disable-next-line security/detect-non-literal-fs-filename
-      const currentQueueRaw = await readFile(filePath, { encoding: 'utf-8' }).catch(async () => { await updateLocalSCData(domain); return '{}'; });
+      let currentQueueRaw: string;
+      try {
+         // eslint-disable-next-line security/detect-non-literal-fs-filename
+         currentQueueRaw = await readFile(filePath, { encoding: 'utf-8' });
+      } catch (readError) {
+         // No data stored for this domain yet. Reading must not create a file as a side effect.
+         if ((readError as NodeJS.ErrnoException)?.code === 'ENOENT') { return false; }
+         throw readError;
+      }
       const domainSCData = safeJsonParse<SCDomainDataType | false>(
          currentQueueRaw,
          false,

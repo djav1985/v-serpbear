@@ -14,7 +14,6 @@ import { logger } from './logger';
 import { fromDbBool, toDbBool } from './dbBooleans';
 import normalizeDomainBooleans from './normalizeDomain';
 import { retryQueueManager } from './retryQueueManager';
-import { DEVICE_MOBILE, DEVICE_DESKTOP } from './constants';
 
 const describeScraperType = (scraperType?: SettingsType['scraper_type']): string => {
    if (!scraperType || scraperType.length === 0) {
@@ -47,15 +46,6 @@ const resolveEffectiveSettings = (
    globalSettings: SettingsType,
    domainSpecificSettings: Map<string, SettingsType>,
 ): SettingsType => domainSpecificSettings.get(domain) ?? globalSettings;
-
-/**
- * Normalizes a device string to either 'desktop' or 'mobile'.
- * Treats undefined, null, or any non-'mobile' value as 'desktop'.
- * @param {string | undefined} device - The device type
- * @returns {'desktop' | 'mobile'} Normalized device type
- */
-const normalizeDevice = (device?: string): 'desktop' | 'mobile' =>
-   device === DEVICE_MOBILE ? DEVICE_MOBILE : DEVICE_DESKTOP;
 
 const getParallelScrapeConcurrency = (): number => {
    const configuredConcurrency = process.env.PARALLEL_SCRAPE_CONCURRENCY;
@@ -357,20 +347,10 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
          const parallelUpdatedKeywords = await refreshParallel(keywords, eligibleKeywordModels, settings, domainSpecificSettings, domainStrategyMap);
          updatedKeywords.push(...parallelUpdatedKeywords);
       } else {
-         // Sequential scraping: scrape desktop keywords first, then mobile
-         // This allows mobile keywords to use desktop results as fallback if needed (e.g., for valueserp)
-         const sortedKeywords = [...eligibleKeywordModels].sort((a, b) => {
-            const aDevice = normalizeDevice(a.device);
-            const bDevice = normalizeDevice(b.device);
-            // Desktop comes before mobile
-            if (aDevice === DEVICE_DESKTOP && bDevice === DEVICE_MOBILE) return -1;
-            if (aDevice === DEVICE_MOBILE && bDevice === DEVICE_DESKTOP) return 1;
-            return 0;
-         });
-
+         // Sequential scraping: each domain's keywords are scraped one at a time, while domains run in parallel.
          const parallelScrapeConcurrency = getParallelScrapeConcurrency();
          const keywordsByDomain = new Map<string, Keyword[]>();
-         for (const keyword of sortedKeywords) {
+         for (const keyword of eligibleKeywordModels) {
             const domainKeywords = keywordsByDomain.get(keyword.domain) || [];
             domainKeywords.push(keyword);
             keywordsByDomain.set(keyword.domain, domainKeywords);
@@ -381,56 +361,50 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
             ? Math.min(configuredDelay, 30000)
             : 0;
 
-         const processDevicePhase = async (device: 'desktop' | 'mobile') => {
-            const domainResults = await Promise.allSettled(
-               Array.from(keywordsByDomain.entries()).map(async ([domain, domainKeywords]) => {
-                  const phaseKeywords = domainKeywords.filter((keyword) => normalizeDevice(keyword.device) === device);
-                  let nextKeywordIndex = 0;
+         const domainResults = await Promise.allSettled(
+            Array.from(keywordsByDomain.entries()).map(async ([domain, domainKeywords]) => {
+               let nextKeywordIndex = 0;
 
-                  const processNextKeyword = async () => {
-                     while (nextKeywordIndex < phaseKeywords.length) {
-                        const keyword = phaseKeywords[nextKeywordIndex++];
-                        const keywordPlain = keyword.get({ plain: true });
-                        logger.info('Processing keyword refresh', { keywordId: keywordPlain.ID, keyword: keywordPlain.keyword });
-                        const domainStrategy = domainStrategyMap.get(domain);
-                        const updatedKeyword = await refreshAndUpdateKeyword(
-                           keyword,
-                           settings,
-                           domainSpecificSettings,
-                           domainStrategy,
-                        );
+               const processNextKeyword = async () => {
+                  while (nextKeywordIndex < domainKeywords.length) {
+                     const keyword = domainKeywords[nextKeywordIndex++];
+                     const keywordPlain = keyword.get({ plain: true });
+                     logger.info('Processing keyword refresh', { keywordId: keywordPlain.ID, keyword: keywordPlain.keyword });
+                     const domainStrategy = domainStrategyMap.get(domain);
+                     const updatedKeyword = await refreshAndUpdateKeyword(
+                        keyword,
+                        settings,
+                        domainSpecificSettings,
+                        domainStrategy,
+                     );
 
-                        updatedKeywords.push(updatedKeyword);
+                     updatedKeywords.push(updatedKeyword);
 
-                        if (batchDelay > 0 && nextKeywordIndex < phaseKeywords.length) {
-                           await sleep(batchDelay);
-                        }
+                     if (batchDelay > 0 && nextKeywordIndex < domainKeywords.length) {
+                        await sleep(batchDelay);
                      }
-                  };
-
-                  const workerCount = Math.min(parallelScrapeConcurrency, phaseKeywords.length);
-                  const workerResults = await Promise.allSettled(
-                     Array.from({ length: workerCount }, () => processNextKeyword()),
-                  );
-                  const rejectedWorkerResult = workerResults.find(
-                     (result): result is PromiseRejectedResult => result.status === 'rejected',
-                  );
-                  if (rejectedWorkerResult) {
-                     throw rejectedWorkerResult.reason;
                   }
-               }),
-            );
+               };
 
-            const rejectedDomainResult = domainResults.find(
-               (result): result is PromiseRejectedResult => result.status === 'rejected',
-            );
-            if (rejectedDomainResult) {
-               throw rejectedDomainResult.reason;
-            }
-         };
+               const workerCount = Math.min(parallelScrapeConcurrency, domainKeywords.length);
+               const workerResults = await Promise.allSettled(
+                  Array.from({ length: workerCount }, () => processNextKeyword()),
+               );
+               const rejectedWorkerResult = workerResults.find(
+                  (result): result is PromiseRejectedResult => result.status === 'rejected',
+               );
+               if (rejectedWorkerResult) {
+                  throw rejectedWorkerResult.reason;
+               }
+            }),
+         );
 
-         await processDevicePhase(DEVICE_DESKTOP);
-         await processDevicePhase(DEVICE_MOBILE);
+         const rejectedDomainResult = domainResults.find(
+            (result): result is PromiseRejectedResult => result.status === 'rejected',
+         );
+         if (rejectedDomainResult) {
+            throw rejectedDomainResult.reason;
+         }
       }
    } catch (error: any) {
       logger.error('[ERROR] Unexpected error during keyword refresh:', error);

@@ -43,7 +43,10 @@ const getdomainStats = async (domains:DomainType[]): Promise<DomainType[]> => {
 
    const finalDomains: DomainType[] = [];
 
-   for (const domain of domains) {
+   // Read every domain's Search Console file in parallel rather than one after another
+   const scDataByDomain = await Promise.all(domains.map((domain) => readLocalSCData(domain.domain)));
+
+   for (const [index, domain] of domains.entries()) {
       const domainWithStat = domain;
 
       const stats = statsMap.get(domain.domain) ?? { keywordsTracked: 0, maxLastUpdated: null };
@@ -74,7 +77,7 @@ const getdomainStats = async (domains:DomainType[]): Promise<DomainType[]> => {
       domainWithStat.keywordsUpdated = new Date(maxTs || new Date(domain.lastUpdated).getTime()).toJSON();
 
       // Then Load the SC File and read the stats and calculate the Last 7 days stats
-      const localSCData = await readLocalSCData(domain.domain);
+      const localSCData = scDataByDomain[index];
       const days = 7;
       if (localSCData && localSCData.stats && Array.isArray(localSCData.stats) && localSCData.stats.length > 0) {
          const lastSevenStats = localSCData.stats.slice(-days);

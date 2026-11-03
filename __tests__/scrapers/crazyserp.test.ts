@@ -106,13 +106,13 @@ describe('crazyserp scraper', () => {
          expect(parsed.searchParams.get('hl')).toBe('de');
       });
 
-      it('wires pagination start and num into pageOffset and page params', () => {
+      it('maps the 0-based page index to pageOffset and always fetches one page', () => {
          const keyword: Partial<KeywordType> = {
             keyword: 'coffee',
             country: 'US',
             device: 'desktop',
          };
-         const pagination: ScraperPagination = { start: 10, num: 10, page: 2 };
+         const pagination: ScraperPagination = { start: 20, num: 10, page: 3 };
 
          const url = crazyserp.scrapeURL!(
             keyword as KeywordType,
@@ -122,11 +122,12 @@ describe('crazyserp scraper', () => {
          );
          const parsed = new URL(url);
 
-         expect(parsed.searchParams.get('page')).toBe('10');
-         expect(parsed.searchParams.get('pageOffset')).toBe('10');
+         // page 3 of results is pageOffset 2 (0-based), and only that one page is requested
+         expect(parsed.searchParams.get('page')).toBe('1');
+         expect(parsed.searchParams.get('pageOffset')).toBe('2');
       });
 
-      it('defaults to page=10 and pageOffset=0 when no pagination is provided', () => {
+      it('defaults to page=1 and pageOffset=0 when no pagination is provided', () => {
          const keyword: Partial<KeywordType> = {
             keyword: 'coffee',
             country: 'US',
@@ -140,7 +141,7 @@ describe('crazyserp scraper', () => {
          );
          const parsed = new URL(url);
 
-         expect(parsed.searchParams.get('page')).toBe('10');
+         expect(parsed.searchParams.get('page')).toBe('1');
          expect(parsed.searchParams.get('pageOffset')).toBe('0');
       });
    });

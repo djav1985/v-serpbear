@@ -386,11 +386,10 @@ describe('PUT /api/keywords tags updates', () => {
     const firstUpdate = jest.fn().mockResolvedValue(undefined);
     const secondUpdate = jest.fn().mockResolvedValue(undefined);
 
-    keywordMock.findOne
-      .mockResolvedValueOnce({ update: firstUpdate })
-      .mockResolvedValueOnce({ update: secondUpdate });
-
-    keywordMock.findAll.mockResolvedValueOnce([
+    // First lookup: the keywords to update (one query). Second lookup: the reloaded keywords for the response.
+    keywordMock.findAll
+      .mockResolvedValueOnce([{ ID: 1, update: firstUpdate }, { ID: 2, update: secondUpdate }])
+      .mockResolvedValueOnce([
       {
         get: () => ({
           ID: 1,
@@ -443,8 +442,7 @@ describe('PUT /api/keywords tags updates', () => {
 
     await handler(req, res);
 
-    expect(keywordMock.findOne).toHaveBeenNthCalledWith(1, { where: { ID: 1 } });
-    expect(keywordMock.findOne).toHaveBeenNthCalledWith(2, { where: { ID: 2 } });
+    expect(keywordMock.findAll).toHaveBeenNthCalledWith(1, { where: { ID: { [Op.in]: [1, 2] } } });
     expect(firstUpdate).toHaveBeenCalledWith({ tags: JSON.stringify(['existing', 'new']) });
     expect(secondUpdate).toHaveBeenCalledWith({ tags: JSON.stringify(['second']) });
     expect(keywordMock.findAll).toHaveBeenCalledWith({ where: { ID: { [Op.in]: [1, 2] } } });
@@ -464,11 +462,12 @@ describe('PUT /api/keywords tags updates', () => {
     // findOne mocks return the current DB state (which includes the tag being removed).
     // If union-merge logic were reintroduced, 'PPC' would be added back — this test
     // would then fail, catching the regression.
-    keywordMock.findOne
-      .mockResolvedValueOnce({ tags: JSON.stringify(['SEO', 'PPC']), update: firstUpdate })
-      .mockResolvedValueOnce({ tags: JSON.stringify(['PPC', 'Content']), update: secondUpdate });
-
-    keywordMock.findAll.mockResolvedValueOnce([
+    keywordMock.findAll
+      .mockResolvedValueOnce([
+        { ID: 3, tags: JSON.stringify(['SEO', 'PPC']), update: firstUpdate },
+        { ID: 4, tags: JSON.stringify(['PPC', 'Content']), update: secondUpdate },
+      ])
+      .mockResolvedValueOnce([
       {
         get: () => ({
           ID: 3,
@@ -555,7 +554,7 @@ describe('PUT /api/keywords tags updates', () => {
 
   it('clears persisted tags when provided with empty arrays', async () => {
     const updateSpy = jest.fn().mockResolvedValue(undefined);
-    keywordMock.findOne.mockResolvedValueOnce({ tags: JSON.stringify(['keep']), update: updateSpy });
+    keywordMock.findAll.mockResolvedValueOnce([{ ID: 5, tags: JSON.stringify(['keep']), update: updateSpy }]);
     keywordMock.findAll.mockResolvedValueOnce([
       {
         get: () => ({

@@ -79,7 +79,7 @@ describe('prismcrawl scraper', () => {
       settings,
       countryData,
     );
-    expect(body.location).toBe('Port Charlotte, FL, United States');
+    expect(body.location).toBe('Port Charlotte,FL,United States');
   });
 
   it('sets device to mobile for mobile keywords', () => {
@@ -203,7 +203,7 @@ describe('getScraperClient with a POST scraper', () => {
     expect(init.headers['x-api-key']).toBe('prism-test-key');
     expect(JSON.parse(init.body)).toMatchObject({
       query: 'plumbers',
-      location: 'Port Charlotte, FL, United States',
+      location: 'Port Charlotte,FL,United States',
       start: 10,
     });
   });

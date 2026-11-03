@@ -1,5 +1,6 @@
 import countries, { getGoogleDomain } from '../../utils/countries';
 import { resolveCountryCode } from '../../utils/scraperHelpers';
+import { parseLocation } from '../../utils/location';
 
 interface CrazySerpResult {
    position: number;
@@ -24,21 +25,19 @@ const crazyserp: ScraperSettings = {
       const lang = localeInfo?.[2] ?? 'en';
       const countryInfo = countries[country] ?? countries.US;
       const countryName = countryInfo?.[0] ?? 'United States';
-      const locationString = keyword.location ? keyword.location.trim() : '';
-      let location = countryName;
-      if (locationString) {
-         const normalizedLocation = locationString.toLowerCase();
-         const normalizedCountry = countryName.toLowerCase();
-         location = normalizedLocation.includes(normalizedCountry)
-            ? locationString
-            : `${locationString},${countryName}`;
-      }
+      // The stored location is "City,State,CountryCode" (see formatLocation). Rebuild it as "City,State,Country name"
+      // so the country is not repeated as a code and then appended again.
+      const { city, state } = parseLocation(keyword.location, keyword.country);
+      const locationParts = [city, state].filter((part): part is string => Boolean(part));
+      const location = locationParts.length ? [...locationParts, countryName].join(',') : countryName;
       const googleDomain = getGoogleDomain(country);
       const p = pagination || { start: 0, num: 10, page: 1 };
+      // CrazySERP paging: page = how many pages to fetch, pageOffset = 0-based index of the first page.
+      // The strategy fetches one page at a time, so page is always 1.
       const params = new URLSearchParams();
       params.set('q', keyword.keyword);
-      params.set('page', String(p.num));
-      params.set('pageOffset', String(p.start));
+      params.set('page', '1');
+      params.set('pageOffset', String(Math.floor(p.start / p.num)));
       params.set('location', location);
       params.set('googleDomain', googleDomain);
       params.set('gl', country.toLowerCase());

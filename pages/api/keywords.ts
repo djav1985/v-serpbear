@@ -417,15 +417,17 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
             return res.status(200).json({ keywords: [] });
          }
 
+         const numericIds = tagsKeywordIDs.map((keywordID) => Number(keywordID)).filter((id) => Number.isFinite(id));
+         // One query for all keywords, instead of a lookup per keyword
+         const existingKeywords: Keyword[] = numericIds.length > 0
+            ? await Keyword.findAll({ where: { ID: { [Op.in]: numericIds } } })
+            : [];
+
          const updatedKeywordIDs = new Set<number>();
 
-         for (const keywordID of tagsKeywordIDs) {
-            const numericId = Number(keywordID);
-            if (!Number.isFinite(numericId)) {
-               continue;
-            }
-
-            const tagsForKeywordRaw = tags[keywordID];
+         for (const selectedKeyword of existingKeywords) {
+            const keywordID = selectedKeyword.ID;
+            const tagsForKeywordRaw = tags[String(keywordID)];
             const tagsForKeyword = Array.isArray(tagsForKeywordRaw)
                ? tagsForKeywordRaw
                : [];
@@ -436,12 +438,8 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
                   .filter((tag) => tag.length > 0),
             )).sort();
 
-            const selectedKeyword = await Keyword.findOne({ where: { ID: numericId } });
-
-            if (selectedKeyword) {
-               await selectedKeyword.update({ tags: JSON.stringify(sanitizedTags) });
-               updatedKeywordIDs.add(numericId);
-            }
+            await selectedKeyword.update({ tags: JSON.stringify(sanitizedTags) });
+            updatedKeywordIDs.add(keywordID);
          }
 
          if (updatedKeywordIDs.size > 0) {

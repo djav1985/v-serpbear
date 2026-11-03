@@ -17,7 +17,8 @@ describe('serply scraper', () => {
     expect(parsed.pathname).toBe('/v1/search');
     expect(parsed.searchParams.get('q')).toBe(keyword.keyword);
     expect(parsed.searchParams.get('num')).toBe('10');
-    expect(parsed.searchParams.get('hl')).toBe(keyword.country);
+    // hl is the interface language (from the locale table), not the country code
+    expect(parsed.searchParams.get('hl')).toBe('en');
   });
 
   it('preserves header configuration for device and country handling', () => {

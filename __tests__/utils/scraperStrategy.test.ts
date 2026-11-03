@@ -339,3 +339,70 @@ describe('scrapeKeywordWithStrategy – position accuracy', () => {
    });
 });
 
+describe('scrapeKeywordWithStrategy – DataForSEO per-page depth', () => {
+   let fetchSpy: jest.SpyInstance;
+
+   // DataForSEO returns organic items for the requested depth, up to 25 in this stub.
+   const makeDataForSeoResponse = (depth: number) => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+         tasks: [{
+            status_code: 20000,
+            result: [{
+               items: Array.from({ length: Math.min(depth, 25) }, (_, i) => ({
+                  type: 'organic',
+                  title: i === 14 ? 'example.com title' : `Other ${i + 1}`,
+                  url: i === 14 ? 'https://example.com/' : `https://other-${i + 1}.com/`,
+                  rank_absolute: i + 1,
+               })),
+            }],
+         }],
+      }),
+   });
+
+   beforeEach(() => {
+      fetchSpy = jest.spyOn(global, 'fetch').mockImplementation((_url: RequestInfo | URL, init?: RequestInit) => {
+         const body = JSON.parse(String(init?.body ?? '[]'));
+         return Promise.resolve(makeDataForSeoResponse(body[0].depth) as unknown as Response);
+      });
+   });
+
+   afterEach(() => {
+      fetchSpy.mockRestore();
+   });
+
+   const dataForSeoSettings = {
+      ...baseSettings,
+      scraper_type: 'dataforseo',
+      scraping_api: 'login:password',
+      scrape_strategy: 'custom' as ScrapeStrategy,
+      scrape_pagination_limit: 3,
+   } as unknown as SettingsType;
+
+   const requestedDepths = () => fetchSpy.mock.calls.map((call) => JSON.parse(String(call[1]?.body))[0].depth);
+
+   it('custom: requests each planned page at the depth that page ends on', async () => {
+      await scrapeKeywordWithStrategy({ ...baseKeyword, domain: 'nomatch.com' }, dataForSeoSettings);
+      expect(requestedDepths()).toEqual([10, 20, 30]);
+   });
+
+   it('custom: stops at the page where the domain is found and reports its absolute position', async () => {
+      const result = await scrapeKeywordWithStrategy({ ...baseKeyword, domain: 'example.com' }, dataForSeoSettings);
+
+      expect(requestedDepths()).toEqual([10, 20]);
+      expect(result).not.toBe(false);
+      if (result) {
+         expect(result.position).toBe(15);
+      }
+   });
+
+   it('basic: requests only page 1 depth (10 results)', async () => {
+      await scrapeKeywordWithStrategy({ ...baseKeyword, domain: 'nomatch.com' }, { ...dataForSeoSettings, scrape_strategy: 'basic' as ScrapeStrategy });
+
+      const body = JSON.parse(String(fetchSpy.mock.calls[0][1]?.body));
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(body[0].depth).toBe(10);
+   });
+});
+

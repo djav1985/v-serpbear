@@ -33,7 +33,8 @@ const buildLocation = (keyword: KeywordType, countryName?: string): string | und
   if (locationParts.length && countryName) {
     locationParts.push(countryName);
   }
-  return locationParts.length ? locationParts.join(", ") : undefined;
+  // Google canonical names are written without a space after each comma, e.g. "Port Charlotte,Florida,United States".
+  return locationParts.length ? locationParts.join(",") : undefined;
 };
 
 const prismcrawl: ScraperSettings = {

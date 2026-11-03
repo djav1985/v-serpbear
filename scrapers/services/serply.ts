@@ -24,14 +24,17 @@ const serply:ScraperSettings = {
          'X-Proxy-Location': country,
       };
    },
-   scrapeURL: (keyword, _settings, _countries, pagination?: ScraperPagination) => {
+   scrapeURL: (keyword, _settings, countryData, pagination?: ScraperPagination) => {
       const country = resolveCountryCode(keyword.country, SERPLY_COUNTRIES);
+      // hl is the interface language, not the country: take it from the same locale table the other providers use
+      const localeInfo = countryData?.[country] ?? countryData?.US ?? Object.values(countryData ?? {})[0];
+      const lang = localeInfo?.[2] ?? 'en';
       const p = pagination || { start: 0, num: 10 };
       const searchParams = new URLSearchParams({
          q: keyword.keyword,
          num: String(p.num),
          start: String(p.start),
-         hl: country,
+         hl: lang,
       });
       return `https://api.serply.io/v1/search?${searchParams.toString()}`;
    },

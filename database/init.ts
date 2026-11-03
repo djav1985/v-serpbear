@@ -8,8 +8,15 @@ import db from './database';
 import Keyword from './models/keyword';
 import { logger } from '../utils/logger';
 
-let dbInitialized = false;
-let dbInitPromise: Promise<void> | null = null;
+/**
+ * The init state lives on globalThis rather than in module variables. In dev, hot reload re-evaluates
+ * this module, and with module-level state the startup reset would run again while keywords are mid-refresh,
+ * clearing their updating flags.
+ */
+type DbInitState = { initialized: boolean; promise: Promise<void> | null };
+const globalForDb = globalThis as typeof globalThis & { __serpbearDbInit?: DbInitState };
+globalForDb.__serpbearDbInit ??= { initialized: false, promise: null };
+const dbState: DbInitState = globalForDb.__serpbearDbInit;
 
 /**
  * Clears any keyword `updating` flags left set from a previous process (e.g. container
@@ -35,66 +42,66 @@ async function resetStaleUpdatingFlags(): Promise<void> {
  * Subsequent calls will return the same promise
  */
 export async function initializeDatabase(): Promise<void> {
-   if (dbInitialized) {
+   if (dbState.initialized) {
       return Promise.resolve();
    }
 
-   if (dbInitPromise) {
-      return dbInitPromise;
+   if (dbState.promise) {
+      return dbState.promise;
    }
 
-   dbInitPromise = (async () => {
+   dbState.promise = (async () => {
       try {
          logger.info('Initializing database...');
          await db.sync();
          await resetStaleUpdatingFlags();
-         dbInitialized = true;
+         dbState.initialized = true;
          logger.info('Database initialized successfully');
       } catch (error) {
          logger.error('Failed to initialize database', error instanceof Error ? error : new Error(String(error)));
          // Reset so we can retry
-         dbInitPromise = null;
+         dbState.promise = null;
          throw error;
       }
    })();
 
-   return dbInitPromise;
+   return dbState.promise;
 }
 
 /**
  * Check if database has been initialized
  */
 export function isDatabaseInitialized(): boolean {
-   return dbInitialized;
+   return dbState.initialized;
 }
 
 /**
  * Reset initialization state (for testing)
  */
 export function resetDatabaseInitialization(): void {
-   dbInitialized = false;
-   dbInitPromise = null;
+   dbState.initialized = false;
+   dbState.promise = null;
 }
 
 /**
  * Ensure database is initialized before proceeding
  * Safe to call from any API endpoint - will initialize on first call
  * and be a no-op on subsequent calls
- * 
+ *
  * This is a fallback for cases where instrumentation hook doesn't run
  * (e.g., Docker, standalone mode, some production scenarios)
  */
 export async function ensureDatabase(): Promise<void> {
-   if (dbInitialized) {
+   if (dbState.initialized) {
       return;
    }
-   
+
    // If initialization is in progress, wait for it
-   if (dbInitPromise) {
-      await dbInitPromise;
+   if (dbState.promise) {
+      await dbState.promise;
       return;
    }
-   
+
    // Otherwise, initialize now
    await initializeDatabase();
 }

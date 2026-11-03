@@ -41,7 +41,7 @@ describe('refreshAndUpdateKeywords', () => {
     process.env.SECRET = 'test-secret';
   });
 
-  it('limits sequential scraper concurrency per domain and completes desktop work before mobile', async () => {
+  it('limits sequential scraper concurrency per domain, with desktop and mobile keywords in one pass', async () => {
     const previousConcurrency = process.env.PARALLEL_SCRAPE_CONCURRENCY;
     process.env.PARALLEL_SCRAPE_CONCURRENCY = '3';
 
@@ -99,7 +99,6 @@ describe('refreshAndUpdateKeywords', () => {
     const peakByDomain = new Map<string, number>();
     const completedIds = new Set<number>();
     const desktopQueueRefillChecks: boolean[] = [];
-    const mobileBarrierChecks: boolean[] = [];
     const slowDesktopReleases: Array<() => void> = [];
     const refillSignals = new Map<string, () => void>();
     const refillPromises = domains.map((domain) => new Promise<void>((resolve) => {
@@ -112,9 +111,7 @@ describe('refreshAndUpdateKeywords', () => {
       const keywordId = keyword.ID as number;
       const domain = keyword.domain as string;
       const device = keyword.device as string;
-      if (device === 'mobile') {
-        mobileBarrierChecks.push(Array.from(desktopIdsByDomain.values()).flat().every((id) => completedIds.has(id)));
-      } else if (keywordId % 100 === 4) {
+      if (keywordId % 100 === 4) {
         const firstDesktopId = desktopIdsByDomain.get(domain)?.[0];
         const laterDesktopIds = desktopIdsByDomain.get(domain)?.slice(1, 3) || [];
         desktopQueueRefillChecks.push(
@@ -180,7 +177,6 @@ describe('refreshAndUpdateKeywords', () => {
     expect(Array.from(peakByDomain.values())).toEqual([3, 3]);
     expect(peakTotal).toBe(6);
     expect(desktopQueueRefillChecks).toEqual([true, true]);
-    expect(mobileBarrierChecks).toEqual([true, true]);
   });
 
   it('forces updating reset when scrape fails before updateKeywordPosition', async () => {
