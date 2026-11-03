@@ -114,7 +114,7 @@ const LocationPicker = ({ existingLocations = [], value, onChange, allowsCity = 
             </div>
             <button
                type='button'
-               className='py-2 px-4 rounded cursor-pointer bg-indigo-600 text-white font-semibold text-sm'
+               className='py-2 px-5 min-w-[80px] text-center rounded cursor-pointer bg-indigo-600 text-white font-semibold text-sm'
                onClick={addNewLocation}>
                Add
             </button>

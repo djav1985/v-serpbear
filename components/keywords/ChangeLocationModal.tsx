@@ -42,7 +42,7 @@ const ChangeLocationModal = ({ keywords = [], existingLocations = [], allowsCity
                </button>
                <button
                   type='button'
-                  className={`py-2 px-5 rounded cursor-pointer bg-blue-700 text-white ${!location ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`py-2 px-5 min-w-[80px] text-center rounded cursor-pointer bg-blue-700 text-white ${!location ? 'opacity-50 cursor-not-allowed' : ''}`}
                   disabled={!location || isLoading}
                   onClick={applyLocation}>
                   {isLoading ? 'Applying....' : 'Apply'}
