@@ -19,6 +19,8 @@ jest.mock('../../utils/atomicWrite', () => ({
   atomicWriteFile: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('../../utils/settingsFile', () => ({ withSettingsLock: (section: () => Promise<unknown>) => section() }));
+
 jest.mock('../../utils/verifyUser', () => ({ __esModule: true, default: jest.fn() }));
 jest.mock('../../utils/apiLogging', () => ({ withApiLogging: (apiHandler: any) => apiHandler }));
 jest.mock('../../utils/retryQueueManager', () => ({

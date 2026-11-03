@@ -10,6 +10,7 @@ import { getAdwordsCredentials, getAdwordsKeywordIdeas } from '../../utils/adwor
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
 import { atomicWriteFile } from '../../utils/atomicWrite';
+import { withSettingsLock } from '../../utils/settingsFile';
 import { errorResponse } from '../../utils/api/response';
 import normalizeOrigin from '../../utils/normalizeOrigin';
 import { serializeForScript } from '../../utils/api/scriptJson';
@@ -189,7 +190,12 @@ const getAdwordsRefreshToken = async (req: NextApiRequest, res: NextApiResponse)
             const r = await oAuth2Client.getToken(code);
             if (r?.tokens?.refresh_token) {
                const adwords_refresh_token = cryptr.encrypt(r.tokens.refresh_token);
-               await atomicWriteFile(`${process.cwd()}/data/settings.json`, JSON.stringify({ ...settings, adwords_refresh_token }), 'utf-8');
+               // Re-read under the lock so settings saved while Google was answering are kept
+               await withSettingsLock(async () => {
+                  const currentRaw = await readFile(`${process.cwd()}/data/settings.json`, { encoding: 'utf-8' });
+                  const current: SettingsType = currentRaw ? JSON.parse(currentRaw) : {};
+                  await atomicWriteFile(`${process.cwd()}/data/settings.json`, JSON.stringify({ ...current, adwords_refresh_token }), 'utf-8');
+               });
                return respondWithIntegrationResult(req, res, { success: true, message: 'Integrated.' });
             }
             return respondWithIntegrationResult(req, res, {
@@ -268,13 +274,17 @@ const validateAdwordsIntegration = async (req: NextApiRequest, res: NextApiRespo
          return res.status(400).json(errorResponse('BAD_REQUEST', errMsg, requestId));
       }
 
-      const securedSettings = {
-         ...settings,
-         adwords_developer_token: encryptedDeveloperToken,
-         adwords_account_id: encryptedAccountId,
-      };
-
-      await atomicWriteFile(`${process.cwd()}/data/settings.json`, JSON.stringify(securedSettings), 'utf-8');
+      // Re-read under the lock, so the write keeps any settings saved while Google was answering
+      await withSettingsLock(async () => {
+         const currentRaw = await readFile(`${process.cwd()}/data/settings.json`, { encoding: 'utf-8' });
+         const current: SettingsType = currentRaw ? JSON.parse(currentRaw) : settings;
+         const securedSettings = {
+            ...current,
+            adwords_developer_token: encryptedDeveloperToken,
+            adwords_account_id: encryptedAccountId,
+         };
+         await atomicWriteFile(`${process.cwd()}/data/settings.json`, JSON.stringify(securedSettings), 'utf-8');
+      });
 
       return res.status(200).json({ valid: true });
    } catch (error) {

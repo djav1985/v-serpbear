@@ -1,3 +1,4 @@
+import { Op } from 'sequelize';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import handler from '../../pages/api/keywords';
 import Keyword from '../../database/models/keyword';
@@ -89,6 +90,17 @@ describe('/api/keywords data rules', () => {
 
     expect(res.status).toHaveBeenCalledWith(409);
     expect(KeywordMock.bulkCreate).not.toHaveBeenCalled();
+  });
+
+  it('reloads exactly the inserted rows by the IDs the insert returned', async () => {
+    const created = [{ ID: 41, keyword: 'alpha' }];
+    KeywordMock.bulkCreate.mockResolvedValue(created);
+    KeywordMock.findAll.mockResolvedValueOnce([]).mockResolvedValueOnce([storedRow({ ID: 41, keyword: 'alpha', domain: 'example.com', device: 'desktop', country: 'US' })]);
+
+    await postKeywords([newKeyword]);
+
+    expect(KeywordMock.findAll).toHaveBeenLastCalledWith({ where: { ID: { [Op.in]: [41] } } });
+    expect(KeywordMock.findAll).not.toHaveBeenLastCalledWith(expect.objectContaining({ where: { added: expect.anything() } }));
   });
 
   it('does not treat the same keyword on another device as a duplicate', async () => {

@@ -34,11 +34,21 @@ export const updateDomainStats = async (domainName: string): Promise<void> => {
          raw: true,
       }) as { avgPosition: number | null, mapPackKeywords: number | null, keywordsTracked: number | null } | null;
 
-      const hasBaseline = Number(previous?.keywordsTracked) > 0;
-      const snapshot = {
-         prevKeywordsTracked: hasBaseline ? Number(previous?.keywordsTracked) : null,
-         prevAvgPosition: hasBaseline ? Number(previous?.avgPosition) || 0 : null,
-         prevMapPackKeywords: hasBaseline ? Number(previous?.mapPackKeywords) || 0 : null,
+      // prev* holds the value before the last change, so it is only replaced when a stat actually changes.
+      // An unchanged recalculation (for example a refresh that did not move any position) leaves it alone.
+      const snapshotFor = (next: { keywordsTracked: number, avgPosition: number, mapPackKeywords: number }) => {
+         const unchanged = Number(previous?.keywordsTracked) === next.keywordsTracked
+            && Number(previous?.avgPosition) === next.avgPosition
+            && Number(previous?.mapPackKeywords) === next.mapPackKeywords;
+         if (unchanged || !previous) {
+            return {};
+         }
+         const hasBaseline = Number(previous.keywordsTracked) > 0;
+         return {
+            prevKeywordsTracked: hasBaseline ? Number(previous.keywordsTracked) : null,
+            prevAvgPosition: hasBaseline ? Number(previous.avgPosition) || 0 : null,
+            prevMapPackKeywords: hasBaseline ? Number(previous.mapPackKeywords) || 0 : null,
+         };
       };
 
       // Use SQL aggregation to calculate stats efficiently
@@ -60,12 +70,11 @@ export const updateDomainStats = async (domainName: string): Promise<void> => {
       // This ensures the domain record is always updated even when no keywords exist
       if (!stats) {
          logger.info(`No keywords found for domain ${domainName}, updating with zero values`);
+         const zeroStats = { keywordsTracked: 0, avgPosition: 0, mapPackKeywords: 0 };
          await Domain.update(
             {
-               keywordsTracked: 0,
-               avgPosition: 0,
-               mapPackKeywords: 0,
-               ...snapshot,
+               ...zeroStats,
+               ...snapshotFor(zeroStats),
             },
             { where: { domain: domainName } }
          );
@@ -84,12 +93,11 @@ export const updateDomainStats = async (domainName: string): Promise<void> => {
          : 0;
 
       // Update domain record
+      const nextStats = { keywordsTracked, avgPosition, mapPackKeywords };
       await Domain.update(
          {
-            keywordsTracked,
-            avgPosition,
-            mapPackKeywords,
-            ...snapshot,
+            ...nextStats,
+            ...snapshotFor(nextStats),
          },
          { where: { domain: domainName } }
       );

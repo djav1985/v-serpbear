@@ -10,6 +10,7 @@ import verifyUser from '../../utils/verifyUser';
 import parseKeywords from '../../utils/parseKeywords';
 import { integrateKeywordSCData, readLocalSCData } from '../../utils/searchConsole';
 import refreshAndUpdateKeywords from '../../utils/refresh';
+import { historyKeyToTime } from '../../utils/historyDateKey';
 import { getKeywordsVolume, updateKeywordsVolumeData } from '../../utils/adwords';
 import { buildStoredLocation, getLocationCountry, hasValidCityStatePair, isCountryOnlyLocation, parseCityState } from '../../utils/location';
 import { planLocationUpdate } from '../../utils/keywordMeta';
@@ -83,7 +84,7 @@ const getKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
             } else {
                lastWeekHistory = {};
                const sortedEntries = historyEntries
-                  .map(([dateKey, position]) => ({ dateKey, date: new Date(dateKey).getTime(), position }))
+                  .map(([dateKey, position]) => ({ dateKey, date: historyKeyToTime(dateKey), position }))
                   .sort((a, b) => a.date - b.date)
                   .slice(-7);
                sortedEntries.forEach(({ dateKey, position }) => {
@@ -320,15 +321,15 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
          return res.status(409).json(errorResponse('CONFLICT', `Already tracked: ${duplicates.join(', ')}`, requestId));
       }
 
-      await Keyword.bulkCreate(keywordsToAdd as any);
-      
-      // Reload keywords from DB to ensure IDs are populated
-      // Use added timestamp to find only the just-created keywords (not existing ones)
-      const reloadedKeywords = await Keyword.findAll({
-         where: { 
-            added: now,
-         },
-      });
+      const createdKeywords = await Keyword.bulkCreate(keywordsToAdd as any);
+
+      // Reload exactly the rows this request inserted, by the IDs the insert returned. The "added" timestamp alone
+      // could also match rows from another request created in the same millisecond. The fallback keeps the old query
+      // for the case where the driver does not return IDs.
+      const createdIds = (createdKeywords || []).map((keyword: Keyword) => keyword.ID).filter((id: unknown): id is number => Number.isInteger(id));
+      const reloadedKeywords = createdIds.length === keywordsToAdd.length
+         ? await Keyword.findAll({ where: { ID: { [Op.in]: createdIds } } })
+         : await Keyword.findAll({ where: { added: now } });
       
       const formattedkeywords = reloadedKeywords.map((el) => el.get({ plain: true }));
       const keywordsParsed: KeywordType[] = parseKeywords(formattedkeywords);

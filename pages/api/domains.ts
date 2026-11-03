@@ -11,6 +11,7 @@ import verifyUser from '../../utils/verifyUser';
 import { checkSearchConsoleIntegration, removeLocalSCData } from '../../utils/searchConsole';
 import { withApiLogging } from '../../utils/apiLogging';
 import { validateHostname } from '../../utils/validators/hostname';
+import { toDomainSlug } from '../../utils/domainSlug';
 import { logger } from '../../utils/logger';
 import { refreshQueue } from '../../utils/refreshQueue';
 import {
@@ -178,7 +179,7 @@ const addDomain = async (req: NextApiRequest, res: NextApiResponse) => {
       const now = new Date().toJSON();
       const domainsToAdd: any = Array.from(uniqueHosts.values()).map((hostname) => ({
          domain: hostname,
-         slug: hostname.replaceAll('-', '_').replaceAll('.', '-').replaceAll('/', '-'),
+         slug: toDomainSlug(hostname),
          lastUpdated: now,
          added: now,
          scrapeEnabled: toDbBool(true),
