@@ -8,7 +8,7 @@ import generateEmail from '../../utils/generateEmail';
 import parseKeywords from '../../utils/parseKeywords';
 import getdomainStats from '../../utils/domains';
 import verifyUser from '../../utils/verifyUser';
-import { canSendEmail, recordEmailSent } from '../../utils/emailThrottle';
+import { reserveEmailSend } from '../../utils/emailThrottle';
 import { getAppSettings } from './settings';
 import { trimStringProperties, trimString, sanitizeSmtpHost } from '../../utils/security';
 import { getBranding } from '../../utils/branding';
@@ -123,10 +123,10 @@ const sendNotificationEmail = async (domain: DomainType, settings: SettingsType)
       return 'skipped';
    }
 
-   // Check email throttling
-   const throttleCheck = await canSendEmail(domainName);
-   if (!throttleCheck.canSend) {
-      logger.info(`Skipping email for ${domainName}: ${throttleCheck.reason}`);
+   // Check the throttle and reserve the send in one step, so overlapping runs cannot both send
+   const reservation = await reserveEmailSend(domainName);
+   if (!reservation.reserved) {
+      logger.info(`Skipping email for ${domainName}: ${reservation.reason}`);
       return 'skipped';
    }
 
@@ -184,12 +184,12 @@ const sendNotificationEmail = async (domain: DomainType, settings: SettingsType)
          html: emailHTML,
       });
 
-      // Record successful email send
-      await recordEmailSent(domainName);
       logger.info(`Successfully sent notification for ${domainName}`);
       return 'sent';
 
    } catch (error:any) {
+      // The send did not happen, so give back the slot it reserved
+      await reservation.release();
       logger.error('Error sending notification email', error instanceof Error ? error : new Error(String(error)), { domain: domainName });
       throw error; // Re-throw to let caller handle
    }

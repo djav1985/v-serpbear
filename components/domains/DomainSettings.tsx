@@ -158,7 +158,7 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
    const { mutate: deleteMutate } = useDeleteDomain(() => { closeModal(false); router.push('/domains'); });
 
    // Get the Full Domain Data along with the Search Console API Data.
-    useFetchDomain(router, domain?.domain || '', (domainObj:DomainType) => {
+    const domainQuery = useFetchDomain(router, domain?.domain || '', (domainObj:DomainType) => {
       const currentSearchConsoleSettings = parseSearchConsoleSettings(domainObj.search_console);
       const nextActive = deriveDomainActiveState(domainObj);
       const fetchedScraperSettings = domainObj.scraper_settings || null;
@@ -260,7 +260,11 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
       return payload;
    };
 
+   // Saving before the stored settings load would send the list's masked placeholders back, so Save waits for the load
+   const isDomainLoading = domainQuery?.isLoading === true || domainQuery?.isError === true;
+
    const updateDomain = () => {
+      if (isDomainLoading) { return; }
       const error = resolveSettingsError(domainSettings, hasStoredScraperKey);
       if (error && error.type) {
          showSettingsError(error, setSettingsError, setCurrentTab, errorTimeoutRef);
@@ -490,9 +494,10 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
                   <Icon type="trash" /> Remove Domain
                </button>
                <button
-               className={`text-sm font-semibold py-2 px-5 rounded cursor-pointer bg-blue-700 text-white ${isUpdating ? 'cursor-not-allowed' : ''}`}
+               className={`text-sm font-semibold py-2 px-5 rounded bg-blue-700 text-white ${isUpdating || isDomainLoading ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+               disabled={isDomainLoading}
                onClick={() => !isUpdating && updateDomain()}>
-                  {isUpdating && <Icon type='loading' />} Update Settings
+                  {isUpdating && <Icon type='loading' />} {isDomainLoading ? 'Loading…' : 'Update Settings'}
                </button>
             </div>
          </Modal>

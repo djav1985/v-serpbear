@@ -47,7 +47,8 @@ const getdomainStats = async (domains:DomainType[]): Promise<DomainType[]> => {
    const scDataByDomain = await Promise.all(domains.map((domain) => readLocalSCData(domain.domain)));
 
    for (const [index, domain] of domains.entries()) {
-      const domainWithStat = domain;
+      // Work on a copy, so the caller's objects are not changed
+      const domainWithStat = { ...domain };
 
       const stats = statsMap.get(domain.domain) ?? { keywordsTracked: 0, maxLastUpdated: null };
       domainWithStat.keywordsTracked = stats.keywordsTracked;

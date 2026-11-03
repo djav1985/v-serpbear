@@ -523,4 +523,21 @@ describe('generateEmail', () => {
 
     expect(html).toMatch(/<span class="mini_stats__label">Map Pack<\/span>\s*<span class="mini_stats__value">1<\/span>/);
   });
+
+  it('does not expand tokens that appear inside keyword text', async () => {
+    mockReadFile.mockResolvedValue('<html><body>{{keywordsTable}}|{{domainName}}</body></html>');
+    const keyword = {
+      ID: 1, keyword: '{{domainName}} {{SCStatsTable}} secret', device: 'desktop', country: 'US', domain: 'example.com',
+      lastUpdated: new Date().toISOString(), added: new Date().toISOString(), position: 3, volume: 0, sticky: false,
+      history: {}, lastResult: [], url: '', tags: [], updating: false, lastUpdateError: false, location: '', mapPackTop3: 0,
+    } as any;
+    const domain = { ID: 1, domain: 'example.com', slug: 'example-com', scrapeEnabled: true, notification_interval: 'daily', tags: [] } as any;
+
+    const html = await generateEmail(domain, [keyword], createSettings());
+
+    // The keyword text is escaped and kept as text, not re-expanded
+    expect(html).toContain('{{domainName}} {{SCStatsTable}} secret');
+    // The domain name is filled in only where the template asks for it
+    expect(html.endsWith('|example.com</body></html>')).toBe(true);
+  });
 });

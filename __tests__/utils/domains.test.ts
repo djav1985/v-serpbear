@@ -200,4 +200,17 @@ describe('getdomainStats', () => {
     expect(result[0].keywordsTracked).toBe(0);
     expect(result[0].keywordsUpdated).toBe('2022-06-15T12:00:00.000Z');
   });
+
+  it('does not change the domain objects it was given', async () => {
+    (Keyword.findAll as jest.Mock).mockResolvedValue([{ domain: 'example.com', keywordsTracked: 2, maxLastUpdated: null }]);
+    (readLocalSCData as jest.Mock).mockResolvedValue(false);
+    const input = { domain: 'example.com', lastUpdated: '2022-06-15T12:00:00.000Z', avgPosition: 0 } as any;
+    const snapshot = JSON.stringify(input);
+
+    const result = await getdomainStats([input]);
+
+    expect(JSON.stringify(input)).toBe(snapshot);
+    expect(result[0]).not.toBe(input);
+    expect(result[0].keywordsTracked).toBe(2);
+  });
 });

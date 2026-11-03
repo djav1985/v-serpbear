@@ -37,6 +37,39 @@ const acquireLock = (): Promise<() => void> => {
 };
 
 /**
+ * The throttling rules, applied to one domain's cache entry. Shared by canSendEmail and reserveEmailSend.
+ */
+const throttleVerdict = (domainCache: EmailCache[string] | undefined, now: Date): { canSend: boolean; reason?: string } => {
+   if (!domainCache) {
+      return { canSend: true };
+   }
+
+   const lastSentDate = new Date(domainCache.lastSent);
+   const lastSentToday = lastSentDate.toDateString();
+
+   // Reset daily count if it's a new day
+   const count = lastSentToday !== now.toDateString() ? 0 : domainCache.count;
+
+   if (count >= MAX_EMAILS_PER_DAY) {
+      return {
+         canSend: false,
+         reason: `Daily email limit reached (${MAX_EMAILS_PER_DAY}). Next email can be sent tomorrow.`
+      };
+   }
+
+   const timeSinceLastEmail = now.getTime() - lastSentDate.getTime();
+   if (timeSinceLastEmail < MIN_EMAIL_INTERVAL) {
+      const waitMinutes = Math.ceil((MIN_EMAIL_INTERVAL - timeSinceLastEmail) / (60 * 1000));
+      return {
+         canSend: false,
+         reason: `Minimum interval not met. Wait ${waitMinutes} more minutes before sending next email.`
+      };
+   }
+
+   return { canSend: true };
+};
+
+/**
  * Check if email can be sent based on throttling rules
  */
 export const canSendEmail = async (domain: string): Promise<{ canSend: boolean; reason?: string }> => {
@@ -44,43 +77,7 @@ export const canSendEmail = async (domain: string): Promise<{ canSend: boolean; 
    try {
       releaseLock = await acquireLock();
       const cache = await getEmailCache();
-      const now = new Date();
-      const today = now.toDateString();
-      
-      const domainCache = cache[domain];
-      
-      if (!domainCache) {
-         return { canSend: true };
-      }
-      
-      const lastSentDate = new Date(domainCache.lastSent);
-      const lastSentToday = lastSentDate.toDateString();
-      
-      // Reset daily count if it's a new day
-      if (lastSentToday !== today) {
-         domainCache.count = 0;
-      }
-      
-      // Check daily limit
-      if (domainCache.count >= MAX_EMAILS_PER_DAY) {
-         return { 
-            canSend: false, 
-            reason: `Daily email limit reached (${MAX_EMAILS_PER_DAY}). Next email can be sent tomorrow.`
-         };
-      }
-      
-      // Check minimum interval
-      const timeSinceLastEmail = now.getTime() - lastSentDate.getTime();
-      if (timeSinceLastEmail < MIN_EMAIL_INTERVAL) {
-         const waitTime = MIN_EMAIL_INTERVAL - timeSinceLastEmail;
-         const waitMinutes = Math.ceil(waitTime / (60 * 1000));
-         return { 
-            canSend: false, 
-            reason: `Minimum interval not met. Wait ${waitMinutes} more minutes before sending next email.`
-         };
-      }
-      
-      return { canSend: true };
+      return throttleVerdict(cache[domain], new Date());
    } catch (error) {
       logger.error('Error checking email throttle cache, allowing email', error instanceof Error ? error : new Error(String(error)));
       return { canSend: true };
@@ -121,6 +118,59 @@ export const recordEmailSent = async (domain: string): Promise<void> => {
       await saveEmailCache(cache);
    } catch (error) {
       logger.error('Error recording email sent', error instanceof Error ? error : new Error(String(error)));
+   } finally {
+      if (releaseLock) {
+         releaseLock();
+      }
+   }
+};
+
+/**
+ * Checks the rules and, when a send is allowed, records it, both under one lock. Two notification runs can
+ * no longer both pass the check. If the send then fails, call release() to restore the previous entry, so a
+ * failed send does not use up the day's allowance.
+ */
+export const reserveEmailSend = async (domain: string): Promise<{ reserved: boolean; reason?: string; release: () => Promise<void> }> => {
+   const noop = async () => undefined;
+   let releaseLock: (() => void) | undefined;
+   try {
+      releaseLock = await acquireLock();
+      const cache = await getEmailCache();
+      const now = new Date();
+      const verdict = throttleVerdict(cache[domain], now);
+      if (!verdict.canSend) {
+         return { reserved: false, reason: verdict.reason, release: noop };
+      }
+
+      const previous = cache[domain];
+      const sameDay = previous && new Date(previous.lastSent).toDateString() === now.toDateString();
+      cache[domain] = {
+         lastSent: now.toISOString(),
+         count: sameDay ? previous.count + 1 : 1,
+      };
+      await saveEmailCache(cache);
+
+      return {
+         reserved: true,
+         release: async () => {
+            const unlock = await acquireLock();
+            try {
+               const current = await getEmailCache();
+               if (previous) {
+                  current[domain] = previous;
+               } else {
+                  delete current[domain];
+               }
+               await saveEmailCache(current);
+            } finally {
+               unlock();
+            }
+         },
+      };
+   } catch (error) {
+      // Like canSendEmail, a broken cache does not block sending
+      logger.error('Error reserving email send, allowing email', error instanceof Error ? error : new Error(String(error)));
+      return { reserved: true, release: noop };
    } finally {
       if (releaseLock) {
          releaseLock();

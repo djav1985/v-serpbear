@@ -31,8 +31,7 @@ jest.mock('../../utils/verifyUser');
 jest.mock('../../utils/parseKeywords');
 jest.mock('../../utils/generateEmail');
 jest.mock('../../utils/emailThrottle', () => ({
-  canSendEmail: jest.fn(() => Promise.resolve({ canSend: true })),
-  recordEmailSent: jest.fn(() => Promise.resolve()),
+  reserveEmailSend: jest.fn(() => Promise.resolve({ reserved: true, release: jest.fn(() => Promise.resolve()) })),
 }));
 
 jest.mock('nodemailer', () => ({

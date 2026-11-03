@@ -14,6 +14,7 @@ import { withApiLogging } from '../../utils/apiLogging';
 import { refreshQueue } from '../../utils/refreshQueue';
 import { errorResponse } from '../../utils/api/response';
 import { fromDbBool } from '../../utils/dbBooleans';
+import { takeRateLimitToken } from '../../utils/rateLimit';
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
    const requestId = (req as ExtendedRequest).requestId;
@@ -209,10 +210,17 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse) => 
    }
 };
 
+const KEYWORD_SEARCHES_PER_MINUTE = 20;
+
 const getKeywordSearchResults = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
    if (!req.query.keyword || !req.query.country) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'A Valid keyword and Country Code is Required!', requestId));
+   }
+   // Each search is a paid provider request, so limit how many one client can start per minute
+   const clientKey = `keyword-search:${req.socket?.remoteAddress || 'unknown'}`;
+   if (!takeRateLimitToken(clientKey, KEYWORD_SEARCHES_PER_MINUTE, 60 * 1000)) {
+      return res.status(429).json(errorResponse('TOO_MANY_REQUESTS', 'Too many keyword searches. Please wait a minute and try again.', requestId));
    }
    try {
       const settings = await getAppSettings();

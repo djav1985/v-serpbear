@@ -6,6 +6,7 @@ import { fetchDomainSCData, getSearchConsoleApiInfo, isSearchConsoleDataFreshFor
 import { parseLocation } from './location';
 import { buildLogoUrl, getBranding } from './branding';
 import { fromDbBool } from './dbBooleans';
+import { historyKeyToTime } from './historyDateKey';
 
 const DEFAULT_BRAND_LOGO = 'https://serpbear.b-cdn.net/ikAdjQq.png';
 const mobileIcon = 'https://serpbear.b-cdn.net/SqXD9rd.png';
@@ -46,7 +47,7 @@ const getPositionChange = (history:KeywordHistory, position:number) : number => 
    let status = 0;
    if (Object.keys(history).length >= 2) {
       const historyArray = Object.keys(history).map((dateKey) => ({
-               date: new Date(dateKey).getTime(),
+               date: historyKeyToTime(dateKey),
                dateRaw: dateKey,
                position: history[dateKey],
             }));
@@ -221,27 +222,28 @@ const generateEmail = async (domain:DomainType, keywords:KeywordType[], settings
 
    const { emailLogo, platformName: brandName } = resolveEmailBranding();
 
-   // Use function replacements so "$" sequences in keyword text are not treated as replacement patterns.
-   const replaceToken = (template: string, token: string | RegExp, value: string) => (
-      template.replace(token, () => value)
-   );
-   const updatedEmail = [
-      ['{{logo}}', `<img class="logo_img" src="${escapeHtml(emailLogo)}" alt="${escapeHtml(brandName)}" width="24" height="24" />`],
-      [/{{platformName}}/g, escapeHtml(brandName)],
-      ['{{currentDate}}', currentDate],
-      ['{{domainName}}', escapeHtml(domainName)],
-      ['{{keywordsCount}}', keywordsCount.toString()],
-      ['{{keywordsTable}}', keywordsTable],
-      ['{{domainStats}}', domainStatsHTML],
-      ['{{appURL}}', escapeHtml(process.env.NEXT_PUBLIC_APP_URL || '')],
-      ['{{stat}}', stat],
-      ['{{preheader}}', stat],
-   ].reduce((html, [token, value]) => replaceToken(html, token as string | RegExp, value as string), emailTemplate);
-
    const isConsoleIntegrated = !!(process.env.SEARCH_CONSOLE_PRIVATE_KEY && process.env.SEARCH_CONSOLE_CLIENT_EMAIL)
       || (settings.search_console_client_email && settings.search_console_private_key);
    const htmlWithSCStats = isConsoleIntegrated ? await generateGoogleConsoleStats(domain) : '';
-   const emailHTML = replaceToken(updatedEmail, '{{SCStatsTable}}', htmlWithSCStats);
+
+   // One pass over the template only: text inserted for a token (keyword names, SC queries) is never scanned for
+   // further {{tokens}}, so a keyword containing "{{SCStatsTable}}" cannot pull in other content.
+   const tokenValues: Record<string, string> = {
+      logo: `<img class="logo_img" src="${escapeHtml(emailLogo)}" alt="${escapeHtml(brandName)}" width="24" height="24" />`,
+      platformName: escapeHtml(brandName),
+      currentDate,
+      domainName: escapeHtml(domainName),
+      keywordsCount: keywordsCount.toString(),
+      keywordsTable,
+      domainStats: domainStatsHTML,
+      appURL: escapeHtml(process.env.NEXT_PUBLIC_APP_URL || ''),
+      stat,
+      preheader: stat,
+      SCStatsTable: htmlWithSCStats,
+   };
+   const emailHTML = emailTemplate.replace(/\{\{(\w+)\}\}/g, (match, token: string) => (
+      Object.prototype.hasOwnProperty.call(tokenValues, token) ? tokenValues[token] : match
+   ));
 
    return emailHTML;
 };

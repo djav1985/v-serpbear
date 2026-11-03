@@ -4,7 +4,7 @@ import handler from '../../pages/api/notify';
 import Domain from '../../database/models/domain';
 import Keyword from '../../database/models/keyword';
 import verifyUser from '../../utils/verifyUser';
-import { canSendEmail } from '../../utils/emailThrottle';
+import { reserveEmailSend } from '../../utils/emailThrottle';
 import { getAppSettings } from '../../pages/api/settings';
 
 jest.mock('../../database/database', () => ({
@@ -32,8 +32,7 @@ jest.mock('../../utils/generateEmail', () => ({
   default: jest.fn(() => Promise.resolve('<html></html>')),
 }));
 jest.mock('../../utils/emailThrottle', () => ({
-  canSendEmail: jest.fn(() => Promise.resolve({ canSend: true })),
-  recordEmailSent: jest.fn(() => Promise.resolve()),
+  reserveEmailSend: jest.fn(() => Promise.resolve({ reserved: true, release: jest.fn(() => Promise.resolve()) })),
 }));
 
 jest.mock('nodemailer', () => ({
@@ -79,7 +78,7 @@ describe('/api/notify recipients and outcomes', () => {
       notification_email_from: '',
       notification_email_from_name: 'SerpBear',
     });
-    (canSendEmail as jest.Mock).mockResolvedValue({ canSend: true });
+    (reserveEmailSend as jest.Mock).mockResolvedValue({ reserved: true, release: jest.fn(() => Promise.resolve()) });
   });
 
   it('sends only to the domain address, never to the global fallback', async () => {
@@ -104,7 +103,7 @@ describe('/api/notify recipients and outcomes', () => {
 
   it('returns 200 with a skipped count when every domain is throttled', async () => {
     (Domain.findAll as jest.Mock).mockResolvedValue([domainRow({}), domainRow({ domain: 'other.com' })]);
-    (canSendEmail as jest.Mock).mockResolvedValue({ canSend: false, reason: 'Minimum interval not met.' });
+    (reserveEmailSend as jest.Mock).mockResolvedValue({ reserved: false, reason: 'Minimum interval not met.', release: jest.fn() });
 
     await handler(req, res as unknown as NextApiResponse);
 

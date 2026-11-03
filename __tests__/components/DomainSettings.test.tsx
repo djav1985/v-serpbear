@@ -409,4 +409,17 @@ describe('DomainSettings Component', () => {
       // This test just validates that the callback was set up correctly
       expect(typeof capturedCallback).toBe('function');
    });
+
+   it('does not save while the stored domain settings are still loading', () => {
+      mockUseFetchDomain.mockImplementation(() => ({ isLoading: true, isError: false }));
+      const mutateMock = jest.fn();
+      mockUseUpdateDomain.mockReturnValue({ mutate: mutateMock, error: null, isLoading: false });
+
+      renderDomainSettings();
+      const saveButton = screen.getByText('Loading…').closest('button') as HTMLButtonElement;
+      fireEvent.click(saveButton);
+
+      expect(saveButton).toBeDisabled();
+      expect(mutateMock).not.toHaveBeenCalled();
+   });
 });
