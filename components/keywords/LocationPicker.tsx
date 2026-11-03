@@ -9,13 +9,9 @@ type LocationPickerProps = {
    value: string,
    onChange: (location: string) => void,
    allowsCity: boolean,
-   // When true, '' means "each keyword's own country" and is offered as the first option
-   allowDefault?: boolean,
    // Adds "Existing Locations" and "New Location" subheaders, matching the Add Keywords form labels
    sectionLabels?: boolean,
 }
-
-const DEFAULT_OPTION_LABEL = "Each keyword's country (default)";
 
 const getDefaultCountry = (): string => {
    if (typeof window === 'undefined') { return 'US'; }
@@ -32,7 +28,7 @@ const countryOptions = Object.keys(countries)
 
 // Existing domain locations plus a "new location" form (city, state, country, Add).
 // Only one location is applied at a time: picking another option discards a newly added one.
-const LocationPicker = ({ existingLocations = [], value, onChange, allowsCity = false, allowDefault = false, sectionLabels = false }: LocationPickerProps) => {
+const LocationPicker = ({ existingLocations = [], value, onChange, allowsCity = false, sectionLabels = false }: LocationPickerProps) => {
    const [newLocation, setNewLocation] = useState<string | null>(null);
    const [city, setCity] = useState('');
    const [state, setState] = useState('');
@@ -40,12 +36,12 @@ const LocationPicker = ({ existingLocations = [], value, onChange, allowsCity = 
    const [error, setError] = useState('');
 
    const locationValues = [
-      ...(allowDefault ? [''] : []),
       ...existingLocations,
       value,
       newLocation,
-   ].filter((loc): loc is string => typeof loc === 'string' && (loc !== '' || allowDefault));
-   const locationOptions = [...new Set(locationValues)].map((loc) => ({ label: loc || DEFAULT_OPTION_LABEL, value: loc }));
+   ].filter((loc): loc is string => typeof loc === 'string' && loc !== '');
+   // A bare country code such as "US" is shown by its name, e.g. "United States"
+   const locationOptions = [...new Set(locationValues)].map((loc) => ({ label: countries[loc] ? countries[loc][0] : loc, value: loc }));
 
    const addNewLocation = () => {
       const trimmedCity = city.trim();

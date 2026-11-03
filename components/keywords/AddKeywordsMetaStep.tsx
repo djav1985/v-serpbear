@@ -28,8 +28,8 @@ const AddKeywordsMetaStep = ({
    closeModal,
 }: AddKeywordsMetaStepProps) => {
    const [tagInput, setTagInput] = useState('');
-   // '' keeps each keyword's own country as its location
-   const [location, setLocation] = useState('');
+   // Start on United States; each keyword is tracked in the chosen location
+   const [location, setLocation] = useState('US');
 
    return (
       <Modal
@@ -51,7 +51,6 @@ const AddKeywordsMetaStep = ({
                value={location}
                onChange={setLocation}
                allowsCity={allowsCity}
-               allowDefault={true}
             />
             <div className='mt-6 text-right text-sm font-semibold flex justify-between'>
                <button

@@ -33,7 +33,7 @@ describe('AddKeywordsMetaStep', () => {
       fireEvent.change(screen.getByPlaceholderText('Insert Tags (Optional). eg: tag1, tag2'), { target: { value: 'seo, , content ' } });
       fireEvent.click(screen.getByRole('button', { name: 'Add Keywords' }));
 
-      expect(onConfirm).toHaveBeenCalledWith({ tags: ['seo', 'content'], location: '' });
+      expect(onConfirm).toHaveBeenCalledWith({ tags: ['seo', 'content'], location: 'US' });
    });
 
    it('shows the city and state error and does not add a location when only one is filled', () => {
