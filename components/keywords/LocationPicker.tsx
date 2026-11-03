@@ -84,7 +84,7 @@ const LocationPicker = ({ existingLocations = [], value, onChange, allowsCity = 
          </div>
          <div className='relative'>
             <input
-               className={`w-full border rounded border-gray-200 py-2 px-4 pl-8 outline-none focus:border-indigo-300 ${!allowsCity ? ' cursor-not-allowed' : ''}`}
+               className={`w-full h-[42px] border rounded border-gray-200 py-2 px-4 pl-8 text-sm outline-none focus:border-indigo-300 ${!allowsCity ? ' cursor-not-allowed' : ''}`}
                disabled={!allowsCity}
                placeholder={`City (Optional${!allowsCity ? ' — not available for this scraper' : ''})`}
                value={city}
@@ -94,7 +94,7 @@ const LocationPicker = ({ existingLocations = [], value, onChange, allowsCity = 
          </div>
          <div className='relative'>
             <input
-               className={`w-full border rounded border-gray-200 py-2 px-4 pl-8 outline-none focus:border-indigo-300 ${!allowsCity ? ' cursor-not-allowed' : ''}`}
+               className={`w-full h-[42px] border rounded border-gray-200 py-2 px-4 pl-8 text-sm outline-none focus:border-indigo-300 ${!allowsCity ? ' cursor-not-allowed' : ''}`}
                disabled={!allowsCity}
                placeholder={`State (Optional${!allowsCity ? ' — not available for this scraper' : ''})`}
                value={state}
