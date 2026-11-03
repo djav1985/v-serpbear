@@ -32,7 +32,8 @@ const normalizeLocation = (location, rowCountry) => {
    const trailingName = trailingCode ? '' : findCountryName(lastPart);
    const cityAndState = trailingCode || trailingName ? parts.slice(0, -1) : parts;
 
-   if (cityAndState.length !== 2) {
+   // A city may contain commas (e.g. "Washington,D.C."), so everything before the state is kept as the city
+   if (cityAndState.length < 2) {
       return '';
    }
 
@@ -89,3 +90,6 @@ module.exports = {
       logger.info('[MIGRATION] Keyword location normalization has no rollback.');
    },
 };
+
+// Exported for tests
+module.exports.normalizeLocation = normalizeLocation;
