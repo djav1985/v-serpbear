@@ -7,9 +7,6 @@ import { atomicWriteFile } from '../../utils/atomicWrite';
 import { getAdwordsCredentials, getAdwordsKeywordIdeas } from '../../utils/adwords';
 import { createMockRequest, createMockResponse } from '../__helpers__';
 
-const cookieStore = new Map<string, string>();
-const cookieSet = jest.fn((name: string, value: string) => value ? cookieStore.set(name, value) : cookieStore.delete(name));
-jest.mock('cookies', () => ({ __esModule: true, default: jest.fn(() => ({ get: (name: string) => cookieStore.get(name), set: cookieSet })) }));
 jest.mock('../../utils/verifyUser', () => ({ __esModule: true, default: jest.fn() }));
 jest.mock('fs/promises', () => ({ readFile: jest.fn() }));
 jest.mock('../../utils/atomicWrite', () => ({ atomicWriteFile: jest.fn() }));
@@ -27,17 +24,29 @@ type MutableEnv = typeof process.env & { SECRET?: string; NEXT_PUBLIC_APP_URL?: 
 const response = () => ({ ...createMockResponse(), send: jest.fn(), setHeader: jest.fn().mockReturnThis() } as unknown as NextApiResponse);
 const callback = (state?: string) => createMockRequest({ method: 'GET', query: { code: 'auth-code', ...(state ? { state } : {}) }, headers: { host: 'attacker.example' } });
 
+/** Starts the OAuth flow the way the Connect button does and returns the state Google will echo back. */
+const startFlow = async (): Promise<string> => {
+  const res = response();
+  await handler(createMockRequest({ method: 'GET', headers: { host: 'attacker.example' } }), res);
+  expect(res.status).toHaveBeenCalledWith(200);
+  const payload = (res.json as jest.Mock).mock.calls[0][0];
+  return new URL(payload.authUrl).searchParams.get('state') as string;
+};
+
 describe('Google Ads OAuth state flow', () => {
   const originalEnv = process.env;
   beforeEach(() => {
-    jest.clearAllMocks(); cookieStore.clear();
+    jest.clearAllMocks();
     (process.env as MutableEnv) = { ...originalEnv, SECRET: 'secret', NEXT_PUBLIC_APP_URL: 'https://trusted.example' };
     (verifyUser as jest.Mock).mockReturnValue('authorized');
     (readFile as jest.Mock).mockResolvedValue('{"adwords_client_id":"encrypted-client-id","adwords_client_secret":"encrypted-client-secret"}');
     getTokenMock.mockResolvedValue({ tokens: { refresh_token: 'refresh-token' } });
     (atomicWriteFile as jest.Mock).mockResolvedValue(undefined);
   });
-  afterEach(() => { process.env = originalEnv; });
+  afterEach(() => {
+    process.env = originalEnv;
+    jest.restoreAllMocks();
+  });
 
   it('requires authorization to start integration', async () => {
     (verifyUser as jest.Mock).mockReturnValue('not authorized');
@@ -50,23 +59,18 @@ describe('Google Ads OAuth state flow', () => {
     expect(res.status).toHaveBeenCalledWith(405);
   });
 
-  it('starts integration with a random state cookie and trusted callback origin', async () => {
-    const res = response(); await handler(createMockRequest({ method: 'GET', headers: { host: 'attacker.example', 'x-forwarded-host': 'evil.example', 'x-forwarded-proto': 'https' } }), res);
+  it('starts integration with a random state and the trusted callback origin', async () => {
+    const res = response(); await handler(createMockRequest({ method: 'GET', headers: { host: 'attacker.example', 'x-forwarded-host': 'evil.example' } }), res);
     expect(res.status).toHaveBeenCalledWith(200);
     const payload = (res.json as jest.Mock).mock.calls[0][0];
     const url = new URL(payload.authUrl);
     expect(url.searchParams.get('redirect_uri')).toBe('https://trusted.example/api/adwords');
     expect(url.searchParams.get('state')).toHaveLength(43);
-    expect(cookieSet).toHaveBeenCalledWith('adwords_oauth_state', url.searchParams.get('state'), expect.objectContaining({ httpOnly: true, secure: true, sameSite: 'lax', maxAge: 600 }));
   });
 
-  it('does not mark the state cookie Secure when the trusted origin is plain HTTP (LAN installs)', async () => {
-    (process.env as MutableEnv).NEXT_PUBLIC_APP_URL = 'http://192.168.1.10:3000';
-    const res = response(); await handler(createMockRequest({ method: 'GET', headers: { host: '192.168.1.10:3000' } }), res);
-    expect(res.status).toHaveBeenCalledWith(200);
-    const payload = (res.json as jest.Mock).mock.calls[0][0];
-    const state = new URL(payload.authUrl).searchParams.get('state');
-    expect(cookieSet).toHaveBeenCalledWith('adwords_oauth_state', state, expect.objectContaining({ secure: false }));
+  it('does not set a state cookie (the state is kept on the server)', async () => {
+    const res = response(); await handler(createMockRequest({ method: 'GET', headers: { host: 'attacker.example' } }), res);
+    expect(res.setHeader).not.toHaveBeenCalledWith('Set-Cookie', expect.anything());
   });
 
   it('rejects oauth flow startup when no trusted app origin is configured', async () => {
@@ -76,35 +80,43 @@ describe('Google Ads OAuth state flow', () => {
     expect(res.status).toHaveBeenCalledWith(500);
   });
 
-  it.each([['missing', undefined], ['mismatched', 'wrong']])('rejects %s state without token exchange or persistence', async (_label, state) => {
-    cookieStore.set('adwords_oauth_state', 'expected');
+  it.each([['missing', undefined], ['unknown', 'never-issued']])('rejects %s state without token exchange or persistence', async (_label, state) => {
+    await startFlow();
     const res = response(); await handler(callback(state), res);
     expect(res.status).toHaveBeenCalledWith(400);
     expect(getTokenMock).not.toHaveBeenCalled();
     expect(atomicWriteFile).not.toHaveBeenCalled();
-    expect(cookieStore.has('adwords_oauth_state')).toBe(false);
   });
 
-  it('accepts valid state once and rejects replay', async () => {
-    cookieStore.set('adwords_oauth_state', 'expected');
-    const first = response(); await handler(callback('expected'), first);
+  it('accepts a valid state once and rejects replay', async () => {
+    const state = await startFlow();
+    const first = response(); await handler(callback(state), first);
     expect(getTokenMock).toHaveBeenCalledWith('auth-code');
     expect(first.status).toHaveBeenCalledWith(200);
-    const replay = response(); await handler(callback('expected'), replay);
+    const replay = response(); await handler(callback(state), replay);
     expect(replay.status).toHaveBeenCalledWith(400);
     expect(getTokenMock).toHaveBeenCalledTimes(1);
   });
 
+  it('rejects a state that has expired', async () => {
+    const state = await startFlow();
+    jest.spyOn(Date, 'now').mockReturnValue(Date.now() + 11 * 60 * 1000);
+    const res = response(); await handler(callback(state), res);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(getTokenMock).not.toHaveBeenCalled();
+  });
+
   it('does not persist when token exchange fails', async () => {
-    cookieStore.set('adwords_oauth_state', 'expected'); getTokenMock.mockRejectedValueOnce(new Error('exchange failed'));
-    const res = response(); await handler(callback('expected'), res);
+    const state = await startFlow();
+    getTokenMock.mockRejectedValueOnce(new Error('exchange failed'));
+    const res = response(); await handler(callback(state), res);
     expect(res.status).toHaveBeenCalledWith(400);
     expect(atomicWriteFile).not.toHaveBeenCalled();
   });
 
   it('persists the refresh token only after successful exchange', async () => {
-    cookieStore.set('adwords_oauth_state', 'expected');
-    const res = response(); await handler(callback('expected'), res);
+    const state = await startFlow();
+    const res = response(); await handler(callback(state), res);
     expect(OAuth2Client).toHaveBeenCalledWith(expect.objectContaining({ redirectUri: 'https://trusted.example/api/adwords' }));
     expect(atomicWriteFile).toHaveBeenCalledWith(expect.stringContaining('data/settings.json'), expect.stringContaining('encrypted-refresh-token'), 'utf-8');
   });

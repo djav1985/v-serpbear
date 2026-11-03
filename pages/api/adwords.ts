@@ -4,8 +4,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { OAuth2Client } from 'google-auth-library';
 import { readFile } from 'fs/promises';
 import Cryptr from 'cryptr';
-import Cookies from 'cookies';
-import { randomBytes, timingSafeEqual } from 'crypto';
+import { randomBytes } from 'crypto';
 import verifyUser from '../../utils/verifyUser';
 import { getAdwordsCredentials, getAdwordsKeywordIdeas } from '../../utils/adwords';
 import { logger } from '../../utils/logger';
@@ -13,7 +12,6 @@ import { withApiLogging } from '../../utils/apiLogging';
 import { atomicWriteFile } from '../../utils/atomicWrite';
 import { errorResponse } from '../../utils/api/response';
 import normalizeOrigin from '../../utils/normalizeOrigin';
-import isRequestSecure from '../../utils/api/isRequestSecure';
 
 
 type IntegrationResultOptions = {
@@ -22,8 +20,21 @@ type IntegrationResultOptions = {
    statusCode?: number;
 };
 
-const OAUTH_STATE_COOKIE = 'adwords_oauth_state';
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
+
+// Pending OAuth states are kept on the server instead of in a cookie: the browser did not send the
+// state cookie back on Google's redirect, so the callback could not match it. Each state is random,
+// single-use and expires after OAUTH_STATE_TTL_MS. Stored on globalThis so dev hot reload keeps them.
+const globalForOAuth = globalThis as typeof globalThis & { __serpbearOAuthStates?: Map<string, number> };
+const pendingOAuthStates = (globalForOAuth.__serpbearOAuthStates ??= new Map<string, number>());
+
+const pruneExpiredStates = (now: number) => {
+   for (const [state, expiresAt] of pendingOAuthStates) {
+      if (expiresAt <= now) {
+         pendingOAuthStates.delete(state);
+      }
+   }
+};
 
 const getTrustedOrigin = (_req: NextApiRequest) => {
    const configuredOrigin = normalizeOrigin(process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || '');
@@ -31,17 +42,6 @@ const getTrustedOrigin = (_req: NextApiRequest) => {
       return configuredOrigin;
    }
    return '';
-};
-
-const oauthCookies = (req: NextApiRequest, res: NextApiResponse) => {
-   // The callback always returns to the trusted origin, so the cookie is Secure when either the request
-   // or that origin is HTTPS (reverse proxies may not forward the protocol). Browsers drop Secure cookies
-   // set over plain HTTP, so an HTTP-only origin must not get the flag.
-   const secure = isRequestSecure(req) || getTrustedOrigin(req).startsWith('https://');
-   return {
-      cookies: new Cookies(req, res, { secure }),
-      options: { httpOnly: true, secure, sameSite: 'lax' as const, path: '/api/adwords' },
-   };
 };
 
 const respondWithIntegrationResult = (
@@ -124,8 +124,9 @@ const beginAdwordsIntegration = async (req: NextApiRequest, res: NextApiResponse
          return res.status(400).json(errorResponse('BAD_REQUEST', 'Google Ads client ID is not configured.', requestId));
       }
       const state = randomBytes(32).toString('base64url');
-      const { cookies, options } = oauthCookies(req, res);
-      cookies.set(OAUTH_STATE_COOKIE, state, { ...options, maxAge: OAUTH_STATE_TTL_MS / 1000, expires: new Date(Date.now() + OAUTH_STATE_TTL_MS) });
+      const now = Date.now();
+      pruneExpiredStates(now);
+      pendingOAuthStates.set(state, now + OAUTH_STATE_TTL_MS);
       const redirectUri = `${trustedOrigin}/api/adwords`;
       const params = new URLSearchParams({
          access_type: 'offline', prompt: 'consent', scope: 'https://www.googleapis.com/auth/adwords',
@@ -153,21 +154,18 @@ const getAdwordsRefreshToken = async (req: NextApiRequest, res: NextApiResponse)
 
       if (code) {
          const suppliedState = typeof req.query.state === 'string' ? req.query.state : '';
-         const { cookies, options } = oauthCookies(req, res);
-         const expectedState = cookies.get(OAUTH_STATE_COOKIE) || '';
+         const now = Date.now();
+         pruneExpiredStates(now);
+         const expiresAt = pendingOAuthStates.get(suppliedState);
          // Consume before any asynchronous work so every callback attempt is one-time.
-         cookies.set(OAUTH_STATE_COOKIE, '', { ...options, maxAge: 0, expires: new Date(0) });
-         const stateMatches = suppliedState.length === expectedState.length && suppliedState.length > 0
-            && timingSafeEqual(Buffer.from(suppliedState), Buffer.from(expectedState));
+         pendingOAuthStates.delete(suppliedState);
+         const stateMatches = expiresAt !== undefined && expiresAt > now;
          if (!stateMatches) {
-            // Log only presence and lengths so the cause is visible without recording the state value.
+            // Log only presence and counts, never the state value.
             logger.warn('OAuth callback state check failed', {
                statePresent: suppliedState.length > 0,
-               cookiePresent: expectedState.length > 0,
-               stateLength: suppliedState.length,
-               cookieLength: expectedState.length,
+               pendingStates: pendingOAuthStates.size,
                host: req.headers.host,
-               forwardedHost: req.headers['x-forwarded-host'],
                forwardedProto: req.headers['x-forwarded-proto'],
             });
             return respondWithIntegrationResult(req, res, {
