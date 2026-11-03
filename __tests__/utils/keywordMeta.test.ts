@@ -2,8 +2,10 @@ import {
    buildKeywordAddPayloads,
    getDomainLocations,
    getDomainTags,
+   getAddKeywordsMessage,
    getLocationUpdateMessage,
    planLocationUpdate,
+   splitAlreadyTracked,
    scraperAllowsCity,
 } from '../../utils/keywordMeta';
 
@@ -186,5 +188,44 @@ describe('getLocationUpdateMessage', () => {
 
    it('says nothing changed when every keyword was skipped', () => {
       expect(getLocationUpdateMessage(0, ['alpha', 'beta'])).toBe('No keywords changed. 2 already tracked in that location: alpha, beta.');
+   });
+});
+
+describe('splitAlreadyTracked', () => {
+   const payload = (keyword: string, device: 'desktop' | 'mobile', country = 'US') => ({
+      keyword, device, country, domain: 'example.com', tags: '', location: country,
+   });
+
+   it('keeps untracked rows and reports tracked keyword and device pairs', () => {
+      const lookup = { 'alpha:US:desktop': true };
+      const result = splitAlreadyTracked([payload('alpha', 'desktop'), payload('alpha', 'mobile'), payload('beta', 'desktop')], lookup);
+      expect(result.payloads.map((p) => `${p.keyword}:${p.device}`)).toEqual(['alpha:mobile', 'beta:desktop']);
+      expect(result.skipped).toEqual(['alpha (desktop)']);
+   });
+
+   it('does not treat the same keyword in another country as tracked', () => {
+      const result = splitAlreadyTracked([payload('alpha', 'desktop', 'GB')], { 'alpha:US:desktop': true });
+      expect(result.payloads).toHaveLength(1);
+      expect(result.skipped).toEqual([]);
+   });
+
+   it('returns nothing to add when everything is tracked', () => {
+      const result = splitAlreadyTracked([payload('alpha', 'desktop')], { 'alpha:US:desktop': true });
+      expect(result).toEqual({ payloads: [], skipped: ['alpha (desktop)'] });
+   });
+});
+
+describe('getAddKeywordsMessage', () => {
+   it('keeps the original wording when nothing was skipped', () => {
+      expect(getAddKeywordsMessage(3)).toBe('Keywords Added Successfully!');
+   });
+
+   it('reports added and skipped keywords', () => {
+      expect(getAddKeywordsMessage(2, ['alpha (desktop)'])).toBe('Added 2 keywords. Skipped 1 already tracked: alpha (desktop).');
+      expect(getAddKeywordsMessage(1, ['alpha (desktop)'])).toBe('Added 1 keyword. Skipped 1 already tracked: alpha (desktop).');
+   });
+
+   it('says nothing was added when every row was skipped', () => {
+      expect(getAddKeywordsMessage(0, ['alpha (desktop)'])).toBe('No keywords added. 1 already tracked: alpha (desktop).');
    });
 });

@@ -12,7 +12,7 @@ import SCKeyword from './SCKeyword';
 import useWindowResize from '../../hooks/useWindowResize';
 import useIsMobile from '../../hooks/useIsMobile';
 import { formattedNum } from '../../utils/client/helpers';
-import { buildKeywordAddPayloads, getDomainLocations, getDomainTags, scraperAllowsCity, TrackerDevice } from '../../utils/keywordMeta';
+import { buildKeywordAddPayloads, getDomainLocations, getDomainTags, scraperAllowsCity, splitAlreadyTracked, TrackerDevice } from '../../utils/keywordMeta';
 import { useFetchSettings } from '../../services/settings';
 import AddToTrackerBar from './AddToTrackerBar';
 import AddKeywordsMetaStep from './AddKeywordsMetaStep';
@@ -122,14 +122,14 @@ const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleInt
       const selectedItems = finalKeywords[device]
          .filter((kitem:SCKeywordType) => selectedKeywords.includes(kitem.uid))
          .map(({ keyword, country }) => ({ keyword, country }));
-      const payloads = buildKeywordAddPayloads({
+      const { payloads, skipped } = splitAlreadyTracked(buildKeywordAddPayloads({
          items: selectedItems,
          domain: domain?.domain || '',
          devices: addDevices,
          tags,
          location,
-      }).filter((payload) => !trackedKeywordLookup[`${payload.keyword}:${payload.country}:${payload.device}`]);
-      addKeywords(payloads);
+      }), trackedKeywordLookup);
+      addKeywords({ payloads, skipped });
       setSelectedKeywords([]);
       setShowAddStep(false);
    };

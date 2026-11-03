@@ -3,7 +3,7 @@ import { NextRouter } from 'next/router';
 import { useMutation, useQuery, useQueryClient } from 'react-query';
 import { normalizeToBoolean } from '../utils/dbBooleans';
 import { apiGet, apiPost, apiPut, apiDelete } from '../utils/client/apiClient';
-import { getLocationUpdateMessage } from '../utils/keywordMeta';
+import { getAddKeywordsMessage, getLocationUpdateMessage } from '../utils/keywordMeta';
 
 type KeywordsResponse = {
    keywords?: KeywordType[]
@@ -71,11 +71,13 @@ export function useFetchKeywords(
 
 export function useAddKeywords(onSuccess: () => void) {
    const queryClient = useQueryClient();
-   return useMutation(async (keywords:KeywordAddPayload[]) => (
-      apiPost('/api/keywords', { keywords })
+   return useMutation(async ({ payloads }: { payloads: KeywordAddPayload[], skipped?: string[] }) => (
+      // Nothing left to add (everything was already tracked): skip the request and only report
+      payloads.length > 0 ? apiPost('/api/keywords', { keywords: payloads }) : null
    ), {
-      onSuccess: async () => {
-         toast('Keywords Added Successfully!', { icon: '✔️' });
+      onSuccess: async (_data, { payloads, skipped = [] }) => {
+         const message = getAddKeywordsMessage(payloads.length, skipped);
+         toast(message, { icon: skipped.length > 0 ? '⚠️' : '✔️' });
          onSuccess();
          queryClient.invalidateQueries(['keywords']);
       },

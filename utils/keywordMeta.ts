@@ -101,3 +101,30 @@ export const getLocationUpdateMessage = (updatedCount: number, skipped: string[]
    const skippedText = `${skipped.length} already tracked in that location: ${skipped.join(', ')}.`;
    return updatedCount === 0 ? `No keywords changed. ${skippedText}` : `Updated ${updatedText}. Skipped ${skippedText}`;
 };
+
+// Drops payloads for keyword, country and device combinations that are already tracked.
+// Returns the rows to add and a readable list of what was skipped, e.g. "alpha (mobile)".
+export const splitAlreadyTracked = (
+   payloads: KeywordAddPayload[],
+   trackedLookup: Record<string, boolean>,
+): { payloads: KeywordAddPayload[], skipped: string[] } => {
+   const kept: KeywordAddPayload[] = [];
+   const skipped = new Set<string>();
+   payloads.forEach((payload) => {
+      if (trackedLookup[`${payload.keyword}:${payload.country}:${payload.device}`]) {
+         skipped.add(`${payload.keyword} (${payload.device})`);
+      } else {
+         kept.push(payload);
+      }
+   });
+   return { payloads: kept, skipped: [...skipped] };
+};
+
+// Toast text after adding keywords. Keeps the original wording when nothing was skipped.
+export const getAddKeywordsMessage = (addedCount: number, skipped: string[] = []): string => {
+   if (skipped.length === 0) {
+      return 'Keywords Added Successfully!';
+   }
+   const skippedText = `${skipped.length} already tracked: ${skipped.join(', ')}.`;
+   return addedCount === 0 ? `No keywords added. ${skippedText}` : `Added ${addedCount} keyword${addedCount === 1 ? '' : 's'}. Skipped ${skippedText}`;
+};

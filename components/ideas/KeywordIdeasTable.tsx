@@ -4,7 +4,7 @@ import { useQuery } from 'react-query';
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
 import { useAddKeywords, useFetchKeywords } from '../../services/keywords';
 import { useEmailKeywordIdeas } from '../../services/ideas';
-import { buildKeywordAddPayloads, getDomainLocations, getDomainTags, scraperAllowsCity, TrackerDevice } from '../../utils/keywordMeta';
+import { buildKeywordAddPayloads, splitAlreadyTracked, getDomainLocations, getDomainTags, scraperAllowsCity, TrackerDevice } from '../../utils/keywordMeta';
 import { useFetchSettings } from '../../services/settings';
 import { getSelectedUntrackedKeywords } from '../../utils/client/helpers';
 import AddToTrackerBar from '../keywords/AddToTrackerBar';
@@ -160,14 +160,14 @@ const IdeasKeywordsTable = ({
    const submitIdeasToTracker = ({ tags, location }: { tags: string[], location: string }) => {
       const targetDomain = isResearchPage ? addKeywordDomain : (domain?.domain || '');
       const selectedUntrackedKeywords = getSelectedUntrackedKeywords(finalKeywords, selectedKeywords);
-      const payloads = buildKeywordAddPayloads({
+      const { payloads, skipped } = splitAlreadyTracked(buildKeywordAddPayloads({
          items: selectedUntrackedKeywords.map(({ keyword, country }) => ({ keyword, country })),
          domain: targetDomain,
          devices: addKeywordDevices,
          tags,
          location,
-      }).filter((payload) => !trackedKeywordLookup[`${payload.keyword}:${payload.country}:${payload.device}`]);
-      addKeywords(payloads);
+      }), trackedKeywordLookup);
+      addKeywords({ payloads, skipped });
       setSelectedKeywords([]);
       setShowAddStep(false);
    };

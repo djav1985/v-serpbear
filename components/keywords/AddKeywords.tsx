@@ -153,11 +153,16 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
          if (!multiDevice && (keywordsArray.length === 1 || currentKeywords.length === keywordExist.length) && keywordExist.length > 0) {
             setErrorWithTimeout(`Keywords ${keywordExist.join(',')} already Exist`);
          } else {
+            const skipped: string[] = [];
             const newKeywords = keywordsArray.flatMap((k) =>
                devices
                   .filter((device) => {
                      const id = `${k}-${device}-${locationString || nkwrds.country}`;
-                     return !currentKeywords.includes(id);
+                     if (currentKeywords.includes(id)) {
+                        skipped.push(`${k} (${device})`);
+                        return false;
+                     }
+                     return true;
                   })
                   .map((device) => ({
                      keyword: k,
@@ -168,7 +173,7 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
                      location: locationString,
                   })),
             );
-            addMutate(newKeywords);
+            addMutate({ payloads: newKeywords, skipped });
          }
       } else {
          setErrorWithTimeout('Please Insert a Keyword');
