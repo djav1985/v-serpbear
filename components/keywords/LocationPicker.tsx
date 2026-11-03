@@ -63,7 +63,7 @@ const LocationPicker = ({ existingLocations = [], value, onChange, allowsCity = 
    };
 
    return (
-      <div className='flex flex-col gap-2'>
+      <div className='flex flex-col gap-2 sm:w-[300px]'>
          <div className='[&_.selected]:py-2 [&_.selected]:px-4'>
             <SelectField
                multiple={false}
