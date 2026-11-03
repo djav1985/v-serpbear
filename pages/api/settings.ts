@@ -67,7 +67,7 @@ const SCRAPE_STRATEGIES = ['basic', 'custom', 'smart'];
 const NOTIFICATION_INTERVALS = ['daily', 'weekly', 'monthly', 'never'];
 const MAX_PAGINATION_LIMIT = 10;
 const BOOLEAN_SETTINGS = ['scrape_retry', 'scrape_smart_full_fallback', 'search_console'];
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
 
 /**
  * Checks only the fields present in the payload. Returns one message per invalid field

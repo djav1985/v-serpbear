@@ -201,6 +201,18 @@ describe('validateSettingsPayload', () => {
     expect(validateSettingsPayload({ notification_email: 'not-an-email' })[0]).toMatch(/notification_email/);
   });
 
+  it('rejects an address with no dot in the domain', () => {
+    expect(validateSettingsPayload({ notification_email: 'user@localhost' })[0]).toMatch(/notification_email/);
+  });
+
+  it('rejects a dotted domain with many repeated dots quickly', () => {
+    const hostile = `a@${'.'.repeat(5000)}`;
+    const started = Date.now();
+    const errors = validateSettingsPayload({ notification_email: hostile });
+    expect(Date.now() - started).toBeLessThan(200);
+    expect(errors[0]).toMatch(/notification_email/);
+  });
+
   it('rejects keywordsColumns that are not a list of strings', () => {
     expect(validateSettingsPayload({ keywordsColumns: 'Best' })[0]).toMatch(/keywordsColumns/);
   });
