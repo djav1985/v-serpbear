@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file. Releases no
 
 ## [Unreleased]
 
+### Security
+- Upgraded the Node.js runtime from 20.18.1 (end-of-life) to 24.22.1 in `.nvmrc`, the Docker base image (`node:24.22.1-alpine3.24`), and CI to fix CVE-2026-111497, an out-of-bounds write in the bundled Brotli decoder reachable through `fetch()` responses with `Content-Encoding: br`.
+
 ### Features
 - Added a Settings action to immediately retry all keywords in the failed retry queue.
 - Added `PARALLEL_SCRAPE_CONCURRENCY` to control simultaneous keyword scrapes per domain for sequential scraper providers.
