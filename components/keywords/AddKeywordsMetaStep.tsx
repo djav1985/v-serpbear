@@ -45,13 +45,16 @@ const AddKeywordsMetaStep = ({
                existingTags={existingTags}
                placeholder='Insert Tags (Optional). eg: tag1, tag2'
             />
-            <p className='text-sm font-semibold text-gray-500 mt-4 mb-1'>Location</p>
-            <LocationPicker
-               existingLocations={existingLocations}
-               value={location}
-               onChange={setLocation}
-               allowsCity={allowsCity}
-            />
+            <div className='mt-4'>
+               <LocationPicker
+                  existingLocations={existingLocations}
+                  value={location}
+                  onChange={setLocation}
+                  allowsCity={allowsCity}
+                  sectionLabels={true}
+                  newLocationLabel='Add Location'
+               />
+            </div>
             <div className='mt-6 text-right text-sm font-semibold flex justify-between'>
                <button
                   type='button'

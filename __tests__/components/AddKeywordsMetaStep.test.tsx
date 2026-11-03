@@ -75,6 +75,23 @@ describe('AddKeywordsMetaStep', () => {
       expect(onConfirm).toHaveBeenCalledWith({ tags: [], location: 'Austin,TX,US' });
    });
 
+   it('labels the location as existing locations with an add location section', () => {
+      render(
+         <AddKeywordsMetaStep
+            selectedCount={1}
+            existingTags={[]}
+            existingLocations={['US']}
+            allowsCity={true}
+            onConfirm={jest.fn()}
+            closeModal={jest.fn()}
+         />,
+      );
+
+      expect(screen.getByText('Existing Locations')).toBeInTheDocument();
+      expect(screen.getByText('Add Location')).toBeInTheDocument();
+      expect(screen.queryByText('Location')).not.toBeInTheDocument();
+   });
+
    it('cancels through the Cancel button', () => {
       const closeModal = jest.fn();
       render(
