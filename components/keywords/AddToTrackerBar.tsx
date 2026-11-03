@@ -50,7 +50,7 @@ const AddToTrackerBar = ({
                      aria-checked={isActive}
                      className={`flex-1 h-9 px-3 flex items-center justify-center rounded font-semibold transition-colors sm:flex-none ${isActive ? 'bg-indigo-100 text-blue-700' : 'bg-indigo-50 text-gray-500'}`}
                      onClick={() => toggleDevice(value)}>
-                     {isActive && <span className='mr-1'>✓</span>}
+                     <span className={`w-4 h-4 mr-2 flex items-center justify-center rounded-sm border text-[10px] leading-none ${isActive ? 'bg-blue-700 border-blue-700 text-white' : 'bg-white border-gray-300 text-transparent'}`}>✓</span>
                      {deviceLabel}
                   </button>
                );
