@@ -11,6 +11,8 @@ type LocationPickerProps = {
    allowsCity: boolean,
    // When true, '' means "each keyword's own country" and is offered as the first option
    allowDefault?: boolean,
+   // Adds "Existing Locations" and "New Location" subheaders, matching the Add Keywords form labels
+   sectionLabels?: boolean,
 }
 
 const DEFAULT_OPTION_LABEL = "Each keyword's country (default)";
@@ -30,7 +32,7 @@ const countryOptions = Object.keys(countries)
 
 // Existing domain locations plus a "new location" form (city, state, country, Add).
 // Only one location is applied at a time: picking another option discards a newly added one.
-const LocationPicker = ({ existingLocations = [], value, onChange, allowsCity = false, allowDefault = false }: LocationPickerProps) => {
+const LocationPicker = ({ existingLocations = [], value, onChange, allowsCity = false, allowDefault = false, sectionLabels = false }: LocationPickerProps) => {
    const [newLocation, setNewLocation] = useState<string | null>(null);
    const [city, setCity] = useState('');
    const [state, setState] = useState('');
@@ -64,6 +66,7 @@ const LocationPicker = ({ existingLocations = [], value, onChange, allowsCity = 
 
    return (
       <div className='flex flex-col gap-2'>
+         {sectionLabels && <p className='text-sm font-semibold text-gray-500 mb-1'>Existing Locations</p>}
          <div className='[&_.selected]:py-2 [&_.selected]:px-4'>
             <SelectField
                multiple={false}
@@ -82,6 +85,7 @@ const LocationPicker = ({ existingLocations = [], value, onChange, allowsCity = 
                fullWidth={true}
             />
          </div>
+         {sectionLabels && <p className='text-sm font-semibold text-gray-500 mt-2 mb-1'>New Location</p>}
          <div className='relative'>
             <input
                className={`w-full h-[42px] border rounded border-gray-200 py-2 px-4 pl-8 text-sm outline-none focus:border-indigo-300 ${!allowsCity ? ' cursor-not-allowed' : ''}`}

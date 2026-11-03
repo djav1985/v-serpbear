@@ -32,6 +32,7 @@ const ChangeLocationModal = ({ keywords = [], existingLocations = [], allowsCity
                value={location}
                onChange={setLocation}
                allowsCity={allowsCity}
+               sectionLabels={true}
             />
             <div className='mt-6 text-right text-sm font-semibold flex justify-between'>
                <button
