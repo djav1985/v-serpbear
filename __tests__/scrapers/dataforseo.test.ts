@@ -57,13 +57,17 @@ describe('dataforseo scraper', () => {
       device: 'desktop',
       se_domain: 'google.com',
       depth: 10,
-      max_crawl_pages: 1,
     });
   });
 
   it('requests depth up to the end of the requested page', () => {
     const body = bodyOf(buildKeyword(), settings, countryData, { start: 20, num: 10, page: 3 });
     expect((body[0] as any).depth).toBe(30);
+  });
+
+  it('does not cap crawled pages, so deeper pages can return results', () => {
+    const body = bodyOf(buildKeyword(), settings, countryData, { start: 20, num: 10, page: 3 });
+    expect(body[0]).not.toHaveProperty('max_crawl_pages');
   });
 
   it('caps depth at 100', () => {

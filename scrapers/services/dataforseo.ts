@@ -84,7 +84,6 @@ const dataforseo: ScraperSettings = {
         device: keyword.device === DEVICE_MOBILE ? "mobile" : "desktop",
         se_domain: getGoogleDomain(country),
         depth: Math.min(p.start + p.num, 100),
-        max_crawl_pages: 1,
       },
     ];
   },
