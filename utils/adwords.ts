@@ -203,8 +203,17 @@ export const getAdwordsAccessToken = async (credentials: AdwordsCredentials) => 
          return '';
       }
 
-      //  console.log('token :', tokens);
-      return tokens?.access_token || '';
+      const accessToken: string = tokens?.access_token || '';
+      if (!accessToken) {
+         // Google explains why it rejected the refresh token (for example invalid_grant or invalid_client).
+         // Without logging it, the failure only shows up as a generic "Failed to get access token".
+         logger.error('Google OAuth rejected the refresh token request', undefined, {
+            status: resp.status,
+            error: tokens?.error,
+            errorDescription: tokens?.error_description,
+         });
+      }
+      return accessToken;
    } catch (error) {
       logger.error('Error getting Google Account Access Token', error instanceof Error ? error : new Error(String(error)));
       return '';
