@@ -59,6 +59,14 @@ describe('getDomainLocations', () => {
       expect(getDomainLocations(keywords)).toEqual(['Austin,TX,US', 'US']);
    });
 
+   it('lists a location once when it is spelled with a country name and with its code', () => {
+      const keywords = [
+         makeKeyword({ ID: 1, location: 'Austin,TX,US' }),
+         makeKeyword({ ID: 2, location: 'Austin,TX,United States' }),
+      ];
+      expect(getDomainLocations(keywords)).toEqual(['Austin,TX,US']);
+   });
+
    it('handles keywords with a missing location', () => {
       const keywords = [makeKeyword({ location: undefined })];
       expect(getDomainLocations(keywords)).toEqual([]);

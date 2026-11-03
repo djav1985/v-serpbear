@@ -93,3 +93,22 @@ export const hasValidCityStatePair = (city?: string, state?: string): boolean =>
    return (hasCity && hasState) || (!hasCity && !hasState);
 };
 
+
+// Country code by its English name, e.g. "united states" -> "US". Built once.
+const countryCodeByName = new Map<string, string>(
+   Object.keys(countries)
+      .filter((code) => Array.isArray(countries[code]))
+      .map((code) => [countries[code][0].toLowerCase(), code]),
+);
+
+/**
+ * Writes the country as its code, so "Austin,TX,United States" and "Austin,TX,US" are one location.
+ * Only a whole country name in the last part is changed; other text is left as it is.
+ */
+export const normalizeLocation = (location?: string | null): string => {
+   const parts = normalize(location).split(',').map((part) => part.trim()).filter((part) => part.length > 0);
+   if (parts.length === 0) { return ''; }
+   const code = countryCodeByName.get(parts[parts.length - 1].toLowerCase());
+   if (code) { parts[parts.length - 1] = code; }
+   return parts.join(',');
+};

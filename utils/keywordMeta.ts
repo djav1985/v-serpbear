@@ -1,4 +1,4 @@
-import { formatLocation, getLocationCountry } from './location';
+import { formatLocation, getLocationCountry, normalizeLocation } from './location';
 
 export type TrackerDevice = 'desktop' | 'mobile';
 
@@ -28,7 +28,7 @@ export const getDomainTags = (keywords: KeywordType[] = []): string[] => {
 
 // Unique, non-empty locations used by a domain's keywords
 export const getDomainLocations = (keywords: KeywordType[] = []): string[] => {
-   const allLocations = keywords.map((keyword) => (keyword.location || '').trim()).filter((location) => location !== '');
+   const allLocations = keywords.map((keyword) => normalizeLocation(keyword.location)).filter((location) => location !== '');
    return [...new Set(allLocations)].sort();
 };
 
