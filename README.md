@@ -198,18 +198,18 @@ SerpBear integrates with several managed SERP APIs. The table below summarises t
 | Provider | Working | Pricing snapshot* | Geo targeting | Map Pack coverage | Results coverage | API key header |
 | --- | --- | --- | --- | --- | --- | --- |
 | Serply (`serply`) | ? | Plans from $49/mo | City & region (supported markets) | **Yes** – extracts local map pack | Strategy-controlled (10 per page, up to 10 pages) | `X-Api-Key` + `X-Proxy-Location` |
-| SerpApi (`serpapi`) | ✅ | Free 250/mo + Plans from $75/mo | City-level | **Yes** – extracts local map pack | **Native – up to 100 results per request** | Query string `api_key` |
-| SearchApi (`searchapi`) | ✅ | Plans from $40/mo | City-level | **Yes** – extracts local map pack | **Native – up to 100 results per request** | Query string `api_key` |
+| SerpApi (`serpapi`) | ✅ | Free 250/mo + Plans from $75/mo | City-level | **Yes** – extracts local map pack | Strategy-controlled (10 per page via the `start` offset, up to 10 pages) | Query string `api_key` |
+| SearchApi (`searchapi`) | ✅ | Plans from $40/mo | City-level | **Yes** – extracts local map pack | Strategy-controlled (10 per page via the `page` parameter, up to 10 pages) | Query string `api_key` |
 | ValueSerp (`valueserp`) | ✅ | Pay-as-you-go 10,000 for $25 | City-level | **Yes** – extracts local map pack | Strategy-controlled (10 per page, up to 10 pages) | Query string `api_key` |
 | Serper (`serper`) | ✅ | Credit-based 50,000 for $50 | City-level | No – organic listings only | Strategy-controlled (10 per page, up to 10 pages) | Query string `api_key` |
 | HasData (`hasdata`) | ✅ | Free 1,000/mo + Plans from $49/mo | City-level | **Yes** – extracts local map pack | Strategy-controlled (10 per page, up to 10 pages) | Header `x-api-key` |
 | CrazySERP (`crazyserp`) | ? | Pay-as-you-go | City-level | No – organic listings only | Strategy-controlled (10 per page, up to 10 pages) | Header `Authorization: Bearer` |
-| PrismCrawl (`prismcrawl`) | ? | Free 100 credits on signup; one-time packages from $5 (e.g. $100 = 476,191 credits, ~$0.21 per 1,000); credits valid 90 days; no subscription | City-level | **Yes** – matches local results by URL, or by business name when no URL is returned | Strategy-controlled (10 per page, up to 10 pages) | Header `x-api-key` (POST JSON body) |
+| PrismCrawl (`prismcrawl`) | ? | Free 100 credits on signup; one-time packages from $5 (e.g. $100 = 476,191 credits, ~$0.21 per 1,000); credits valid 90 days; no subscription | City-level | **Yes** – matches local results by business name | Strategy-controlled (10 per page, up to 10 pages) | Header `x-api-key` (POST JSON body) |
 | DataForSEO (`dataforseo`) | ? | Pay as you go; no subscriptions; $50 minimum top-up | City-level | **Yes** – extracts `local_pack` results | Strategy-controlled (10 per page, up to 10 pages; each request fetches the depth needed for the page) | HTTP Basic auth with `login:password` in the API key field (POST JSON array body) |
 
 \*Pricing details are indicative; confirm current pricing with each vendor before purchasing. All managed integrations authenticate with the headers or query parameters shown in the final column, exactly as implemented in the `/scrapers/services` directory. ✅ = recently validated in production; ? = implemented but not recently validated against the live API.
 
-**Results coverage** reflects the scrape strategy in use (see [Scrape Strategy](#scrape-strategy) below). Providers marked **Native** return up to 100 organic results in a single API call and bypass the app-level pagination system entirely. All other providers return 10 results per page; the scrape strategy controls how many pages are fetched per keyword refresh.
+**Results coverage** reflects the scrape strategy in use (see [Scrape Strategy](#scrape-strategy) below). Every provider returns 10 results per page; the scrape strategy controls how many pages are fetched per keyword refresh.
 
 ### Per-domain scraper overrides
 
@@ -217,20 +217,19 @@ Every domain can opt into its own scraping provider without changing the global 
 
 #### Business Name (Optional)
 
-The **Business Name** field is an optional setting in the domain scraper configuration that improves map pack detection accuracy when scraping local search results. When a scraper returns local/map pack results without website URLs (common on mobile devices), SerpBear uses the business name as a fallback to match your business against the local results by title. 
+The **Business Name** field is an optional setting in the domain scraper configuration. Map pack detection matches your business against the local results by name only.
 
 **How it works:**
-1. SerpBear first attempts to match local results by website URL (the primary matching method)
-2. If no URL is present in the local result (e.g., mobile SERP responses), it falls back to comparing the business name with the result's title
-3. The comparison is case-insensitive and uses exact matching
+1. Each provider builds its own list of local results from its response, in the order Google shows them
+2. If one of the first three local results has a title equal to your business name, the keyword counts as a map pack appearance
+3. The comparison is case-insensitive and ignores leading and trailing spaces, but otherwise requires an exact match
 
 **When to use it:**
 - Your domain targets local search queries
-- You're tracking mobile keywords (mobile local results often lack direct website links)
-- Your scraper supports map pack detection (ValueSerp, SerpAPI, SearchAPI, HasData, or Serply)
+- Your scraper supports map pack detection (ValueSerp, SerpAPI, SearchAPI, HasData, Serply, PrismCrawl or DataForSEO)
 - Your business name in Google My Business matches a consistent format
 
-**Example:** If your domain is `vontainment.com` and your business name in Google My Business is "Vontainment", enter "Vontainment" in this field. When mobile local results don't include a website link but show "Vontainment" as the business title, SerpBear will correctly identify it as a map pack appearance.
+**Example:** If your domain is `vontainment.com` and your business name in Google My Business is "Vontainment", enter "Vontainment" in this field. When "Vontainment" appears as one of the first three local results, SerpBear records a map pack appearance. A local result's link is stored when the provider returns one, but it is not used for matching.
 
 ---
 
@@ -265,7 +264,7 @@ Three strategies are available:
 | **Custom** | Fetches a fixed number of pages you choose (1–10). Useful for sites with stable rankings in a known range. | 1–10 requests |
 | **Smart** | Fetches the page where the keyword was last seen, plus the page immediately before and after it. If the keyword is not found and the **Full Fallback** option is enabled, all remaining pages are checked. | Usually 1–3 requests; up to 10 with full fallback |
 
-> **Native pagination providers:** SerpApi and SearchApi return up to 100 results in a single API call. For those providers the strategy system is bypassed entirely and full top-100 coverage is always available at the cost of one API credit per keyword.
+> **Failed pages:** If a page request fails and the domain was not found on the pages that did load, the keyword is reported as an error (with the provider's message) and keeps its previous position and history, instead of being recorded as "not ranked".
 
 #### Configuring the strategy
 

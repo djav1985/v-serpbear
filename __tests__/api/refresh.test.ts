@@ -61,7 +61,12 @@ jest.mock('../../utils/refreshQueue', () => ({
       }
     }),
     isDomainLocked: jest.fn().mockReturnValue(false),
-    getStatus: jest.fn().mockReturnValue({ 
+    // Mirrors the real queue: returns a release function, or null when a domain is already locked
+    reserveDomains: jest.fn().mockImplementation((domains: string[]) => {
+      const { refreshQueue } = require('../../utils/refreshQueue');
+      return domains.some((domain: string) => refreshQueue.isDomainLocked(domain)) ? null : () => undefined;
+    }),
+    getStatus: jest.fn().mockReturnValue({
       queueLength: 0, 
       activeProcesses: 0,
       activeDomains: [],
@@ -313,8 +318,9 @@ describe('/api/refresh', () => {
     ]);
 
     // Mock domain as locked
+    // Once for the atomic reservation check, once for building the list of locked domains in the handler
     const { refreshQueue } = require('../../utils/refreshQueue');
-    (refreshQueue.isDomainLocked as jest.Mock).mockReturnValueOnce(true);
+    (refreshQueue.isDomainLocked as jest.Mock).mockReturnValueOnce(true).mockReturnValueOnce(true);
 
     await handler(req, res);
 

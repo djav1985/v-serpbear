@@ -120,12 +120,12 @@ const makeCronApiCall = (apiKey, baseUrl, endpoint, successMessage) => {
    return fetch(`${baseUrl}${endpoint}`, fetchOpts)
       .then((res) => {
          if (!res.ok) {
-            logger.error(`CRON: API call failed.`, new Error(`HTTP ${res.status}`), { endpoint, status: res.status });
-            return res.text().then(text => {
-               throw new Error(`HTTP ${res.status}: ${text || 'No response body'}`);
-            }).catch(() => {
-               throw new Error(`HTTP ${res.status}`);
-            });
+            return res.text()
+               .catch(() => '')
+               .then((text) => {
+                  const detail = text ? `HTTP ${res.status}: ${text}` : `HTTP ${res.status}`;
+                  throw new Error(detail);
+               });
          }
          
          const contentType = res.headers.get('content-type');
@@ -149,6 +149,22 @@ const makeCronApiCall = (apiKey, baseUrl, endpoint, successMessage) => {
       });
 };
 
+/**
+ * Registers a cron job. An invalid expression is logged and skipped, so one bad CRON_* value cannot stop
+ * the other jobs from being scheduled.
+ */
+const scheduleJob = (name, expression, task, options) => {
+   try {
+      return new Cron(expression, task, options);
+   } catch (error) {
+      logger.error(`CRON: Invalid schedule for ${name}; job not scheduled.`, error instanceof Error ? error : new Error(String(error)), { expression });
+      return null;
+   }
+};
+
+// Keeps each retry request URL well under common header limits.
+const RETRY_BATCH_SIZE = 100;
+
 const runAppCronJobs = () => {
    logger.info('CRON: Initializing application cron jobs.', { timezone: CRON_TIMEZONE });
    
@@ -164,11 +180,11 @@ const runAppCronJobs = () => {
       // RUN SERP Scraping CRON using configured schedule
       const scrape_interval = settings.scrape_interval || 'daily';
       logger.info('CRON: Scraper configuration.', { interval: scrape_interval, type: settings.scraper_type || 'none' });
-      
+
       if (scrape_interval !== 'never') {
          const scrapeCronTime = normalizeValue(CRON_INTERVAL_MAP[scrape_interval] || CRON_MAIN_SCHEDULE, CRON_MAIN_SCHEDULE);
          logger.info('CRON: Setting up keyword scraping cron.', { schedule: scrapeCronTime });
-         new Cron(scrapeCronTime, () => {
+         scheduleJob('keyword scraping', scrapeCronTime, () => {
             logger.info('CRON: Running Keyword Position Cron Job.');
             makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/cron', 'CRON: Keyword Scraping Result');
          }, cronOptions);
@@ -183,28 +199,33 @@ const runAppCronJobs = () => {
             CRON_EMAIL_SCHEDULE,
          );
          if (cronTime) {
-            new Cron(cronTime, () => {
+            scheduleJob('email notification', cronTime, () => {
                logger.info('CRON: Sending Notification Email.');
                makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/notify', 'CRON: Email Notification Result');
             }, cronOptions);
          }
       }
+   }).catch((error) => {
+      logger.error('CRON: Could not load settings; scraping and email jobs were not scheduled.', error instanceof Error ? error : new Error(String(error)));
    });
 
    // Run Failed scraping CRON using configured failed queue schedule
    const failedCronTime = normalizeValue(CRON_FAILED_SCHEDULE, '0 0 */1 * * *');
-   new Cron(failedCronTime, async () => {
+   scheduleJob('failed scrape retry', failedCronTime, async () => {
       logger.info('CRON: Retrying Failed Scrapes.');
 
       try {
          // Use retryQueueManager for concurrency-safe access
-         const keywordsToRetry = await retryQueueManager.getQueue();
-         
+         const keywordsToRetry = await retryQueueManager.peekQueue();
+
          if (keywordsToRetry.length > 0) {
             logger.info('CRON: Found failed scrapes to retry.', { count: keywordsToRetry.length });
-            // Use URLSearchParams to safely encode the keyword IDs
-            const params = new URLSearchParams({ id: keywordsToRetry.join(',') });
-            makeCronApiCall(process.env.APIKEY, internalApiUrl, `/api/refresh?${params.toString()}`, 'CRON: Failed Scrapes Retry Result');
+            // Send the IDs in batches so each request URL stays small
+            for (let i = 0; i < keywordsToRetry.length; i += RETRY_BATCH_SIZE) {
+               const batch = keywordsToRetry.slice(i, i + RETRY_BATCH_SIZE);
+               const params = new URLSearchParams({ id: batch.join(',') });
+               await makeCronApiCall(process.env.APIKEY, internalApiUrl, `/api/refresh?${params.toString()}`, 'CRON: Failed Scrapes Retry Result');
+            }
          } else {
             logger.debug('CRON: No failed scrapes to retry.');
          }
@@ -216,7 +237,7 @@ const runAppCronJobs = () => {
    // Run Google Search Console Scraper on configured main schedule
    // Always run the CRON as the API endpoint will check for credentials per domain
    const searchConsoleCRONTime = normalizeValue(CRON_MAIN_SCHEDULE, '0 0 0 * * *');
-   new Cron(searchConsoleCRONTime, () => {
+   scheduleJob('search console', searchConsoleCRONTime, () => {
       logger.info('CRON: Running Google Search Console Scraper.');
       makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/searchconsole', 'CRON: Search Console Scraper Result');
    }, cronOptions);

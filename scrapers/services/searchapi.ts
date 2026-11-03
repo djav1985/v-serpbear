@@ -16,11 +16,10 @@ const searchapi:ScraperSettings = {
   website: 'searchapi.io',
   allowsCity: true,
   supportsMapPack: true,
-  nativePagination: true,
    headers: () => ({
       'Content-Type': 'application/json',
    }),
-   scrapeURL: (keyword, settings, countryData) => {
+   scrapeURL: (keyword, settings, countryData, pagination) => {
       const resolvedCountry = resolveCountryCode(keyword.country);
       const country = resolvedCountry;
       const countryInfo = countries[country] ?? countries.US;
@@ -57,6 +56,9 @@ const searchapi:ScraperSettings = {
       }
       params.set('gl', country.toLowerCase());
       params.set('hl', lang);
+      if (pagination && pagination.page > 1) {
+         params.set('page', String(pagination.page));
+      }
       const googleDomain = getGoogleDomain(country);
       if (googleDomain) {
          params.set('google_domain', googleDomain);

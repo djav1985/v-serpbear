@@ -125,7 +125,7 @@ describe('PUT /api/keywords error handling', () => {
     }));
   });
 
-  it('returns 500 when keyword volume update fails after creation', async () => {
+  it('still returns 201 when the background volume update fails after creation', async () => {
     const newKeywordRecord = {
       get: () => ({
         ID: 1,
@@ -162,11 +162,12 @@ describe('PUT /api/keywords error handling', () => {
     expect(keywordMock.bulkCreate).toHaveBeenCalled();
     expect(getAppSettingsMock).toHaveBeenCalled();
     expect(getKeywordsVolumeMock).toHaveBeenCalled();
+    // Let the background volume task run to completion (timers are faked in this suite)
+    for (let tick = 0; tick < 10; tick += 1) {
+      await Promise.resolve();
+    }
     expect(updateKeywordsVolumeDataMock).toHaveBeenCalledWith({ 1: 100 });
-    expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-      error: expect.objectContaining({ message: 'Failed to add keywords.' }),
-    }));
+    expect(res.status).toHaveBeenCalledWith(201);
   });
 
   it('returns 400 when keyword payload is missing', async () => {

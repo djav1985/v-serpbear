@@ -29,6 +29,7 @@ jest.mock('fs/promises', () => ({
 jest.mock('../../utils/retryQueueManager', () => ({
   retryQueueManager: {
     getQueue: jest.fn().mockResolvedValue([]),
+    peekQueue: jest.fn().mockResolvedValue([]),
   },
 }));
 
@@ -281,13 +282,13 @@ describe('GET /api/settings and configuration requirements', () => {
     readFileMock.mockResolvedValueOnce(settingsPayload);
     
     const { retryQueueManager } = require('../../utils/retryQueueManager');
-    retryQueueManager.getQueue.mockResolvedValueOnce(mockQueue);
+    retryQueueManager.peekQueue.mockResolvedValueOnce(mockQueue);
 
     const settings = await settingsApi.getAppSettings();
 
     expect(settings.scraper_type).toBe('serpapi');
     expect(settings.failed_queue).toEqual(mockQueue);
-    expect(retryQueueManager.getQueue).toHaveBeenCalled();
+    expect(retryQueueManager.peekQueue).toHaveBeenCalled();
   });
 
   it('blanks all sensitive fields when decryption fails', async () => {

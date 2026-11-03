@@ -24,6 +24,8 @@ class RefreshQueue {
    private activeProcesses = new Map<string, Promise<void>>(); // Track active processes by task ID
    private activeDomains = new Set<string>(); // Track which domains are currently being processed
    private maxConcurrency: number;
+   // Domains claimed by a request that has passed its lock check but has not enqueued its task yet
+   private reservedDomains = new Set<string>();
 
    constructor() {
       // Read concurrency from environment variable, default to 3
@@ -139,9 +141,32 @@ class RefreshQueue {
     */
    isDomainLocked(domain: string): boolean {
       const normalizedDomain = domain.trim().toLowerCase();
-      // A domain is considered locked if it is either actively being processed
-      // or has a pending task in the queue.
-      return this.activeDomains.has(normalizedDomain) || this.queue.some(task => task.domains.has(normalizedDomain));
+      // A domain is considered locked if it is actively being processed, has a pending task in the queue,
+      // or has been reserved by a request that is about to enqueue a task.
+      return this.activeDomains.has(normalizedDomain)
+         || this.reservedDomains.has(normalizedDomain)
+         || this.queue.some(task => task.domains.has(normalizedDomain));
+   }
+
+   /**
+    * Atomically checks that none of the domains is locked and claims them.
+    * The check and the claim happen in the same tick, so two requests can never both pass it.
+    * Returns a release function (call it once the task is enqueued or the request is abandoned),
+    * or null when at least one domain is already locked.
+    */
+   reserveDomains(domains: Iterable<string>): (() => void) | null {
+      const normalizedDomains = Array.from(domains, (domain) => domain.trim().toLowerCase()).filter(Boolean);
+      if (normalizedDomains.some((domain) => this.isDomainLocked(domain))) {
+         return null;
+      }
+
+      normalizedDomains.forEach((domain) => this.reservedDomains.add(domain));
+      let released = false;
+      return () => {
+         if (released) { return; }
+         released = true;
+         normalizedDomains.forEach((domain) => this.reservedDomains.delete(domain));
+      };
    }
 
    /**

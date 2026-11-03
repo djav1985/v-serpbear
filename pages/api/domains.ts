@@ -209,6 +209,14 @@ export const deleteDomain = async (req: NextApiRequest, res: NextApiResponse) =>
 
    try {
       const normalizedDomain = domain.trim().toLowerCase();
+      // Waiting in the queue behind a long refresh would leave this request hanging until it times out,
+      // so reject it the same way deleting keywords does.
+      if (refreshQueue.isDomainLocked(normalizedDomain)) {
+         logger.warn('Cannot delete domain while it is being refreshed', { domain: normalizedDomain });
+         return res.status(409).json(
+            errorResponse('CONFLICT', `Cannot delete ${normalizedDomain} while it is being refreshed. Please wait for the refresh to complete.`, requestId),
+         );
+      }
       const taskId = `delete-domain-${normalizedDomain}-${Date.now()}`;
       let responsePayload: {
         status: number;

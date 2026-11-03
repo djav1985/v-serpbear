@@ -1,7 +1,19 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import Cookies from 'cookies';
 import jwt from 'jsonwebtoken';
+import { timingSafeEqual } from 'crypto';
 import { logger } from './logger';
+
+/**
+ * Compares two secrets in constant time. Returns false when either side is missing.
+ */
+const safeEqual = (candidate: string, expected: string | undefined): boolean => {
+   if (!expected) { return false; }
+   const candidateBuffer = Buffer.from(candidate, 'utf8');
+   const expectedBuffer = Buffer.from(expected, 'utf8');
+   if (candidateBuffer.length !== expectedBuffer.length) { return false; }
+   return timingSafeEqual(candidateBuffer, expectedBuffer);
+};
 
 /**
  * Psuedo Middleware: Verifies the user by their cookie value or their API Key
@@ -34,7 +46,7 @@ const verifyUser = (req: NextApiRequest, res: NextApiResponse): string => {
    if (req.headers.authorization) {
       if (req.headers.authorization.startsWith('Bearer ')) {
          const apiKey = req.headers.authorization.substring('Bearer '.length);
-         verifiedAPI = apiKey === process.env.APIKEY;
+         verifiedAPI = safeEqual(apiKey, process.env.APIKEY);
       }
    }
    

@@ -3,6 +3,27 @@ import { logger } from './logger';
 import { ensureDatabase } from '../database/init';
 import { errorResponse } from './api/response';
 
+const SECRET_KEY_PATTERN = /pass|secret|token|key|api|smtp_password|private/i;
+
+/**
+ * Returns a copy of a request body with secret-looking values replaced, so debug logs never contain
+ * passwords, API keys or private keys.
+ */
+export const redactSecrets = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value.map((item) => redactSecrets(item));
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, nested]) => [
+        key,
+        SECRET_KEY_PATTERN.test(key) && typeof nested === 'string' && nested.length > 0 ? '[REDACTED]' : redactSecrets(nested),
+      ]),
+    );
+  }
+  return value;
+};
+
 /**
  * API Logging Middleware - wraps API handlers with request/response logging
  * @param handler - The API handler function to wrap
@@ -41,7 +62,7 @@ export function withApiLogging(
         ip: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'unknown',
         userAgent: req.headers['user-agent'],
         contentType: req.headers['content-type'],
-        body: req.body,
+        body: redactSecrets(req.body),
       });
     }
 

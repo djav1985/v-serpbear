@@ -72,6 +72,38 @@ const getParallelScrapeConcurrency = (): number => {
    return parsedConcurrency;
 };
 
+const getParallelRefreshConcurrency = (): number => {
+   const configured = process.env.PARALLEL_REFRESH_CONCURRENCY;
+   if (configured === undefined) {
+      return 10;
+   }
+
+   const parsed = Number(configured);
+   if (!Number.isInteger(parsed) || parsed < 1) {
+      logger.warn(`Invalid PARALLEL_REFRESH_CONCURRENCY value "${configured}", using default: 10`);
+      return 10;
+   }
+
+   return parsed;
+};
+
+/**
+ * Runs `task` for every item with at most `limit` running at once, keeping the input order in the result.
+ */
+const mapWithConcurrency = async <T, R>(items: T[], limit: number, task: (item: T) => Promise<R>): Promise<R[]> => {
+   const results = new Array<R>(items.length);
+   let nextIndex = 0;
+   const worker = async () => {
+      while (nextIndex < items.length) {
+         const index = nextIndex;
+         nextIndex += 1;
+         results[index] = await task(items[index]);
+      }
+   };
+   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+   return results;
+};
+
 type KeywordRefreshPartition = {
    keywordsToRefresh: Keyword[];
    skippedKeywords: Keyword[];
@@ -247,35 +279,35 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
             scrape_smart_full_fallback: domainPlain.scrape_smart_full_fallback || false,
          });
 
-         if (cryptr) {
-            const persistedOverride = parseDomainScraperSettings(domainPlain?.scraper_settings);
-            const decryptedOverride = decryptDomainScraperSettings(persistedOverride, cryptr);
-            const hasOverride = !!decryptedOverride?.scraper_type;
-            const hasBusinessName = typeof normalizedDomain.business_name === 'string' && normalizedDomain.business_name;
-            
-            if (hasOverride || hasBusinessName) {
-               // Only clone settings when we have overrides
-               const effectiveSettings: SettingsType = hasOverride 
-                  ? {
-                     ...settings,
-                     // Safe to use non-null assertion: hasOverride already validates scraper_type is truthy
-                     scraper_type: decryptedOverride.scraper_type!,
-                     ...(typeof decryptedOverride.scraping_api === 'string' && { scraping_api: decryptedOverride.scraping_api }),
-                  }
-                  : { ...settings };
+         // The scraper override is stored encrypted, so it needs the secret. The business name is plain text
+         // and must apply even when no secret is available.
+         const persistedOverride = parseDomainScraperSettings(domainPlain?.scraper_settings);
+         const decryptedOverride = cryptr ? decryptDomainScraperSettings(persistedOverride, cryptr) : null;
+         const overrideScraperType = decryptedOverride?.scraper_type;
+         const hasOverride = !!overrideScraperType;
+         const hasBusinessName = typeof normalizedDomain.business_name === 'string' && normalizedDomain.business_name;
 
-               if (hasBusinessName) {
-                  (effectiveSettings as ExtendedSettings).business_name = normalizedDomain.business_name;
+         if (hasOverride || hasBusinessName) {
+            // Only clone settings when we have overrides
+            const effectiveSettings: SettingsType = hasOverride
+               ? {
+                  ...settings,
+                  scraper_type: overrideScraperType as SettingsType['scraper_type'],
+                  ...(typeof decryptedOverride?.scraping_api === 'string' && { scraping_api: decryptedOverride.scraping_api }),
                }
+               : { ...settings };
 
-               domainSpecificSettings.set(normalizedDomain.domain, effectiveSettings);
-               
-               if (hasOverride) {
-                  domainsWithScraperOverrides.add(normalizedDomain.domain);
-               }
+            if (hasBusinessName) {
+               (effectiveSettings as ExtendedSettings).business_name = normalizedDomain.business_name;
             }
-            // If no overrides and no business_name, we use the global settings directly (no clone needed)
+
+            domainSpecificSettings.set(normalizedDomain.domain, effectiveSettings);
+
+            if (hasOverride) {
+               domainsWithScraperOverrides.add(normalizedDomain.domain);
+            }
          }
+         // If no overrides and no business_name, we use the global settings directly (no clone needed)
 
          return [normalizedDomain.domain, isEnabled];
       }));
@@ -507,6 +539,51 @@ const refreshAndUpdateKeyword = async (
 };
 
 /**
+ * Records a failed scrape. Only the updating flags and the error details are written: the keyword keeps its
+ * previous position, URL, results, local results, map pack flag and history, so a failed refresh never
+ * overwrites good data or adds a fake history point.
+ */
+const persistKeywordError = async (
+   keywordRaw: Keyword,
+   keyword: KeywordType,
+   failed: RefreshResult,
+   settings: SettingsType,
+): Promise<KeywordType> => {
+   const errorInfo = {
+      date: new Date().toJSON(),
+      error: serializeError(failed && failed.error),
+      scraper: settings.scraper_type,
+   };
+
+   try {
+      if (settings?.scrape_retry) {
+         await retryScrape(keyword.ID);
+      } else {
+         await removeFromRetryQueue(keyword.ID);
+      }
+   } catch (queueError) {
+      logger.error('[ERROR] Failed to update retry queue (non-fatal):', queueError instanceof Error ? queueError : new Error(String(queueError)), { keywordId: keyword.ID });
+   }
+
+   try {
+      await keywordRaw.update({
+         updating: toDbBool(false),
+         updatingStartedAt: null,
+         lastUpdateError: JSON.stringify(errorInfo),
+      });
+      logger.info('Keyword updating flag cleared after scrape error', { keywordId: keyword.ID, keyword: keyword.keyword, error: errorInfo.error });
+   } catch (error: any) {
+      logger.error(
+         '[ERROR] Failed to persist keyword error status',
+         error instanceof Error ? error : new Error(String(error)),
+         { keywordId: keyword.ID },
+      );
+   }
+
+   return { ...keyword, updating: false, updatingStartedAt: null, lastUpdateError: errorInfo };
+};
+
+/**
  * Processes the scraped data for the given keyword and updates the keyword serp position in DB.
  * @param {Keyword} keywordRaw - Keywords to Update
  * @param {RefreshResult} updatedKeyword - scraped Data for that Keyword
@@ -517,6 +594,10 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
    const keywordParsed = parseKeywords([keywordRaw.get({ plain: true })]);
    const keyword = keywordParsed[0];
    let updated = keyword;
+
+   if (updatedKeyword && keyword && updatedKeyword.error) {
+      return persistKeywordError(keywordRaw, keyword, updatedKeyword, settings);
+   }
 
    if (updatedKeyword && keyword) {
       const theDate = new Date();
@@ -596,13 +677,8 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          parsedLocalResults = [];
       }
 
-      const hasError = Boolean(updatedKeyword.error);
-      const lastUpdatedValue = hasError
-         ? (typeof keyword.lastUpdated === 'string' ? keyword.lastUpdated : null)
-         : theDate.toJSON();
-      const lastUpdateErrorValue = hasError
-         ? JSON.stringify({ date: theDate.toJSON(), error: serializeError(updatedKeyword.error), scraper: settings.scraper_type })
-         : 'false';
+      const lastUpdatedValue = theDate.toJSON();
+      const lastUpdateErrorValue = 'false';
       const urlValue = typeof updatedKeyword.url === 'string' ? updatedKeyword.url : null;
 
       // Build single atomic update payload with ALL fields from API response + flags.
@@ -629,11 +705,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
 
       // Update retry queue outside of try-catch to prevent aborting on retry queue errors
       try {
-         if (updatedKeyword.error && settings?.scrape_retry) {
-            await retryScrape(keyword.ID);
-         } else {
-            await removeFromRetryQueue(keyword.ID);
-         }
+         await removeFromRetryQueue(keyword.ID);
       } catch (queueError) {
          logger.error('[ERROR] Failed to update retry queue (non-fatal):', queueError instanceof Error ? queueError : new Error(String(queueError)), { keywordId: keyword.ID });
       }
@@ -773,8 +845,9 @@ const refreshParallel = async (
    // Create map for quick model lookup by ID
    const modelMap = new Map(keywordModels.map(m => [m.ID, m]));
    
-   // Start all scraping operations in parallel, but update database immediately upon each response
-   const promises = keywords.map(async (keyword) => {
+   // Scrape in parallel with a bounded number of in-flight keywords, updating the database immediately
+   // upon each response. An unbounded fan-out floods the provider, SQLite and the retry queue lock.
+   const scrapeKeyword = async (keyword: KeywordType): Promise<KeywordType> => {
       const effectiveSettings = resolveEffectiveSettings(keyword.domain, settings, domainSpecificSettings);
       const domainStrategy = domainStrategyMap?.get(keyword.domain);
       const keywordModel = modelMap.get(keyword.ID);
@@ -807,10 +880,9 @@ const refreshParallel = async (
          const updatedKeyword = await updateKeywordPosition(keywordModel, errorResult, effectiveSettings);
          return updatedKeyword;
       }
-   });
+   };
 
-   // Wait for all updates to complete
-   updatedKeywords.push(...await Promise.all(promises));
+   updatedKeywords.push(...await mapWithConcurrency(keywords, getParallelRefreshConcurrency(), scrapeKeyword));
    
    logger.info('Parallel keyword refresh completed', { count: updatedKeywords.length });
    return updatedKeywords;

@@ -46,8 +46,6 @@ const ScraperSettings = ({ settings, settingsError, updateSettings }:ScraperSett
       { label: 'Custom (Set number of pages)', value: 'custom' },
       { label: 'Smart (Based on last known position)', value: 'smart' },
    ];
-   const nativePaginationScrapers = ['serpapi', 'searchapi'];
-   const isNativePagination = nativePaginationScrapers.includes(settings.scraper_type || '');
 
    const paginationLimitOptions: SelectionOption[] = Array.from({ length: 10 }, (_, i) => (
       { label: `${i + 1} Page${i > 0 ? 's' : ''}`, value: String(i + 1) }
@@ -119,14 +117,7 @@ const ScraperSettings = ({ settings, settingsError, updateSettings }:ScraperSett
             </div>
             {settings.scraper_type !== 'none' && (
                <div className="settings__section__select mb-5">
-                  {isNativePagination ? (
-                     <p className="text-sm text-blue-600 bg-blue-50 border border-blue-200 rounded p-3">
-                        This scraper uses native pagination and returns up to 100 results per request.
-                        The scrape strategy setting is ignored for this provider.
-                     </p>
-                  ) : (
-                     <>
-                     <SelectField
+                  <SelectField
                         label='Scrape Strategy'
                         options={strategyOptions}
                         selected={[settings?.scrape_strategy || 'basic']}
@@ -142,11 +133,9 @@ const ScraperSettings = ({ settings, settingsError, updateSettings }:ScraperSett
                         {settings.scrape_strategy === 'custom' && 'Scrape a fixed number of pages per keyword on every refresh.'}
                         {settings.scrape_strategy === 'smart' && 'Scrape page 1 plus the pages around the last known position, so top-10 improvements are never missed.'}
                      </small>
-                     </>
-                  )}
                </div>
             )}
-            {settings.scraper_type !== 'none' && !isNativePagination && settings.scrape_strategy === 'custom' && (
+            {settings.scraper_type !== 'none' && settings.scrape_strategy === 'custom' && (
                <div className="settings__section__select mb-5">
                   <SelectField
                      label='Number of Pages to Scrape'
@@ -161,7 +150,7 @@ const ScraperSettings = ({ settings, settingsError, updateSettings }:ScraperSett
                   <small className='text-gray-500 pt-2 block'>Each page returns up to 10 results. 5 pages = top 50 results checked.</small>
                </div>
             )}
-            {settings.scraper_type !== 'none' && !isNativePagination && settings.scrape_strategy === 'smart' && (
+            {settings.scraper_type !== 'none' && settings.scrape_strategy === 'smart' && (
                <div className="settings__section__input mb-5">
                   <ToggleField
                      label='Full Fallback: Scrape all pages if not found on nearby pages'

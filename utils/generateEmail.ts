@@ -73,6 +73,16 @@ const getBestKeywordPosition = (history: KeywordHistory) => {
    return bestPos?.position || '-';
 };
 
+/**
+ * Escapes user-supplied text (keywords, domains, Search Console queries and pages) before it is put in HTML.
+ */
+const escapeHtml = (value: unknown): string => String(value ?? '')
+   .replace(/&/g, '&amp;')
+   .replace(/</g, '&lt;')
+   .replace(/>/g, '&gt;')
+   .replace(/"/g, '&quot;')
+   .replace(/'/g, '&#39;');
+
 const resolveStatNumber = (value: number | undefined | null, fallback = 0): number => {
    if (typeof value === 'number' && Number.isFinite(value)) {
       return value;
@@ -141,8 +151,8 @@ const generateEmail = async (domain:DomainType, keywords:KeywordType[], settings
 
       keywordsTable += `<tr class="keyword">
                            <td>${flagStack}</td>
-                           <td>${deviceIcon} ${keyword.keyword}</td>
-                           <td>${locationText ? `(${locationText})` : ''}</td>
+                           <td>${deviceIcon} ${escapeHtml(keyword.keyword)}</td>
+                           <td>${locationText ? `(${escapeHtml(locationText)})` : ''}</td>
                            <td>${keyword.position}${posChangeIcon}</td>
                            <td>${getBestKeywordPosition(keyword.history)}</td>
                         </tr>`;
@@ -211,22 +221,27 @@ const generateEmail = async (domain:DomainType, keywords:KeywordType[], settings
 
    const { emailLogo, platformName: brandName } = resolveEmailBranding();
 
-   const updatedEmail = emailTemplate
-         .replace('{{logo}}', `<img class="logo_img" src="${emailLogo}" alt="${brandName}" width="24" height="24" />`)
-         .replace(/{{platformName}}/g, brandName)
-         .replace('{{currentDate}}', currentDate)
-         .replace('{{domainName}}', domainName)
-         .replace('{{keywordsCount}}', keywordsCount.toString())
-         .replace('{{keywordsTable}}', keywordsTable)
-         .replace('{{domainStats}}', domainStatsHTML)
-         .replace('{{appURL}}', process.env.NEXT_PUBLIC_APP_URL || '')
-         .replace('{{stat}}', stat)
-         .replace('{{preheader}}', stat);
+   // Use function replacements so "$" sequences in keyword text are not treated as replacement patterns.
+   const replaceToken = (template: string, token: string | RegExp, value: string) => (
+      template.replace(token, () => value)
+   );
+   const updatedEmail = [
+      ['{{logo}}', `<img class="logo_img" src="${escapeHtml(emailLogo)}" alt="${escapeHtml(brandName)}" width="24" height="24" />`],
+      [/{{platformName}}/g, escapeHtml(brandName)],
+      ['{{currentDate}}', currentDate],
+      ['{{domainName}}', escapeHtml(domainName)],
+      ['{{keywordsCount}}', keywordsCount.toString()],
+      ['{{keywordsTable}}', keywordsTable],
+      ['{{domainStats}}', domainStatsHTML],
+      ['{{appURL}}', escapeHtml(process.env.NEXT_PUBLIC_APP_URL || '')],
+      ['{{stat}}', stat],
+      ['{{preheader}}', stat],
+   ].reduce((html, [token, value]) => replaceToken(html, token as string | RegExp, value as string), emailTemplate);
 
-      const isConsoleIntegrated = !!(process.env.SEARCH_CONSOLE_PRIVATE_KEY && process.env.SEARCH_CONSOLE_CLIENT_EMAIL)
+   const isConsoleIntegrated = !!(process.env.SEARCH_CONSOLE_PRIVATE_KEY && process.env.SEARCH_CONSOLE_CLIENT_EMAIL)
       || (settings.search_console_client_email && settings.search_console_private_key);
-      const htmlWithSCStats = isConsoleIntegrated ? await generateGoogleConsoleStats(domain) : '';
-      const emailHTML = updatedEmail.replace('{{SCStatsTable}}', htmlWithSCStats);
+   const htmlWithSCStats = isConsoleIntegrated ? await generateGoogleConsoleStats(domain) : '';
+   const emailHTML = replaceToken(updatedEmail, '{{SCStatsTable}}', htmlWithSCStats);
 
    return emailHTML;
 };
@@ -266,7 +281,7 @@ export const generateGoogleConsoleStats = async (domain:DomainType): Promise<str
       const keywords = getKeywordsInsight(localSCData, 'clicks', 'sevenDays');
       const pages = getPagesInsight(localSCData, 'clicks', 'sevenDays');
       const genColumn = (item:SCInsightItem, firstColumKey:string):string => `<tr class="keyword">
-                  <td>${item[firstColumKey as keyof SCInsightItem]}</td>
+                  <td>${escapeHtml(item[firstColumKey as keyof SCInsightItem])}</td>
                   <td>${item.clicks}</td>
                   <td>${item.impressions}</td>
                   <td>${Math.round(item.position)}</td>

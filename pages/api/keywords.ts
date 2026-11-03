@@ -321,13 +321,17 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
          });
       }
 
-      // Update the Keyword Volume
+      // Update the Keyword Volume in the background. The AdWords lookup can take several seconds per country,
+      // and a failure here must not turn an already-created keyword into a 500 that tempts a retry.
       const { adwords_account_id, adwords_client_id, adwords_client_secret, adwords_developer_token } = settings;
       if (adwords_account_id && adwords_client_id && adwords_client_secret && adwords_developer_token) {
-         const keywordsVolumeData = await getKeywordsVolume(keywordsParsed);
-         if (keywordsVolumeData.volumes !== false) {
-            await updateKeywordsVolumeData(keywordsVolumeData.volumes);
-         }
+         getKeywordsVolume(keywordsParsed)
+            .then((keywordsVolumeData) => (
+               keywordsVolumeData.volumes !== false ? updateKeywordsVolumeData(keywordsVolumeData.volumes) : undefined
+            ))
+            .catch((volumeError) => {
+               logger.error('Failed to update keyword volume after adding keywords', volumeError instanceof Error ? volumeError : new Error(String(volumeError)));
+            });
       }
 
       return res.status(201).json({ keywords: keywordsParsed });

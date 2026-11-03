@@ -52,11 +52,13 @@ class RetryQueueManager {
       try {
          // Acquire a cross-process file lock on the queue file with retry/backoff.
          release = await lockfile.lock(this.filePath, {
+            // Parallel refreshes can hold this lock for a while; retry for roughly 10 seconds in total
+            // before giving up, so a busy queue does not drop retry entries.
             retries: {
-               retries: 5,
-               factor: 2,
+               retries: 12,
+               factor: 1.5,
                minTimeout: 50,
-               maxTimeout: 1000,
+               maxTimeout: 1500,
             },
          });
       } catch (err: any) {
@@ -167,6 +169,15 @@ class RetryQueueManager {
     */
    async getQueue(): Promise<number[]> {
       return this.withLock(async () => this.readQueue());
+   }
+
+   /**
+    * Read the queue without taking the file lock. Writes go through atomicWriteFile (write to a temp file,
+    * then rename), so a read always sees either the old or the new complete file. Use this on hot read
+    * paths such as loading settings, where taking the lock would make every request queue behind refreshes.
+    */
+   async peekQueue(): Promise<number[]> {
+      return this.readQueue();
    }
 
    /**

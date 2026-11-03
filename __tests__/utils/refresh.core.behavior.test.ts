@@ -557,11 +557,16 @@ describe('refreshAndUpdateKeywords', () => {
 
     const updated = await updateKeywordPosition(keywordModel, updatedKeyword, settings);
 
+    // A failed scrape records the error and clears the flags, but leaves the stored results untouched
     expect(keywordModel.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        lastResult: '[]',
+        updating: 0,
+        lastUpdateError: expect.stringContaining('temporary failure'),
       }),
     );
+    const persistedPayload = (keywordModel.update as unknown as jest.Mock).mock.calls[0][0];
+    expect(persistedPayload).not.toHaveProperty('lastResult');
+    expect(persistedPayload).not.toHaveProperty('position');
 
     expect(updated.lastResult).toEqual([]);
 

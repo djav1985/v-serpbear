@@ -170,6 +170,12 @@ export const fetchDomainSCData = async (
       if (Array.isArray(stats) && stats.length > 0) {
          scDomainData.stats = stats as SearchAnalyticsStat[];
       }
+      // Keep the previous data for any window that failed to fetch, so a transient Google error does not
+      // blank the stored data. Only the windows that returned rows are replaced.
+      if (scDomainData.threeDays.length === 0) { scDomainData.threeDays = existingData.threeDays || []; }
+      if (scDomainData.sevenDays.length === 0) { scDomainData.sevenDays = existingData.sevenDays || []; }
+      if (scDomainData.thirtyDays.length === 0) { scDomainData.thirtyDays = existingData.thirtyDays || []; }
+      if (!scDomainData.stats || scDomainData.stats.length === 0) { scDomainData.stats = existingData.stats || []; }
       const writeRes = await updateLocalSCData(domainName, scDomainData);
       if (!writeRes) {
          return null;

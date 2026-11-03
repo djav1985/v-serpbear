@@ -31,10 +31,10 @@ const getDomainSearchConsoleData = async (req: NextApiRequest, res: NextApiRespo
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Domain is Missing.', requestId));
    }
    const localSCData = await readLocalSCData(domainname);
-   const isFresh = localSCData && localSCData.threeDays && localSCData.threeDays.length
-      && localSCData.sevenDays && localSCData.sevenDays.length
-      && localSCData.thirtyDays && localSCData.thirtyDays.length
-      && localSCData.lastFetched
+   // Fresh means fetched within the last 24 hours. Empty windows are valid (a site with no recent clicks),
+   // so they must not force a new Google request on every page load.
+   const isFresh = !!localSCData && !!localSCData.lastFetched
+      && Array.isArray(localSCData.threeDays) && Array.isArray(localSCData.sevenDays) && Array.isArray(localSCData.thirtyDays)
       && (new Date().getTime() - new Date(localSCData.lastFetched).getTime() <= 86400000);
    if (isFresh) {
       return res.status(200).json({ data: localSCData });

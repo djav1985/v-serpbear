@@ -54,20 +54,29 @@ const notify = async (req: NextApiRequest, res: NextApiResponse) => {
       let successCount = 0;
       let attemptCount = 0;
 
+      // A domain takes part only when scraping is enabled and it has a notification interval other than "never".
+      const isNotifiable = (domain: DomainType) => domain.scrapeEnabled
+         && domain.notification_interval !== 'never';
+
+      // Counts a domain as successful only when an email was actually sent. A send skipped by the
+      // throttle is neither a success nor a failure, so it must not hide a real problem.
+      const notifyDomain = async (domain: DomainType) => {
+         attemptCount++;
+         try {
+            const sent = await sendNotificationEmail(domain, normalizedSettings);
+            if (sent) { successCount++; }
+         } catch (error) {
+            const domainName = domain?.domain || 'unknown domain';
+            logger.error(`Failed to send notification for ${domainName}`, error instanceof Error ? error : new Error(String(error)));
+         }
+      };
+
       if (reqDomain) {
          const theDomain = await Domain.findOne({ where: { domain: reqDomain } });
          if (theDomain) {
-            const domainPlain = theDomain.get({ plain: true }) as DomainType;
-            const normalizedDomain = normalizeDomainBooleans(domainPlain);
-            if (normalizedDomain.scrapeEnabled) {
-               attemptCount++;
-               try {
-                  await sendNotificationEmail(normalizedDomain, normalizedSettings);
-                  successCount++;
-               } catch (error) {
-                  const domainName = normalizedDomain?.domain || 'unknown domain';
-                  logger.error(`Failed to send notification for ${domainName}`, error instanceof Error ? error : new Error(String(error)));
-               }
+            const normalizedDomain = normalizeDomainBooleans(theDomain.get({ plain: true }) as DomainType);
+            if (isNotifiable(normalizedDomain)) {
+               await notifyDomain(normalizedDomain);
             }
          }
       } else {
@@ -75,15 +84,8 @@ const notify = async (req: NextApiRequest, res: NextApiResponse) => {
          if (allDomains && allDomains.length > 0) {
             const domains = allDomains.map((el) => normalizeDomainBooleans(el.get({ plain: true }) as DomainType));
             for (const domain of domains) {
-               if (domain.scrapeEnabled) {
-                  attemptCount++;
-                  try {
-                     await sendNotificationEmail(domain, normalizedSettings);
-                     successCount++;
-                  } catch (error) {
-                     const domainName = domain?.domain || 'unknown domain';
-                     logger.error(`Failed to send notification for ${domainName}`, error instanceof Error ? error : new Error(String(error)));
-                  }
+               if (isNotifiable(domain)) {
+                  await notifyDomain(domain);
                }
             }
          }
@@ -108,14 +110,18 @@ const notify = async (req: NextApiRequest, res: NextApiResponse) => {
    }
 };
 
-const sendNotificationEmail = async (domain: DomainType, settings: SettingsType) => {
+/**
+ * Sends the notification email for one domain. Resolves to true when an email was sent and false when
+ * the throttle skipped it.
+ */
+const sendNotificationEmail = async (domain: DomainType, settings: SettingsType): Promise<boolean> => {
    const domainName = domain.domain;
 
    // Check email throttling
    const throttleCheck = await canSendEmail(domainName);
    if (!throttleCheck.canSend) {
       logger.info(`Skipping email for ${domainName}: ${throttleCheck.reason}`);
-      return;
+      return false;
    }
 
    const { platformName } = getBranding();
@@ -179,7 +185,8 @@ const sendNotificationEmail = async (domain: DomainType, settings: SettingsType)
       // Record successful email send
       await recordEmailSent(domainName);
       logger.info(`Successfully sent notification for ${domainName}`);
-      
+      return true;
+
    } catch (error:any) {
       logger.error('Error sending notification email', error instanceof Error ? error : new Error(String(error)), { domain: domainName });
       throw error; // Re-throw to let caller handle

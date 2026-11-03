@@ -105,13 +105,14 @@ const loginUser = async (req: NextApiRequest, res: NextApiResponse, startTime: n
 
    if (isUsernameValid && isPasswordValid) {
       try {
-         const token = jwt.sign({ user: userName }, process.env.SECRET);
-         const secureCookie = isRequestSecure(req);
-         const cookies = new Cookies(req, res, { secure: secureCookie });
          const parsedDuration = Number.parseInt(process.env.SESSION_DURATION ?? '', 10);
          const sessionDurationHours = Number.isFinite(parsedDuration) && parsedDuration > 0 ? parsedDuration : 24;
          const sessionDurationMs = sessionDurationHours * 60 * 60 * 1000;
          const expiryDate = new Date(Date.now() + sessionDurationMs);
+         // The token expires with the cookie, so a copied token stops working after the session window.
+         const token = jwt.sign({ user: userName }, process.env.SECRET, { expiresIn: sessionDurationHours * 60 * 60 });
+         const secureCookie = isRequestSecure(req);
+         const cookies = new Cookies(req, res, { secure: secureCookie });
 
          cookies.set('token', token, {
             httpOnly: true,

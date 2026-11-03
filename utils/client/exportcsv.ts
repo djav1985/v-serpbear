@@ -11,7 +11,13 @@ const escapeCsvValue = (value: unknown): string => {
    if (value === null || value === undefined) {
       return '""';
    }
-   const stringValue = String(value);
+   let stringValue = String(value);
+   // Spreadsheet apps run text starting with = + - @ as a formula. Keyword text comes from search
+   // queries, so prefix such values with an apostrophe to keep them as plain text.
+   // A lone "-" is the empty-position placeholder, not a formula, so it is left alone.
+   if (typeof value === 'string' && stringValue.length > 1 && /^[=+\-@]/.test(stringValue)) {
+      stringValue = `'${stringValue}`;
+   }
    return `"${stringValue.replace(/"/g, '""')}"`;
 };
 

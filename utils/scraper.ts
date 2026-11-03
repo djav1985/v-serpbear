@@ -147,6 +147,15 @@ type PageScrapeResult = {
    results: SearchResult[];
    mapPackTop3: boolean;
    localResults: any[];
+   // true when the request itself failed, as opposed to a page that simply has no results
+   failed: boolean;
+   error?: string;
+};
+
+const describeScraperFailure = (res: any): string => {
+   const scraperError = buildScraperError(res);
+   const detail = scraperError.error || scraperError.body || 'Request failed';
+   return `[${scraperError.status}] ${typeof detail === 'string' ? detail : serializeError(detail)}`;
 };
 
 /**
@@ -159,15 +168,20 @@ const scrapeSinglePage = async (
    pagination: ScraperPagination,
    maxRetries: number = 1,
 ): Promise<PageScrapeResult> => {
-   const empty: PageScrapeResult = { results: [], mapPackTop3: false, localResults: [] };
+   const failure = (error: string): PageScrapeResult => (
+      { results: [], mapPackTop3: false, localResults: [], failed: true, error }
+   );
+   if (!scraperObj) { return failure('Scraper type not found'); }
 
+   let lastError = 'No valid scrape result returned';
    for (let attempt = 0; attempt <= maxRetries; attempt++) {
       const scraperClient = getScraperClient(keyword, settings, scraperObj, attempt, pagination);
-      if (!scraperClient || !scraperObj) { return empty; }
+      if (!scraperClient) { return failure('Failed to create scraper client'); }
       try {
          const response = await scraperClient;
          const res = await parseScraperResponse(response);
          if (hasScraperError(res)) {
+            lastError = describeScraperFailure(res);
             if (attempt < maxRetries) {
                await new Promise(resolve => setTimeout(resolve, getRetryDelay(attempt)));
                continue;
@@ -185,13 +199,16 @@ const scrapeSinglePage = async (
                results: organic.map((item, i) => ({ ...item, position: i + 1 })),
                mapPackTop3,
                localResults,
+               failed: false,
             };
          }
+         lastError = 'No valid scrape result returned';
          if (attempt < maxRetries) {
             await new Promise(resolve => setTimeout(resolve, getRetryDelay(attempt)));
             continue;
          }
       } catch (error:any) {
+         lastError = serializeError(error);
          logger.debug('[SCRAPE] Scraping page failed', { page: pagination.page, keyword: keyword.keyword, error: error?.message || '' });
          if (attempt < maxRetries) {
             await new Promise(resolve => setTimeout(resolve, getRetryDelay(attempt)));
@@ -199,7 +216,7 @@ const scrapeSinglePage = async (
          }
       }
    }
-   return empty;
+   return failure(lastError);
 };
 
 const buildFullResults = (scrapedResults: SearchResult[]): KeywordLastResult[] => {
@@ -232,6 +249,28 @@ const resolveStrategy = (
    return { strategy, paginationLimit, smartFullFallback };
 };
 
+/**
+ * Turns per-page results into one list with absolute positions. A page that was not scraped
+ * (skipped by the strategy, or failed) is assumed to hold PAGE_SIZE results so later pages
+ * keep their place; scraped pages contribute their real result count.
+ */
+const assemblePositions = (pageResults: Map<number, SearchResult[]>): SearchResult[] => {
+   const assembled: SearchResult[] = [];
+   if (pageResults.size === 0) { return assembled; }
+   const lastPage = Math.max(...pageResults.keys());
+   let offset = 0;
+   for (let pageNum = 1; pageNum <= lastPage; pageNum += 1) {
+      const pageItems = pageResults.get(pageNum);
+      if (pageItems) {
+         pageItems.forEach((item, index) => assembled.push({ ...item, position: offset + index + 1 }));
+         offset += pageItems.length;
+      } else {
+         offset += PAGE_SIZE;
+      }
+   }
+   return assembled;
+};
+
 export const scrapeKeywordWithStrategy = async (
    keyword: KeywordType,
    settings: SettingsType,
@@ -239,10 +278,6 @@ export const scrapeKeywordWithStrategy = async (
 ): Promise<RefreshResult> => {
    const scraperType = settings?.scraper_type || '';
    const scraperObj = allScrapers.find((s: ScraperSettings) => s.id === scraperType);
-
-   if (scraperObj?.nativePagination) {
-      return scrapeKeywordFromGoogle(keyword, settings);
-   }
 
    const errorResult: RefreshResult = {
       ID: keyword.ID,
@@ -253,6 +288,14 @@ export const scrapeKeywordWithStrategy = async (
       mapPackTop3: keyword.mapPackTop3 ?? false,
       error: 'No results scraped',
    };
+
+   if (!scraperObj) {
+      return { ...errorResult, error: `Scraper type '${scraperType}' not found` };
+   }
+
+   if (scraperObj.nativePagination) {
+      return scrapeKeywordFromGoogle(keyword, settings);
+   }
 
    const { strategy, paginationLimit, smartFullFallback } = resolveStrategy(settings, domainSettings);
    let pagesToScrape: number[];
@@ -269,69 +312,69 @@ export const scrapeKeywordWithStrategy = async (
       pagesToScrape = [1];
    }
 
-   const allScrapedResults: SearchResult[] = [];
-   let page1MapPackTop3 = keyword.mapPackTop3 ?? false;
-   let page1LocalResults: any[] = [];
-   let page1Scraped = false;
+   const pageResults = new Map<number, SearchResult[]>();
+   const state = {
+      page1MapPackTop3: keyword.mapPackTop3 ?? false,
+      page1LocalResults: [] as any[],
+      page1Scraped: false,
+      failureMessage: undefined as string | undefined,
+   };
 
-   let cumulativeOffset = 0;
-   let prevPageNum = 0;
+   // Resolves to 'ok' when the page had results, 'empty' when Google has no more results,
+   // and 'failed' when the request itself failed (the reason is kept in state.failureMessage).
+   const scrapePage = async (pageNum: number): Promise<'ok' | 'empty' | 'failed'> => {
+      const pagination: ScraperPagination = { start: (pageNum - 1) * PAGE_SIZE, num: PAGE_SIZE, page: pageNum };
+      const scraped = await scrapeSinglePage(keyword, settings, scraperObj, pagination);
+      if (scraped.failed) {
+         state.failureMessage = scraped.error || 'Scrape request failed';
+         return 'failed';
+      }
+      if (scraped.results.length === 0) { return 'empty'; }
+      pageResults.set(pageNum, scraped.results);
+      if (pageNum === 1 && !state.page1Scraped) {
+         state.page1MapPackTop3 = scraped.mapPackTop3;
+         state.page1LocalResults = scraped.localResults;
+         state.page1Scraped = true;
+      }
+      return 'ok';
+   };
 
    for (const pageNum of pagesToScrape) {
-      if (prevPageNum === 0 && pageNum > 1) {
-         cumulativeOffset = (pageNum - 1) * PAGE_SIZE;
-      } else if (prevPageNum > 0 && pageNum > prevPageNum + 1) {
-         cumulativeOffset += (pageNum - prevPageNum - 1) * PAGE_SIZE;
-      }
-
-      const pagination: ScraperPagination = { start: (pageNum - 1) * PAGE_SIZE, num: PAGE_SIZE, page: pageNum };
-      const { results, mapPackTop3, localResults } = await scrapeSinglePage(keyword, settings, scraperObj, pagination);
-      if (results.length > 0) {
-         allScrapedResults.push(...results.map((r) => ({ ...r, position: cumulativeOffset + r.position })));
-         cumulativeOffset += results.length;
-         if (pageNum === 1) {
-            page1MapPackTop3 = mapPackTop3;
-            page1LocalResults = localResults;
-            page1Scraped = true;
-         }
-      } else {
-         cumulativeOffset += PAGE_SIZE;
-      }
-      prevPageNum = pageNum;
-
-      if (results.length === 0) {
+      const outcome = await scrapePage(pageNum);
+      if (outcome !== 'ok') {
          break;
       }
 
-      if (strategy === 'custom' && getSerp(keyword.domain, allScrapedResults).position > 0) {
+      if (strategy === 'custom' && getSerp(keyword.domain, assemblePositions(pageResults)).position > 0) {
          break;
       }
    }
 
-   if (allScrapedResults.length === 0) { return errorResult; }
+   if (pageResults.size === 0) {
+      return { ...errorResult, error: state.failureMessage || errorResult.error };
+   }
 
-   if (strategy === 'smart' && smartFullFallback) {
-      const serpCheck = getSerp(keyword.domain, allScrapedResults);
-      if (serpCheck.position === 0) {
-         const alreadyScraped = new Set(pagesToScrape);
-         const remainingPages = Array.from({ length: TOTAL_PAGES }, (_, i) => i + 1).filter((p) => !alreadyScraped.has(p));
-         for (const pageNum of remainingPages) {
-            const pagination: ScraperPagination = { start: (pageNum - 1) * PAGE_SIZE, num: PAGE_SIZE, page: pageNum };
-            const { results, mapPackTop3, localResults } = await scrapeSinglePage(keyword, settings, scraperObj, pagination);
-            if (results.length === 0) {
-               break;
-            }
-            allScrapedResults.push(...results.map((r) => ({ ...r, position: (pageNum - 1) * PAGE_SIZE + r.position })));
-            if (pageNum === 1 && !page1Scraped) {
-               page1MapPackTop3 = mapPackTop3;
-               page1LocalResults = localResults;
-               page1Scraped = true;
-            }
+   if (strategy === 'smart' && smartFullFallback && !state.failureMessage
+      && getSerp(keyword.domain, assemblePositions(pageResults)).position === 0) {
+      const alreadyScraped = new Set(pagesToScrape);
+      const remainingPages = Array.from({ length: TOTAL_PAGES }, (_, i) => i + 1).filter((p) => !alreadyScraped.has(p));
+      for (const pageNum of remainingPages) {
+         const outcome = await scrapePage(pageNum);
+         if (outcome !== 'ok') {
+            break;
          }
       }
    }
 
+   const allScrapedResults = assemblePositions(pageResults);
    const finalSerp = getSerp(keyword.domain, allScrapedResults);
+
+   // A failed page means the keyword may simply be on a page we could not read. Report the
+   // failure instead of recording "not ranked", so the old position and history are kept.
+   if (state.failureMessage && finalSerp.position === 0) {
+      return { ...errorResult, error: state.failureMessage };
+   }
+
    const fullResults = buildFullResults(allScrapedResults);
 
    logger.info('[SERP] Strategy scrape completed', { keyword: keyword.keyword, position: finalSerp.position, strategy });
@@ -341,8 +384,8 @@ export const scrapeKeywordWithStrategy = async (
       position: finalSerp.position,
       url: finalSerp.url,
       result: fullResults,
-      mapPackTop3: page1MapPackTop3,
-      localResults: page1LocalResults,
+      mapPackTop3: state.page1MapPackTop3,
+      localResults: state.page1LocalResults,
       error: false,
    };
 };

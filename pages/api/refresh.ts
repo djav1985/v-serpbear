@@ -145,11 +145,13 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse) => 
          return res.status(200).json({ keywords: [] });
       }
 
-      // Check if any of the domains being refreshed are locked
+      // Claim the domains atomically: the check and the claim happen in the same tick, so two quick
+      // requests cannot both pass it while the keywords are being marked as updating below.
       const domainsToRefresh = Array.from(new Set(keywordsToRefresh.map((keyword) => keyword.domain).filter(Boolean)));
-      const lockedDomains = domainsToRefresh.filter((domain) => refreshQueue.isDomainLocked(domain));
-      
-      if (lockedDomains.length > 0) {
+      const releaseReservation = refreshQueue.reserveDomains(domainsToRefresh);
+
+      if (!releaseReservation) {
+         const lockedDomains = domainsToRefresh.filter((lockedDomain) => refreshQueue.isDomainLocked(lockedDomain));
          logger.info(`Manual refresh rejected: domains already being refreshed`, { domains: lockedDomains });
          return res.status(409).json(
             errorResponse('CONFLICT', `Domains are already being refreshed: ${lockedDomains.join(', ')}. Please wait for the current refresh to complete.`, requestId),
@@ -157,37 +159,42 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse) => 
       }
 
       const keywordIdsToRefresh = keywordsToRefresh.map((keyword) => keyword.ID);
-      await markKeywordsAsUpdating(keywordsToRefresh, 'before manual refresh', {
-         keywordIds: keywordIdsToRefresh,
-      });
+      try {
+         await markKeywordsAsUpdating(keywordsToRefresh, 'before manual refresh', {
+            keywordIds: keywordIdsToRefresh,
+         });
 
-      // Generate unique task ID using crypto to prevent collisions in concurrent scenarios
-      const uniqueId = crypto.randomUUID();
-      const taskId = req.query.id === 'all' 
-         ? `manual-refresh-domain-${domain}-${uniqueId}` 
-         : `manual-refresh-ids-${keywordIdsToRefresh.join(',')}-${uniqueId}`;
-      logger.info(`Manual refresh enqueued: ${taskId} (${keywordsToRefresh.length} keywords)`, { domains: domainsToRefresh });
+         // Generate unique task ID using crypto to prevent collisions in concurrent scenarios
+         const uniqueId = crypto.randomUUID();
+         const taskId = req.query.id === 'all'
+            ? `manual-refresh-domain-${domain}-${uniqueId}`
+            : `manual-refresh-ids-${keywordIdsToRefresh.join(',')}-${uniqueId}`;
+         logger.info(`Manual refresh enqueued: ${taskId} (${keywordsToRefresh.length} keywords)`, { domains: domainsToRefresh });
 
-      // Enqueue the manual refresh task with domain for per-domain locking
-      // This prevents the same domain from being refreshed multiple times simultaneously
-      // but allows different domains to process in parallel
-      refreshQueue.enqueue(
-         taskId,
-         async () => {
-            try {
-               await refreshAndUpdateKeywords(keywordsToRefresh, settings);
-            } catch (refreshError) {
-               const message = serializeError(refreshError);
-               logger.error('[REFRESH] ERROR refreshAndUpdateKeywords: ', refreshError instanceof Error ? refreshError : new Error(message), { keywordIds: keywordIdsToRefresh });
-               // Ensure flags are cleared on error, only for keywords still in updating state
-               await clearUpdatingFlags(keywordsToRefresh, 'after refresh error', 'refresh-error', true).catch((updateError) => {
-                  logger.error('[REFRESH] Failed to clear updating flags after error: ', updateError instanceof Error ? updateError : new Error(String(updateError)));
-               });
-               throw refreshError; // Re-throw to be caught by queue error handler
-            }
-         },
-         domainsToRefresh
-      );
+         // Enqueue the manual refresh task with domain for per-domain locking
+         // This prevents the same domain from being refreshed multiple times simultaneously
+         // but allows different domains to process in parallel
+         refreshQueue.enqueue(
+            taskId,
+            async () => {
+               try {
+                  await refreshAndUpdateKeywords(keywordsToRefresh, settings);
+               } catch (refreshError) {
+                  const message = serializeError(refreshError);
+                  logger.error('[REFRESH] ERROR refreshAndUpdateKeywords: ', refreshError instanceof Error ? refreshError : new Error(message), { keywordIds: keywordIdsToRefresh });
+                  // Ensure flags are cleared on error, only for keywords still in updating state
+                  await clearUpdatingFlags(keywordsToRefresh, 'after refresh error', 'refresh-error', true).catch((updateError) => {
+                     logger.error('[REFRESH] Failed to clear updating flags after error: ', updateError instanceof Error ? updateError : new Error(String(updateError)));
+                  });
+                  throw refreshError; // Re-throw to be caught by queue error handler
+               }
+            },
+            domainsToRefresh
+         );
+      } finally {
+         // The task is now in the queue (which also locks the domains), or the request failed
+         releaseReservation();
+      }
 
       // Return immediately with 200 OK status
       return res.status(200).json({ 

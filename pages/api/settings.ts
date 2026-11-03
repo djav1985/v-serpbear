@@ -195,7 +195,7 @@ export const getAppSettings = async () : Promise<SettingsType> => {
    // Initialize failedQueue early to avoid reference errors in early returns
    let failedQueue: number[] = [];
    try {
-      failedQueue = await retryQueueManager.getQueue();
+      failedQueue = await retryQueueManager.peekQueue();
    } catch (failedQueueError) {
       logger.warn('Failed to read failed queue', { error: failedQueueError instanceof Error ? failedQueueError.message : String(failedQueueError) });
       failedQueue = [];

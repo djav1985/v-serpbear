@@ -16,12 +16,11 @@ const serpapi: ScraperSettings = {
   website: "serpapi.com",
   allowsCity: true,
   supportsMapPack: true,
-  nativePagination: true,
   headers: (_keyword: KeywordType, settings: SettingsType) => ({
     "Content-Type": "application/json",
     "X-API-Key": settings.scraping_api,
   }),
-  scrapeURL: (keyword, settings) => {
+  scrapeURL: (keyword, settings, _countryData, pagination) => {
     const country = resolveCountryCode(keyword.country);
     const countryInfo = countries[country] ?? countries.US;
     const countryName = countryInfo?.[0] ?? countries.US[0];
@@ -57,6 +56,9 @@ const serpapi: ScraperSettings = {
     params.set("google_domain", googleDomain);
     params.set("gl", country);
     params.set("hl", countryInfo?.[2] ?? "en");
+    if (pagination && pagination.start > 0) {
+      params.set("start", String(pagination.start));
+    }
     params.set("api_key", settings.scraping_api ?? "");
     return `https://serpapi.com/search.json?${params.toString()}`;
   },
