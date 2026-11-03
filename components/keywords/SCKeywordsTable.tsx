@@ -175,9 +175,6 @@ const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleInt
                      setDevices={setAddDevices}
                      onAdd={openAddStep}
                      addDisabled={addDevices.length === 0}
-                     // Email is not available for Search Console keywords yet, so the button shows greyed out
-                     onEmail={() => {}}
-                     emailDisabled={true}
                   />
                </div>
             )}
