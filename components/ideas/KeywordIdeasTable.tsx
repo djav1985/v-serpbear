@@ -86,7 +86,8 @@ const IdeasKeywordsTable = ({
    const existingTags = useMemo(() => getDomainTags(trackedKeywordsList), [trackedKeywordsList]);
    const existingLocations = useMemo(() => getDomainLocations(trackedKeywordsList), [trackedKeywordsList]);
 
-   const isIdeaTracked = useCallback((idea: IdeaKeyword) => trackedDevicesToCheck.some((device) => trackedKeywordLookup[`${idea.keyword}:${idea.country}:${device}`]), [trackedDevicesToCheck, trackedKeywordLookup]);
+   // Tracked only when every selected device already has it; a partly tracked idea can still add the missing device
+   const isIdeaTracked = useCallback((idea: IdeaKeyword) => trackedDevicesToCheck.every((device) => trackedKeywordLookup[`${idea.keyword}:${idea.country}:${device}`]), [trackedDevicesToCheck, trackedKeywordLookup]);
 
    const { data: domainsData } = useQuery(
       ['domains', false],

@@ -103,6 +103,20 @@ describe('buildKeywordAddPayloads', () => {
       expect(payloads.every((p) => p.tags === '')).toBe(true);
    });
 
+   it('uses the chosen location country as the keyword country so the market matches', () => {
+      const payloads = buildKeywordAddPayloads({
+         items: [{ keyword: 'alpha', country: 'US' }],
+         domain: 'example.com',
+         devices: ['desktop'],
+         tags: [],
+         location: 'London,England,GB',
+      });
+
+      expect(payloads).toEqual([
+         expect.objectContaining({ keyword: 'alpha', country: 'GB', location: 'London,England,GB' }),
+      ]);
+   });
+
    it('returns no payloads when there are no devices or items', () => {
       expect(buildKeywordAddPayloads({ items: [], domain: 'a.com', devices: ['desktop'], tags: [], location: '' })).toEqual([]);
       expect(buildKeywordAddPayloads({ items, domain: 'a.com', devices: [], tags: [], location: '' })).toEqual([]);

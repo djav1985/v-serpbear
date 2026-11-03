@@ -7,6 +7,7 @@ import verifyUser from '../../utils/verifyUser';
 import { getAppSettings } from '../../pages/api/settings';
 import { getKeywordsVolume, updateKeywordsVolumeData } from '../../utils/adwords';
 import { refreshQueue } from '../../utils/refreshQueue';
+import { createMockRequest, createMockResponse } from '../__helpers__';
 
 jest.mock('../../database/database', () => ({
   __esModule: true,
@@ -611,11 +612,6 @@ describe('PUT /api/keywords location updates', () => {
     verifyUserMock.mockReturnValue('authorized');
   });
 
-  const buildRes = () => ({
-    status: jest.fn().mockReturnThis(),
-    json: jest.fn(),
-  } as unknown as NextApiResponse);
-
   it('applies one location to every keyword in the ID list', async () => {
     keywordMock.update.mockResolvedValue([2]);
     keywordMock.findAll.mockResolvedValueOnce([
@@ -637,31 +633,25 @@ describe('PUT /api/keywords location updates', () => {
         }),
       },
     ]);
-    const req = {
+    const req = createMockRequest({
       method: 'PUT',
       query: { id: '1,2' },
       body: { location: '  Austin,TX,US  ' },
-      headers: {},
-    } as unknown as NextApiRequest;
-    const res = buildRes();
+    });
+    const res = createMockResponse();
 
     await handler(req, res);
 
     expect(keywordMock.update).toHaveBeenCalledWith(
-      { location: 'Austin,TX,US' },
+      { location: 'Austin,TX,US', country: 'US' },
       { where: { ID: { [Op.in]: [1, 2] } } },
     );
     expect(res.status).toHaveBeenCalledWith(200);
   });
 
   it('returns 400 when the location is empty', async () => {
-    const req = {
-      method: 'PUT',
-      query: { id: '1' },
-      body: { location: '   ' },
-      headers: {},
-    } as unknown as NextApiRequest;
-    const res = buildRes();
+    const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { location: '   ' } });
+    const res = createMockResponse();
 
     await handler(req, res);
 
@@ -671,17 +661,38 @@ describe('PUT /api/keywords location updates', () => {
 
   it('returns 500 when the location update fails', async () => {
     keywordMock.update.mockRejectedValueOnce(new Error('db down'));
-    const req = {
-      method: 'PUT',
-      query: { id: '1' },
-      body: { location: 'US' },
-      headers: {},
-    } as unknown as NextApiRequest;
-    const res = buildRes();
+    const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { location: 'US' } });
+    const res = createMockResponse();
 
     await handler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(500);
+  });
+
+  it('sets the keyword country to the country of the chosen location', async () => {
+    keywordMock.update.mockResolvedValue([1]);
+    keywordMock.findAll.mockResolvedValueOnce([]);
+    const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { location: 'London,England,GB' } });
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    expect(keywordMock.update).toHaveBeenCalledWith(
+      { location: 'London,England,GB', country: 'GB' },
+      { where: { ID: { [Op.in]: [1] } } },
+    );
+  });
+
+  it('leaves the keyword country alone when the location names no known country', async () => {
+    keywordMock.update.mockResolvedValue([1]);
+    keywordMock.findAll.mockResolvedValueOnce([]);
+    const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { location: 'Austin,TX' } });
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    expect(keywordMock.update.mock.calls[0][0]).not.toHaveProperty('country');
+    expect(res.status).toHaveBeenCalledWith(200);
   });
 });
 

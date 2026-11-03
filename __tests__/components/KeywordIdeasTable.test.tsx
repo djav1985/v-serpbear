@@ -157,6 +157,19 @@ describe('KeywordIdeasTable DRY Principle Implementation', () => {
       jest.clearAllMocks();
    });
 
+   it('keeps an idea selectable when only one of the two selected devices already tracks it', async () => {
+      renderTable();
+
+      // Desktop is tracked for "tracked term"; with both devices chosen it still needs mobile
+      fireEvent.click(within(screen.getByText('new term').closest('div.keyword') as HTMLElement).getByRole('button', { name: /select keyword idea/i }));
+      fireEvent.click(await screen.findByRole('checkbox', { name: /Mobile/ }));
+
+      const trackedRow = screen.getByText('tracked term').closest('div.keyword') as HTMLElement;
+      const partialButton = within(trackedRow).getByRole('button', { name: /select keyword idea/i });
+      expect(partialButton).toBeEnabled();
+      expect(within(trackedRow).queryByRole('button', { name: /already tracked/i })).not.toBeInTheDocument();
+   });
+
    it('marks tracked keyword ideas as disabled and prevents selection', async () => {
       renderTable();
 

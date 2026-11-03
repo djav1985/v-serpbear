@@ -1,4 +1,4 @@
-import { formatLocation } from './location';
+import { formatLocation, getLocationCountry } from './location';
 
 export type TrackerDevice = 'desktop' | 'mobile';
 
@@ -34,11 +34,12 @@ export const getDomainLocations = (keywords: KeywordType[] = []): string[] => {
 
 // One payload row per item per chosen device, sharing the chosen tags.
 // An empty location means "each keyword's own country", matching the previous default.
+// A chosen location sets the keyword's country too, because scrapers search in that country's market.
 export const buildKeywordAddPayloads = ({ items, domain, devices, tags, location }: BuildAddPayloadOptions): KeywordAddPayload[] => (
    items.flatMap((item) => devices.map((device) => ({
       keyword: item.keyword,
       device,
-      country: item.country,
+      country: getLocationCountry(location) || item.country,
       domain,
       tags: tags.join(', '),
       location: location || formatLocation({ country: item.country }),

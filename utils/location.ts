@@ -1,3 +1,5 @@
+import countries from './countries';
+
 export type LocationParts = {
    city?: string,
    state?: string,
@@ -67,6 +69,17 @@ export const parseLocation = (location?: string | null, fallbackCountry?: string
    if (country) { result.country = country; }
 
    return result;
+};
+
+/**
+ * Returns the known ISO country code a location belongs to, or '' when there is none.
+ * A bare code such as "US" is the whole location; otherwise the last part is the country.
+ */
+export const getLocationCountry = (location?: string | null): string => {
+   const trimmed = normalize(location);
+   if (!trimmed) { return ''; }
+   const candidate = trimmed.includes(',') ? parseLocation(trimmed).country || '' : trimmed;
+   return Array.isArray(countries[candidate]) ? candidate : '';
 };
 
 /**

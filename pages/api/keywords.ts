@@ -9,7 +9,7 @@ import parseKeywords from '../../utils/parseKeywords';
 import { integrateKeywordSCData, readLocalSCData } from '../../utils/searchConsole';
 import refreshAndUpdateKeywords from '../../utils/refresh';
 import { getKeywordsVolume, updateKeywordsVolumeData } from '../../utils/adwords';
-import { formatLocation, hasValidCityStatePair, parseLocation } from '../../utils/location';
+import { formatLocation, getLocationCountry, hasValidCityStatePair, parseLocation } from '../../utils/location';
 import { isValidHostname } from '../../utils/validators/hostname';
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
@@ -174,18 +174,20 @@ const validateKeywordData = (kwrd: any): { isValid: boolean, sanitized?: any, er
       state: state || parsedLocation.state,
       country: parsedLocation.country || country,
    }).substring(0, 255);
-   
+   // The location's country is the market the scraper searches, so it wins over the request's country
+   const marketCountry = getLocationCountry(rawLocation) || country;
+
    if (errors.length > 0) {
       return { isValid: false, errors };
    }
-   
+
    return {
       isValid: true,
       sanitized: {
          keyword,
          domain,
          device,
-         country,
+         country: marketCountry,
          location,
          tags
       }
@@ -456,7 +458,9 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
             return res.status(400).json(errorResponse('BAD_REQUEST', 'Location is required!', requestId));
          }
          const formattedLocation = formatLocation(parseLocation(rawLocation)).substring(0, 255);
-         await Keyword.update({ location: formattedLocation }, { where: { ID: { [Op.in]: keywordIDs } } });
+         const locationCountry = getLocationCountry(rawLocation);
+         const locationUpdate = locationCountry ? { location: formattedLocation, country: locationCountry } : { location: formattedLocation };
+         await Keyword.update(locationUpdate, { where: { ID: { [Op.in]: keywordIDs } } });
          const updatedKeywords:Keyword[] = await Keyword.findAll({ where: { ID: { [Op.in]: keywordIDs } } });
          const formattedKeywords = updatedKeywords.map((el) => el.get({ plain: true }));
          keywords = parseKeywords(formattedKeywords);
