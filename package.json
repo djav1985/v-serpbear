@@ -23,7 +23,7 @@
     "@types/react-transition-group": "^4.4.12",
     "better-sqlite3": "^12.11.1",
     "chart.js": "^3.9.1",
-    "cookies": "^0.9.1",
+    "cookies": "^0.9.2",
     "croner": "^9.1.0",
     "cryptr": "^6.4.0",
     "dayjs": "^1.11.20",
