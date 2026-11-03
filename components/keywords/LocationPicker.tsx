@@ -64,21 +64,24 @@ const LocationPicker = ({ existingLocations = [], value, onChange, allowsCity = 
 
    return (
       <div className='flex flex-col gap-2'>
-         <SelectField
-            multiple={false}
-            selected={[value]}
-            options={locationOptions}
-            defaultLabel='Select a Location'
-            updateField={(updated: string[]) => {
-               const selectedLocation = updated[0];
-               if (selectedLocation === undefined) { return; }
-               setNewLocation(null);
-               onChange(selectedLocation);
-            }}
-            rounded='rounded'
-            maxHeight={48}
-            flags={false}
-         />
+         <div className='[&_.selected]:py-2 [&_.selected]:px-4'>
+            <SelectField
+               multiple={false}
+               selected={[value]}
+               options={locationOptions}
+               defaultLabel='Select a Location'
+               updateField={(updated: string[]) => {
+                  const selectedLocation = updated[0];
+                  if (selectedLocation === undefined) { return; }
+                  setNewLocation(null);
+                  onChange(selectedLocation);
+               }}
+               rounded='rounded'
+               maxHeight={48}
+               flags={false}
+               fullWidth={true}
+            />
+         </div>
          <div className='relative'>
             <input
                className={`w-full border rounded border-gray-200 py-2 px-4 pl-8 outline-none focus:border-indigo-300 ${!allowsCity ? ' cursor-not-allowed' : ''}`}
