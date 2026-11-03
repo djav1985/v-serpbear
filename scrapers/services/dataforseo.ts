@@ -94,15 +94,16 @@ const dataforseo: ScraperSettings = {
     const start = pagination?.start ?? 0;
     const num = pagination?.num ?? 10;
 
-    const organicItems = items.filter((item) => item.type === "organic");
-    const organic = organicItems
-      .filter((item) => item.title && item.url)
+    // The request depth counts every SERP item (ads and features included), so the page is picked by absolute rank,
+    // not by slicing the organic-only list, which would skip or repeat ranks when non-organic items are present.
+    const organic = items
+      .filter((item) => item.type === "organic" && item.title && item.url)
       .map((item, index) => ({
         title: item.title as string,
         url: item.url as string,
         position: item.rank_absolute ?? index + 1,
       }))
-      .slice(start, start + num);
+      .filter((item) => item.position > start && item.position <= start + num);
 
     const businessName = (settings as ExtendedSettings)?.business_name ?? null;
     const dfsItems: DataForSeoItem[] = Array.isArray(getTask(response)?.result?.[0]?.items)

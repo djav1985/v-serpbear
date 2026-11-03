@@ -196,6 +196,7 @@ describe('scraper error handling', () => {
 
     (global.fetch as jest.Mock).mockResolvedValue({
       json: async () => mockResponse,
+      text: async () => JSON.stringify(mockResponse),
     });
 
     const keyword: Partial<KeywordType> = {
@@ -237,6 +238,7 @@ describe('scraper error handling', () => {
 
     (global.fetch as jest.Mock).mockResolvedValue({
       json: async () => mockResponse,
+      text: async () => JSON.stringify(mockResponse),
     });
 
     const keyword: Partial<KeywordType> = {
@@ -280,6 +282,7 @@ describe('scraper error handling', () => {
 
     (global.fetch as jest.Mock).mockResolvedValue({
       json: async () => mockResponse,
+      text: async () => JSON.stringify(mockResponse),
     });
 
     const keyword: Partial<KeywordType> = {
@@ -321,6 +324,7 @@ describe('scraper error handling', () => {
 
     (global.fetch as jest.Mock).mockResolvedValue({
       json: async () => mockResponse,
+      text: async () => JSON.stringify(mockResponse),
     });
 
     const keyword: Partial<KeywordType> = {

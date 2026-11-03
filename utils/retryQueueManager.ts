@@ -1,4 +1,4 @@
-import { readFile, mkdir } from 'fs/promises';
+import { copyFile, readFile, mkdir } from 'fs/promises';
 import { dirname } from 'path';
 import { atomicWriteFile } from './atomicWrite';
 import * as lockfile from 'proper-lockfile';
@@ -83,19 +83,30 @@ class RetryQueueManager {
     * Read the current retry queue from file
     */
    private async readQueue(): Promise<number[]> {
+      let rawData: string;
       try {
          // eslint-disable-next-line security/detect-non-literal-fs-filename
-         const rawData = await readFile(this.filePath, { encoding: 'utf-8' });
-         const parsed = JSON.parse(rawData);
-         return Array.isArray(parsed) ? parsed.filter(id => Number.isInteger(id) && id > 0) : [];
+         rawData = await readFile(this.filePath, { encoding: 'utf-8' });
       } catch (err: any) {
          if (err.code === 'ENOENT') {
             // File doesn't exist yet - return empty array
             return [];
          }
-         logger.debug('Failed to read retry queue', { error: err.message });
-         return [];
+         logger.error('Failed to read retry queue', err instanceof Error ? err : new Error(String(err)));
+         throw err;
       }
+
+      let parsed: unknown;
+      try {
+         parsed = JSON.parse(rawData);
+      } catch (err: any) {
+         // Never let the next write replace a damaged queue: keep a copy for inspection, then fail the operation
+         const backupPath = `${this.filePath}.corrupt-${Date.now()}`;
+         await copyFile(this.filePath, backupPath).catch(() => undefined);
+         logger.error('Retry queue file is corrupt; a copy was kept and the operation was not applied', err instanceof Error ? err : new Error(String(err)), { backupPath });
+         throw err;
+      }
+      return Array.isArray(parsed) ? parsed.filter(id => Number.isInteger(id) && id > 0) : [];
    }
 
    /**

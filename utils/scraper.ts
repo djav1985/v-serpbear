@@ -121,9 +121,28 @@ const buildScraperError = (res: any) => {
    };
 };
 
-const parseScraperResponse = async (response: Response): Promise<any> => {
+// A response body that stalls after the headers arrive must not hang the refresh, so reading it has its own limit.
+const SCRAPER_BODY_TIMEOUT_MS = 30000;
+// Kept short enough for log lines and error messages, long enough to show what an error page said.
+const SCRAPER_ERROR_BODY_MAX_LENGTH = 500;
+
+const withTimeout = <T>(promise: Promise<T>, timeoutMs: number): Promise<T> => new Promise<T>((resolve, reject) => {
+   const timer = setTimeout(() => reject(new Error(`Scraper response body timed out after ${timeoutMs}ms`)), timeoutMs);
+   promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (error) => { clearTimeout(timer); reject(error); },
+   );
+});
+
+/**
+ * Reads the response body once and parses it as JSON. A body that is not JSON (an HTML error page, for example)
+ * is returned as { status, ok, body } so the error message can show what the server said.
+ */
+export const parseScraperResponse = async (response: Response): Promise<any> => {
+   // The body can only be read once, so read the text first and parse it, instead of trying json() and then text().
+   const text = await withTimeout(response.text(), SCRAPER_BODY_TIMEOUT_MS);
    try {
-      const parsed = await response.json();
+      const parsed = JSON.parse(text);
       if (parsed && typeof parsed === 'object') {
          if (!Object.prototype.hasOwnProperty.call(parsed, 'status')) {
             parsed.status = response.status;
@@ -134,11 +153,10 @@ const parseScraperResponse = async (response: Response): Promise<any> => {
       }
       return parsed;
    } catch (_error) {
-      const body = await response.text().catch(() => '');
       return {
          status: response.status,
          ok: response.ok,
-         body,
+         body: text.slice(0, SCRAPER_ERROR_BODY_MAX_LENGTH),
       };
    }
 };

@@ -23,7 +23,6 @@ const searchapi:ScraperSettings = {
       const country = resolvedCountry;
       const localeInfo = countryData?.[country] ?? countryData?.US ?? Object.values(countryData ?? {})[0];
       const lang = localeInfo?.[2] ?? "en";
-      const plusEncode = (str: string) => str.replace(/ /g, '+');
       const decodeIfEncoded = (value: string): string => {
          try {
             return decodeURIComponent(value);
@@ -32,12 +31,13 @@ const searchapi:ScraperSettings = {
          }
       };
       // Build location parts from city/state/country only (no zip)
-      const locationParts = getKeywordLocationParts(keyword.location).map(plusEncode);
+      const locationParts = getKeywordLocationParts(keyword.location);
+      // URLSearchParams encodes spaces as '+', so the raw values are passed in; encoding '+' first would send '%2B'
       const params = new URLSearchParams();
       // Set params in required order
       params.set('api_key', settings.scraping_api ?? '');
       params.set('engine', 'google');
-      params.set('q', plusEncode(decodeIfEncoded(keyword.keyword)));
+      params.set('q', decodeIfEncoded(keyword.keyword));
       if (locationParts.length) {
          params.set('location', locationParts.join(','));
       }
