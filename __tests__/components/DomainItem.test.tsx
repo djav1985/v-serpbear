@@ -151,6 +151,17 @@ describe('DomainItem Component', () => {
          expect(screen.queryByText('▼')).not.toBeInTheDocument();
       });
 
+      it('shows no triangle when avg position moves to or from unranked (0)', () => {
+         const { unmount } = render(<DomainItem {...defaultProps} domain={{ ...dummyDomain, avgPosition: 0, prevAvgPosition: 10 }} />);
+         expect(screen.queryByText('▲')).not.toBeInTheDocument();
+         expect(screen.queryByText('▼')).not.toBeInTheDocument();
+         unmount();
+
+         render(<DomainItem {...defaultProps} domain={{ ...dummyDomain, avgPosition: 10, prevAvgPosition: 0 }} />);
+         expect(screen.queryByText('▲')).not.toBeInTheDocument();
+         expect(screen.queryByText('▼')).not.toBeInTheDocument();
+      });
+
       it('shows no triangle when the value is unchanged', () => {
          render(<DomainItem {...defaultProps} domain={{ ...dummyDomain, keywordsTracked: 10, prevKeywordsTracked: 10 }} />);
 

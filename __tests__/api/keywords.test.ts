@@ -133,8 +133,8 @@ describe('PUT /api/keywords error handling', () => {
       keywordMock.findAll.mockResolvedValue([addRecord]);
       getKeywordsVolumeMock.mockResolvedValue({ volumes: {} });
       updateKeywordsVolumeDataMock.mockResolvedValue(undefined);
-      const req = { method: 'POST', body: { keywords: [{ keyword: 'alpha', device: 'desktop', country: 'US', domain: 'example.com', ...keyword }] }, headers: {} } as unknown as NextApiRequest;
-      const res = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
+      const req = createMockRequest({ method: 'POST', body: { keywords: [{ keyword: 'alpha', device: 'desktop', country: 'US', domain: 'example.com', ...keyword }] } });
+      const res = createMockResponse();
       await handler(req, res);
       return keywordMock.bulkCreate.mock.calls[0][0][0];
     };
@@ -147,8 +147,8 @@ describe('PUT /api/keywords error handling', () => {
 
     it('rejects a city without a state on add', async () => {
       keywordMock.bulkCreate.mockClear();
-      const req = { method: 'POST', body: { keywords: [{ keyword: 'alpha', device: 'desktop', country: 'US', domain: 'example.com', city: 'Austin' }] }, headers: {} } as unknown as NextApiRequest;
-      const res = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
+      const req = createMockRequest({ method: 'POST', body: { keywords: [{ keyword: 'alpha', device: 'desktop', country: 'US', domain: 'example.com', city: 'Austin' }] } });
+      const res = createMockResponse();
       await handler(req, res);
       expect(keywordMock.bulkCreate).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(400);

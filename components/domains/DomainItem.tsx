@@ -36,6 +36,10 @@ const TrendBadge = ({ current, previous, lowerIsBetter = false }: TrendBadgeProp
    if (typeof previous !== 'number' || !Number.isFinite(previous) || current === previous) {
       return null;
    }
+   // For position metrics 0 means unranked, so a move to or from 0 is not an improvement or a drop
+   if (lowerIsBetter && (current === 0 || previous === 0)) {
+      return null;
+   }
    const isUp = current > previous;
    const isGoodChange = lowerIsBetter ? !isUp : isUp;
    return (
