@@ -16,6 +16,14 @@ type DomainHeaderProps = {
    showIdeaUpdateModal?: () => void
 }
 
+// Renders the label twice: an invisible bold copy reserves the width, so the active tab's bold text doesn't shift its neighbors
+const TabLabel = ({ text, active }: { text: string, active: boolean }) => (
+   <span className='inline-grid text-xs lg:text-sm lg:ml-2'>
+      <span aria-hidden='true' className='invisible font-semibold col-start-1 row-start-1'>{text}</span>
+      <span className={`col-start-1 row-start-1 ${active ? 'font-semibold' : 'font-normal'}`}>{text}</span>
+   </span>
+);
+
 const DomainHeader = (
    { domain, showAddModal, showSettingsModal, exportCsv, domains, scFilter = 'thirtyDays', setScFilter, showIdeaUpdateModal }: DomainHeaderProps,
 ) => {
@@ -31,7 +39,7 @@ const DomainHeader = (
    const daysName = (dayKey:string) => dayKey.replace('three', '3').replace('seven', '7').replace('thirty', '30').replace('Days', ' Days');
    const buttonStyle = 'leading-6 inline-block px-2 py-2 text-gray-500 hover:text-gray-700';
    const buttonLabelStyle = 'ml-2 text-sm not-italic lg:invisible lg:opacity-0';
-   const tabStyle = 'rounded rounded-b-none cursor-pointer border-[#e9ebff] border-b-0';
+   const tabStyle = 'shrink-0 rounded rounded-b-none cursor-pointer border-[#e9ebff] border-b-0';
    const scDataFilterStyle = 'px-3 py-2 block w-full';
    return (
       <div className='domain_kewywords_head w-full '>
@@ -50,32 +58,32 @@ const DomainHeader = (
                />
             </div>
          </div>
-      <div className='flex w-full justify-between mt-4 lg:mt-0'>
-         <ul className=' max-w-[270px] overflow-auto flex items-end text-sm relative top-[2px] lg:max-w-none'>
+      <div className='flex w-full justify-between items-center mt-4 lg:mt-0'>
+         <ul className='flex items-end text-sm relative top-[2px] max-w-full overflow-x-auto whitespace-nowrap'>
             <li className={`${tabStyle} ${router.pathname === '/domain/[slug]' ? 'bg-white border border-b-0 font-semibold' : ''}`}>
-               <Link href={`/domain/${domain.slug}`} className='px-4 py-2 inline-block'>
+               <Link href={`/domain/${domain.slug}`} className='px-3 lg:px-4 py-2 inline-block'>
                   <Icon type="tracking" color='#999' classes='hidden lg:inline-block' />
-                  <span className='text-xs lg:text-sm lg:ml-2'>Tracking</span>
+                  <TabLabel text='Tracking' active={router.pathname === '/domain/[slug]'} />
                </Link>
             </li>
             <li className={`${tabStyle} ${router.pathname === '/domain/console/[slug]' ? 'bg-white border border-b-0 font-semibold' : ''}`}>
-               <Link href={`/domain/console/${domain.slug}`} className='px-4 py-2 inline-block'>
+               <Link href={`/domain/console/${domain.slug}`} className='px-3 lg:px-4 py-2 inline-block'>
                   <Icon type="google" size={13} classes='hidden lg:inline-block' />
-                  <span className='text-xs lg:text-sm lg:ml-2'>Discover</span>
+                  <TabLabel text='Discover' active={router.pathname === '/domain/console/[slug]'} />
                   <Icon type='help' size={14} color="#aaa" classes="ml-2 hidden lg:inline-block" title='Discover Keywords you already Rank For' />
                </Link>
             </li>
             <li className={`${tabStyle} ${router.pathname === '/domain/insight/[slug]' ? 'bg-white border border-b-0 font-semibold' : ''}`}>
-               <Link href={`/domain/insight/${domain.slug}`} className='px-4 py-2 inline-block'>
+               <Link href={`/domain/insight/${domain.slug}`} className='px-3 lg:px-4 py-2 inline-block'>
                   <Icon type="google" size={13} classes='hidden lg:inline-block' />
-                  <span className='text-xs lg:text-sm lg:ml-2'>Insight</span>
+                  <TabLabel text='Insight' active={router.pathname === '/domain/insight/[slug]'} />
                   <Icon type='help' size={14} color="#aaa" classes="ml-2 hidden lg:inline-block" title='Insight for Google Search Console Data' />
                </Link>
             </li>
             <li className={`${tabStyle} ${router.pathname === '/domain/ideas/[slug]' ? 'bg-white border border-b-0 font-semibold' : ''}`}>
-               <Link href={`/domain/ideas/${domain.slug}`} className='px-4 py-2 inline-block'>
+               <Link href={`/domain/ideas/${domain.slug}`} className='px-3 lg:px-4 py-2 inline-block'>
                   <Icon type="adwords" size={13} classes='hidden lg:inline-block' />
-                  <span className='text-xs lg:text-sm lg:ml-2'>Ideas</span>
+                  <TabLabel text='Ideas' active={router.pathname === '/domain/ideas/[slug]'} />
                   <Icon
                   type='help'
                   size={14}
@@ -86,7 +94,7 @@ const DomainHeader = (
                </Link>
             </li>
          </ul>
-         <div className='relative flex mb-0 lg:mb-1 lg:mt-3'>
+         <div className='relative flex items-center shrink-0 mb-0 lg:mb-1'>
             {!isInsight && <button className={`${buttonStyle} lg:hidden`} onClick={() => setShowOptions(!showOptions)}>
                <Icon type='dots' size={20} />
             </button>
@@ -131,7 +139,7 @@ const DomainHeader = (
                </button>
             )}
             {isConsole && (
-               <div className='text-xs pl-4 ml-2 border-l border-gray-200 relative'>
+               <div className='text-xs whitespace-nowrap pl-4 ml-2 border-l border-gray-200 relative'>
                   {/* <span className='hidden lg:inline-block'>Data From Last: </span> */}
                   <span className='block cursor-pointer py-3' onClick={() => setShowSCDates(!ShowSCDates)}>
                      <Icon type='date' size={13} classes="mr-1" /> {daysName(scFilter)}

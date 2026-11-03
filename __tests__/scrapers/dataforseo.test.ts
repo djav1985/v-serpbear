@@ -19,7 +19,7 @@ const countryData = {
 const settings = { scraping_api: 'login@example.com:secret' } as SettingsType;
 
 const buildKeyword = (overrides: Partial<KeywordType> = {}) =>
-  ({ keyword: 'plumbers', country: 'US', device: 'desktop', location: 'US', domain: 'plumbers.example', ...overrides } as KeywordType);
+  ({ keyword: 'plumbers', country: 'US', device: 'desktop', location: '', domain: 'plumbers.example', ...overrides } as KeywordType);
 
 const organic = (rank: number, host = `site${rank}.example`) => ({
   type: 'organic',
@@ -76,7 +76,7 @@ describe('dataforseo scraper', () => {
   });
 
   it('uses city, state and country for location_name when given', () => {
-    const body = bodyOf(buildKeyword({ location: 'Port Charlotte,Florida,US' }), settings, countryData);
+    const body = bodyOf(buildKeyword({ location: 'Port Charlotte,Florida,United States' }), settings, countryData);
     expect((body[0] as any).location_name).toBe('Port Charlotte,Florida,United States');
   });
 

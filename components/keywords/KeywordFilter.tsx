@@ -116,14 +116,14 @@ const KeywordFilters = (props: KeywordFilterProps) => {
       sortOptionChoices.push({ value: 'ctr_desc', label: 'Lowest CTR' });
    }
    const sortItemStyle = (sortType:string) => `cursor-pointer py-2 px-3 hover:bg-[#FCFCFF] ${sortBy === sortType ? 'bg-indigo-50 text-indigo-600 hover:bg-indigo-50' : ''}`;
-   const deviceTabStyle = 'select-none cursor-pointer px-3 py-2 rounded-3xl mr-2';
+   const deviceTabStyle = 'flex items-center select-none cursor-pointer px-3 py-2 rounded-3xl mr-2';
    const deviceTabCountStyle = 'px-2 py-0 rounded-3xl bg-[#DEE1FC] text-[0.7rem] font-bold ml-1';
    const mobileFilterOptionsStyle = 'visible mt-8 border absolute min-w-[0] rounded-lg max-h-96 bg-white z-50 w-52 right-2 p-4';
 
    return (
-      <div className='domKeywords_filters py-4 px-6 flex justify-between text-sm text-gray-500 font-semibold border-b-[1px] lg:border-0'>
+      <div className='domKeywords_filters py-4 px-6 flex justify-between items-center text-sm text-gray-500 font-semibold border-b-[1px] lg:border-0'>
          <div>
-            <ul className='flex text-xs'>
+            <ul className='flex items-center text-xs'>
                <li
                 data-testid="desktop_tab"
                className={`${deviceTabStyle} ${device === 'desktop' ? ' bg-[#F8F9FF] text-gray-700' : ''}`}

@@ -9,7 +9,7 @@ import parseKeywords from '../../utils/parseKeywords';
 import { integrateKeywordSCData, readLocalSCData } from '../../utils/searchConsole';
 import refreshAndUpdateKeywords from '../../utils/refresh';
 import { getKeywordsVolume, updateKeywordsVolumeData } from '../../utils/adwords';
-import { formatLocation, getLocationCountry, hasValidCityStatePair, parseLocation } from '../../utils/location';
+import { buildStoredLocation, getLocationCountry, hasValidCityStatePair, isCountryOnlyLocation, parseCityState } from '../../utils/location';
 import { planLocationUpdate } from '../../utils/keywordMeta';
 import { isValidHostname } from '../../utils/validators/hostname';
 import { logger } from '../../utils/logger';
@@ -169,14 +169,21 @@ const validateKeywordData = (kwrd: any): { isValid: boolean, sanitized?: any, er
       errors.push('City and state must be provided together when provided');
    }
 
-   const parsedLocation = parseLocation(rawLocation, country);
-   const location = formatLocation({
-      city: city || parsedLocation.city,
-      state: state || parsedLocation.state,
-      country: parsedLocation.country || country,
-   }).substring(0, 255);
    // The location's country is the market the scraper searches, so it wins over the request's country
    const marketCountry = getLocationCountry(rawLocation) || country;
+   // A country-only location names no city or state; anything else must give both
+   const parsedLocation = isCountryOnlyLocation(rawLocation) ? { city: '', state: '' } : parseCityState(rawLocation);
+   const cityValue = city || parsedLocation.city;
+   const stateValue = state || parsedLocation.state;
+   if (!hasValidCityStatePair(cityValue, stateValue)) {
+      errors.push('City and state must be provided together.');
+   }
+   // Stored as "City,State,Country Name"; a country-only keyword stores a blank location
+   const location = buildStoredLocation({
+      city: cityValue,
+      state: stateValue,
+      countryCode: marketCountry,
+   }).substring(0, 255);
 
    if (errors.length > 0) {
       return { isValid: false, errors };
@@ -455,12 +462,24 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
       }
       if (location !== undefined) {
          const rawLocation = typeof location === 'string' ? location.trim().substring(0, 255) : '';
-         if (!rawLocation) {
-            return res.status(400).json(errorResponse('BAD_REQUEST', 'Location is required!', requestId));
+         const requestedCountry = typeof req.body.country === 'string' && /^[A-Z]{2}$/.test(req.body.country) ? req.body.country : '';
+         const locationCountry = requestedCountry || getLocationCountry(rawLocation);
+         if (!locationCountry) {
+            return res.status(400).json(errorResponse('BAD_REQUEST', 'Country is required!', requestId));
          }
-         const formattedLocation = formatLocation(parseLocation(rawLocation)).substring(0, 255);
-         const locationCountry = getLocationCountry(rawLocation);
-         const locationUpdate = locationCountry ? { location: formattedLocation, country: locationCountry } : { location: formattedLocation };
+         // A country-only location names no city or state; anything else must give both, or the update would drop them
+         const countryOnly = isCountryOnlyLocation(rawLocation);
+         const parsedLocation = countryOnly ? { city: '', state: '' } : parseCityState(rawLocation);
+         if (!hasValidCityStatePair(parsedLocation.city, parsedLocation.state)) {
+            return res.status(400).json(errorResponse('BAD_REQUEST', 'City and state must be provided together.', requestId));
+         }
+         // City-level locations store "City,State,Country Name"; country-only locations store a blank location
+         const formattedLocation = buildStoredLocation({
+            city: parsedLocation.city,
+            state: parsedLocation.state,
+            countryCode: locationCountry,
+         }).substring(0, 255);
+         const locationUpdate = { location: formattedLocation, country: locationCountry };
          const selectedKeywords: Keyword[] = await Keyword.findAll({ where: { ID: { [Op.in]: keywordIDs } } });
          const domains = [...new Set(selectedKeywords.map((el) => el.domain))];
          // Other tracked keywords on the same domains, so a change cannot create a duplicate

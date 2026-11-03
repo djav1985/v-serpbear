@@ -1,6 +1,5 @@
-import countries, { getGoogleDomain } from "../../utils/countries";
-import { resolveCountryCode } from "../../utils/scraperHelpers";
-import { parseLocation } from "../../utils/location";
+import { getGoogleDomain } from "../../utils/countries";
+import { resolveCountryCode, getKeywordLocationParts } from "../../utils/scraperHelpers";
 import { DEVICE_MOBILE } from "../../utils/constants";
 import { computeMapPackTop3 } from "../../utils/mapPack";
 
@@ -20,21 +19,10 @@ interface PrismCrawlResult {
   position?: { absolute?: number };
 }
 
-const buildLocation = (keyword: KeywordType, countryName?: string): string | undefined => {
-  const decodedLocation =
-    typeof keyword.location === "string"
-      ? decodeIfEncoded(keyword.location)
-      : keyword.location;
-  const { city, state } = parseLocation(decodedLocation, keyword.country);
-  const decodePart = (part?: string) =>
-    typeof part === "string" ? decodeIfEncoded(part) : undefined;
-  const locationParts = [decodePart(city), decodePart(state)]
-    .filter((part): part is string => Boolean(part));
-  if (locationParts.length && countryName) {
-    locationParts.push(countryName);
-  }
-  // Google canonical names are written without a space after each comma, e.g. "Port Charlotte,Florida,United States".
-  return locationParts.length ? locationParts.join(",") : undefined;
+// Stored location ("City,State,Country Name") as-is; undefined for country-only keywords
+const buildLocation = (keyword: KeywordType): string | undefined => {
+  const [location] = getKeywordLocationParts(keyword.location);
+  return location;
 };
 
 const prismcrawl: ScraperSettings = {
@@ -58,8 +46,6 @@ const prismcrawl: ScraperSettings = {
     pagination?: ScraperPagination,
   ) => {
     const country = resolveCountryCode(keyword.country);
-    const countryInfo = countries[country] ?? countries.US;
-    const countryName = countryInfo?.[0] ?? countries.US[0];
     const localeInfo =
       countryData[country] ?? countryData.US ?? Object.values(countryData)[0];
     const lang = localeInfo?.[2] ?? "en";
@@ -73,7 +59,7 @@ const prismcrawl: ScraperSettings = {
       google_domain: getGoogleDomain(country),
       start: p.start,
     };
-    const location = buildLocation(keyword, countryName);
+    const location = buildLocation(keyword);
     if (location) {
       body.location = location;
     }

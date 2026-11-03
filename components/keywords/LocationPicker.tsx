@@ -2,15 +2,17 @@ import { useState } from 'react';
 import Icon from '../common/Icon';
 import SelectField from '../common/SelectField';
 import countries from '../../utils/countries';
-import { formatLocation, hasValidCityStatePair } from '../../utils/location';
+import { buildStoredLocation, getLocationCountry, hasValidCityStatePair } from '../../utils/location';
 
 type LocationPickerProps = {
    existingLocations: string[],
    value: string,
-   onChange: (location: string) => void,
+   // Reports the stored location ("City,State,Country Name", or '' for country-only) and its country code
+   onChange: (location: string, country: string) => void,
    allowsCity: boolean,
    // Adds "Existing Locations" and "New Location" subheaders, matching the Add Keywords form labels
    sectionLabels?: boolean,
+   defaultCountry?: string,
 }
 
 const getDefaultCountry = (): string => {
@@ -27,12 +29,13 @@ const countryOptions = Object.keys(countries)
    .map((code) => ({ label: countries[code][0], value: code }));
 
 // Existing domain locations plus a "new location" form (city, state, country, Add).
-// Only one location is applied at a time: picking another option discards a newly added one.
-const LocationPicker = ({ existingLocations = [], value, onChange, allowsCity = false, sectionLabels = false }: LocationPickerProps) => {
+// City and state must be filled together or both left empty. Empty city and state means country-only,
+// which stores a blank location and keeps the chosen country in the country column.
+const LocationPicker = ({ existingLocations = [], value, onChange, allowsCity = false, sectionLabels = false, defaultCountry }: LocationPickerProps) => {
    const [newLocation, setNewLocation] = useState<string | null>(null);
    const [city, setCity] = useState('');
    const [state, setState] = useState('');
-   const [country, setCountry] = useState<string>(getDefaultCountry);
+   const [country, setCountry] = useState<string>(defaultCountry || getDefaultCountry);
    const [error, setError] = useState('');
 
    const locationValues = [
@@ -40,8 +43,14 @@ const LocationPicker = ({ existingLocations = [], value, onChange, allowsCity = 
       value,
       newLocation,
    ].filter((loc): loc is string => typeof loc === 'string' && loc !== '');
-   // A bare country code such as "US" is shown by its name, e.g. "United States"
-   const locationOptions = [...new Set(locationValues)].map((loc) => ({ label: countries[loc] ? countries[loc][0] : loc, value: loc }));
+   const locationOptions = [...new Set(locationValues)].map((loc) => ({ label: loc, value: loc }));
+
+   const pickExistingLocation = (selectedLocation: string) => {
+      const pickedCountry = getLocationCountry(selectedLocation) || country;
+      setNewLocation(null);
+      setCountry(pickedCountry);
+      onChange(selectedLocation, pickedCountry);
+   };
 
    const addNewLocation = () => {
       const trimmedCity = city.trim();
@@ -50,12 +59,12 @@ const LocationPicker = ({ existingLocations = [], value, onChange, allowsCity = 
          setError('City and state must be provided together.');
          return;
       }
-      const location = allowsCity
-         ? formatLocation({ city: trimmedCity, state: trimmedState, country })
-         : formatLocation({ country });
       setError('');
-      setNewLocation(location);
-      onChange(location);
+      const location = allowsCity && trimmedCity
+         ? buildStoredLocation({ city: trimmedCity, state: trimmedState, countryCode: country })
+         : '';
+      setNewLocation(location || null);
+      onChange(location, country);
       setCity('');
       setState('');
    };
@@ -66,14 +75,13 @@ const LocationPicker = ({ existingLocations = [], value, onChange, allowsCity = 
          <div className='[&_.selected]:py-2 [&_.selected]:px-4'>
             <SelectField
                multiple={false}
-               selected={[value]}
+               selected={value ? [value] : []}
                options={locationOptions}
                defaultLabel='Select a Location'
                updateField={(updated: string[]) => {
                   const selectedLocation = updated[0];
                   if (selectedLocation === undefined) { return; }
-                  setNewLocation(null);
-                  onChange(selectedLocation);
+                  pickExistingLocation(selectedLocation);
                }}
                rounded='rounded'
                maxHeight={48}

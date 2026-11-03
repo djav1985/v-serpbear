@@ -11,7 +11,7 @@ describe('serper scraper', () => {
     const keyword: Partial<KeywordType> = {
       keyword: 'plumber near me',
       country: 'US',
-      location: 'Austin,TX,US',
+      location: 'Austin,TX,United States',
     };
 
     const url = serper.scrapeURL!(

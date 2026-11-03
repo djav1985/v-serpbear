@@ -50,8 +50,8 @@ const NotificationSettings = ({ settings, settingsError, updateSettings }:Notifi
    };
 
    const sendNotificationsButtonClasses = [
-      'py-3 px-5 w-full rounded cursor-pointer bg-blue-600 text-white font-semibold text-sm transition-colors',
-      'flex items-center justify-center gap-2 hover:bg-blue-700',
+      'py-3 px-5 w-full rounded cursor-pointer bg-blue-700 text-white font-semibold text-sm transition-colors',
+      'flex items-center justify-center gap-2',
       'disabled:cursor-not-allowed disabled:bg-blue-300',
    ].join(' ');
 

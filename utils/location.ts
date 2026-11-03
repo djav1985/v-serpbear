@@ -72,14 +72,47 @@ export const parseLocation = (location?: string | null, fallbackCountry?: string
 };
 
 /**
+ * Country name for an ISO code, e.g. "US" -> "United States". Returns '' for unknown codes.
+ */
+export const getCountryName = (countryCode?: string | null): string => {
+   const code = normalize(countryCode);
+   return Array.isArray(countries[code]) ? countries[code][0] : '';
+};
+
+/**
+ * Reverse lookup of getCountryName, case-insensitive. Returns '' when no country has that name.
+ */
+export const getCountryCodeByName = (countryName?: string | null): string => {
+   const name = normalize(countryName).toLowerCase();
+   if (!name) { return ''; }
+   const code = Object.keys(countries).find((key) => Array.isArray(countries[key]) && countries[key][0].toLowerCase() === name);
+   return code || '';
+};
+
+/**
  * Returns the known ISO country code a location belongs to, or '' when there is none.
- * A bare code such as "US" is the whole location; otherwise the last part is the country.
+ * The last part may be a country code ("US") or a country name ("United States").
  */
 export const getLocationCountry = (location?: string | null): string => {
-   const trimmed = normalize(location);
-   if (!trimmed) { return ''; }
-   const candidate = trimmed.includes(',') ? parseLocation(trimmed).country || '' : trimmed;
-   return Array.isArray(countries[candidate]) ? candidate : '';
+   const parts = (normalize(location)).split(',').map((part) => normalize(part)).filter((part) => part.length > 0);
+   // A country is only read from the last part of a single value or a City,State,Country value.
+   // Two parts are City,State, so a state code such as GA is never taken as a country.
+   if (parts.length !== 1 && parts.length < 3) { return ''; }
+   const lastPart = parts[parts.length - 1] || '';
+   if (Array.isArray(countries[lastPart])) { return lastPart; }
+   return getCountryCodeByName(lastPart);
+};
+
+/**
+ * Stored keyword location: "City,State,Country Name" for city-level keywords.
+ * Country-only keywords store '' because their country lives in the country column.
+ * City and state must be given together, so a single one returns ''.
+ */
+export const buildStoredLocation = ({ city, state, countryCode }: { city?: string, state?: string, countryCode?: string }): string => {
+   const trimmedCity = normalize(city);
+   const trimmedState = normalize(state);
+   if (!trimmedCity || !trimmedState) { return ''; }
+   return formatLocation({ city: trimmedCity, state: trimmedState, country: getCountryName(countryCode) });
 };
 
 /**
@@ -94,21 +127,23 @@ export const hasValidCityStatePair = (city?: string, state?: string): boolean =>
 };
 
 
-// Country code by its English name, e.g. "united states" -> "US". Built once.
-const countryCodeByName = new Map<string, string>(
-   Object.keys(countries)
-      .filter((code) => Array.isArray(countries[code]))
-      .map((code) => [countries[code][0].toLowerCase(), code]),
-);
+/**
+ * A location with no comma that names a country (code or name) is country-only, e.g. "US" or "United States".
+ */
+export const isCountryOnlyLocation = (location?: string | null): boolean => {
+  const trimmed = normalize(location);
+  return trimmed !== '' && !trimmed.includes(',') && getLocationCountry(trimmed) !== '';
+};
 
 /**
- * Writes the country as its code, so "Austin,TX,United States" and "Austin,TX,US" are one location.
- * Only a whole country name in the last part is changed; other text is left as it is.
+ * City and state typed by a user. Unlike parseLocation, a single value stays a city, so a
+ * missing state can be rejected instead of being read as a country.
  */
-export const normalizeLocation = (location?: string | null): string => {
-   const parts = normalize(location).split(',').map((part) => part.trim()).filter((part) => part.length > 0);
-   if (parts.length === 0) { return ''; }
-   const code = countryCodeByName.get(parts[parts.length - 1].toLowerCase());
-   if (code) { parts[parts.length - 1] = code; }
-   return parts.join(',');
+export const parseCityState = (location?: string | null): { city: string, state: string } => {
+  const trimmed = normalize(location);
+  if (!trimmed || isCountryOnlyLocation(trimmed)) { return { city: '', state: '' }; }
+  const parts = trimmed.split(',').map((part) => normalize(part)).filter((part) => part.length > 0);
+  const cityAndState = parts.length >= 3 && getLocationCountry(trimmed) ? parts.slice(0, -1) : parts;
+  if (cityAndState.length === 1) { return { city: cityAndState[0], state: '' }; }
+  return { city: cityAndState.slice(0, -1).join(','), state: cityAndState[cityAndState.length - 1] };
 };

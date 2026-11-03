@@ -1,4 +1,4 @@
-import { formatLocation, getLocationCountry, normalizeLocation, parseLocation } from '../../utils/location';
+import { formatLocation, getLocationCountry, parseLocation } from '../../utils/location';
 
 describe('getLocationCountry', () => {
    it('returns the country of a full city, state, country location', () => {
@@ -34,23 +34,5 @@ describe('location formatting helpers', () => {
       const location = formatLocation({ city: 'Austin', state: 'TX', country: 'US' });
       expect(location).toBe('Austin,TX,US');
       expect(parseLocation(location)).toEqual({ city: 'Austin', state: 'TX', country: 'US' });
-   });
-});
-
-describe('normalizeLocation', () => {
-   it('writes a country name in the last part as its code', () => {
-      expect(normalizeLocation('Austin,TX,United States')).toBe('Austin,TX,US');
-      expect(normalizeLocation('london,england,united kingdom')).toBe('london,england,GB');
-   });
-
-   it('turns a bare country name into its code', () => {
-      expect(normalizeLocation('United States')).toBe('US');
-   });
-
-   it('leaves codes and other text as they are', () => {
-      expect(normalizeLocation('Austin,TX,US')).toBe('Austin,TX,US');
-      expect(normalizeLocation(' Austin , TX ')).toBe('Austin,TX');
-      expect(normalizeLocation('')).toBe('');
-      expect(normalizeLocation(null)).toBe('');
    });
 });

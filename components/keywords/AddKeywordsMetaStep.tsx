@@ -9,7 +9,7 @@ type AddKeywordsMetaStepProps = {
    existingLocations: string[],
    allowsCity: boolean,
    isAdding?: boolean,
-   onConfirm: (details: { tags: string[], location: string }) => void,
+   onConfirm: (details: { tags: string[], location: string, country: string }) => void,
    closeModal: () => void,
 }
 
@@ -28,8 +28,8 @@ const AddKeywordsMetaStep = ({
    closeModal,
 }: AddKeywordsMetaStepProps) => {
    const [tagInput, setTagInput] = useState('');
-   // Start on United States; each keyword is tracked in the chosen location
-   const [location, setLocation] = useState('US');
+   // Nothing is picked until the user chooses a location or adds a country-only choice
+   const [selection, setSelection] = useState<{ location: string, country: string } | null>(null);
 
    return (
       <Modal
@@ -46,13 +46,14 @@ const AddKeywordsMetaStep = ({
                placeholder='Insert Tags (Optional). eg: tag1, tag2'
             />
             <div className='mt-4'>
-               <LocationPicker
-                  existingLocations={existingLocations}
-                  value={location}
-                  onChange={setLocation}
-                  allowsCity={allowsCity}
-                  sectionLabels={true}
-               />
+            <LocationPicker
+               existingLocations={existingLocations}
+               value={selection?.location ?? ''}
+               onChange={(location, country) => setSelection({ location, country })}
+               allowsCity={allowsCity}
+               sectionLabels={true}
+               defaultCountry='US'
+            />
             </div>
             <div className='mt-6 text-right text-sm font-semibold flex justify-between'>
                <button
@@ -65,7 +66,7 @@ const AddKeywordsMetaStep = ({
                   type='button'
                   className=' py-2 px-5 min-w-[80px] text-center text-sm font-semibold rounded cursor-pointer bg-blue-700 text-white'
                   disabled={isAdding}
-                  onClick={() => onConfirm({ tags: parseTags(tagInput), location })}>
+                  onClick={() => onConfirm({ tags: parseTags(tagInput), location: selection?.location ?? '', country: selection?.country ?? '' })}>
                   {isAdding ? 'Adding....' : 'Track'}
                </button>
             </div>

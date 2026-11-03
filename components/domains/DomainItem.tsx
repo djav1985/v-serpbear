@@ -26,6 +26,25 @@ const formatCompactNumber = (value: number) => {
    return { numeric, unit };
 };
 
+type TrendBadgeProps = {
+   current: number,
+   previous?: number | null,
+   lowerIsBetter?: boolean,
+}
+
+const TrendBadge = ({ current, previous, lowerIsBetter = false }: TrendBadgeProps) => {
+   if (typeof previous !== 'number' || !Number.isFinite(previous) || current === previous) {
+      return null;
+   }
+   const isUp = current > previous;
+   const isGoodChange = lowerIsBetter ? !isUp : isUp;
+   return (
+      <span className={`ml-1 text-xs font-normal ${isGoodChange ? 'text-[#5ed7c3]' : 'text-red-300'}`}>
+         {isUp ? '▲' : '▼'}
+      </span>
+   );
+};
+
 type DomainItemProps = {
    domain: DomainType,
    selected: boolean,
@@ -142,13 +161,16 @@ const DomainItem = ({
                <div className='dom_stats flex flex-1 font-semibold text-2xl p-4 pt-5 rounded border border-[#E9EBFF] text-center'>
                   <div className="flex-1 relative">
                      <span className='block text-xs lg:text-sm text-gray-500 mb-1'>Keywords</span>{keywordsTracked}
+                     <TrendBadge current={keywordsTracked} previous={domain.prevKeywordsTracked} />
                   </div>
                   <div className="flex-1 relative">
                      <span className='block text-xs lg:text-sm text-gray-500 mb-1'>Avg position</span>{avgPosition}
+                     <TrendBadge current={avgPosition} previous={domain.prevAvgPosition} lowerIsBetter />
                   </div>
                   {showMapPackStat && (
                      <div className="flex-1 relative">
                         <span className='block text-xs lg:text-sm text-gray-500 mb-1'>Map Pack</span>{mapPackKeywords}
+                        <TrendBadge current={mapPackKeywords} previous={domain.prevMapPackKeywords} />
                      </div>
                   )}
                </div>
@@ -162,14 +184,17 @@ const DomainItem = ({
                      <div className="flex-1 relative">
                         <span className='block text-xs lg:text-sm text-gray-500 mb-1'>Visits</span>
                         {renderCompactMetric(scVisits)}
+                        <TrendBadge current={scVisits} previous={domain.scVisitsPrev} />
                      </div>
                      <div className="flex-1 relative">
                         <span className='block text-xs lg:text-sm text-gray-500 mb-1'>Impressions</span>
                         {renderCompactMetric(scImpressions)}
+                        <TrendBadge current={scImpressions} previous={domain.scImpressionsPrev} />
                      </div>
                      <div className="flex-1 relative">
                         <span className='block text-xs lg:text-sm text-gray-500 mb-1'>Avg position</span>
                         {scPosition}
+                        <TrendBadge current={scPosition} previous={domain.scPositionPrev} lowerIsBetter />
                      </div>
                   </div>
                </div>

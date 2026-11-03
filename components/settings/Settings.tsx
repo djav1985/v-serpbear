@@ -156,8 +156,9 @@ const Settings = forwardRef<HTMLDivElement, SettingsProps>(({ closeSettings }:Se
 
    return (
        <div ref={ref} className="settings fixed w-full h-dvh top-0 left-0 z-[9999]" onClick={closeOnBGClick}>
-            <div className="absolute w-full max-w-md bg-white customShadow top-0 right-0 h-dvh overflow-y-auto" data-loading={isLoading} >
+            <div className="absolute w-full max-w-md bg-white customShadow top-0 right-0 h-dvh flex flex-col" data-loading={isLoading} >
                {isLoading && <div className='absolute flex content-center items-center h-full'><Icon type="loading" size={24} /></div>}
+               <div className='flex-1 overflow-y-auto'>
                <div className='settings__header px-5 py-4 text-slate-500'>
                   <h3 className=' text-black text-lg font-bold'>Settings</h3>
                   <button
@@ -201,7 +202,8 @@ const Settings = forwardRef<HTMLDivElement, SettingsProps>(({ closeSettings }:Se
                   closeSettings={closeSettings}
                    />
                )}
-               <div className=' border-t-[1px] border-gray-200 p-2 px-3'>
+               </div>
+               <div className='border-t border-gray-200 px-6 py-4'>
                   <button
                   onClick={() => performUpdate()}
                   className=' py-3 px-5 w-full rounded cursor-pointer bg-blue-700 text-white font-semibold text-sm'>

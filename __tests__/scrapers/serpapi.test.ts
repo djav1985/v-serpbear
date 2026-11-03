@@ -7,7 +7,7 @@ describe('serpapi scraper', () => {
     const keyword: Partial<KeywordType> = {
       keyword: 'best coffee shops',
       country: 'US',
-      location: 'New York,NY,US',
+      location: 'New York,NY,United States',
     };
 
     const url = serpapi.scrapeURL!(keyword as KeywordType, settings as SettingsType, {} as any);

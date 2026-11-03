@@ -10,14 +10,17 @@ type ChangeLocationModalProps = {
    closeModal: () => void,
 }
 
+type LocationSelection = { location: string, country: string };
+
 // Bulk "Change Location" for the selected tracked keywords, following the AddTags modal layout
 const ChangeLocationModal = ({ keywords = [], existingLocations = [], allowsCity = false, closeModal }: ChangeLocationModalProps) => {
-   const [location, setLocation] = useState('');
+   // A country-only choice has a blank location, so the selection itself decides whether Apply is enabled
+   const [selection, setSelection] = useState<LocationSelection | null>(null);
    const { mutate: updateLocation, isLoading } = useUpdateKeywordLocation(() => closeModal());
 
    const applyLocation = () => {
-      if (keywords.length === 0 || !location) { return; }
-      updateLocation({ keywordIDs: keywords.map((keyword) => keyword.ID), location });
+      if (keywords.length === 0 || !selection) { return; }
+      updateLocation({ keywordIDs: keywords.map((keyword) => keyword.ID), location: selection.location, country: selection.country });
    };
 
    return (
@@ -29,8 +32,8 @@ const ChangeLocationModal = ({ keywords = [], existingLocations = [], allowsCity
          <div data-testid="change_location_modal">
             <LocationPicker
                existingLocations={existingLocations}
-               value={location}
-               onChange={setLocation}
+               value={selection?.location ?? ''}
+               onChange={(location, country) => setSelection({ location, country })}
                allowsCity={allowsCity}
                sectionLabels={true}
             />
@@ -43,8 +46,8 @@ const ChangeLocationModal = ({ keywords = [], existingLocations = [], allowsCity
                </button>
                <button
                   type='button'
-                  className={`py-2 px-5 min-w-[80px] text-center rounded cursor-pointer bg-blue-700 text-white ${!location ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  disabled={!location || isLoading}
+                  className={`py-2 px-5 min-w-[80px] text-center rounded cursor-pointer bg-blue-700 text-white ${!selection ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  disabled={!selection || isLoading}
                   onClick={applyLocation}>
                   {isLoading ? 'Applying....' : 'Apply'}
                </button>

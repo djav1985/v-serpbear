@@ -1,4 +1,4 @@
-import { formatLocation, getLocationCountry, normalizeLocation } from './location';
+import { getLocationCountry } from './location';
 
 export type TrackerDevice = 'desktop' | 'mobile';
 
@@ -13,6 +13,8 @@ type BuildAddPayloadOptions = {
    devices: TrackerDevice[],
    tags: string[],
    location: string,
+   // Country picked for a country-only location (blank location); falls back to each item's country
+   country?: string,
 }
 
 // Whether the scraper selected in settings supports city-level locations
@@ -28,21 +30,21 @@ export const getDomainTags = (keywords: KeywordType[] = []): string[] => {
 
 // Unique, non-empty locations used by a domain's keywords
 export const getDomainLocations = (keywords: KeywordType[] = []): string[] => {
-   const allLocations = keywords.map((keyword) => normalizeLocation(keyword.location)).filter((location) => location !== '');
+   const allLocations = keywords.map((keyword) => (keyword.location || '').trim()).filter((location) => location !== '');
    return [...new Set(allLocations)].sort();
 };
 
 // One payload row per item per chosen device, sharing the chosen tags.
-// An empty location means "each keyword's own country", matching the previous default.
-// A chosen location sets the keyword's country too, because scrapers search in that country's market.
-export const buildKeywordAddPayloads = ({ items, domain, devices, tags, location }: BuildAddPayloadOptions): KeywordAddPayload[] => (
+// The location is stored as given ("City,State,Country Name", or '' for country-only). The keyword's
+// country is the location's country when there is one, otherwise the picked country, otherwise the item's own.
+export const buildKeywordAddPayloads = ({ items, domain, devices, tags, location, country = '' }: BuildAddPayloadOptions): KeywordAddPayload[] => (
    items.flatMap((item) => devices.map((device) => ({
       keyword: item.keyword,
       device,
-      country: getLocationCountry(location) || item.country,
+      country: getLocationCountry(location) || country || item.country,
       domain,
       tags: tags.join(', '),
-      location: location || formatLocation({ country: item.country }),
+      location,
    })))
 );
 

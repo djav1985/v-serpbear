@@ -102,4 +102,60 @@ describe('DomainItem Component', () => {
       const toggle = screen.getByLabelText('Toggle domain active status') as HTMLInputElement;
       expect(toggle.checked).toBe(false);
    });
+
+   describe('trend triangles', () => {
+      it('shows a green up triangle when keywords increased since the last refresh', () => {
+         render(<DomainItem {...defaultProps} domain={{ ...dummyDomain, keywordsTracked: 10, prevKeywordsTracked: 8 }} />);
+
+         const triangle = screen.getByText('▲');
+         expect(triangle).toHaveClass('text-[#5ed7c3]');
+      });
+
+      it('shows a red down triangle when keywords decreased since the last refresh', () => {
+         render(<DomainItem {...defaultProps} domain={{ ...dummyDomain, keywordsTracked: 8, prevKeywordsTracked: 10 }} />);
+
+         const triangle = screen.getByText('▼');
+         expect(triangle).toHaveClass('text-red-300');
+      });
+
+      it('shows a green down triangle when avg position improved (lower is better)', () => {
+         render(<DomainItem {...defaultProps} domain={{ ...dummyDomain, avgPosition: 8, prevAvgPosition: 10 }} />);
+
+         const triangle = screen.getByText('▼');
+         expect(triangle).toHaveClass('text-[#5ed7c3]');
+      });
+
+      it('shows a red up triangle when avg position got worse (lower is better)', () => {
+         render(<DomainItem {...defaultProps} domain={{ ...dummyDomain, avgPosition: 12, prevAvgPosition: 10 }} />);
+
+         const triangle = screen.getByText('▲');
+         expect(triangle).toHaveClass('text-red-300');
+      });
+
+      it('shows a triangle for Search Console visits compared with the previous 7 days', () => {
+         render(
+            <DomainItem
+               {...defaultProps}
+               isConsoleIntegrated={true}
+               domain={{ ...dummyDomain, scVisits: 4, scVisitsPrev: 9 }}
+            />
+         );
+
+         expect(screen.getByText('▼')).toHaveClass('text-red-300');
+      });
+
+      it('shows no triangle when there is no baseline (null previous value)', () => {
+         render(<DomainItem {...defaultProps} domain={{ ...dummyDomain, keywordsTracked: 10, prevKeywordsTracked: null }} />);
+
+         expect(screen.queryByText('▲')).not.toBeInTheDocument();
+         expect(screen.queryByText('▼')).not.toBeInTheDocument();
+      });
+
+      it('shows no triangle when the value is unchanged', () => {
+         render(<DomainItem {...defaultProps} domain={{ ...dummyDomain, keywordsTracked: 10, prevKeywordsTracked: 10 }} />);
+
+         expect(screen.queryByText('▲')).not.toBeInTheDocument();
+         expect(screen.queryByText('▼')).not.toBeInTheDocument();
+      });
+   });
 });

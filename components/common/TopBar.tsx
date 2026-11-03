@@ -33,29 +33,30 @@ const TopBar = ({ showSettings, showAddModal }:TopbarProps) => {
 
    return (
       <div
-         className={`topbar desktop-container flex items-center justify-between
-       ${isDomainsPage ? 'lg:justify-between' : 'lg:justify-end'} bg-white lg:bg-transparent`}
+         className='topbar desktop-container flex items-center justify-between bg-white lg:bg-transparent'
       >
 
-         <h3
-            className={`flex items-center gap-3 p-4 text-base font-bold text-blue-700 ${isDomainsPage ? 'lg:pl-0' : 'lg:hidden'}`}
-         >
-            <BrandTitle
-               className="text-base font-bold text-blue-700"
-               markSize={64}
-               markClassName="mr-2"
-            />
-            <button className='px-3 py-1 font-bold text-blue-700 lg:hidden text-lg' onClick={() => showAddModal()}>+</button>
-         </h3>
-         {!isDomainsPage && router.asPath !== '/research' && (
-            <Link
-               href={'/domains'}
-               className='topbar__back top-4 px-2 py-1 cursor-pointer bg-[#ecf2ff] hover:bg-indigo-100 transition-all
-               lg:top-4 lg:px-3 lg:py-2 rounded-full'
+         <div className='flex items-center gap-2 h-16'>
+            <h3
+               className={`flex items-center gap-3 p-4 text-base font-bold text-blue-700 ${isDomainsPage ? 'lg:pl-0' : 'lg:hidden'}`}
             >
-               <Icon type="caret-left" size={16} title="Go Back" />
-            </Link>
-         )}
+               <BrandTitle
+                  className="text-base font-bold text-blue-700"
+                  markSize={64}
+                  markClassName="mr-2"
+               />
+               <button className='px-3 py-1 font-bold text-blue-700 lg:hidden text-lg' onClick={() => showAddModal()}>+</button>
+            </h3>
+            {!isDomainsPage && router.asPath !== '/research' && (
+               <Link
+                  href={'/domains'}
+                  className='topbar__back px-2 py-1 cursor-pointer bg-[#ecf2ff] hover:bg-indigo-100 transition-all
+                  lg:px-3 lg:py-2 rounded-full'
+               >
+                  <Icon type="caret-left" size={16} title="Go Back" />
+               </Link>
+            )}
+         </div>
          <div className="topbar__right">
             <button className={' lg:hidden p-3'} onClick={() => setShowMobileMenu(!showMobileMenu)}>
                <Icon type="hamburger" size={24} />

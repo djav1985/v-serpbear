@@ -157,15 +157,16 @@ const IdeasKeywordsTable = ({
       if (addKeywordDevices.length > 0) { setShowAddStep(true); }
    };
 
-   const submitIdeasToTracker = ({ tags, location }: { tags: string[], location: string }) => {
+   const submitIdeasToTracker = ({ tags, location, country }: { tags: string[], location: string, country: string }) => {
       const targetDomain = isResearchPage ? addKeywordDomain : (domain?.domain || '');
       const selectedUntrackedKeywords = getSelectedUntrackedKeywords(finalKeywords, selectedKeywords);
       const { payloads, skipped } = splitAlreadyTracked(buildKeywordAddPayloads({
-         items: selectedUntrackedKeywords.map(({ keyword, country }) => ({ keyword, country })),
+         items: selectedUntrackedKeywords.map(({ keyword, country: itemCountry }) => ({ keyword, country: itemCountry })),
          domain: targetDomain,
          devices: addKeywordDevices,
          tags,
          location,
+         country,
       }), trackedKeywordLookup);
       addKeywords({ payloads, skipped });
       setSelectedKeywords([]);

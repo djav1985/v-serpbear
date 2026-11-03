@@ -91,6 +91,19 @@ const getdomainStats = async (domains:DomainType[]): Promise<DomainType[]> => {
             domainWithStat.scVisits = totalStats.clicks;
             domainWithStat.scImpressions = totalStats.impressions;
             domainWithStat.scPosition = lastSevenStats.length > 0 ? Math.round(totalStats.position / lastSevenStats.length) : 0;
+
+            // Compare against the 7 days before the current window, only when that window is complete
+            const previousSevenStats = localSCData.stats.slice(-days * 2, -days);
+            if (previousSevenStats.length === days) {
+               const previousTotals = previousSevenStats.reduce((acc, item) => ({
+                  impressions: item.impressions + acc.impressions,
+                  clicks: item.clicks + acc.clicks,
+                  position: item.position + acc.position,
+               }), { impressions: 0, clicks: 0, position: 0 });
+               domainWithStat.scVisitsPrev = previousTotals.clicks;
+               domainWithStat.scImpressionsPrev = previousTotals.impressions;
+               domainWithStat.scPositionPrev = Math.round(previousTotals.position / days);
+            }
          }
       }
 
