@@ -27,9 +27,22 @@ export const matchesSearch = (keyword: string, search: string): boolean => {
    return normalizedKeyword.includes(normalizedSearch);
 };
 
-export const matchesTags = (keywordTags: string[], tags: string[]): boolean => (
-   tags.length === 0 || tags.some((tag) => keywordTags.includes(tag))
-);
+// Sentinel value the tag filter uses for "keywords that have no tags".
+export const NO_TAGS_FILTER = '__no_tags__';
+
+export const matchesTags = (keywordTags: string[], tags: string[]): boolean => {
+   if (tags.length === 0) { return true; }
+   if (keywordTags.length === 0) { return tags.includes(NO_TAGS_FILTER); }
+   return tags.some((tag) => keywordTags.includes(tag));
+};
+
+// "No Tags" cannot be combined with specific tags. Picking it clears the other selections,
+// and picking a specific tag while it is selected removes it.
+export const resolveTagSelection = (previous: string[], next: string[]): string[] => {
+   const newlyAdded = next.filter((tag) => !previous.includes(tag));
+   if (newlyAdded.includes(NO_TAGS_FILTER)) { return [NO_TAGS_FILTER]; }
+   return next.filter((tag) => tag !== NO_TAGS_FILTER);
+};
 
 export const filterByDevice = <T extends { device: string }>(items: T[], device: string): {[key: string]: T[] } => {
    const deviceKeywords: {[key:string] : T[]} = { desktop: [], mobile: [] };

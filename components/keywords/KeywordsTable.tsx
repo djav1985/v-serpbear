@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
-import { filterKeywords, keywordsByDevice, sortKeywords } from '../../utils/client/sortFilter';
+import { filterKeywords, keywordsByDevice, NO_TAGS_FILTER, sortKeywords } from '../../utils/client/sortFilter';
 import Icon from '../common/Icon';
 import SpinnerMessage from '../common/SpinnerMessage';
 import Keyword from './Keyword';
@@ -87,7 +87,7 @@ const KeywordsTable = (props: KeywordsTableProps) => {
    useEffect(() => {
       setFilterParams((prev) => {
          if (prev.tags.length === 0) { return prev; }
-         const validTags = prev.tags.filter((tag) => allDomainTags.includes(tag));
+         const validTags = prev.tags.filter((tag) => tag === NO_TAGS_FILTER || allDomainTags.includes(tag));
          if (validTags.length === prev.tags.length) { return prev; }
          return { ...prev, tags: validTags };
       });
