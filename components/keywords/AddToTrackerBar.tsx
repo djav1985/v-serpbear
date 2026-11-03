@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { TrackerDevice } from '../../utils/keywordMeta';
 
 type AddToTrackerBarProps = {
-   label: string,
+   label?: string,
    devices: TrackerDevice[],
    setDevices: (devices: TrackerDevice[]) => void,
    onAdd: () => void,
@@ -19,7 +19,7 @@ const deviceOptions: { value: TrackerDevice, label: string }[] = [
    { value: 'mobile', label: 'Mobile' },
 ];
 
-// Shared "Add Keywords to Tracker" bar. Every control uses the same size so the row reads as one design.
+// Shared add-to-tracker bar. Every control uses the same size so the row reads as one design.
 const AddToTrackerBar = ({
    label,
    devices,
@@ -37,7 +37,7 @@ const AddToTrackerBar = ({
 
    return (
       <div className='flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center'>
-         <span className='text-gray-600 font-semibold sm:mr-2'>{label}</span>
+         {label && <span className='text-gray-600 font-semibold sm:mr-2'>{label}</span>}
          {children}
          <div className='flex gap-2 sm:flex-none'>
             {deviceOptions.map(({ value, label: deviceLabel }) => {

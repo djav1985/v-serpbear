@@ -183,7 +183,7 @@ describe('KeywordIdeasTable DRY Principle Implementation', () => {
       await waitFor(() => {
          expect(untrackedRow).toHaveClass('keyword--selected');
       });
-      expect(await screen.findByText('Add Keywords to Tracker')).toBeInTheDocument();
+      expect(await screen.findByRole('button', { name: /Add Keywords/ })).toBeInTheDocument();
 
       const emailButton = screen.getByRole('button', { name: 'Email Keywords' });
       expect(emailButton).toBeInTheDocument();

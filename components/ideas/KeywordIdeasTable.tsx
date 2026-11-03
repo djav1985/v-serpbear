@@ -199,7 +199,7 @@ const IdeasKeywordsTable = ({
    const isDomainSelectionRequired = isResearchPage && !addKeywordDomain;
    const addButtonDisabled = isDomainSelectionRequired;
    const emailButtonDisabled = isEmailing;
-   const selectionBannerText = isResearchPage ? 'Select Domain For Action' : 'Add Keywords to Tracker';
+   const selectionBannerText = isResearchPage ? 'Select Domain For Action' : '';
 
    const Row = ({ data, index, style }:ListChildComponentProps) => {
       const keyword: IdeaKeywordWithTracking = data[index];

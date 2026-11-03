@@ -171,7 +171,6 @@ const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleInt
             {selectedKeywords.length > 0 && (
                <div className='font-semibold text-sm py-4 px-8 text-gray-500 '>
                   <AddToTrackerBar
-                     label='Add Keywords to Tracker'
                      devices={addDevices}
                      setDevices={setAddDevices}
                      onAdd={openAddStep}
