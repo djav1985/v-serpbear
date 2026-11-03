@@ -31,7 +31,7 @@ describe('AddKeywordsMetaStep', () => {
       );
 
       fireEvent.change(screen.getByPlaceholderText('Insert Tags (Optional). eg: tag1, tag2'), { target: { value: 'seo, , content ' } });
-      fireEvent.click(screen.getAllByRole('button', { name: 'Add' }).at(-1) as HTMLElement);
+      fireEvent.click(screen.getByRole('button', { name: 'Track' }));
 
       expect(onConfirm).toHaveBeenCalledWith({ tags: ['seo', 'content'], location: 'US' });
    });
@@ -70,7 +70,7 @@ describe('AddKeywordsMetaStep', () => {
       fireEvent.change(screen.getByPlaceholderText(/City \(Optional/), { target: { value: 'Austin' } });
       fireEvent.change(screen.getByPlaceholderText(/State \(Optional/), { target: { value: 'TX' } });
       fireEvent.click(screen.getAllByRole('button', { name: 'Add' }).at(0) as HTMLElement);
-      fireEvent.click(screen.getAllByRole('button', { name: 'Add' }).at(-1) as HTMLElement);
+      fireEvent.click(screen.getByRole('button', { name: 'Track' }));
 
       expect(onConfirm).toHaveBeenCalledWith({ tags: [], location: 'Austin,TX,US' });
    });
@@ -137,7 +137,7 @@ describe('AddToTrackerBar', () => {
          />,
       );
 
-      expect(screen.getByRole('button', { name: '+ Add Keywords' })).toHaveAttribute('aria-disabled', 'true');
+      expect(screen.getByRole('button', { name: '+ Track' })).toHaveAttribute('aria-disabled', 'true');
    });
 });
 

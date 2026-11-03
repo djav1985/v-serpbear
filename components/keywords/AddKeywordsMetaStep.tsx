@@ -35,7 +35,7 @@ const AddKeywordsMetaStep = ({
       <Modal
          closeModal={closeModal}
          title={`Add ${selectedCount} Keyword${selectedCount > 1 ? 's' : ''} to Tracker`}
-         width="[420px]"
+         width="[340px]"
       >
          <div data-testid="add_meta_step">
             <p className='text-sm font-semibold text-gray-500 mb-1'>Tags</p>
@@ -64,7 +64,7 @@ const AddKeywordsMetaStep = ({
                   className=' py-2 px-5 min-w-[80px] text-center text-sm font-semibold rounded cursor-pointer bg-blue-700 text-white'
                   disabled={isAdding}
                   onClick={() => onConfirm({ tags: parseTags(tagInput), location })}>
-                  {isAdding ? 'Adding....' : 'Add'}
+                  {isAdding ? 'Adding....' : 'Track'}
                </button>
             </div>
          </div>
