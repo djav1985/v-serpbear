@@ -45,6 +45,18 @@ class Domain extends Model {
    @Column({ type: DataType.INTEGER, allowNull: true, defaultValue: 0 })
    declare mapPackKeywords: number;
 
+   @Column({ type: DataType.INTEGER, allowNull: true, defaultValue: 0 })
+   declare keywordsTracked: number;
+
+   @Column({ type: DataType.INTEGER, allowNull: true, defaultValue: null })
+   declare prevKeywordsTracked: number | null;
+
+   @Column({ type: DataType.INTEGER, allowNull: true, defaultValue: null })
+   declare prevAvgPosition: number | null;
+
+   @Column({ type: DataType.INTEGER, allowNull: true, defaultValue: null })
+   declare prevMapPackKeywords: number | null;
+
    @Column({ type: DataType.TEXT, allowNull: true, defaultValue: null })
    declare scraper_settings: string | null;
 

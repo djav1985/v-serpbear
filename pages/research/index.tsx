@@ -70,7 +70,7 @@ const Research: NextPage = () => {
             <title>Research Keywords - {platformName}</title>
          </Head>
          <TopBar showSettings={() => setShowSettings(true)} showAddModal={() => null } />
-         <div className="desktop-container lg:flex lg:flex-row">
+         <div className="flex flex-col desktop-container gap-6 lg:flex-row lg:gap-10">
             <div className="sidebar w-full p-6 lg:pt-44 lg:w-1/5 lg:block lg:pr-0" data-testid="sidebar">
                <h3 className="hidden py-7 text-base font-bold text-blue-700 lg:block">
                   <BrandTitle />
@@ -122,7 +122,7 @@ const Research: NextPage = () => {
                   </button>
                </div>
             </div>
-            <div className="domain_kewywords px-5 lg:px-0 lg:pt-8 w-full">
+            <div className="domain_kewywords w-full lg:pt-8">
                <div className='domain_kewywords_head w-full '>
                   <div className=' flex mt-12 mb-0 justify-between'>
                      <h1 className=" font-bold mb-0 mt-0 pt-2 lg:text-xl lg:mb-6" data-testid="domain-header">Research Keywords</h1>
