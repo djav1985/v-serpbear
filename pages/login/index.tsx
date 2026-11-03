@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useQueryClient } from 'react-query';
 import { BrandTitle } from '../../components/common/Branding';
 import { useBranding } from '../../hooks/useBranding';
-import { AUTH_QUERY_KEY } from '../../hooks/useAuth';
+import { AUTH_QUERY_KEY, type AuthStatus } from '../../hooks/useAuth';
 import { apiPost, ApiError } from '../../utils/client/apiClient';
 
 type LoginError = {
@@ -39,8 +39,9 @@ const Login: NextPage = () => {
       } else {
          try {
             await apiPost<{ success: boolean }>('/api/login', { username, password });
-            // Invalidate the cached auth state so protected pages see the fresh authenticated result
-            await queryClient.invalidateQueries(AUTH_QUERY_KEY);
+            // Write the authenticated state straight into the cache. A cached "logged out" entry
+            // from before login would otherwise bounce the next protected page back to /login.
+            queryClient.setQueryData<AuthStatus>(AUTH_QUERY_KEY, { isAuthenticated: true, isLoading: false });
             router.push('/');
          } catch (err) {
             const msg = err instanceof ApiError
