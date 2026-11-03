@@ -138,7 +138,11 @@ const Settings = forwardRef<HTMLDivElement, SettingsProps>(({ closeSettings }:Se
       } else {
          // Perform Update
          const previousScraperType = appSettings?.settings?.scraper_type;
-         await updateMutateAsync(sanitizedSettings);
+         // The refresh token is written by the Google OAuth callback on the server. Sending this page's copy
+         // back could overwrite a newer token (for example right after re-authorising) with a stale one,
+         // so it is left out and the server keeps the stored token.
+         const { adwords_refresh_token: _storedRefreshToken, ...settingsToSave } = sanitizedSettings;
+         await updateMutateAsync(settingsToSave as SettingsType);
          // If Scraper is updated, refresh the page when enabling from a disabled state.
          if (previousScraperType === 'none' && scraper_type !== 'none') {
             window.location.reload();

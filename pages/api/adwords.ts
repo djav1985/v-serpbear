@@ -267,7 +267,10 @@ const validateAdwordsIntegration = async (req: NextApiRequest, res: NextApiRespo
       return res.status(200).json({ valid: true });
    } catch (error) {
       logger.error('Validating Google Ads Integration: ', error instanceof Error ? error : new Error(String(error)));
-      return res.status(400).json(errorResponse('BAD_REQUEST', errMsg, requestId));
+      // Show the reason (for example a rejected developer token or account) so the user knows what to fix.
+      // The messages come from our own checks or Google's API error text, never from the stored secrets.
+      const reason = error instanceof Error && error.message ? error.message : '';
+      return res.status(400).json(errorResponse('BAD_REQUEST', reason ? `${errMsg} Reason: ${reason}` : errMsg, requestId));
    }
 };
 
