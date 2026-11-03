@@ -75,7 +75,7 @@ describe('AddKeywordsMetaStep', () => {
       expect(onConfirm).toHaveBeenCalledWith({ tags: [], location: 'Austin,TX,US' });
    });
 
-   it('labels the location as existing locations with an add location section', () => {
+   it('labels the location as existing locations with a new location section', () => {
       render(
          <AddKeywordsMetaStep
             selectedCount={1}
@@ -88,7 +88,7 @@ describe('AddKeywordsMetaStep', () => {
       );
 
       expect(screen.getByText('Existing Locations')).toBeInTheDocument();
-      expect(screen.getByText('Add Location')).toBeInTheDocument();
+      expect(screen.getByText('New Location')).toBeInTheDocument();
       expect(screen.queryByText('Location')).not.toBeInTheDocument();
    });
 

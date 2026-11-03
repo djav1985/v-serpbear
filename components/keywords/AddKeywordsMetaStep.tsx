@@ -52,7 +52,6 @@ const AddKeywordsMetaStep = ({
                   onChange={setLocation}
                   allowsCity={allowsCity}
                   sectionLabels={true}
-                  newLocationLabel='Add Location'
                />
             </div>
             <div className='mt-6 text-right text-sm font-semibold flex justify-between'>
