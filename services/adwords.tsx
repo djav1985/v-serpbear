@@ -20,7 +20,7 @@ export function useTestAdwordsIntegration(onSuccess?: (show?: boolean) => void) 
 }
 
 export async function fetchAdwordsKeywordIdeas(router: NextRouter, domainSlug: string) {
-   return apiGet<{ data: { keywords: IdeaKeyword[], favorites: IdeaKeyword[], settings: DomainIdeasSettings } }>(`/api/ideas?domain=${domainSlug}`, router);
+   return apiGet<{ data: { keywords: IdeaKeyword[], favorites: IdeaKeyword[], settings: DomainIdeasSettings } }>(`/api/ideas?domain=${encodeURIComponent(domainSlug)}`, router);
 }
 
 // React hook; should be used within a React component or another hook

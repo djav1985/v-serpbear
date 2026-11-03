@@ -58,6 +58,10 @@ const updateKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => 
       seedType,
    } = req.body;
 
+   if (!Array.isArray(keywords)) {
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'keywords must be a list.', requestId));
+   }
+
    logger.debug('updateKeywordIdeas called', {
       keywordsCount: keywords.length,
       country,

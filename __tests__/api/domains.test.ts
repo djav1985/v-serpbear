@@ -155,6 +155,7 @@ describe('POST /api/domains', () => {
       { get: jest.fn().mockReturnValue({ domain: 'sub.domain.com', slug: 'sub-domain-com', scrapeEnabled: 1 }) },
     ];
 
+    DomainMock.findAll.mockResolvedValue([]);
     DomainMock.bulkCreate.mockResolvedValue(bulkCreateResult);
 
     const req = {
@@ -647,6 +648,7 @@ describe('DELETE /api/domains', () => {
 
   it('returns 404 when the target domain is missing', async () => {
     DomainMock.findOne.mockResolvedValue(null);
+    KeywordMock.findAll.mockResolvedValueOnce([]);
     const res = createMockResponse(); await handler(request('missing.example.com'), res);
     expect(DomainMock.destroy).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(404);
@@ -680,6 +682,9 @@ describe('DELETE /api/domains', () => {
     expect(first.json).toHaveBeenCalledWith(expect.objectContaining({ cleanup: { complete: false, failed: ['retryQueue', 'searchConsole'], retryPending: true } }));
 
     DomainMock.findOne.mockResolvedValue(null);
+    KeywordMock.findAll.mockResolvedValueOnce([]);
+    KeywordMock.destroy.mockResolvedValueOnce(0);
+    DomainMock.destroy.mockResolvedValueOnce(0);
     const second = createMockResponse(); await handler(request('retry.example'), second);
     expect(second.status).toHaveBeenCalledWith(200);
     expect(second.json).toHaveBeenCalledWith(expect.objectContaining({ domainRemoved: 0, keywordsRemoved: 0, cleanup: { complete: true, failed: [], retryPending: false } }));

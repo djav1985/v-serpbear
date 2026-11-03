@@ -1,6 +1,7 @@
 /// <reference path="../../types.d.ts" />
 
 import type { NextApiRequest, NextApiResponse } from 'next';
+import crypto from 'crypto';
 import { Op } from 'sequelize';
 import Keyword from '../../database/models/keyword';
 import refreshAndUpdateKeywords, { clearKeywordUpdatingFlags, markKeywordsAsUpdating, partitionKeywordsByDomainStatus } from '../../utils/refresh';

@@ -135,8 +135,8 @@ const generateEmail = async (domain:DomainType, keywords:KeywordType[], settings
 
       const positionChange = getPositionChange(keyword.history, keyword.position);
       const deviceIconImg = keyword.device === 'desktop' ? desktopIcon : mobileIcon;
-      const countryFlag = `<img class="flag" src="https://flagcdn.com/w20/${keyword.country.toLowerCase()}.png" alt="${keyword.country}" title="${keyword.country}" />`;
-      const deviceIcon = `<img class="device" src="${deviceIconImg}" alt="${keyword.device}" title="${keyword.device}" width="18" height="18" />`;
+      const countryFlag = `<img class="flag" src="https://flagcdn.com/w20/${escapeHtml(keyword.country.toLowerCase())}.png" alt="${escapeHtml(keyword.country)}" title="${escapeHtml(keyword.country)}" />`;
+      const deviceIcon = `<img class="device" src="${deviceIconImg}" alt="${escapeHtml(keyword.device)}" title="${escapeHtml(keyword.device)}" width="18" height="18" />`;
       const mapPackFlag = normalizeMapPackTop3(keyword.mapPackTop3)
          ? `<span class="map-pack-flag" role="img" aria-label="Map pack top three">MP</span>`
          : '';
@@ -307,7 +307,7 @@ export const generateGoogleConsoleStats = async (domain:DomainType): Promise<str
       let htmlWithSCStats = `<table role="presentation" border="0" cellpadding="0" cellspacing="0" class="console_table">
                               <tr>
                                  <td style="font-weight:bold;">
-                                 <img class="google_icon" src="${googleIcon}" alt="Google" width="13" height="13"> Google Search Console Stats</h3>
+                                 <img class="google_icon" src="${googleIcon}" alt="Google" width="13" height="13"> Google Search Console Stats
                                  </td>
                                  <td class="stat" align="right" style="font-size: 12px;">
                                  ${startDate.getDate()} ${months[startDate.getMonth()]} -  ${endDate.getDate()} ${months[endDate.getMonth()]} 
@@ -323,7 +323,7 @@ export const generateGoogleConsoleStats = async (domain:DomainType): Promise<str
          const scItemFirstColName = itemKey === 'stats' ? 'Date' : `${itemKey[0].toUpperCase()}${itemKey.slice(1)}`;
          htmlWithSCStats += `<table role="presentation" border="0" cellpadding="0" cellspacing="0" class="subhead">
                                  <tr>
-                                    <td style="font-weight:bold;">${scItem.label}</h3></td>
+                                    <td style="font-weight:bold;">${scItem.label}</td>
                                     ${scItem.clicks && scItem.impressions ? (
                                        `<td class="stat" align="right">
                                           <strong>${scItem.clicks}</strong> Clicks | <strong>${scItem.impressions}</strong> Views

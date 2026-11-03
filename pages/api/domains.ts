@@ -28,6 +28,7 @@ import { atomicWriteFile } from '../../utils/atomicWrite';
 
 // Sent in place of a saved Search Console credential: GET responses mask it, and a save that sends it back keeps the stored value
 const SC_CREDENTIAL_MARKER = 'true';
+const NOTIFICATION_INTERVALS = ['daily', 'weekly', 'monthly', 'never'];
 const TRUTHY = new Set(['true', '1', 'on', 'yes']);
 const FALSY = new Set(['false', '0', 'off', 'no']);
 const DOMAIN_CLEANUP_RETRY_FILE = `${process.cwd()}/data/domain_cleanup_retry.json`;
@@ -190,6 +191,12 @@ const addDomain = async (req: NextApiRequest, res: NextApiResponse) => {
       }
 
       try {
+         const existingDomains: Domain[] = await Domain.findAll({ where: { domain: domainsToAdd.map((item: { domain: string }) => item.domain) }, attributes: ['domain'] });
+         if (existingDomains.length > 0) {
+            const alreadyTracked = existingDomains.map((domain) => domain.get({ plain: true }).domain);
+            return res.status(409).json(errorResponse('CONFLICT', `Already tracked: ${alreadyTracked.join(', ')}`, requestId));
+         }
+
          const newDomains:Domain[] = await Domain.bulkCreate(domainsToAdd);
          const formattedDomains = newDomains.map((el) => normalizeDomainBooleans(el.get({ plain: true }) as DomainType));
          return res.status(201).json({ domains: formattedDomains });
@@ -235,29 +242,25 @@ export const deleteDomain = async (req: NextApiRequest, res: NextApiResponse) =>
                   const pendingCleanupMap = await readPendingCleanupMap();
                   const pendingKeywordIds = pendingCleanupMap.get(normalizedDomain);
                   const domainToRemove = await Domain.findOne({ where: { domain: normalizedDomain }, attributes: ['ID'] });
-                  if (!domainToRemove && !pendingKeywordIds) {
+                  // Keywords are looked up by domain even when the Domain row is gone, so no keyword is left orphaned
+                  const keywordsToRemove = await Keyword.findAll({ where: { domain: normalizedDomain }, attributes: ['ID'] });
+                  if (!domainToRemove && keywordsToRemove.length === 0 && !pendingKeywordIds) {
                      responsePayload = { status: 404, body: errorResponse('NOT_FOUND', 'Domain not found', requestId) };
                      resolve();
                      return;
                   }
-
-                  const keywordsToRemove = domainToRemove
-                     ? await Keyword.findAll({ where: { domain: normalizedDomain }, attributes: ['ID'] })
-                     : [];
                   const keywordIdsToRemove = new Set<number>(keywordsToRemove.map((keyword) => keyword.ID).filter((id): id is number => Number.isFinite(id)));
                   pendingKeywordIds?.forEach((id) => keywordIdsToRemove.add(id));
 
                   let removedKeywordCount = 0;
                   let removedDomCount = 0;
-                  if (domainToRemove) {
-                     await db.transaction(async (transaction) => {
-                        removedKeywordCount = await Keyword.destroy({ where: { domain: normalizedDomain }, transaction });
-                        removedDomCount = await Domain.destroy({ where: { domain: normalizedDomain }, transaction });
-                        if (removedDomCount !== 1) {
-                           throw new Error('Domain disappeared during deletion transaction.');
-                        }
-                     });
-                  }
+                  await db.transaction(async (transaction) => {
+                     removedKeywordCount = await Keyword.destroy({ where: { domain: normalizedDomain }, transaction });
+                     removedDomCount = await Domain.destroy({ where: { domain: normalizedDomain }, transaction });
+                     if (domainToRemove && removedDomCount !== 1) {
+                        throw new Error('Domain disappeared during deletion transaction.');
+                     }
+                  });
 
                   const cleanupFailures: string[] = [];
                   if (keywordIdsToRemove.size > 0) {
@@ -395,7 +398,12 @@ export const updateDomain = async (req: NextApiRequest, res: NextApiResponse) =>
       }
 
       const updates: Partial<Domain> = {};
-      if (typeof notification_interval === 'string') { updates.notification_interval = notification_interval; }
+      if (typeof notification_interval === 'string') {
+         if (!NOTIFICATION_INTERVALS.includes(notification_interval)) {
+            return res.status(400).json(errorResponse('BAD_REQUEST', 'notification_interval must be daily, weekly, monthly or never.', requestId));
+         }
+         updates.notification_interval = notification_interval;
+      }
       if (typeof notification_emails === 'string') { updates.notification_emails = notification_emails; }
       if (typeof scrapeEnabled === 'boolean') {
          // Convert boolean to 1/0 for database storage

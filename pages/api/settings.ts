@@ -199,30 +199,32 @@ const updateSettings = async (req: NextApiRequest, res: NextApiResponse) => {
 
       const cryptr = new Cryptr(process.env.SECRET);
       const encrypt = (value?: string) => (value ? cryptr.encrypt(value) : '');
-      const scraping_api = encrypt(normalizedSettings.scraping_api);
-      const smtp_password = encrypt(normalizedSettings.smtp_password);
-      const search_console_client_email = encrypt(normalizedSettings.search_console_client_email);
-      const search_console_private_key = encrypt(normalizedSettings.search_console_private_key);
-      const adwords_client_id = encrypt(normalizedSettings.adwords_client_id);
-      const adwords_client_secret = encrypt(normalizedSettings.adwords_client_secret);
-      const adwords_developer_token = encrypt(normalizedSettings.adwords_developer_token);
-      const adwords_account_id = encrypt(normalizedSettings.adwords_account_id);
 
-      // Read existing settings to preserve adwords_refresh_token if not in payload
-      let existingRefreshToken = '';
+      // The stored settings, so a secret that is left out of the payload keeps its stored (encrypted) value.
+      // This also covers adwords_refresh_token, which the Google OAuth callback writes.
+      let existingSettings: Partial<SettingsType> = {};
       try {
          const existingSettingsRaw = await readFile(`${process.cwd()}/data/settings.json`, { encoding: 'utf-8' });
-         const existingSettings = safeJsonParse<Partial<SettingsType>>(existingSettingsRaw, {}, { context: 'settings.json', logError: false });
-         existingRefreshToken = existingSettings.adwords_refresh_token || '';
+         existingSettings = safeJsonParse<Partial<SettingsType>>(existingSettingsRaw, {}, { context: 'settings.json', logError: false });
       } catch (err) {
-         // If file doesn't exist or can't be read, continue with empty refresh token
-         logger.debug('Could not read existing settings for adwords_refresh_token', { error: err instanceof Error ? err.message : String(err) });
+         // If file doesn't exist or can't be read, absent secrets are stored as empty
+         logger.debug('Could not read existing settings for secrets left out of the payload', { error: err instanceof Error ? err.message : String(err) });
       }
 
-      // If adwords_refresh_token is explicitly in the payload (even if empty), use it; otherwise preserve existing
-      const adwords_refresh_token = 'adwords_refresh_token' in normalizedSettings
-         ? encrypt(normalizedSettings.adwords_refresh_token)
-         : existingRefreshToken;
+      // A key present in the payload is encrypted (an empty value clears it); an absent key keeps the stored value
+      const secretOrStored = (key: keyof SettingsType): string => (key in normalizedSettings
+         ? encrypt(normalizedSettings[key] as string)
+         : ((existingSettings[key] as string | undefined) ?? ''));
+
+      const scraping_api = secretOrStored('scraping_api');
+      const smtp_password = secretOrStored('smtp_password');
+      const search_console_client_email = secretOrStored('search_console_client_email');
+      const search_console_private_key = secretOrStored('search_console_private_key');
+      const adwords_client_id = secretOrStored('adwords_client_id');
+      const adwords_client_secret = secretOrStored('adwords_client_secret');
+      const adwords_developer_token = secretOrStored('adwords_developer_token');
+      const adwords_account_id = secretOrStored('adwords_account_id');
+      const adwords_refresh_token = secretOrStored('adwords_refresh_token');
 
       const securedSettings = {
          ...normalizedSettings,

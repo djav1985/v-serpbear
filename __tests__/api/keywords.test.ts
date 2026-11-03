@@ -26,6 +26,16 @@ jest.mock('../../database/models/keyword', () => ({
   },
 }));
 
+// Every domain a request names exists, so keywords can be added to it
+jest.mock('../../database/models/domain', () => ({
+  __esModule: true,
+  default: {
+    findAll: jest.fn(async ({ where }: { where: { domain: string[] } }) => (
+      where.domain.map((name: string) => ({ get: () => ({ domain: name }) }))
+    )),
+  },
+}));
+
 jest.mock('../../utils/verifyUser', () => ({
   __esModule: true,
   default: jest.fn(),
@@ -130,6 +140,7 @@ describe('PUT /api/keywords error handling', () => {
     const addRecord = { get: () => ({ ID: 1, keyword: 'alpha', history: '{}', tags: '[]', lastResult: '[]', lastUpdateError: 'false', device: 'desktop', domain: 'example.com', country: 'US' }) };
     const postAdd = async (keyword: Record<string, unknown>) => {
       keywordMock.bulkCreate.mockResolvedValue([addRecord]);
+      keywordMock.findAll.mockResolvedValueOnce([]);
       keywordMock.findAll.mockResolvedValue([addRecord]);
       getKeywordsVolumeMock.mockResolvedValue({ volumes: {} });
       updateKeywordsVolumeDataMock.mockResolvedValue(undefined);
@@ -199,6 +210,7 @@ describe('PUT /api/keywords error handling', () => {
       json: jest.fn(),
     } as unknown as NextApiResponse;
 
+    keywordMock.findAll.mockResolvedValueOnce([]);
     await handler(req, res);
 
     expect(keywordMock.bulkCreate).toHaveBeenCalled();
@@ -275,6 +287,7 @@ describe('PUT /api/keywords error handling', () => {
       json: jest.fn(),
     } as unknown as NextApiResponse;
 
+    keywordMock.findAll.mockResolvedValueOnce([]);
     await handler(req, res);
 
     expect(keywordMock.bulkCreate).toHaveBeenCalledWith([
@@ -309,6 +322,7 @@ describe('PUT /api/keywords error handling', () => {
     } as unknown as NextApiRequest;
     const res = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
 
+    keywordMock.findAll.mockResolvedValueOnce([]);
     await handler(req, res);
 
     expect(refreshQueueMock.enqueue).toHaveBeenCalledWith(

@@ -14,6 +14,9 @@ export const GOOGLE_ADS_API_VERSION = 'v23';
 
 const memoryCache = new TTLCache({ max: 10000 });
 
+// Domain slugs are letters, digits, '-' and '_' only; anything else must not reach a file name
+const SAFE_DOMAIN_SLUG = /^[a-zA-Z0-9_-]+$/;
+
 type keywordIdeasMetrics = {
    competition: IdeaKeyword['competition'],
    monthlySearchVolumes: { month: string, year: string, monthlySearches: string }[],
@@ -665,6 +668,10 @@ export const updateKeywordsVolumeData = async (volumesData: false | Record<numbe
  */
 export const getLocalKeywordIdeas = async (domain: string): Promise<false | KeywordIdeasDatabase> => {
    try {
+      // The slug becomes part of a file name, so only slug characters are accepted
+      if (!SAFE_DOMAIN_SLUG.test(domain)) {
+         return false;
+      }
       const domainName = domain.replaceAll('-', '.').replaceAll('_', '-');
       const filename = `IDEAS_${domainName}.json`;
       const dataDir = path.resolve(process.cwd(), 'data');
@@ -695,6 +702,9 @@ export const getLocalKeywordIdeas = async (domain: string): Promise<false | Keyw
  */
 export const updateLocalKeywordIdeas = async (domain: string, data: IdeaDatabaseUpdateData): Promise<boolean> => {
    try {
+      if (!SAFE_DOMAIN_SLUG.test(domain)) {
+         return false;
+      }
       const domainName = domain.replaceAll('-', '.').replaceAll('_', '-');
       const existingIdeas = await getLocalKeywordIdeas(domain);
       const filename = `IDEAS_${domainName}.json`;

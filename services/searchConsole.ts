@@ -17,7 +17,7 @@ export async function fetchSCKeywords(router: NextRouter, slugOverride?: string)
    if (!slug) {
       return null;
    }
-   return apiGet<{ data: SCDomainDataType }>(`/api/searchconsole?domain=${slug}`, router);
+   return apiGet<{ data: SCDomainDataType }>(`/api/searchconsole?domain=${encodeURIComponent(slug)}`, router);
 }
 
 export function useFetchSCKeywords(router: NextRouter, domainLoaded: boolean = false, domainHasCredentials: boolean = false) {
@@ -32,7 +32,7 @@ export async function fetchSCInsight(router: NextRouter, slugOverride?: string) 
    if (!slug) {
       return null;
    }
-   return apiGet<{ data: InsightDataType }>(`/api/insight?domain=${slug}`, router);
+   return apiGet<{ data: InsightDataType }>(`/api/insight?domain=${encodeURIComponent(slug)}`, router);
 }
 
 export function useFetchSCInsight(router: NextRouter, domainLoaded: boolean = false, domainHasCredentials: boolean = false) {

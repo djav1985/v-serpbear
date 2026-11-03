@@ -27,6 +27,9 @@ export default withApiLogging(handler, { name: 'volume' });
 const updatekeywordVolume = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
    const { keywords = [], domain = '', update = true } = req.body || {};
+   if (!Array.isArray(keywords)) {
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'keywords must be a list of keyword IDs.', requestId));
+   }
    if (keywords.length === 0 && !domain) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Please provide keyword Ids or a domain name.', requestId));
    }

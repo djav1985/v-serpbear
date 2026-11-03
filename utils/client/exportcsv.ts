@@ -15,7 +15,9 @@ const escapeCsvValue = (value: unknown): string => {
    // Spreadsheet apps run text starting with = + - @ as a formula. Keyword text comes from search
    // queries, so prefix such values with an apostrophe to keep them as plain text.
    // A lone "-" is the empty-position placeholder, not a formula, so it is left alone.
-   if (typeof value === 'string' && stringValue.length > 1 && /^[=+\-@]/.test(stringValue)) {
+   // Leading spaces and tabs are ignored by spreadsheet apps, so they are checked too
+   const leadingText = stringValue.trim();
+   if (typeof value === 'string' && leadingText.length > 1 && /^[=+\-@]/.test(leadingText)) {
       stringValue = `'${stringValue}`;
    }
    return `"${stringValue.replace(/"/g, '""')}"`;

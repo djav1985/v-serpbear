@@ -25,6 +25,11 @@ export const redactSecrets = (value: unknown): unknown => {
 };
 
 /**
+ * Removes OAuth `code` and `state` values from a request URL before it is logged.
+ */
+export const redactUrl = (url?: string): string => (url || '').replace(/([?&](?:code|state)=)[^&]*/g, '$1[REDACTED]');
+
+/**
  * API Logging Middleware - wraps API handlers with request/response logging
  * @param handler - The API handler function to wrap
  * @param options - Optional configuration for logging behavior
@@ -50,14 +55,14 @@ export function withApiLogging(
     const shouldLogBody = process.env.LOG_LEVEL?.toLowerCase() === 'debug';
 
     // INFO level: Just log the request method and URL
-    logger.info(`${req.method} ${req.url}${name ? ` [${name}]` : ''}`);
+    logger.info(`${req.method} ${redactUrl(req.url)}${name ? ` [${name}]` : ''}`);
 
     // DEBUG level: Log full request details
     if (shouldLogBody) {
       logger.debug(`API Request Details${name ? ` [${name}]` : ''}`, {
         requestId,
         method: req.method,
-        url: req.url,
+        url: redactUrl(req.url),
         query: req.query,
         ip: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'unknown',
         userAgent: req.headers['user-agent'],
@@ -84,28 +89,28 @@ export function withApiLogging(
       // Log based on status code
       if (statusCode >= 500) {
         // ERROR level: Log errors with details
-        logger.error(`${req.method} ${req.url}${name ? ` [${name}]` : ''} - ${statusCode}`, undefined, {
+        logger.error(`${req.method} ${redactUrl(req.url)}${name ? ` [${name}]` : ''} - ${statusCode}`, undefined, {
           requestId,
           statusCode,
           duration,
         });
       } else if (statusCode >= 400) {
         // WARN level: Log client errors with moderate detail
-        logger.warn(`${req.method} ${req.url}${name ? ` [${name}]` : ''} - ${statusCode}`, {
+        logger.warn(`${req.method} ${redactUrl(req.url)}${name ? ` [${name}]` : ''} - ${statusCode}`, {
           requestId,
           statusCode,
           duration,
         });
       } else {
         // INFO level: Just log success with duration
-        logger.info(`${req.method} ${req.url}${name ? ` [${name}]` : ''} - ${statusCode} (${duration}ms)`);
+        logger.info(`${req.method} ${redactUrl(req.url)}${name ? ` [${name}]` : ''} - ${statusCode} (${duration}ms)`);
       }
 
     } catch (error) {
       const duration = Date.now() - startTime;
       
       // ERROR level: Log exception with full details
-      logger.error(`${req.method} ${req.url}${name ? ` [${name}]` : ''} - Exception`, error instanceof Error ? error : new Error(String(error)), {
+      logger.error(`${req.method} ${redactUrl(req.url)}${name ? ` [${name}]` : ''} - Exception`, error instanceof Error ? error : new Error(String(error)), {
         requestId,
         duration,
       });

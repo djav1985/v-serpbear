@@ -2,7 +2,9 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Op } from 'sequelize';
+import crypto from 'crypto';
 import Keyword from '../../database/models/keyword';
+import Domain from '../../database/models/domain';
 import { getAppSettings } from './settings';
 import verifyUser from '../../utils/verifyUser';
 import parseKeywords from '../../utils/parseKeywords';
@@ -293,6 +295,31 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
    }
 
    try {
+      // Keywords can only be added to a domain that is already tracked
+      const requestedDomains = Array.from(new Set(keywordsToAdd.map((keyword) => keyword.domain)));
+      const knownDomains: Domain[] = await Domain.findAll({ where: { domain: requestedDomains }, attributes: ['domain'] });
+      const knownDomainNames = new Set(knownDomains.map((domain) => domain.get({ plain: true }).domain));
+      const unknownDomains = requestedDomains.filter((domain) => !knownDomainNames.has(domain));
+      if (unknownDomains.length > 0) {
+         return res.status(400).json(errorResponse('BAD_REQUEST', `Domains not found in database: ${unknownDomains.join(', ')}. Please ensure domains are created before adding keywords.`, requestId));
+      }
+
+      // The same keyword, country and device on the same domain is one tracked keyword
+      const trackingKey = (item: { keyword: string, domain: string, device: string, country: string }) => [item.domain, item.keyword, item.country, item.device].join('|');
+      const existingKeywords: Keyword[] = await Keyword.findAll({ where: { domain: requestedDomains }, attributes: ['keyword', 'domain', 'device', 'country'] });
+      const tracked = new Set(existingKeywords.map((item) => trackingKey(item.get({ plain: true }) as KeywordType)));
+      const duplicates: string[] = [];
+      keywordsToAdd.forEach((item) => {
+         const key = trackingKey(item);
+         if (tracked.has(key)) {
+            duplicates.push(`${item.keyword} (${item.device})`);
+         }
+         tracked.add(key);
+      });
+      if (duplicates.length > 0) {
+         return res.status(409).json(errorResponse('CONFLICT', `Already tracked: ${duplicates.join(', ')}`, requestId));
+      }
+
       await Keyword.bulkCreate(keywordsToAdd as any);
       
       // Reload keywords from DB to ensure IDs are populated
@@ -404,7 +431,11 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
    if (req.body.sticky === undefined && req.body.tags === undefined && req.body.location === undefined) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Keyword update payload is required.', requestId));
    }
-   const keywordIDs = (req.query.id as string).split(',').map((item) => parseInt(item, 10));
+   // Drop anything that is not a positive ID, so NaN and 0 never reach the database query
+   const keywordIDs = (req.query.id as string).split(',').map((item) => parseInt(item, 10)).filter((id) => Number.isInteger(id) && id > 0);
+   if (keywordIDs.length === 0) {
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'No valid keyword IDs provided', requestId));
+   }
    const { sticky, tags, location } = req.body;
 
    try {

@@ -25,7 +25,7 @@ const normaliseKeywordFlags = (keyword: unknown): KeywordType => {
 
 export const fetchKeywords = async (router: NextRouter, domain: string) => {
    if (!domain) { return { keywords: [] }; }
-   const data = await apiGet<KeywordsResponse>(`/api/keywords?domain=${domain}`, router);
+   const data = await apiGet<KeywordsResponse>(`/api/keywords?domain=${encodeURIComponent(domain)}`, router);
    if (!data || typeof data !== 'object') { return data; }
    if (!Array.isArray(data.keywords)) { return data; }
    return {
