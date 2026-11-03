@@ -10,6 +10,7 @@ import { integrateKeywordSCData, readLocalSCData } from '../../utils/searchConso
 import refreshAndUpdateKeywords from '../../utils/refresh';
 import { getKeywordsVolume, updateKeywordsVolumeData } from '../../utils/adwords';
 import { formatLocation, getLocationCountry, hasValidCityStatePair, parseLocation } from '../../utils/location';
+import { planLocationUpdate } from '../../utils/keywordMeta';
 import { isValidHostname } from '../../utils/validators/hostname';
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
@@ -460,11 +461,24 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
          const formattedLocation = formatLocation(parseLocation(rawLocation)).substring(0, 255);
          const locationCountry = getLocationCountry(rawLocation);
          const locationUpdate = locationCountry ? { location: formattedLocation, country: locationCountry } : { location: formattedLocation };
-         await Keyword.update(locationUpdate, { where: { ID: { [Op.in]: keywordIDs } } });
+         const selectedKeywords: Keyword[] = await Keyword.findAll({ where: { ID: { [Op.in]: keywordIDs } } });
+         const domains = [...new Set(selectedKeywords.map((el) => el.domain))];
+         // Other tracked keywords on the same domains, so a change cannot create a duplicate
+         const otherKeywords: Keyword[] = domains.length > 0
+            ? await Keyword.findAll({ where: { domain: { [Op.in]: domains }, ID: { [Op.notIn]: keywordIDs } } })
+            : [];
+         const { acceptedIDs, skipped } = planLocationUpdate(
+            selectedKeywords.map((el) => ({ ID: el.ID, keyword: el.keyword, domain: el.domain, country: el.country, device: el.device })),
+            otherKeywords.map((el) => ({ ID: el.ID, keyword: el.keyword, domain: el.domain, country: el.country, device: el.device })),
+            locationCountry,
+         );
+         if (acceptedIDs.length > 0) {
+            await Keyword.update(locationUpdate, { where: { ID: { [Op.in]: acceptedIDs } } });
+         }
          const updatedKeywords:Keyword[] = await Keyword.findAll({ where: { ID: { [Op.in]: keywordIDs } } });
          const formattedKeywords = updatedKeywords.map((el) => el.get({ plain: true }));
          keywords = parseKeywords(formattedKeywords);
-         return res.status(200).json({ keywords });
+         return res.status(200).json({ keywords, updatedCount: acceptedIDs.length, skipped });
       }
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Invalid Payload!', requestId));
    } catch (error) {

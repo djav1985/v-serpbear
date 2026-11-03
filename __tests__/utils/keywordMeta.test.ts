@@ -2,6 +2,8 @@ import {
    buildKeywordAddPayloads,
    getDomainLocations,
    getDomainTags,
+   getLocationUpdateMessage,
+   planLocationUpdate,
    scraperAllowsCity,
 } from '../../utils/keywordMeta';
 
@@ -137,5 +139,52 @@ describe('scraperAllowsCity', () => {
          ],
       } as unknown as SettingsType;
       expect(scraperAllowsCity(settings)).toBe(true);
+   });
+});
+
+describe('planLocationUpdate', () => {
+   const row = (ID: number, keyword: string, country = 'US', device = 'desktop', domain = 'example.com') => ({ ID, keyword, country, device, domain });
+
+   it('accepts every keyword when nothing else is tracked in the new location', () => {
+      expect(planLocationUpdate([row(1, 'alpha'), row(2, 'beta')], [], 'GB')).toEqual({ acceptedIDs: [1, 2], skipped: [] });
+   });
+
+   it('skips a keyword whose new location is already tracked by another row', () => {
+      const result = planLocationUpdate([row(1, 'alpha'), row(2, 'beta')], [row(9, 'alpha', 'GB')], 'GB');
+      expect(result).toEqual({ acceptedIDs: [2], skipped: ['alpha'] });
+   });
+
+   it('treats the same keyword on another device or domain as not a duplicate', () => {
+      const others = [row(9, 'alpha', 'GB', 'mobile'), row(10, 'alpha', 'GB', 'desktop', 'other.com')];
+      expect(planLocationUpdate([row(1, 'alpha')], others, 'GB')).toEqual({ acceptedIDs: [1], skipped: [] });
+   });
+
+   it('keeps only the first of two selected keywords that would become the same tracked keyword', () => {
+      const result = planLocationUpdate([row(1, 'alpha'), row(2, 'alpha')], [], 'GB');
+      expect(result).toEqual({ acceptedIDs: [1], skipped: ['alpha'] });
+   });
+
+   it('never skips a keyword that keeps its own country when only the location text changes', () => {
+      const result = planLocationUpdate([row(1, 'alpha'), row(2, 'alpha')], [], '');
+      expect(result).toEqual({ acceptedIDs: [1, 2], skipped: [] });
+   });
+
+   it('returns nothing to update when there are no selected keywords', () => {
+      expect(planLocationUpdate([], [row(9, 'alpha')], 'GB')).toEqual({ acceptedIDs: [], skipped: [] });
+   });
+});
+
+describe('getLocationUpdateMessage', () => {
+   it('reports a plain update with the right plural', () => {
+      expect(getLocationUpdateMessage(1)).toBe('Updated 1 keyword.');
+      expect(getLocationUpdateMessage(3)).toBe('Updated 3 keywords.');
+   });
+
+   it('reports skipped keywords alongside the updated count', () => {
+      expect(getLocationUpdateMessage(2, ['alpha'])).toBe('Updated 2 keywords. Skipped 1 already tracked in that location: alpha.');
+   });
+
+   it('says nothing changed when every keyword was skipped', () => {
+      expect(getLocationUpdateMessage(0, ['alpha', 'beta'])).toBe('No keywords changed. 2 already tracked in that location: alpha, beta.');
    });
 });

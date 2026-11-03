@@ -3,6 +3,7 @@ import { NextRouter } from 'next/router';
 import { useMutation, useQuery, useQueryClient } from 'react-query';
 import { normalizeToBoolean } from '../utils/dbBooleans';
 import { apiGet, apiPost, apiPut, apiDelete } from '../utils/client/apiClient';
+import { getLocationUpdateMessage } from '../utils/keywordMeta';
 
 type KeywordsResponse = {
    keywords?: KeywordType[]
@@ -139,11 +140,12 @@ export function useUpdateKeywordLocation(onSuccess: () => void) {
    const queryClient = useQueryClient();
    return useMutation(async ({ keywordIDs, location }:{keywordIDs: number[], location: string}) => {
       const keywordIds = keywordIDs.join(',');
-      return apiPut(`/api/keywords?id=${keywordIds}`, { location });
+      return apiPut<{ updatedCount?: number, skipped?: string[] }>(`/api/keywords?id=${keywordIds}`, { location });
    }, {
-      onSuccess: async () => {
+      onSuccess: async (data) => {
          onSuccess();
-         toast('Keyword Locations Updated!', { icon: '✔️' });
+         const skipped = data?.skipped || [];
+         toast(getLocationUpdateMessage(data?.updatedCount ?? 0, skipped), { icon: skipped.length > 0 ? '⚠️' : '✔️' });
          queryClient.invalidateQueries(['keywords']);
       },
       onError: (_error, _variables, _context) => {

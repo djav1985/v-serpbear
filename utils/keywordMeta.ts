@@ -45,3 +45,59 @@ export const buildKeywordAddPayloads = ({ items, domain, devices, tags, location
       location: location || formatLocation({ country: item.country }),
    })))
 );
+
+type LocationTarget = {
+   ID: number,
+   keyword: string,
+   domain: string,
+   country: string,
+   device: string,
+}
+
+// Same keyword, country, device and domain is one tracked keyword
+const trackingKey = (item: Pick<LocationTarget, 'domain' | 'keyword' | 'country' | 'device'>, country: string): string => (
+   [item.domain, item.keyword, country, item.device].join('|')
+);
+
+// Decides which selected keywords can move to a new location without duplicating a tracked keyword.
+// Keywords whose country stays the same are kept as they are. A keyword that would change into a
+// tracked keyword (another row, or an earlier change in this batch) is skipped.
+export const planLocationUpdate = (
+   selected: LocationTarget[],
+   others: LocationTarget[],
+   locationCountry: string,
+): { acceptedIDs: number[], skipped: string[] } => {
+   const taken = new Set(others.map((item) => trackingKey(item, item.country)));
+   const acceptedIDs: number[] = [];
+   const skipped: string[] = [];
+
+   const targetCountry = (item: LocationTarget) => locationCountry || item.country;
+   const unchanged = selected.filter((item) => targetCountry(item) === item.country);
+   const changed = selected.filter((item) => targetCountry(item) !== item.country);
+
+   unchanged.forEach((item) => {
+      taken.add(trackingKey(item, item.country));
+      acceptedIDs.push(item.ID);
+   });
+   changed.forEach((item) => {
+      const key = trackingKey(item, targetCountry(item));
+      if (taken.has(key)) {
+         skipped.push(item.keyword);
+         return;
+      }
+      taken.add(key);
+      acceptedIDs.push(item.ID);
+   });
+
+   return { acceptedIDs: acceptedIDs.sort((a, b) => a - b), skipped };
+};
+
+// Toast text for a bulk location change, e.g. "Updated 2 keywords. Skipped 1 already tracked there: alpha."
+export const getLocationUpdateMessage = (updatedCount: number, skipped: string[] = []): string => {
+   const updatedText = `${updatedCount} keyword${updatedCount === 1 ? '' : 's'}`;
+   if (skipped.length === 0) {
+      return `Updated ${updatedText}.`;
+   }
+   const skippedText = `${skipped.length} already tracked in that location: ${skipped.join(', ')}.`;
+   return updatedCount === 0 ? `No keywords changed. ${skippedText}` : `Updated ${updatedText}. Skipped ${skippedText}`;
+};
