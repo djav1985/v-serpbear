@@ -113,6 +113,7 @@ const LocationPicker = ({ existingLocations = [], value, onChange, allowsCity = 
                   rounded='rounded'
                   maxHeight={48}
                   flags={true}
+                  fullWidth={true}
                />
             </div>
             <button
