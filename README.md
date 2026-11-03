@@ -198,11 +198,11 @@ SerpBear integrates with several managed SERP APIs. The table below summarises t
 | Provider | Working | Pricing snapshot* | Geo targeting | Map Pack coverage | Results coverage | API key header |
 | --- | --- | --- | --- | --- | --- | --- |
 | Serply (`serply`) | ? | Plans from $49/mo | City & region (supported markets) | **Yes** – extracts local map pack | Strategy-controlled (10 per page, up to 10 pages) | `X-Api-Key` + `X-Proxy-Location` |
-| SerpApi (`serpapi`) | ✅ | Free 250/mo + Plans from $75/mo | City-level | **Yes** – extracts local map pack | Strategy-controlled (10 per page via the `start` offset, up to 10 pages) | Query string `api_key` |
-| SearchApi (`searchapi`) | ✅ | Plans from $40/mo | City-level | **Yes** – extracts local map pack | Strategy-controlled (10 per page via the `page` parameter, up to 10 pages) | Query string `api_key` |
-| ValueSerp (`valueserp`) | ✅ | Pay-as-you-go 10,000 for $25 | City-level | **Yes** – extracts local map pack | Strategy-controlled (10 per page, up to 10 pages) | Query string `api_key` |
-| Serper (`serper`) | ✅ | Credit-based 50,000 for $50 | City-level | No – organic listings only | Strategy-controlled (10 per page, up to 10 pages) | Query string `api_key` |
-| HasData (`hasdata`) | ✅ | Free 1,000/mo + Plans from $49/mo | City-level | **Yes** – extracts local map pack | Strategy-controlled (10 per page, up to 10 pages) | Header `x-api-key` |
+| SerpApi (`serpapi`) | ✅ Working | Free 250/mo + Plans from $75/mo | City-level | **Yes** – extracts local map pack | Strategy-controlled (10 per page via the `start` offset, up to 10 pages) | Query string `api_key` |
+| SearchApi (`searchapi`) | ✅ Working | Plans from $40/mo | City-level | **Yes** – extracts local map pack | Strategy-controlled (10 per page via the `page` parameter, up to 10 pages) | Query string `api_key` |
+| ValueSerp (`valueserp`) | ✅ Working | Pay-as-you-go 10,000 for $25 | City-level | **Yes** – extracts local map pack | Strategy-controlled (10 per page, up to 10 pages) | Query string `api_key` |
+| Serper (`serper`) | ✅ Working | Credit-based 50,000 for $50 | City-level | No – organic listings only | Strategy-controlled (10 per page, up to 10 pages) | Query string `api_key` |
+| HasData (`hasdata`) | ✅ Working | Free 1,000/mo + Plans from $49/mo | City-level | **Yes** – extracts local map pack | Strategy-controlled (10 per page, up to 10 pages) | Header `x-api-key` |
 | CrazySERP (`crazyserp`) | ? | Pay-as-you-go | City-level | No – organic listings only | Strategy-controlled (10 per page, up to 10 pages) | Header `Authorization: Bearer` |
 | PrismCrawl (`prismcrawl`) | ? | Free 100 credits on signup; one-time packages from $5 (e.g. $100 = 476,191 credits, ~$0.21 per 1,000); credits valid 90 days; no subscription | City-level | **Yes** – matches local results by business name | Strategy-controlled (10 per page, up to 10 pages) | Header `x-api-key` (POST JSON body) |
 | DataForSEO (`dataforseo`) | ? | Pay as you go; no subscriptions; $50 minimum top-up | City-level | **Yes** – extracts `local_pack` results | Strategy-controlled (10 per page, up to 10 pages; each request fetches the depth needed for the page) | HTTP Basic auth with `login:password` in the API key field (POST JSON array body) |
