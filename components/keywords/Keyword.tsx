@@ -8,6 +8,7 @@ import KeywordPosition from './KeywordPosition';
 import { generateTheChartData } from '../../utils/client/generateChartData';
 import { formattedNum } from '../../utils/client/helpers';
 import { parseLocation } from '../../utils/location';
+import { historyKeyToTime } from '../../utils/historyDateKey';
 
 type KeywordProps = {
    keywordData: KeywordType,
@@ -72,7 +73,7 @@ const Keyword = (props: KeywordProps) => {
    const positionChange = useMemo(() => {
       let status = 0;
       if (Object.keys(history).length >= 2) {
-         const historyArray = Object.keys(history).map((dateKey:string) => ({ date: new Date(dateKey).getTime(), dateRaw: dateKey, position: history[dateKey] }));
+         const historyArray = Object.keys(history).map((dateKey:string) => ({ date: historyKeyToTime(dateKey), dateRaw: dateKey, position: history[dateKey] }));
          const historySorted = historyArray.sort((a, b) => a.date - b.date);
          const previousPos = historySorted[historySorted.length - 2].position;
          status = previousPos === 0 ? position : previousPos - position;

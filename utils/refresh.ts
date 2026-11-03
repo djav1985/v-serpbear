@@ -14,6 +14,7 @@ import { logger } from './logger';
 import { fromDbBool, toDbBool } from './dbBooleans';
 import normalizeDomainBooleans from './normalizeDomain';
 import { retryQueueManager } from './retryQueueManager';
+import { historyKeyToTime, toHistoryDateKey } from './historyDateKey';
 
 const describeScraperType = (scraperType?: SettingsType['scraper_type']): string => {
    if (!scraperType || scraperType.length === 0) {
@@ -621,7 +622,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
 
    if (updatedKeyword && keyword) {
       const theDate = new Date();
-      const dateKey = `${theDate.getFullYear()}-${theDate.getMonth() + 1}-${theDate.getDate()}`;
+      const dateKey = toHistoryDateKey(theDate);
       const newPos = Number(updatedKeyword.position ?? keyword.position ?? 0) || 0;
 
       const { history } = keyword;
@@ -633,7 +634,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
       if (historyEntries.length >= 31) {
          // Once we have 31 entries (30 + today's new entry), trim to 30 most recent
          const sortedEntries = historyEntries
-            .map(([key, value]) => ({ key, date: new Date(key).getTime(), value }))
+            .map(([key, value]) => ({ key, date: historyKeyToTime(key), value }))
             .sort((a, b) => a.date - b.date)
             .slice(-30); // Keep last 30 entries
          
@@ -704,7 +705,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
       // Build single atomic update payload with ALL fields from API response + flags.
       // In the success path we perform a single update per keyword row to minimize DB writes and precompute derived fields such as history7d (last 7 entries from the already-trimmed history using timestamp sort).
       const history7dObj = Object.entries(history)
-         .map(([key, value]) => ({ key, date: new Date(key).getTime(), value }))
+         .map(([key, value]) => ({ key, date: historyKeyToTime(key), value }))
          .sort((a, b) => a.date - b.date)
          .slice(-7)
          .reduce<Record<string, number>>((acc, { key, value }) => { acc[key] = value; return acc; }, {});

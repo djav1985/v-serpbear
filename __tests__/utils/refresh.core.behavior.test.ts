@@ -800,8 +800,8 @@ describe('refreshAndUpdateKeywords', () => {
       const payload = (keywordModel.update as jest.Mock).mock.calls[0][0];
       const storedHistory = JSON.parse(payload.history);
 
-      expect(storedHistory).toEqual({ '2024-5-20': 3 });
-      expect(updated.history).toEqual({ '2024-5-20': 3 });
+      expect(storedHistory).toEqual({ '2024-05-20': 3 });
+      expect(updated.history).toEqual({ '2024-05-20': 3 });
     } finally {
       jest.useRealTimers();
     }
