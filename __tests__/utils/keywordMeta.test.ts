@@ -59,6 +59,7 @@ describe('getDomainLocations', () => {
       expect(getDomainLocations(keywords)).toEqual(['Austin,TX,US', 'US']);
    });
 
+
    it('handles keywords with a missing location', () => {
       const keywords = [makeKeyword({ location: undefined })];
       expect(getDomainLocations(keywords)).toEqual([]);
