@@ -42,9 +42,16 @@ run().catch((error) => {
 NODE
 }
 
+# Runs the cron worker under a restart loop, so a crash does not silently stop scheduled scrapes and emails.
 start_cron() {
-  echo "Starting background cron worker..."
-  npx tsx ./cron.js &
+  (
+    while true; do
+      echo "Starting background cron worker..."
+      npx tsx ./cron.js || true
+      echo "Cron worker exited; restarting in 10 seconds..." >&2
+      sleep 10
+    done
+  ) &
 }
 
 prepare_data_dir

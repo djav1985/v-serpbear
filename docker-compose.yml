@@ -10,11 +10,13 @@ services:
     network_mode: bridge
     ports:
       - "3030:3000"
+    # Values come from .env (optional) and from the shell. Compose fails fast if SECRET or APIKEY is unset.
+    env_file:
+      - path: ./.env
+        required: false
     environment:
-      - USER=
-      - PASSWORD=
-      - SECRET=4715aed321jhje43625dd
-      - APIKEY=5saedXklbbjbjbhp3pih4fdnakhjwq5
+      - SECRET=${SECRET:?set SECRET in .env or the shell}
+      - APIKEY=${APIKEY:?set APIKEY in .env or the shell}
       - SESSION_DURATION=24
       - NEXT_PUBLIC_SCREENSHOTS=true
       - NEXT_PUBLIC_WHITE_LABEL=false

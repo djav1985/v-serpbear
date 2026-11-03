@@ -47,3 +47,7 @@ data/database.sqlite-wal
 data/verify-fix.js
 SARIF test files
 *.sarif
+
+# runtime state (settings, Search Console cache, retry queue, email throttle); keep the folder via .gitkeep
+data/*
+!data/.gitkeep

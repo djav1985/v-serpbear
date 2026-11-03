@@ -12,6 +12,7 @@ import { withApiLogging } from '../../utils/apiLogging';
 import { atomicWriteFile } from '../../utils/atomicWrite';
 import { errorResponse } from '../../utils/api/response';
 import normalizeOrigin from '../../utils/normalizeOrigin';
+import { serializeForScript } from '../../utils/api/scriptJson';
 
 
 type IntegrationResultOptions = {
@@ -63,8 +64,8 @@ const respondWithIntegrationResult = (
   <body>
     <script>
       (function() {
-        const payload = ${JSON.stringify(payload)};
-        const redirectUrl = ${JSON.stringify(redirectUrl)};
+        const payload = ${serializeForScript(payload)};
+        const redirectUrl = ${serializeForScript(redirectUrl)};
         try {
           if (window.opener && typeof window.opener.postMessage === 'function') {
             window.opener.postMessage(payload, window.location.origin);

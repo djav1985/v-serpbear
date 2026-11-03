@@ -1,8 +1,22 @@
  
+const path = require('path');
 const Cryptr = require('cryptr');
 const { promises } = require('fs');
 const { Cron } = require('croner');
-require('dotenv').config({ path: './.env.local' });
+const dotenv = require('dotenv');
+
+/**
+ * Loads the same env files Next.js reads, so the worker sees APIKEY, SECRET and the CRON_* values outside Docker.
+ * dotenv never overrides a variable that is already set, so the first file loaded wins: .env.local is loaded
+ * before the optional .env. Variables already in the process environment (for example from docker compose)
+ * take precedence over both files.
+ */
+const loadEnvFiles = (dir = process.cwd()) => {
+   dotenv.config({ path: path.join(dir, '.env.local') });
+   dotenv.config({ path: path.join(dir, '.env') });
+};
+
+loadEnvFiles();
 
 // Import logger after dotenv so LOG_LEVEL env var is available at Logger construction time
 const { logger } = require('./utils/logger');
@@ -255,4 +269,5 @@ module.exports = {
    makeCronApiCall,
    getAppSettings,
    normalizeValue,
+   loadEnvFiles,
 };
