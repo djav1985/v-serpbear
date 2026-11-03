@@ -48,15 +48,15 @@ const AddToTrackerBar = ({
                      type='button'
                      role='checkbox'
                      aria-checked={isActive}
-                     className={`flex-1 h-9 px-3 flex items-center justify-center gap-2 rounded font-semibold transition-colors sm:flex-none ${isActive ? 'bg-indigo-100 text-blue-700' : 'bg-indigo-50 text-gray-500'}`}
+                     className={`flex-1 h-9 px-3 flex items-center justify-center rounded font-semibold transition-colors sm:flex-none ${isActive ? 'bg-indigo-100 text-blue-700' : 'bg-indigo-50 text-gray-500'}`}
                      onClick={() => toggleDevice(value)}>
-                     <span className={`w-4 h-4 flex items-center justify-center rounded-sm border text-[10px] leading-none ${isActive ? 'bg-blue-700 border-blue-700 text-white' : 'bg-white border-gray-300 text-transparent'}`}>✓</span>
+                     {isActive && <span className='mr-1'>✓</span>}
                      {deviceLabel}
                   </button>
                );
             })}
          </div>
-         <div className='flex gap-2 sm:flex-none'>
+         <div className='flex gap-3 sm:flex-none'>
             <button
                type='button'
                className={`flex-1 h-9 text-white bg-blue-700 px-3 rounded font-semibold transition-colors sm:flex-none ${addDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-600'}`}
