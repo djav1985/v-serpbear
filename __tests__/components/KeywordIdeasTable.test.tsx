@@ -183,7 +183,7 @@ describe('KeywordIdeasTable DRY Principle Implementation', () => {
       await waitFor(() => {
          expect(untrackedRow).toHaveClass('keyword--selected');
       });
-      expect(await screen.findByRole('button', { name: /Track/ })).toBeInTheDocument();
+      expect(await screen.findByRole('button', { name: /Add Keyword/ })).toBeInTheDocument();
 
       const emailButton = screen.getByRole('button', { name: 'Email Keywords' });
       expect(emailButton).toBeInTheDocument();
@@ -216,7 +216,7 @@ describe('KeywordIdeasTable DRY Principle Implementation', () => {
 
       expect(await screen.findByText('Select Domain For Action')).toBeInTheDocument();
 
-      const addButton = screen.getByRole('button', { name: '+ Track' });
+      const addButton = screen.getByRole('button', { name: '+ Add Keyword' });
       expect(addButton).toHaveAttribute('aria-disabled', 'true');
 
       const emailButton = screen.getByRole('button', { name: 'Email Keywords' });

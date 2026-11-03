@@ -137,7 +137,7 @@ describe('AddToTrackerBar', () => {
          />,
       );
 
-      expect(screen.getByRole('button', { name: '+ Track' })).toHaveAttribute('aria-disabled', 'true');
+      expect(screen.getByRole('button', { name: '+ Add Keyword' })).toHaveAttribute('aria-disabled', 'true');
    });
 });
 

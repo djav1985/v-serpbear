@@ -63,7 +63,7 @@ const AddToTrackerBar = ({
                tabIndex={addDisabled ? -1 : 0}
                aria-disabled={addDisabled}
                onClick={onAdd}>
-               + Track
+               + Add Keyword
             </button>
             {onEmail && (
                <button
