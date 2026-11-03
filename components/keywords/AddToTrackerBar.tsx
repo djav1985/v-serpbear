@@ -56,7 +56,7 @@ const AddToTrackerBar = ({
                );
             })}
          </div>
-         <div className='flex gap-3 sm:flex-none'>
+         <div className='flex gap-3 sm:flex-none sm:gap-9'>
             <button
                type='button'
                className={`flex-1 h-9 text-white bg-blue-700 px-2 sm:px-3 whitespace-nowrap text-sm sm:text-base rounded font-semibold transition-colors sm:flex-none ${addDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-600'}`}
