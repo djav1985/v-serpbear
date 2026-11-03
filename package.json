@@ -45,7 +45,7 @@
     "sequelize": "^6.37.8",
     "sequelize-cli": "^6.6.5",
     "sequelize-typescript": "^2.1.6",
-    "tsx": "^4.22.3",
+    "tsx": "^4.23.15",
     "umzug": "^3.8.3"
   },
   "devDependencies": {
