@@ -105,10 +105,10 @@ describe('AddToTrackerBar', () => {
          />,
       );
 
-      fireEvent.click(screen.getByRole('button', { name: /Mobile/ }));
+      fireEvent.click(screen.getByRole('checkbox', { name: /Mobile/ }));
       expect(setDevices).toHaveBeenCalledWith(['desktop', 'mobile']);
 
-      fireEvent.click(screen.getByRole('button', { name: /Desktop/ }));
+      fireEvent.click(screen.getByRole('checkbox', { name: /Desktop/ }));
       expect(setDevices).toHaveBeenLastCalledWith([]);
    });
 
@@ -122,8 +122,8 @@ describe('AddToTrackerBar', () => {
          />,
       );
 
-      expect(screen.getByRole('button', { name: /Mobile/ })).toHaveAttribute('aria-pressed', 'true');
-      expect(screen.getByRole('button', { name: /Desktop/ })).toHaveAttribute('aria-pressed', 'false');
+      expect(screen.getByRole('checkbox', { name: /Mobile/ })).toHaveAttribute('aria-checked', 'true');
+      expect(screen.getByRole('checkbox', { name: /Desktop/ })).toHaveAttribute('aria-checked', 'false');
    });
 
    it('marks Add as disabled when no device is selected', () => {
