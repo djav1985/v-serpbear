@@ -16,6 +16,8 @@
 
 body {
    background-color: #f8f9ff;
+   background-image: url("/body-texture.png");
+   background-repeat: repeat;
    padding-inline: var(--layout-inline);
 }
 

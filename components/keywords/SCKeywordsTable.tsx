@@ -12,7 +12,10 @@ import SCKeyword from './SCKeyword';
 import useWindowResize from '../../hooks/useWindowResize';
 import useIsMobile from '../../hooks/useIsMobile';
 import { formattedNum } from '../../utils/client/helpers';
-import { formatLocation } from '../../utils/location';
+import { buildKeywordAddPayloads, getDomainLocations, getDomainTags, scraperAllowsCity, splitAlreadyTracked, TrackerDevice } from '../../utils/keywordMeta';
+import { useFetchSettings } from '../../services/settings';
+import AddToTrackerBar from './AddToTrackerBar';
+import AddKeywordsMetaStep from './AddKeywordsMetaStep';
 
 type SCKeywordsTableProps = {
    domain: DomainType | null,
@@ -34,6 +37,10 @@ const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleInt
    const [filterParams, setFilterParams] = useState<KeywordFilters>({ countries: [], tags: [], search: '' });
    const [sortBy, setSortBy] = useState<string>('imp_desc');
    const [SCListHeight, setSCListHeight] = useState(500);
+   const [addDevices, setAddDevices] = useState<TrackerDevice[]>(['desktop']);
+   const [showAddStep, setShowAddStep] = useState<boolean>(false);
+   const { data: appSettingsData } = useFetchSettings();
+   const allowsCity = scraperAllowsCity(appSettingsData?.settings);
    const { keywordsData } = useFetchKeywords(router, domain?.domain || '');
    const trackedKeywordsList: KeywordType[] = useMemo(() => {
       if (Array.isArray(keywordsData)) {
@@ -104,23 +111,27 @@ const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleInt
       setSelectedKeywords(updatedSelected);
    };
 
-   const addSCKeywordsToTracker = () => {
-      const selectedkeywords:KeywordAddPayload[] = [];
-      finalKeywords[device].forEach((kitem:SCKeywordType) => {
-         if (selectedKeywords.includes(kitem.uid)) {
-            const { keyword, country } = kitem;
-            selectedkeywords.push({
-               keyword,
-               device,
-               country,
-               domain: domain?.domain || '',
-               tags: '',
-               location: formatLocation({ country }),
-            });
-         }
-      });
-      addKeywords(selectedkeywords);
+   const existingTags = useMemo(() => getDomainTags(trackedKeywordsList), [trackedKeywordsList]);
+   const existingLocations = useMemo(() => getDomainLocations(trackedKeywordsList), [trackedKeywordsList]);
+
+   const openAddStep = () => {
+      if (addDevices.length > 0) { setShowAddStep(true); }
+   };
+
+   const submitSCKeywordsToTracker = ({ tags, location }: { tags: string[], location: string }) => {
+      const selectedItems = finalKeywords[device]
+         .filter((kitem:SCKeywordType) => selectedKeywords.includes(kitem.uid))
+         .map(({ keyword, country }) => ({ keyword, country }));
+      const { payloads, skipped } = splitAlreadyTracked(buildKeywordAddPayloads({
+         items: selectedItems,
+         domain: domain?.domain || '',
+         devices: addDevices,
+         tags,
+         location,
+      }), trackedKeywordLookup);
+      addKeywords({ payloads, skipped });
       setSelectedKeywords([]);
+      setShowAddStep(false);
    };
 
    const selectableKeywordIds = useMemo(() => {
@@ -159,16 +170,12 @@ const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleInt
          <div className='domKeywords flex flex-col bg-[white] rounded-md text-sm border mb-4'>
             {selectedKeywords.length > 0 && (
                <div className='font-semibold text-sm py-4 px-8 text-gray-500 '>
-                  <ul className=''>
-                     <li className='inline-block mr-4'>
-                        <a
-                        className='block px-2 py-2 cursor-pointer hover:text-indigo-600'
-                        onClick={() => addSCKeywordsToTracker()}
-                        >
-                           <span className=' bg-indigo-100 text-blue-700 px-1 rounded font-black'>+</span> Add Keywords to Tracker
-                        </a>
-                     </li>
-                  </ul>
+                  <AddToTrackerBar
+                     devices={addDevices}
+                     setDevices={setAddDevices}
+                     onAdd={openAddStep}
+                     addDisabled={addDevices.length === 0}
+                  />
                </div>
             )}
             {selectedKeywords.length === 0 && (
@@ -256,6 +263,16 @@ const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleInt
                </div>
             </div>
          </div>
+         {showAddStep && (
+            <AddKeywordsMetaStep
+               selectedCount={selectedKeywords.length}
+               existingTags={existingTags}
+               existingLocations={existingLocations}
+               allowsCity={allowsCity}
+               onConfirm={submitSCKeywordsToTracker}
+               closeModal={() => setShowAddStep(false)}
+            />
+         )}
       </div>
    );
  };

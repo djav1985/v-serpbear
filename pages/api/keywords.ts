@@ -9,7 +9,8 @@ import parseKeywords from '../../utils/parseKeywords';
 import { integrateKeywordSCData, readLocalSCData } from '../../utils/searchConsole';
 import refreshAndUpdateKeywords from '../../utils/refresh';
 import { getKeywordsVolume, updateKeywordsVolumeData } from '../../utils/adwords';
-import { formatLocation, hasValidCityStatePair, parseLocation } from '../../utils/location';
+import { formatLocation, getLocationCountry, hasValidCityStatePair, parseLocation } from '../../utils/location';
+import { planLocationUpdate } from '../../utils/keywordMeta';
 import { isValidHostname } from '../../utils/validators/hostname';
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
@@ -174,18 +175,20 @@ const validateKeywordData = (kwrd: any): { isValid: boolean, sanitized?: any, er
       state: state || parsedLocation.state,
       country: parsedLocation.country || country,
    }).substring(0, 255);
-   
+   // The location's country is the market the scraper searches, so it wins over the request's country
+   const marketCountry = getLocationCountry(rawLocation) || country;
+
    if (errors.length > 0) {
       return { isValid: false, errors };
    }
-   
+
    return {
       isValid: true,
       sanitized: {
          keyword,
          domain,
          device,
-         country,
+         country: marketCountry,
          location,
          tags
       }
@@ -391,11 +394,11 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
    if (!req.query.id || typeof req.query.id !== 'string') {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'keyword ID is Required!', requestId));
    }
-   if (req.body.sticky === undefined && req.body.tags === undefined) {
+   if (req.body.sticky === undefined && req.body.tags === undefined && req.body.location === undefined) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Keyword update payload is required.', requestId));
    }
    const keywordIDs = (req.query.id as string).split(',').map((item) => parseInt(item, 10));
-   const { sticky, tags } = req.body;
+   const { sticky, tags, location } = req.body;
 
    try {
       let keywords: KeywordType[] = [];
@@ -449,6 +452,33 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
          }
 
          return res.status(200).json({ keywords });
+      }
+      if (location !== undefined) {
+         const rawLocation = typeof location === 'string' ? location.trim().substring(0, 255) : '';
+         if (!rawLocation) {
+            return res.status(400).json(errorResponse('BAD_REQUEST', 'Location is required!', requestId));
+         }
+         const formattedLocation = formatLocation(parseLocation(rawLocation)).substring(0, 255);
+         const locationCountry = getLocationCountry(rawLocation);
+         const locationUpdate = locationCountry ? { location: formattedLocation, country: locationCountry } : { location: formattedLocation };
+         const selectedKeywords: Keyword[] = await Keyword.findAll({ where: { ID: { [Op.in]: keywordIDs } } });
+         const domains = [...new Set(selectedKeywords.map((el) => el.domain))];
+         // Other tracked keywords on the same domains, so a change cannot create a duplicate
+         const otherKeywords: Keyword[] = domains.length > 0
+            ? await Keyword.findAll({ where: { domain: { [Op.in]: domains }, ID: { [Op.notIn]: keywordIDs } } })
+            : [];
+         const { acceptedIDs, skipped } = planLocationUpdate(
+            selectedKeywords.map((el) => ({ ID: el.ID, keyword: el.keyword, domain: el.domain, country: el.country, device: el.device })),
+            otherKeywords.map((el) => ({ ID: el.ID, keyword: el.keyword, domain: el.domain, country: el.country, device: el.device })),
+            locationCountry,
+         );
+         if (acceptedIDs.length > 0) {
+            await Keyword.update(locationUpdate, { where: { ID: { [Op.in]: acceptedIDs } } });
+         }
+         const updatedKeywords:Keyword[] = await Keyword.findAll({ where: { ID: { [Op.in]: keywordIDs } } });
+         const formattedKeywords = updatedKeywords.map((el) => el.get({ plain: true }));
+         keywords = parseKeywords(formattedKeywords);
+         return res.status(200).json({ keywords, updatedCount: acceptedIDs.length, skipped });
       }
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Invalid Payload!', requestId));
    } catch (error) {

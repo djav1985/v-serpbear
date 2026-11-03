@@ -7,6 +7,7 @@ import verifyUser from '../../utils/verifyUser';
 import { getAppSettings } from '../../pages/api/settings';
 import { getKeywordsVolume, updateKeywordsVolumeData } from '../../utils/adwords';
 import { refreshQueue } from '../../utils/refreshQueue';
+import { createMockRequest, createMockResponse } from '../__helpers__';
 
 jest.mock('../../database/database', () => ({
   __esModule: true,
@@ -603,6 +604,146 @@ describe('PUT /api/keywords tags updates', () => {
   });
 });
 
+
+describe('PUT /api/keywords location updates', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // Drop lookups queued by an earlier test that stopped before using them
+    keywordMock.findAll.mockReset();
+    dbMock.sync.mockResolvedValue(undefined);
+    verifyUserMock.mockReturnValue('authorized');
+  });
+
+  const locationRow = (overrides: Record<string, unknown> = {}) => {
+    const plain = {
+      ID: 1,
+      keyword: 'alpha',
+      domain: 'example.com',
+      device: 'desktop',
+      country: 'US',
+      location: 'Austin,TX,US',
+      history: '{}',
+      tags: '[]',
+      lastResult: '[]',
+      lastUpdateError: 'false',
+      sticky: false,
+      updating: false,
+      mapPackTop3: false,
+      ...overrides,
+    };
+    return { ...plain, get: () => plain };
+  };
+
+  // Lookups run in order: the selected keywords, the other tracked keywords on those domains, then the refreshed rows
+  const mockLocationLookups = (selected: object[], others: object[] = []) => {
+    keywordMock.findAll
+      .mockResolvedValueOnce(selected)
+      .mockResolvedValueOnce(others)
+      .mockResolvedValueOnce(selected);
+  };
+
+  it('applies one location to every keyword in the ID list', async () => {
+    keywordMock.update.mockResolvedValue([2]);
+    mockLocationLookups([locationRow({ ID: 1 }), locationRow({ ID: 2, keyword: 'beta' })]);
+    const req = createMockRequest({
+      method: 'PUT',
+      query: { id: '1,2' },
+      body: { location: '  Austin,TX,US  ' },
+    });
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    expect(keywordMock.update).toHaveBeenCalledWith(
+      { location: 'Austin,TX,US', country: 'US' },
+      { where: { ID: { [Op.in]: [1, 2] } } },
+    );
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ updatedCount: 2, skipped: [] }));
+  });
+
+  it('returns 400 when the location is empty', async () => {
+    const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { location: '   ' } });
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    expect(keywordMock.update).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(400);
+  });
+
+  it('returns 500 when the location update fails', async () => {
+    keywordMock.update.mockRejectedValueOnce(new Error('db down'));
+    mockLocationLookups([locationRow()]);
+    const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { location: 'US' } });
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+  });
+
+  it('sets the keyword country to the country of the chosen location', async () => {
+    keywordMock.update.mockResolvedValue([1]);
+    mockLocationLookups([locationRow()]);
+    const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { location: 'London,England,GB' } });
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    expect(keywordMock.update).toHaveBeenCalledWith(
+      { location: 'London,England,GB', country: 'GB' },
+      { where: { ID: { [Op.in]: [1] } } },
+    );
+  });
+
+  it('leaves the keyword country alone when the location names no known country', async () => {
+    keywordMock.update.mockResolvedValue([1]);
+    mockLocationLookups([locationRow()]);
+    const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { location: 'Austin,TX' } });
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    expect(keywordMock.update.mock.calls[0][0]).not.toHaveProperty('country');
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('skips a keyword whose new location is already tracked and updates the rest', async () => {
+    keywordMock.update.mockResolvedValue([1]);
+    mockLocationLookups(
+      [locationRow({ ID: 1, keyword: 'alpha' }), locationRow({ ID: 2, keyword: 'beta' })],
+      [locationRow({ ID: 9, keyword: 'alpha', country: 'GB', location: 'London,England,GB' })],
+    );
+    const req = createMockRequest({ method: 'PUT', query: { id: '1,2' }, body: { location: 'London,England,GB' } });
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    expect(keywordMock.update).toHaveBeenCalledTimes(1);
+    expect(keywordMock.update).toHaveBeenCalledWith(
+      { location: 'London,England,GB', country: 'GB' },
+      { where: { ID: { [Op.in]: [2] } } },
+    );
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ updatedCount: 1, skipped: ['alpha'] }));
+  });
+
+  it('changes nothing when every selected keyword would duplicate a tracked one', async () => {
+    mockLocationLookups(
+      [locationRow({ ID: 1, keyword: 'alpha' })],
+      [locationRow({ ID: 9, keyword: 'alpha', country: 'GB', location: 'London,England,GB' })],
+    );
+    const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { location: 'London,England,GB' } });
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    expect(keywordMock.update).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ updatedCount: 0, skipped: ['alpha'] }));
+  });
+});
 
 describe('DELETE /api/keywords retry queue cleanup', () => {
   it('removes deleted keyword IDs from retry queue', async () => {

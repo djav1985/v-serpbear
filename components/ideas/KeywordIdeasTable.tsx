@@ -4,8 +4,11 @@ import { useQuery } from 'react-query';
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
 import { useAddKeywords, useFetchKeywords } from '../../services/keywords';
 import { useEmailKeywordIdeas } from '../../services/ideas';
-import { formatLocation } from '../../utils/location';
+import { buildKeywordAddPayloads, splitAlreadyTracked, getDomainLocations, getDomainTags, scraperAllowsCity, TrackerDevice } from '../../utils/keywordMeta';
+import { useFetchSettings } from '../../services/settings';
 import { getSelectedUntrackedKeywords } from '../../utils/client/helpers';
+import AddToTrackerBar from '../keywords/AddToTrackerBar';
+import AddKeywordsMetaStep from '../keywords/AddKeywordsMetaStep';
 import Icon from '../common/Icon';
 import SpinnerMessage from '../common/SpinnerMessage';
 import KeywordIdea from './KeywordIdea';
@@ -44,8 +47,11 @@ const IdeasKeywordsTable = ({
    const [filterParams, setFilterParams] = useState<KeywordFilters>({ countries: [], tags: [], search: '' });
    const [sortBy, setSortBy] = useState<string>('imp_desc');
    const [listHeight, setListHeight] = useState(500);
-   const [addKeywordDevice, setAddKeywordDevice] = useState<'desktop'|'mobile'>('desktop');
+   const [addKeywordDevices, setAddKeywordDevices] = useState<TrackerDevice[]>(['desktop']);
    const [addKeywordDomain, setAddKeywordDomain] = useState('');
+   const [showAddStep, setShowAddStep] = useState<boolean>(false);
+   const { data: appSettingsData } = useFetchSettings();
+   const allowsCity = scraperAllowsCity(appSettingsData?.settings);
    const { mutate: addKeywords } = useAddKeywords(() => { if (domain && domain.slug) router.push(`/domain/${domain.slug}`); });
    const { mutate: emailKeywordIdeas, isLoading: isEmailing } = useEmailKeywordIdeas(() => setSelectedKeywords([]));
    const { mutate: faveKeyword, isLoading: isFaving } = useMutateFavKeywordIdeas(router);
@@ -73,14 +79,15 @@ const IdeasKeywordsTable = ({
       return lookup;
    }, [trackedKeywordsList]);
 
-   const trackedDevicesToCheck = useMemo(() => {
-      if (addKeywordDevice === 'desktop' || addKeywordDevice === 'mobile') {
-         return [addKeywordDevice];
-      }
-      return ['desktop', 'mobile'];
-   }, [addKeywordDevice]);
+   const trackedDevicesToCheck = useMemo(() => (
+      addKeywordDevices.length > 0 ? addKeywordDevices : ['desktop', 'mobile']
+   ), [addKeywordDevices]);
 
-   const isIdeaTracked = useCallback((idea: IdeaKeyword) => trackedDevicesToCheck.some((device) => trackedKeywordLookup[`${idea.keyword}:${idea.country}:${device}`]), [trackedDevicesToCheck, trackedKeywordLookup]);
+   const existingTags = useMemo(() => getDomainTags(trackedKeywordsList), [trackedKeywordsList]);
+   const existingLocations = useMemo(() => getDomainLocations(trackedKeywordsList), [trackedKeywordsList]);
+
+   // Tracked only when every selected device already has it; a partly tracked idea can still add the missing device
+   const isIdeaTracked = useCallback((idea: IdeaKeyword) => trackedDevicesToCheck.every((device) => trackedKeywordLookup[`${idea.keyword}:${idea.country}:${device}`]), [trackedDevicesToCheck, trackedKeywordLookup]);
 
    const { data: domainsData } = useQuery(
       ['domains', false],
@@ -142,25 +149,27 @@ const IdeasKeywordsTable = ({
       }
    };
 
-   const addKeywordIdeasToTracker = () => {
+   const openIdeasAddStep = () => {
       if (isResearchPage && !addKeywordDomain) {
          toast('Please select a domain before adding keywords.', { icon: '⚠️' });
          return;
       }
+      if (addKeywordDevices.length > 0) { setShowAddStep(true); }
+   };
+
+   const submitIdeasToTracker = ({ tags, location }: { tags: string[], location: string }) => {
+      const targetDomain = isResearchPage ? addKeywordDomain : (domain?.domain || '');
       const selectedUntrackedKeywords = getSelectedUntrackedKeywords(finalKeywords, selectedKeywords);
-      const selectedkeywords: KeywordAddPayload[] = selectedUntrackedKeywords.map((kitem) => {
-         const { keyword, country } = kitem;
-         return {
-            keyword,
-            device: addKeywordDevice,
-            country,
-            domain: isResearchPage ? addKeywordDomain : (domain?.domain || ''),
-            tags: '',
-            location: formatLocation({ country }),
-         };
-      });
-      addKeywords(selectedkeywords);
+      const { payloads, skipped } = splitAlreadyTracked(buildKeywordAddPayloads({
+         items: selectedUntrackedKeywords.map(({ keyword, country }) => ({ keyword, country })),
+         domain: targetDomain,
+         devices: addKeywordDevices,
+         tags,
+         location,
+      }), trackedKeywordLookup);
+      addKeywords({ payloads, skipped });
       setSelectedKeywords([]);
+      setShowAddStep(false);
    };
 
    const sendKeywordIdeasEmail = () => {
@@ -191,8 +200,7 @@ const IdeasKeywordsTable = ({
    const isDomainSelectionRequired = isResearchPage && !addKeywordDomain;
    const addButtonDisabled = isDomainSelectionRequired;
    const emailButtonDisabled = isEmailing;
-   const emailButtonAriaDisabled = isDomainSelectionRequired;
-   const selectionBannerText = isResearchPage ? 'Select Domain For Action' : 'Add Keywords to Tracker';
+   const selectionBannerText = isResearchPage ? 'Select Domain For Action' : '';
 
    const Row = ({ data, index, style }:ListChildComponentProps) => {
       const keyword: IdeaKeywordWithTracking = data[index];
@@ -279,53 +287,29 @@ const IdeasKeywordsTable = ({
          <div className='domKeywords flex flex-col bg-[white] rounded-md text-sm border mb-5'>
             {selectedKeywords.length > 0 && (
                <div className='font-semibold text-sm py-4 px-8 text-gray-500 '>
-                  <div className={`inline-block ${isResearchPage ? ' mr-2' : ''}`}>{selectionBannerText}</div>
-                  {isResearchPage && (
-                     <SelectField
-                     selected={[]}
-                     options={theDomains.map((d) => ({ label: d.domain, value: d.domain }))}
-                     defaultLabel={'Select a Domain'}
-                     updateField={(updated:string[]) => updated[0] && setAddKeywordDomain(updated[0])}
-                     emptyMsg="No Domains Found"
-                     multiple={false}
-                     inline={true}
-                     rounded='rounded'
-                     />
-                  )}
-                  <div className='inline-block ml-2'>
-                     <button
-                     className={`inline-block px-2 py-1 rounded-s
-                     ${addKeywordDevice === 'desktop' ? 'bg-indigo-100 text-blue-700' : 'bg-indigo-50 '}`}
-                     onClick={() => setAddKeywordDevice('desktop')}>
-                        {addKeywordDevice === 'desktop' ? '◉' : '○'} Desktop
-                     </button>
-                     <button
-                     className={`inline-block px-2 py-1 rounded-e ${addKeywordDevice === 'mobile' ? 'bg-indigo-100 text-blue-700' : 'bg-indigo-50 '}`}
-                     onClick={() => setAddKeywordDevice('mobile')}>
-                        {addKeywordDevice === 'mobile' ? '◉' : '○'} Mobile
-                     </button>
-                  </div>
-                     <div className='inline-flex flex-wrap gap-2 items-center ml-4 mt-2 sm:mt-0'>
-                        <button
-                        type='button'
-                     className={`text-white bg-blue-700 px-3 py-1 rounded font-semibold transition-colors ${addButtonDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-600'}`}
-                        onClick={addKeywordIdeasToTracker}
-                     aria-disabled={addButtonDisabled}
-                     tabIndex={addButtonDisabled ? -1 : 0}
-                        >
-                           + Add Keywords
-                        </button>
-                        <button
-                        type='button'
-                     className={`text-white bg-indigo-600 px-3 py-1 rounded font-semibold transition-colors ${(emailButtonDisabled || emailButtonAriaDisabled) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-indigo-500'}`}
-                        onClick={sendKeywordIdeasEmail}
-                     disabled={emailButtonDisabled}
-                     aria-disabled={emailButtonAriaDisabled}
-                     tabIndex={emailButtonAriaDisabled ? -1 : 0}
-                        >
-                           Email Keywords
-                        </button>
-                     </div>
+                  <AddToTrackerBar
+                     label={selectionBannerText}
+                     devices={addKeywordDevices}
+                     setDevices={setAddKeywordDevices}
+                     onAdd={openIdeasAddStep}
+                     addDisabled={addKeywordDevices.length === 0 || addButtonDisabled}
+                     onEmail={sendKeywordIdeasEmail}
+                     emailDisabled={emailButtonDisabled}
+                     emailAriaDisabled={isDomainSelectionRequired}
+                  >
+                     {isResearchPage && (
+                        <SelectField
+                        selected={[]}
+                        options={theDomains.map((d) => ({ label: d.domain, value: d.domain }))}
+                        defaultLabel={'Select a Domain'}
+                        updateField={(updated:string[]) => updated[0] && setAddKeywordDomain(updated[0])}
+                        emptyMsg="No Domains Found"
+                        multiple={false}
+                        inline={true}
+                        rounded='rounded'
+                        />
+                     )}
+                  </AddToTrackerBar>
                </div>
             )}
             {selectedKeywords.length === 0 && (
@@ -368,6 +352,16 @@ const IdeasKeywordsTable = ({
          </div>
          {showKeyDetails && showKeyDetails.uid && (
             <IdeaDetails keyword={showKeyDetails} closeDetails={() => setShowKeyDetails(null)} />
+         )}
+         {showAddStep && (
+            <AddKeywordsMetaStep
+               selectedCount={selectedKeywords.length}
+               existingTags={existingTags}
+               existingLocations={existingLocations}
+               allowsCity={allowsCity}
+               onConfirm={submitIdeasToTracker}
+               closeModal={() => setShowAddStep(false)}
+            />
          )}
       </div>
    );

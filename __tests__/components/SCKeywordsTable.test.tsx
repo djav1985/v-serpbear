@@ -158,7 +158,7 @@ describe('SCKeywordsTable', () => {
       // Test that clicking the untracked keyword works
       fireEvent.click(untrackedButton as Element);
       await waitFor(() => {
-         expect(screen.getByText('Add Keywords to Tracker')).toBeInTheDocument();
+         expect(screen.getByRole('button', { name: /Add Keyword/ })).toBeInTheDocument();
       });
    });
 
@@ -171,7 +171,7 @@ describe('SCKeywordsTable', () => {
       fireEvent.click(headerButton as Element);
 
       await waitFor(() => {
-         expect(screen.getByText('Add Keywords to Tracker')).toBeInTheDocument();
+         expect(screen.getByRole('button', { name: /Add Keyword/ })).toBeInTheDocument();
       });
 
       const trackedButton = screen.getByText('tracked keyword').closest('.keyword')?.querySelector('button');

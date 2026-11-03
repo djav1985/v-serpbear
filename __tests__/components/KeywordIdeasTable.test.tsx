@@ -26,6 +26,10 @@ jest.mock('../../services/adwords', () => ({
    useMutateFavKeywordIdeas: () => ({ mutate: jest.fn(), isLoading: false }),
 }));
 
+jest.mock('../../services/settings', () => ({
+   useFetchSettings: () => ({ data: undefined }),
+}));
+
 jest.mock('../../services/domains', () => ({
    fetchDomains: jest.fn().mockResolvedValue({ domains: [] }),
 }));
@@ -153,6 +157,19 @@ describe('KeywordIdeasTable DRY Principle Implementation', () => {
       jest.clearAllMocks();
    });
 
+   it('keeps an idea selectable when only one of the two selected devices already tracks it', async () => {
+      renderTable();
+
+      // Desktop is tracked for "tracked term"; with both devices chosen it still needs mobile
+      fireEvent.click(within(screen.getByText('new term').closest('div.keyword') as HTMLElement).getByRole('button', { name: /select keyword idea/i }));
+      fireEvent.click(await screen.findByRole('checkbox', { name: /Mobile/ }));
+
+      const trackedRow = screen.getByText('tracked term').closest('div.keyword') as HTMLElement;
+      const partialButton = within(trackedRow).getByRole('button', { name: /select keyword idea/i });
+      expect(partialButton).toBeEnabled();
+      expect(within(trackedRow).queryByRole('button', { name: /already tracked/i })).not.toBeInTheDocument();
+   });
+
    it('marks tracked keyword ideas as disabled and prevents selection', async () => {
       renderTable();
 
@@ -179,7 +196,7 @@ describe('KeywordIdeasTable DRY Principle Implementation', () => {
       await waitFor(() => {
          expect(untrackedRow).toHaveClass('keyword--selected');
       });
-      expect(await screen.findByText('Add Keywords to Tracker')).toBeInTheDocument();
+      expect(await screen.findByRole('button', { name: /Add Keyword/ })).toBeInTheDocument();
 
       const emailButton = screen.getByRole('button', { name: 'Email Keywords' });
       expect(emailButton).toBeInTheDocument();
@@ -212,7 +229,7 @@ describe('KeywordIdeasTable DRY Principle Implementation', () => {
 
       expect(await screen.findByText('Select Domain For Action')).toBeInTheDocument();
 
-      const addButton = screen.getByRole('button', { name: '+ Add Keywords' });
+      const addButton = screen.getByRole('button', { name: '+ Add Keyword' });
       expect(addButton).toHaveAttribute('aria-disabled', 'true');
 
       const emailButton = screen.getByRole('button', { name: 'Email Keywords' });
