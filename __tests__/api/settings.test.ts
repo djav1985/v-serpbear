@@ -441,6 +441,7 @@ describe('PUT /api/settings keeps secrets that are left out of the payload', () 
       unlink: jest.fn(),
     }));
     jest.doMock('cryptr', () => jest.requireActual('cryptr'));
+    jest.doMock('../../scrapers/index', () => jest.requireActual('../../scrapers/index'));
     jest.doMock('../../utils/atomicWrite', () => ({
       __esModule: true,
       atomicWriteFile: jest.fn().mockResolvedValue(undefined),
