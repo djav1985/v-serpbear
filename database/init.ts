@@ -54,6 +54,11 @@ export async function initializeDatabase(): Promise<void> {
       try {
          logger.info('Initializing database...');
          await db.sync();
+         // Migrations run before sync in fresh installations, so the tracking-target migration may
+         // have skipped a not-yet-created keyword table. Ensure its index after model sync as well.
+         await db.query(
+            "CREATE UNIQUE INDEX IF NOT EXISTS keyword_tracking_target_idx ON keyword (domain, keyword, COALESCE(country, ''), COALESCE(location, ''), COALESCE(device, ''))",
+         );
          await resetStaleUpdatingFlags();
          dbState.initialized = true;
          logger.info('Database initialized successfully');

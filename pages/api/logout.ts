@@ -5,8 +5,10 @@ import Cookies from 'cookies';
 import verifyUser from '../../utils/verifyUser';
 import { withApiLogging } from '../../utils/apiLogging';
 import { logger } from '../../utils/logger';
+import { getClientIp } from '../../utils/api/clientIp';
 import isRequestSecure from '../../utils/api/isRequestSecure';
 import { errorResponse } from '../../utils/api/response';
+import { revokeAllSessions } from '../../utils/sessionStore';
 
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
@@ -14,7 +16,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
    
    logger.info('Logout API endpoint accessed', {
       method: req.method,
-      ip: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'unknown',
+      ip: getClientIp(req),
       userAgent: req.headers['user-agent']
    });
 
@@ -57,7 +59,9 @@ const logout = async (req: NextApiRequest, res: NextApiResponse, startTime: numb
          logger.debug('Failed to decode logout token during logout', { error: error instanceof Error ? error.message : String(error) });
       }
 
-      // Clear the token cookie
+      // Revoke every issued token, including copies taken before logout, then clear the cookie
+      await revokeAllSessions();
+
       cookies.set('token', '', {
          httpOnly: true,
          sameSite: 'lax',
@@ -70,7 +74,7 @@ const logout = async (req: NextApiRequest, res: NextApiResponse, startTime: numb
       logger.info('User logged out successfully', {
          username,
          duration: Date.now() - startTime,
-         ip: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'unknown'
+         ip: getClientIp(req)
       });
 
       return res.status(200).json({ success: true });

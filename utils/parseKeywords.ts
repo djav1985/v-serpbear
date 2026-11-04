@@ -1,18 +1,24 @@
 import Keyword from '../database/models/keyword';
 import { normalizeToBoolean } from './dbBooleans';
 import { safeJsonParse } from './safeJsonParse';
+import { normalizeHistoryDateKey } from './historyDateKey';
 
 export const normaliseHistory = (rawHistory: unknown): KeywordHistory => {
    if (!rawHistory || typeof rawHistory !== 'object' || Array.isArray(rawHistory)) {
       return {};
    }
 
-   return Object.entries(rawHistory as Record<string, unknown>).reduce<KeywordHistory>((acc, [key, value]) => {
+   // Keys are padded ("2026-1-5" becomes "2026-01-05"). If both forms exist for one day, the entry already
+   // stored under the padded key wins, which is the same rule the history migration applies.
+   const entries = Object.entries(rawHistory as Record<string, unknown>)
+      .sort(([left], [right]) => Number(normalizeHistoryDateKey(left) === left) - Number(normalizeHistoryDateKey(right) === right));
+
+   return entries.reduce<KeywordHistory>((acc, [key, value]) => {
       if (!key) { return acc; }
 
       const numericValue = typeof value === 'number' ? value : Number(value);
       if (!Number.isNaN(numericValue)) {
-         acc[key] = numericValue;
+         acc[normalizeHistoryDateKey(key)] = numericValue;
       }
       return acc;
    }, {});

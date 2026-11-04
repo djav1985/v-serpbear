@@ -1,6 +1,7 @@
 import countries from '../../utils/countries';
 import Icon from '../common/Icon';
 import { formattedNum } from '../../utils/client/helpers';
+import { formatDateKey } from '../../utils/timezone';
 
 type InsightItemProps = {
    item: SCInsightItem,
@@ -13,7 +14,7 @@ const InsightItem = ({ item, lastItem, type, domain }:InsightItemProps) => {
    const { clicks, impressions, ctr, position, country = 'zzz', keyword, page, keywords = 0, countries: cntrs = 0, date } = item;
    let firstItem = keyword;
    if (type === 'pages') { firstItem = page; } if (type === 'stats') {
-      firstItem = date && new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date(date));
+      firstItem = date && formatDateKey(date, { dateStyle: 'medium' });
    }
    if (type === 'countries') { firstItem = countries[country] && countries[country][0]; }
 

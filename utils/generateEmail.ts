@@ -1,20 +1,17 @@
-import dayjs from 'dayjs';
 import { readFile } from 'fs/promises';
 import path from 'path';
 import { getKeywordsInsight, getPagesInsight } from './insight';
 import { fetchDomainSCData, getSearchConsoleApiInfo, isSearchConsoleDataFreshForToday, readLocalSCData } from './searchConsole';
 import { parseLocation } from './location';
 import { buildLogoUrl, getBranding } from './branding';
-import { fromDbBool } from './dbBooleans';
+import { normalizeToBoolean } from './dbBooleans';
+import { historyKeyToTime } from './historyDateKey';
+import { APP_TIMEZONE, dateKeyToTime, formatDateKey, todayKey } from './timezone';
 
 const DEFAULT_BRAND_LOGO = 'https://serpbear.b-cdn.net/ikAdjQq.png';
 const mobileIcon = 'https://serpbear.b-cdn.net/SqXD9rd.png';
 const desktopIcon = 'https://serpbear.b-cdn.net/Dx3u0XD.png';
 const googleIcon = 'https://serpbear.b-cdn.net/Sx3u0X9.png';
-
-const normalizeMapPackTop3 = (value: boolean | number | null | undefined): boolean => (
-   typeof value === 'boolean' ? value : fromDbBool(value)
-);
 
 const resolveEmailBranding = () => {
    const brandingDetails = getBranding();
@@ -46,7 +43,7 @@ const getPositionChange = (history:KeywordHistory, position:number) : number => 
    let status = 0;
    if (Object.keys(history).length >= 2) {
       const historyArray = Object.keys(history).map((dateKey) => ({
-               date: new Date(dateKey).getTime(),
+               date: historyKeyToTime(dateKey),
                dateRaw: dateKey,
                position: history[dateKey],
             }));
@@ -105,7 +102,7 @@ type KeywordSummary = {
 };
 
 const calculateKeywordSummary = (items: KeywordType[]): KeywordSummary => items.reduce((stats, keyword) => {
-   if (normalizeMapPackTop3(keyword.mapPackTop3)) {
+   if (normalizeToBoolean(keyword.mapPackTop3)) {
       stats.mapPackKeywords += 1;
    }
    if (typeof keyword.position === 'number' && Number.isFinite(keyword.position) && keyword.position > 0) {
@@ -124,7 +121,7 @@ const calculateKeywordSummary = (items: KeywordType[]): KeywordSummary => items.
 const generateEmail = async (domain:DomainType, keywords:KeywordType[], settings: SettingsType) : Promise<string> => {
    const domainName = domain.domain;
    const emailTemplate = await readFile(path.join(process.cwd(), 'email', 'email.html'), { encoding: 'utf-8' });
-   const currentDate = dayjs(new Date()).format('MMMM D, YYYY');
+   const currentDate = formatDateKey(todayKey(APP_TIMEZONE), { month: 'long', day: 'numeric', year: 'numeric' });
    const keywordsCount = keywords.length;
    let improved = 0; let declined = 0;
 
@@ -135,9 +132,9 @@ const generateEmail = async (domain:DomainType, keywords:KeywordType[], settings
 
       const positionChange = getPositionChange(keyword.history, keyword.position);
       const deviceIconImg = keyword.device === 'desktop' ? desktopIcon : mobileIcon;
-      const countryFlag = `<img class="flag" src="https://flagcdn.com/w20/${keyword.country.toLowerCase()}.png" alt="${keyword.country}" title="${keyword.country}" />`;
-      const deviceIcon = `<img class="device" src="${deviceIconImg}" alt="${keyword.device}" title="${keyword.device}" width="18" height="18" />`;
-      const mapPackFlag = normalizeMapPackTop3(keyword.mapPackTop3)
+      const countryFlag = `<img class="flag" src="https://flagcdn.com/w20/${escapeHtml(keyword.country.toLowerCase())}.png" alt="${escapeHtml(keyword.country)}" title="${escapeHtml(keyword.country)}" />`;
+      const deviceIcon = `<img class="device" src="${deviceIconImg}" alt="${escapeHtml(keyword.device)}" title="${escapeHtml(keyword.device)}" width="18" height="18" />`;
+      const mapPackFlag = normalizeToBoolean(keyword.mapPackTop3)
          ? `<span class="map-pack-flag" role="img" aria-label="Map pack top three">MP</span>`
          : '';
       const flagStack = `<span class="flag-stack">${countryFlag}${mapPackFlag}</span>`;
@@ -221,27 +218,28 @@ const generateEmail = async (domain:DomainType, keywords:KeywordType[], settings
 
    const { emailLogo, platformName: brandName } = resolveEmailBranding();
 
-   // Use function replacements so "$" sequences in keyword text are not treated as replacement patterns.
-   const replaceToken = (template: string, token: string | RegExp, value: string) => (
-      template.replace(token, () => value)
-   );
-   const updatedEmail = [
-      ['{{logo}}', `<img class="logo_img" src="${escapeHtml(emailLogo)}" alt="${escapeHtml(brandName)}" width="24" height="24" />`],
-      [/{{platformName}}/g, escapeHtml(brandName)],
-      ['{{currentDate}}', currentDate],
-      ['{{domainName}}', escapeHtml(domainName)],
-      ['{{keywordsCount}}', keywordsCount.toString()],
-      ['{{keywordsTable}}', keywordsTable],
-      ['{{domainStats}}', domainStatsHTML],
-      ['{{appURL}}', escapeHtml(process.env.NEXT_PUBLIC_APP_URL || '')],
-      ['{{stat}}', stat],
-      ['{{preheader}}', stat],
-   ].reduce((html, [token, value]) => replaceToken(html, token as string | RegExp, value as string), emailTemplate);
-
    const isConsoleIntegrated = !!(process.env.SEARCH_CONSOLE_PRIVATE_KEY && process.env.SEARCH_CONSOLE_CLIENT_EMAIL)
       || (settings.search_console_client_email && settings.search_console_private_key);
    const htmlWithSCStats = isConsoleIntegrated ? await generateGoogleConsoleStats(domain) : '';
-   const emailHTML = replaceToken(updatedEmail, '{{SCStatsTable}}', htmlWithSCStats);
+
+   // One pass over the template only: text inserted for a token (keyword names, SC queries) is never scanned for
+   // further {{tokens}}, so a keyword containing "{{SCStatsTable}}" cannot pull in other content.
+   const tokenValues: Record<string, string> = {
+      logo: `<img class="logo_img" src="${escapeHtml(emailLogo)}" alt="${escapeHtml(brandName)}" width="24" height="24" />`,
+      platformName: escapeHtml(brandName),
+      currentDate,
+      domainName: escapeHtml(domainName),
+      keywordsCount: keywordsCount.toString(),
+      keywordsTable,
+      domainStats: domainStatsHTML,
+      appURL: escapeHtml(process.env.NEXT_PUBLIC_APP_URL || ''),
+      stat,
+      preheader: stat,
+      SCStatsTable: htmlWithSCStats,
+   };
+   const emailHTML = emailTemplate.replace(/\{\{(\w+)\}\}/g, (match, token: string) => (
+      Object.prototype.hasOwnProperty.call(tokenValues, token) ? tokenValues[token] : match
+   ));
 
    return emailHTML;
 };
@@ -254,10 +252,9 @@ const generateEmail = async (domain:DomainType, keywords:KeywordType[], settings
 export const generateGoogleConsoleStats = async (domain:DomainType): Promise<string> => {
       const initialSCData = await readLocalSCData(domain.domain);
       let localSCData:SCDomainDataType | null = initialSCData === false ? null : initialSCData;
-      const cronTimezone = process.env.CRON_TIMEZONE || 'America/New_York';
       const hasStats = !!(localSCData?.stats && localSCData.stats.length);
       const lastFetched = localSCData?.lastFetched;
-      const isFresh = hasStats && isSearchConsoleDataFreshForToday(lastFetched, cronTimezone);
+      const isFresh = hasStats && isSearchConsoleDataFreshForToday(lastFetched);
       if (!isFresh) {
          const scDomainAPI = domain.search_console ? await getSearchConsoleApiInfo(domain) : { client_email: '', private_key: '' };
          const scGlobalAPI = await getSearchConsoleApiInfo({} as DomainType);
@@ -300,17 +297,22 @@ export const generateGoogleConsoleStats = async (domain:DomainType): Promise<str
 
       // Create Stats Start, End Date
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      const endDate = new Date(SCStats[0].date);
-      const startDate = new Date(SCStats[SCStats.length - 1].date);
+      // SC dates are "YYYY-MM-DD" day keys. Read them as UTC (dateKeyToTime) so the label shows the day the key names.
+      const dayMonthLabel = (key: string): string => {
+         const time = new Date(dateKeyToTime(key));
+         return `${time.getUTCDate()} ${months[time.getUTCMonth()]}`;
+      };
+      const endLabel = dayMonthLabel(SCStats[0].date);
+      const startLabel = dayMonthLabel(SCStats[SCStats.length - 1].date);
 
       // Add the SC header Title
       let htmlWithSCStats = `<table role="presentation" border="0" cellpadding="0" cellspacing="0" class="console_table">
                               <tr>
                                  <td style="font-weight:bold;">
-                                 <img class="google_icon" src="${googleIcon}" alt="Google" width="13" height="13"> Google Search Console Stats</h3>
+                                 <img class="google_icon" src="${googleIcon}" alt="Google" width="13" height="13"> Google Search Console Stats
                                  </td>
                                  <td class="stat" align="right" style="font-size: 12px;">
-                                 ${startDate.getDate()} ${months[startDate.getMonth()]} -  ${endDate.getDate()} ${months[endDate.getMonth()]} 
+                                 ${startLabel} -  ${endLabel}
                                  (Last 7 Days)
                                  </td>
                               </tr>
@@ -323,7 +325,7 @@ export const generateGoogleConsoleStats = async (domain:DomainType): Promise<str
          const scItemFirstColName = itemKey === 'stats' ? 'Date' : `${itemKey[0].toUpperCase()}${itemKey.slice(1)}`;
          htmlWithSCStats += `<table role="presentation" border="0" cellpadding="0" cellspacing="0" class="subhead">
                                  <tr>
-                                    <td style="font-weight:bold;">${scItem.label}</h3></td>
+                                    <td style="font-weight:bold;">${scItem.label}</td>
                                     ${scItem.clicks && scItem.impressions ? (
                                        `<td class="stat" align="right">
                                           <strong>${scItem.clicks}</strong> Clicks | <strong>${scItem.impressions}</strong> Views

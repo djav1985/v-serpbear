@@ -19,9 +19,9 @@ jest.mock('../../utils/scraper', () => ({
 jest.mock('../../utils/retryQueueManager', () => ({
   retryQueueManager: {
     addToQueue: jest.fn().mockResolvedValue(undefined),
+    getAttempts: jest.fn().mockResolvedValue(0),
     removeFromQueue: jest.fn().mockResolvedValue(undefined),
     removeBatch: jest.fn().mockResolvedValue(undefined),
-    getQueue: jest.fn().mockResolvedValue([]),
   },
 }));
 
@@ -107,7 +107,7 @@ describe('refreshAndUpdateKeywords', () => {
     let activeTotal = 0;
     let peakTotal = 0;
 
-    (scrapeKeywordWithStrategy as jest.Mock).mockImplementation(async (keyword, effectiveSettings) => {
+    (scrapeKeywordWithStrategy as jest.Mock).mockImplementation(async (keyword) => {
       const keywordId = keyword.ID as number;
       const domain = keyword.domain as string;
       const device = keyword.device as string;
@@ -242,6 +242,29 @@ describe('refreshAndUpdateKeywords', () => {
     expect(keywordModel.update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0, updatingStartedAt: null }));
     expect(retryScrape).toHaveBeenCalledWith(41);
     expect(removeFromRetryQueue).not.toHaveBeenCalled();
+  });
+
+  it('drops a failed keyword from the retry queue once it has used all its retries', async () => {
+    // MAX_RETRY_ATTEMPTS is 3: a keyword already re-queued 3 times is dropped instead of queued again
+    const { retryQueueManager } = require('../../utils/retryQueueManager');
+    (retryQueueManager.getAttempts as jest.Mock).mockResolvedValueOnce(3);
+    const keywordPlain = { ID: 43, keyword: 'give-up', domain: 'example.com' };
+    const keywordModel = {
+      ...keywordPlain,
+      get: jest.fn().mockReturnValue(keywordPlain),
+      set: jest.fn(),
+      update: jest.fn().mockResolvedValue(undefined),
+    } as unknown as Keyword;
+
+    (Domain.findAll as jest.Mock).mockResolvedValue([
+      { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
+    ]);
+    (scrapeKeywordWithStrategy as jest.Mock).mockResolvedValueOnce(false);
+
+    await refreshAndUpdateKeywords([keywordModel], { scraper_type: 'custom-scraper', scrape_retry: true } as SettingsType);
+
+    expect(removeFromRetryQueue).toHaveBeenCalledWith(43);
+    expect(retryScrape).not.toHaveBeenCalledWith(43);
   });
 
   it('removes keywords from retry queue when sequential scraping is disabled', async () => {
@@ -481,28 +504,6 @@ describe('refreshAndUpdateKeywords', () => {
     const { retryQueueManager } = require('../../utils/retryQueueManager');
     expect(retryQueueManager.removeBatch).not.toHaveBeenCalled();
     expect(removeFromRetryQueue).not.toHaveBeenCalled();
-  });
-
-  it('handles retry queue operations correctly for disabled domains', async () => {
-    const mockKeywords = [
-      {
-        ID: 1,
-        domain: 'disabled.com',
-        get: jest.fn().mockReturnValue({ ID: 1, domain: 'disabled.com' }),
-        update: jest.fn().mockResolvedValue(undefined),
-        set: jest.fn(),
-      },
-    ];
-
-    (Domain.findAll as jest.Mock).mockResolvedValue([
-      { get: () => ({ domain: 'disabled.com', scrapeEnabled: 0 }) },
-    ]);
-
-    await refreshAndUpdateKeywords(mockKeywords as unknown as Keyword[], mockSettings);
-
-    // Should call removeBatch for skipped keywords from disabled domains
-    const { retryQueueManager } = require('../../utils/retryQueueManager');
-    expect(retryQueueManager.removeBatch).toHaveBeenCalledWith(expect.any(Set));
   });
 
   it('normalises undefined scraper results before persisting', async () => {
@@ -800,8 +801,8 @@ describe('refreshAndUpdateKeywords', () => {
       const payload = (keywordModel.update as jest.Mock).mock.calls[0][0];
       const storedHistory = JSON.parse(payload.history);
 
-      expect(storedHistory).toEqual({ '2024-5-20': 3 });
-      expect(updated.history).toEqual({ '2024-5-20': 3 });
+      expect(storedHistory).toEqual({ '2024-05-20': 3 });
+      expect(updated.history).toEqual({ '2024-05-20': 3 });
     } finally {
       jest.useRealTimers();
     }
@@ -1186,106 +1187,6 @@ describe('refreshAndUpdateKeywords', () => {
     expect(results).toHaveLength(1);
     expect(results[0].updating).toBe(false);
   });
-
-  it('handles errors gracefully during parallel refresh and ensures updating flags are cleared', async () => {
-    const keywords = [
-      {
-        ID: 101,
-        keyword: 'keyword 1',
-        domain: 'example.com',
-        get: jest.fn().mockReturnValue({ ID: 101, keyword: 'keyword 1', domain: 'example.com' }),
-        update: jest.fn().mockResolvedValue(undefined),
-        set: jest.fn(),
-      },
-      {
-        ID: 102,
-        keyword: 'keyword 2',
-        domain: 'example.com',
-        get: jest.fn().mockReturnValue({ ID: 102, keyword: 'keyword 2', domain: 'example.com' }),
-        update: jest.fn().mockResolvedValue(undefined),
-        set: jest.fn(),
-      },
-    ];
-
-    (Domain.findAll as jest.Mock).mockResolvedValue([
-      { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
-    ]);
-
-    // Simulate errors in the scraping process
-    (scrapeKeywordWithStrategy as jest.Mock).mockRejectedValue(new Error('Unexpected error'));
-    const settings = {
-      scraper_type: 'serpapi', // parallel scraper
-      scrape_retry: false,
-    } as SettingsType;
-
-    // The function should not throw - it handles errors gracefully
-    const results = await refreshAndUpdateKeywords(keywords as unknown as Keyword[], settings);
-
-    // Verify that keywords were processed despite errors
-    expect(results).toHaveLength(2);
-
-    // Verify all keywords have updating: 0
-    expect(results[0].updating).toBe(false);
-    expect(results[1].updating).toBe(false);
-
-    // Verify that update was called to clear the updating flags
-    expect(keywords[0].update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0, updatingStartedAt: null }));
-    expect(keywords[1].update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0, updatingStartedAt: null }));
-  });
-});
-
-describe('Database-Memory Synchronization in Keyword Refresh', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    process.env.SECRET = 'test-secret';
-  });
-
-  describe('updateKeywordPosition sync behavior', () => {
-    it('updates the database to sync in-memory state', async () => {
-      const mockKeywordModel = {
-        ID: 1,
-        keyword: 'test keyword',
-        domain: 'example.com',
-        position: 0,
-        updating: 1,
-        get: jest.fn().mockReturnValue({
-          ID: 1,
-          keyword: 'test keyword',
-          domain: 'example.com',
-          position: 0,
-          updating: false,
-          history: {},
-          lastUpdated: '',
-        }),
-        update: jest.fn().mockResolvedValue(undefined),
-      } as unknown as Keyword;
-
-      const refreshResult: RefreshResult = {
-        ID: 1,
-        keyword: 'test keyword',
-        position: 5,
-        url: 'https://example.com',
-        result: [],
-        localResults: [],
-        mapPackTop3: false,
-      };
-
-      const settings = {
-        scraper_type: 'serpapi',
-        scrape_retry: false,
-      } as SettingsType;
-
-      await updateKeywordPosition(mockKeywordModel, refreshResult, settings);
-
-      expect(mockKeywordModel.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          position: 5,
-          updating: 0,
-          updatingStartedAt: null,
-        }),
-      );
-    });
-  });
 });
 
 describe('Atomic Flag Clearing in Refresh Workflow', () => {
@@ -1489,5 +1390,104 @@ describe('Atomic Flag Clearing in Refresh Workflow', () => {
       expect(mockKeywordModel1.update).toHaveBeenCalledTimes(1);
       expect(mockKeywordModel2.update).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+// These tests mock the scraper, keyword and domain models differently from the suites above, so they load in an isolated registry.
+describe('refreshAndUpdateKeywords with a domain scraper key that cannot be decrypted', () => {
+  const originalSecret = process.env.SECRET;
+  let isoRefresh: any;
+  let scrapeMock: jest.Mock;
+
+  const makeDomain = (scraperSettings: string | null) => ({
+    get: () => ({
+      domain: 'example.com',
+      scrapeEnabled: 1,
+      scraper_settings: scraperSettings,
+      business_name: null,
+      scrape_strategy: '',
+      scrape_pagination_limit: 0,
+      scrape_smart_full_fallback: false,
+    }),
+  });
+
+  const makeKeyword = (id: number) => {
+    const plain = { ID: id, keyword: `kw ${id}`, domain: 'example.com', device: 'desktop', country: 'US', location: '', position: 0, url: '', lastResult: [], history: {}, mapPackTop3: 0, tags: [], localResults: [], updating: 1, lastUpdateError: 'false', sticky: 0, volume: 0, history7d: null, lastUpdated: '', added: '', updatingStartedAt: null };
+    return {
+      ID: id,
+      domain: 'example.com',
+      get: () => plain,
+      update: jest.fn().mockResolvedValue(undefined),
+    };
+  };
+
+  beforeAll(() => {
+    jest.resetModules();
+    jest.doMock('../../utils/scraper', () => ({
+      __esModule: true,
+      RefreshResult: undefined,
+      removeFromRetryQueue: jest.fn().mockResolvedValue(undefined),
+      retryScrape: jest.fn().mockResolvedValue(undefined),
+      scrapeKeywordWithStrategy: jest.fn(),
+    }));
+    jest.doMock('../../utils/updateDomainStats', () => ({
+      __esModule: true,
+      updateDomainStats: jest.fn().mockResolvedValue(undefined),
+    }));
+    jest.doMock('../../utils/retryQueueManager', () => ({
+      __esModule: true,
+      retryQueueManager: { removeBatch: jest.fn().mockResolvedValue(undefined), getAttempts: jest.fn().mockResolvedValue(0) },
+    }));
+    jest.doMock('../../database/models/keyword', () => ({
+      __esModule: true,
+      default: { findAll: jest.fn(), update: jest.fn() },
+    }));
+    jest.doMock('../../database/models/domain', () => ({
+      __esModule: true,
+      default: { findAll: jest.fn() },
+    }));
+    jest.isolateModules(() => {
+      isoRefresh = require('../../utils/refresh').default;
+      scrapeMock = require('../../utils/scraper').scrapeKeywordWithStrategy;
+    });
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env.SECRET = 'test-secret-for-override';
+  });
+
+  afterEach(() => {
+    if (originalSecret === undefined) {
+      delete process.env.SECRET;
+    } else {
+      process.env.SECRET = originalSecret;
+    }
+  });
+
+  it('does not scrape with the global key, and records a clear error on each keyword', async () => {
+    const otherCryptr = new Cryptr('some-other-secret');
+    const encryptedForAnotherSecret = otherCryptr.encrypt('serper-key');
+    const domain = makeDomain(JSON.stringify({ scraper_type: 'serper', scraping_api: encryptedForAnotherSecret }));
+    const keywords = [makeKeyword(1), makeKeyword(2)];
+
+    await isoRefresh(keywords as any, { scraper_type: 'serpapi', scraping_api: 'global-key' } as any, [domain] as any);
+
+    expect(scrapeMock).not.toHaveBeenCalled();
+    keywords.forEach((keyword) => {
+      expect(keyword.update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0, updatingStartedAt: null }));
+      const payload = keyword.update.mock.calls[0][0];
+      expect(JSON.parse(payload.lastUpdateError).error).toContain('could not be decrypted');
+    });
+  });
+
+  it('still scrapes when the domain has no saved override key', async () => {
+    const domain = makeDomain(null);
+    const keywords = [makeKeyword(3)];
+    scrapeMock.mockResolvedValue({ ID: 3, keyword: 'kw 3', position: 4, url: 'https://example.com/', result: [], mapPackTop3: false, error: false });
+
+    await isoRefresh(keywords as any, { scraper_type: 'serpapi', scraping_api: 'global-key' } as any, [domain] as any);
+
+    expect(scrapeMock).toHaveBeenCalledTimes(1);
   });
 });

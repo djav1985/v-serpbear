@@ -1,5 +1,4 @@
 import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
-import dayjs from 'dayjs';
 import Icon from '../common/Icon';
 import countries from '../../utils/countries';
 import Chart from '../common/Chart';
@@ -7,6 +6,9 @@ import SelectField from '../common/SelectField';
 import { useFetchSingleKeyword } from '../../services/keywords';
 import useOnKey from '../../hooks/useOnKey';
 import { generateTheChartData } from '../../utils/client/generateChartData';
+import { formatInZone } from '../../utils/timezone';
+import { getAppTimezone } from '../../utils/client/appTimezone';
+import { closeOnBGClick } from '../../utils/client/closeOnBGClick';
 
 type KeywordDetailsProps = {
    keyword: KeywordType,
@@ -16,7 +18,7 @@ type KeywordDetailsProps = {
 type ResultSegment = { type: 'result', item: KeywordLastResult } | { type: 'skipped', from: number, to: number };
 
 const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
-   const updatedDate = new Date(keyword.lastUpdated);
+   const updatedDate = keyword.lastUpdated ? formatInZone(keyword.lastUpdated, { month: 'long', day: 'numeric', year: 'numeric' }, getAppTimezone()) : '';
    const [chartTime, setChartTime] = useState<string>('30');
    const searchResultContainer = useRef<HTMLDivElement>(null);
    const searchResultFound = useRef<HTMLDivElement>(null);
@@ -89,20 +91,14 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
       }
    }, [resultSegments, keyword.position]);
 
-   const closeOnBGClick = (e:React.SyntheticEvent) => {
-      e.stopPropagation();
-      e.nativeEvent.stopImmediatePropagation();
-      if (e.target === e.currentTarget) { closeDetails(); }
-   };
-
    return (
-       <div className="keywordDetails fixed w-full h-dvh top-0 left-0 z-[99999]" onClick={closeOnBGClick} data-testid="keywordDetails">
+       <div className="keywordDetails fixed w-full h-dvh top-0 left-0 z-[99999]" onClick={(e) => closeOnBGClick(e, closeDetails)} data-testid="keywordDetails">
             <div className="keywordDetails absolute w-full lg:w-5/12 bg-white customShadow top-0 right-0 h-dvh overflow-y-auto" >
                <div className='keywordDetails__header p-6 border-b border-b-slate-200 text-slate-600'>
                   <h3 className=' text-lg font-bold flex items-center'>
                      <span className="fflag-stack mr-2">
                         <span
-                           title={countries[keyword.country][0]}
+                           title={countries[keyword.country]?.[0] ?? keyword.country}
                            className={`fflag fflag-${keyword.country} w-[18px] h-[12px]`}
                         />
                         {mapPackTop3 && (
@@ -144,7 +140,7 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
                   <div className='keywordDetails__section mt-10'>
                      <div className="keywordDetails__section__head flex justify-between items-center pb-4 mb-4 border-b border-b-slate-200">
                         <h3 className=' font-bold text-gray-700 lg:text-lg'>Local Search Results</h3>
-                        <span className=' text-xs text-gray-500'>{dayjs(updatedDate).format('MMMM D, YYYY')}</span>
+                        <span className=' text-xs text-gray-500'>{updatedDate}</span>
                      </div>
                      <div className='keywordDetails__section__results keywordDetails__section__results--local styled-scrollbar overflow-y-auto'>
                         {keywordLocalResults && Array.isArray(keywordLocalResults) && keywordLocalResults.length > 0 ? (
@@ -178,13 +174,13 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
                      <div className="keywordDetails__section__head flex justify-between items-center pb-4 mb-4 border-b border-b-slate-200">
                         <h3 className=' font-bold text-gray-700 lg:text-lg'>Google Search Result
                            <a className='text-gray-400 hover:text-indigo-600 inline-block ml-1 px-2 py-1'
-                              href={`https://www.google.com/search?q=${encodeURI(keyword.keyword)}`}
+                              href={`https://www.google.com/search?q=${encodeURIComponent(keyword.keyword)}`}
                               target="_blank"
                               rel='noreferrer'>
                               <Icon type='link' size={14} />
                            </a>
                         </h3>
-                        <span className=' text-xs text-gray-500'>{dayjs(updatedDate).format('MMMM D, YYYY')}</span>
+                        <span className=' text-xs text-gray-500'>{updatedDate}</span>
                      </div>
                      <div className='keywordDetails__section__results styled-scrollbar overflow-y-auto' ref={searchResultContainer}>
                         {skippedCount > 0 && (

@@ -26,6 +26,16 @@ jest.mock('../../database/models/keyword', () => ({
   },
 }));
 
+// Every domain a request names exists, so keywords can be added to it
+jest.mock('../../database/models/domain', () => ({
+  __esModule: true,
+  default: {
+    findAll: jest.fn(async ({ where }: { where: { domain: string[] } }) => (
+      where.domain.map((name: string) => ({ get: () => ({ domain: name }) }))
+    )),
+  },
+}));
+
 jest.mock('../../utils/verifyUser', () => ({
   __esModule: true,
   default: jest.fn(),
@@ -98,6 +108,16 @@ describe('PUT /api/keywords error handling', () => {
     updateKeywordsVolumeDataMock.mockResolvedValue(true);
   });
 
+  it('rejects a non-boolean sticky value with 400 and leaves the keyword unchanged', async () => {
+    const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { sticky: 'true' } });
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(keywordMock.update).not.toHaveBeenCalled();
+  });
+
   it('returns 500 when keyword update fails', async () => {
     const failure = new Error('update failed');
     keywordMock.update.mockRejectedValueOnce(failure);
@@ -130,6 +150,7 @@ describe('PUT /api/keywords error handling', () => {
     const addRecord = { get: () => ({ ID: 1, keyword: 'alpha', history: '{}', tags: '[]', lastResult: '[]', lastUpdateError: 'false', device: 'desktop', domain: 'example.com', country: 'US' }) };
     const postAdd = async (keyword: Record<string, unknown>) => {
       keywordMock.bulkCreate.mockResolvedValue([addRecord]);
+      keywordMock.findAll.mockResolvedValueOnce([]);
       keywordMock.findAll.mockResolvedValue([addRecord]);
       getKeywordsVolumeMock.mockResolvedValue({ volumes: {} });
       updateKeywordsVolumeDataMock.mockResolvedValue(undefined);
@@ -199,6 +220,7 @@ describe('PUT /api/keywords error handling', () => {
       json: jest.fn(),
     } as unknown as NextApiResponse;
 
+    keywordMock.findAll.mockResolvedValueOnce([]);
     await handler(req, res);
 
     expect(keywordMock.bulkCreate).toHaveBeenCalled();
@@ -275,6 +297,7 @@ describe('PUT /api/keywords error handling', () => {
       json: jest.fn(),
     } as unknown as NextApiResponse;
 
+    keywordMock.findAll.mockResolvedValueOnce([]);
     await handler(req, res);
 
     expect(keywordMock.bulkCreate).toHaveBeenCalledWith([
@@ -309,6 +332,7 @@ describe('PUT /api/keywords error handling', () => {
     } as unknown as NextApiRequest;
     const res = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
 
+    keywordMock.findAll.mockResolvedValueOnce([]);
     await handler(req, res);
 
     expect(refreshQueueMock.enqueue).toHaveBeenCalledWith(
@@ -316,44 +340,6 @@ describe('PUT /api/keywords error handling', () => {
       expect.any(Function),
       ['example.com', 'second.com'],
     );
-  });
-
-  it('returns keywords without invoking stale update cleanup', async () => {
-    const keywordRecord = {
-      get: () => ({
-        ID: 5,
-        keyword: 'alpha',
-        history: '{}',
-        tags: '[]',
-        lastResult: '[]',
-        lastUpdateError: 'false',
-        device: 'desktop',
-        domain: 'example.com',
-        country: 'US',
-        updating: 0,
-        sticky: 0,
-        mapPackTop3: 0,
-        localResults: '[]',
-      }),
-    };
-
-    keywordMock.findAll.mockResolvedValueOnce([keywordRecord]);
-    getAppSettingsMock.mockResolvedValue({});
-
-    const req = {
-      method: 'GET',
-      query: { domain: 'example.com' },
-      headers: {},
-    } as unknown as NextApiRequest;
-
-    const res = {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn(),
-    } as unknown as NextApiResponse;
-
-    await handler(req, res);
-
-    expect(res.status).toHaveBeenCalledWith(200);
   });
 
   afterEach(() => {
@@ -422,6 +408,17 @@ describe('PUT /api/keywords tags updates', () => {
     jest.clearAllMocks();
     dbMock.sync.mockResolvedValue(undefined);
     verifyUserMock.mockReturnValue('authorized');
+  });
+
+  it('rejects more than 10 tags for a keyword with 400 before changing any keyword', async () => {
+    const tags = Array.from({ length: 11 }, (_, index) => `tag-${index}`);
+    const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { tags: { 1: tags } } });
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(keywordMock.findAll).not.toHaveBeenCalled();
   });
 
   it('returns refreshed keyword data when tags are updated', async () => {
@@ -777,7 +774,7 @@ describe('PUT /api/keywords location updates', () => {
     keywordMock.update.mockResolvedValue([1]);
     mockLocationLookups(
       [locationRow({ ID: 1, keyword: 'alpha' }), locationRow({ ID: 2, keyword: 'beta' })],
-      [locationRow({ ID: 9, keyword: 'alpha', country: 'GB', location: 'London,England,GB' })],
+      [locationRow({ ID: 9, keyword: 'alpha', country: 'GB', location: 'London,England,United Kingdom' })],
     );
     const req = createMockRequest({ method: 'PUT', query: { id: '1,2' }, body: { location: 'London,England,United Kingdom' } });
     const res = createMockResponse();
@@ -796,9 +793,24 @@ describe('PUT /api/keywords location updates', () => {
   it('changes nothing when every selected keyword would duplicate a tracked one', async () => {
     mockLocationLookups(
       [locationRow({ ID: 1, keyword: 'alpha' })],
-      [locationRow({ ID: 9, keyword: 'alpha', country: 'GB', location: 'London,England,GB' })],
+      [locationRow({ ID: 9, keyword: 'alpha', country: 'GB', location: 'London,England,United Kingdom' })],
     );
     const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { location: 'London,England,GB' } });
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    expect(keywordMock.update).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ updatedCount: 0, skipped: ['alpha'] }));
+  });
+
+  it('skips a same-country update when the destination location is already tracked', async () => {
+    mockLocationLookups(
+      [locationRow({ ID: 1, location: 'Miami,Florida,United States' })],
+      [locationRow({ ID: 9, country: 'US', location: 'Orlando,Florida,United States' })],
+    );
+    const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { location: 'Orlando,Florida,United States' } });
     const res = createMockResponse();
 
     await handler(req, res);
@@ -823,5 +835,24 @@ describe('DELETE /api/keywords retry queue cleanup', () => {
 
     expect(retryQueueManager.removeBatch).toHaveBeenCalledWith(new Set([1, 2]));
     expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('reads keyword IDs from the JSON body and rejects non-integer body IDs', async () => {
+    verifyUserMock.mockReturnValue('authorized');
+    keywordMock.findAll.mockResolvedValue([{ ID: 7, domain: 'example.com' }]);
+    keywordMock.destroy.mockResolvedValue(1);
+
+    const req = { method: 'DELETE', query: {}, body: { ids: [7] }, headers: {} } as unknown as NextApiRequest;
+    const res = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
+    await handler(req, res);
+
+    expect(keywordMock.destroy).toHaveBeenCalledWith({ where: { ID: { [Op.in]: [7] } } });
+    expect(res.status).toHaveBeenCalledWith(200);
+
+    const badReq = { method: 'DELETE', query: {}, body: { ids: [7, 'abc'] }, headers: {} } as unknown as NextApiRequest;
+    const badRes = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
+    await handler(badReq, badRes);
+
+    expect(badRes.status).toHaveBeenCalledWith(400);
   });
 });

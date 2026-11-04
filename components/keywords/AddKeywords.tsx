@@ -109,21 +109,26 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
    const existingTags: string[] = useMemo(() => getDomainTags(keywords), [keywords]);
 
    const setDeviceType = useCallback((input:string) => {
-      let updatedDevice = '';
-      if (newKeywordsData.device.includes(input)) {
-         updatedDevice = newKeywordsData.device.replace(',', '').replace(input, '');
-      } else {
-         updatedDevice = newKeywordsData.device ? `${newKeywordsData.device},${input}` : input;
-      }
-      setNewKeywordsData({ ...newKeywordsData, device: updatedDevice });
-   }, [newKeywordsData]);
+      setNewKeywordsData((prev) => {
+         const selected = prev.device ? prev.device.split(',').filter(Boolean) : [];
+         let next: string[];
+         if (selected.includes(input)) {
+            next = selected.filter((d) => d !== input);
+            // Keep at least one device selected so a keyword is never saved with an empty device
+            if (next.length === 0) { return prev; }
+         } else {
+            next = [...selected, input];
+         }
+         return { ...prev, device: next.join(',') };
+      });
+   }, []);
 
    const addKeywords = () => {
       const nkwrds = newKeywordsData;
-      if (nkwrds.keywords) {
-         const devices = nkwrds.device.split(',');
-         const multiDevice = nkwrds.device.includes(',') && devices.length > 1;
-         const keywordsArray = [...new Set(nkwrds.keywords.split('\n').map((item) => item.trim()).filter((item) => !!item))];
+      const keywordsArray = [...new Set(nkwrds.keywords.split('\n').map((item) => item.trim()).filter((item) => !!item))];
+      if (keywordsArray.length > 0) {
+         const devices = nkwrds.device.split(',').filter(Boolean);
+         const multiDevice = devices.length > 1;
 
          const currentKeywords = keywords.map((k) => `${k.keyword}-${k.device}-${k.location || k.country}`);
 
@@ -147,7 +152,8 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
              }),
           );
 
-         if (!multiDevice && (keywordsArray.length === 1 || currentKeywords.length === keywordExist.length) && keywordExist.length > 0) {
+         // Only block when every submitted keyword already exists; partial duplicates are skipped below
+         if (!multiDevice && keywordExist.length > 0 && keywordExist.length === keywordsArray.length) {
             setErrorWithTimeout(`Keywords ${keywordExist.join(',')} already Exist`);
          } else {
             const skipped: string[] = [];

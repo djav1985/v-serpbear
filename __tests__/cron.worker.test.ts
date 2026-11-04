@@ -1,3 +1,8 @@
+/* eslint-disable security/detect-non-literal-fs-filename -- writes only to a temp directory created by the test */
+import { mkdtempSync, rmSync, writeFileSync } from 'fs';
+import os from 'os';
+import path from 'path';
+
 export {};
 describe('cron worker helpers', () => {
   let makeCronApiCall: (apiKey: string | undefined | null, baseUrl: string, endpoint: string, successMessage: string) => Promise<void>;
@@ -42,7 +47,7 @@ describe('cron worker helpers', () => {
 
   it('sends the authorization header when API key is available', async () => {
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-    (global.fetch as jest.Mock).mockResolvedValue({ 
+    (global.fetch as jest.Mock).mockResolvedValue({
       ok: true,
       status: 200,
       headers: {
@@ -74,7 +79,6 @@ describe('cron worker helpers', () => {
 
 describe('getAppSettings', () => {
   const { promises: fsPromises } = require('fs');
-  const settingsPath = `${process.cwd()}/data/settings.json`;
   const defaultSettings = {
     scraper_type: 'none',
     notification_interval: 'never',
@@ -85,23 +89,31 @@ describe('getAppSettings', () => {
     smtp_password: '',
     scrape_interval: '',
   };
-  let originalSettingsContent = '';
+  const originalCwd = process.cwd();
   const originalSecret = process.env.SECRET;
+  let workDir: string;
+  let settingsPath: string;
 
-  beforeAll(async () => {
-    originalSettingsContent = await fsPromises.readFile(settingsPath, { encoding: 'utf-8' });
+  // getAppSettings reads `${process.cwd()}/data/settings.json`. Each case runs in its own temp working
+  // directory so it never touches the real data/settings.json, which other Jest workers also read and write.
+  beforeEach(async () => {
+    workDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'serpbear-cron-settings-'));
+    await fsPromises.mkdir(path.join(workDir, 'data'));
+    settingsPath = path.join(workDir, 'data', 'settings.json');
+    process.chdir(workDir);
   });
 
   afterEach(async () => {
-    process.env.SECRET = originalSecret;
+    process.chdir(originalCwd);
+    if (originalSecret === undefined) {
+      delete process.env.SECRET;
+    } else {
+      process.env.SECRET = originalSecret;
+    }
     jest.unmock('cryptr');
     jest.resetModules();
     jest.restoreAllMocks();
-    await fsPromises.writeFile(settingsPath, originalSettingsContent, { encoding: 'utf-8' });
-  });
-
-  afterAll(() => {
-    process.env.SECRET = originalSecret;
+    await fsPromises.rm(workDir, { recursive: true, force: true });
   });
 
   it('returns non-sensitive settings when decryption fails', async () => {
@@ -145,15 +157,10 @@ describe('getAppSettings', () => {
   });
 
   it('creates settings file with defaults when file is missing (ENOENT)', async () => {
-    const { unlink } = require('fs/promises');
     const { getAppSettings } = require('../cron.js');
-    
-    // Ensure file doesn't exist
-    try {
-      await unlink(settingsPath);
-    } catch (_error) {
-      // File may already not exist, which is fine
-    }
+
+    // The temp data/ directory starts empty, so settings.json does not exist yet
+    await expect(fsPromises.access(settingsPath)).rejects.toMatchObject({ code: 'ENOENT' });
 
     const settings = await getAppSettings();
     const createdContent = await fsPromises.readFile(settingsPath, { encoding: 'utf-8' });
@@ -161,5 +168,63 @@ describe('getAppSettings', () => {
 
     expect(settings).toEqual(defaultSettings);
     expect(createdSettings).toEqual(defaultSettings);
+  });
+});
+
+describe('cron worker env file loading', () => {
+  const keys = ['CRON_ENV_TEST_LOCAL', 'CRON_ENV_TEST_SHARED', 'CRON_ENV_TEST_ONLY_ENV', 'CRON_ENV_TEST_SHELL'];
+  let savedEnv: Record<string, string | undefined>;
+  let dir: string;
+  let loadEnvFiles: (dir?: string) => void;
+
+  beforeEach(() => {
+    savedEnv = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+    keys.forEach((key) => { delete process.env[key]; });
+    dir = mkdtempSync(path.join(os.tmpdir(), 'serpbear-env-'));
+    jest.resetModules();
+    ({ loadEnvFiles } = require('../cron.js'));
+  });
+
+  afterEach(() => {
+    keys.forEach((key) => {
+      if (savedEnv[key] === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = savedEnv[key];
+      }
+    });
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('loads .env when it is the only env file present', () => {
+    writeFileSync(path.join(dir, '.env'), 'CRON_ENV_TEST_ONLY_ENV=from-env\n');
+
+    loadEnvFiles(dir);
+
+    expect(process.env.CRON_ENV_TEST_ONLY_ENV).toBe('from-env');
+  });
+
+  it('prefers .env.local over .env when both define a key', () => {
+    writeFileSync(path.join(dir, '.env.local'), 'CRON_ENV_TEST_LOCAL=from-local\nCRON_ENV_TEST_SHARED=local-wins\n');
+    writeFileSync(path.join(dir, '.env'), 'CRON_ENV_TEST_SHARED=env-file\nCRON_ENV_TEST_LOCAL=env-file\n');
+
+    loadEnvFiles(dir);
+
+    expect(process.env.CRON_ENV_TEST_SHARED).toBe('local-wins');
+    expect(process.env.CRON_ENV_TEST_LOCAL).toBe('from-local');
+  });
+
+  it('keeps variables already in the process environment (for example from docker compose)', () => {
+    process.env.CRON_ENV_TEST_SHELL = 'from-shell';
+    writeFileSync(path.join(dir, '.env.local'), 'CRON_ENV_TEST_SHELL=from-local\n');
+    writeFileSync(path.join(dir, '.env'), 'CRON_ENV_TEST_SHELL=from-env\n');
+
+    loadEnvFiles(dir);
+
+    expect(process.env.CRON_ENV_TEST_SHELL).toBe('from-shell');
+  });
+
+  it('does not fail when neither env file exists', () => {
+    expect(() => loadEnvFiles(dir)).not.toThrow();
   });
 });

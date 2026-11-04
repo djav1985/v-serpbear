@@ -1,6 +1,7 @@
 /// <reference path="../../types.d.ts" />
 
 import type { NextApiRequest, NextApiResponse } from 'next';
+import crypto from 'crypto';
 import { Op } from 'sequelize';
 import Keyword from '../../database/models/keyword';
 import refreshAndUpdateKeywords, { clearKeywordUpdatingFlags, markKeywordsAsUpdating, partitionKeywordsByDomainStatus } from '../../utils/refresh';
@@ -12,7 +13,22 @@ import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
 import { refreshQueue } from '../../utils/refreshQueue';
 import { errorResponse } from '../../utils/api/response';
-import { fromDbBool } from '../../utils/dbBooleans';
+import { takeRateLimitToken } from '../../utils/rateLimit';
+import { getClientIp } from '../../utils/api/clientIp';
+import { isKeywordUpdating } from '../../utils/keywordUpdating';
+
+/**
+ * Parses a comma separated list of keyword IDs. Returns null when any item is not a positive integer,
+ * so callers can answer 400 instead of silently dropping bad input.
+ */
+const parseKeywordIds = (raw: string): number[] | null => {
+   const items = raw.split(',').map((item) => item.trim());
+   if (items.some((item) => !/^[1-9]\d*$/.test(item))) {
+      return null;
+   }
+   const ids = Array.from(new Set(items.map((item) => Number(item))));
+   return ids.every((id) => Number.isSafeInteger(id)) ? ids : null;
+};
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
    const requestId = (req as ExtendedRequest).requestId;
@@ -38,22 +54,21 @@ const getRetryStatus = async (req: NextApiRequest, res: NextApiResponse) => {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'keyword ID is Required!', requestId));
    }
 
-   const keywordIDs = Array.from(new Set(req.query.id.split(',')
-      .map((item) => Number.parseInt(item, 10))
-      .filter((id) => Number.isInteger(id) && id > 0)));
-   if (keywordIDs.length === 0) {
+   const keywordIDs = parseKeywordIds(req.query.id);
+   if (!keywordIDs) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'No valid keyword IDs provided', requestId));
    }
 
    try {
       const keywords = await Keyword.findAll({
          where: { ID: { [Op.in]: keywordIDs } },
-         attributes: ['ID', 'updating'],
+         attributes: ['ID', 'updating', 'updatingStartedAt'],
       });
       return res.status(200).json({
+         // A flag left behind by a crashed run is reported as not updating, matching what a refresh would do
          keywords: keywords.map((keyword) => {
             const plainKeyword = keyword.get({ plain: true });
-            return { ID: plainKeyword.ID, updating: fromDbBool(plainKeyword.updating) };
+            return { ID: plainKeyword.ID, updating: isKeywordUpdating(plainKeyword) };
          }),
       });
    } catch (error) {
@@ -63,22 +78,37 @@ const getRetryStatus = async (req: NextApiRequest, res: NextApiResponse) => {
    }
 };
 
+/**
+ * Keyword IDs to refresh: the JSON body `ids` array when sent (null if any item is not a positive integer),
+ * otherwise the legacy comma-separated `id` query.
+ */
+const readKeywordIds = (req: NextApiRequest): number[] | null => {
+   if (req.body?.ids !== undefined) {
+      const ids: unknown = req.body.ids;
+      const valid = Array.isArray(ids) && ids.every((id) => Number.isSafeInteger(id) && id > 0);
+      return valid ? Array.from(new Set(ids as number[])) : null;
+   }
+   return typeof req.query.id === 'string' ? parseKeywordIds(req.query.id) : null;
+};
+
 const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
-   if (!req.query.id || typeof req.query.id !== 'string') {
+   const idsInBody = req.body?.ids !== undefined;
+   if (!idsInBody && (!req.query.id || typeof req.query.id !== 'string')) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'keyword ID is Required!', requestId));
    }
-   if (req.query.id === 'all' && !req.query.domain) {
+   const refreshAll = !idsInBody && req.query.id === 'all';
+   if (refreshAll && !req.query.domain) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'When Refreshing all Keywords of a domian, the Domain name Must be provided.', requestId));
    }
-   const keywordIDs = req.query.id !== 'all' && (req.query.id as string).split(',').map((item) => {
-      const id = parseInt(item, 10);
-      return isNaN(id) ? 0 : id;
-   }).filter(id => id > 0);
+   const keywordIDs = refreshAll ? [] : readKeywordIds(req);
    const { domain } = req.query || {};
+   if (domain !== undefined && typeof domain !== 'string') {
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'domain must be a single domain name.', requestId));
+   }
    logger.debug('keywordIDs: ', { data: keywordIDs });
 
-   if (req.query.id !== 'all' && (!keywordIDs || keywordIDs.length === 0)) {
+   if (!refreshAll && (!keywordIDs || keywordIDs.length === 0)) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'No valid keyword IDs provided', requestId));
    }
 
@@ -95,7 +125,7 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse) => 
          logger.debug('Scraper not configured');
          return res.status(400).json(errorResponse('BAD_REQUEST', 'Scraper has not been set up yet.', requestId));
       }
-      const query = req.query.id === 'all' && domain ? { domain } : { ID: { [Op.in]: keywordIDs } };
+      const query = refreshAll && domain ? { domain } : { ID: { [Op.in]: keywordIDs } };
       const keywordQueries: Keyword[] = await Keyword.findAll({ where: query });
 
       if (keywordQueries.length === 0) {
@@ -145,45 +175,78 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse) => 
          return res.status(200).json({ keywords: [] });
       }
 
-      // Claim the domains atomically: the check and the claim happen in the same tick, so two quick
-      // requests cannot both pass it while the keywords are being marked as updating below.
-      const domainsToRefresh = Array.from(new Set(keywordsToRefresh.map((keyword) => keyword.domain).filter(Boolean)));
-      const releaseReservation = refreshQueue.reserveDomains(domainsToRefresh);
+      // Keywords a live run is already refreshing are skipped. A stale flag (crashed run) does not count.
+      const updatingKeywordIds: number[] = [];
+      const candidateKeywords = keywordsToRefresh.filter((keyword) => {
+         if (isKeywordUpdating(keyword)) {
+            updatingKeywordIds.push(keyword.ID);
+            return false;
+         }
+         return true;
+      });
 
-      if (!releaseReservation) {
-         const lockedDomains = domainsToRefresh.filter((lockedDomain) => refreshQueue.isDomainLocked(lockedDomain));
-         logger.info(`Manual refresh rejected: domains already being refreshed`, { domains: lockedDomains });
-         return res.status(409).json(
-            errorResponse('CONFLICT', `Domains are already being refreshed: ${lockedDomains.join(', ')}. Please wait for the current refresh to complete.`, requestId),
-         );
-      }
-
-      const keywordIdsToRefresh = keywordsToRefresh.map((keyword) => keyword.ID);
+      // Claim each domain on its own. The check and the claim happen in the same tick, so two quick requests
+      // cannot both pass it while the keywords are being marked as updating below. A locked domain is skipped
+      // and the rest of the request still runs.
+      const releases: Array<() => void> = [];
+      const claimedDomains = new Set<string>();
+      const lockedDomains: string[] = [];
       try {
-         await markKeywordsAsUpdating(keywordsToRefresh, 'before manual refresh', {
+         const candidateDomains = Array.from(new Set(candidateKeywords.map((keyword) => keyword.domain).filter(Boolean)));
+         for (const candidateDomain of candidateDomains) {
+            const release = refreshQueue.reserveDomains([candidateDomain]);
+            if (release) {
+               releases.push(release);
+               claimedDomains.add(candidateDomain);
+            } else {
+               lockedDomains.push(candidateDomain);
+            }
+         }
+
+         const keywordsToStart = candidateKeywords.filter((keyword) => claimedDomains.has(keyword.domain));
+         const lockedKeywordIds = candidateKeywords
+            .filter((keyword) => lockedDomains.includes(keyword.domain))
+            .map((keyword) => keyword.ID);
+         const skipped = {
+            domains: lockedDomains,
+            keywordIds: [...updatingKeywordIds, ...lockedKeywordIds],
+         };
+
+         // 409 only when nothing at all could be started
+         if (keywordsToStart.length === 0) {
+            logger.info('Manual refresh rejected: nothing could be started', { lockedDomains, updatingKeywordIds });
+            const message = lockedDomains.length > 0
+               ? `Domains are already being refreshed: ${lockedDomains.join(', ')}. Please wait for the current refresh to complete.`
+               : `Keywords are already being refreshed: ${updatingKeywordIds.join(', ')}. Please wait for the current refresh to complete.`;
+            return res.status(409).json(errorResponse('CONFLICT', message, requestId));
+         }
+
+         const domainsToRefresh = Array.from(claimedDomains);
+         const keywordIdsToRefresh = keywordsToStart.map((keyword) => keyword.ID);
+         await markKeywordsAsUpdating(keywordsToStart, 'before manual refresh', {
             keywordIds: keywordIdsToRefresh,
          });
 
          // Generate unique task ID using crypto to prevent collisions in concurrent scenarios
          const uniqueId = crypto.randomUUID();
-         const taskId = req.query.id === 'all'
+         const taskId = refreshAll
             ? `manual-refresh-domain-${domain}-${uniqueId}`
             : `manual-refresh-ids-${keywordIdsToRefresh.join(',')}-${uniqueId}`;
-         logger.info(`Manual refresh enqueued: ${taskId} (${keywordsToRefresh.length} keywords)`, { domains: domainsToRefresh });
+         logger.info(`Manual refresh enqueued: ${taskId} (${keywordsToStart.length} keywords)`, { domains: domainsToRefresh, skipped });
 
-         // Enqueue the manual refresh task with domain for per-domain locking
+         // Enqueue the manual refresh task with its domains for per-domain locking
          // This prevents the same domain from being refreshed multiple times simultaneously
          // but allows different domains to process in parallel
          refreshQueue.enqueue(
             taskId,
             async () => {
                try {
-                  await refreshAndUpdateKeywords(keywordsToRefresh, settings);
+                  await refreshAndUpdateKeywords(keywordsToStart, settings);
                } catch (refreshError) {
                   const message = serializeError(refreshError);
                   logger.error('[REFRESH] ERROR refreshAndUpdateKeywords: ', refreshError instanceof Error ? refreshError : new Error(message), { keywordIds: keywordIdsToRefresh });
                   // Ensure flags are cleared on error, only for keywords still in updating state
-                  await clearUpdatingFlags(keywordsToRefresh, 'after refresh error', 'refresh-error', true).catch((updateError) => {
+                  await clearUpdatingFlags(keywordsToStart, 'after refresh error', 'refresh-error', true).catch((updateError) => {
                      logger.error('[REFRESH] Failed to clear updating flags after error: ', updateError instanceof Error ? updateError : new Error(String(updateError)));
                   });
                   throw refreshError; // Re-throw to be caught by queue error handler
@@ -191,16 +254,17 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse) => 
             },
             domainsToRefresh
          );
-      } finally {
-         // The task is now in the queue (which also locks the domains), or the request failed
-         releaseReservation();
-      }
 
-      // Return immediately with 200 OK status
-      return res.status(200).json({ 
-         message: 'Refresh started',
-         keywordCount: keywordsToRefresh.length,
-      });
+         // Return immediately with 200 OK status; skipped lists what was not started and why
+         return res.status(200).json({
+            message: 'Refresh started',
+            keywordCount: keywordsToStart.length,
+            skipped,
+         });
+      } finally {
+         // The tasks are now in the queue (which also locks the domains), or the request failed
+         releases.forEach((release) => release());
+      }
    } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       logger.debug('[REFRESH] ERROR refreshTheKeywords: ', { data: errorMessage });
@@ -208,10 +272,17 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse) => 
    }
 };
 
+const KEYWORD_SEARCHES_PER_MINUTE = 20;
+
 const getKeywordSearchResults = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
-   if (!req.query.keyword || !req.query.country) {
+   if (typeof req.query.keyword !== 'string' || typeof req.query.country !== 'string' || !req.query.keyword || !req.query.country) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'A Valid keyword and Country Code is Required!', requestId));
+   }
+   // Each search is a paid provider request, so limit how many one client can start per minute
+   const clientKey = `keyword-search:${getClientIp(req)}`;
+   if (!takeRateLimitToken(clientKey, KEYWORD_SEARCHES_PER_MINUTE, 60 * 1000)) {
+      return res.status(429).json(errorResponse('TOO_MANY_REQUESTS', 'Too many keyword searches. Please wait a minute and try again.', requestId));
    }
    try {
       const settings = await getAppSettings();

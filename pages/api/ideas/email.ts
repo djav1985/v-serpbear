@@ -1,11 +1,11 @@
 /// <reference path="../../../types.d.ts" />
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import nodeMailer from 'nodemailer';
 import Domain from '../../../database/models/domain';
 import verifyUser from '../../../utils/verifyUser';
 import { getAppSettings } from '../settings';
 import { trimStringProperties, trimString, sanitizeSmtpHost } from '../../../utils/security';
+import { buildMailer } from '../../../utils/mailer';
 import normalizeDomainBooleans from '../../../utils/normalizeDomain';
 import generateKeywordIdeasEmail, { KeywordIdeasEmailKeyword } from '../../../utils/generateKeywordIdeasEmail';
 import { getBranding } from '../../../utils/branding';
@@ -80,14 +80,13 @@ const emailKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => {
       const normalizedSettings: SettingsType = trimStringProperties({ ...settings });
       const sanitizedHost = sanitizeSmtpHost(normalizedSettings.smtp_server);
       const sanitizedPort = normalizedSettings.smtp_port;
-      const sanitizedDefaultEmail = normalizedSettings.notification_email;
 
       normalizedSettings.smtp_server = sanitizedHost;
       normalizedSettings.smtp_port = sanitizedPort;
-      normalizedSettings.notification_email = sanitizedDefaultEmail;
       normalizedSettings.smtp_tls_servername = sanitizeSmtpHost(normalizedSettings.smtp_tls_servername);
 
-      if (!sanitizedHost || !sanitizedPort || !sanitizedDefaultEmail) {
+      // Recipients are set per domain (notification_emails), so only the SMTP server is needed here
+      if (!sanitizedHost || !sanitizedPort) {
          return res.status(400).json(errorResponse('BAD_REQUEST', 'SMTP has not been setup properly!', requestId));
       }
 
@@ -106,55 +105,17 @@ const emailKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => {
          return res.status(400).json(errorResponse('BAD_REQUEST', 'Notification email not configured for this domain.', requestId));
       }
 
-      const {
-         smtp_server = '',
-         smtp_port = '',
-         smtp_username = '',
-         smtp_password = '',
-         notification_email_from = '',
-         notification_email_from_name = platformName,
-         smtp_tls_servername = '',
-      } = normalizedSettings;
-
-      if (!smtp_server) {
+      if (!normalizedSettings.smtp_server) {
          return res.status(400).json(errorResponse('BAD_REQUEST', 'SMTP has not been setup properly!', requestId));
       }
 
-      const mailerSettings: any = {
-         host: smtp_server,
-         port: (() => {
-            const portNum = parseInt(smtp_port, 10);
-            if (Number.isFinite(portNum)) {
-               return Math.max(1, Math.min(65535, portNum));
-            }
-            return 587;
-         })(),
-      };
-
-      const tlsServername = sanitizeSmtpHost(smtp_tls_servername);
-      if (tlsServername) {
-         mailerSettings.tls = { servername: tlsServername };
-      }
-
-      const sanitizedUser = trimString(smtp_username);
-      const sanitizedPass = trimString(smtp_password);
-      if (sanitizedUser || sanitizedPass) {
-         mailerSettings.auth = {};
-         if (sanitizedUser) mailerSettings.auth.user = sanitizedUser;
-         if (sanitizedPass) mailerSettings.auth.pass = sanitizedPass;
-      }
-
-      const transporter = nodeMailer.createTransport(mailerSettings);
+      const { transporter, fromEmail } = buildMailer(normalizedSettings);
       const normalizedKeywords = normalizeKeywords(body.keywords);
       const emailHTML = generateKeywordIdeasEmail({
          domain: normalizedDomain.domain,
          keywords: normalizedKeywords,
          platformName,
       });
-
-      const fromAddress = trimString(notification_email_from) || 'no-reply@serpbear.com';
-      const fromName = trimString(notification_email_from_name) || platformName;
-      const fromEmail = `${fromName} <${fromAddress}>`;
 
       await transporter.sendMail({
          from: fromEmail,

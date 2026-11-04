@@ -5,6 +5,7 @@
 
 import { NextApiRequest, NextApiResponse } from 'next';
 import handler from '../../pages/api/searchconsole';
+import insightHandler from '../../pages/api/insight';
 import { fetchDomainSCData, getSearchConsoleApiInfo, readLocalSCData, resolveDomainIdentifier } from '../../utils/searchConsole';
 import Domain from '../../database/models/domain';
 import verifyUser from '../../utils/verifyUser';
@@ -263,6 +264,45 @@ describe('GET /api/searchconsole', () => {
 
     await handler(req as NextApiRequest, res as NextApiResponse);
 
+    expect(mockFetchDomainSCData).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ error: expect.objectContaining({ code: 'NOT_FOUND', message: 'Domain not found.' }) }),
+    );
+  });
+});
+
+describe('GET /api/insight', () => {
+  let req: Partial<NextApiRequest>;
+  let res: Partial<NextApiResponse>;
+
+  beforeEach(() => {
+    req = {
+      method: 'GET',
+      query: { domain: 'example.com' },
+      headers: {
+        authorization: 'Bearer token',
+      },
+    };
+    res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+    };
+    (verifyUser as jest.Mock).mockReturnValue('authorized');
+    mockReadLocalSCData.mockResolvedValue(false);
+    mockGetSearchConsoleApiInfo.mockResolvedValue({ client_email: 'client', private_key: 'key' });
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('returns 404 when the domain does not exist', async () => {
+    mockDomainFindOne.mockResolvedValue(null as any);
+
+    await insightHandler(req as NextApiRequest, res as NextApiResponse);
+
+    expect(mockDomainFindOne).toHaveBeenCalledWith({ where: { domain: 'example.com' } });
     expect(mockFetchDomainSCData).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(404);
     expect(res.json).toHaveBeenCalledWith(

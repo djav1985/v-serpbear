@@ -8,6 +8,8 @@ import KeywordPosition from './KeywordPosition';
 import { generateTheChartData } from '../../utils/client/generateChartData';
 import { formattedNum } from '../../utils/client/helpers';
 import { parseLocation } from '../../utils/location';
+import { historyKeyToTime } from '../../utils/historyDateKey';
+import { formatDateKey } from '../../utils/timezone';
 
 type KeywordProps = {
    keywordData: KeywordType,
@@ -72,7 +74,7 @@ const Keyword = (props: KeywordProps) => {
    const positionChange = useMemo(() => {
       let status = 0;
       if (Object.keys(history).length >= 2) {
-         const historyArray = Object.keys(history).map((dateKey:string) => ({ date: new Date(dateKey).getTime(), dateRaw: dateKey, position: history[dateKey] }));
+         const historyArray = Object.keys(history).map((dateKey:string) => ({ date: historyKeyToTime(dateKey), dateRaw: dateKey, position: history[dateKey] }));
          const historySorted = historyArray.sort((a, b) => a.date - b.date);
          const previousPos = historySorted[historySorted.length - 2].position;
          status = previousPos === 0 ? position : previousPos - position;
@@ -133,7 +135,7 @@ const Keyword = (props: KeywordProps) => {
             title={keyword}
             >
                <span className="fflag-stack mr-2 flex-shrink-0">
-                  <span className={`fflag fflag-${country} w-[18px] h-[12px]`} title={countries[country][0]} />
+                  <span className={`fflag fflag-${country} w-[18px] h-[12px]`} title={countries[country]?.[0] ?? country} />
                   {mapPackTop3 && (
                      <span className="fflag fflag-map-pack w-[18px] h-[12px]" role="img" aria-label="Map pack top three" />
                   )}
@@ -167,7 +169,7 @@ const Keyword = (props: KeywordProps) => {
 
          <div
          title={bestPosition && bestPosition.date
-            ? new Date(bestPosition.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' }) : ''
+            ? formatDateKey(String(bestPosition.date), { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' }) : ''
          }
          className={`keyword_best mr-1 bg-[#f8f9ff] float-right mt-8 w-14 rounded right-5 lg:relative lg:block
           lg:bg-transparent lg:w-auto lg:h-auto lg:mt-0 lg:mr-0 lg:p-0 lg:text-sm lg:flex-1 lg:basis-16 lg:grow-0 lg:right-0 text-center font-semibold

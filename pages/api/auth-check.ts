@@ -1,16 +1,17 @@
 /// <reference path="../../types.d.ts" />
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import jwt from 'jsonwebtoken';
 import Cookies from 'cookies';
 import { withApiLogging } from '../../utils/apiLogging';
-import verifyUser from '../../utils/verifyUser';
+import verifyUser, { verifySessionToken } from '../../utils/verifyUser';
 import { logger } from '../../utils/logger';
 import { errorResponse } from '../../utils/api/response';
+import { APP_TIMEZONE } from '../../utils/timezone';
 
 type AuthCheckResponse = {
   authenticated: boolean;
   user?: string;
+  timezone: string;
 };
 
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
@@ -30,13 +31,14 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       
       let user = 'authenticated_user';
       if (token && process.env.SECRET) {
-        const decoded = jwt.verify(token, process.env.SECRET) as JwtDecodedPayload;
+        const decoded = verifySessionToken(token);
         user = decoded?.user || user;
       }
 
       return res.status(200).json({
         authenticated: true,
         user,
+        timezone: APP_TIMEZONE,
       } as AuthCheckResponse);
     } catch (error) {
       logger.warn('Failed to decode JWT token in auth check', {
@@ -46,6 +48,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       return res.status(200).json({
         authenticated: true,
         user: 'authenticated_user',
+        timezone: APP_TIMEZONE,
       } as AuthCheckResponse);
     }
   } else {

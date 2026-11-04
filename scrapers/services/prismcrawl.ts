@@ -2,14 +2,7 @@ import { getGoogleDomain } from "../../utils/countries";
 import { resolveCountryCode, getKeywordLocationParts } from "../../utils/scraperHelpers";
 import { DEVICE_MOBILE } from "../../utils/constants";
 import { computeMapPackTop3 } from "../../utils/mapPack";
-
-const decodeIfEncoded = (value: string): string => {
-  try {
-    return decodeURIComponent(value);
-  } catch (_error) {
-    return value;
-  }
-};
+import { decodeIfEncoded } from "../scraperHelpers";
 
 interface PrismCrawlResult {
   type: string;
@@ -68,7 +61,7 @@ const prismcrawl: ScraperSettings = {
     }
     return body;
   },
-  serpExtractor: ({ response, keyword, settings }) => {
+  serpExtractor: ({ response, settings }) => {
     // Payload shape: { success, data: { content: { results: [...] } } }
     const results: PrismCrawlResult[] = Array.isArray(response?.data?.content?.results)
       ? response.data.content.results
@@ -91,7 +84,7 @@ const prismcrawl: ScraperSettings = {
         title: item.title as string,
         url: (item.link || undefined) as string | undefined,
       }));
-    const mapPackTop3 = computeMapPackTop3(keyword.domain, localResults, businessName);
+    const mapPackTop3 = computeMapPackTop3(localResults, businessName);
 
     return { organic, mapPackTop3, localResults };
   },

@@ -1,19 +1,29 @@
 /// <reference path="../../../types.d.ts" />
 
+/**
+ * Tests for the settings panels: NotificationSettings manual trigger, the
+ * Settings scraper reload behaviour, and the SearchConsoleSettings refresh button.
+ */
+
+jest.mock('../../../services/settings');
+jest.mock('../../../hooks/useBranding');
+jest.mock('../../../services/searchConsole', () => ({
+   refreshSearchConsoleData: jest.fn(),
+}));
+
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from 'react-query';
 import NotificationSettings from '../../../components/settings/NotificationSettings';
 import { useSendNotifications } from '../../../services/settings';
 import { useBranding } from '../../../hooks/useBranding';
 import { DEFAULT_BRANDING, BrandingConfig } from '../../../utils/branding';
-
-jest.mock('../../../services/settings');
-jest.mock('../../../hooks/useBranding');
+import { dummySettings } from '../../../__mocks__/data';
 
 const useSendNotificationsMock = useSendNotifications as jest.Mock;
 const mockUseBranding = useBranding as jest.MockedFunction<typeof useBranding>;
 
-const buildBrandingState = (branding: BrandingConfig) => ({
+const buildBrandingState = (branding: BrandingConfig = DEFAULT_BRANDING) => ({
    branding,
    isLoading: false,
    isError: false,
@@ -215,4 +225,131 @@ describe('NotificationSettings manual trigger', () => {
          );
       }).not.toThrow();
    });
+});
+
+describe('Settings scraper reload behaviour', () => {
+  const { useFetchSettings, useUpdateSettings, useClearFailedQueue, useRetryFailedQueue } = require('../../../services/settings');
+  const { defaultSettings } = require('../../../components/settings/Settings');
+
+  const closeSettings = jest.fn();
+  let queryClient: QueryClient;
+
+  const renderComponent = () => {
+    const Settings = require('../../../components/settings/Settings').default;
+    return render(
+      <QueryClientProvider client={queryClient}>
+        <Settings closeSettings={closeSettings} />
+      </QueryClientProvider>,
+    );
+  };
+
+  beforeEach(() => {
+    queryClient = new QueryClient();
+    mockUseBranding.mockReturnValue(buildBrandingState());
+
+    const settingsData: SettingsType = {
+      ...defaultSettings,
+      notification_interval: 'never',
+      available_scapers: [{ label: 'SerpApi', value: 'serpapi' }],
+      scraper_type: 'none',
+    };
+
+    useFetchSettings.mockReturnValue({ data: { settings: settingsData }, isLoading: false });
+    useClearFailedQueue.mockReturnValue({ mutate: jest.fn(), isLoading: false });
+    useRetryFailedQueue.mockReturnValue({ mutate: jest.fn(), isLoading: false });
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('reloads the page when enabling a scraper from the disabled state', async () => {
+    const mutateAsync = jest.fn().mockResolvedValue({});
+    useUpdateSettings.mockReturnValue({ mutateAsync, isLoading: false });
+
+    const reloadSpy = jest.spyOn(window.location, 'reload').mockImplementation(() => undefined);
+
+    try {
+      const { container } = renderComponent();
+      const scraperSelect = container.querySelector('.settings__section__select .selected') as HTMLElement | null;
+      if (!scraperSelect) {
+        throw new Error('Could not locate scraper selector');
+      }
+      fireEvent.click(scraperSelect);
+
+      const scraperOption = await screen.findByText('SerpApi');
+      fireEvent.click(scraperOption);
+
+      const apiKeyInput = await screen.findByPlaceholderText('API Key/Token');
+      fireEvent.change(apiKeyInput, { target: { value: 'serpapi-key' } });
+
+      const updateButton = container.querySelector('button.bg-blue-700') as HTMLElement | null;
+      if (!updateButton) {
+        throw new Error('Could not locate update button');
+      }
+      fireEvent.click(updateButton);
+
+      await waitFor(() => {
+        expect(mutateAsync).toHaveBeenCalled();
+        expect(reloadSpy).toHaveBeenCalled();
+      });
+
+      const payload = mutateAsync.mock.calls[0][0] as SettingsType;
+      expect(payload.scraper_type).toBe('serpapi');
+    } finally {
+      reloadSpy.mockRestore();
+    }
+  });
+
+  it('retries all failed keywords from the settings panel', async () => {
+    const retryMutate = jest.fn();
+    useRetryFailedQueue.mockReturnValue({ mutate: retryMutate, isLoading: false });
+    useUpdateSettings.mockReturnValue({ mutateAsync: jest.fn(), isLoading: false });
+    useFetchSettings.mockReturnValue({
+      data: {
+        settings: {
+          ...defaultSettings,
+          notification_interval: 'never',
+          scrape_retry: true,
+          failed_queue: [12, 34],
+        },
+      },
+      isLoading: false,
+    });
+
+    renderComponent();
+
+    const retryButton = await screen.findByRole('button', { name: /retry all failed now/i });
+    fireEvent.click(retryButton);
+
+    expect(retryMutate).toHaveBeenCalledWith([12, 34]);
+  });
+});
+
+describe('SearchConsoleSettings Component', () => {
+  const { refreshSearchConsoleData } = require('../../../services/searchConsole');
+
+  it('renders refresh button and calls refreshSearchConsoleData', async () => {
+    const SearchConsoleSettings = require('../../../components/settings/SearchConsoleSettings').default;
+
+    const settings = {
+      ...dummySettings,
+      search_console_client_email: '',
+      search_console_private_key: '',
+    } as any;
+    const updateSettings = jest.fn();
+
+    render(
+      <SearchConsoleSettings
+        settings={settings}
+        settingsError={null}
+        updateSettings={updateSettings}
+      />,
+    );
+
+    const button = screen.getByRole('button', { name: /refresh search console data/i });
+    expect(button).toBeInTheDocument();
+    fireEvent.click(button);
+    await waitFor(() => expect(refreshSearchConsoleData).toHaveBeenCalled());
+  });
 });

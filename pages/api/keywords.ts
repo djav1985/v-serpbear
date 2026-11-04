@@ -2,12 +2,15 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Op } from 'sequelize';
+import crypto from 'crypto';
 import Keyword from '../../database/models/keyword';
+import Domain from '../../database/models/domain';
 import { getAppSettings } from './settings';
 import verifyUser from '../../utils/verifyUser';
 import parseKeywords from '../../utils/parseKeywords';
 import { integrateKeywordSCData, readLocalSCData } from '../../utils/searchConsole';
 import refreshAndUpdateKeywords from '../../utils/refresh';
+import { historyKeyToTime } from '../../utils/historyDateKey';
 import { getKeywordsVolume, updateKeywordsVolumeData } from '../../utils/adwords';
 import { buildStoredLocation, getLocationCountry, hasValidCityStatePair, isCountryOnlyLocation, parseCityState } from '../../utils/location';
 import { planLocationUpdate } from '../../utils/keywordMeta';
@@ -45,6 +48,36 @@ export default withApiLogging(handler, {
    name: 'keywords',
 });
 
+// Most tags one keyword can carry. POST trims a longer list to this many; PUT rejects it.
+const MAX_TAGS_PER_KEYWORD = 10;
+
+/** Trims, drops blanks and duplicates, and sorts the tags an update sends for one keyword. Non-list input gives no tags. */
+const sanitizeTagList = (raw: unknown): string[] => Array.from(new Set(
+   (Array.isArray(raw) ? raw : [])
+      .filter((tag): tag is string => typeof tag === 'string')
+      .map((tag) => tag.trim())
+      .filter((tag) => tag.length > 0),
+)).sort();
+
+/** True when a bulk request names keywords, in the JSON body `ids` array or the legacy comma-separated `id` query. */
+const hasKeywordIdInput = (req: NextApiRequest): boolean => (
+   req.body?.ids !== undefined || (typeof req.query.id === 'string' && req.query.id.length > 0)
+);
+
+/**
+ * Keyword IDs for a bulk request. The body `ids` array wins; it returns null when any item is not a positive
+ * integer. The legacy `id` query keeps its old lenient parsing, so bad items are dropped.
+ */
+const readKeywordIds = (req: NextApiRequest): number[] | null => {
+   if (req.body?.ids !== undefined) {
+      const ids: unknown = req.body.ids;
+      const valid = Array.isArray(ids) && ids.every((id) => Number.isSafeInteger(id) && id > 0);
+      return valid ? Array.from(new Set(ids as number[])) : null;
+   }
+   const raw = typeof req.query.id === 'string' ? req.query.id : '';
+   return raw.split(',').map((item) => parseInt(item, 10)).filter((id) => Number.isInteger(id) && id > 0);
+};
+
 const getKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
    if (!req.query.domain || typeof req.query.domain !== 'string') {
@@ -81,7 +114,7 @@ const getKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
             } else {
                lastWeekHistory = {};
                const sortedEntries = historyEntries
-                  .map(([dateKey, position]) => ({ dateKey, date: new Date(dateKey).getTime(), position }))
+                  .map(([dateKey, position]) => ({ dateKey, date: historyKeyToTime(dateKey), position }))
                   .sort((a, b) => a.date - b.date)
                   .slice(-7);
                sortedEntries.forEach(({ dateKey, position }) => {
@@ -275,7 +308,7 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
          history: JSON.stringify({}),
          lastResult: JSON.stringify([]),
          url: '',
-         tags: JSON.stringify(dedupedTags.slice(0, 10)), // Limit to 10 tags
+         tags: JSON.stringify(dedupedTags.slice(0, MAX_TAGS_PER_KEYWORD)),
          sticky: toDbBool(false),
          lastUpdated: now,
          added: now,
@@ -293,15 +326,44 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
    }
 
    try {
-      await Keyword.bulkCreate(keywordsToAdd as any);
-      
-      // Reload keywords from DB to ensure IDs are populated
-      // Use added timestamp to find only the just-created keywords (not existing ones)
-      const reloadedKeywords = await Keyword.findAll({
-         where: { 
-            added: now,
-         },
+      // Keywords can only be added to a domain that is already tracked
+      const requestedDomains = Array.from(new Set(keywordsToAdd.map((keyword) => keyword.domain)));
+      const knownDomains: Domain[] = await Domain.findAll({ where: { domain: requestedDomains }, attributes: ['domain'] });
+      const knownDomainNames = new Set(knownDomains.map((domain) => domain.get({ plain: true }).domain));
+      const unknownDomains = requestedDomains.filter((domain) => !knownDomainNames.has(domain));
+      if (unknownDomains.length > 0) {
+         return res.status(400).json(errorResponse('BAD_REQUEST', `Domains not found in database: ${unknownDomains.join(', ')}. Please ensure domains are created before adding keywords.`, requestId));
+      }
+
+      // The same keyword, country, location and device on the same domain is one tracked keyword. The same
+      // keyword in a different city is a separate target (the Add Keywords form lets users pick one), so the
+      // location is part of the key. A missing location and an empty one count as the same (no city).
+      const trackingKey = (item: { keyword: string, domain: string, device: string, country: string, location?: string | null }) => (
+         [item.domain, item.keyword, item.country, (item.location || '').trim(), item.device].join('|')
+      );
+      const existingKeywords: Keyword[] = await Keyword.findAll({ where: { domain: requestedDomains }, attributes: ['keyword', 'domain', 'device', 'country', 'location'] });
+      const tracked = new Set(existingKeywords.map((item) => trackingKey(item.get({ plain: true }) as KeywordType)));
+      const duplicates: string[] = [];
+      keywordsToAdd.forEach((item) => {
+         const key = trackingKey(item);
+         if (tracked.has(key)) {
+            duplicates.push(`${item.keyword} (${item.device})`);
+         }
+         tracked.add(key);
       });
+      if (duplicates.length > 0) {
+         return res.status(409).json(errorResponse('CONFLICT', `Already tracked: ${duplicates.join(', ')}`, requestId));
+      }
+
+      const createdKeywords = await Keyword.bulkCreate(keywordsToAdd as any);
+
+      // Reload exactly the rows this request inserted, by the IDs the insert returned. The "added" timestamp alone
+      // could also match rows from another request created in the same millisecond. The fallback keeps the old query
+      // for the case where the driver does not return IDs.
+      const createdIds = (createdKeywords || []).map((keyword: Keyword) => keyword.ID).filter((id: unknown): id is number => Number.isInteger(id));
+      const reloadedKeywords = createdIds.length === keywordsToAdd.length
+         ? await Keyword.findAll({ where: { ID: { [Op.in]: createdIds } } })
+         : await Keyword.findAll({ where: { added: now } });
       
       const formattedkeywords = reloadedKeywords.map((el) => el.get({ plain: true }));
       const keywordsParsed: KeywordType[] = parseKeywords(formattedkeywords);
@@ -346,6 +408,10 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
 
       return res.status(201).json({ keywords: keywordsParsed });
    } catch (error) {
+      // Two overlapping requests can both pass the duplicate check; the unique index then rejects the second insert
+      if (error instanceof Error && error.name === 'SequelizeUniqueConstraintError') {
+         return res.status(409).json(errorResponse('CONFLICT', 'Already tracked: one or more of these keywords was added by another request.', requestId));
+      }
       logger.error('Adding New Keywords ', error instanceof Error ? error : new Error(String(error)));
       const message = error instanceof Error ? error.message : 'Unknown error';
       return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Failed to add keywords.', requestId, message));
@@ -354,17 +420,14 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
 
 const deleteKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
-   if (!req.query.id || typeof req.query.id !== 'string') {
+   if (!hasKeywordIdInput(req)) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'keyword ID is Required!', requestId));
    }
-   logger.debug('req.query.id: ', { data: req.query.id });
+   logger.debug('keyword IDs: ', { data: req.body?.ids ?? req.query.id });
 
    try {
-      const keywordsToRemove = (req.query.id as string).split(',').map((item) => {
-         const id = parseInt(item, 10);
-         return isNaN(id) ? 0 : id;
-      }).filter(id => id > 0);
-      
+      const keywordsToRemove = readKeywordIds(req) ?? [];
+
       if (keywordsToRemove.length === 0) {
          return res.status(400).json(errorResponse('BAD_REQUEST', 'No valid keyword IDs provided', requestId));
       }
@@ -398,18 +461,25 @@ const deleteKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
 
 const updateKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
-   if (!req.query.id || typeof req.query.id !== 'string') {
+   if (!hasKeywordIdInput(req)) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'keyword ID is Required!', requestId));
    }
    if (req.body.sticky === undefined && req.body.tags === undefined && req.body.location === undefined) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Keyword update payload is required.', requestId));
    }
-   const keywordIDs = (req.query.id as string).split(',').map((item) => parseInt(item, 10));
+   // Anything that is not a positive ID is rejected or dropped, so NaN and 0 never reach the database query
+   const keywordIDs = readKeywordIds(req) ?? [];
+   if (keywordIDs.length === 0) {
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'No valid keyword IDs provided', requestId));
+   }
    const { sticky, tags, location } = req.body;
 
    try {
       let keywords: KeywordType[] = [];
       if (sticky !== undefined) {
+         if (typeof sticky !== 'boolean') {
+            return res.status(400).json(errorResponse('BAD_REQUEST', 'sticky must be true or false.', requestId));
+         }
          await Keyword.update({ sticky: toDbBool(sticky) }, { where: { ID: { [Op.in]: keywordIDs } } });
          const updateQuery = { where: { ID: { [Op.in]: keywordIDs } } };
          const updatedKeywords:Keyword[] = await Keyword.findAll(updateQuery);
@@ -426,6 +496,10 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
          if (tagsKeywordIDs.length === 0) {
             return res.status(200).json({ keywords: [] });
          }
+         // Checked for the whole payload before any keyword is changed
+         if (Object.values(tags).some((list) => sanitizeTagList(list).length > MAX_TAGS_PER_KEYWORD)) {
+            return res.status(400).json(errorResponse('BAD_REQUEST', `A keyword can have at most ${MAX_TAGS_PER_KEYWORD} tags.`, requestId));
+         }
 
          const numericIds = tagsKeywordIDs.map((keywordID) => Number(keywordID)).filter((id) => Number.isFinite(id));
          // One query for all keywords, instead of a lookup per keyword
@@ -437,16 +511,7 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
 
          for (const selectedKeyword of existingKeywords) {
             const keywordID = selectedKeyword.ID;
-            const tagsForKeywordRaw = tags[String(keywordID)];
-            const tagsForKeyword = Array.isArray(tagsForKeywordRaw)
-               ? tagsForKeywordRaw
-               : [];
-            const sanitizedTags = Array.from(new Set(
-               tagsForKeyword
-                  .filter((tag): tag is string => typeof tag === 'string')
-                  .map((tag) => tag.trim())
-                  .filter((tag) => tag.length > 0),
-            )).sort();
+            const sanitizedTags = sanitizeTagList(tags[String(keywordID)]);
 
             await selectedKeyword.update({ tags: JSON.stringify(sanitizedTags) });
             updatedKeywordIDs.add(keywordID);
@@ -487,9 +552,10 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
             ? await Keyword.findAll({ where: { domain: { [Op.in]: domains }, ID: { [Op.notIn]: keywordIDs } } })
             : [];
          const { acceptedIDs, skipped } = planLocationUpdate(
-            selectedKeywords.map((el) => ({ ID: el.ID, keyword: el.keyword, domain: el.domain, country: el.country, device: el.device })),
-            otherKeywords.map((el) => ({ ID: el.ID, keyword: el.keyword, domain: el.domain, country: el.country, device: el.device })),
+            selectedKeywords.map((el) => ({ ID: el.ID, keyword: el.keyword, domain: el.domain, country: el.country, device: el.device, location: el.location || '' })),
+            otherKeywords.map((el) => ({ ID: el.ID, keyword: el.keyword, domain: el.domain, country: el.country, device: el.device, location: el.location || '' })),
             locationCountry,
+            formattedLocation,
          );
          if (acceptedIDs.length > 0) {
             await Keyword.update(locationUpdate, { where: { ID: { [Op.in]: acceptedIDs } } });

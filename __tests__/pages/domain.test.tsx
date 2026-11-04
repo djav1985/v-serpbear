@@ -57,10 +57,6 @@ describe('SingleDomain Page', () => {
    afterEach(() => {
       jest.clearAllMocks();
    });
-   it('Render without crashing.', async () => {
-      render(<QueryClientProvider client={queryClient}><SingleDomain /></QueryClientProvider>);
-      expect(screen.getByTestId('domain-header')).toBeInTheDocument();
-   });
 
    it('shows the keyword table spinner while queries resolve', () => {
       useFetchSettingsFunc.mockImplementation(() => ({ data: undefined, isLoading: true }));
@@ -74,22 +70,6 @@ describe('SingleDomain Page', () => {
       expect(spinner).toBeInTheDocument();
    });
 
-   it('applies gutter spacing between the sidebar and content area', () => {
-      const { container } = render(<QueryClientProvider client={queryClient}><SingleDomain /></QueryClientProvider>);
-      const layoutWrapper = container.querySelector('.desktop-container.gap-6');
-      expect(layoutWrapper).toBeInTheDocument();
-      expect(layoutWrapper).toHaveClass('gap-6');
-   });
-   it('Should Call the useFetchDomains hook on render.', async () => {
-      render(<QueryClientProvider client={queryClient}><SingleDomain /></QueryClientProvider>);
-      expect(useFetchDomains).toHaveBeenCalled();
-   });
-   it('Should Render the Keywords', async () => {
-      render(<QueryClientProvider client={queryClient}><SingleDomain /></QueryClientProvider>);
-      // Find keywords by their semantic content instead of CSS class
-      expect(screen.getByText('compress image')).toBeInTheDocument();
-      expect(screen.getByText('image compressor')).toBeInTheDocument();
-   });
    it('Should Display the Keywords Details Sidebar on Keyword Click.', async () => {
       render(<QueryClientProvider client={queryClient}><SingleDomain /></QueryClientProvider>);
       // Find and click on a keyword link by finding a clickable element with the keyword text
@@ -97,12 +77,6 @@ describe('SingleDomain Page', () => {
       fireEvent.click(keywordElement);
       expect(useFetchSingleKeyword).toHaveBeenCalled();
       expect(screen.getByTestId('keywordDetails')).toBeVisible();
-   });
-   it('Should Display the AddDomain Modal on Add Domain Button Click.', async () => {
-      render(<QueryClientProvider client={queryClient}><SingleDomain /></QueryClientProvider>);
-      const button = screen.getByTestId('add_domain');
-      if (button) fireEvent.click(button);
-      expect(screen.getByTestId('adddomain_modal')).toBeVisible();
    });
 
    it('toggles the AddDomain modal without transition errors', async () => {
@@ -127,18 +101,18 @@ describe('SingleDomain Page', () => {
       expect(errorSpy).not.toHaveBeenCalled();
       errorSpy.mockRestore();
    });
-   it('Should Display the AddKeywords Modal on Add Keyword Button Click.', async () => {
-      render(<QueryClientProvider client={queryClient}><SingleDomain /></QueryClientProvider>);
-      const button = screen.getByTestId('add_keyword');
-      if (button) fireEvent.click(button);
-      expect(screen.getByTestId('addkeywords_modal')).toBeVisible();
-   });
 
-   it('Should display the Domain Settings on Settings Button click.', async () => {
-      render(<QueryClientProvider client={queryClient}><SingleDomain /></QueryClientProvider>);
-      const button = screen.getByTestId('show_domain_settings');
-      if (button) fireEvent.click(button);
-      expect(screen.getByTestId('domain_settings')).toBeVisible();
+   it('opens the AddKeywords and Domain Settings modals from their buttons', () => {
+      const cases = [
+         { buttonTestId: 'add_keyword', modalTestId: 'addkeywords_modal' },
+         { buttonTestId: 'show_domain_settings', modalTestId: 'domain_settings' },
+      ];
+      for (const { buttonTestId, modalTestId } of cases) {
+         const { unmount } = render(<QueryClientProvider client={queryClient}><SingleDomain /></QueryClientProvider>);
+         fireEvent.click(screen.getByTestId(buttonTestId));
+         expect(screen.getByTestId(modalTestId)).toBeVisible();
+         unmount();
+      }
    });
 
    it('Device Tab change should be functioning.', async () => {
@@ -160,29 +134,19 @@ describe('SingleDomain Page', () => {
       expect(screen.queryByText('compress image')).not.toBeInTheDocument();
    });
 
-   it('Country Filter should function properly', async () => {
-      render(<QueryClientProvider client={queryClient}><SingleDomain /></QueryClientProvider>);
-      const button = screen.getByTestId('filter_button');
-      if (button) fireEvent.click(button);
-      
-      // Since the filter UI is complex, just verify that the filter options become visible
-      // The exact filtering behavior is better tested at the component level
-      await waitFor(() => {
-         expect(screen.getByText('All Countries')).toBeVisible();
-      });
-   });
+   it('opens the country and tags filter options from the filter button', async () => {
+      const optionTexts = ['All Countries', 'All Tags'];
+      for (const optionText of optionTexts) {
+         const { unmount } = render(<QueryClientProvider client={queryClient}><SingleDomain /></QueryClientProvider>);
+         const button = screen.getByTestId('filter_button');
+         if (button) fireEvent.click(button);
 
-   // Tags Filter should function properly
-   it('Tags Filter should Render & Function properly', async () => {
-      render(<QueryClientProvider client={queryClient}><SingleDomain /></QueryClientProvider>);
-      const button = screen.getByTestId('filter_button');
-      if (button) fireEvent.click(button);
-      
-      // Since the filter UI is complex, just verify that the filter options become visible
-      // The exact filtering behavior is better tested at the component level
-      await waitFor(() => {
-         expect(screen.getByText('All Tags')).toBeVisible();
-      });
+         // The filter UI is complex, so only verify that the filter options become visible
+         await waitFor(() => {
+            expect(screen.getByText(optionText)).toBeVisible();
+         });
+         unmount();
+      }
    });
 
    it('Sort Options Should be visible Sort Button on Click.', async () => {
@@ -193,73 +157,25 @@ describe('SingleDomain Page', () => {
       expect(screen.getByText('Top Position')).toBeVisible();
    });
 
-   it('Sort: Position should sort keywords accordingly', async () => {
+   it('applies each sort option from the sort menu and keeps the keywords rendered', () => {
+      const sortOptionTexts = [
+         'Top Position',
+         'Lowest Position',
+         'Most Recent',
+         'Oldest (Default)',
+         'Alphabetically(A-Z)',
+         'Alphabetically(Z-A)',
+      ];
       render(<QueryClientProvider client={queryClient}><SingleDomain /></QueryClientProvider>);
       const button = screen.getByTestId('sort_button');
-      if (button) fireEvent.click(button);
-      
-      // Test Top Position Sort by clicking on the sort option
-      const topPosSortOption = screen.getByText('Top Position');
-      fireEvent.click(topPosSortOption);
-      
-      // Verify sorting works by checking both keywords are still present
-      expect(screen.getByText('compress image')).toBeInTheDocument();
-      expect(screen.getByText('image compressor')).toBeInTheDocument();
 
-      // Test Lowest Position Sort
-      if (button) fireEvent.click(button);
-      const lowestPosSortOption = screen.getByText('Lowest Position');
-      fireEvent.click(lowestPosSortOption);
-      
-      // Verify sorting works by checking both keywords are still present
-      expect(screen.getByText('compress image')).toBeInTheDocument();
-      expect(screen.getByText('image compressor')).toBeInTheDocument();
-   });
+      for (const optionText of sortOptionTexts) {
+         fireEvent.click(button);
+         fireEvent.click(screen.getByText(optionText));
 
-   it('Sort: Date Added should sort keywords accordingly', async () => {
-      render(<QueryClientProvider client={queryClient}><SingleDomain /></QueryClientProvider>);
-      const button = screen.getByTestId('sort_button');
-      if (button) fireEvent.click(button);
-
-      // Test Most Recent Sort
-      const newestSortOption = screen.getByText('Most Recent (Default)');
-      fireEvent.click(newestSortOption);
-      
-      // Verify sorting works by checking both keywords are still present
-      expect(screen.getByText('compress image')).toBeInTheDocument();
-      expect(screen.getByText('image compressor')).toBeInTheDocument();
-
-      // Test Oldest Sort
-      if (button) fireEvent.click(button);
-      const oldestSortOption = screen.getByText('Oldest');
-      fireEvent.click(oldestSortOption);
-      
-      // Verify sorting works by checking both keywords are still present
-      expect(screen.getByText('compress image')).toBeInTheDocument();
-      expect(screen.getByText('image compressor')).toBeInTheDocument();
-   });
-
-   it('Sort: Alphabetical should sort keywords accordingly', async () => {
-      render(<QueryClientProvider client={queryClient}><SingleDomain /></QueryClientProvider>);
-      const button = screen.getByTestId('sort_button');
-      if (button) fireEvent.click(button);
-
-      // Test A-Z Sort
-      const azSortOption = screen.getByText('Alphabetically(A-Z)');
-      fireEvent.click(azSortOption);
-      
-      // Verify sorting works by checking both keywords are still present
-      expect(screen.getByText('compress image')).toBeInTheDocument();
-      expect(screen.getByText('image compressor')).toBeInTheDocument();
-
-      // Test Z-A Sort
-      if (button) fireEvent.click(button);
-      const zaSortOption = screen.getByText('Alphabetically(Z-A)');
-      fireEvent.click(zaSortOption);
-      
-      // Verify sorting works by checking both keywords are still present
-      expect(screen.getByText('compress image')).toBeInTheDocument();
-      expect(screen.getByText('image compressor')).toBeInTheDocument();
+         expect(screen.getByText('compress image')).toBeInTheDocument();
+         expect(screen.getByText('image compressor')).toBeInTheDocument();
+      }
    });
 
    it('populates Search Console settings after fetching the canonical domain data', async () => {

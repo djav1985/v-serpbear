@@ -70,22 +70,24 @@ describe('updateDomainStats', () => {
     );
   });
 
-  it('handles domain with no keywords', async () => {
-    mockKeywordFindOne.mockResolvedValue(null);
+  it('handles domain with no keywords (aggregate returns a zero row)', async () => {
+    mockKeywordFindOne.mockResolvedValue({
+      keywordsTracked: 0,
+      mapPackKeywords: 0,
+      totalPosition: 0,
+      positionCount: 0,
+    } as any);
     mockDomainUpdate.mockResolvedValue([1] as any);
 
     await updateDomainStats('empty.com');
 
     // Should update domain with zero values to maintain consistency
-    expect(logger.info).toHaveBeenCalledWith('No keywords found for domain empty.com, updating with zero values');
+    // Stored values were already zero, so nothing changed and prev* is left as it was
     expect(mockDomainUpdate).toHaveBeenCalledWith(
       {
         keywordsTracked: 0,
         avgPosition: 0,
         mapPackKeywords: 0,
-        prevKeywordsTracked: null,
-        prevAvgPosition: null,
-        prevMapPackKeywords: null,
       },
       { where: { domain: 'empty.com' } }
     );
@@ -197,5 +199,36 @@ describe('updateDomainStats', () => {
       error
     );
     expect(mockDomainUpdate).not.toHaveBeenCalled();
+  });
+
+  describe('prev* snapshot only moves when a stat changes', () => {
+    const aggregate = { keywordsTracked: 2, mapPackKeywords: 0, totalPosition: 20, positionCount: 2 };
+
+    it('keeps the previous change when a recalculation leaves every stat unchanged', async () => {
+      // Stored: 2 keywords, average 10. The previous change was from 3 keywords.
+      mockDomainFindOne.mockResolvedValue({ avgPosition: 10, mapPackKeywords: 0, keywordsTracked: 2, prevKeywordsTracked: 3 } as any);
+      mockKeywordFindOne.mockResolvedValue(aggregate as any);
+      mockDomainUpdate.mockResolvedValue([1] as any);
+
+      await updateDomainStats('example.com');
+
+      const payload = mockDomainUpdate.mock.calls[0][0] as Record<string, unknown>;
+      expect(payload).not.toHaveProperty('prevKeywordsTracked');
+      expect(payload).not.toHaveProperty('prevAvgPosition');
+      expect(payload).not.toHaveProperty('prevMapPackKeywords');
+    });
+
+    it('stores the old values as prev* when a stat changes', async () => {
+      mockDomainFindOne.mockResolvedValue({ avgPosition: 10, mapPackKeywords: 0, keywordsTracked: 2 } as any);
+      mockKeywordFindOne.mockResolvedValue({ ...aggregate, totalPosition: 30 } as any);
+      mockDomainUpdate.mockResolvedValue([1] as any);
+
+      await updateDomainStats('example.com');
+
+      expect(mockDomainUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ avgPosition: 15, prevAvgPosition: 10, prevKeywordsTracked: 2, prevMapPackKeywords: 0 }),
+        expect.anything(),
+      );
+    });
   });
 });

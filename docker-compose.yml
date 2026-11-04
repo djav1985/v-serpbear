@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   app:
     #image: towfiqi/serpbear:latest
@@ -10,21 +8,28 @@ services:
     network_mode: bridge
     ports:
       - "3030:3000"
+    # Values come from .env (optional) and from the shell. Anything set in .env or the shell wins over the
+    # defaults below. Empty SECRET or APIKEY is left for the app to reject at startup rather than hidden here.
+    env_file:
+      - path: ./.env
+        required: false
     environment:
-      - USER=
-      - PASSWORD=
-      - SECRET=4715aed321jhje43625dd
-      - APIKEY=5saedXklbbjbjbhp3pih4fdnakhjwq5
-      - SESSION_DURATION=24
-      - NEXT_PUBLIC_SCREENSHOTS=true
-      - NEXT_PUBLIC_WHITE_LABEL=false
+      - SECRET=${SECRET:-}
+      - APIKEY=${APIKEY:-}
+      - SESSION_DURATION=${SESSION_DURATION:-24}
+      # Thum.io thumbnail capture; false disables those requests. Read at request time, no rebuild needed.
+      # SCREENSHOTS is the preferred name and takes precedence over NEXT_PUBLIC_SCREENSHOTS.
+      - NEXT_PUBLIC_SCREENSHOTS=${NEXT_PUBLIC_SCREENSHOTS:-true}
+      - NEXT_PUBLIC_WHITE_LABEL=${NEXT_PUBLIC_WHITE_LABEL:-false}
       # File name (stored in /app/data) for the white-label logo. Recommended dimensions: 96x96 pixels.
-      - WHITE_LABEL_LOGO_FILE=branding-logo.png
-      - NEXT_PUBLIC_PLATFORM_NAME=SerpBear
-      - SEARCH_CONSOLE_CLIENT_EMAIL=
-      - SEARCH_CONSOLE_PRIVATE_KEY=--
-      - NEXT_PUBLIC_APP_URL=https://serp.hugev.xyz
+      - WHITE_LABEL_LOGO_FILE=${WHITE_LABEL_LOGO_FILE:-branding-logo.png}
+      - NEXT_PUBLIC_PLATFORM_NAME=${NEXT_PUBLIC_PLATFORM_NAME:-SerpBear}
+      - SEARCH_CONSOLE_CLIENT_EMAIL=${SEARCH_CONSOLE_CLIENT_EMAIL:-}
+      - SEARCH_CONSOLE_PRIVATE_KEY=${SEARCH_CONSOLE_PRIVATE_KEY:-}
+      # Public URL used for OAuth redirects and email links. Set this to your real deployment URL in .env.
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
       - CRON_TIMEZONE=${CRON_TIMEZONE:-America/New_York}
+      - TZ=${CRON_TIMEZONE:-America/New_York}
       - CRON_MAIN_SCHEDULE=${CRON_MAIN_SCHEDULE:-0 0 0 * * *}
       - CRON_FAILED_SCHEDULE=${CRON_FAILED_SCHEDULE:-0 0 */1 * * *}
       - CRON_EMAIL_SCHEDULE=${CRON_EMAIL_SCHEDULE:-0 0 6 * * *}

@@ -1,5 +1,6 @@
-import { readFile, writeFile } from 'fs/promises';
+import { readFile } from 'fs/promises';
 import * as path from 'path';
+import * as lockfile from 'proper-lockfile';
 import Cryptr from 'cryptr';
 import TTLCache from '@isaacs/ttlcache';
 import { setTimeout as sleep } from 'timers/promises';
@@ -7,12 +8,16 @@ import { Op } from 'sequelize';
 import Keyword from '../database/models/keyword';
 import parseKeywords from './parseKeywords';
 import countries from './countries';
-import { readLocalSCData } from './searchConsole';
+import { readLocalSCData, resolveDomainIdentifier } from './searchConsole';
 import { logger } from './logger';
+import { SAFE_DOMAIN_SLUG } from './domainSlug';
+import { atomicWriteFile } from './atomicWrite';
 
 export const GOOGLE_ADS_API_VERSION = 'v23';
 
 const memoryCache = new TTLCache({ max: 10000 });
+
+// Domain slugs are letters, digits, '-' and '_' only; anything else must not reach a file name
 
 type keywordIdeasMetrics = {
    competition: IdeaKeyword['competition'],
@@ -202,6 +207,85 @@ export const getAdwordsAccessToken = async (credentials: AdwordsCredentials) => 
 };
 
 /**
+ * Stores fetched keyword ideas for a domain and fails when nothing was saved, so the caller never reports
+ * success for ideas that were fetched but lost (for example because the domain slug was rejected).
+ */
+const saveFetchedIdeas = async (domainSlug: string, data: IdeaDatabaseUpdateData): Promise<void> => {
+   const saved = await updateLocalKeywordIdeas(domainSlug, data);
+   if (!saved) {
+      throw new Error('Keyword ideas were fetched but could not be saved for this domain.');
+   }
+};
+
+/**
+ * Validates the Google Ads account ID and resolves the geo target constant for the country. Returns `null` when the
+ * keyword idea lookup should be skipped. In test mode invalid values throw instead, so the caller reports them.
+ */
+const resolveIdeasRequestTarget = (
+   account_id: unknown,
+   country: string,
+   test: boolean,
+): { customerID: string; geoTargetConstants: number } | null => {
+   // Accept only Google Ads customer IDs in expected format: digits with optional dashes.
+   const normalizedAccountId = typeof account_id === 'string' ? account_id.trim() : '';
+   // In test mode a bad account ID must fail loudly; otherwise the caller would report the account as valid
+   if (!/^\d[\d-]*\d$|^\d$/.test(normalizedAccountId)) {
+      if (test) throw new Error('Google Ads account ID is not in a valid format (digits, optionally with dashes).');
+      logger.warn('Skipping keyword idea lookup: invalid Google Ads account_id format');
+      return null;
+   }
+   const customerID = normalizedAccountId.replaceAll('-', '');
+   if (!/^\d{10}$/.test(customerID)) {
+      if (test) throw new Error('Google Ads account ID must contain exactly 10 digits.');
+      logger.warn('Skipping keyword idea lookup: invalid Google Ads customerID length');
+      return null;
+   }
+   const countryData = countries[country];
+   const geoTargetConstants = countryData ? countryData[3] : undefined;
+
+   logger.debug('Google Ads API request preparation', {
+      customerID,
+      geoTargetConstants,
+      hasCountryData: !!countryData,
+   });
+
+   if (!geoTargetConstants || Number(geoTargetConstants) === 0) {
+      if (test) throw new Error(`No Google Ads geo target is configured for country "${country}".`);
+      logger.warn('Skipping keyword idea lookup: missing geo target constant', {
+         country,
+         countryData: countryData ? 'present' : 'missing',
+      });
+      return null;
+   }
+   return { customerID, geoTargetConstants };
+};
+
+/**
+ * Builds the `generateKeywordIdeas` request body from the seed settings. In test mode only one idea is requested.
+ */
+const buildKeywordIdeasPayload = (
+   seedType: IdeaSettings['seedType'],
+   seedKeywords: string[],
+   domainUrl: string,
+   geoTargetConstants: number,
+   language: string,
+   test: boolean,
+): Record<string, any> => {
+   const reqPayload: Record<string, any> = {
+      geoTargetConstants: [`geoTargetConstants/${geoTargetConstants}`],
+      language: `languageConstants/${language}`,
+      pageSize: test ? 1 : 1000,
+   };
+   if (['custom', 'searchconsole', 'tracking'].includes(seedType) && seedKeywords.length > 0) {
+      reqPayload.keywordSeed = { keywords: seedKeywords.slice(0, 20) };
+   }
+   if (seedType === 'auto' && domainUrl) {
+      reqPayload.siteSeed = { site: domainUrl };
+   }
+   return reqPayload;
+};
+
+/**
  * The function `getAdwordsKeywordIdeas` retrieves keyword ideas from Google Ads API based on
  * provided credentials and settings.
  * @param {AdwordsCredentials} credentials - an object containing Google Ads credentials needed to authenticate
@@ -290,44 +374,12 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
 
       try {
          // API: https://developers.google.com/google-ads/api/rest/reference/rest/v21/customers/generateKeywordIdeas
-         // Accept only Google Ads customer IDs in expected format: digits with optional dashes.
-         const normalizedAccountId = typeof account_id === 'string' ? account_id.trim() : '';
-         if (!/^\d[\d-]*\d$|^\d$/.test(normalizedAccountId)) {
-            logger.warn('Skipping keyword idea lookup: invalid Google Ads account_id format');
+         const target = resolveIdeasRequestTarget(account_id, country, test);
+         if (!target) {
             return [];
          }
-         const customerID = normalizedAccountId.replaceAll('-', '');
-         if (!/^\d{10}$/.test(customerID)) {
-            logger.warn('Skipping keyword idea lookup: invalid Google Ads customerID length');
-            return [];
-         }
-         const countryData = countries[country];
-         const geoTargetConstants = countryData ? countryData[3] : undefined;
-
-         logger.debug('Google Ads API request preparation', {
-            customerID,
-            geoTargetConstants,
-            hasCountryData: !!countryData,
-         });
-
-         if (!geoTargetConstants || Number(geoTargetConstants) === 0) {
-            logger.warn('Skipping keyword idea lookup: missing geo target constant', {
-               country,
-               countryData: countryData ? 'present' : 'missing',
-            });
-            return [];
-         }
-         const reqPayload: Record<string, any> = {
-            geoTargetConstants: [`geoTargetConstants/${geoTargetConstants}`],
-            language: `languageConstants/${language}`,
-            pageSize: test ? 1 : 1000,
-         };
-         if (['custom', 'searchconsole', 'tracking'].includes(seedType) && seedKeywords.length > 0) {
-            reqPayload.keywordSeed = { keywords: seedKeywords.slice(0, 20) };
-         }
-         if (seedType === 'auto' && domainUrl) {
-            reqPayload.siteSeed = { site: domainUrl };
-         }
+         const { customerID, geoTargetConstants } = target;
+         const reqPayload = buildKeywordIdeasPayload(seedType, seedKeywords, domainUrl, geoTargetConstants, language, test);
 
          // Note: DEBUG logging may include sensitive data (seed keywords, API tokens)
          // Only enable DEBUG/VERBOSE mode in secure environments
@@ -416,7 +468,7 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
          }
 
          if (!test && fetchedKeywords.length > 0) {
-            await updateLocalKeywordIdeas(domainSlug, { keywords: fetchedKeywords, settings: adwordsDomainOptions });
+            await saveFetchedIdeas(domainSlug, { keywords: fetchedKeywords, settings: adwordsDomainOptions });
             logger.debug('Updated local keyword ideas', { domainSlug, count: fetchedKeywords.length });
          }
       } catch (error) {
@@ -536,6 +588,7 @@ export const getKeywordsVolume = async (keywords: KeywordType[]): Promise<{ erro
 
       // Send Requests to adwords based on grouped countries.
       // Since adwords does not allow sending country data for each keyword we are making requests for.
+      let volumeRequestSent = false;
       for (const country in keywordRequests) {
          if (Object.hasOwn(keywordRequests, country) && keywordRequests[country].length > 0) {
             try {
@@ -554,6 +607,9 @@ export const getKeywordsVolume = async (keywords: KeywordType[]): Promise<{ erro
                   geoTargetConstants: [`geoTargetConstants/${geoTargetConstants}`],
                   // language: `languageConstants/${language}`,
                };
+               // Pause only between country requests, never before the first or after the last
+               if (volumeRequestSent) await sleep(7000);
+               volumeRequestSent = true;
                const resp = await fetch(`https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}/customers/${customerID}:generateKeywordHistoricalMetrics`, {
                   method: 'POST',
                   headers: {
@@ -619,9 +675,6 @@ export const getKeywordsVolume = async (keywords: KeywordType[]): Promise<{ erro
             } catch (error) {
                logger.error('Error fetching keyword volume from Google Ads', error instanceof Error ? error : new Error(String(error)));
             }
-            if (Object.keys(keywordRequests).length > 1) {
-               await sleep(7000);
-            }
          }
       }
    }
@@ -657,6 +710,33 @@ export const updateKeywordsVolumeData = async (volumesData: false | Record<numbe
    return true;
 };
 
+const IDEAS_LOCK_RETRIES = { retries: 12, factor: 1.5, minTimeout: 50, maxTimeout: 1500 };
+
+/**
+ * Runs fn while holding an OS-level lock on the domain's ideas file, so a read-modify-write (for example toggling a
+ * favourite) cannot overwrite a concurrent save. The file must already exist, because the lock is taken on it.
+ */
+export const withIdeasLock = async <T>(domain: string, fn: () => Promise<T>): Promise<T> => {
+   if (!SAFE_DOMAIN_SLUG.test(domain)) {
+      throw new Error('Invalid domain slug for keyword ideas');
+   }
+   const dataDir = path.resolve(process.cwd(), 'data');
+   const filePath = path.resolve(dataDir, `IDEAS_${resolveDomainIdentifier(domain)}.json`);
+   if (!filePath.startsWith(dataDir + path.sep)) {
+      throw new Error('Invalid domain value for file access');
+   }
+   const release = await lockfile.lock(filePath, { retries: IDEAS_LOCK_RETRIES });
+   try {
+      return await fn();
+   } finally {
+      try {
+         await release();
+      } catch (err: any) {
+         logger.debug('Failed to release keyword ideas lock', { error: err?.message });
+      }
+   }
+};
+
 /**
  * The function `getLocalKeywordIdeas` reads keyword ideas data from a local JSON file based on a domain slug and returns it as a Promise.
  * @param {string} domain - The `domain` parameter is the domain slug for which the keyword Ideas are fetched.
@@ -665,7 +745,11 @@ export const updateKeywordsVolumeData = async (volumesData: false | Record<numbe
  */
 export const getLocalKeywordIdeas = async (domain: string): Promise<false | KeywordIdeasDatabase> => {
    try {
-      const domainName = domain.replaceAll('-', '.').replaceAll('_', '-');
+      // The slug becomes part of a file name, so only slug characters are accepted
+      if (!SAFE_DOMAIN_SLUG.test(domain)) {
+         return false;
+      }
+      const domainName = resolveDomainIdentifier(domain);
       const filename = `IDEAS_${domainName}.json`;
       const dataDir = path.resolve(process.cwd(), 'data');
       const filePath = path.resolve(dataDir, filename);
@@ -695,7 +779,10 @@ export const getLocalKeywordIdeas = async (domain: string): Promise<false | Keyw
  */
 export const updateLocalKeywordIdeas = async (domain: string, data: IdeaDatabaseUpdateData): Promise<boolean> => {
    try {
-      const domainName = domain.replaceAll('-', '.').replaceAll('_', '-');
+      if (!SAFE_DOMAIN_SLUG.test(domain)) {
+         return false;
+      }
+      const domainName = resolveDomainIdentifier(domain);
       const existingIdeas = await getLocalKeywordIdeas(domain);
       const filename = `IDEAS_${domainName}.json`;
       const dataDir = path.resolve(process.cwd(), 'data');
@@ -715,8 +802,7 @@ export const updateLocalKeywordIdeas = async (domain: string, data: IdeaDatabase
          fileContent.settings = data.settings;
       }
 
-   // eslint-disable-next-line security/detect-non-literal-fs-filename
-   await writeFile(filePath, JSON.stringify(fileContent, null, 2), 'utf-8');
+   await atomicWriteFile(filePath, JSON.stringify(fileContent, null, 2), 'utf-8');
       logger.info(`Data saved to ${filename} successfully!`);
       return true;
    } catch (error) {

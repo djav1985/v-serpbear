@@ -11,6 +11,7 @@ import verifyUser from '../../utils/verifyUser';
 import { checkSearchConsoleIntegration, removeLocalSCData } from '../../utils/searchConsole';
 import { withApiLogging } from '../../utils/apiLogging';
 import { validateHostname } from '../../utils/validators/hostname';
+import { toDomainSlug } from '../../utils/domainSlug';
 import { logger } from '../../utils/logger';
 import { refreshQueue } from '../../utils/refreshQueue';
 import {
@@ -25,7 +26,11 @@ import { errorResponse } from '../../utils/api/response';
 import { retryQueueManager } from '../../utils/retryQueueManager';
 import db from '../../database/database';
 import { atomicWriteFile } from '../../utils/atomicWrite';
+import { withFileLock } from '../../utils/fileLock';
+import { removeDomainIdeasFile } from '../../utils/domainIdeasFile';
 
+// Sent in place of a saved Search Console credential: GET responses mask it, and a save that sends it back keeps the stored value
+const SC_CREDENTIAL_MARKER = 'true';
 const TRUTHY = new Set(['true', '1', 'on', 'yes']);
 const FALSY = new Set(['false', '0', 'off', 'no']);
 const DOMAIN_CLEANUP_RETRY_FILE = `${process.cwd()}/data/domain_cleanup_retry.json`;
@@ -56,6 +61,39 @@ const persistPendingCleanupMap = async (map: PendingCleanupMap): Promise<void> =
    });
    await mkdir(dirname(DOMAIN_CLEANUP_RETRY_FILE), { recursive: true });
    await atomicWriteFile(DOMAIN_CLEANUP_RETRY_FILE, JSON.stringify(serialized), 'utf-8');
+};
+
+// Every read-modify-write of the retry file runs under this lock, so overlapping deletes cannot lose each other's entries
+const withCleanupRetryLock = <T>(fn: () => Promise<T>): Promise<T> => withFileLock(DOMAIN_CLEANUP_RETRY_FILE, fn);
+
+const updatePendingCleanup = (update: (map: PendingCleanupMap) => void): Promise<void> => withCleanupRetryLock(async () => {
+   const map = await readPendingCleanupMap();
+   update(map);
+   await persistPendingCleanupMap(map);
+});
+
+/**
+ * Repeats the auxiliary cleanup of an earlier delete whose cleanup did not finish. True only when every step succeeded.
+ */
+const retryOtherDomainCleanup = async (domain: string, keywordIds: Set<number>): Promise<boolean> => {
+   let complete = true;
+   if (keywordIds.size > 0) {
+      try {
+         await retryQueueManager.removeBatch(keywordIds);
+      } catch (error) {
+         complete = false;
+         logger.error('Retrying pending retry-queue cleanup failed', error instanceof Error ? error : new Error(String(error)), { domain });
+      }
+   }
+   try {
+      if (!(await removeLocalSCData(domain))) {
+         complete = false;
+      }
+   } catch (error) {
+      complete = false;
+      logger.error('Retrying pending Search Console cleanup failed', error instanceof Error ? error : new Error(String(error)), { domain });
+   }
+   return complete;
 };
 
 /**
@@ -175,7 +213,7 @@ const addDomain = async (req: NextApiRequest, res: NextApiResponse) => {
       const now = new Date().toJSON();
       const domainsToAdd: any = Array.from(uniqueHosts.values()).map((hostname) => ({
          domain: hostname,
-         slug: hostname.replaceAll('-', '_').replaceAll('.', '-').replaceAll('/', '-'),
+         slug: toDomainSlug(hostname),
          lastUpdated: now,
          added: now,
          scrapeEnabled: toDbBool(true),
@@ -186,10 +224,20 @@ const addDomain = async (req: NextApiRequest, res: NextApiResponse) => {
       }
 
       try {
+         const existingDomains: Domain[] = await Domain.findAll({ where: { domain: domainsToAdd.map((item: { domain: string }) => item.domain) }, attributes: ['domain'] });
+         if (existingDomains.length > 0) {
+            const alreadyTracked = existingDomains.map((domain) => domain.get({ plain: true }).domain);
+            return res.status(409).json(errorResponse('CONFLICT', `Already tracked: ${alreadyTracked.join(', ')}`, requestId));
+         }
+
          const newDomains:Domain[] = await Domain.bulkCreate(domainsToAdd);
          const formattedDomains = newDomains.map((el) => normalizeDomainBooleans(el.get({ plain: true }) as DomainType));
          return res.status(201).json({ domains: formattedDomains });
       } catch (error) {
+         // A concurrent request can add the same domain between the check above and the insert
+         if (error instanceof Error && error.name === 'SequelizeUniqueConstraintError') {
+            return res.status(409).json(errorResponse('CONFLICT', 'Already tracked: this domain was added by another request.', requestId));
+         }
          logger.error('Adding New Domain ', error instanceof Error ? error : new Error(String(error)));
          return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error Adding Domain.', requestId, error instanceof Error ? error.message : String(error)));
       }
@@ -228,32 +276,39 @@ export const deleteDomain = async (req: NextApiRequest, res: NextApiResponse) =>
             taskId,
             async () => {
                try {
-                  const pendingCleanupMap = await readPendingCleanupMap();
-                  const pendingKeywordIds = pendingCleanupMap.get(normalizedDomain);
+                  const pendingSnapshot = await withCleanupRetryLock(readPendingCleanupMap);
+                  // Earlier deletes whose cleanup did not finish are retried first; the ones that succeed are dropped from the file
+                  const clearedDomains: string[] = [];
+                  for (const [pendingDomain, pendingIds] of pendingSnapshot) {
+                     if (pendingDomain !== normalizedDomain && await retryOtherDomainCleanup(pendingDomain, pendingIds)) {
+                        clearedDomains.push(pendingDomain);
+                     }
+                  }
+                  const pendingKeywordIds = pendingSnapshot.get(normalizedDomain);
                   const domainToRemove = await Domain.findOne({ where: { domain: normalizedDomain }, attributes: ['ID'] });
-                  if (!domainToRemove && !pendingKeywordIds) {
+                  // Keywords are looked up by domain even when the Domain row is gone, so no keyword is left orphaned
+                  const keywordsToRemove = await Keyword.findAll({ where: { domain: normalizedDomain }, attributes: ['ID'] });
+                  if (!domainToRemove && keywordsToRemove.length === 0 && !pendingKeywordIds) {
+                     await updatePendingCleanup((map) => clearedDomains.forEach((domain) => map.delete(domain)));
                      responsePayload = { status: 404, body: errorResponse('NOT_FOUND', 'Domain not found', requestId) };
                      resolve();
                      return;
                   }
-
-                  const keywordsToRemove = domainToRemove
-                     ? await Keyword.findAll({ where: { domain: normalizedDomain }, attributes: ['ID'] })
-                     : [];
                   const keywordIdsToRemove = new Set<number>(keywordsToRemove.map((keyword) => keyword.ID).filter((id): id is number => Number.isFinite(id)));
                   pendingKeywordIds?.forEach((id) => keywordIdsToRemove.add(id));
 
                   let removedKeywordCount = 0;
                   let removedDomCount = 0;
-                  if (domainToRemove) {
-                     await db.transaction(async (transaction) => {
-                        removedKeywordCount = await Keyword.destroy({ where: { domain: normalizedDomain }, transaction });
-                        removedDomCount = await Domain.destroy({ where: { domain: normalizedDomain }, transaction });
-                        if (removedDomCount !== 1) {
-                           throw new Error('Domain disappeared during deletion transaction.');
-                        }
-                     });
-                  }
+                  await db.transaction(async (transaction) => {
+                     removedKeywordCount = await Keyword.destroy({ where: { domain: normalizedDomain }, transaction });
+                     removedDomCount = await Domain.destroy({ where: { domain: normalizedDomain }, transaction });
+                     if (domainToRemove && removedDomCount !== 1) {
+                        throw new Error('Domain disappeared during deletion transaction.');
+                     }
+                  });
+
+                  // Never fails the delete: a leftover ideas file is only logged
+                  await removeDomainIdeasFile(normalizedDomain);
 
                   const cleanupFailures: string[] = [];
                   if (keywordIdsToRemove.size > 0) {
@@ -277,12 +332,14 @@ export const deleteDomain = async (req: NextApiRequest, res: NextApiResponse) =>
                      logger.error('Domain deleted, but Search Console cleanup failed', error instanceof Error ? error : new Error(String(error)), { domain: normalizedDomain });
                   }
 
-                  if (cleanupFailures.length > 0) {
-                     pendingCleanupMap.set(normalizedDomain, keywordIdsToRemove);
-                  } else {
-                     pendingCleanupMap.delete(normalizedDomain);
-                  }
-                  await persistPendingCleanupMap(pendingCleanupMap);
+                  await updatePendingCleanup((map) => {
+                     clearedDomains.forEach((domain) => map.delete(domain));
+                     if (cleanupFailures.length > 0) {
+                        map.set(normalizedDomain, keywordIdsToRemove);
+                     } else {
+                        map.delete(normalizedDomain);
+                     }
+                  });
 
                   responsePayload = {
                      status: 200,
@@ -313,23 +370,47 @@ export const deleteDomain = async (req: NextApiRequest, res: NextApiResponse) =>
    }
 };
 
+/**
+ * Copies the scrape_strategy, scrape_pagination_limit and scrape_smart_full_fallback fields from the payload
+ * into updates. A field is only written when it is present in the payload, and invalid values are dropped
+ * (strategy falls back to '', pagination is clamped to 0-10).
+ */
+const applyScrapeOptionUpdates = (payload: Partial<DomainSettings>, updates: Partial<Domain>): void => {
+   const { scrape_strategy, scrape_pagination_limit, scrape_smart_full_fallback } = payload;
+   if (Object.prototype.hasOwnProperty.call(payload, 'scrape_strategy')) {
+      const validStrategies: Array<ScrapeStrategy | ''> = ['', 'basic', 'custom', 'smart'];
+      const strategy = scrape_strategy || '';
+      updates.scrape_strategy = validStrategies.includes(strategy as ScrapeStrategy | '') ? strategy : '';
+   }
+   if (Object.prototype.hasOwnProperty.call(payload, 'scrape_pagination_limit')) {
+      if (typeof scrape_pagination_limit === 'number' && Number.isFinite(scrape_pagination_limit)) {
+         const clampedLimit = Math.min(10, Math.max(0, scrape_pagination_limit));
+         updates.scrape_pagination_limit = clampedLimit;
+      }
+   }
+   if (Object.prototype.hasOwnProperty.call(payload, 'scrape_smart_full_fallback')) {
+      if (typeof scrape_smart_full_fallback === 'boolean') {
+         updates.scrape_smart_full_fallback = scrape_smart_full_fallback;
+      }
+   }
+};
+
 export const updateDomain = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
    if (!req.query.domain || typeof req.query.domain !== 'string') {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Domain is Required!', requestId));
    }
    const { domain } = req.query || {};
+   if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Request body must be a JSON object.', requestId));
+   }
    const payload = req.body as Partial<DomainSettings>;
    const {
-      notification_interval,
       notification_emails,
       search_console,
       scrapeEnabled,
       scraper_settings,
       business_name,
-      scrape_strategy,
-      scrape_pagination_limit,
-      scrape_smart_full_fallback,
    } = payload;
 
    try {
@@ -351,17 +432,41 @@ export const updateDomain = async (req: NextApiRequest, res: NextApiResponse) =>
 
       // Validate Search Console API Data
       if (search_console) {
+         if (typeof search_console !== 'object' || Array.isArray(search_console)) {
+            return res.status(400).json(errorResponse('BAD_REQUEST', 'search_console must be an object.', requestId));
+         }
+         if ((['client_email', 'private_key'] as const).some((key) => search_console[key] != null && typeof search_console[key] !== 'string')) {
+            return res.status(400).json(errorResponse('BAD_REQUEST', 'search_console credentials must be text.', requestId));
+         }
+         const storedSearchConsole = safeJsonParse<Record<string, string> | null>(
+            domainPlain?.search_console,
+            null,
+            { context: `domain ${domainPlain?.domain ?? ''} search_console`, logError: true },
+         );
+         const keepsStoredCredentials = search_console.client_email === SC_CREDENTIAL_MARKER
+            && search_console.private_key === SC_CREDENTIAL_MARKER;
+
+         if (keepsStoredCredentials) {
+            // The form sends the marker back when the credentials were not changed: keep the stored encrypted values
+            search_console.client_email = storedSearchConsole?.client_email ?? '';
+            search_console.private_key = storedSearchConsole?.private_key ?? '';
+         } else if (search_console.client_email === SC_CREDENTIAL_MARKER || search_console.private_key === SC_CREDENTIAL_MARKER) {
+            return res.status(400).json(
+               errorResponse('BAD_REQUEST', 'Enter both client_email and private_key to change the Search Console credentials', requestId),
+            );
+         }
+
          // Ensure both credentials are provided together, or neither
          const hasEmail = !!(search_console.client_email?.trim());
          const hasKey = !!(search_console.private_key?.trim());
-         
+
          if (hasEmail !== hasKey) {
             return res.status(400).json(
                errorResponse('BAD_REQUEST', 'Both client_email and private_key must be provided together for Search Console integration', requestId),
             );
          }
-         
-         if (hasEmail && hasKey) {
+
+         if (hasEmail && hasKey && !keepsStoredCredentials) {
             const isSearchConsoleAPIValid = await checkSearchConsoleIntegration({ ...domainPlain, search_console: JSON.stringify(search_console) });
             if (!isSearchConsoleAPIValid.isValid) {
                return res.status(400).json(errorResponse('BAD_REQUEST', isSearchConsoleAPIValid.error ?? 'Invalid Search Console credentials', requestId));
@@ -373,7 +478,6 @@ export const updateDomain = async (req: NextApiRequest, res: NextApiResponse) =>
       }
 
       const updates: Partial<Domain> = {};
-      if (typeof notification_interval === 'string') { updates.notification_interval = notification_interval; }
       if (typeof notification_emails === 'string') { updates.notification_emails = notification_emails; }
       if (typeof scrapeEnabled === 'boolean') {
          // Convert boolean to 1/0 for database storage
@@ -385,22 +489,7 @@ export const updateDomain = async (req: NextApiRequest, res: NextApiResponse) =>
       if (Object.prototype.hasOwnProperty.call(payload, 'business_name')) {
          updates.business_name = business_name || null;
       }
-      if (Object.prototype.hasOwnProperty.call(payload, 'scrape_strategy')) {
-         const validStrategies: Array<ScrapeStrategy | ''> = ['', 'basic', 'custom', 'smart'];
-         const strategy = scrape_strategy || '';
-         updates.scrape_strategy = validStrategies.includes(strategy as ScrapeStrategy | '') ? strategy : '';
-      }
-      if (Object.prototype.hasOwnProperty.call(payload, 'scrape_pagination_limit')) {
-         if (typeof scrape_pagination_limit === 'number' && Number.isFinite(scrape_pagination_limit)) {
-            const clampedLimit = Math.min(10, Math.max(0, scrape_pagination_limit));
-            updates.scrape_pagination_limit = clampedLimit;
-         }
-      }
-      if (Object.prototype.hasOwnProperty.call(payload, 'scrape_smart_full_fallback')) {
-         if (typeof scrape_smart_full_fallback === 'boolean') {
-            updates.scrape_smart_full_fallback = scrape_smart_full_fallback;
-         }
-      }
+      applyScrapeOptionUpdates(payload, updates);
       if (Object.prototype.hasOwnProperty.call(payload, 'scraper_settings')) {
          const existingScraperSettings = parseDomainScraperSettings(domainPlain?.scraper_settings);
          const cryptr = new Cryptr(process.env.SECRET as string);

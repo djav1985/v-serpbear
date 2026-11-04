@@ -8,9 +8,8 @@ export type LocalResultItem = {
 const normaliseName = (value: string | null | undefined): string => (value ?? '').trim().toLowerCase();
 
 // Map pack is matched by business name only: one of the first three local results must have a title
-// equal to the domain's business_name (ignoring case). The domain argument is kept so callers stay the same.
+// equal to the domain's business_name (ignoring case).
 export const computeMapPackTop3 = (
-   _domain: string,
    localResults: LocalResultItem[] | null | undefined,
    businessName?: string | null,
 ): boolean => {

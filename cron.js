@@ -1,8 +1,22 @@
  
+const path = require('path');
 const Cryptr = require('cryptr');
-const { promises } = require('fs');
+const { promises, watch } = require('fs');
 const { Cron } = require('croner');
-require('dotenv').config({ path: './.env.local' });
+const dotenv = require('dotenv');
+
+/**
+ * Loads the same env files Next.js reads, so the worker sees APIKEY, SECRET and the CRON_* values outside Docker.
+ * dotenv never overrides a variable that is already set, so the first file loaded wins: .env.local is loaded
+ * before the optional .env. Variables already in the process environment (for example from docker compose)
+ * take precedence over both files.
+ */
+const loadEnvFiles = (dir = process.cwd()) => {
+   dotenv.config({ path: path.join(dir, '.env.local') });
+   dotenv.config({ path: path.join(dir, '.env') });
+};
+
+loadEnvFiles();
 
 // Import logger after dotenv so LOG_LEVEL env var is available at Logger construction time
 const { logger } = require('./utils/logger');
@@ -36,7 +50,17 @@ const normalizeValue = (value, fallback) => {
    return sanitized || fallback;
 };
 
-const CRON_TIMEZONE = normalizeValue(process.env.CRON_TIMEZONE, 'America/New_York');
+const DEFAULT_CRON_TIMEZONE = 'America/New_York';
+const isValidTimezone = (value) => {
+   try {
+      new Intl.DateTimeFormat('en-US', { timeZone: value });
+      return true;
+   } catch {
+      return false;
+   }
+};
+const configuredTimezone = normalizeValue(process.env.CRON_TIMEZONE, DEFAULT_CRON_TIMEZONE);
+const CRON_TIMEZONE = isValidTimezone(configuredTimezone) ? configuredTimezone : DEFAULT_CRON_TIMEZONE;
 const CRON_MAIN_SCHEDULE = normalizeValue(process.env.CRON_MAIN_SCHEDULE, '0 0 0 * * *');
 const CRON_EMAIL_SCHEDULE = normalizeValue(process.env.CRON_EMAIL_SCHEDULE, '0 0 6 * * *');
 const CRON_FAILED_SCHEDULE = normalizeValue(process.env.CRON_FAILED_SCHEDULE, '0 0 */1 * * *');
@@ -52,6 +76,41 @@ const CRON_INTERVAL_MAP = {
    weekly: '0 0 0 * * 1',
    monthly: '0 0 0 1 * *', // Run every first day of the month at 00:00 (midnight)
 };
+
+/**
+ * Replaces the day-of-month and day-of-week fields of a cron expression, keeping its time of day.
+ * Accepts 5 or 6 field expressions (a 5 field one gets seconds = 0). Returns null if it cannot be parsed.
+ */
+const withDayPattern = (expression, dayOfMonth, dayOfWeek) => {
+   const parts = expression.trim().split(/\s+/);
+   if (parts.length === 5) {
+      parts.unshift('0');
+   }
+   if (parts.length !== 6) {
+      return null;
+   }
+   parts[3] = dayOfMonth;
+   parts[5] = dayOfWeek;
+   return parts.join(' ');
+};
+
+/**
+ * Email schedules. Daily emails use CRON_EMAIL_SCHEDULE. Weekly and monthly emails keep that same time of day
+ * instead of midnight: the scrape runs at CRON_MAIN_SCHEDULE (midnight by default), so a report sent at the email
+ * time sees that day's results, and it no longer starts at the same moment as the scrape.
+ */
+const NOTIFICATION_SCHEDULE_MAP = {
+   daily: CRON_EMAIL_SCHEDULE,
+   weekly: withDayPattern(CRON_EMAIL_SCHEDULE, '*', '1') || CRON_EMAIL_SCHEDULE,
+   monthly: withDayPattern(CRON_EMAIL_SCHEDULE, '1', '*') || CRON_EMAIL_SCHEDULE,
+};
+
+/** Settings file the worker watches for schedule changes, and the debounce applied to its change events */
+const SETTINGS_FILE_NAME = 'settings.json';
+const SETTINGS_WATCH_DEBOUNCE_MS = 1000;
+
+/** Slow safety re-check of settings (every 30 minutes, at second 0). Covers missed file events and watcher failures. */
+const SETTINGS_SAFETY_CHECK_SCHEDULE = '0 */30 * * * *';
 
 /**
  * Get application settings from data/settings.json
@@ -79,9 +138,13 @@ const getAppSettings = async () => {
    // console.log('process.env.SECRET: ', process.env.SECRET);
    try {
       const settingsRaw = await promises.readFile(settingsPath, { encoding: 'utf-8' });
+      // Empty or whitespace-only file: treat as no stored settings. Defaults are returned and the file is left as is.
+      if (!settingsRaw || !settingsRaw.trim()) {
+         return defaultSettings;
+      }
       let settings = {};
       try {
-         settings = settingsRaw ? JSON.parse(settingsRaw) : {};
+         settings = JSON.parse(settingsRaw);
       } catch (error) {
          logger.error('CRON: Parsing Settings File.', error instanceof Error ? error : new Error(String(error)));
          return defaultSettings;
@@ -173,41 +236,93 @@ const runAppCronJobs = () => {
    
    logger.debug('CRON: Worker configuration.', { url: internalApiUrl, apiKeyConfigured: !!process.env.APIKEY });
    
-   const cronOptions = { scheduled: true, timezone: CRON_TIMEZONE };
-   
-   // Helper function to make API calls
-   getAppSettings().then((settings) => {
-      // RUN SERP Scraping CRON using configured schedule
-      const scrape_interval = settings.scrape_interval || 'daily';
-      logger.info('CRON: Scraper configuration.', { interval: scrape_interval, type: settings.scraper_type || 'none' });
+   // Timezone only: croner has no "scheduled" option, jobs start as soon as they are created
+   const cronOptions = { timezone: CRON_TIMEZONE };
 
-      if (scrape_interval !== 'never') {
-         const scrapeCronTime = normalizeValue(CRON_INTERVAL_MAP[scrape_interval] || CRON_MAIN_SCHEDULE, CRON_MAIN_SCHEDULE);
-         logger.info('CRON: Setting up keyword scraping cron.', { schedule: scrapeCronTime });
-         scheduleJob('keyword scraping', scrapeCronTime, () => {
+   // The scrape and email jobs follow the settings. Settings are re-read when data/settings.json changes (fs.watch,
+   // debounced) and every 30 minutes as a safety check. Jobs are rebuilt only when the schedule changed.
+   // Runs are chained so two checks never create duplicate jobs.
+   let scrapeJob = null;
+   let emailJob = null;
+   let activePlanKey = null;
+   let applyChain = Promise.resolve();
+
+   const applyScheduleFromSettings = async () => {
+      const settings = await getAppSettings();
+      const scrapeInterval = settings.scrape_interval || 'daily';
+      const notifInterval = settings.notification_interval;
+
+      const scrapeCronTime = scrapeInterval !== 'never'
+         ? normalizeValue(CRON_INTERVAL_MAP[scrapeInterval] || CRON_MAIN_SCHEDULE, CRON_MAIN_SCHEDULE)
+         : null;
+      const emailCronTime = notifInterval && notifInterval !== 'never'
+         ? normalizeValue(NOTIFICATION_SCHEDULE_MAP[notifInterval] || CRON_EMAIL_SCHEDULE, CRON_EMAIL_SCHEDULE)
+         : null;
+
+      const planKey = JSON.stringify([scrapeCronTime, emailCronTime]);
+      if (planKey === activePlanKey) {
+         return;
+      }
+
+      if (scrapeJob) { scrapeJob.stop(); scrapeJob = null; }
+      if (emailJob) { emailJob.stop(); emailJob = null; }
+
+      logger.info('CRON: Applying schedule from settings.', { scrapeSchedule: scrapeCronTime, emailSchedule: emailCronTime, type: settings.scraper_type || 'none' });
+
+      if (scrapeCronTime) {
+         scrapeJob = scheduleJob('keyword scraping', scrapeCronTime, () => {
             logger.info('CRON: Running Keyword Position Cron Job.');
             makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/cron', 'CRON: Keyword Scraping Result');
          }, cronOptions);
       }
 
-      // RUN Email Notification CRON
-      const notif_interval = (!settings.notification_interval || settings.notification_interval === 'never') ? false : settings.notification_interval;
-      if (notif_interval) {
-         const intervalKey = notif_interval === 'daily' ? 'daily_morning' : notif_interval;
-         const cronTime = normalizeValue(
-            CRON_INTERVAL_MAP[intervalKey] || CRON_EMAIL_SCHEDULE,
-            CRON_EMAIL_SCHEDULE,
-         );
-         if (cronTime) {
-            scheduleJob('email notification', cronTime, () => {
-               logger.info('CRON: Sending Notification Email.');
-               makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/notify', 'CRON: Email Notification Result');
-            }, cronOptions);
-         }
+      if (emailCronTime) {
+         emailJob = scheduleJob('email notification', emailCronTime, () => {
+            logger.info('CRON: Sending Notification Email.');
+            makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/notify', 'CRON: Email Notification Result');
+         }, cronOptions);
       }
-   }).catch((error) => {
-      logger.error('CRON: Could not load settings; scraping and email jobs were not scheduled.', error instanceof Error ? error : new Error(String(error)));
-   });
+
+      activePlanKey = planKey;
+   };
+
+   const syncScheduleFromSettings = () => {
+      applyChain = applyChain
+         .then(applyScheduleFromSettings)
+         .catch((error) => {
+            logger.error('CRON: Could not apply schedule from settings; keeping the current jobs.', error instanceof Error ? error : new Error(String(error)));
+         });
+      return applyChain;
+   };
+
+   syncScheduleFromSettings();
+   scheduleJob('settings safety check', SETTINGS_SAFETY_CHECK_SCHEDULE, syncScheduleFromSettings, cronOptions);
+
+   // Watches the data directory rather than the file: settings are saved via temp file + rename, which a
+   // file-level watch can miss. Bursts of events are debounced so the sync runs once.
+   let settingsDebounce = null;
+   const onSettingsDirEvent = (eventType, filename) => {
+      if (filename && filename.toString() !== SETTINGS_FILE_NAME) {
+         return;
+      }
+      clearTimeout(settingsDebounce);
+      settingsDebounce = setTimeout(() => {
+         settingsDebounce = null;
+         syncScheduleFromSettings();
+      }, SETTINGS_WATCH_DEBOUNCE_MS);
+      settingsDebounce.unref();
+   };
+
+   try {
+      const settingsWatcher = watch(path.join(process.cwd(), 'data'), onSettingsDirEvent);
+      settingsWatcher.on('error', (error) => {
+         logger.warn('CRON: Settings watcher failed; relying on the 30 minute safety check.', { error: error?.message || String(error) });
+         settingsWatcher.close();
+      });
+      settingsWatcher.unref();
+   } catch (error) {
+      logger.warn('CRON: Could not watch the settings directory; relying on the 30 minute safety check.', { error: error?.message || String(error) });
+   }
 
    // Run Failed scraping CRON using configured failed queue schedule
    const failedCronTime = normalizeValue(CRON_FAILED_SCHEDULE, '0 0 */1 * * *');
@@ -255,4 +370,5 @@ module.exports = {
    makeCronApiCall,
    getAppSettings,
    normalizeValue,
+   loadEnvFiles,
 };

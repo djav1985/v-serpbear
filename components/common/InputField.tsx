@@ -3,7 +3,6 @@ type InputFieldProps = {
    value: string;
    onChange: (value: string) => void;
    placeholder?: string;
-   classNames?: string;
    hasError?: boolean;
 }
 

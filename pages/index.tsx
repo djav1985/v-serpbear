@@ -1,5 +1,5 @@
 import type { NextPage } from 'next';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import Icon from '../components/common/Icon';
@@ -9,9 +9,13 @@ const Home: NextPage = () => {
    const router = useRouter();
    const { branding } = useBranding();
    const { platformName } = branding;
+   const redirectedRef = useRef(false);
 
    useEffect(() => {
-      if (router) router.push('/domains');
+      // Redirect once on the client; replace so the back button does not return here
+      if (redirectedRef.current) { return; }
+      redirectedRef.current = true;
+      router.replace('/domains');
    }, [router]);
 
   return (

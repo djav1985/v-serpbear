@@ -1,7 +1,11 @@
-import { act, render, waitFor } from '@testing-library/react';
-import AdWordsSettings from '../../components/settings/AdWordsSettings';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import Settings from '../../components/settings/Settings';
 
 const toastMock = jest.fn();
+const mockUpdateSettingsAsync = jest.fn();
+const mockFetchSettings = jest.fn();
+const mockRefetchSettings = jest.fn();
+const mockAdsMutate = jest.fn();
 
 jest.mock('../../utils/client/origin', () => ({
    getClientOrigin: () => (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'),
@@ -12,11 +16,21 @@ jest.mock('react-hot-toast', () => ({
    default: (...args: unknown[]) => toastMock(...args),
 }));
 
-const mutateMock = jest.fn();
-
 jest.mock('../../services/adwords', () => ({
-   useTestAdwordsIntegration: jest.fn(() => ({ mutate: mutateMock, isLoading: false })),
-   useMutateKeywordsVolume: jest.fn(() => ({ mutate: mutateMock, isLoading: false })),
+   useTestAdwordsIntegration: jest.fn(() => ({ mutate: mockAdsMutate, isLoading: false })),
+   useMutateKeywordsVolume: jest.fn(() => ({ mutate: mockAdsMutate, isLoading: false })),
+}));
+
+jest.mock('../../services/settings', () => ({
+   useFetchSettings: () => mockFetchSettings(),
+   useUpdateSettings: () => ({ mutateAsync: (...args: unknown[]) => mockUpdateSettingsAsync(...args), isLoading: false }),
+   useSendNotifications: () => ({ mutate: jest.fn(), isLoading: false }),
+   useClearFailedQueue: () => ({ mutate: jest.fn(), isLoading: false }),
+   useRetryFailedQueue: () => ({ mutate: jest.fn(), isLoading: false }),
+}));
+
+jest.mock('../../hooks/useBranding', () => ({
+   useBranding: () => ({ branding: { platformName: 'SERPBear' } }),
 }));
 
 // Mock window.history.replaceState
@@ -26,20 +40,28 @@ Object.defineProperty(window, 'history', {
    writable: true,
 });
 
-describe('AdWordsSettings postMessage integration', () => {
+describe('Google Ads OAuth result handling in Settings', () => {
+   // Notifications are off and the scraper is 'none', so performUpdate can save without validation errors.
    const baseSettings = {
       adwords_client_id: 'client',
       adwords_client_secret: 'secret',
       adwords_developer_token: 'dev',
       adwords_account_id: '123-456-7890',
       adwords_refresh_token: 'token',
+      scraper_type: 'none',
+      notification_interval: 'never',
       keywordsColumns: [],
    } as any;
 
    const noop = () => undefined;
 
+   const renderSettings = () => render(<Settings closeSettings={noop} />);
+
    beforeEach(() => {
       jest.clearAllMocks();
+      mockUpdateSettingsAsync.mockResolvedValue(undefined);
+      mockFetchSettings.mockReturnValue({ data: { settings: baseSettings }, isLoading: false, refetch: mockRefetchSettings });
+      mockRefetchSettings.mockResolvedValue({ data: { settings: baseSettings } });
       mockReplaceState.mockClear();
       // Reset URL search params
       Object.defineProperty(window, 'location', {
@@ -53,16 +75,7 @@ describe('AdWordsSettings postMessage integration', () => {
    });
 
    it('handles successful integration messages', async () => {
-      const performUpdate = jest.fn().mockResolvedValue(undefined);
-      render(
-         <AdWordsSettings
-            settings={baseSettings}
-            settingsError={null}
-            updateSettings={noop}
-            performUpdate={performUpdate}
-            closeSettings={noop}
-         />,
-      );
+      renderSettings();
 
       await act(async () => {
          window.dispatchEvent(new MessageEvent('message', {
@@ -72,21 +85,31 @@ describe('AdWordsSettings postMessage integration', () => {
       });
 
       await waitFor(() => {
-         expect(performUpdate).toHaveBeenCalled();
+         expect(mockRefetchSettings).toHaveBeenCalled();
       });
       expect(toastMock).toHaveBeenCalledWith('Google Ads has been integrated successfully!', { icon: '✔️' });
    });
 
+   it('keeps handling the integration result after switching settings tabs', async () => {
+      renderSettings();
+
+      fireEvent.click(screen.getByText('Integrations'));
+      fireEvent.click(screen.getByText('Google Ads'));
+
+      await act(async () => {
+         window.dispatchEvent(new MessageEvent('message', {
+            origin: window.location.origin,
+            data: { type: 'adwordsIntegrated', status: 'success' },
+         }));
+      });
+
+      await waitFor(() => {
+         expect(toastMock).toHaveBeenCalledWith('Google Ads has been integrated successfully!', { icon: '✔️' });
+      });
+   });
+
    it('shows the upstream error message when integration fails', async () => {
-      render(
-         <AdWordsSettings
-            settings={baseSettings}
-            settingsError={null}
-            updateSettings={noop}
-            performUpdate={noop}
-            closeSettings={noop}
-         />,
-      );
+      renderSettings();
 
       const detail = 'Custom integration error';
       await act(async () => {
@@ -99,184 +122,25 @@ describe('AdWordsSettings postMessage integration', () => {
       expect(toastMock).toHaveBeenCalledWith(detail, { icon: '⚠️' });
    });
 
-   describe('URL parameter handling (fallback integration)', () => {
-      it('handles successful integration via URL parameters', async () => {
-         const performUpdate = jest.fn().mockResolvedValue(undefined);
-         
-         // Mock URL with success parameters
-         Object.defineProperty(window, 'location', {
-            value: {
-               ...window.location,
-               search: '?ads=integrated&status=success',
-               href: 'http://localhost:3000?ads=integrated&status=success',
-            },
-            writable: true,
-         });
-
-         render(
-            <AdWordsSettings
-               settings={baseSettings}
-               settingsError={null}
-               updateSettings={noop}
-               performUpdate={performUpdate}
-               closeSettings={noop}
-            />,
-         );
-
-         await waitFor(() => {
-            expect(performUpdate).toHaveBeenCalled();
-         });
-         expect(toastMock).toHaveBeenCalledWith('Google Ads has been integrated successfully!', { icon: '✔️' });
-         expect(mockReplaceState).toHaveBeenCalledWith({}, document.title, 'http://localhost:3000/');
+   it('keeps unsaved edits when the settings are refetched', () => {
+      mockFetchSettings.mockReturnValue({
+         data: { settings: { ...baseSettings, notification_interval: 'daily', smtp_server: '' } },
+         isLoading: false,
+         refetch: mockRefetchSettings,
       });
+      const { rerender } = renderSettings();
 
-      it('handles failed integration via URL parameters with custom error message', async () => {
-         const errorMessage = 'Custom error from redirect';
-         
-         // Mock URL with error parameters
-         Object.defineProperty(window, 'location', {
-            value: {
-               ...window.location,
-               search: `?ads=integrated&status=error&detail=${encodeURIComponent(errorMessage)}`,
-               href: `http://localhost:3000?ads=integrated&status=error&detail=${encodeURIComponent(errorMessage)}`,
-            },
-            writable: true,
-         });
+      fireEvent.click(screen.getByText('Notification'));
+      const smtpInput = screen.getByPlaceholderText('smtp.example.com') as HTMLInputElement;
+      fireEvent.change(smtpInput, { target: { value: 'unsaved.example.com' } });
 
-         render(
-            <AdWordsSettings
-               settings={baseSettings}
-               settingsError={null}
-               updateSettings={noop}
-               performUpdate={noop}
-               closeSettings={noop}
-            />,
-         );
-
-         await waitFor(() => {
-            expect(toastMock).toHaveBeenCalledWith(errorMessage, { icon: '⚠️' });
-         });
-         expect(mockReplaceState).toHaveBeenCalledWith({}, document.title, 'http://localhost:3000/');
+      mockFetchSettings.mockReturnValue({
+         data: { settings: { ...baseSettings, notification_interval: 'daily', smtp_server: 'server.example.com' } },
+         isLoading: false,
+         refetch: mockRefetchSettings,
       });
+      rerender(<Settings closeSettings={noop} />);
 
-      it('handles failed integration via URL parameters with default error message', async () => {
-         // Mock URL with error parameters but no detail
-         Object.defineProperty(window, 'location', {
-            value: {
-               ...window.location,
-               search: '?ads=integrated&status=error',
-               href: 'http://localhost:3000?ads=integrated&status=error',
-            },
-            writable: true,
-         });
-
-         render(
-            <AdWordsSettings
-               settings={baseSettings}
-               settingsError={null}
-               updateSettings={noop}
-               performUpdate={noop}
-               closeSettings={noop}
-            />,
-         );
-
-         await waitFor(() => {
-            expect(toastMock).toHaveBeenCalledWith('Google Ads integration failed. Please try again.', { icon: '⚠️' });
-         });
-         expect(mockReplaceState).toHaveBeenCalledWith({}, document.title, 'http://localhost:3000/');
-      });
-
-      it('ignores URL parameters when ads parameter is not "integrated"', async () => {
-         const performUpdate = jest.fn().mockResolvedValue(undefined);
-         
-         // Mock URL with non-integration parameters
-         Object.defineProperty(window, 'location', {
-            value: {
-               ...window.location,
-               search: '?ads=other&status=success',
-               href: 'http://localhost:3000?ads=other&status=success',
-            },
-            writable: true,
-         });
-
-         render(
-            <AdWordsSettings
-               settings={baseSettings}
-               settingsError={null}
-               updateSettings={noop}
-               performUpdate={performUpdate}
-               closeSettings={noop}
-            />,
-         );
-
-         // Give it time to process any URL parameters
-         await act(async () => {
-            await new Promise(resolve => setTimeout(resolve, 50));
-         });
-
-         expect(performUpdate).not.toHaveBeenCalled();
-         expect(toastMock).not.toHaveBeenCalled();
-         expect(mockReplaceState).not.toHaveBeenCalled();
-      });
-
-      it('ignores URL parameters when status parameter is missing', async () => {
-         const performUpdate = jest.fn().mockResolvedValue(undefined);
-         
-         // Mock URL with missing status parameter
-         Object.defineProperty(window, 'location', {
-            value: {
-               ...window.location,
-               search: '?ads=integrated',
-               href: 'http://localhost:3000?ads=integrated',
-            },
-            writable: true,
-         });
-
-         render(
-            <AdWordsSettings
-               settings={baseSettings}
-               settingsError={null}
-               updateSettings={noop}
-               performUpdate={performUpdate}
-               closeSettings={noop}
-            />,
-         );
-
-         // Give it time to process any URL parameters
-         await act(async () => {
-            await new Promise(resolve => setTimeout(resolve, 50));
-         });
-
-         expect(performUpdate).not.toHaveBeenCalled();
-         expect(toastMock).not.toHaveBeenCalled();
-         expect(mockReplaceState).not.toHaveBeenCalled();
-      });
-
-      it('preserves other URL parameters when cleaning up integration params', async () => {
-         // Mock URL with integration params and other params
-         Object.defineProperty(window, 'location', {
-            value: {
-               ...window.location,
-               search: '?ads=integrated&status=success&other=value&keep=this',
-               href: 'http://localhost:3000?ads=integrated&status=success&other=value&keep=this',
-            },
-            writable: true,
-         });
-
-         render(
-            <AdWordsSettings
-               settings={baseSettings}
-               settingsError={null}
-               updateSettings={noop}
-               performUpdate={noop}
-               closeSettings={noop}
-            />,
-         );
-
-         await waitFor(() => {
-            expect(toastMock).toHaveBeenCalledWith('Google Ads has been integrated successfully!', { icon: '✔️' });
-         });
-         expect(mockReplaceState).toHaveBeenCalledWith({}, document.title, 'http://localhost:3000/?other=value&keep=this');
-      });
+      expect((screen.getByPlaceholderText('smtp.example.com') as HTMLInputElement).value).toBe('unsaved.example.com');
    });
 });

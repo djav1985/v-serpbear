@@ -1,7 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import jwt from 'jsonwebtoken';
 import handler from '../../pages/api/auth-check';
-import verifyUser from '../../utils/verifyUser';
+import verifyUser, { verifySessionToken } from '../../utils/verifyUser';
 
 jest.mock('../../utils/logger', () => ({
   logger: {
@@ -21,6 +20,7 @@ jest.mock('../../utils/apiLogging', () => ({
 jest.mock('../../utils/verifyUser', () => ({
   __esModule: true,
   default: jest.fn(),
+  verifySessionToken: jest.fn(),
 }));
 
 const getCookieMock = jest.fn();
@@ -29,13 +29,7 @@ jest.mock('cookies', () => ({
   default: jest.fn(() => ({ get: getCookieMock })),
 }));
 
-jest.mock('jsonwebtoken', () => ({
-  __esModule: true,
-  default: { verify: jest.fn() },
-  verify: jest.fn(),
-}));
-
-const jwtVerifyMock = (jwt as any).verify as jest.Mock;
+const jwtVerifyMock = verifySessionToken as unknown as jest.Mock;
 
 const createRes = () => ({
   status: jest.fn().mockReturnThis(),
@@ -95,7 +89,7 @@ describe('GET /api/auth-check', () => {
     await handler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ authenticated: true, user: 'admin' });
+    expect(res.json).toHaveBeenCalledWith({ authenticated: true, user: 'admin', timezone: expect.any(String) });
   });
 
   it('falls back to authenticated_user when no token is present', async () => {
@@ -108,7 +102,7 @@ describe('GET /api/auth-check', () => {
     await handler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ authenticated: true, user: 'authenticated_user' });
+    expect(res.json).toHaveBeenCalledWith({ authenticated: true, user: 'authenticated_user', timezone: expect.any(String) });
   });
 
   it('falls back to authenticated_user when jwt.verify throws', async () => {
@@ -124,6 +118,6 @@ describe('GET /api/auth-check', () => {
     await handler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ authenticated: true, user: 'authenticated_user' });
+    expect(res.json).toHaveBeenCalledWith({ authenticated: true, user: 'authenticated_user', timezone: expect.any(String) });
   });
 });

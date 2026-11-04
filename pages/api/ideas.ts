@@ -3,11 +3,12 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import verifyUser from '../../utils/verifyUser';
 import {
-   getAdwordsCredentials, getAdwordsKeywordIdeas, getLocalKeywordIdeas, updateLocalKeywordIdeas,
+   getAdwordsCredentials, getAdwordsKeywordIdeas, getLocalKeywordIdeas, updateLocalKeywordIdeas, withIdeasLock,
 } from '../../utils/adwords';
 import { withApiLogging } from '../../utils/apiLogging';
 import { logger } from '../../utils/logger';
 import { errorResponse } from '../../utils/api/response';
+import { SAFE_DOMAIN_SLUG } from '../../utils/domainSlug';
 
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
@@ -58,6 +59,10 @@ const updateKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => 
       seedType,
    } = req.body;
 
+   if (!Array.isArray(keywords) || keywords.length > 1000 || keywords.some((item) => typeof item !== 'string')) {
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'keywords must be a list of up to 1000 strings.', requestId));
+   }
+
    logger.debug('updateKeywordIdeas called', {
       keywordsCount: keywords.length,
       country,
@@ -72,8 +77,21 @@ const updateKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => 
    if (!country || !language) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Please provide both country and language', requestId));
    }
+   // These values go to the paid Google Ads API and into a file name, so check their shape first
+   if (typeof country !== 'string' || !/^[A-Za-z]{2}$/.test(country)) {
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'country must be a two-letter country code.', requestId));
+   }
+   if (!/^\d{1,10}$/.test(String(language))) {
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'language must be a Google Ads language ID.', requestId));
+   }
    if (!domainSlug) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Missing domainSlug', requestId));
+   }
+   if (typeof domainSlug !== 'string' || !SAFE_DOMAIN_SLUG.test(domainSlug)) {
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Invalid domainSlug', requestId));
+   }
+   if (typeof domainUrl !== 'string') {
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'domainUrl must be a string.', requestId));
    }
    if (seedType === 'auto' && !domainUrl) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Missing domainUrl', requestId));
@@ -149,8 +167,10 @@ const favoriteKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
    }
 
    try {
-      const keywordsDatabase = await getLocalKeywordIdeas(domain);
-      if (keywordsDatabase && keywordsDatabase.keywords) {
+      // Read and write under one lock, so two toggles at once cannot drop each other's favourite
+      const result = await withIdeasLock(domain, async () => {
+         const keywordsDatabase = await getLocalKeywordIdeas(domain);
+         if (!keywordsDatabase || !keywordsDatabase.keywords) return null;
          const theKeyword = keywordsDatabase.keywords.find((kw) => kw.uid === keywordID);
          const existingKeywords = keywordsDatabase.favorites || [];
          const newFavorites = [...existingKeywords];
@@ -160,10 +180,11 @@ const favoriteKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
          } else if (theKeyword) newFavorites.push(theKeyword);
 
          const updated = await updateLocalKeywordIdeas(domain, { favorites: newFavorites });
+         return updated ? newFavorites : null;
+      });
 
-         if (updated) {
-            return res.status(200).json({ keywords: newFavorites, error: '' });
-         }
+      if (result) {
+         return res.status(200).json({ keywords: result, error: '' });
       }
 
       return res.status(400).json(errorResponse('BAD_REQUEST', errMsg, requestId));

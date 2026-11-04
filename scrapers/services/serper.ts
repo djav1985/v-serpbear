@@ -1,12 +1,5 @@
 import { resolveCountryCode, getKeywordLocationParts } from "../../utils/scraperHelpers";
-
-const decodeIfEncoded = (value: string): string => {
-  try {
-    return decodeURIComponent(value);
-  } catch (_error) {
-    return value;
-  }
-};
+import { decodeIfEncoded } from "../scraperHelpers";
 
 interface SerperResult {
   title: string;
@@ -26,7 +19,7 @@ const serper: ScraperSettings = {
       countryData[countryCode] ??
       countryData.US ??
       Object.values(countryData)[0];
-    const gl = countryCode;
+    const gl = countryCode.toLowerCase();
     const lang = fallbackInfo?.[2] ?? "en";
     const locationParts = getKeywordLocationParts(keyword.location);
     const p = pagination || { start: 0, num: 10, page: 1 };

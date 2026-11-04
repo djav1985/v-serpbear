@@ -8,7 +8,7 @@ import TopBar from '../../components/common/TopBar';
 import AddDomain from '../../components/domains/AddDomain';
 import Settings from '../../components/settings/Settings';
 import { useFetchSettings } from '../../services/settings';
-import { fetchDomainScreenshot, useFetchDomains, SCREENSHOTS_ENABLED } from '../../services/domains';
+import { fetchDomainScreenshot, useFetchDomains } from '../../services/domains';
 import DomainItem from '../../components/domains/DomainItem';
 import Footer from '../../components/common/Footer';
 import { withAuth } from '../../hooks/useAuth';
@@ -20,15 +20,18 @@ type thumbImages = { [domain:string] : string }
 
 const Domains: NextPage = () => {
    const router = useRouter();
-   const { branding } = useBranding();
+   const { branding, screenshotsEnabled } = useBranding();
    const { platformName } = branding;
+   // Runtime flag from /api/branding/config. Stays false until it loads, so no screenshots are fetched early.
+   const screenshotsOn = screenshotsEnabled === true;
+   const adsResultHandledRef = useRef(false);
    // const [noScrapprtError, setNoScrapprtError] = useState(false);
    const [showSettings, setShowSettings] = useState(false);
    const [showAddDomain, setShowAddDomain] = useState(false);
    const addDomainNodeRef = useRef<HTMLDivElement>(null);
    const [domainThumbs, setDomainThumbs] = useState<thumbImages>({});
    const settingsNodeRef = useRef<HTMLDivElement>(null);
-   const { data: appSettingsData, isLoading: isAppSettingsLoading } = useFetchSettings();
+   const { data: appSettingsData, isLoading: isAppSettingsLoading, refetch: refetchSettings } = useFetchSettings();
    const { data: domainsData, isLoading: isDomainsLoading } = useFetchDomains(router, true);
 
    const appSettings:SettingsType = (appSettingsData?.settings || {}) as SettingsType;
@@ -61,8 +64,34 @@ const Domains: NextPage = () => {
       return domainsSCAPI;
    }, [domainsData]);
 
+   // Google Ads OAuth fallback: the callback redirects to /domains?ads=integrated&status=...
+   // Handled on mount here (the Settings drawer may not be open). The param is removed afterwards so
+   // it is never handled twice.
    useEffect(() => {
-      if (!SCREENSHOTS_ENABLED) { return; }
+      if (!router.isReady || adsResultHandledRef.current) { return; }
+      const { ads, status, detail, ...rest } = router.query;
+      if (ads !== 'integrated' || !status) { return; }
+      adsResultHandledRef.current = true;
+
+      if (status === 'success') {
+         toast('Google Ads has been integrated successfully!', { icon: '✔️' });
+         refetchSettings().catch(() => {
+            // Silently handle refetch errors
+         });
+      } else {
+         toast(
+            (typeof detail === 'string' && detail) || 'Google Ads integration failed. Please try again.',
+            { icon: '⚠️' },
+         );
+      }
+      const remainingQuery = Object.fromEntries(
+         Object.entries(rest).filter(([, value]) => value !== undefined),
+      );
+      router.replace({ pathname: router.pathname, query: remainingQuery }, undefined, { shallow: true });
+   }, [router, refetchSettings]);
+
+   useEffect(() => {
+      if (!screenshotsOn) { return; }
       if (domainsData?.domains && domainsData.domains.length > 0) {
          const SCREENSHOT_CONCURRENCY = 3;
          const fetchAllScreenshots = async () => {
@@ -109,10 +138,10 @@ const Domains: NextPage = () => {
 
          fetchAllScreenshots();
       }
-   }, [domainsData]);
+   }, [domainsData, screenshotsOn]);
 
    const manuallyUpdateThumb = async (domain: string) => {
-      if (!SCREENSHOTS_ENABLED) { return; }
+      if (!screenshotsOn) { return; }
       const domainThumb = await fetchDomainScreenshot(domain, true);
       if (domainThumb) {
          toast(`${domain} Screenshot Updated Successfully!`, { icon: '✔️' });
@@ -160,11 +189,10 @@ const Domains: NextPage = () => {
                {domainsData?.domains && domainsData.domains.map((domain:DomainType) => <DomainItem
                            key={domain.ID}
                            domain={domain}
-                           selected={false}
                            isConsoleIntegrated={!!(appSettings && appSettings.search_console_integrated) || !!domainSCAPiObj[domain.ID] }
                            thumb={domainThumbs[domain.domain]}
                            updateThumb={manuallyUpdateThumb}
-                           screenshotsEnabled={SCREENSHOTS_ENABLED}
+                           screenshotsEnabled={screenshotsOn}
                            showMapPackStat={showMapPackStat}
                            // isConsoleIntegrated={false}
                            />)}

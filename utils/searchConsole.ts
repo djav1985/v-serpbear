@@ -3,19 +3,13 @@
 import { searchconsole_v1 } from '@googleapis/searchconsole';
 import { JWT } from 'google-auth-library';
 import Cryptr from 'cryptr';
-import dayjs from 'dayjs';
-import timezone from 'dayjs/plugin/timezone';
-import utc from 'dayjs/plugin/utc';
-import { readFile, writeFile, unlink } from 'fs/promises';
+import { readFile, unlink } from 'fs/promises';
 import * as path from 'path';
 import { countryAlphaTwoCodes } from './countries';
 import { logger } from './logger';
+import { atomicWriteFile } from './atomicWrite';
 import { safeJsonParse } from './safeJsonParse';
-
-dayjs.extend(utc);
-dayjs.extend(timezone);
-
-const DEFAULT_CRON_TIMEZONE = 'America/New_York';
+import { APP_TIMEZONE, SEARCH_CONSOLE_TIMEZONE, dateKeyInZone, daysAgoKey, todayKey } from './timezone';
 
 export type SCDomainFetchError = {
    error: boolean,
@@ -30,13 +24,11 @@ export const isSearchConsoleDataFreshForToday = (
    lastFetched?: string | null,
    timezoneSetting?: string,
 ): boolean => {
-   const tz = timezoneSetting || process.env.CRON_TIMEZONE || DEFAULT_CRON_TIMEZONE;
+   const tz = timezoneSetting || APP_TIMEZONE;
    if (!lastFetched) return false;
-   const parsedDate = dayjs(lastFetched);
-   if (!parsedDate.isValid()) return false;
-   const lastFetchedInTz = dayjs.tz(parsedDate.toDate(), tz);
-   const nowInTz = dayjs.tz(new Date(Date.now()), tz);
-   return lastFetchedInTz.isSame(nowInTz, 'day');
+   const parsedDate = new Date(lastFetched);
+   if (Number.isNaN(parsedDate.getTime())) return false;
+   return dateKeyInZone(parsedDate, tz) === todayKey(tz, new Date(Date.now()));
 };
 
 /**
@@ -69,10 +61,9 @@ const fetchSearchConsoleData = async (domain:DomainType, days:number, type?:stri
         'https://www.googleapis.com/auth/webmasters.readonly',
       ],
    });
-   const startDateRaw = new Date(new Date().setDate(new Date().getDate() - days));
-   const padDate = (num:number) => String(num).padStart(2, '0');
-   const startDate = `${startDateRaw.getFullYear()}-${padDate(startDateRaw.getMonth() + 1)}-${padDate(startDateRaw.getDate())}`;
-   const endDate = `${new Date().getFullYear()}-${padDate(new Date().getMonth() + 1)}-${padDate(new Date().getDate())}`;
+   // Search Console reports whole days in Pacific Time whatever zone is asked for, so the window is Pacific days
+   const startDate = daysAgoKey(days, SEARCH_CONSOLE_TIMEZONE);
+   const endDate = todayKey(SEARCH_CONSOLE_TIMEZONE);
    const client = new searchconsole_v1.Searchconsole({ auth: authClient });
    // Params: https://developers.google.com/webmaster-tools/v1/searchanalytics/query
    let requestBody:any = {
@@ -223,10 +214,18 @@ export const parseSearchConsoleItem = (SCItem: SearchAnalyticsRawItem, domainNam
    } else if (!page.startsWith('/')) {
       page = `/${page}`;
    }
-   const uid = `${country.toLowerCase()}:${device}:${keyword.replaceAll(' ', '_')}`;
+   const uid = buildKeywordUid(country, device, keyword);
 
    return { keyword, uid, device, country, clicks, impressions, ctr: ctr * 100, position, page };
 };
+
+/**
+ * Builds the key that joins a Search Console row to a tracked keyword. Matching ignores case and surrounding spaces,
+ * because Search Console and the tracked keyword list do not always agree on capitalisation.
+ */
+export const buildKeywordUid = (country: string, device: string, keyword: string): string => (
+   `${country.trim().toLowerCase()}:${device.trim().toLowerCase()}:${keyword.trim().toLowerCase().replaceAll(' ', '_')}`
+);
 
 /**
  * The function integrates search console data with a keyword object and returns the updated keyword object with the search console data.
@@ -235,15 +234,17 @@ export const parseSearchConsoleItem = (SCItem: SearchAnalyticsRawItem, domainNam
  * @returns {KeywordType}
  */
 export const integrateKeywordSCData = (keyword: KeywordType, SCData:SCDomainDataType) : KeywordType => {
-   const kuid = `${keyword.country.toLowerCase()}:${keyword.device}:${keyword.keyword.replaceAll(' ', '_')}`;
+   const kuid = buildKeywordUid(keyword.country, keyword.device, keyword.keyword);
+   // Stored rows may predate the case-insensitive key, so both sides are normalised when comparing
+   const findRow = (rows?: SearchAnalyticsItem[]) => rows?.find((item) => (item.uid ?? '').trim().toLowerCase() === kuid);
    const impressions:any = { yesterday: 0, threeDays: 0, sevenDays: 0, thirtyDays: 0, avgSevenDays: 0, avgThreeDays: 0, avgThirtyDays: 0 };
    const visits :any = { yesterday: 0, threeDays: 0, sevenDays: 0, thirtyDays: 0, avgSevenDays: 0, avgThreeDays: 0, avgThirtyDays: 0 };
    const ctr:any = { yesterday: 0, threeDays: 0, sevenDays: 0, thirtyDays: 0, avgSevenDays: 0, avgThreeDays: 0, avgThirtyDays: 0 };
    const position:any = { yesterday: 0, threeDays: 0, sevenDays: 0, thirtyDays: 0, avgSevenDays: 0, avgThreeDays: 0, avgThirtyDays: 0 };
 
-   const threeDaysData = SCData?.threeDays?.find((item:SearchAnalyticsItem) => item.uid === kuid) || {};
-   const sevenDaysData = SCData?.sevenDays?.find((item:SearchAnalyticsItem) => item.uid === kuid) || {};
-   const thirtyDaysData = SCData?.thirtyDays?.find((item:SearchAnalyticsItem) => item.uid === kuid) || {};
+   const threeDaysData = findRow(SCData?.threeDays) || {};
+   const sevenDaysData = findRow(SCData?.sevenDays) || {};
+   const thirtyDaysData = findRow(SCData?.thirtyDays) || {};
    const totalData:any = { threeDays: threeDaysData, sevenDays: sevenDaysData, thirtyDays: thirtyDaysData };
 
    Object.keys(totalData).forEach((dataKey) => {
@@ -387,8 +388,8 @@ export const updateLocalSCData = async (domain:string, scDomainData?:SCDomainDat
       if (!filePath) throw new Error('Invalid domain for file path');
       
       const dataToWrite = scDomainData || { threeDays: [], sevenDays: [], thirtyDays: [], lastFetched: '', lastFetchError: '' };
-      // eslint-disable-next-line security/detect-non-literal-fs-filename
-      await writeFile(filePath, JSON.stringify(dataToWrite), { encoding: 'utf-8' }).catch((err) => { logger.error('Error writing Search Console data', err instanceof Error ? err : new Error(String(err))); });
+      // A failed write must reach the caller as a failure, so it is not caught here
+      await atomicWriteFile(filePath, JSON.stringify(dataToWrite), 'utf-8');
       return dataToWrite;
    } catch (error) {
       logger.warn(`Failed to write local Search Console data for domain: ${domain}`, { error: error instanceof Error ? error.message : String(error) });
@@ -399,7 +400,7 @@ export const updateLocalSCData = async (domain:string, scDomainData?:SCDomainDat
 /**
  * The function removes the domain-specific Search Console data stored in a local JSON file.
  * @param {string} domain - The `domain` parameter is a string that represents the domain for which the SC data file will be removed.
- * @returns {Promise<boolean>} - Returns true if file was removed, else returns false.
+ * @returns {Promise<boolean>} - Returns true if the file was removed or did not exist, false on real errors.
  */
 export const removeLocalSCData = async (domain:string): Promise<boolean> => {
    const filePath = getSafeSCDataFilePath(domain);
@@ -409,6 +410,7 @@ export const removeLocalSCData = async (domain:string): Promise<boolean> => {
       await unlink(filePath);
       return true;
    } catch (error) {
+      if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') return true;
       logger.warn(`Failed to remove local Search Console data for domain: ${domain}`, { error: error instanceof Error ? error.message : String(error) });
       return false;
    }

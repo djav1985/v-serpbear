@@ -4,17 +4,22 @@ import { readFile, access } from 'fs/promises';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import Cryptr from 'cryptr';
 import { logger } from '../../utils/logger';
-import verifyUser from '../../utils/verifyUser';
+import Cookies from 'cookies';
+import verifyUser, { verifySessionToken } from '../../utils/verifyUser';
 import allScrapers from '../../scrapers/index';
+import { buildAvailableScrapers } from '../../utils/availableScrapers';
 import { withApiLogging } from '../../utils/apiLogging';
 import { trimStringProperties } from '../../utils/security';
 import { getBranding } from '../../utils/branding';
 import packageJson from '../../package.json';
 import { safeJsonParse } from '../../utils/safeJsonParse';
 import { atomicWriteFile } from '../../utils/atomicWrite';
+import { withSettingsLock } from '../../utils/settingsFile';
 import { retryQueueManager } from '../../utils/retryQueueManager';
 import { errorResponse } from '../../utils/api/response';
 import { normalizeLegacyGlobalScraperType } from '../../utils/removedScrapers';
+import { APP_TIMEZONE } from '../../utils/timezone';
+import { NOTIFICATION_INTERVALS } from '../../utils/constants';
 
 const buildSettingsDefaults = (): SettingsType => {
    const { platformName } = getBranding();
@@ -63,8 +68,47 @@ const normalizeLegacySettings = (settings: Partial<SettingsType>): Partial<Setti
    return normalizedSettings;
 };
 
+/**
+ * Fields that GET adds on top of the stored settings (the app version and timezone, and values computed or read
+ * from other stores). A save never writes them, so a client that echoes a GET response cannot store them.
+ */
+export const DERIVED_SETTINGS_FIELDS = ['version', 'timezone', 'available_scapers', 'search_console_integrated', 'failed_queue'] as const;
+
+/**
+ * Reads data/settings.json as stored (secrets still encrypted). A missing, empty or whitespace-only file means
+ * there are no stored settings yet. A non-empty file with invalid JSON is logged and treated as empty.
+ */
+const readStoredSettingsFile = async (settingsPath: string): Promise<Partial<SettingsType>> => {
+   let raw: unknown;
+   try {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename
+      raw = await readFile(settingsPath, { encoding: 'utf-8' });
+   } catch (err) {
+      if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') {
+         return {};
+      }
+      throw err;
+   }
+   if (typeof raw !== 'string' || !raw.trim()) {
+      return {};
+   }
+   return normalizeLegacySettings(safeJsonParse<Partial<SettingsType>>(raw, {}, { context: 'settings.json', logError: true }));
+};
+
+/** Fields stored encrypted. A key present in a save is encrypted (an empty value clears it); an absent key keeps the stored value. */
+const SECRET_SETTINGS_FIELDS = [
+   'scraping_api',
+   'smtp_password',
+   'search_console_client_email',
+   'search_console_private_key',
+   'adwords_client_id',
+   'adwords_client_secret',
+   'adwords_refresh_token',
+   'adwords_developer_token',
+   'adwords_account_id',
+] as const;
+
 const SCRAPE_STRATEGIES = ['basic', 'custom', 'smart'];
-const NOTIFICATION_INTERVALS = ['daily', 'weekly', 'monthly', 'never'];
 const MAX_PAGINATION_LIMIT = 10;
 const BOOLEAN_SETTINGS = ['scrape_retry', 'scrape_smart_full_fallback', 'search_console'];
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
@@ -141,12 +185,11 @@ const getSettings = async (req: NextApiRequest, res: NextApiResponse) => {
       // Silently check if user is authenticated without logging auth failures for anonymous GETs
       let isAuthenticated = false;
       try {
-         const Cookies = require('cookies');
-         const jwt = require('jsonwebtoken');
          const cookies = new Cookies(req, res);
          const token = cookies.get('token');
-         if (token && process.env.SECRET) {
-            jwt.verify(token, process.env.SECRET);
+         // Same check as verifyUser, including the session version, so a token revoked by logout is rejected here too
+         if (token) {
+            verifySessionToken(token);
             isAuthenticated = true;
          }
       } catch (_) { /* not authenticated — silent for public endpoint */ }
@@ -160,14 +203,15 @@ const getSettings = async (req: NextApiRequest, res: NextApiResponse) => {
       
       if (isAuthenticated) {
          // Return full settings for authenticated users
-         return res.status(200).json({ settings: { ...settings, version } });
+         return res.status(200).json({ settings: { ...settings, version, timezone: APP_TIMEZONE } });
       } else {
          // Return only safe, public settings for unauthenticated users
          const publicSettings = {
             scraper_type: settings.scraper_type || 'none',
             available_scapers: settings.available_scapers || [],
             search_console_integrated: settings.search_console_integrated || false,
-            version
+            version,
+            timezone: APP_TIMEZONE,
          };
          return res.status(200).json({ settings: publicSettings });
       }
@@ -181,7 +225,7 @@ const getSettings = async (req: NextApiRequest, res: NextApiResponse) => {
 const updateSettings = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
    const { settings } = req.body || {};
-   if (!settings) {
+   if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Settings payload is required.', requestId));
    }
    
@@ -190,7 +234,9 @@ const updateSettings = async (req: NextApiRequest, res: NextApiResponse) => {
    }
    
    try {
-      const normalizedSettings: SettingsType = trimStringProperties(normalizeLegacySettings({ ...settings })) as SettingsType;
+      const incomingSettings: Record<string, unknown> = { ...settings };
+      DERIVED_SETTINGS_FIELDS.forEach((field) => { delete incomingSettings[field]; });
+      const normalizedSettings: SettingsType = trimStringProperties(normalizeLegacySettings(incomingSettings as Partial<SettingsType>)) as SettingsType;
 
       const validationErrors = validateSettingsPayload(normalizedSettings as unknown as Record<string, unknown>);
       if (validationErrors.length > 0) {
@@ -199,45 +245,29 @@ const updateSettings = async (req: NextApiRequest, res: NextApiResponse) => {
 
       const cryptr = new Cryptr(process.env.SECRET);
       const encrypt = (value?: string) => (value ? cryptr.encrypt(value) : '');
-      const scraping_api = encrypt(normalizedSettings.scraping_api);
-      const smtp_password = encrypt(normalizedSettings.smtp_password);
-      const search_console_client_email = encrypt(normalizedSettings.search_console_client_email);
-      const search_console_private_key = encrypt(normalizedSettings.search_console_private_key);
-      const adwords_client_id = encrypt(normalizedSettings.adwords_client_id);
-      const adwords_client_secret = encrypt(normalizedSettings.adwords_client_secret);
-      const adwords_developer_token = encrypt(normalizedSettings.adwords_developer_token);
-      const adwords_account_id = encrypt(normalizedSettings.adwords_account_id);
 
-      // Read existing settings to preserve adwords_refresh_token if not in payload
-      let existingRefreshToken = '';
-      try {
-         const existingSettingsRaw = await readFile(`${process.cwd()}/data/settings.json`, { encoding: 'utf-8' });
-         const existingSettings = safeJsonParse<Partial<SettingsType>>(existingSettingsRaw, {}, { context: 'settings.json', logError: false });
-         existingRefreshToken = existingSettings.adwords_refresh_token || '';
-      } catch (err) {
-         // If file doesn't exist or can't be read, continue with empty refresh token
-         logger.debug('Could not read existing settings for adwords_refresh_token', { error: err instanceof Error ? err.message : String(err) });
-      }
+      // Save is a merge: the stored settings are read under the lock, the payload is applied over them, and any
+      // key the payload leaves out keeps its stored value. Secrets are encrypted here; an absent secret keeps its
+      // stored (encrypted) value, which also covers adwords_refresh_token written by the Google OAuth callback.
+      await withSettingsLock(async () => {
+         let existingSettings: Partial<SettingsType> = {};
+         try {
+            existingSettings = await readStoredSettingsFile(`${process.cwd()}/data/settings.json`);
+         } catch (err) {
+            // If the file can't be read, absent fields are stored as empty
+            logger.debug('Could not read existing settings for fields left out of the payload', { error: err instanceof Error ? err.message : String(err) });
+         }
 
-      // If adwords_refresh_token is explicitly in the payload (even if empty), use it; otherwise preserve existing
-      const adwords_refresh_token = 'adwords_refresh_token' in normalizedSettings
-         ? encrypt(normalizedSettings.adwords_refresh_token)
-         : existingRefreshToken;
+         const merged: Record<string, unknown> = { ...existingSettings, ...normalizedSettings };
+         SECRET_SETTINGS_FIELDS.forEach((key) => {
+            merged[key] = key in normalizedSettings
+               ? encrypt(normalizedSettings[key] as string)
+               : ((existingSettings[key] as string | undefined) ?? '');
+         });
+         DERIVED_SETTINGS_FIELDS.forEach((field) => { delete merged[field]; });
 
-      const securedSettings = {
-         ...normalizedSettings,
-         scraping_api,
-         smtp_password,
-         search_console_client_email,
-         search_console_private_key,
-         adwords_client_id,
-         adwords_client_secret,
-         adwords_refresh_token,
-         adwords_developer_token,
-         adwords_account_id,
-      };
-
-      await atomicWriteFile(`${process.cwd()}/data/settings.json`, JSON.stringify(securedSettings), 'utf-8');
+         await atomicWriteFile(`${process.cwd()}/data/settings.json`, JSON.stringify(merged), 'utf-8');
+      });
       return res.status(200).json({ settings: normalizedSettings });
    } catch (error) {
       logger.error('Error updating app settings', error instanceof Error ? error : new Error(String(error)));
@@ -260,8 +290,7 @@ export const getAppSettings = async () : Promise<SettingsType> => {
    }
 
    try {
-      const settingsRaw = await readFile(settingsPath, { encoding: 'utf-8' });
-      const settings = normalizeLegacySettings(safeJsonParse<Partial<SettingsType>>(settingsRaw, {}, { context: 'settings.json', logError: true }));
+      const settings = await readStoredSettingsFile(settingsPath);
       const baseSettings: SettingsType = { ...buildSettingsDefaults(), ...settings };
       let decryptedSettings: SettingsType = baseSettings;
 
@@ -278,13 +307,7 @@ export const getAppSettings = async () : Promise<SettingsType> => {
             adwords_refresh_token: '',
             adwords_developer_token: '',
             adwords_account_id: '',
-            available_scapers: allScrapers.map((scraper) => ({
-               label: scraper.name,
-               value: scraper.id,
-               allowsCity: !!scraper.allowsCity,
-               supportsMapPack: !!scraper.supportsMapPack,
-               scraperCountries: scraper.scraperCountries,
-            })),
+            available_scapers: buildAvailableScrapers(),
             failed_queue: failedQueue,
             search_console_integrated: false,
          };
@@ -342,13 +365,7 @@ export const getAppSettings = async () : Promise<SettingsType> => {
          search_console_integrated:
             !!(process.env.SEARCH_CONSOLE_PRIVATE_KEY && process.env.SEARCH_CONSOLE_CLIENT_EMAIL)
             || !!(decryptedSettings.search_console_client_email && decryptedSettings.search_console_private_key),
-         available_scapers: allScrapers.map((scraper) => ({
-            label: scraper.name,
-            value: scraper.id,
-            allowsCity: !!scraper.allowsCity,
-            supportsMapPack: !!scraper.supportsMapPack,
-            scraperCountries: scraper.scraperCountries,
-         })),
+         available_scapers: buildAvailableScrapers(),
          failed_queue: failedQueue,
       };
    } catch (error) {
@@ -370,13 +387,7 @@ export const getAppSettings = async () : Promise<SettingsType> => {
        await shouldCreateFile(failedQueuePath, JSON.stringify([]));
       return {
          ...defaults,
-         available_scapers: allScrapers.map((scraper) => ({
-            label: scraper.name,
-            value: scraper.id,
-            allowsCity: !!scraper.allowsCity,
-            supportsMapPack: !!scraper.supportsMapPack,
-            scraperCountries: scraper.scraperCountries,
-         })),
+         available_scapers: buildAvailableScrapers(),
          failed_queue: [],
          search_console_integrated: false,
       };

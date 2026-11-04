@@ -5,7 +5,6 @@ import toast from 'react-hot-toast';
 import { useQueryClient } from 'react-query';
 import Icon from './Icon';
 import { BrandTitle } from './Branding';
-import { AUTH_QUERY_KEY } from '../../hooks/useAuth';
 import { apiPost, ApiError } from '../../utils/client/apiClient';
 
 type TopbarProps = {
@@ -22,8 +21,8 @@ const TopBar = ({ showSettings, showAddModal }:TopbarProps) => {
    const logoutUser = async () => {
       try {
          await apiPost('/api/logout', {});
-         // Invalidate the cached auth state so protected pages don't see stale authenticated result
-         await queryClient.invalidateQueries(AUTH_QUERY_KEY);
+         // Drop all cached server state (auth, domains, settings) so no data from the previous session survives
+         queryClient.clear();
          router.push('/login');
       } catch (err) {
          const message = err instanceof ApiError ? err.message : 'Failed to log out. Please try again.';
@@ -38,7 +37,7 @@ const TopBar = ({ showSettings, showAddModal }:TopbarProps) => {
 
          <div className='flex items-center gap-2 h-16'>
             <h3
-               className={`flex items-center gap-3 p-4 text-base font-bold text-blue-700 ${isDomainsPage ? 'lg:pl-0' : 'lg:hidden'}`}
+               className='flex items-center gap-3 p-4 text-base font-bold text-blue-700 lg:pl-0'
             >
                <BrandTitle
                   className="text-base font-bold text-blue-700"
@@ -47,7 +46,7 @@ const TopBar = ({ showSettings, showAddModal }:TopbarProps) => {
                />
                <button className='px-3 py-1 font-bold text-blue-700 lg:hidden text-lg' onClick={() => showAddModal()}>+</button>
             </h3>
-            {!isDomainsPage && router.asPath !== '/research' && (
+            {!isDomainsPage && (
                <Link
                   href={'/domains'}
                   className='topbar__back px-2 py-1 cursor-pointer bg-[#ecf2ff] hover:bg-indigo-100 transition-all

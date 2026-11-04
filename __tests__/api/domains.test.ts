@@ -1,6 +1,6 @@
 import type { NextApiRequest } from 'next';
 import Cryptr from 'cryptr';
-import { readFile } from 'fs/promises';
+import { readFile, unlink } from 'fs/promises';
 import handler from '../../pages/api/domains';
 import db from '../../database/database';
 import Domain from '../../database/models/domain';
@@ -45,7 +45,8 @@ jest.mock('../../utils/searchConsole', () => ({
 
 jest.mock('../../utils/retryQueueManager', () => ({ retryQueueManager: { removeBatch: jest.fn() } }));
 jest.mock('../../utils/atomicWrite', () => ({ atomicWriteFile: jest.fn() }));
-jest.mock('fs/promises', () => ({ readFile: jest.fn(), mkdir: jest.fn().mockResolvedValue(undefined) }));
+jest.mock('fs/promises', () => ({ readFile: jest.fn(), mkdir: jest.fn().mockResolvedValue(undefined), unlink: jest.fn().mockResolvedValue(undefined) }));
+jest.mock('../../utils/fileLock', () => ({ withFileLock: (_path: string, section: () => Promise<unknown>) => section() }));
 jest.mock('../../utils/refreshQueue', () => ({
   refreshQueue: {
     enqueue: jest.fn(async (_taskId: string, task: () => Promise<void>) => { await task(); }),
@@ -65,6 +66,7 @@ const KeywordMock = Keyword as unknown as { destroy: jest.Mock; findAll: jest.Mo
 const removeLocalSCDataMock = removeLocalSCData as unknown as jest.Mock;
 const removeBatchMock = retryQueueManager.removeBatch as jest.Mock;
 const readFileMock = readFile as unknown as jest.Mock;
+const unlinkMock = unlink as unknown as jest.Mock;
 const atomicWriteFileMock = atomicWriteFile as jest.Mock;
 const refreshQueueMock = refreshQueue as unknown as { enqueue: jest.Mock; isDomainLocked: jest.Mock };
 
@@ -155,6 +157,7 @@ describe('POST /api/domains', () => {
       { get: jest.fn().mockReturnValue({ domain: 'sub.domain.com', slug: 'sub-domain-com', scrapeEnabled: 1 }) },
     ];
 
+    DomainMock.findAll.mockResolvedValue([]);
     DomainMock.bulkCreate.mockResolvedValue(bulkCreateResult);
 
     const req = {
@@ -392,25 +395,6 @@ describe('PUT /api/domains', () => {
     expect(updatePayload.scraper_settings).toBeNull();
   });
 
-  it('updates business_name as a separate domain field', async () => {
-    domainState.business_name = 'Old Business';
-
-    const req = {
-      method: 'PUT',
-      query: { domain: domainState.domain },
-      body: { business_name: 'New Business' },
-      headers: {},
-    } as unknown as NextApiRequest;
-
-    const res = createMockResponse();
-
-    await handler(req, res);
-
-    expect(res.status).toHaveBeenCalledWith(200);
-    const updatePayload = domainInstance.set.mock.calls[domainInstance.set.mock.calls.length - 1][0];
-    expect(updatePayload.business_name).toBe('New Business');
-  });
-
   it('can set business_name independently of scraper settings', async () => {
     const req = {
       method: 'PUT',
@@ -450,41 +434,16 @@ describe('PUT /api/domains', () => {
     expect(updatePayload.scraper_settings).toEqual(expect.any(String));
   });
 
-  it('returns 500 when SECRET is missing and search_console credentials are provided', async () => {
+  it.each([
+    ['search_console credentials', { search_console: { client_email: 'test@example.com', private_key: 'test-key' } }],
+    ['scraper_settings', { scraper_settings: { scraper_type: 'serpapi', scraping_api: 'new-key' } }],
+  ])('returns 500 when SECRET is missing and %s are provided', async (_label, body) => {
     delete process.env.SECRET;
 
     const req = {
       method: 'PUT',
       query: { domain: domainState.domain },
-      body: { 
-        search_console: { 
-          client_email: 'test@example.com', 
-          private_key: 'test-key' 
-        }
-      },
-      headers: {},
-    } as unknown as NextApiRequest;
-
-    const res = createMockResponse();
-
-    await handler(req, res);
-
-    expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-      error: expect.objectContaining({ message: 'Server configuration error: encryption key not available' }),
-    }));
-    expect(domainInstance.save).not.toHaveBeenCalled();
-  });
-
-  it('returns 500 when SECRET is missing and scraper_settings are provided', async () => {
-    delete process.env.SECRET;
-
-    const req = {
-      method: 'PUT',
-      query: { domain: domainState.domain },
-      body: { 
-        scraper_settings: { scraper_type: 'serpapi', scraping_api: 'new-key' }
-      },
+      body,
       headers: {},
     } as unknown as NextApiRequest;
 
@@ -506,7 +465,6 @@ describe('PUT /api/domains', () => {
       method: 'PUT',
       query: { domain: domainState.domain },
       body: { 
-        notification_interval: 'weekly',
         notification_emails: 'test@example.com'
       },
       headers: {},
@@ -520,15 +478,14 @@ describe('PUT /api/domains', () => {
     expect(domainInstance.save).toHaveBeenCalled();
   });
 
-  it('rejects partial Search Console updates with only client_email', async () => {
+  it.each([
+    ['client_email', { client_email: 'test@example.com' }],
+    ['private_key', { private_key: 'test-key' }],
+  ])('rejects partial Search Console updates with only %s', async (_label, search_console) => {
     const req = {
       method: 'PUT',
       query: { domain: domainState.domain },
-      body: { 
-        search_console: { 
-          client_email: 'test@example.com'
-        }
-      },
+      body: { search_console },
       headers: {},
     } as unknown as NextApiRequest;
 
@@ -543,15 +500,15 @@ describe('PUT /api/domains', () => {
     expect(domainInstance.save).not.toHaveBeenCalled();
   });
 
-  it('rejects partial Search Console updates with only private_key', async () => {
+  // Empty and whitespace-only values count as absent: no validation or encryption, and the save proceeds
+  it.each([
+    ['empty', '', ''],
+    ['whitespace-only', '   ', '  \t\n  '],
+  ])('treats %s Search Console fields as absent and still saves', async (_label, clientEmail, privateKey) => {
     const req = {
       method: 'PUT',
       query: { domain: domainState.domain },
-      body: { 
-        search_console: { 
-          private_key: 'test-key'
-        }
-      },
+      body: { search_console: { client_email: clientEmail, private_key: privateKey } },
       headers: {},
     } as unknown as NextApiRequest;
 
@@ -559,54 +516,6 @@ describe('PUT /api/domains', () => {
 
     await handler(req, res);
 
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-      error: expect.objectContaining({ message: 'Both client_email and private_key must be provided together for Search Console integration' }),
-    }));
-    expect(domainInstance.save).not.toHaveBeenCalled();
-  });
-
-  it('rejects Search Console updates with both fields as empty strings', async () => {
-    const req = {
-      method: 'PUT',
-      query: { domain: domainState.domain },
-      body: { 
-        search_console: { 
-          client_email: '',
-          private_key: ''
-        }
-      },
-      headers: {},
-    } as unknown as NextApiRequest;
-
-    const res = createMockResponse();
-
-    await handler(req, res);
-
-    // Both empty strings should result in neither being considered present,
-    // so the update should proceed but skip validation and encryption
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(domainInstance.save).toHaveBeenCalled();
-  });
-
-  it('rejects Search Console updates with whitespace-only strings', async () => {
-    const req = {
-      method: 'PUT',
-      query: { domain: domainState.domain },
-      body: { 
-        search_console: { 
-          client_email: '   ',
-          private_key: '  \t\n  '
-        }
-      },
-      headers: {},
-    } as unknown as NextApiRequest;
-
-    const res = createMockResponse();
-
-    await handler(req, res);
-
-    // Whitespace-only strings should be treated as empty after trim()
     expect(res.status).toHaveBeenCalledWith(200);
     expect(domainInstance.save).toHaveBeenCalled();
   });
@@ -645,8 +554,26 @@ describe('DELETE /api/domains', () => {
     refreshQueueMock.enqueue.mockImplementation(async (_taskId: string, task: () => Promise<void>) => { await task(); });
   });
 
+  it('removes the domain ideas file, and a missing ideas file does not fail the delete', async () => {
+    unlinkMock.mockRejectedValueOnce(Object.assign(new Error('missing'), { code: 'ENOENT' }));
+    const res = createMockResponse(); await handler(request(), res);
+    expect(unlinkMock).toHaveBeenCalledWith(expect.stringMatching(/IDEAS_example\.com\.json$/));
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ domainRemoved: 1, cleanup: { complete: true, failed: [], retryPending: false } }));
+  });
+
+  it('retries an earlier delete whose cleanup failed, and drops its entry once the retry succeeds', async () => {
+    cleanupState = JSON.stringify({ 'older.example': [7] });
+    const res = createMockResponse(); await handler(request(), res);
+    expect(removeBatchMock).toHaveBeenCalledWith(new Set([7]));
+    expect(removeLocalSCDataMock).toHaveBeenCalledWith('older.example');
+    expect(JSON.parse(cleanupState)).toEqual({});
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
   it('returns 404 when the target domain is missing', async () => {
     DomainMock.findOne.mockResolvedValue(null);
+    KeywordMock.findAll.mockResolvedValueOnce([]);
     const res = createMockResponse(); await handler(request('missing.example.com'), res);
     expect(DomainMock.destroy).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(404);
@@ -680,6 +607,9 @@ describe('DELETE /api/domains', () => {
     expect(first.json).toHaveBeenCalledWith(expect.objectContaining({ cleanup: { complete: false, failed: ['retryQueue', 'searchConsole'], retryPending: true } }));
 
     DomainMock.findOne.mockResolvedValue(null);
+    KeywordMock.findAll.mockResolvedValueOnce([]);
+    KeywordMock.destroy.mockResolvedValueOnce(0);
+    DomainMock.destroy.mockResolvedValueOnce(0);
     const second = createMockResponse(); await handler(request('retry.example'), second);
     expect(second.status).toHaveBeenCalledWith(200);
     expect(second.json).toHaveBeenCalledWith(expect.objectContaining({ domainRemoved: 0, keywordsRemoved: 0, cleanup: { complete: true, failed: [], retryPending: false } }));

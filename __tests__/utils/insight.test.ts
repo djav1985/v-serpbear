@@ -75,13 +75,15 @@ describe('Insight Functions', () => {
         stats: [],
       };
 
-      const result = getCountryInsight(emptyData, 'clicks', 'threeDays');
-      expect(result).toEqual([]);
+      expect(getCountryInsight(emptyData, 'clicks', 'threeDays')).toEqual([]);
+      expect(getKeywordsInsight(emptyData, 'clicks', 'threeDays')).toEqual([]);
+      expect(getPagesInsight(emptyData, 'clicks', 'threeDays')).toEqual([]);
     });
 
     it('should handle invalid data gracefully', () => {
-      const result = getCountryInsight(null as any, 'clicks', 'threeDays');
-      expect(result).toEqual([]);
+      expect(getCountryInsight(null as any, 'clicks', 'threeDays')).toEqual([]);
+      expect(getKeywordsInsight(null as any, 'clicks', 'threeDays')).toEqual([]);
+      expect(getPagesInsight(null as any, 'clicks', 'threeDays')).toEqual([]);
     });
   });
 
@@ -104,24 +106,6 @@ describe('Insight Functions', () => {
       expect(keyword2Data?.countries).toBe(1); // CA only
     });
 
-    it('should handle empty data gracefully', () => {
-      const emptyData: SCDomainDataType = {
-        threeDays: [],
-        sevenDays: [],
-        thirtyDays: [],
-        lastFetched: '',
-        lastFetchError: '',
-        stats: [],
-      };
-
-      const result = getKeywordsInsight(emptyData, 'clicks', 'threeDays');
-      expect(result).toEqual([]);
-    });
-
-    it('should handle invalid data gracefully', () => {
-      const result = getKeywordsInsight(null as any, 'clicks', 'threeDays');
-      expect(result).toEqual([]);
-    });
   });
 
   describe('getPagesInsight', () => {
@@ -145,24 +129,6 @@ describe('Insight Functions', () => {
       expect(page2Data?.countries).toBe(1); // CA only
     });
 
-    it('should handle empty data gracefully', () => {
-      const emptyData: SCDomainDataType = {
-        threeDays: [],
-        sevenDays: [],
-        thirtyDays: [],
-        lastFetched: '',
-        lastFetchError: '',
-        stats: [],
-      };
-
-      const result = getPagesInsight(emptyData, 'clicks', 'threeDays');
-      expect(result).toEqual([]);
-    });
-
-    it('should handle invalid data gracefully', () => {
-      const result = getPagesInsight(null as any, 'clicks', 'threeDays');
-      expect(result).toEqual([]);
-    });
   });
 
   describe('Data integrity and bug fixes', () => {

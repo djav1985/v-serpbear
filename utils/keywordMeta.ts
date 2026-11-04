@@ -54,35 +54,29 @@ type LocationTarget = {
    domain: string,
    country: string,
    device: string,
+   location: string,
 }
 
-// Same keyword, country, device and domain is one tracked keyword
-const trackingKey = (item: Pick<LocationTarget, 'domain' | 'keyword' | 'country' | 'device'>, country: string): string => (
-   [item.domain, item.keyword, country, item.device].join('|')
+// Same domain, keyword, country, location and device is one tracking target.
+const trackingKey = (item: LocationTarget, country: string, location: string): string => (
+   JSON.stringify([item.domain ?? '', item.keyword ?? '', country ?? '', location ?? '', item.device ?? ''])
 );
 
 // Decides which selected keywords can move to a new location without duplicating a tracked keyword.
-// Keywords whose country stays the same are kept as they are. A keyword that would change into a
-// tracked keyword (another row, or an earlier change in this batch) is skipped.
+// A keyword that would change into an existing or earlier destination target is skipped.
 export const planLocationUpdate = (
    selected: LocationTarget[],
    others: LocationTarget[],
    locationCountry: string,
+   location: string,
 ): { acceptedIDs: number[], skipped: string[] } => {
-   const taken = new Set(others.map((item) => trackingKey(item, item.country)));
+   const taken = new Set(others.map((item) => trackingKey(item, item.country, item.location)));
    const acceptedIDs: number[] = [];
    const skipped: string[] = [];
 
    const targetCountry = (item: LocationTarget) => locationCountry || item.country;
-   const unchanged = selected.filter((item) => targetCountry(item) === item.country);
-   const changed = selected.filter((item) => targetCountry(item) !== item.country);
-
-   unchanged.forEach((item) => {
-      taken.add(trackingKey(item, item.country));
-      acceptedIDs.push(item.ID);
-   });
-   changed.forEach((item) => {
-      const key = trackingKey(item, targetCountry(item));
+   [...selected].sort((a, b) => a.ID - b.ID).forEach((item) => {
+      const key = trackingKey(item, targetCountry(item), location);
       if (taken.has(key)) {
          skipped.push(item.keyword);
          return;

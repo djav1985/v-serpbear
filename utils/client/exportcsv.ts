@@ -1,4 +1,6 @@
 import countries from '../countries';
+import { formatInZone } from '../timezone';
+import { getAppTimezone } from './appTimezone';
 
 const getCountryLabel = (countryCode?: string) => {
    if (!countryCode) { return 'Unknown'; }
@@ -15,7 +17,9 @@ const escapeCsvValue = (value: unknown): string => {
    // Spreadsheet apps run text starting with = + - @ as a formula. Keyword text comes from search
    // queries, so prefix such values with an apostrophe to keep them as plain text.
    // A lone "-" is the empty-position placeholder, not a formula, so it is left alone.
-   if (typeof value === 'string' && stringValue.length > 1 && /^[=+\-@]/.test(stringValue)) {
+   // Leading spaces and tabs are ignored by spreadsheet apps, so they are checked too
+   const leadingText = stringValue.trim();
+   if (typeof value === 'string' && leadingText.length > 1 && /^[=+\-@]/.test(leadingText)) {
       stringValue = `'${stringValue}`;
    }
    return `"${stringValue.replace(/"/g, '""')}"`;
@@ -99,7 +103,7 @@ export const createKeywordIdeasCsvPayload = (keywords: IdeaKeyword[], domainName
    const fileName = `${domainName}-keyword_ideas.csv`;
    const csvBody = keywords.map((keywordData) => {
       const { keyword, competition, country, competitionIndex, avgMonthlySearches, added } = keywordData;
-      const addedDate = new Intl.DateTimeFormat('en-US').format(new Date(added));
+      const addedDate = formatInZone(added, { year: 'numeric', month: 'numeric', day: 'numeric' }, getAppTimezone());
       return formatKeywordIdeaRow({
          keyword,
          competition,
@@ -150,7 +154,8 @@ export const formatKeywordIdeaRow = ({
  * @param {string} fileName - The file Name for the downlaoded csv file.
  */
 const downloadCSV = (csvHeader:string, csvBody:string, fileName:string) => {
-   const blob = new Blob([csvHeader + csvBody], { type: 'text/csv;charset=utf-8;' });
+   // UTF-8 BOM so spreadsheet apps detect the encoding and show non-ASCII keywords correctly
+   const blob = new Blob(['﻿' + csvHeader + csvBody], { type: 'text/csv;charset=utf-8;' });
    const url = URL.createObjectURL(blob);
    const link = document.createElement('a');
    link.setAttribute('href', url);
@@ -159,6 +164,7 @@ const downloadCSV = (csvHeader:string, csvBody:string, fileName:string) => {
    document.body.appendChild(link);
    link.click();
    document.body.removeChild(link);
+   URL.revokeObjectURL(url);
 };
 
 export default exportCSV;

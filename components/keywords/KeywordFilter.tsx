@@ -17,6 +17,7 @@ type KeywordFilterProps = {
    isConsole?: boolean,
    SCcountries?: string[];
    updateColumns?: (column: string) => void,
+   columnsDisabled?: boolean,
    tableColumns?: string[]
 }
 
@@ -33,6 +34,7 @@ const KeywordFilters = (props: KeywordFilterProps) => {
       isConsole = false,
       integratedConsole = false,
       updateColumns,
+      columnsDisabled = false,
       SCcountries = [],
       tableColumns = [],
     } = props;
@@ -71,11 +73,11 @@ const KeywordFilters = (props: KeywordFilterProps) => {
          .map((keyword) => keyword.country)
          .reduce<string[]>((acc, country) => [...acc, country], [])
          .filter((t) => t && t.trim() !== '');
-         [...new Set(allCountries)].forEach((c) => optionObject.push({ label: countries[c][0], value: c }));
+         [...new Set(allCountries)].forEach((c) => optionObject.push({ label: countries[c]?.[0] ?? c, value: c }));
       } else {
          Object.keys(countries).forEach((countryISO:string) => {
             if ((SCcountries.includes(countryISO))) {
-               optionObject.push({ label: countries[countryISO][0], value: countryISO });
+               optionObject.push({ label: countries[countryISO]?.[0] ?? countryISO, value: countryISO });
             }
          });
       }
@@ -86,8 +88,9 @@ const KeywordFilters = (props: KeywordFilterProps) => {
    const sortOptionChoices: SelectionOption[] = [
       { value: 'pos_asc', label: 'Top Position' },
       { value: 'pos_desc', label: 'Lowest Position' },
-      { value: 'date_asc', label: 'Most Recent (Default)' },
-      { value: 'date_desc', label: 'Oldest' },
+      // date_asc sorts by the added date ascending, so it lists the oldest keywords first
+      { value: 'date_asc', label: 'Oldest (Default)' },
+      { value: 'date_desc', label: 'Most Recent' },
       { value: 'alpha_asc', label: 'Alphabetically(A-Z)' },
       { value: 'alpha_desc', label: 'Alphabetically(Z-A)' },
       { value: 'vol_asc', label: 'Lowest Search Volume' },
@@ -112,8 +115,8 @@ const KeywordFilters = (props: KeywordFilterProps) => {
    }
    if (isConsole) {
       sortOptionChoices.splice(2, 2);
-      sortOptionChoices.push({ value: 'ctr_asc', label: 'Highest CTR' });
-      sortOptionChoices.push({ value: 'ctr_desc', label: 'Lowest CTR' });
+      sortOptionChoices.push({ value: 'ctr_asc', label: 'Lowest CTR' });
+      sortOptionChoices.push({ value: 'ctr_desc', label: 'Highest CTR' });
    }
    const sortItemStyle = (sortType:string) => `cursor-pointer py-2 px-3 hover:bg-[#FCFCFF] ${sortBy === sortType ? 'bg-indigo-50 text-indigo-600 hover:bg-indigo-50' : ''}`;
    const deviceTabStyle = 'flex items-center select-none cursor-pointer px-3 py-2 rounded-3xl mr-2';
@@ -213,8 +216,9 @@ const KeywordFilters = (props: KeywordFilterProps) => {
                   <div className='relative'>
                   <button
                   data-testid="columns_button"
-                  className={`px-2 py-1 rounded ${columnOptions ? ' bg-indigo-100 text-blue-700' : ''}`}
-                  title='Show/Hide Columns'
+                  className={`px-2 py-1 rounded ${columnOptions ? ' bg-indigo-100 text-blue-700' : ''} ${columnsDisabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+                  title={columnsDisabled ? 'Loading settings...' : 'Show/Hide Columns'}
+                  disabled={columnsDisabled}
                   onClick={() => showColumnOptions(!columnOptions)}
                   >
                      <Icon type='eye-closed' size={18} />

@@ -1,10 +1,11 @@
+import { toHistoryDateKey } from '../../../utils/historyDateKey';
 import { generateTheChartData } from '../../../utils/client/generateChartData';
 
 /** Build a date-key string N days before today */
 const daysAgo = (n: number): string => {
    const d = new Date();
    d.setDate(d.getDate() - n);
-   return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+   return toHistoryDateKey(d);
 };
 
 describe('generateTheChartData', () => {

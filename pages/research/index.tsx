@@ -15,6 +15,7 @@ import allCountries, { adwordsLanguages } from '../../utils/countries';
 import Footer from '../../components/common/Footer';
 import { BrandTitle } from '../../components/common/Branding';
 import { useBranding } from '../../hooks/useBranding';
+import { withAuth } from '../../hooks/useAuth';
 
 const Research: NextPage = () => {
    const router = useRouter();
@@ -155,4 +156,4 @@ const Research: NextPage = () => {
    );
 };
 
-export default Research;
+export default withAuth(Research);

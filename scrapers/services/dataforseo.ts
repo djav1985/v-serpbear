@@ -2,14 +2,7 @@ import countries, { getGoogleDomain } from "../../utils/countries";
 import { resolveCountryCode, getKeywordLocationParts } from "../../utils/scraperHelpers";
 import { computeMapPackTop3 } from "../../utils/mapPack";
 import { DEVICE_MOBILE } from "../../utils/constants";
-
-const decodeIfEncoded = (value: string): string => {
-  try {
-    return decodeURIComponent(value);
-  } catch (_error) {
-    return value;
-  }
-};
+import { decodeIfEncoded } from "../scraperHelpers";
 
 const DATAFORSEO_SUCCESS = 20000;
 
@@ -79,7 +72,7 @@ const dataforseo: ScraperSettings = {
       },
     ];
   },
-  serpExtractor: ({ response, keyword, settings, pagination }) => {
+  serpExtractor: ({ response, settings, pagination }) => {
     const task = getTask(response);
     if (!task) {
       throw new Error("Invalid response for DataForSEO: missing tasks");
@@ -94,15 +87,16 @@ const dataforseo: ScraperSettings = {
     const start = pagination?.start ?? 0;
     const num = pagination?.num ?? 10;
 
-    const organicItems = items.filter((item) => item.type === "organic");
-    const organic = organicItems
-      .filter((item) => item.title && item.url)
+    // The request depth counts every SERP item (ads and features included), so the page is picked by absolute rank,
+    // not by slicing the organic-only list, which would skip or repeat ranks when non-organic items are present.
+    const organic = items
+      .filter((item) => item.type === "organic" && item.title && item.url)
       .map((item, index) => ({
         title: item.title as string,
         url: item.url as string,
         position: item.rank_absolute ?? index + 1,
       }))
-      .slice(start, start + num);
+      .filter((item) => item.position > start && item.position <= start + num);
 
     const businessName = (settings as ExtendedSettings)?.business_name ?? null;
     const dfsItems: DataForSeoItem[] = Array.isArray(getTask(response)?.result?.[0]?.items)
@@ -115,7 +109,7 @@ const dataforseo: ScraperSettings = {
         title: item.title as string,
         url: (item.url || undefined) as string | undefined,
       }));
-    const mapPackTop3 = computeMapPackTop3(keyword.domain, localResults, businessName);
+    const mapPackTop3 = computeMapPackTop3(localResults, businessName);
 
     return { organic, mapPackTop3, localResults };
   },

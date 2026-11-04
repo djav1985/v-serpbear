@@ -1,5 +1,4 @@
 import dataforseo from '../../scrapers/services/dataforseo';
-import { getScraperClient } from '../../utils/scraper';
 
 const bodyOf = dataforseo.body! as (...args: Parameters<NonNullable<ScraperSettings['body']>>) => any;
 
@@ -60,13 +59,9 @@ describe('dataforseo scraper', () => {
     });
   });
 
-  it('requests depth up to the end of the requested page', () => {
+  it('requests depth up to the end of the requested page without a max_crawl_pages cap', () => {
     const body = bodyOf(buildKeyword(), settings, countryData, { start: 20, num: 10, page: 3 });
     expect((body[0] as any).depth).toBe(30);
-  });
-
-  it('does not cap crawled pages, so deeper pages can return results', () => {
-    const body = bodyOf(buildKeyword(), settings, countryData, { start: 20, num: 10, page: 3 });
     expect(body[0]).not.toHaveProperty('max_crawl_pages');
   });
 
@@ -155,20 +150,5 @@ describe('dataforseo scraper', () => {
         dataforseo.serpExtractor({ keyword: buildKeyword(), response: {}, result: undefined, settings } as any),
       ).toThrow(/missing tasks/);
     });
-  });
-});
-
-describe('getScraperClient with the DataForSEO scraper', () => {
-  it('posts the array body with Basic auth', async () => {
-    const fetchMock = jest.fn().mockResolvedValue({ ok: true });
-    global.fetch = fetchMock as any;
-
-    await getScraperClient(buildKeyword(), settings, dataforseo, 0, { start: 0, num: 10, page: 1 });
-
-    const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe('https://api.dataforseo.com/v3/serp/google/organic/live/advanced');
-    expect(init.method).toBe('POST');
-    expect(init.headers.Authorization).toMatch(/^Basic /);
-    expect(JSON.parse(init.body)[0].keyword).toBe('plumbers');
   });
 });

@@ -51,7 +51,8 @@ const crazyserp: ScraperSettings = {
       if (typeof result === 'string') {
          try {
             const parsed = JSON.parse(result);
-            results = parsed.organic || parsed;
+            // Accept either a plain list or an object with an organic list; anything else has no results
+            results = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.organic) ? parsed.organic : []);
          } catch (error) {
             throw new Error(
                `Invalid JSON response for CrazySERP: ${error instanceof Error ? error.message : error}`

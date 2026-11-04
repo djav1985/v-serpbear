@@ -1,17 +1,16 @@
 /// <reference path="../../types.d.ts" />
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import nodeMailer from 'nodemailer';
 import Domain from '../../database/models/domain';
 import Keyword from '../../database/models/keyword';
 import generateEmail from '../../utils/generateEmail';
 import parseKeywords from '../../utils/parseKeywords';
 import getdomainStats from '../../utils/domains';
 import verifyUser from '../../utils/verifyUser';
-import { canSendEmail, recordEmailSent } from '../../utils/emailThrottle';
+import { reserveEmailSend } from '../../utils/emailThrottle';
 import { getAppSettings } from './settings';
 import { trimStringProperties, trimString, sanitizeSmtpHost } from '../../utils/security';
-import { getBranding } from '../../utils/branding';
+import { buildMailer } from '../../utils/mailer';
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
 import normalizeDomainBooleans from '../../utils/normalizeDomain';
@@ -40,32 +39,31 @@ const notify = async (req: NextApiRequest, res: NextApiResponse) => {
 
       const sanitizedHost = sanitizeSmtpHost(normalizedSettings.smtp_server);
       const sanitizedPort = normalizedSettings.smtp_port;
-      const sanitizedDefaultEmail = normalizedSettings.notification_email;
 
       normalizedSettings.smtp_server = sanitizedHost;
       normalizedSettings.smtp_port = sanitizedPort;
-      normalizedSettings.notification_email = sanitizedDefaultEmail;
       normalizedSettings.smtp_tls_servername = sanitizeSmtpHost(normalizedSettings.smtp_tls_servername);
 
-      if (!sanitizedHost || !sanitizedPort || !sanitizedDefaultEmail) {
+      // Recipients are set per domain (notification_emails), so only the SMTP server is needed here
+      if (!sanitizedHost || !sanitizedPort) {
          return res.status(400).json(errorResponse('BAD_REQUEST', 'SMTP has not been setup properly!', requestId));
       }
 
-      let successCount = 0;
-      let attemptCount = 0;
+      let sentCount = 0;
+      let skippedCount = 0;
+      let failedCount = 0;
 
-      // A domain takes part only when scraping is enabled and it has a notification interval other than "never".
-      const isNotifiable = (domain: DomainType) => domain.scrapeEnabled
-         && domain.notification_interval !== 'never';
+      // A domain takes part only when scraping is enabled.
+      const isNotifiable = (domain: DomainType) => domain.scrapeEnabled;
 
-      // Counts a domain as successful only when an email was actually sent. A send skipped by the
-      // throttle is neither a success nor a failure, so it must not hide a real problem.
+      // A send skipped on purpose (no address, or throttled) is counted apart from a failure, so skipped
+      // domains never turn the response into an error.
       const notifyDomain = async (domain: DomainType) => {
-         attemptCount++;
          try {
-            const sent = await sendNotificationEmail(domain, normalizedSettings);
-            if (sent) { successCount++; }
+            const outcome = await sendNotificationEmail(domain, normalizedSettings);
+            if (outcome === 'sent') { sentCount++; } else { skippedCount++; }
          } catch (error) {
+            failedCount++;
             const domainName = domain?.domain || 'unknown domain';
             logger.error(`Failed to send notification for ${domainName}`, error instanceof Error ? error : new Error(String(error)));
          }
@@ -91,17 +89,17 @@ const notify = async (req: NextApiRequest, res: NextApiResponse) => {
          }
       }
 
-      // If we attempted to send emails but none succeeded, return an error
-      if (attemptCount > 0 && successCount === 0) {
+      // Only real send failures are errors: every eligible domain failed and none was sent
+      if (failedCount > 0 && sentCount === 0) {
          return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'All notification emails failed to send. Please check your SMTP configuration.', requestId));
       }
 
-      // If no emails were attempted (no eligible domains), inform the user
-      if (attemptCount === 0) {
-         return res.status(200).json({ success: true, error: null, message: 'No domains are enabled for notifications.' });
+      // No eligible domains at all: tell the user nothing was sent
+      if (sentCount === 0 && skippedCount === 0) {
+         return res.status(200).json({ success: true, error: null, sent: 0, skipped: 0, message: 'No domains are enabled for notifications.' });
       }
 
-      return res.status(200).json({ success: true, error: null });
+      return res.status(200).json({ success: true, error: null, sent: sentCount, skipped: skippedCount });
    } catch (error) {
       logger.error('Error sending notification emails', error instanceof Error ? error : new Error(String(error)));
       const message = error instanceof Error && error.message ? error.message : 'Error Sending Notification Email.';
@@ -111,56 +109,32 @@ const notify = async (req: NextApiRequest, res: NextApiResponse) => {
 };
 
 /**
- * Sends the notification email for one domain. Resolves to true when an email was sent and false when
- * the throttle skipped it.
+ * Sends the notification email for one domain. Resolves to 'sent', or to 'skipped' when the domain has no
+ * notification address or the throttle held it back. A domain with no address never falls back to the global address.
  */
-const sendNotificationEmail = async (domain: DomainType, settings: SettingsType): Promise<boolean> => {
+const sendNotificationEmail = async (domain: DomainType, settings: SettingsType): Promise<'sent' | 'skipped'> => {
    const domainName = domain.domain;
-
-   // Check email throttling
-   const throttleCheck = await canSendEmail(domainName);
-   if (!throttleCheck.canSend) {
-      logger.info(`Skipping email for ${domainName}: ${throttleCheck.reason}`);
-      return false;
+   const recipients = trimString(domain.notification_emails);
+   if (!recipients) {
+      logger.info(`Skipping email for ${domainName}: no notification address set for this domain`);
+      return 'skipped';
    }
 
-   const { platformName } = getBranding();
-
-   const {
-      smtp_server = '',
-      smtp_port = '',
-      smtp_username = '',
-      smtp_password = '',
-      notification_email = '',
-      notification_email_from = '',
-      notification_email_from_name = platformName,
-      smtp_tls_servername = '',
-     } = settings;
-
-   if (!smtp_server) {
+   // Validate the configuration before taking a throttle slot, so a bad setup never uses up a domain's daily allowance
+   if (!settings.smtp_server) {
       throw new Error('Invalid SMTP host configured.');
    }
 
-   const tlsServername = sanitizeSmtpHost(smtp_tls_servername);
-   const fromAddress = notification_email_from || 'no-reply@serpbear.com';
-   const fromName = notification_email_from_name || platformName;
-   const fromEmail = `${fromName} <${fromAddress}>`;
-   const portNum = parseInt(smtp_port, 10);
-   const validPort = isNaN(portNum) ? 587 : Math.max(1, Math.min(65535, portNum)); // Default to 587, validate range
-   const mailerSettings:any = { host: smtp_server, port: validPort };
-   if (tlsServername) {
-      mailerSettings.tls = { servername: tlsServername };
-   }
-   const sanitizedUser = smtp_username;
-   const sanitizedPass = smtp_password;
-   if (sanitizedUser || sanitizedPass) {
-      mailerSettings.auth = {};
-      if (smtp_username) mailerSettings.auth.user = smtp_username;
-      if (smtp_password) mailerSettings.auth.pass = smtp_password;
+   // Check the throttle and reserve the send in one step, so overlapping runs cannot both send
+   const reservation = await reserveEmailSend(domainName);
+   if (!reservation.reserved) {
+      logger.info(`Skipping email for ${domainName}: ${reservation.reason}`);
+      return 'skipped';
    }
 
+   // Everything after the reservation is inside the try, so any failure gives the slot back
    try {
-      const transporter = nodeMailer.createTransport(mailerSettings);
+      const { transporter, fromEmail } = buildMailer(settings);
       const query = { where: { domain: domainName } };
       const domainKeywords:Keyword[] = await Keyword.findAll(query);
       const keywordsArray = domainKeywords.map((el) => el.get({ plain: true }));
@@ -172,22 +146,19 @@ const sendNotificationEmail = async (domain: DomainType, settings: SettingsType)
       
       const emailHTML = await generateEmail(domainWithStats, keywords, settings);
 
-      const domainNotificationEmails = trimString(domain.notification_emails);
-      const fallbackNotification = notification_email;
-
       await transporter.sendMail({
          from: fromEmail,
-         to: domainNotificationEmails || fallbackNotification,
+         to: recipients,
          subject: `[${domainName}] Keyword Positions Update`,
          html: emailHTML,
       });
-      
-      // Record successful email send
-      await recordEmailSent(domainName);
+
       logger.info(`Successfully sent notification for ${domainName}`);
-      return true;
+      return 'sent';
 
    } catch (error:any) {
+      // The send did not happen, so give back the slot it reserved
+      await reservation.release();
       logger.error('Error sending notification email', error instanceof Error ? error : new Error(String(error)), { domain: domainName });
       throw error; // Re-throw to let caller handle
    }

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useQuery } from 'react-query';
 import { apiGet, ApiError } from '../utils/client/apiClient';
+import { setAppTimezone } from '../utils/client/appTimezone';
 
 export interface AuthStatus {
   isAuthenticated: boolean;
@@ -17,7 +18,8 @@ const AUTH_CACHE_TIME = 10 * 60 * 1000;
 
 async function fetchAuthStatus(): Promise<AuthStatus> {
   try {
-    const data = await apiGet<{ user?: string }>('/api/auth-check');
+    const data = await apiGet<{ user?: string; timezone?: string }>('/api/auth-check');
+    setAppTimezone(data.timezone);
     return { isAuthenticated: true, isLoading: false, user: data.user };
   } catch (err) {
     // A 401 means the session has expired or the user is not logged in — not an error.

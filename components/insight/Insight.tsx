@@ -4,6 +4,7 @@ import SelectField from '../common/SelectField';
 import InsightItem from './InsightItem';
 import InsightStats from './InsightStats';
 import SpinnerMessage from '../common/SpinnerMessage';
+import { formatDateKey } from '../../utils/timezone';
 
 type SCInsightProps = {
    domain: DomainType | null,
@@ -16,8 +17,8 @@ const SCInsight = ({ insight, isLoading = true, isConsoleIntegrated = true, doma
    const [activeTab, setActiveTab] = useState<string>('stats');
 
    const insightItems = insight[activeTab as keyof InsightDataType];
-   const startDate = insight && insight.stats && insight.stats.length > 0 ? new Date(insight.stats[0].date) : null;
-   const endDate = insight && insight.stats && insight.stats.length > 0 ? new Date(insight.stats[insight.stats.length - 1].date) : null;
+   const startDate = insight && insight.stats && insight.stats.length > 0 ? insight.stats[0].date : null;
+   const endDate = insight && insight.stats && insight.stats.length > 0 ? insight.stats[insight.stats.length - 1].date : null;
 
    const switchTab = (tab: string) => {
       // window.insightTab = tab;
@@ -83,9 +84,9 @@ const SCInsight = ({ insight, isLoading = true, isConsoleIntegrated = true, doma
                   </div>
                </div>
                {isConsoleIntegrated && (<div className='py-2 text-xs text-center mt-2 lg:text-sm lg:mt-0'>
-                  {startDate && new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date(startDate))}
+                  {startDate && formatDateKey(startDate, { dateStyle: 'medium' })}
                   <span className='px-2 inline-block'>-</span>
-                  {endDate && new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date(endDate))}
+                  {endDate && formatDateKey(endDate, { dateStyle: 'medium' })}
                   <span className='ml-2'>(Last 30 Days)</span>
                </div>
                )}

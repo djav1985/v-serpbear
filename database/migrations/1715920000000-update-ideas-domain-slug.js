@@ -19,7 +19,8 @@ module.exports = {
                const raw = await fs.readFile(filePath, 'utf-8');
                const content = JSON.parse(raw);
                const domainName = file.replace(/^IDEAS_|\.json$/g, '');
-               const domainSlug = domainName.replace(/\./g, '-');
+               // Same rule as toDomainSlug in utils/domainSlug.ts (hyphens to underscores, then dots to hyphens)
+               const domainSlug = domainName.replaceAll('-', '_').replaceAll('.', '-').replaceAll('/', '-');
 
                if (Array.isArray(content.keywords)) {
                   content.keywords = content.keywords.map((k) => ({ ...k, domain: domainSlug }));

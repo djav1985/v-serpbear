@@ -2,7 +2,6 @@ import countries from './countries';
 import { serializeError } from './errorSerialization';
 import allScrapers from '../scrapers/index';
 import { GOOGLE_BASE_URL, DEVICE_MOBILE } from './constants';
-import { computeMapPackTop3 } from './mapPack';
 import { logger } from './logger';
 import { retryQueueManager } from './retryQueueManager';
 
@@ -39,6 +38,10 @@ const getRetryDelay = (attempt: number, baseDelay: number = 1000): number => {
    const jitter = Math.random() * 0.1 * exponentialDelay;
    return Math.min(exponentialDelay + jitter, 30000);
 };
+
+// The AbortController of each in-flight scraper request, looked up by its response. The request timer stops once
+// the headers arrive, so reading a stalled body needs the controller to cancel the connection instead of leaving it open.
+const requestControllers = new WeakMap<Response, AbortController>();
 
 /**
  * Creates a SERP Scraper client promise with enhanced error handling and retries
@@ -92,6 +95,9 @@ export const getScraperClient = (
       headers,
       body: requestBody,
       signal: controller.signal,
+   }).then((response) => {
+      requestControllers.set(response, controller);
+      return response;
    }).finally(() => clearTimeout(timeoutId));
 
    return client;
@@ -121,9 +127,32 @@ const buildScraperError = (res: any) => {
    };
 };
 
-const parseScraperResponse = async (response: Response): Promise<any> => {
+// A response body that stalls after the headers arrive must not hang the refresh, so reading it has its own limit.
+const SCRAPER_BODY_TIMEOUT_MS = 30000;
+// Kept short enough for log lines and error messages, long enough to show what an error page said.
+const SCRAPER_ERROR_BODY_MAX_LENGTH = 500;
+
+const withTimeout = <T>(promise: Promise<T>, timeoutMs: number, onTimeout?: () => void): Promise<T> => new Promise<T>((resolve, reject) => {
+   const timer = setTimeout(() => {
+      // Cancel the underlying request too, so a stalled connection is closed and not just ignored
+      try { onTimeout?.(); } catch (_error) { /* aborting must never hide the timeout error */ }
+      reject(new Error(`Scraper response body timed out after ${timeoutMs}ms`));
+   }, timeoutMs);
+   promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (error) => { clearTimeout(timer); reject(error); },
+   );
+});
+
+/**
+ * Reads the response body once and parses it as JSON. A body that is not JSON (an HTML error page, for example)
+ * is returned as { status, ok, body } so the error message can show what the server said.
+ */
+export const parseScraperResponse = async (response: Response): Promise<any> => {
+   // The body can only be read once, so read the text first and parse it, instead of trying json() and then text().
+   const text = await withTimeout(response.text(), SCRAPER_BODY_TIMEOUT_MS, () => requestControllers.get(response)?.abort());
    try {
-      const parsed = await response.json();
+      const parsed = JSON.parse(text);
       if (parsed && typeof parsed === 'object') {
          if (!Object.prototype.hasOwnProperty.call(parsed, 'status')) {
             parsed.status = response.status;
@@ -134,11 +163,10 @@ const parseScraperResponse = async (response: Response): Promise<any> => {
       }
       return parsed;
    } catch (_error) {
-      const body = await response.text().catch(() => '');
       return {
          status: response.status,
          ok: response.ok,
-         body,
+         body: text.slice(0, SCRAPER_ERROR_BODY_MAX_LENGTH),
       };
    }
 };
@@ -293,10 +321,6 @@ export const scrapeKeywordWithStrategy = async (
       return { ...errorResult, error: `Scraper type '${scraperType}' not found` };
    }
 
-   if (scraperObj.nativePagination) {
-      return scrapeKeywordFromGoogle(keyword, settings);
-   }
-
    const { strategy, paginationLimit, smartFullFallback } = resolveStrategy(settings, domainSettings);
    let pagesToScrape: number[];
 
@@ -388,148 +412,6 @@ export const scrapeKeywordWithStrategy = async (
       localResults: state.page1LocalResults,
       error: false,
    };
-};
-
-export const scrapeKeywordFromGoogle = async (keyword:KeywordType, settings:SettingsType, maxRetries: number = 1) : Promise<RefreshResult> => {
-   let refreshedResults:RefreshResult = {
-      ID: keyword.ID,
-      keyword: keyword.keyword,
-      position: keyword.position,
-      url: keyword.url,
-      result: keyword.lastResult,
-      mapPackTop3: keyword.mapPackTop3 ?? false,
-      error: true,
-   };
-
-   const scraperType = settings?.scraper_type || '';
-   const scraperObj = allScrapers.find((scraper:ScraperSettings) => scraper.id === scraperType);
-
-   if (!scraperObj) {
-      return { ...refreshedResults, error: `Scraper type '${scraperType}' not found` };
-   }
-
-   let lastError: any = null;
-
-   for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      const scraperClient = getScraperClient(keyword, settings, scraperObj, attempt);
-
-      if (!scraperClient) {
-         return { ...refreshedResults, error: 'Failed to create scraper client' };
-      }
-
-      try {
-         const response = await scraperClient;
-         const res = await parseScraperResponse(response);
-
-         if (hasScraperError(res)) {
-            const scraperError = buildScraperError(res);
-
-            if (attempt === maxRetries) {
-               const error = new Error(`Scraper error: ${scraperError.error || scraperError.body || 'Request failed'}`);
-               logger.error(`Scraper failed after ${maxRetries + 1} attempts`, error, {
-                  status: scraperError.status,
-                  payload: scraperError,
-               });
-            }
-
-            const errorMessage = `[${scraperError.status}] ${scraperError.error || scraperError.body || 'Request failed'}`;
-            lastError = errorMessage;
-
-            if (attempt === maxRetries) {
-               throw new Error(errorMessage);
-            }
-
-            await new Promise(resolve => setTimeout(resolve, getRetryDelay(attempt)));
-            continue;
-         }
-
-         const resultPayload = scraperObj.resultObjectKey && res && typeof res === 'object'
-            ? res[scraperObj.resultObjectKey]
-            : undefined;
-
-         const fallbackPayload = resultPayload ?? res?.data ?? res?.results ?? res?.body ?? null;
-         const extraction = scraperObj.serpExtractor({ keyword, response: res, result: fallbackPayload, settings });
-
-         if (Array.isArray(extraction.organic)) {
-            const organicResults = extraction.organic;
-            const serp = getSerp(keyword.domain, organicResults);
-
-            let computedMapPack = false;
-            let localResults: any[] = [];
-            if (scraperObj.supportsMapPack !== false) {
-               const businessName = (settings as ExtendedSettings).business_name ?? null;
-               localResults = extraction.localResults ?? [];
-               computedMapPack = typeof extraction.mapPackTop3 === 'boolean'
-                  ? extraction.mapPackTop3
-                  : computeMapPackTop3(keyword.domain, localResults, businessName);
-
-               const debugMode = process.env.NODE_ENV === 'development';
-               if (debugMode && keyword.device === DEVICE_MOBILE) {
-                  logger.debug(`[MAP_PACK] Mobile keyword: ${keyword.keyword}, mapPackTop3: ${computedMapPack}, localResults count: ${localResults.length}`);
-               }
-            }
-
-            refreshedResults = {
-               ID: keyword.ID,
-               keyword: keyword.keyword,
-               position: serp.position,
-               url: serp.url,
-               result: organicResults,
-               mapPackTop3: computedMapPack,
-               localResults,
-               error: false,
-            };
-            if (attempt > 0 || computedMapPack) {
-               logger.info('Keyword scraped', {
-                  keyword: keyword.keyword,
-                  device: keyword.device || 'desktop',
-                  position: serp.position,
-                  mapPackTop3: computedMapPack,
-                  attempt: attempt + 1,
-               });
-            }
-            return refreshedResults;
-         }
-
-         const errorInfo = serializeError(
-            res.request_info?.error || res.error_message || res.detail || res.error || 'No valid scrape result returned',
-         );
-         const statusCode = res.status || 'No Status';
-         const errorMessage = `[${statusCode}] ${errorInfo}`;
-         lastError = errorMessage;
-
-         if (attempt === maxRetries) {
-            throw new Error(errorMessage);
-         }
-
-         await new Promise(resolve => setTimeout(resolve, getRetryDelay(attempt)));
-         continue;
-      } catch (error:any) {
-         lastError = error;
-
-         if (attempt === maxRetries) {
-            const errorMessage = serializeError(error);
-            refreshedResults.error = errorMessage;
-            logger.error('Keyword scraping failed', error, {
-               keyword: keyword.keyword,
-               attempts: maxRetries + 1,
-               errorMessage,
-            });
-            break;
-         }
-
-         await new Promise(resolve => setTimeout(resolve, getRetryDelay(attempt)));
-       }
-   }
-
-   if (lastError && (refreshedResults.error === true || refreshedResults.error === undefined)) {
-      refreshedResults = {
-         ...refreshedResults,
-         error: serializeError(lastError),
-      };
-   }
-
-   return refreshedResults;
 };
 
 const resolveResultURL = (value: string | undefined | null): URL | null => {

@@ -2,7 +2,7 @@ import toast from 'react-hot-toast';
 import { NextRouter } from 'next/router';
 import { useMutation, useQuery, useQueryClient } from 'react-query';
 import { normalizeToBoolean } from '../utils/dbBooleans';
-import { apiGet, apiPost, apiPut, apiDelete } from '../utils/client/apiClient';
+import { apiFetch, apiGet, apiPost, apiPut } from '../utils/client/apiClient';
 import { getAddKeywordsMessage, getLocationUpdateMessage } from '../utils/keywordMeta';
 
 type KeywordsResponse = {
@@ -25,7 +25,7 @@ const normaliseKeywordFlags = (keyword: unknown): KeywordType => {
 
 export const fetchKeywords = async (router: NextRouter, domain: string) => {
    if (!domain) { return { keywords: [] }; }
-   const data = await apiGet<KeywordsResponse>(`/api/keywords?domain=${domain}`, router);
+   const data = await apiGet<KeywordsResponse>(`/api/keywords?domain=${encodeURIComponent(domain)}`, router);
    if (!data || typeof data !== 'object') { return data; }
    if (!Array.isArray(data.keywords)) { return data; }
    return {
@@ -44,8 +44,12 @@ export function useFetchKeywords(
       ['keywords', domain],
       () => fetchKeywords(router, domain),
       {
-         refetchInterval: keywordSPollInterval,
-         refetchIntervalInBackground: true,
+         // Only poll while a manual refresh is in progress AND the list still has an updating keyword.
+         enabled: !!domain,
+         refetchInterval: (data) => (
+            keywordSPollInterval && data?.keywords?.some((x: KeywordType) => x.updating) ? keywordSPollInterval : false
+         ),
+         refetchIntervalInBackground: false,
          staleTime: 0, // Always fetch fresh data, don't use stale cache
          cacheTime: 1000, // Keep a very short cache to avoid duplicate requests on quick remounts
          onSuccess: (data) => {
@@ -89,10 +93,10 @@ export function useAddKeywords(onSuccess: () => void) {
 
 export function useDeleteKeywords(onSuccess: () => void) {
    const queryClient = useQueryClient();
-   return useMutation(async (keywordIDs:number[]) => {
-      const keywordIds = keywordIDs.join(',');
-      return apiDelete(`/api/keywords?id=${keywordIds}`);
-   }, {
+   return useMutation(async (keywordIDs:number[]) => (
+      // IDs travel in the JSON body, so a large selection cannot overflow the URL length
+      apiFetch('/api/keywords', { method: 'DELETE', body: JSON.stringify({ ids: keywordIDs }) })
+   ), {
       onSuccess: async () => {
          onSuccess();
          toast('Keywords Removed Successfully!', { icon: '✔️' });
@@ -124,8 +128,8 @@ export function useFavKeywords(onSuccess: () => void) {
 export function useUpdateKeywordTags(onSuccess: () => void) {
    const queryClient = useQueryClient();
    return useMutation(async ({ tags }:{tags:{ [ID:number]: string[] }}) => {
-      const keywordIds = Object.keys(tags).join(',');
-      return apiPut(`/api/keywords?id=${keywordIds}`, { tags });
+      const ids = Object.keys(tags).map(Number);
+      return apiPut('/api/keywords', { ids, tags });
    }, {
       onSuccess: async () => {
          onSuccess();
@@ -140,10 +144,9 @@ export function useUpdateKeywordTags(onSuccess: () => void) {
 
 export function useUpdateKeywordLocation(onSuccess: () => void) {
    const queryClient = useQueryClient();
-   return useMutation(async ({ keywordIDs, location, country }:{keywordIDs: number[], location: string, country: string}) => {
-      const keywordIds = keywordIDs.join(',');
-      return apiPut<{ updatedCount?: number, skipped?: string[] }>(`/api/keywords?id=${keywordIds}`, { location, country });
-   }, {
+   return useMutation(async ({ keywordIDs, location, country }:{keywordIDs: number[], location: string, country: string}) => (
+      apiPut<{ updatedCount?: number, skipped?: string[] }>('/api/keywords', { ids: keywordIDs, location, country })
+   ), {
       onSuccess: async (data) => {
          onSuccess();
          const skipped = data?.skipped || [];
@@ -158,11 +161,12 @@ export function useUpdateKeywordLocation(onSuccess: () => void) {
 
 export function useRefreshKeywords(onSuccess: () => void) {
    const queryClient = useQueryClient();
-   return useMutation(async ({ ids = [], domain = '' } : {ids?: number[], domain?: string}) => {
-      const keywordIds = ids.join(',');
-      const query = ids.length === 0 && domain ? `?id=all&domain=${encodeURIComponent(domain)}` : `?id=${keywordIds}`;
-      return apiPost(`/api/refresh${query}`, {});
-   }, {
+   return useMutation(async ({ ids = [], domain = '' } : {ids?: number[], domain?: string}) => (
+      // Refreshing a whole domain has no ID list, so it keeps the query form; selected IDs go in the body
+      ids.length === 0 && domain
+         ? apiPost(`/api/refresh?id=all&domain=${encodeURIComponent(domain)}`, {})
+         : apiPost('/api/refresh', { ids })
+   ), {
       onSuccess: async () => {
          onSuccess();
          toast('Keywords Added to Refresh Queue', { icon: '🔄' });
@@ -177,20 +181,13 @@ export function useRefreshKeywords(onSuccess: () => void) {
 
 export function useFetchSingleKeyword(keywordID:number) {
    return useQuery(['keyword', keywordID], async () => {
-      try {
-         const result = await apiGet<{ keyword?: Record<string, unknown> }>(`/api/keyword?id=${keywordID}`);
-         return {
-            history: (result.keyword?.history || {}) as KeywordHistory,
-            searchResult: result.keyword?.lastResult || [],
-            localResults: result.keyword?.localResults || [],
-            mapPackTop3: normalizeToBoolean(result.keyword?.mapPackTop3),
-         };
-      } catch (error) {
-         if (error instanceof Error && error.message !== 'Error Loading Keyword Details') {
-            throw error;
-         }
-         throw new Error('Error Loading Keyword Details');
-      }
+      const result = await apiGet<{ keyword?: Record<string, unknown> }>(`/api/keyword?id=${keywordID}`);
+      return {
+         history: (result.keyword?.history || {}) as KeywordHistory,
+         searchResult: result.keyword?.lastResult || [],
+         localResults: result.keyword?.localResults || [],
+         mapPackTop3: normalizeToBoolean(result.keyword?.mapPackTop3),
+      };
    }, {
       onError: (_error) => {
          toast('Error Loading Keyword Details.', { icon: '⚠️' });

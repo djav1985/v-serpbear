@@ -229,17 +229,22 @@ export const SCkeywordsByDevice = (sortedKeywords: SCKeywordType[], device: stri
  * @param {KeywordFilters} filterParams - The user Selected filter object.
  * @returns {SCKeywordType[]}
  */
-export const SCfilterKeywords = (keywords: SCKeywordType[], filterParams: KeywordFilters):SCKeywordType[] => (
-   keywords.filter((keyword) => (
+export const SCfilterKeywords = (keywords: SCKeywordType[], filterParams: KeywordFilters):SCKeywordType[] => {
+   const searchTerm = (filterParams.search || '').trim().toLowerCase();
+   return keywords.filter((keyword) => (
       matchesCountry(keyword.country, filterParams.countries)
-      && (!filterParams.search || keyword.keyword.includes(filterParams.search))
-   ))
-);
+      && (!searchTerm || keyword.keyword.toLowerCase().includes(searchTerm))
+   ));
+};
 
 export const IdeasSortKeywords = (theKeywords: IdeaKeyword[], sortBy: string): IdeaKeyword[] => {
    const keywordsToSort = [...theKeywords];
 
    switch (sortBy) {
+      case 'alpha_asc':
+         return sortByStringField(keywordsToSort, (item) => item.keyword.toLowerCase(), 'asc');
+      case 'alpha_desc':
+         return sortByStringField(keywordsToSort, (item) => item.keyword.toLowerCase(), 'desc');
       case 'vol_asc':
          return keywordsToSort.sort((a: IdeaKeyword, b: IdeaKeyword) => (a.avgMonthlySearches ?? 0) - (b.avgMonthlySearches ?? 0));
       case 'vol_desc':

@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import { formattedNum } from '../../utils/client/helpers';
+import { formatDateKey } from '../../utils/timezone';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
@@ -26,7 +27,6 @@ const InsightStats = ({ stats = [], totalKeywords = 0, totalPages = 0 }:InsightS
     }, [stats]);
 
    const chartData = useMemo(() => {
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const chartSeries: {[key:string]: number[]} = { clicks: [], impressions: [], position: [], ctr: [] };
       stats.forEach((item) => {
          chartSeries.clicks.push(item.clicks);
@@ -35,7 +35,7 @@ const InsightStats = ({ stats = [], totalKeywords = 0, totalPages = 0 }:InsightS
          chartSeries.ctr.push(item.ctr);
       });
       return {
-         labels: stats && stats.length > 0 ? stats.map((item) => `${new Date(item.date).getDate()}-${months[new Date(item.date).getMonth()]}`) : [],
+         labels: stats && stats.length > 0 ? stats.map((item) => `${formatDateKey(item.date, { day: 'numeric' })}-${formatDateKey(item.date, { month: 'short' })}`) : [],
          series: chartSeries };
    }, [stats]);
 
@@ -84,13 +84,13 @@ const InsightStats = ({ stats = [], totalKeywords = 0, totalPages = 0 }:InsightS
             className='flex-1 border border-gray-200 px-6 py-5 rounded mb-4 text-2xl text-violet-700 mr-5'
             title={`${formattedNum(totalStat.clicks || 0)} Visits`}>
                <span className=' block text-sm font-normal text-gray-500'>Visits</span>
-               {new Intl.NumberFormat('en-US', { notation: 'compact', compactDisplay: 'short' }).format(totalStat.clicks || 0).replace('T', 'K')}
+               {new Intl.NumberFormat('en-US', { notation: 'compact', compactDisplay: 'short' }).format(totalStat.clicks || 0)}
             </div>
             <div
             className='flex-1 border border-gray-200 px-6 py-5 rounded mb-4 text-2xl text-[#1fcdb0] lg:mr-5'
             title={`${formattedNum(totalStat.impressions || 0)} Impressions`}>
                <span className=' block text-sm font-normal text-gray-500'>Impressions</span>
-               {new Intl.NumberFormat('en-US', { notation: 'compact', compactDisplay: 'short' }).format(totalStat.impressions || 0).replace('T', 'K')}
+               {new Intl.NumberFormat('en-US', { notation: 'compact', compactDisplay: 'short' }).format(totalStat.impressions || 0)}
             </div>
             <div className='flex-1 border border-gray-200 px-6 py-5 rounded mb-4 text-2xl text-gray-500 font-semibold mr-5'>
                <span className=' block text-sm font-normal text-gray-500'>Avg Position</span>

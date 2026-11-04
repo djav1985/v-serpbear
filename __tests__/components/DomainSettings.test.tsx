@@ -31,7 +31,6 @@ const mockDomain: DomainType = {
    added: '2023-01-01',
    tags: '',
    scrapeEnabled: true,
-   notification_interval: 'daily',
    notification_emails: 'test@example.com',
    keywordsTracked: 0,
    scraper_settings: {
@@ -102,28 +101,6 @@ describe('DomainSettings Component', () => {
          />,
       );
 
-   it('renders without crashing', () => {
-      mockUseFetchDomain.mockImplementation(() => {});
-
-      renderDomainSettings();
-
-      expect(screen.getByText('Domain Settings')).toBeInTheDocument();
-      expect(screen.getByText('Notification')).toBeInTheDocument();
-      expect(screen.getByText('Search Console')).toBeInTheDocument();
-      expect(screen.getByText('Scraper')).toBeInTheDocument();
-   });
-
-   it('keeps the settings tabs on one row without scrollbars', () => {
-      mockUseFetchDomain.mockImplementation(() => {});
-
-      renderDomainSettings();
-
-      const tabList = screen.getByText('Notification').closest('ul') as HTMLElement;
-      expect(tabList).not.toHaveClass('flex-wrap');
-      expect(tabList).not.toHaveClass('overflow-x-auto');
-      expect(screen.getByText('Search Console').closest('li')).toHaveClass('truncate', 'whitespace-nowrap');
-   });
-
    it('syncs scrape and notify flags when toggling the unified active control', async () => {
       mockUseFetchDomain.mockImplementation(() => {});
       const mutateMock = jest.fn();
@@ -134,6 +111,8 @@ describe('DomainSettings Component', () => {
       });
 
       renderDomainSettings();
+      // The Active toggle lives on the Scraper tab
+      fireEvent.click(screen.getByText('Scraper'));
 
       expect(screen.getByText('Active')).toBeInTheDocument();
       const toggle = screen.getByLabelText('Toggle domain active status');
@@ -384,27 +363,16 @@ describe('DomainSettings Component', () => {
       });
    });
 
-   it('handles the stale closure scenario correctly', () => {
-      // This test validates that the fix prevents the stale closure issue
-      // by ensuring we use the functional form of setState
+   it('does not save while the stored domain settings are still loading', () => {
+      mockUseFetchDomain.mockImplementation(() => ({ isLoading: true, isError: false }));
+      const mutateMock = jest.fn();
+      mockUseUpdateDomain.mockReturnValue({ mutate: mutateMock, error: null, isLoading: false });
 
-      let capturedCallback: ((_domainObj: DomainType) => void) | null = null;
+      renderDomainSettings();
+      const saveButton = screen.getByText('Loading…').closest('button') as HTMLButtonElement;
+      fireEvent.click(saveButton);
 
-      mockUseFetchDomain.mockImplementation((_router, _domain, onSuccess) => {
-         capturedCallback = onSuccess;
-      });
-
-      renderWithQueryClient(
-         <DomainSettings domain={mockDomain} closeModal={mockCloseModal} />,
-      );
-
-      // Verify that useFetchDomain was called and we captured the callback
-      expect(mockUseFetchDomain).toHaveBeenCalled();
-      expect(capturedCallback).toBeTruthy();
-
-      // The key here is that our fix should use prevSettings => ({ ...prevSettings, ... })
-      // instead of the stale { ...domainSettings, ... } pattern
-      // This test just validates that the callback was set up correctly
-      expect(typeof capturedCallback).toBe('function');
+      expect(saveButton).toBeDisabled();
+      expect(mutateMock).not.toHaveBeenCalled();
    });
 });

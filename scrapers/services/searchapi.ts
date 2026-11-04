@@ -2,6 +2,7 @@ import { getGoogleDomain } from "../../utils/countries";
 import { resolveCountryCode, getKeywordLocationParts } from "../../utils/scraperHelpers";
 import { computeMapPackTop3 } from '../../utils/mapPack';
 import { DEVICE_MOBILE } from '../../utils/constants';
+import { decodeIfEncoded } from '../scraperHelpers';
 
 interface SearchApiResult {
    title: string,
@@ -23,21 +24,14 @@ const searchapi:ScraperSettings = {
       const country = resolvedCountry;
       const localeInfo = countryData?.[country] ?? countryData?.US ?? Object.values(countryData ?? {})[0];
       const lang = localeInfo?.[2] ?? "en";
-      const plusEncode = (str: string) => str.replace(/ /g, '+');
-      const decodeIfEncoded = (value: string): string => {
-         try {
-            return decodeURIComponent(value);
-         } catch (_error) {
-            return value;
-         }
-      };
       // Build location parts from city/state/country only (no zip)
-      const locationParts = getKeywordLocationParts(keyword.location).map(plusEncode);
+      const locationParts = getKeywordLocationParts(keyword.location);
+      // URLSearchParams encodes spaces as '+', so the raw values are passed in; encoding '+' first would send '%2B'
       const params = new URLSearchParams();
       // Set params in required order
       params.set('api_key', settings.scraping_api ?? '');
       params.set('engine', 'google');
-      params.set('q', plusEncode(decodeIfEncoded(keyword.keyword)));
+      params.set('q', decodeIfEncoded(keyword.keyword));
       if (locationParts.length) {
          params.set('location', locationParts.join(','));
       }
@@ -56,7 +50,7 @@ const searchapi:ScraperSettings = {
       return `https://www.searchapi.io/api/v1/search?${params.toString()}`;
    },
   resultObjectKey: 'organic_results',
-  serpExtractor: ({ result, response, keyword, settings }) => {
+  serpExtractor: ({ result, response, settings }) => {
      const extractedResult = [];
      let results: SearchApiResult[] = [];
      if (typeof result === 'string') {
@@ -88,7 +82,7 @@ const searchapi:ScraperSettings = {
        title: place.title as string,
        url: (place.link || undefined) as string | undefined,
      }));
-     const mapPackTop3 = computeMapPackTop3(keyword.domain, localResults, businessName);
+     const mapPackTop3 = computeMapPackTop3(localResults, businessName);
 
      return { organic: extractedResult, mapPackTop3, localResults };
   },

@@ -14,6 +14,7 @@ import { logger } from './logger';
 import { fromDbBool, toDbBool } from './dbBooleans';
 import normalizeDomainBooleans from './normalizeDomain';
 import { retryQueueManager } from './retryQueueManager';
+import { historyKeyToTime, toHistoryDateKey } from './historyDateKey';
 
 const describeScraperType = (scraperType?: SettingsType['scraper_type']): string => {
    if (!scraperType || scraperType.length === 0) {
@@ -242,6 +243,24 @@ export const clearKeywordUpdatingFlags = async (
    }
 };
 
+const DOMAIN_KEY_UNREADABLE_ERROR = 'Domain scraper API key could not be decrypted. Save the domain scraper settings again.';
+
+/**
+ * Records a clear error on keywords whose domain scraper key cannot be read, and clears their updating flags.
+ */
+const markKeywordsWithUnreadableKey = async (keywords: Keyword[]): Promise<void> => {
+   const lastUpdateError = JSON.stringify({
+      date: new Date().toJSON(),
+      error: DOMAIN_KEY_UNREADABLE_ERROR,
+      scraper: 'domain-override',
+   });
+   await Promise.allSettled(keywords.map((keyword) => keyword.update({
+      updating: toDbBool(false),
+      updatingStartedAt: null,
+      lastUpdateError,
+   })));
+};
+
 /**
  * Refreshes the Keywords position by Scraping Google Search Result by
  * Determining whether the keywords should be scraped in Parallel or not
@@ -257,6 +276,8 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
    const domainSpecificSettings = new Map<string, SettingsType>();
    const domainsWithScraperOverrides = new Set<string>();
    const domainStrategyMap = new Map<string, Partial<DomainType>>();
+   // Domains whose saved scraper key cannot be decrypted: their keywords are not scraped
+   const domainsWithUnreadableKey = new Set<string>();
 
    // Precompute per-domain "effective settings" map once
    if (domainNames.length > 0) {
@@ -287,6 +308,10 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
          const decryptedOverride = cryptr ? decryptDomainScraperSettings(persistedOverride, cryptr) : null;
          const overrideScraperType = decryptedOverride?.scraper_type;
          const hasOverride = !!overrideScraperType;
+         // A saved override key that cannot be decrypted must not fall back to the global key for another provider
+         if (persistedOverride?.scraping_api && !decryptedOverride?.scraping_api) {
+            domainsWithUnreadableKey.add(normalizedDomain.domain);
+         }
          const hasBusinessName = typeof normalizedDomain.business_name === 'string' && normalizedDomain.business_name;
 
          if (hasOverride || hasBusinessName) {
@@ -318,7 +343,12 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
    logScraperSelectionSummary(domainSpecificSettings, domainsWithScraperOverrides);
 
    const skippedKeywords: Keyword[] = [];
+   const unreadableKeyKeywords: Keyword[] = [];
    const eligibleKeywordModels = rawkeyword.filter((keyword) => {
+      if (domainsWithUnreadableKey.has(keyword.domain)) {
+         unreadableKeyKeywords.push(keyword);
+         return false;
+      }
       const isEnabled = scrapePermissions.get(keyword.domain);
       if (isEnabled === false) {
          skippedKeywords.push(keyword);
@@ -326,6 +356,11 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
       }
       return true;
    });
+
+   if (unreadableKeyKeywords.length > 0) {
+      logger.warn('Skipping keyword refresh: domain scraper key could not be decrypted', { count: unreadableKeyKeywords.length });
+      await markKeywordsWithUnreadableKey(unreadableKeyKeywords);
+   }
 
    if (skippedKeywords.length > 0) {
       await clearKeywordUpdatingFlags(skippedKeywords, 'for skipped keywords', undefined, false, 'scrape-disabled');
@@ -511,7 +546,7 @@ const refreshAndUpdateKeyword = async (
 
    try {
       if (effectiveSettings?.scrape_retry) {
-         await retryScrape(keyword.ID);
+         await queueFailedKeywordForRetry(keyword.ID);
       } else {
          await removeFromRetryQueue(keyword.ID);
       }
@@ -522,6 +557,23 @@ const refreshAndUpdateKeyword = async (
    // Return the current keyword with updated state
    const updatedKeywordData = { ...currentkeyword, updating: toDbBool(false), updatingStartedAt: null };
    return parseKeywords([updatedKeywordData])[0];
+};
+
+/** How many times a failed keyword is re-queued before it is dropped from the retry queue */
+export const MAX_RETRY_ATTEMPTS = 3;
+
+/**
+ * Puts a failed keyword back in the retry queue while it has retries left. Once it has been re-queued
+ * MAX_RETRY_ATTEMPTS times it is dropped, so a keyword that always fails does not retry forever.
+ */
+const queueFailedKeywordForRetry = async (keywordID: number): Promise<void> => {
+   const attempts = await retryQueueManager.getAttempts(keywordID);
+   if (attempts >= MAX_RETRY_ATTEMPTS) {
+      logger.warn('Keyword dropped from the retry queue after reaching the retry limit', { keywordId: keywordID, attempts, maxAttempts: MAX_RETRY_ATTEMPTS });
+      await removeFromRetryQueue(keywordID);
+      return;
+   }
+   await retryScrape(keywordID);
 };
 
 /**
@@ -543,7 +595,7 @@ const persistKeywordError = async (
 
    try {
       if (settings?.scrape_retry) {
-         await retryScrape(keyword.ID);
+         await queueFailedKeywordForRetry(keyword.ID);
       } else {
          await removeFromRetryQueue(keyword.ID);
       }
@@ -587,7 +639,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
 
    if (updatedKeyword && keyword) {
       const theDate = new Date();
-      const dateKey = `${theDate.getFullYear()}-${theDate.getMonth() + 1}-${theDate.getDate()}`;
+      const dateKey = toHistoryDateKey(theDate);
       const newPos = Number(updatedKeyword.position ?? keyword.position ?? 0) || 0;
 
       const { history } = keyword;
@@ -599,7 +651,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
       if (historyEntries.length >= 31) {
          // Once we have 31 entries (30 + today's new entry), trim to 30 most recent
          const sortedEntries = historyEntries
-            .map(([key, value]) => ({ key, date: new Date(key).getTime(), value }))
+            .map(([key, value]) => ({ key, date: historyKeyToTime(key), value }))
             .sort((a, b) => a.date - b.date)
             .slice(-30); // Keep last 30 entries
          
@@ -670,7 +722,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
       // Build single atomic update payload with ALL fields from API response + flags.
       // In the success path we perform a single update per keyword row to minimize DB writes and precompute derived fields such as history7d (last 7 entries from the already-trimmed history using timestamp sort).
       const history7dObj = Object.entries(history)
-         .map(([key, value]) => ({ key, date: new Date(key).getTime(), value }))
+         .map(([key, value]) => ({ key, date: historyKeyToTime(key), value }))
          .sort((a, b) => a.date - b.date)
          .slice(-7)
          .reduce<Record<string, number>>((acc, { key, value }) => { acc[key] = value; return acc; }, {});
@@ -689,18 +741,18 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          updatingStartedAt: null,
       };
 
-      // Update retry queue outside of try-catch to prevent aborting on retry queue errors
-      try {
-         await removeFromRetryQueue(keyword.ID);
-      } catch (queueError) {
-         logger.error('[ERROR] Failed to update retry queue (non-fatal):', queueError instanceof Error ? queueError : new Error(String(queueError)), { keywordId: keyword.ID });
-      }
-
       try {
          // Single atomic DB update with all fields from API response + flags
          // Sequelize automatically updates the in-memory instance on success
          await keywordRaw.update(dbPayload);
-         
+
+         // Only a saved result leaves the retry queue. Removing it earlier would drop the retry if the save failed.
+         try {
+            await removeFromRetryQueue(keyword.ID);
+         } catch (queueError) {
+            logger.error('[ERROR] Failed to update retry queue (non-fatal):', queueError instanceof Error ? queueError : new Error(String(queueError)), { keywordId: keyword.ID });
+         }
+
          // Log when updating flag is cleared to help debug UI issues
          logger.info('Keyword updating flag cleared', {
             keywordId: keyword.ID,

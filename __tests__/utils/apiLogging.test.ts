@@ -1,5 +1,3 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
-
 jest.mock('../../utils/logger', () => ({
   logger: {
     info: jest.fn(),
@@ -12,6 +10,10 @@ jest.mock('../../utils/logger', () => ({
 jest.mock('../../database/init', () => ({
   ensureDatabase: jest.fn().mockResolvedValue(undefined),
 }));
+
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { getClientIp } from '../../utils/api/clientIp';
+import { redactSecrets, redactUrl } from '../../utils/logRedaction';
 
 describe('withApiLogging', () => {
   const { logger } = require('../../utils/logger') as {
@@ -217,5 +219,83 @@ describe('withApiLogging', () => {
     expect(capturedRequestId).toBeDefined();
     expect(typeof capturedRequestId).toBe('string');
     expect(capturedRequestId!.length).toBeGreaterThan(0);
+  });
+});
+
+describe('redactSecrets', () => {
+  it('redacts passwords, tokens, API keys and private keys', () => {
+    expect(redactSecrets({
+      password: 'a', smtp_password: 'b', scraping_api: 'c', refresh_token: 'd', private_key: 'e', apiKey: 'f', adwords_client_secret: 'g', Authorization: 'h',
+    })).toEqual({
+      password: '[REDACTED]', smtp_password: '[REDACTED]', scraping_api: '[REDACTED]', refresh_token: '[REDACTED]', private_key: '[REDACTED]', apiKey: '[REDACTED]', adwords_client_secret: '[REDACTED]', Authorization: '[REDACTED]',
+    });
+  });
+
+  it('does not treat keyword fields as secrets', () => {
+    expect(redactSecrets({ keyword: 'running shoes', keywords: ['a'], keywordID: 4, domain: 'example.com' }))
+      .toEqual({ keyword: 'running shoes', keywords: ['a'], keywordID: 4, domain: 'example.com' });
+  });
+
+  it('walks nested objects and arrays, and leaves empty strings and non-strings alone', () => {
+    expect(redactSecrets({ settings: { smtp_password: 'x', smtp_port: 587 }, list: [{ token: 't' }], password: '' }))
+      .toEqual({ settings: { smtp_password: '[REDACTED]', smtp_port: 587 }, list: [{ token: '[REDACTED]' }], password: '' });
+  });
+
+  it('redacts extra keys such as the OAuth code and state only when asked', () => {
+    expect(redactSecrets({ code: 'abc', state: 'xyz', domain: 'a.com' })).toEqual({ code: 'abc', state: 'xyz', domain: 'a.com' });
+    expect(redactSecrets({ code: 'abc', state: 'xyz', domain: 'a.com' }, ['code', 'state'])).toEqual({ code: '[REDACTED]', state: '[REDACTED]', domain: 'a.com' });
+  });
+
+  it('does not change the input', () => {
+    const input = { password: 'a' };
+    redactSecrets(input);
+    expect(input.password).toBe('a');
+  });
+});
+
+describe('redactUrl', () => {
+  it('hides OAuth code and state values', () => {
+    expect(redactUrl('/api/adwords?code=4/abc&state=xyz&x=1')).toBe('/api/adwords?code=[REDACTED]&state=[REDACTED]&x=1');
+    expect(redactUrl(undefined)).toBe('');
+  });
+});
+
+describe('getClientIp', () => {
+  const makeReq = (headers: Record<string, string | string[]>, remoteAddress = '10.0.0.9') => (
+    { headers, socket: { remoteAddress } } as unknown as NextApiRequest
+  );
+
+  const original = process.env.TRUST_PROXY;
+  afterEach(() => {
+    if (original === undefined) { delete process.env.TRUST_PROXY; } else { process.env.TRUST_PROXY = original; }
+  });
+
+  it('uses the socket address by default and ignores a forwarded header', () => {
+    delete process.env.TRUST_PROXY;
+    expect(getClientIp(makeReq({ 'x-forwarded-for': '1.2.3.4' }))).toBe('10.0.0.9');
+  });
+
+  it('reads the entry one hop from the right when TRUST_PROXY=true', () => {
+    process.env.TRUST_PROXY = 'true';
+    // the client-supplied first entry is ignored; our proxy appended the last one
+    expect(getClientIp(makeReq({ 'x-forwarded-for': '6.6.6.6, 203.0.113.5' }))).toBe('203.0.113.5');
+  });
+
+  it('honours a hop count', () => {
+    process.env.TRUST_PROXY = '2';
+    expect(getClientIp(makeReq({ 'x-forwarded-for': '6.6.6.6, 203.0.113.5, 172.16.0.1' }))).toBe('203.0.113.5');
+  });
+
+  it('falls back to the socket address when the entry is missing or not an IP', () => {
+    process.env.TRUST_PROXY = '1';
+    expect(getClientIp(makeReq({}))).toBe('10.0.0.9');
+    expect(getClientIp(makeReq({ 'x-forwarded-for': 'not-an-ip' }))).toBe('10.0.0.9');
+    process.env.TRUST_PROXY = '3';
+    expect(getClientIp(makeReq({ 'x-forwarded-for': '203.0.113.5' }))).toBe('10.0.0.9');
+  });
+
+  it('returns unknown without a socket address', () => {
+    delete process.env.TRUST_PROXY;
+    expect(getClientIp({ headers: {} } as unknown as NextApiRequest)).toBe('unknown');
   });
 });

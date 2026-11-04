@@ -24,6 +24,9 @@ import { retryQueueManager } from '../../utils/retryQueueManager';
 import { atomicWriteFile } from '../../utils/atomicWrite';
 import * as lockfile from 'proper-lockfile';
 
+// Queue entries with zero attempts, as readQueue returns them for bare keyword IDs
+const entries = (...ids: number[]) => ids.map((id) => ({ id, attempts: 0 }));
+
 describe('RetryQueueManager', () => {
    const testFilePath = path.join(process.cwd(), 'data', 'failed_queue.json');
    let mockRelease: jest.Mock;
@@ -46,23 +49,28 @@ describe('RetryQueueManager', () => {
 
          await retryQueueManager.addToQueue(123);
 
+         // A new keyword starts at one attempt
          expect(atomicWriteFile).toHaveBeenCalledWith(
             testFilePath,
-            JSON.stringify([123]),
+            JSON.stringify([{ id: 123, attempts: 1 }]),
             'utf-8'
          );
          expect(lockfile.lock).toHaveBeenCalled();
          expect(mockRelease).toHaveBeenCalled();
       });
 
-      it('should not add duplicate keyword IDs', async () => {
+      it('should count a re-queue of an existing keyword as one more attempt', async () => {
          // Mock reading queue with existing ID
-         jest.spyOn(retryQueueManager as any, 'readQueue').mockResolvedValue([123, 456]);
+         jest.spyOn(retryQueueManager as any, 'readQueue').mockResolvedValue(entries(123, 456));
 
          await retryQueueManager.addToQueue(123);
 
-         // atomicWriteFile should not be called since ID already exists
-         expect(atomicWriteFile).not.toHaveBeenCalled();
+         // Only keyword 123 changes; 456 keeps the bare-ID form
+         expect(atomicWriteFile).toHaveBeenCalledWith(
+            testFilePath,
+            JSON.stringify([{ id: 123, attempts: 1 }, 456]),
+            'utf-8'
+         );
          expect(lockfile.lock).toHaveBeenCalled();
          expect(mockRelease).toHaveBeenCalled();
       });
@@ -83,7 +91,7 @@ describe('RetryQueueManager', () => {
          jest.spyOn(retryQueueManager as any, 'readQueue').mockImplementation(async () => {
             callCount++;
             // Simulate each call seeing the queue before the other's write
-            return callCount === 1 ? [] : [123];
+            return callCount === 1 ? [] : entries(123);
          });
 
          // Both additions should be serialized by the lock
@@ -100,7 +108,7 @@ describe('RetryQueueManager', () => {
 
    describe('removeFromQueue', () => {
       it('should remove a keyword ID from the queue', async () => {
-         jest.spyOn(retryQueueManager as any, 'readQueue').mockResolvedValue([123, 456, 789]);
+         jest.spyOn(retryQueueManager as any, 'readQueue').mockResolvedValue(entries(123, 456, 789));
 
          await retryQueueManager.removeFromQueue(456);
 
@@ -114,7 +122,7 @@ describe('RetryQueueManager', () => {
       });
 
       it('should not write if keyword ID not in queue', async () => {
-         jest.spyOn(retryQueueManager as any, 'readQueue').mockResolvedValue([123, 456]);
+         jest.spyOn(retryQueueManager as any, 'readQueue').mockResolvedValue(entries(123, 456));
 
          await retryQueueManager.removeFromQueue(789);
 
@@ -124,7 +132,7 @@ describe('RetryQueueManager', () => {
       });
 
       it('should handle negative keyword IDs (absolute value)', async () => {
-         jest.spyOn(retryQueueManager as any, 'readQueue').mockResolvedValue([123, 456]);
+         jest.spyOn(retryQueueManager as any, 'readQueue').mockResolvedValue(entries(123, 456));
 
          await retryQueueManager.removeFromQueue(-456);
 
@@ -138,7 +146,7 @@ describe('RetryQueueManager', () => {
 
    describe('removeBatch', () => {
       it('should remove multiple keyword IDs in one operation', async () => {
-         jest.spyOn(retryQueueManager as any, 'readQueue').mockResolvedValue([123, 456, 789, 101]);
+         jest.spyOn(retryQueueManager as any, 'readQueue').mockResolvedValue(entries(123, 456, 789, 101));
 
          await retryQueueManager.removeBatch(new Set([456, 789]));
 
@@ -151,7 +159,7 @@ describe('RetryQueueManager', () => {
       });
 
       it('should not write if no IDs match', async () => {
-         jest.spyOn(retryQueueManager as any, 'readQueue').mockResolvedValue([123, 456]);
+         jest.spyOn(retryQueueManager as any, 'readQueue').mockResolvedValue(entries(123, 456));
 
          await retryQueueManager.removeBatch(new Set([789, 101]));
 
@@ -163,27 +171,6 @@ describe('RetryQueueManager', () => {
 
          expect(atomicWriteFile).not.toHaveBeenCalled();
          expect(lockfile.lock).not.toHaveBeenCalled();
-      });
-   });
-
-   describe('getQueue', () => {
-      it('should return the current queue', async () => {
-         const mockQueue = [123, 456, 789];
-         jest.spyOn(retryQueueManager as any, 'readQueue').mockResolvedValue(mockQueue);
-
-         const result = await retryQueueManager.getQueue();
-
-         expect(result).toEqual(mockQueue);
-         expect(lockfile.lock).toHaveBeenCalled();
-         expect(mockRelease).toHaveBeenCalled();
-      });
-
-      it('should return empty array when queue file does not exist', async () => {
-         jest.spyOn(retryQueueManager as any, 'readQueue').mockResolvedValue([]);
-
-         const result = await retryQueueManager.getQueue();
-
-         expect(result).toEqual([]);
       });
    });
 
@@ -256,20 +243,73 @@ describe('RetryQueueManager', () => {
       });
    });
 
-   describe('data validation', () => {
-      it('should filter out invalid IDs when reading', async () => {
-         // Mock readQueue to simulate reading a queue with invalid entries
-         jest.spyOn(retryQueueManager as any, 'readQueue').mockImplementation(async function(this: any) {
-            // Simulate reading a queue with invalid entries
-            const mockData = '[123, -456, 0, "invalid", null, 789.5, 999]';
-            const parsed = JSON.parse(mockData);
-            return Array.isArray(parsed) ? parsed.filter((id: any) => Number.isInteger(id) && id > 0) : [];
-         });
+});
 
-         const result = await retryQueueManager.getQueue();
+// Corrupt-file tests need fs/promises mocked, which would break the spies above, so they load in an isolated registry.
+describe('RetryQueueManager with a corrupt queue file', () => {
+  let isolatedQueue: any;
+  let readMock: jest.Mock;
+  let renameMock: jest.Mock;
 
-         // Should only include valid positive integers
-         expect(result).toEqual([123, 999]);
-      });
-   });
+  beforeAll(() => {
+    jest.resetModules();
+    jest.doMock('fs/promises', () => ({
+      __esModule: true,
+      readFile: jest.fn(),
+      rename: jest.fn().mockResolvedValue(undefined),
+      mkdir: jest.fn().mockResolvedValue(undefined),
+    }));
+    jest.doMock('../../utils/atomicWrite', () => ({
+      __esModule: true,
+      atomicWriteFile: jest.fn().mockResolvedValue(undefined),
+    }));
+    jest.doMock('proper-lockfile', () => ({
+      lock: jest.fn().mockResolvedValue(jest.fn().mockResolvedValue(undefined)),
+    }));
+    jest.isolateModules(() => {
+      isolatedQueue = require('../../utils/retryQueueManager').retryQueueManager;
+      readMock = require('fs/promises').readFile;
+      renameMock = require('fs/promises').rename;
+    });
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('moves the damaged file aside once and returns an empty queue', async () => {
+    readMock.mockResolvedValue('{not json');
+
+    await expect(isolatedQueue.peekQueue()).resolves.toEqual([]);
+
+    expect(renameMock).toHaveBeenCalledTimes(1);
+    expect(renameMock).toHaveBeenCalledWith(
+      expect.stringMatching(/failed_queue\.json$/),
+      expect.stringMatching(/failed_queue\.json\.corrupt-\d+$/),
+    );
+  });
+
+  it('keeps queue writes working after the file was reset', async () => {
+    readMock.mockResolvedValue('');
+
+    await expect(isolatedQueue.addToQueue(5)).resolves.toBeUndefined();
+  });
+
+  it('reads bare IDs as zero attempts and object entries with their attempts (missing attempts = 0)', async () => {
+    readMock.mockResolvedValue(JSON.stringify([5, { id: 6, attempts: 2 }, { id: 7 }]));
+
+    await expect(isolatedQueue.peekEntries()).resolves.toEqual([
+      { id: 5, attempts: 0 },
+      { id: 6, attempts: 2 },
+      { id: 7, attempts: 0 },
+    ]);
+    await expect(isolatedQueue.getAttempts(6)).resolves.toBe(2);
+    await expect(isolatedQueue.getAttempts(99)).resolves.toBe(0);
+  });
+
+  it('peekQueue never throws, even on an unexpected read error', async () => {
+    readMock.mockRejectedValue(Object.assign(new Error('denied'), { code: 'EACCES' }));
+
+    await expect(isolatedQueue.peekQueue()).resolves.toEqual([]);
+  });
 });

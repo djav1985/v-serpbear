@@ -13,7 +13,6 @@ type DomainType = {
    slug: string,
    tags?: string,
    scrapeEnabled?: boolean,
-   notification_interval: string,
    notification_emails: string,
    lastUpdated: string,
    added: string,
@@ -107,7 +106,6 @@ type DomainSearchConsole = {
 }
 
 type DomainSettings = {
-   notification_interval: string,
    notification_emails: string,
    search_console?: DomainSearchConsole,
    scrapeEnabled?: boolean,
@@ -120,6 +118,7 @@ type DomainSettings = {
 
 type SettingsType = {
    scraper_type: string,
+   timezone?: string,
    scraping_api?: string,
    notification_interval: string,
    notification_email: string,
@@ -317,8 +316,6 @@ interface ScraperSettings {
     * If provided, only these countries will be available in the keyword-adding dropdown for this scraper.
     * If not provided, all countries with a non-null googleDomain will be available. */
    scraperCountries?: string[],
-   /** Whether this scraper API handles its own pagination (e.g. num=100) and should bypass the app's pagination logic */
-   nativePagination?: boolean,
    /** Set your own custom HTTP header properties when making the scraper API request.
     * The function should return an object that contains all the header properties you want to pass to API request's header.
     * Example: `{'Cache-Control': 'max-age=0', 'Content-Type': 'application/json'}` */
@@ -353,32 +350,6 @@ type JwtDecodedPayload = {
    user?: string,
    iat?: number,
    exp?: number,
-}
-
-// Scraper Response Types - for map pack and local results
-type ScraperResponseWithLocalResults = {
-   organic_results?: any[],
-   local_results?: any[] | {
-      results?: any[],
-      local_results?: any[],
-      places?: any[],
-   },
-   localResults?: any[],
-   local_pack?: {
-      results?: any[],
-   },
-   results?: {
-      local_results?: any[],
-   },
-   local_map?: any[] | {
-      places?: any[],
-   },
-   maps_results?: any[],
-   map_results?: any[],
-   places_results?: any[],
-   place_results?: any[],
-   places?: any[],
-   mobile_local_results?: any[],
 }
 
 // Settings with extended properties

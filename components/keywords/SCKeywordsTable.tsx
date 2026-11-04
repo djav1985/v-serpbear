@@ -30,6 +30,29 @@ type SCCountryDataType = {
    visits: number
 }
 
+type SCRowData = {
+   items: SCKeywordType[],
+   selectedKeywords: string[],
+   selectKeyword: (keywordID: string, isTrackedKeyword?: boolean) => void,
+   trackedKeywordLookup: Record<string, boolean>,
+};
+
+// Defined at module scope so react-window does not remount rows on every render. State comes in through itemData.
+const SCKeywordRow = ({ data, index, style }: ListChildComponentProps<SCRowData>) => {
+   const keyword = data.items[index];
+   return (
+      <SCKeyword
+      key={keyword.uid}
+      style={style}
+      selected={data.selectedKeywords.includes(keyword.uid)}
+      selectKeyword={data.selectKeyword}
+      keywordData={keyword}
+      isTracked={!!data.trackedKeywordLookup[`${keyword.keyword}:${keyword.country}:${keyword.device}`]}
+      lastItem={index === (data.items.length - 1)}
+      />
+   );
+};
+
 const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleIntegrated = true }: SCKeywordsTableProps) => {
    const router = useRouter();
    const [device, setDevice] = useState<string>('desktop');
@@ -89,16 +112,25 @@ const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleInt
       if (keyCount === 0) {
          return { position: 0, impressions: 0, visits: 0, ctr: 0 };
       }
-      const kwSummary = keywordsForDevice.reduce((acc, keyword) => ({
-         position: acc.position + (keyword.position ?? 0),
-         impressions: acc.impressions + (keyword.impressions ?? 0),
-         visits: acc.visits + (keyword.clicks ?? 0),
-         ctr: acc.ctr + (keyword.ctr ?? 0),
-      }), { position: 0, impressions: 0, visits: 0, ctr: 0 });
+      // Position is weighted by impressions and CTR is total clicks over total impressions.
+      // With no impressions at all, position falls back to a plain average and CTR to 0.
+      let totalImpressions = 0;
+      let totalVisits = 0;
+      let impressionWeightedPosition = 0;
+      let positionSum = 0;
+      keywordsForDevice.forEach((keyword) => {
+         const impressions = keyword.impressions ?? 0;
+         const position = keyword.position ?? 0;
+         totalImpressions += impressions;
+         totalVisits += keyword.clicks ?? 0;
+         impressionWeightedPosition += position * impressions;
+         positionSum += position;
+      });
       return {
-         ...kwSummary,
-         position: Math.round(kwSummary.position / keyCount),
-         ctr: keyCount ? kwSummary.ctr / keyCount : 0,
+         position: Math.round(totalImpressions > 0 ? impressionWeightedPosition / totalImpressions : positionSum / keyCount),
+         impressions: totalImpressions,
+         visits: totalVisits,
+         ctr: totalImpressions > 0 ? (totalVisits / totalImpressions) * 100 : 0,
       };
    }, [finalKeywords, device]);
 
@@ -151,20 +183,12 @@ const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleInt
 
    const selectedAllItems = selectableKeywordIds.length > 0 && selectedKeywords.length === selectableKeywordIds.length;
 
-   const Row = ({ data, index, style }:ListChildComponentProps) => {
-      const keyword = data[index];
-      return (
-         <SCKeyword
-         key={keyword.uid}
-         style={style}
-         selected={selectedKeywords.includes(keyword.uid)}
-         selectKeyword={selectKeyword}
-         keywordData={keyword}
-         isTracked={!!trackedKeywordLookup[`${keyword.keyword}:${keyword.country}:${keyword.device}`]}
-         lastItem={index === (finalKeywords[device].length - 1)}
-         />
-   );
-};
+   const rowData: SCRowData = {
+      items: finalKeywords[device] || [],
+      selectedKeywords,
+      selectKeyword,
+      trackedKeywordLookup,
+   };
 
    return (
       <div>
@@ -219,14 +243,14 @@ const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleInt
                      {!isLoading && finalKeywords[device] && finalKeywords[device].length > 0 && (
                         <List
                         innerElementType="div"
-                        itemData={finalKeywords[device]}
+                        itemData={rowData}
                         itemCount={finalKeywords[device].length}
                         itemSize={isMobile ? 100 : 57}
                         height={SCListHeight}
                         width={'100%'}
                         className={'styled-scrollbar'}
                         >
-                           {Row}
+                           {SCKeywordRow}
                         </List>
                      )}
                      {!isLoading && finalKeywords[device] && (

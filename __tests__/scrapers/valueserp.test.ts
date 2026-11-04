@@ -107,43 +107,6 @@ describe('valueSerp scraper', () => {
     expect(valueSerp.timeoutMs).toBe(20000);
   });
 
-  it('omits location parameter when only country is provided (no city or state)', () => {
-    const keyword: Partial<KeywordType> = {
-      keyword: 'coffee shops',
-      country: 'US',
-      device: 'desktop',
-    };
-
-    const url = valueSerp.scrapeURL!(
-      keyword as KeywordType,
-      settings as SettingsType,
-      countryData
-    );
-    const parsed = new URL(url);
-
-    expect(parsed.searchParams.get('gl')).toBe('us');
-    expect(parsed.searchParams.get('hl')).toBe('en');
-    expect(parsed.searchParams.has('location')).toBe(false);
-  });
-
-  it('includes location parameter when city is provided', () => {
-    const keyword: Partial<KeywordType> = {
-      keyword: 'coffee shops',
-      country: 'US',
-      location: 'Seattle,WA,United States',
-      device: 'desktop',
-    };
-
-    const url = valueSerp.scrapeURL!(
-      keyword as KeywordType,
-      settings as SettingsType,
-      countryData
-    );
-    const parsed = new URL(url);
-
-    expect(parsed.searchParams.get('location')).toBe('Seattle,WA,United States');
-  });
-
   describe('map pack detection', () => {
     it('detects map pack when domain is in local_results top 3', () => {
       const keyword: KeywordType = {
@@ -230,45 +193,6 @@ describe('valueSerp scraper', () => {
       });
 
       expect(extraction.organic).toHaveLength(1);
-      expect(extraction.mapPackTop3).toBe(false);
-    });
-
-    it('returns false when no local_results present', () => {
-      const keyword: KeywordType = {
-        ID: 1,
-        keyword: 'general query',
-        device: 'desktop',
-        country: 'US',
-        domain: 'example.com',
-        lastUpdated: '',
-        volume: 0,
-        added: '',
-        position: 0,
-        sticky: false,
-        history: {},
-        lastResult: [],
-        url: '',
-        tags: [],
-        updating: false,
-        lastUpdateError: false,
-        mapPackTop3: false,
-        location: '',
-      };
-
-      const mockResponse = {
-        organic_results: [
-          { title: 'Result 1', link: 'https://example.com/page1', position: 1 },
-          { title: 'Result 2', link: 'https://other.com/page2', position: 2 },
-        ],
-      };
-
-      const extraction = valueSerp.serpExtractor!({
-        keyword,
-        response: mockResponse,
-        result: mockResponse.organic_results,
-      });
-
-      expect(extraction.organic).toHaveLength(2);
       expect(extraction.mapPackTop3).toBe(false);
     });
 

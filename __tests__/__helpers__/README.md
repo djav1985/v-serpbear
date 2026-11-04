@@ -51,8 +51,7 @@ Use the **contract + delta** pattern when multiple implementations share the sam
 ```
 __tests__/scrapers/
   scrapers.matrix.test.ts   ← contract: runs runScraperURLContracts() against all providers
-  serpapi.test.ts            ← delta:    SerpApi-specific URL params & map-pack extraction
-  serper.test.ts             ← delta:    Serper-specific location & header logic
+  providers.delta.test.ts    ← delta:    hasdata, serper, serpapi, serply & searchapi specifics
   ...
 ```
 
@@ -84,30 +83,29 @@ it('returns 401 when not authorised', async () => {
 
 ### Consolidated Suites (Reference)
 
-| New file | Replaces |
+Each row is an existing suite. Source suites merged into it in earlier passes have been removed, so only the consolidated target and the area it covers are listed.
+
+| Consolidated file | Covers |
 |----------|---------|
-| `utils/refresh.core.behavior.test.ts` | refresh.test.ts, refresh-sync.test.ts, refresh-atomic-flag-clearing.test.ts |
-| `utils/refresh.side-effects.behavior.test.ts` | refresh-history-trim.test.ts, refresh-business-name.test.ts, refresh-parallel-domain-stats.test.ts, refresh-override-logging.test.ts |
-| `utils/refresh-queue.behavior.test.ts` | refreshQueue.test.ts, refreshQueue-config.test.ts |
-| `utils/searchConsole.behavior.test.ts` | searchConsole.test.ts, searchConsoleErrorLogging.test.ts, domain-conversion.test.ts |
-| `services/searchConsole-hooks.behavior.test.ts` | services/searchConsole.test.ts |
-| `utils/client/exportcsv.behavior.test.ts` | utils/exportcsv.test.ts, utils/client/exportcsv.test.ts |
-| `components/common-layout.behavior.test.tsx` | Footer.test.tsx, PageLoader.test.tsx, SpinnerMessage.test.tsx, Branding.test.tsx |
-| `components/settings-panels.behavior.test.tsx` | SearchConsoleSettings.test.tsx, Settings.test.tsx |
-| `components/ui-primitives.behavior.test.tsx` | Icon.test.tsx, Modal.test.tsx, ToggleField.test.tsx, toggleStyles.test.ts |
-| `components/navigation.behavior.test.tsx` | Sidebar.test.tsx, Topbar.test.tsx |
-| `utils/api/api.utils.behavior.test.ts` | utils/api/isRequestSecure.test.ts, utils/api/parseBooleanQueryParam.test.ts, utils/api/response.test.ts, utils/normalizeOrigin.test.ts |
-| `utils/dbBooleans.test.ts` (extended) | utils/boolean-normalization.test.ts (merged in) |
-| `utils/scraper.test.ts` (extended) | scraperHelpers.test.ts, scraperError.test.ts, google-filter.test.ts |
-| `utils/client/apiClient.test.ts` (extended) | utils/client/fetchWithError.test.ts |
-| `utils/client/client-utils.behavior.test.ts` | chartBounds.test.ts, validators.test.ts, helpers.test.ts |
-| `utils/codebase-contracts.behavior.test.ts` | breakpointConsistency.test.ts, mapPackScraperSupport.test.ts |
-| `utils/refresh.core.behavior.test.ts` (extended) | sync-verification.test.ts |
-| `services/domains.behavior.test.ts` | domains.env.test.ts, domains.fetchDomain.test.ts, domains.screenshot-cache.test.ts |
-| `services/keywords.behavior.test.ts` | keywordIdeasFetch.test.ts, keywords.fetchKeywords.test.ts |
-| `pages/page-renders.behavior.test.tsx` | pages/index.test.tsx, pages/researchPage.test.tsx, pages/_app.test.tsx |
-| `scrapers/scrapers.matrix.test.ts` | shared URL-contract checks previously duplicated across provider files |
-| `hooks/hooks.behavior.test.tsx` | hooks/useBranding.test.tsx, hooks/domains.test.tsx |
+| `utils/refresh.core.behavior.test.ts` | Keyword refresh flow, sync verification, atomic flag clearing |
+| `utils/refresh.side-effects.behavior.test.ts` | Refresh side effects: history trimming, business name, parallel domain stats, override logging |
+| `utils/refresh-queue.behavior.test.ts` | Refresh queue behaviour and configuration |
+| `utils/searchConsole.behavior.test.ts` | Search Console utils: behaviour, error logging, domain conversion |
+| `services/searchConsole-hooks.behavior.test.ts` | Search Console service hooks |
+| `utils/client/client-utils.behavior.test.ts` | Chart bounds, validators, helpers, CSV payload formatting and CSV export download |
+| `components/common-layout.behavior.test.tsx` | Footer, page loader, spinner message, branding |
+| `components/settings/NotificationSettings.test.tsx` | Notification settings, settings scraper reload behaviour, Search Console settings panel |
+| `components/ui-primitives.behavior.test.tsx` | Icon, modal, toggle field and toggle styles |
+| `components/navigation.behavior.test.tsx` | Sidebar and topbar |
+| `utils/api/api.utils.behavior.test.ts` | Request security, boolean query parsing, response helpers, origin normalisation |
+| `utils/dbBooleans.test.ts` | Boolean normalisation (extended) |
+| `utils/scraper.test.ts` | Country code resolution, error serialisation, SERP domain matching, scraper error extraction (extended) |
+| `utils/client/apiClient.test.ts` | Client fetch wrapper error handling (extended) |
+| `services/domains.behavior.test.ts` | Domain service: env handling, domain fetch, screenshot cache |
+| `services/keywords.behavior.test.ts` | Keyword service: idea fetch and keyword fetch |
+| `pages/page-renders.behavior.test.tsx` | Page render checks for the index, research and app shell pages |
+| `scrapers/scrapers.matrix.test.ts` | Shared URL-contract checks across all scraper providers |
+| `hooks/hooks.behavior.test.tsx` | Branding and domains hooks |
 
 ## Available Helpers
 
@@ -248,6 +246,6 @@ When adding new test helpers:
 
 1. Create the helper function in an appropriate file
 2. Export it from `index.ts`
-3. Add tests in `helpers.test.ts`
+3. Add tests for the helper in the suite that exercises it (there is no separate helper test file)
 4. Document it in this README
 5. Ensure it follows the existing patterns

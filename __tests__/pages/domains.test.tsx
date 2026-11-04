@@ -4,10 +4,17 @@ import * as ReactQuery from 'react-query';
 import { dummyDomain } from '../../__mocks__/data';
 import Domains from '../../pages/domains';
 import router from 'next-router-mock';
+import toast from 'react-hot-toast';
 import { DEFAULT_BRANDING } from '../../utils/branding';
 import { useBranding } from '../../hooks/useBranding';
 
 jest.mock('../../hooks/useBranding');
+jest.mock('react-hot-toast', () => ({
+  __esModule: true,
+  default: jest.fn(),
+}));
+
+const toastMock = toast as unknown as jest.Mock;
 
 const mockUseBranding = useBranding as jest.MockedFunction<typeof useBranding>;
 
@@ -62,6 +69,7 @@ const buildUseQueryImplementation = (overrides?: QueryOverrides) => {
       data: { settings: { version: '4.0.0', scraper_type: 'serpapi', search_console_integrated: false } },
       isLoading: false,
       isSuccess: true,
+      refetch: jest.fn().mockResolvedValue({}),
    };
    const defaultDomains = {
       data: { domains: [dummyDomain] },
@@ -118,23 +126,6 @@ afterEach(() => {
 
 describe('Domains Page', () => {
    const queryClient = new QueryClient();
-   it('Renders without crashing', async () => {
-      render(
-          <QueryClientProvider client={queryClient}>
-              <Domains />
-          </QueryClientProvider>,
-      );
-      expect(screen.getByTestId('domains')).toBeInTheDocument();
-   });
-   it('Renders the Domain Component', async () => {
-      const { container } = render(
-          <QueryClientProvider client={queryClient}>
-              <Domains />
-          </QueryClientProvider>,
-      );
-      expect(container.querySelector('.domItem')).toBeInTheDocument();
-   });
-
    it('handles malformed search console JSON gracefully', async () => {
       useQuerySpy.mockImplementation(buildUseQueryImplementation({
          domains: {
@@ -175,33 +166,61 @@ describe('Domains Page', () => {
       expect(overlay).toHaveClass('fixed');
    });
 
-   it('wraps page content with the shared body gutter', () => {
-      const { container } = render(
-          <QueryClientProvider client={queryClient}>
-              <Domains />
-          </QueryClientProvider>,
-      );
-      const layoutWrapper = container.querySelector('.desktop-container.py-6');
-      expect(layoutWrapper).toBeInTheDocument();
-      expect(layoutWrapper).toHaveClass('py-6');
-   });
    it('Should Display Add Domain Modal on relveant Button Click.', async () => {
       render(<QueryClientProvider client={queryClient}><Domains /></QueryClientProvider>);
       const button = screen.getByTestId('addDomainButton');
       if (button) fireEvent.click(button);
       expect(screen.getByTestId('adddomain_modal')).toBeVisible();
    });
-   it('does not render the legacy auto-migration banner', async () => {
-      render(
-          <QueryClientProvider client={queryClient}>
-              <Domains />
-          </QueryClientProvider>,
-      );
-      expect(screen.queryByText('Updating database automatically...')).not.toBeInTheDocument();
-   });
    it('Should Display the version number in Footer.', async () => {
       render(<QueryClientProvider client={queryClient}><Domains /></QueryClientProvider>);
       expect(screen.getByText(footerTextMatcher('4.0.0'))).toBeVisible();
       expect(screen.queryByText(/Update to Version/i)).not.toBeInTheDocument();
+   });
+});
+
+describe('Google Ads OAuth redirect handling on the domains page', () => {
+   beforeEach(() => {
+      toastMock.mockClear();
+      router.setCurrentUrl('/domains');
+   });
+
+   it('shows a success toast, refetches settings and strips the ads params', () => {
+      router.setCurrentUrl('/domains?ads=integrated&status=success');
+      render(<QueryClientProvider client={new QueryClient()}><Domains /></QueryClientProvider>);
+
+      expect(toastMock).toHaveBeenCalledWith('Google Ads has been integrated successfully!', { icon: '✔️' });
+      expect(router.query).toEqual({});
+   });
+
+   it('shows the upstream error message when the integration failed', () => {
+      router.setCurrentUrl('/domains?ads=integrated&status=error&detail=Custom%20error%20from%20redirect');
+      render(<QueryClientProvider client={new QueryClient()}><Domains /></QueryClientProvider>);
+
+      expect(toastMock).toHaveBeenCalledWith('Custom error from redirect', { icon: '⚠️' });
+      expect(router.query).toEqual({});
+   });
+
+   it('falls back to the default error message when no detail is given', () => {
+      router.setCurrentUrl('/domains?ads=integrated&status=error');
+      render(<QueryClientProvider client={new QueryClient()}><Domains /></QueryClientProvider>);
+
+      expect(toastMock).toHaveBeenCalledWith('Google Ads integration failed. Please try again.', { icon: '⚠️' });
+   });
+
+   it('ignores the redirect when the ads param is not "integrated"', () => {
+      router.setCurrentUrl('/domains?ads=other&status=success');
+      render(<QueryClientProvider client={new QueryClient()}><Domains /></QueryClientProvider>);
+
+      expect(toastMock).not.toHaveBeenCalled();
+      expect(router.query).toEqual({ ads: 'other', status: 'success' });
+   });
+
+   it('keeps unrelated query params when removing the integration params', () => {
+      router.setCurrentUrl('/domains?ads=integrated&status=success&keep=this');
+      render(<QueryClientProvider client={new QueryClient()}><Domains /></QueryClientProvider>);
+
+      expect(toastMock).toHaveBeenCalledWith('Google Ads has been integrated successfully!', { icon: '✔️' });
+      expect(router.query).toEqual({ keep: 'this' });
    });
 });

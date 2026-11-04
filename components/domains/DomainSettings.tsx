@@ -81,6 +81,11 @@ const deriveDomainActiveState = (domainData?: DomainType | null): boolean => {
    return Boolean(domainData.scrapeEnabled);
 };
 
+// The server sends this marker in place of a saved Search Console credential and keeps the stored value when it is sent back.
+const SAVED_CREDENTIAL_MARKER = 'true';
+const SAVED_CREDENTIAL_PLACEHOLDER = 'Saved. Type a new value to replace it.';
+const isSavedCredential = (value?: string | null): boolean => value === SAVED_CREDENTIAL_MARKER;
+
 const defaultSearchConsoleSettings: DomainSearchConsole = {
    property_type: 'domain',
    url: '',
@@ -117,7 +122,6 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
    const initialScraperHasKey = domain?.scraper_settings?.has_api_key ?? false;
    const initialBusinessName = domain?.business_name ?? '';
    const [domainSettings, setDomainSettings] = useState<DomainSettings>(() => ({
-      notification_interval: domain?.notification_interval ?? 'never',
       notification_emails: domain?.notification_emails ?? '',
       search_console: parseSearchConsoleSettings(domain?.search_console),
       scrapeEnabled: initialActiveState,
@@ -153,7 +157,7 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
    const { mutate: deleteMutate } = useDeleteDomain(() => { closeModal(false); router.push('/domains'); });
 
    // Get the Full Domain Data along with the Search Console API Data.
-    useFetchDomain(router, domain?.domain || '', (domainObj:DomainType) => {
+    const domainQuery = useFetchDomain(router, domain?.domain || '', (domainObj:DomainType) => {
       const currentSearchConsoleSettings = parseSearchConsoleSettings(domainObj.search_console);
       const nextActive = deriveDomainActiveState(domainObj);
       const fetchedScraperSettings = domainObj.scraper_settings || null;
@@ -255,7 +259,11 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
       return payload;
    };
 
+   // Saving before the stored settings load would send the list's masked placeholders back, so Save waits for the load
+   const isDomainLoading = domainQuery?.isLoading === true || domainQuery?.isError === true;
+
    const updateDomain = () => {
+      if (isDomainLoading) { return; }
       const error = resolveSettingsError(domainSettings, hasStoredScraperKey);
       if (error && error.type) {
          showSettingsError(error, setSettingsError, setCurrentTab, errorTimeoutRef);
@@ -268,65 +276,8 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
       }
    };
 
-   const tabStyle = `inline-block min-w-0 truncate whitespace-nowrap px-2 sm:px-4 py-2 rounded-md cursor-pointer text-xs sm:text-sm select-none z-10
-                     text-gray-600 border border-b-0 relative top-[1px] rounded-b-none`;
-   return (
-   <div ref={ref || settingsRef}>
-         <Modal closeModal={() => closeModal(false)} title={'Domain Settings'} width="[500px]" verticalCenter={currentTab === 'searchconsole'} >
-            <div data-testid="domain_settings" className=" text-sm">
-               <div className=' mt-3 mb-5 border  border-slate-200 px-2 py-4 pb-0
-               relative left-[-20px] w-[calc(100%+40px)] border-l-0 border-r-0 bg-[#f8f9ff]'>
-                  <ul className='flex gap-1'>
-                     <li
-                     className={getTabClassName('notification', currentTab, tabStyle)}
-                     onClick={() => setCurrentTab('notification')}>
-                       <Icon type='email' /> Notification
-                     </li>
-                     <li
-                     className={getTabClassName('searchconsole', currentTab, tabStyle)}
-                     onClick={() => setCurrentTab('searchconsole')}>
-                        <Icon type='google' /> Search Console
-                     </li>
-                     <li
-                     className={getTabClassName('scraper', currentTab, tabStyle)}
-                     onClick={() => setCurrentTab('scraper')}>
-                        <Icon type='settings-alt' /> Scraper
-                     </li>
-                  </ul>
-               </div>
-
-               <div>
-                  {currentTab === 'notification' && (
-                     <>
-                        <div className="mb-4 flex flex-col gap-3 w-full">
-                           <label className='flex items-center justify-between gap-3 text-sm font-medium text-gray-700'>
-                              <span>{isDomainActive ? 'Active' : 'Deactive'}</span>
-                              <input
-                                 type='checkbox'
-                                 className='sr-only peer'
-                                 checked={isDomainActive}
-                                 value={isDomainActive.toString()}
-                                 aria-label='Toggle domain active status'
-                                 onChange={(event) => {
-                                    event.preventDefault();
-                                    updateDomainActiveState(!isDomainActive);
-                                 }}
-                              />
-                              <div className={TOGGLE_TRACK_CLASS_NAME} />
-                           </label>
-                        </div>
-                        <div className="mb-4 flex justify-between items-center w-full">
-                           <InputField
-                           label='Notification Emails'
-                           onChange={(emails:string) => setDomainSettings({ ...domainSettings, notification_emails: emails })}
-                           value={domainSettings.notification_emails || ''}
-                           placeholder='Your Emails'
-                           />
-                        </div>
-                     </>
-                  )}
-                  {currentTab === 'searchconsole' && (
-                     <>
+   const renderSearchConsoleTab = () => (
+      <>
                         <div className="mb-4 flex justify-between items-center w-full">
                            <label className='mb-2 font-semibold inline-block text-sm text-gray-700 capitalize'>Property Type</label>
                            <SelectField
@@ -361,8 +312,8 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
                               ...domainSettings,
                               search_console: { ...(domainSettings.search_console as DomainSearchConsole), client_email },
                            })}
-                           value={domainSettings?.search_console?.client_email || ''}
-                           placeholder='myapp@appspot.gserviceaccount.com'
+                           value={isSavedCredential(domainSettings?.search_console?.client_email) ? '' : (domainSettings?.search_console?.client_email || '')}
+                           placeholder={isSavedCredential(domainSettings?.search_console?.client_email) ? SAVED_CREDENTIAL_PLACEHOLDER : 'myapp@appspot.gserviceaccount.com'}
                            />
                         </div>
                         <div className="mb-4 flex flex-col justify-between items-center w-full">
@@ -370,18 +321,80 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
                            <textarea
                               className={`w-full p-2 border border-gray-200 rounded mb-3 text-xs 
                               focus:outline-none h-[100px] focus:border-blue-200`}
-                              value={domainSettings?.search_console?.private_key || ''}
-                              placeholder={'-----BEGIN PRIVATE KEY-----/ssssaswdkihad....'}
+                              value={isSavedCredential(domainSettings?.search_console?.private_key) ? '' : (domainSettings?.search_console?.private_key || '')}
+                              placeholder={isSavedCredential(domainSettings?.search_console?.private_key) ? SAVED_CREDENTIAL_PLACEHOLDER : '-----BEGIN PRIVATE KEY-----/ssssaswdkihad....'}
                               onChange={(event) => setDomainSettings({
                                  ...domainSettings,
                                  search_console: { ...(domainSettings.search_console as DomainSearchConsole), private_key: event.target.value },
                               })}
                            />
                         </div>
+      </>
+   );
+
+   const tabStyle = `inline-block min-w-0 truncate whitespace-nowrap px-2 sm:px-4 py-2 rounded-md cursor-pointer text-xs sm:text-sm select-none z-10
+                     text-gray-600 border border-b-0 relative top-[1px] rounded-b-none`;
+   return (
+   <div ref={ref || settingsRef}>
+         <Modal closeModal={() => closeModal(false)} title={'Domain Settings'} width="[500px]" verticalCenter={currentTab === 'searchconsole'} >
+            <div data-testid="domain_settings" className=" text-sm">
+               <div className=' mt-3 mb-5 border  border-slate-200 px-2 py-4 pb-0
+               relative left-[-20px] w-[calc(100%+40px)] border-l-0 border-r-0 bg-[#f8f9ff]'>
+                  <ul className='flex gap-1'>
+                     <li
+                     className={getTabClassName('notification', currentTab, tabStyle)}
+                     onClick={() => setCurrentTab('notification')}>
+                       <Icon type='email' /> Notification
+                     </li>
+                     <li
+                     className={getTabClassName('searchconsole', currentTab, tabStyle)}
+                     onClick={() => setCurrentTab('searchconsole')}>
+                        <Icon type='google' /> Search Console
+                     </li>
+                     <li
+                     className={getTabClassName('scraper', currentTab, tabStyle)}
+                     onClick={() => setCurrentTab('scraper')}>
+                        <Icon type='settings-alt' /> Scraper
+                     </li>
+                  </ul>
+               </div>
+
+               <div>
+                  {currentTab === 'notification' && (
+                     <>
+                        <div className="mb-4 flex justify-between items-center w-full">
+                           <InputField
+                           label='Notification Emails'
+                           onChange={(emails:string) => setDomainSettings({ ...domainSettings, notification_emails: emails })}
+                           value={domainSettings.notification_emails || ''}
+                           placeholder='Your Emails'
+                           />
+                        </div>
+                        <p className='text-xs text-gray-500 mb-4 w-full text-left'>
+                           Leave blank to turn off notification emails for this domain.
+                        </p>
                      </>
                   )}
+                  {currentTab === 'searchconsole' && renderSearchConsoleTab()}
                   {currentTab === 'scraper' && (
                      <>
+                        <div className="mb-4 flex flex-col gap-3 w-full">
+                           <label className='flex items-center justify-between gap-3 text-sm font-medium text-gray-700'>
+                              <span>{isDomainActive ? 'Active' : 'Deactive'}</span>
+                              <input
+                                 type='checkbox'
+                                 className='sr-only peer'
+                                 checked={isDomainActive}
+                                 value={isDomainActive.toString()}
+                                 aria-label='Toggle domain active status'
+                                 onChange={(event) => {
+                                    event.preventDefault();
+                                    updateDomainActiveState(!isDomainActive);
+                                 }}
+                              />
+                              <div className={TOGGLE_TRACK_CLASS_NAME} />
+                           </label>
+                        </div>
                         <div className="mb-4 flex justify-between items-center w-full">
                            <label className='mb-2 font-semibold inline-block text-sm text-gray-700 capitalize'>Scraper</label>
                            <SelectField
@@ -443,10 +456,13 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
                            <div className="mb-4 flex justify-between items-center w-full">
                               <SelectField
                                  label='Number of Pages to Scrape'
-                                 options={(Array.from({ length: 10 }, (_, i) => (
-                                    { label: `${i + 1} Page${i > 0 ? 's' : ''}`, value: String(i + 1) }
-                                 )) as SelectionOption[])}
-                                 selected={[String(domainSettings.scrape_pagination_limit || 5)]}
+                                 options={([
+                                    { label: 'Global default', value: '0' },
+                                    ...Array.from({ length: 10 }, (_, i) => (
+                                       { label: `${i + 1} Page${i > 0 ? 's' : ''}`, value: String(i + 1) }
+                                    )),
+                                 ] as SelectionOption[])}
+                                 selected={[String(domainSettings.scrape_pagination_limit || 0)]}
                                  defaultLabel="Select Page Count"
                                  updateField={(updated:string[]) => updated[0] && setDomainSettings({ ...domainSettings, scrape_pagination_limit: parseInt(updated[0], 10) })}
                                  multiple={false}
@@ -482,9 +498,10 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
                   <Icon type="trash" /> Remove Domain
                </button>
                <button
-               className={`text-sm font-semibold py-2 px-5 rounded cursor-pointer bg-blue-700 text-white ${isUpdating ? 'cursor-not-allowed' : ''}`}
+               className={`text-sm font-semibold py-2 px-5 rounded bg-blue-700 text-white ${isUpdating || isDomainLoading ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+               disabled={isDomainLoading}
                onClick={() => !isUpdating && updateDomain()}>
-                  {isUpdating && <Icon type='loading' />} Update Settings
+                  {isUpdating && <Icon type='loading' />} {isDomainLoading ? 'Loading…' : 'Update Settings'}
                </button>
             </div>
          </Modal>

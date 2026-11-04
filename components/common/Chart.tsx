@@ -1,8 +1,14 @@
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import { calculateChartBounds } from '../../utils/client/chartBounds';
+import {
+   registerLineChart,
+   BASE_CHART_OPTIONS,
+   getYAxisBounds,
+   CHART_DATASET_ID_KEY,
+   LINE_DATASET_COLORS,
+} from './chartSetup';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
+registerLineChart();
 
 type ChartProps = {
    labels: string[];
@@ -14,15 +20,9 @@ type ChartProps = {
 const Chart = ({ labels, series, reverse = true, noMaxLimit = false }: ChartProps) => {
    const { min, max } = calculateChartBounds(series, { reverse, noMaxLimit });
    const options = {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: false as const,
+      ...BASE_CHART_OPTIONS,
       scales: {
-         y: {
-            reverse,
-            min,
-            max,
-         },
+         y: getYAxisBounds(reverse, min, max),
       },
       plugins: {
          legend: {
@@ -33,7 +33,7 @@ const Chart = ({ labels, series, reverse = true, noMaxLimit = false }: ChartProp
 
    return (
       <Line
-         datasetIdKey="XXX"
+         datasetIdKey={CHART_DATASET_ID_KEY}
          options={options}
          data={{
             labels,
@@ -41,8 +41,7 @@ const Chart = ({ labels, series, reverse = true, noMaxLimit = false }: ChartProp
                {
                   fill: 'start',
                   data: series,
-                  borderColor: 'rgb(31, 205, 176)',
-                  backgroundColor: 'rgba(31, 205, 176, 0.5)',
+                  ...LINE_DATASET_COLORS,
                },
             ],
          }}
