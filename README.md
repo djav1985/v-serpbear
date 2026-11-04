@@ -1,27 +1,28 @@
 # SerpBear
 
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/7e7a0030c3f84c6fb56a3ce6273fbc1d)](https://app.codacy.com/gh/djav1985/v-serpbear/dashboard) ![License](https://img.shields.io/github/license/djav1985/v-serpbear) ![Version](https://img.shields.io/github/package-json/v/djav1985/v-serpbear) ![Docker pulls](https://img.shields.io/docker/pulls/vontainment/v-serpbear)
+
 ## What is SerpBear?
 
 SerpBear is a full-stack Next.js application that tracks where your pages rank on Google, enriches those rankings with Google Search Console and Google Ads data, and keeps stakeholders informed with scheduled email digests. The project ships as a production-ready Docker image, a conventional Node.js application, and a programmable REST API so you can integrate SERP intelligence wherever you need it.
 
-> [!WARNING]
-> Not every scraper provider is validated on every release. Please report any issues with specific integrations in GitHub Discussions.
+> **Warning:** Not every scraper provider is validated on every release. Please report any issues with specific integrations in GitHub Discussions.
 
-> ### ✨ Why v-serpbear outperforms upstream SerpBear
->
-> 1. **Bug fixes & patches.** Hardened scrapers survive DOM and API drift, patched dependency regressions, and keep long-running jobs stable under high request volumes.
-> 2. **Configuration & flexibility.** Streamlined environment variables, CI-powered deployment workflows, and dynamic toggles for ValueSerp, SerpAPI, and other providers eliminate hardcoded defaults.
-> 3. **Security & modernization.** Modern Node.js support, removal of deprecated libraries, and stricter sanitisation guard against warning-laden installs and insecure runtime behaviour.
-> 4. **Error handling & observability.** Descriptive logs, layered retry logic, and adjustable debug levels make diagnosing scraper hiccups or API failures straightforward.
-> 5. **Performance & caching.** Smarter SERP caching, batched keyword refreshes, and fewer redundant calls drive faster crawls while reducing API spend.
-> 6. **Google Map Pack.** Marks keywords that show up in the map pack.
-> 7. **White labeling.** Easy white-labeling.
-> 8. **Per-domain scraping.** Set scrapers per domain, globally, or both.
-> 9. **Transparent SERP result coverage.** The keyword details panel shows exactly which pages were scraped and which were skipped. Skipped page ranges appear as clearly labelled placeholder blocks between real results, and the "not found" badge reflects the number of results checked rather than always displaying "No Results".
-> 10. **Dynamic scraping strategy.** A flexible 3-tier system controls how many pages are checked per keyword at the global and per-domain level. **Basic** (default) scrapes only the first page; **Custom** scrapes a fixed number of pages (1–10); **Smart** targets the page where the keyword was last seen ± one neighbour, with an optional full-10-page fallback. This addresses Google's removal of `num=100` support, so keywords beyond position 10 are no longer always reported as "No Results".
-> 11. **Resilient restarts.** Any keyword left in a stuck "updating" state by a crash or container restart mid-scrape is reset on the next startup, so the UI never shows permanently stuck loading spinners.
+### ✨ Why v-serpbear outperforms upstream SerpBear
 
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/7e7a0030c3f84c6fb56a3ce6273fbc1d)](https://app.codacy.com/gh/djav1985/v-serpbear/dashboard) ![License](https://img.shields.io/github/license/djav1985/v-serpbear) ![Version](https://img.shields.io/github/package-json/v/djav1985/v-serpbear) ![Docker pulls](https://img.shields.io/docker/pulls/vontainment/v-serpbear)
+| # | Area | What changed |
+| --- | --- | --- |
+| 1 | **Bug fixes & patches** | Hardened scrapers survive DOM and API drift, patched dependency regressions, and keep long-running jobs stable under high request volumes. |
+| 2 | **Configuration & flexibility** | Streamlined environment variables, CI-powered deployment workflows, and dynamic toggles for ValueSerp, SerpAPI, and other providers eliminate hardcoded defaults. |
+| 3 | **Security & modernization** | Modern Node.js support, removal of deprecated libraries, and stricter sanitisation guard against warning-laden installs and insecure runtime behaviour. |
+| 4 | **Error handling & observability** | Descriptive logs, layered retry logic, and adjustable debug levels make diagnosing scraper hiccups or API failures straightforward. |
+| 5 | **Performance & caching** | Smarter SERP caching, batched keyword refreshes, and fewer redundant calls drive faster crawls while reducing API spend. |
+| 6 | **Google Map Pack** | Marks keywords that show up in the map pack. |
+| 7 | **White labeling** | Easy white-labeling. |
+| 8 | **Per-domain scraping** | Set scrapers per domain, globally, or both. |
+| 9 | **Transparent SERP result coverage** | The keyword details panel shows exactly which pages were scraped and which were skipped. Skipped page ranges appear as clearly labelled placeholder blocks between real results, and the "not found" badge reflects the number of results checked rather than always displaying "No Results". |
+| 10 | **Dynamic scraping strategy** | A flexible 3-tier system controls how many pages are checked per keyword at the global and per-domain level. **Basic** (default) scrapes only the first page; **Custom** scrapes a fixed number of pages (1–10); **Smart** targets the page where the keyword was last seen ± one neighbour, with an optional full-10-page fallback. This addresses Google's removal of `num=100` support, so keywords beyond position 10 are no longer always reported as "No Results". |
+| 11 | **Resilient restarts** | Any keyword left in a stuck "updating" state by a crash or container restart mid-scrape is reset on the next startup, so the UI never shows permanently stuck loading spinners. |
 
 ---
 
@@ -37,22 +38,21 @@ SerpBear is a full-stack Next.js application that tracks where your pages rank o
 
 ## Core capabilities
 
-- **Unlimited domains & keywords.** Organise an unrestricted number of tracked keywords across multiple sites.
-- **Turn-key scraping integrations.** Connect a managed SERP data provider and run high-volume organic rank checks with built-in retries.
-- **Failed scrape controls.** Retry all failed keyword scrapes immediately, or clear the failed retry queue from Settings.
-- **Keyword research & ideas.** Pull search volumes and suggested keywords straight from your Google Ads test account.
-- **Google Search Console enrichment.** Overlay verified impression and click data on keyword trends to see which rankings drive traffic.
-- **Scheduled notifications.** Deliver branded summaries of ranking changes, winners and losers, and visit counts to your inbox.
-  - Each digest opens with a tracker summary styled like the dashboard card: total tracked keywords, the rolling average position, and, when your scraper supports it, how many queries sit in the local map pack.
-  - Averages come from live keyword data. Persisted domain map-pack totals take priority, and keyword counts are used only when that stat is unavailable, so missing aggregates no longer drop either figure to zero.
-  - On small screens the tracker metrics align in columns, mirroring the desktop digest.
-- **Trusted domain stats.** Background jobs are the single source of truth for domain aggregates. Until they persist an average position or map-pack total, the API omits those fields rather than guessing from the latest keyword sample.
-- **Local map-pack tracking.** When a supported scraper returns the top-three local pack, SerpBear stores the flag and shows a stacked "MAP" badge under each keyword's country flag on the dashboard, plus a compact "MP" badge in email digests. The domains overview also shows a "Map Pack" counter when your scraper exposes this data.
-- **Mobile-ready progressive web app.** Install the dashboard on iOS or Android for monitoring on the go. The top navigation stretches edge to edge on phones.
-- **Adaptive desktop canvas.** Domain dashboards, Search Console insights, and the research workspace use a shared `desktop-container` utility that expands to 90% of the viewport on large screens.
-- **Focused loading states.** Keyword tables show their own loading indicators, so the single-domain and research workspaces stay visible while data refreshes. Only the domains index shows the full-page bootstrap overlay on first load.
-- **Robust API.** Manage domains, keywords, settings, and refresh jobs programmatically for automated reporting pipelines.
-- **Transparent SERP coverage in keyword details.** Search results are grouped into segments. Dashed "Page X: N results skipped" placeholders mark unchecked positions, an inline banner summarises scraped vs. skipped counts, and not-found keywords read "Not in First N" instead of a hardcoded 100.
+| # | Capability | Details |
+| --- | --- | --- |
+| 1 | **Unlimited domains & keywords** | Organise an unrestricted number of tracked keywords across multiple sites. |
+| 2 | **Turn-key scraping integrations** | Connect a managed SERP data provider and run high-volume organic rank checks with built-in retries. |
+| 3 | **Failed scrape controls** | Retry all failed keyword scrapes immediately, or clear the failed retry queue from Settings. |
+| 4 | **Keyword research & ideas** | Pull search volumes and suggested keywords straight from your Google Ads test account. |
+| 5 | **Google Search Console enrichment** | Overlay verified impression and click data on keyword trends to see which rankings drive traffic. |
+| 6 | **Scheduled notifications** | Deliver branded summaries of ranking changes, winners and losers, and visit counts to your inbox. Each digest opens with a tracker summary styled like the dashboard card: total tracked keywords, the rolling average position, and, when your scraper supports it, how many queries sit in the local map pack. Averages come from live keyword data. Persisted domain map-pack totals take priority, and keyword counts are used only when that stat is unavailable, so missing aggregates no longer drop either figure to zero. On small screens the tracker metrics align in columns, mirroring the desktop digest. |
+| 7 | **Trusted domain stats** | Background jobs are the single source of truth for domain aggregates. Until they persist an average position or map-pack total, the API omits those fields rather than guessing from the latest keyword sample. |
+| 8 | **Local map-pack tracking** | When a supported scraper returns the top-three local pack, SerpBear stores the flag and shows a stacked "MAP" badge under each keyword's country flag on the dashboard, plus a compact "MP" badge in email digests. The domains overview also shows a "Map Pack" counter when your scraper exposes this data. |
+| 9 | **Mobile-ready progressive web app** | Install the dashboard on iOS or Android for monitoring on the go. The top navigation stretches edge to edge on phones. |
+| 10 | **Adaptive desktop canvas** | Domain dashboards, Search Console insights, and the research workspace use a shared `desktop-container` utility that expands to 90% of the viewport on large screens. |
+| 11 | **Focused loading states** | Keyword tables show their own loading indicators, so the single-domain and research workspaces stay visible while data refreshes. Only the domains index shows the full-page bootstrap overlay on first load. |
+| 12 | **Robust API** | Manage domains, keywords, settings, and refresh jobs programmatically for automated reporting pipelines. |
+| 13 | **Transparent SERP coverage in keyword details** | Search results are grouped into segments. Dashed "Page X: N results skipped" placeholders mark unchecked positions, an inline banner summarises scraped vs. skipped counts, and not-found keywords read "Not in First N" instead of a hardcoded 100. |
 
 ## Platform architecture at a glance
 
@@ -67,7 +67,7 @@ SerpBear is a full-stack Next.js application that tracks where your pages rank o
 ![Animated dashboard tour](https://serpbear.b-cdn.net/serpbear_readme_v2.gif "Animated dashboard tour")
 ![New dashboard tour](./screenshot.jpg "New dashboard tour")
 
-> _If the animation above does not render, imagine a 15-second screen recording that walks through adding a domain, reviewing the keyword table, and exploring rank history charts. The UI mirrors what you will see after deploying the app._
+_If the animation above does not render, imagine a 15-second screen recording that walks through adding a domain, reviewing the keyword table, and exploring rank history charts. The UI mirrors what you will see after deploying the app._
 
 ---
 
@@ -93,8 +93,7 @@ The default compose stack uses a named Docker volume (`data`) mounted at `/app/d
 4. **Apply database migrations** with `npm run db:migrate` to set up the SQLite schema.
 5. Start the development server with `npm run dev`, or build and serve production assets with `npm run build && npm run start`.
 
-> [!NOTE]
-> Node.js 20 and older are no longer supported. Node.js 20 is end-of-life, and its bundled Brotli decoder is affected by CVE-2026-111497. Core dependencies such as `better-sqlite3` and `happy-dom` require a modern Node.js runtime.
+**Note:** Node.js 20 and older are no longer supported. Node.js 20 is end-of-life, and its bundled Brotli decoder is affected by CVE-2026-111497. Core dependencies such as `better-sqlite3` and `happy-dom` require a modern Node.js runtime.
 
 ### Database & migrations
 
@@ -112,19 +111,22 @@ SerpBear integrates with several managed SERP APIs. The table summarises their c
 
 | Provider | Working | Pricing snapshot* | Geo targeting | Map Pack coverage | Results coverage | API key header |
 | --- | --- | --- | --- | --- | --- | --- |
-| Serply (`serply`) | ? | Plans from $49/mo | City & region (supported markets) | **Yes**: extracts local map pack | Strategy-controlled (10 per page, up to 10 pages) | `X-Api-Key` + `X-Proxy-Location` |
+| Serply (`serply`) | ✅ Working | Plans from $49/mo | City & region (supported markets) | **Yes**: extracts local map pack | Strategy-controlled (10 per page, up to 10 pages) | `X-Api-Key` + `X-Proxy-Location` |
 | SerpApi (`serpapi`) | ✅ Working | Free 250/mo + plans from $75/mo | City-level | **Yes**: extracts local map pack | Strategy-controlled (10 per page via the `start` offset, up to 10 pages) | Query string `api_key` |
 | SearchApi (`searchapi`) | ✅ Working | Plans from $40/mo | City-level | **Yes**: extracts local map pack | Strategy-controlled (10 per page via the `page` parameter, up to 10 pages) | Query string `api_key` |
 | ValueSerp (`valueserp`) | ✅ Working | Pay-as-you-go 10,000 for $25 | City-level | **Yes**: extracts local map pack | Strategy-controlled (10 per page, up to 10 pages) | Query string `api_key` |
 | Serper (`serper`) | ✅ Working | Credit-based 50,000 for $50 | City-level | No: organic listings only | Strategy-controlled (10 per page, up to 10 pages) | Query string `api_key` |
 | HasData (`hasdata`) | ✅ Working | Free 1,000/mo + plans from $49/mo | City-level | **Yes**: extracts local map pack | Strategy-controlled (10 per page, up to 10 pages) | Header `x-api-key` |
-| CrazySERP (`crazyserp`) | ? | Pay-as-you-go | City-level | No: organic listings only | Strategy-controlled (10 per page, up to 10 pages) | Header `Authorization: Bearer` |
-| PrismCrawl (`prismcrawl`) | ? | Free 100 credits on signup; one-time packages from $5 (e.g. $100 = 476,191 credits, ~$0.21 per 1,000); credits valid 90 days; no subscription | City-level | **Yes**: matches local results by business name | Strategy-controlled (10 per page, up to 10 pages) | Header `x-api-key` (POST JSON body) |
-| DataForSEO (`dataforseo`) | ? | Pay as you go; no subscriptions; $50 minimum top-up | City-level | **Yes**: extracts `local_pack` results | Strategy-controlled (10 per page, up to 10 pages; each request fetches the depth needed for the page) | HTTP Basic auth with `login:password` in the API key field (POST JSON array body) |
+| CrazySERP (`crazyserp`) | ✅ Working | Pay-as-you-go | City-level | No: organic listings only | Strategy-controlled (10 per page, up to 10 pages) | Header `Authorization: Bearer` |
+| PrismCrawl (`prismcrawl`) | ✅ Working | Free 100 credits on signup; one-time packages from $5 (e.g. $100 = 476,191 credits, ~$0.21 per 1,000); credits valid 90 days; no subscription | City-level | **Yes**: matches local results by business name | Strategy-controlled (10 per page, up to 10 pages) | Header `x-api-key` (POST JSON body) |
+| DataForSEO (`dataforseo`) | ✅ Working | Pay as you go; no subscriptions; $50 minimum top-up | City-level | **Yes**: extracts `local_pack` results | Strategy-controlled (10 per page, up to 10 pages; each request fetches the depth needed for the page) | HTTP Basic auth with `login:password` in the API key field (POST JSON array body) |
 
 \*Pricing is indicative. Confirm current pricing with each vendor before purchasing. Managed integrations authenticate with the headers or query parameters shown in the last column, as implemented in the `/scrapers/services` directory. ✅ = recently validated in production; ? = implemented but not recently validated against the live API.
 
-**Results coverage** reflects the scrape strategy in use (see [Scrape Strategy](#scrape-strategy) below). Every provider returns 10 results per page. The strategy controls how many pages are fetched per keyword refresh.
+> **Results coverage** reflects the scrape strategy in use (see [Scrape Strategy](#scrape-strategy) below).
+>
+> - Every provider returns 10 results per page.
+> - The strategy controls how many pages are fetched per keyword refresh.
 
 ### Per-domain scraper overrides
 
@@ -148,7 +150,7 @@ The **Business Name** field in the domain scraper configuration is optional. Map
 
 Runtime behaviour is controlled through environment variables and settings stored in `data/settings.json`. The tables below list the supported environment variables. Defaults mirror `.env.example` where it provides them.
 
-> **Env files.** Next.js loads `.env.local` for local development, and Docker Compose reads `.env`. The standalone cron worker (`tsx cron.js` / `npm run cron`) explicitly loads `.env.local`, so keep local credentials there when running the worker outside Docker.
+**Env files.** Next.js loads `.env.local` for local development, and Docker Compose reads `.env`. The standalone cron worker (`tsx cron.js` / `npm run cron`) explicitly loads `.env.local`, so keep local credentials there when running the worker outside Docker.
 
 ### Authentication & session management
 
@@ -172,7 +174,7 @@ Runtime behaviour is controlled through environment variables and settings store
 | `WHITE_LABEL_LOGO_FILE` | `branding-logo.png` | Optional | File name under `/app/data` for the custom logo. A 96×96 px PNG, SVG, or WEBP works best. |
 | `NEXT_PUBLIC_PLATFORM_NAME` | `SerpBear` | Optional | Display name for the app and notification emails in white-label mode. |
 
-> **Runtime branding.** The UI loads changes to `NEXT_PUBLIC_WHITE_LABEL`, `NEXT_PUBLIC_PLATFORM_NAME`, or your logo file on demand. Update the values or files and refresh the browser. No container rebuild is needed.
+**Runtime branding.** The UI loads changes to `NEXT_PUBLIC_WHITE_LABEL`, `NEXT_PUBLIC_PLATFORM_NAME`, or your logo file on demand. Update the values or files and refresh the browser. No container rebuild is needed.
 
 ### Google integrations
 
@@ -253,7 +255,7 @@ Google's removal of `num=100` support limits most SERP APIs to 10 results per re
 | **Custom** | Fetches a fixed number of pages you choose (1–10). Useful when rankings are stable in a known range. | 1–10 requests |
 | **Smart** | Fetches the page where the keyword was last seen, plus the pages immediately before and after it. If the keyword is not found and **Full Fallback** is enabled, all remaining pages are checked. | Usually 1–3 requests; up to 10 with full fallback |
 
-> **Failed pages:** If a page request fails and the domain was not found on the pages that loaded, the keyword is reported as an error with the provider's message. It keeps its previous position and history rather than being recorded as "not ranked".
+**Failed pages:** If a page request fails and the domain was not found on the pages that loaded, the keyword is reported as an error with the provider's message. It keeps its previous position and history rather than being recorded as "not ranked".
 
 #### Configuring the strategy
 
