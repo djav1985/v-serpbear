@@ -11,7 +11,7 @@ jest.mock('../../utils/verifyUser', () => ({ __esModule: true, default: jest.fn(
 jest.mock('fs/promises', () => ({ readFile: jest.fn() }));
 jest.mock('../../utils/atomicWrite', () => ({ atomicWriteFile: jest.fn() }));
 // The settings lock is tested on its own (utils/settingsFile.lock.test.ts); here the section just runs
-jest.mock('../../utils/settingsFile', () => ({ withSettingsLock: (section: () => Promise<unknown>) => section() }));
+jest.mock('../../utils/settingsFile', () => ({ ...jest.requireActual('../../utils/settingsFile'), withSettingsLock: (section: () => Promise<unknown>) => section() }));
 const decryptMock = jest.fn((value: string) => value.replace('encrypted-', ''));
 const encryptMock = jest.fn((value: string) => `encrypted-${value}`);
 jest.mock('cryptr', () => ({ __esModule: true, default: jest.fn(() => ({ decrypt: decryptMock, encrypt: encryptMock })) }));

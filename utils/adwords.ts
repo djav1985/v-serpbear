@@ -1,4 +1,5 @@
 import { readFile } from 'fs/promises';
+import { readSettingsFile } from './settingsFile';
 import * as path from 'path';
 import * as lockfile from 'proper-lockfile';
 import Cryptr from 'cryptr';
@@ -8,9 +9,9 @@ import { Op } from 'sequelize';
 import Keyword from '../database/models/keyword';
 import parseKeywords from './parseKeywords';
 import countries from './countries';
-import { readLocalSCData, resolveDomainIdentifier } from './searchConsole';
+import { readLocalSCData } from './searchConsole';
 import { logger } from './logger';
-import { SAFE_DOMAIN_SLUG } from './domainSlug';
+import { SAFE_DOMAIN_SLUG, slugToDomainName } from './domainSlug';
 import { atomicWriteFile } from './atomicWrite';
 
 export const GOOGLE_ADS_API_VERSION = 'v23';
@@ -129,8 +130,7 @@ const seedKeywordsFromTracking = async ({
  */
 export const getAdwordsCredentials = async (): Promise<false | AdwordsCredentials> => {
    try {
-      const settingsRaw = await readFile(`${process.cwd()}/data/settings.json`, { encoding: 'utf-8' });
-      const settings: SettingsType = settingsRaw ? JSON.parse(settingsRaw) : {};
+      const settings = await readSettingsFile() as SettingsType;
       let decryptedSettings: false | AdwordsCredentials = false;
 
       try {
@@ -528,6 +528,8 @@ const extractAdwordskeywordIdeas = (keywordIdeas: keywordIdeasResponseItem[], op
             // Accept keywords with any non-negative search volume (including 0)
             // Previously filtered out keywords with volume <= 10, but this was too aggressive
             keywords.push({
+               // Ideas-only id (country:keyword) stored in the IDEAS files for favourites; it is never compared with the
+               // Search Console join key from buildKeywordUid (utils/searchConsole.ts), so the two formats stay separate.
                uid: `${country.toLowerCase()}:${text.replaceAll(' ', '-')}`,
                keyword: text,
                competition,
@@ -721,7 +723,7 @@ export const withIdeasLock = async <T>(domain: string, fn: () => Promise<T>): Pr
       throw new Error('Invalid domain slug for keyword ideas');
    }
    const dataDir = path.resolve(process.cwd(), 'data');
-   const filePath = path.resolve(dataDir, `IDEAS_${resolveDomainIdentifier(domain)}.json`);
+   const filePath = path.resolve(dataDir, `IDEAS_${slugToDomainName(domain)}.json`);
    if (!filePath.startsWith(dataDir + path.sep)) {
       throw new Error('Invalid domain value for file access');
    }
@@ -749,7 +751,7 @@ export const getLocalKeywordIdeas = async (domain: string): Promise<false | Keyw
       if (!SAFE_DOMAIN_SLUG.test(domain)) {
          return false;
       }
-      const domainName = resolveDomainIdentifier(domain);
+      const domainName = slugToDomainName(domain);
       const filename = `IDEAS_${domainName}.json`;
       const dataDir = path.resolve(process.cwd(), 'data');
       const filePath = path.resolve(dataDir, filename);
@@ -782,7 +784,7 @@ export const updateLocalKeywordIdeas = async (domain: string, data: IdeaDatabase
       if (!SAFE_DOMAIN_SLUG.test(domain)) {
          return false;
       }
-      const domainName = resolveDomainIdentifier(domain);
+      const domainName = slugToDomainName(domain);
       const existingIdeas = await getLocalKeywordIdeas(domain);
       const filename = `IDEAS_${domainName}.json`;
       const dataDir = path.resolve(process.cwd(), 'data');

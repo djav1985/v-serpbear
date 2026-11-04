@@ -1,7 +1,6 @@
 import { getGoogleDomain } from "../../utils/countries";
 import { resolveCountryCode, getKeywordLocationParts } from "../../utils/scraperHelpers";
 import { computeMapPackTop3 } from "../../utils/mapPack";
-import { decodeIfEncoded } from "../scraperHelpers";
 
 interface HasDataResult {
   title: string;
@@ -37,7 +36,7 @@ const hasdata: ScraperSettings = {
     const googleDomain = getGoogleDomain(country);
     const p = pagination || { start: 0, num: 10 };
     const params = new URLSearchParams();
-    params.set("q", decodeIfEncoded(keyword.keyword));
+    params.set("q", keyword.keyword);
     params.set("gl", resolvedCountry.toLowerCase());
     params.set("hl", lang);
     params.set("deviceType", keyword.device || "desktop");

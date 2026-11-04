@@ -6,7 +6,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import handler from '../../pages/api/searchconsole';
 import insightHandler from '../../pages/api/insight';
-import { fetchDomainSCData, getSearchConsoleApiInfo, readLocalSCData, resolveDomainIdentifier } from '../../utils/searchConsole';
+import { fetchDomainSCData, getSearchConsoleApiInfo, readLocalSCData } from '../../utils/searchConsole';
 import Domain from '../../database/models/domain';
 import verifyUser from '../../utils/verifyUser';
 
@@ -28,11 +28,9 @@ jest.mock('../../utils/apiLogging', () => ({
 const mockFetchDomainSCData = fetchDomainSCData as jest.MockedFunction<typeof fetchDomainSCData>;
 const mockGetSearchConsoleApiInfo = getSearchConsoleApiInfo as jest.MockedFunction<typeof getSearchConsoleApiInfo>;
 const mockReadLocalSCData = readLocalSCData as jest.MockedFunction<typeof readLocalSCData>;
-const mockResolveDomainIdentifier = resolveDomainIdentifier as jest.MockedFunction<typeof resolveDomainIdentifier>;
 const mockDomainFindAll = Domain.findAll as jest.MockedFunction<typeof Domain.findAll>;
 const mockDomainFindOne = Domain.findOne as jest.MockedFunction<typeof Domain.findOne>;
 
-mockResolveDomainIdentifier.mockImplementation((value: string) => value);
 
 // Common mock data structures
 const mockSCDataResponse = {
@@ -239,7 +237,7 @@ describe('GET /api/searchconsole', () => {
   beforeEach(() => {
     req = {
       method: 'GET',
-      query: { domain: 'example.com' },
+      query: { domain: 'example-com' },
       headers: {
         authorization: 'Bearer test-api-key',
       },
@@ -251,12 +249,6 @@ describe('GET /api/searchconsole', () => {
     jest.clearAllMocks();
     (verifyUser as jest.Mock).mockReturnValue('authorized');
     mockReadLocalSCData.mockResolvedValue(false);
-    mockResolveDomainIdentifier.mockImplementation((value: string) => {
-      if (!value) {
-        return '';
-      }
-      return value.includes('.') ? value : value.replace(/-/g, '.').replace(/_/g, '-');
-    });
   });
 
   it('returns 404 when the requested domain is missing', async () => {
@@ -279,7 +271,7 @@ describe('GET /api/insight', () => {
   beforeEach(() => {
     req = {
       method: 'GET',
-      query: { domain: 'example.com' },
+      query: { domain: 'example-com' },
       headers: {
         authorization: 'Bearer token',
       },
@@ -302,7 +294,7 @@ describe('GET /api/insight', () => {
 
     await insightHandler(req as NextApiRequest, res as NextApiResponse);
 
-    expect(mockDomainFindOne).toHaveBeenCalledWith({ where: { domain: 'example.com' } });
+    expect(mockDomainFindOne).toHaveBeenCalledWith({ where: { slug: 'example-com' } });
     expect(mockFetchDomainSCData).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(404);
     expect(res.json).toHaveBeenCalledWith(

@@ -1,15 +1,12 @@
 /**
- * Converts a value to a SQLite boolean integer (1 or 0).
- *
- * Accepts booleans, numbers, null, and undefined, and uses standard JavaScript
- * truthiness: truthy values map to 1, falsy values (0, null, undefined, false) map to 0.
+ * Converts a value to a SQLite boolean integer (1 or 0), using the same rules as normalizeToBoolean.
  */
-export const toDbBool = (value: boolean | number | null | undefined): 1 | 0 => value ? 1 : 0;
+export const toDbBool = (value: unknown): 1 | 0 => (normalizeToBoolean(value) ? 1 : 0);
 
 /**
- * Converts a SQLite integer (1 or 0) to boolean
+ * Converts a SQLite integer (1 or 0) to boolean, using the same rules as normalizeToBoolean.
  */
-export const fromDbBool = (value: number | null | undefined): boolean => value === 1;
+export const fromDbBool = (value: unknown): boolean => normalizeToBoolean(value);
 
 /**
  * Normalizes various value types to boolean.
@@ -58,4 +55,26 @@ export const normalizeToBoolean = (value: unknown): boolean => {
 
    // Null, undefined, and any other types return false (conservative approach)
    return false;
+};
+
+const FALSE_STRINGS = new Set(['false', '0', 'no', 'off']);
+
+/**
+ * Strict boolean parser for query parameters: returns true/false for the recognized words
+ * (true/1/yes/on and false/0/no/off, case-insensitive) and null for anything else, including an empty string.
+ */
+export const parseBooleanStrict = (value: string): boolean | null => {
+   const normalized = value.trim().toLowerCase();
+   if (normalizeToBoolean(normalized)) { return true; }
+   return FALSE_STRINGS.has(normalized) ? false : null;
+};
+
+/**
+ * Reads an on/off environment flag. An unset, empty or unrecognized value gives defaultValue;
+ * 'disabled' counts as off in addition to the usual false words.
+ */
+export const parseEnvFlag = (value: string | undefined, defaultValue = true): boolean => {
+   const normalized = (value ?? '').trim().toLowerCase();
+   if (normalized === 'disabled') { return false; }
+   return parseBooleanStrict(normalized) ?? defaultValue;
 };

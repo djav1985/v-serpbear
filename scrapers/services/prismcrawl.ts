@@ -2,7 +2,6 @@ import { getGoogleDomain } from "../../utils/countries";
 import { resolveCountryCode, getKeywordLocationParts } from "../../utils/scraperHelpers";
 import { DEVICE_MOBILE } from "../../utils/constants";
 import { computeMapPackTop3 } from "../../utils/mapPack";
-import { decodeIfEncoded } from "../scraperHelpers";
 
 interface PrismCrawlResult {
   type: string;
@@ -45,7 +44,7 @@ const prismcrawl: ScraperSettings = {
     const p = pagination || { start: 0, num: 10, page: 1 };
 
     const body: Record<string, unknown> = {
-      query: decodeIfEncoded(keyword.keyword),
+      query: keyword.keyword,
       output: "json",
       gl: country.toLowerCase(),
       hl: lang,

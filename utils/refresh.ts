@@ -11,7 +11,7 @@ import { serializeError } from './errorSerialization';
 import { updateDomainStats } from './updateDomainStats';
 import { decryptDomainScraperSettings, parseDomainScraperSettings } from './domainScraperSettings';
 import { logger } from './logger';
-import { fromDbBool, toDbBool } from './dbBooleans';
+import { fromDbBool, normalizeToBoolean, toDbBool } from './dbBooleans';
 import normalizeDomainBooleans from './normalizeDomain';
 import { retryQueueManager } from './retryQueueManager';
 import { historyKeyToTime, toHistoryDateKey } from './historyDateKey';
@@ -663,60 +663,12 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          Object.assign(history, trimmedHistory);
       }
 
-      const normalizeResult = (result: any): string => {
-         if (result === undefined || result === null) {
-            return '[]';
-         }
-
-         if (typeof result === 'string') {
-            return result;
-         }
-
-         try {
-            return JSON.stringify(result);
-         } catch (error: any) {
-            logger.debug('Failed to serialise keyword result', { error });
-            return '[]';
-         }
-      };
-
-      const normalizedResult = normalizeResult(updatedKeyword.result);
-      let parsedNormalizedResult: KeywordLastResult[] = [];
-      try {
-         const maybeParsedResult = JSON.parse(normalizedResult);
-         parsedNormalizedResult = Array.isArray(maybeParsedResult) ? maybeParsedResult : [];
-      } catch {
-         parsedNormalizedResult = [];
-      }
-
-      const normalizeLocalResults = (results: any): string => {
-         if (results === undefined || results === null) {
-            return JSON.stringify([]);
-         }
-
-         if (typeof results === 'string') {
-            return results;
-         }
-
-         try {
-            return JSON.stringify(results);
-         } catch (error: any) {
-            logger.debug('Failed to serialise local results', { error });
-            return JSON.stringify([]);
-         }
-      };
-
-      const normalizedLocalResults = normalizeLocalResults(updatedKeyword.localResults);
-      let parsedLocalResults: KeywordLocalResult[] = [];
-      try {
-         const maybeParsedLocalResults = JSON.parse(normalizedLocalResults);
-         parsedLocalResults = Array.isArray(maybeParsedLocalResults) ? maybeParsedLocalResults : [];
-      } catch {
-         parsedLocalResults = [];
-      }
+      // The scraper always returns arrays here; anything else is stored as an empty list
+      const parsedNormalizedResult: KeywordLastResult[] = Array.isArray(updatedKeyword.result) ? updatedKeyword.result : [];
+      const parsedLocalResults: KeywordLocalResult[] = Array.isArray(updatedKeyword.localResults) ? updatedKeyword.localResults : [];
+      const isMapPackTop3 = normalizeToBoolean(updatedKeyword.mapPackTop3);
 
       const lastUpdatedValue = theDate.toJSON();
-      const lastUpdateErrorValue = 'false';
       const urlValue = typeof updatedKeyword.url === 'string' ? updatedKeyword.url : null;
 
       // Build single atomic update payload with ALL fields from API response + flags.
@@ -731,13 +683,13 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          position: newPos,
          updating: toDbBool(false),
          url: urlValue,
-         lastResult: normalizedResult,
-         localResults: normalizedLocalResults,
+         lastResult: JSON.stringify(parsedNormalizedResult),
+         localResults: JSON.stringify(parsedLocalResults),
          history: JSON.stringify(history),
          history7d: JSON.stringify(history7dObj),
          lastUpdated: lastUpdatedValue,
-         lastUpdateError: lastUpdateErrorValue,
-         mapPackTop3: toDbBool(updatedKeyword.mapPackTop3),
+         lastUpdateError: 'false',
+         mapPackTop3: toDbBool(isMapPackTop3),
          updatingStartedAt: null,
       };
 
@@ -758,27 +710,15 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
             keywordId: keyword.ID,
             keyword: keyword.keyword,
             position: newPos,
-            hasError: dbPayload.lastUpdateError !== 'false',
          });
-         // Only log significant updates (errors or top 3 map pack)
-         if (dbPayload.lastUpdateError !== 'false' || dbPayload.mapPackTop3) {
+         // Only log significant updates (top 3 map pack)
+         if (isMapPackTop3) {
             logger.info('Keyword updated', {
                keywordId: keyword.ID,
                keyword: keyword.keyword,
                device: keyword.device || 'desktop',
-               mapPackTop3: fromDbBool(dbPayload.mapPackTop3),
-               hasError: dbPayload.lastUpdateError !== 'false',
+               mapPackTop3: isMapPackTop3,
             });
-         }
-
-         let parsedError: false | { date: string; error: string; scraper: string } = false;
-         if (dbPayload.lastUpdateError !== 'false') {
-            try {
-               parsedError = JSON.parse(dbPayload.lastUpdateError ?? 'false');
-            } catch (parseError) {
-               logger.debug('Failed to parse lastUpdateError', { lastUpdateError: dbPayload.lastUpdateError, parseError });
-               parsedError = false;
-            }
          }
 
          const effectiveLastUpdated = dbPayload.lastUpdated
@@ -794,8 +734,8 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
             localResults: parsedLocalResults,
             history,
             lastUpdated: effectiveLastUpdated,
-            lastUpdateError: parsedError,
-            mapPackTop3: fromDbBool(dbPayload.mapPackTop3),
+            lastUpdateError: false,
+            mapPackTop3: isMapPackTop3,
          };
       } catch (error: any) {
          const normalizedError = error instanceof Error ? error : new Error(String(error));

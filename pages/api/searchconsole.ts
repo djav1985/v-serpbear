@@ -3,7 +3,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import Domain from '../../database/models/domain';
 import { logger } from '../../utils/logger';
-import { fetchDomainSCData, getSearchConsoleApiInfo, readLocalSCData, resolveDomainIdentifier } from '../../utils/searchConsole';
+import { fetchDomainSCData, getSearchConsoleApiInfo, readLocalSCData } from '../../utils/searchConsole';
+import { SAFE_DOMAIN_SLUG } from '../../utils/domainSlug';
 import verifyUser from '../../utils/verifyUser';
 import { withApiLogging } from '../../utils/apiLogging';
 import { errorResponse } from '../../utils/api/response';
@@ -26,10 +27,17 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 const getDomainSearchConsoleData = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
    if (!req.query.domain || typeof req.query.domain !== 'string') return res.status(400).json(errorResponse('BAD_REQUEST', 'Domain is Missing.', requestId));
-   const domainname = resolveDomainIdentifier(req.query.domain as string);
-   if (!domainname) {
+   const slug = req.query.domain.trim();
+   if (!SAFE_DOMAIN_SLUG.test(slug)) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Domain is Missing.', requestId));
    }
+   // The domain is identified by its slug column; the stored domain name then names the SC data file
+   const foundDomain: Domain | null = await Domain.findOne({ where: { slug } });
+   if (!foundDomain) {
+      return res.status(404).json(errorResponse('NOT_FOUND', 'Domain not found.', requestId));
+   }
+   const domainObj: DomainType = foundDomain.get({ plain: true });
+   const domainname = domainObj.domain;
    const localSCData = await readLocalSCData(domainname);
    // Fresh means fetched within the last 24 hours. Empty windows are valid (a site with no recent clicks),
    // so they must not force a new Google request on every page load.
@@ -40,12 +48,6 @@ const getDomainSearchConsoleData = async (req: NextApiRequest, res: NextApiRespo
       return res.status(200).json({ data: localSCData });
    }
    try {
-      const query = { domain: domainname };
-      const foundDomain:Domain| null = await Domain.findOne({ where: query });
-      if (!foundDomain) {
-         return res.status(404).json(errorResponse('NOT_FOUND', 'Domain not found.', requestId));
-      }
-      const domainObj: DomainType = foundDomain.get({ plain: true });
       const scDomainAPI = domainObj?.search_console ? await getSearchConsoleApiInfo(domainObj) : { client_email: '', private_key: '' };
       const scGlobalAPI = await getSearchConsoleApiInfo({} as DomainType);
       if (!(scDomainAPI.client_email && scDomainAPI.private_key)

@@ -1,7 +1,8 @@
-import { writeFile } from 'fs/promises';
+import { readFile, writeFile } from 'fs/promises';
 import * as path from 'path';
 import * as lockfile from 'proper-lockfile';
 import { logger } from './logger';
+import { safeJsonParse } from './safeJsonParse';
 
 /**
  * Path of data/settings.json. Every read-modify-write of the file must run inside withSettingsLock, so two
@@ -48,4 +49,26 @@ export const withSettingsLock = async <T>(fn: () => Promise<T>): Promise<T> => {
          logger.debug('Failed to release settings file lock', { error: err?.message });
       }
    }
+};
+
+/**
+ * Reads data/settings.json as stored (secrets still encrypted). A missing, empty or whitespace-only file means
+ * there are no stored settings yet. A non-empty file with invalid JSON is logged and treated as empty.
+ * Any other read error is thrown.
+ */
+export const readSettingsFile = async (settingsPath: string = settingsFilePath()): Promise<Partial<SettingsType>> => {
+   let raw: unknown;
+   try {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename
+      raw = await readFile(settingsPath, { encoding: 'utf-8' });
+   } catch (err) {
+      if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') {
+         return {};
+      }
+      throw err;
+   }
+   if (typeof raw !== 'string' || !raw.trim()) {
+      return {};
+   }
+   return safeJsonParse<Partial<SettingsType>>(raw, {}, { context: 'settings.json', logError: true });
 };

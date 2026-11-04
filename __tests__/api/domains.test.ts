@@ -151,7 +151,7 @@ describe('POST /api/domains', () => {
     }));
   });
 
-  it('normalises and deduplicates hostnames before insert', async () => {
+  it('normalises (case, whitespace, leading www.) and deduplicates hostnames before insert', async () => {
     const bulkCreateResult = [
       { get: jest.fn().mockReturnValue({ domain: 'example.com', slug: 'example-com', scrapeEnabled: 1 }) },
       { get: jest.fn().mockReturnValue({ domain: 'sub.domain.com', slug: 'sub-domain-com', scrapeEnabled: 1 }) },
@@ -162,7 +162,7 @@ describe('POST /api/domains', () => {
 
     const req = {
       method: 'POST',
-      body: { domains: ['Example.com ', 'example.COM', 'sub.domain.com'] },
+      body: { domains: ['Example.com ', 'example.COM', 'www.example.com', 'sub.domain.com'] },
       headers: {},
     } as unknown as NextApiRequest;
 

@@ -64,12 +64,12 @@ describe('valueSerp scraper', () => {
     expect(parsed.searchParams.get('hl')).toBe('pt');
   });
 
-  it('decodes percent-encoded keyword and location values before building the URL', () => {
+  it('sends keyword and location values as stored without decoding them', () => {
     const keyword: Partial<KeywordType> = {
-      keyword: 'best%20coffee%20shop',
+      keyword: '50%25 off',
       country: 'US',
       device: 'desktop',
-      location: 'Austin%2CTX%2CUnited%20States',
+      location: 'Austin,TX,United States',
     };
 
     const url = valueSerp.scrapeURL!(
@@ -79,9 +79,9 @@ describe('valueSerp scraper', () => {
     );
     const parsed = new URL(url);
 
-    expect(parsed.searchParams.get('q')).toBe('best coffee shop');
+    expect(parsed.searchParams.get('q')).toBe('50%25 off');
     expect(parsed.searchParams.get('location')).toBe('Austin,TX,United States');
-    expect(parsed.toString()).toContain('q=best+coffee+shop');
+    expect(parsed.toString()).toContain('q=50%2525+off');
     expect(parsed.toString()).toContain('location=Austin%2CTX%2CUnited+States');
   });
 

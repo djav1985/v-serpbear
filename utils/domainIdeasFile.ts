@@ -1,7 +1,7 @@
 import { unlink } from 'fs/promises';
 import path from 'path';
 import { logger } from './logger';
-import { SAFE_DOMAIN_SLUG, toDomainSlug } from './domainSlug';
+import { SAFE_DOMAIN_SLUG, slugToDomainName, toDomainSlug } from './domainSlug';
 
 /**
  * Removes the keyword ideas file (data/IDEAS_<domain>.json) of a deleted domain. The file name is built the same
@@ -14,7 +14,7 @@ export const removeDomainIdeasFile = async (domain: string): Promise<boolean> =>
       if (!SAFE_DOMAIN_SLUG.test(slug)) {
          return true;
       }
-      const domainName = slug.replaceAll('-', '.').replaceAll('_', '-');
+      const domainName = slugToDomainName(slug);
       const dataDir = path.resolve(process.cwd(), 'data');
       const filePath = path.resolve(dataDir, `IDEAS_${domainName}.json`);
       if (!filePath.startsWith(dataDir + path.sep)) {

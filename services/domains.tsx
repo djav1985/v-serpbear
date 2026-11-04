@@ -3,20 +3,16 @@ import toast from 'react-hot-toast';
 import { useMutation, useQuery, useQueryClient, QueryClient, QueryKey } from 'react-query';
 import { apiGet, apiPost, apiPut, apiDelete } from '../utils/client/apiClient';
 import { showQueryErrorToast } from './queryErrorToast';
+import { parseEnvFlag } from '../utils/dbBooleans';
 
 type UpdatePayload = {
    domainSettings: Partial<DomainSettings>,
    domain: DomainType
 };
 
-const normalizeEnvFlag = (value: string | undefined) => {
-   const normalized = (value || 'true').toLowerCase();
-   return !['false', '0', 'off', 'disabled', 'no'].includes(normalized);
-};
-
 // Build-time fallback only. NEXT_PUBLIC_* values are inlined at build, so the effective
 // value comes from the runtime branding config (see setRuntimeScreenshotsEnabled) once loaded.
-export const SCREENSHOTS_ENABLED = normalizeEnvFlag(process.env.NEXT_PUBLIC_SCREENSHOTS);
+export const SCREENSHOTS_ENABLED = parseEnvFlag(process.env.NEXT_PUBLIC_SCREENSHOTS);
 
 let runtimeScreenshotsEnabled: boolean | undefined;
 

@@ -454,7 +454,7 @@ describe('PUT /api/settings keeps secrets that are left out of the payload', () 
       __esModule: true,
       atomicWriteFile: jest.fn().mockResolvedValue(undefined),
     }));
-    jest.doMock('../../utils/settingsFile', () => ({ withSettingsLock: (section: () => Promise<unknown>) => section() }));
+    jest.doMock('../../utils/settingsFile', () => ({ ...jest.requireActual('../../utils/settingsFile'), withSettingsLock: (section: () => Promise<unknown>) => section() }));
     jest.isolateModules(() => {
       handler = require('../../pages/api/settings').default;
       verifyUserInstance = require('../../utils/verifyUser').default;

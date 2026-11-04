@@ -9,6 +9,7 @@ import { countryAlphaTwoCodes } from './countries';
 import { logger } from './logger';
 import { atomicWriteFile } from './atomicWrite';
 import { safeJsonParse } from './safeJsonParse';
+import { readSettingsFile } from './settingsFile';
 import { APP_TIMEZONE, SEARCH_CONSOLE_TIMEZONE, dateKeyInZone, daysAgoKey, todayKey } from './timezone';
 
 export type SCDomainFetchError = {
@@ -303,12 +304,7 @@ export const getSearchConsoleApiInfo = async (domain: DomainType): Promise<SCAPI
    // Check if the App Settings Has the API Data
    if (!scAPIData?.private_key) {
       try {
-         const settingsRaw = await readFile(`${process.cwd()}/data/settings.json`, { encoding: 'utf-8' });
-         const settings = safeJsonParse<SettingsType | Partial<SettingsType>>(
-            settingsRaw,
-            {},
-            { context: 'settings.json', logError: true },
-         );
+         const settings = await readSettingsFile();
          const cryptr = new Cryptr(process.env.SECRET as string);
          scAPIData.client_email = settings.search_console_client_email ? cryptr.decrypt(settings.search_console_client_email) : '';
          scAPIData.private_key = settings.search_console_private_key ? cryptr.decrypt(settings.search_console_private_key) : '';
@@ -417,28 +413,11 @@ export const removeLocalSCData = async (domain:string): Promise<boolean> => {
 };
 
 /**
- * Normalize a domain identifier that may be a slug into a real domain name.
- * - Slugs replace `.` with `-` and `-` with `_`. Detect that pattern and reverse it.
- * - Preserve hyphenated domains that already include dots.
- */
-export function resolveDomainIdentifier(domain: string): string {
-   const trimmed = (domain ?? '').trim();
-   if (!trimmed) {
-      return '';
-   }
-   const isSlugCandidate = !trimmed.includes('.') && /^[a-zA-Z0-9_-]+$/.test(trimmed);
-   if (isSlugCandidate) {
-      return trimmed.replace(/-/g, '.').replace(/_/g, '-');
-   }
-   return trimmed.replace(/_/g, '-');
-}
-
-/**
  * Helper to safely construct the SC data file path for a given domain.
  * Returns the absolute path if safe, or null if the domain is invalid.
  */
 export function getSafeSCDataFilePath(domain: string): string | null {
-   const domainName = resolveDomainIdentifier(domain);
+   const domainName = (domain ?? '').trim();
    if (!domainName) {
       return null;
    }

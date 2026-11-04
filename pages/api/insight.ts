@@ -2,7 +2,8 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getCountryInsight, getKeywordsInsight, getPagesInsight } from '../../utils/insight';
-import { fetchDomainSCData, getSearchConsoleApiInfo, readLocalSCData, resolveDomainIdentifier } from '../../utils/searchConsole';
+import { fetchDomainSCData, getSearchConsoleApiInfo, readLocalSCData } from '../../utils/searchConsole';
+import { SAFE_DOMAIN_SLUG } from '../../utils/domainSlug';
 import verifyUser from '../../utils/verifyUser';
 import Domain from '../../database/models/domain';
 import { logger } from '../../utils/logger';
@@ -26,8 +27,17 @@ export default withApiLogging(handler, { name: 'insight' });
 const getDomainSearchConsoleInsight = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
    if (!req.query.domain || typeof req.query.domain !== 'string') return res.status(400).json(errorResponse('BAD_REQUEST', 'Domain is Missing.', requestId));
-   // Accepts either a slug (my_site-com) or a real domain (my-site.com); a plain replace would mangle hyphenated domains
-   const domainname = resolveDomainIdentifier(req.query.domain as string);
+   const slug = req.query.domain.trim();
+   if (!SAFE_DOMAIN_SLUG.test(slug)) {
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Domain is Missing.', requestId));
+   }
+   // The domain is identified by its slug column; the stored domain name then names the SC data file
+   const foundDomain: Domain | null = await Domain.findOne({ where: { slug } });
+   if (!foundDomain) {
+      return res.status(404).json(errorResponse('NOT_FOUND', 'Domain not found.', requestId));
+   }
+   const domainObj: DomainType = foundDomain.get({ plain: true });
+   const domainname = domainObj.domain;
    const getInsightFromSCData = (localSCData: SCDomainDataType): InsightDataType => {
       const { stats = [] } = localSCData;
       const countries = getCountryInsight(localSCData);
@@ -54,12 +64,6 @@ const getDomainSearchConsoleInsight = async (req: NextApiRequest, res: NextApiRe
 
    // If the Local SC Domain Data file does not exist, fetch from Googel Search Console.
    try {
-      const query = { domain: domainname };
-      const foundDomain:Domain| null = await Domain.findOne({ where: query });
-      if (!foundDomain) {
-         return res.status(404).json(errorResponse('NOT_FOUND', 'Domain not found.', requestId));
-      }
-      const domainObj: DomainType = foundDomain.get({ plain: true });
       const scDomainAPI = domainObj?.search_console ? await getSearchConsoleApiInfo(domainObj) : { client_email: '', private_key: '' };
       const scGlobalAPI = await getSearchConsoleApiInfo({} as DomainType);
       if (!(scDomainAPI.client_email && scDomainAPI.private_key)

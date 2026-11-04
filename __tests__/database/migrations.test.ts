@@ -20,7 +20,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import os from 'os';
 import path from 'path';
 import { Sequelize } from 'sequelize';
-import { toDomainSlug } from '../../utils/domainSlug';
+import { slugToDomainName, toDomainSlug } from '../../utils/domainSlug';
 import { toHistoryDateKey } from '../../utils/historyDateKey';
 import historyDateKeyMigration from '../../database/migrations/1773000000000-pad-history-date-keys.js';
 import ideasSlugMigration from '../../database/migrations/1715920000000-update-ideas-domain-slug.js';
@@ -83,6 +83,7 @@ describe('ideas-slug.migration.test.ts', () => {
 
       const saved = JSON.parse(readFileSync(file, 'utf-8'));
       expect(saved.settings.domainSlug).toBe(toDomainSlug(domain));
+      expect(slugToDomainName(toDomainSlug(domain))).toBe(domain);
       expect(saved.keywords[0].domain).toBe(toDomainSlug(domain));
     });
 

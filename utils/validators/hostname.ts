@@ -72,7 +72,10 @@ export const validateHostname = (value: unknown): { isValid: boolean; hostname: 
       return { isValid: false, hostname: '' };
    }
 
-   return { isValid: true, hostname: normalizeInput(value as string) };
+   // Strip a leading "www." (like normalizeHostFromString) so the API and UI store the same host, unless that leaves no TLD (e.g. "www.com").
+   const normalized = normalizeInput(value as string);
+   const withoutWww = normalized.replace(/^www\./, '');
+   return { isValid: true, hostname: withoutWww.includes('.') ? withoutWww : normalized };
 };
 
 export default isValidHostname;

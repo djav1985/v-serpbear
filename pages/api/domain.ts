@@ -6,7 +6,7 @@ import verifyUser from '../../utils/verifyUser';
 import { maskDomainScraperSettings, parseDomainScraperSettings } from '../../utils/domainScraperSettings';
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
-import { safeJsonParse } from '../../utils/safeJsonParse';
+import { maskSearchConsole } from '../../utils/maskSearchConsole';
 import normalizeDomainBooleans from '../../utils/normalizeDomain';
 import { errorResponse } from '../../utils/api/response';
 
@@ -42,21 +42,7 @@ const getDomain = async (req: NextApiRequest, res: NextApiResponse) => {
 
       if (parsedDomain.search_console) {
          // The Search Console key stays on the server: only a 'true' marker says whether credentials are saved.
-         const scData = safeJsonParse<Record<string, string> | null>(
-            parsedDomain.search_console,
-            null,
-            { context: `domain ${parsedDomain.domain || parsedDomain.ID || ''} search_console`, logError: true },
-         );
-         if (scData) {
-            parsedDomain.search_console = JSON.stringify({
-               ...scData,
-               client_email: scData.client_email ? 'true' : '',
-               private_key: scData.private_key ? 'true' : '',
-            });
-         } else {
-            // Ensure malformed search_console values are not returned unchanged
-            parsedDomain.search_console = JSON.stringify({});
-         }
+         parsedDomain.search_console = JSON.stringify(maskSearchConsole(parsedDomain.search_console, String(parsedDomain.domain || parsedDomain.ID || '')));
       }
 
       const parsedScraperSettings = maskDomainScraperSettings(

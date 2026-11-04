@@ -2,7 +2,6 @@ import countries, { getGoogleDomain } from "../../utils/countries";
 import { resolveCountryCode, getKeywordLocationParts } from "../../utils/scraperHelpers";
 import { computeMapPackTop3 } from "../../utils/mapPack";
 import { DEVICE_MOBILE } from "../../utils/constants";
-import { decodeIfEncoded } from "../scraperHelpers";
 
 const DATAFORSEO_SUCCESS = 20000;
 
@@ -63,7 +62,7 @@ const dataforseo: ScraperSettings = {
     // depth must reach the end of the requested page; the extractor slices it.
     return [
       {
-        keyword: decodeIfEncoded(keyword.keyword),
+        keyword: keyword.keyword,
         location_name: buildLocationName(keyword, countryName),
         language_code: lang,
         device: keyword.device === DEVICE_MOBILE ? "mobile" : "desktop",

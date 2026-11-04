@@ -1,6 +1,6 @@
 /** @jest-environment node */
 
-import { fromDbBool, toDbBool, normalizeToBoolean } from '../../utils/dbBooleans';
+import { fromDbBool, toDbBool, normalizeToBoolean, parseBooleanStrict, parseEnvFlag } from '../../utils/dbBooleans';
 import parseKeywords from '../../utils/parseKeywords';
 import sqlite from '../../database/sqlite-dialect';
 
@@ -12,6 +12,20 @@ describe('db boolean helpers', () => {
     expect(toDbBool(0)).toBe(0);
     expect(toDbBool(null)).toBe(0);
     expect(toDbBool(undefined)).toBe(0);
+    expect(toDbBool('false')).toBe(0);
+    expect(toDbBool('yes')).toBe(1);
+  });
+
+  it('parses strict query values and env flags with one shared rule set', () => {
+    expect(['true', ' ON ', 'Yes', '1'].map(parseBooleanStrict)).toEqual([true, true, true, true]);
+    expect(['false', 'off', 'NO', '0'].map(parseBooleanStrict)).toEqual([false, false, false, false]);
+    expect(['', 'maybe', '2'].map(parseBooleanStrict)).toEqual([null, null, null]);
+    expect(parseEnvFlag(undefined)).toBe(true);
+    expect(parseEnvFlag('')).toBe(true);
+    expect(parseEnvFlag('disabled')).toBe(false);
+    expect(parseEnvFlag(' Off ')).toBe(false);
+    expect(parseEnvFlag('garbage')).toBe(true);
+    expect(parseEnvFlag(undefined, false)).toBe(false);
   });
 
   it('maps sqlite integers back to booleans', () => {
