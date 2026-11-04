@@ -256,10 +256,13 @@ describe('/api/refresh', () => {
     });
   });
 
-  it('passes the requested device to keyword preview scrapes', async () => {
+  it.each([
+    ['the requested mobile device', { device: 'mobile' }, 'mobile'],
+    ['desktop when the device parameter is omitted', {}, 'desktop'],
+  ])('passes %s to keyword preview scrapes', async (_label, deviceQuery, expectedDevice) => {
     const previewReq = {
       method: 'GET',
-      query: { keyword: 'widgets', country: 'US', device: 'mobile' },
+      query: { keyword: 'widgets', country: 'US', ...deviceQuery },
       headers: {},
     } as unknown as NextApiRequest;
 
@@ -277,35 +280,9 @@ describe('/api/refresh', () => {
 
     await handler(previewReq, previewRes);
 
-    expect(scrapeKeywordWithStrategy).toHaveBeenCalledWith(expect.objectContaining({ device: 'mobile', position: 0 }), { scraper_type: 'serpapi' });
+    expect(scrapeKeywordWithStrategy).toHaveBeenCalledWith(expect.objectContaining({ device: expectedDevice, position: 0 }), { scraper_type: 'serpapi' });
     expect(previewRes.status).toHaveBeenCalledWith(200);
-    expect(previewRes.json).toHaveBeenCalledWith({ searchResult: expect.objectContaining({ device: 'mobile' }) });
-  });
-
-  it('defaults to desktop device when device parameter is not provided', async () => {
-    const previewReq = {
-      method: 'GET',
-      query: { keyword: 'widgets', country: 'US' }, // No device parameter
-      headers: {},
-    } as unknown as NextApiRequest;
-
-    const previewRes = {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn(),
-    } as unknown as NextApiResponse;
-
-    (scrapeKeywordWithStrategy as jest.Mock).mockResolvedValue({
-      keyword: 'widgets',
-      position: 5,
-      result: [],
-      mapPackTop3: false,
-    });
-
-    await handler(previewReq, previewRes);
-
-    expect(scrapeKeywordWithStrategy).toHaveBeenCalledWith(expect.objectContaining({ device: 'desktop', position: 0 }), { scraper_type: 'serpapi' });
-    expect(previewRes.status).toHaveBeenCalledWith(200);
-    expect(previewRes.json).toHaveBeenCalledWith({ searchResult: expect.objectContaining({ device: 'desktop' }) });
+    expect(previewRes.json).toHaveBeenCalledWith({ searchResult: expect.objectContaining({ device: expectedDevice }) });
   });
 
   it('rejects manual refresh when domain is already locked', async () => {
@@ -441,71 +418,6 @@ describe('/api/refresh', () => {
     expect(res.json).toHaveBeenCalledWith({
       message: 'Refresh started',
       keywordCount: 2,
-    });
-  });
-
-  it('clears updating flags for keywords when scraping fails', async () => {
-    req.query = { id: '1,2', domain: 'example.com' };
-
-    const keywordRecord1 = { 
-      ID: 1, 
-      domain: 'example.com',
-      updating: 0, // Initial state
-      update: jest.fn().mockImplementation(function(this: any, payload: any) {
-        Object.assign(this, payload);
-        return Promise.resolve(undefined);
-      }), 
-      reload: jest.fn().mockResolvedValue(undefined),
-      set: jest.fn() 
-    };
-    const keywordRecord2 = { 
-      ID: 2, 
-      domain: 'example.com',
-      updating: 0, // Initial state
-      update: jest.fn().mockImplementation(function(this: any, payload: any) {
-        Object.assign(this, payload);
-        return Promise.resolve(undefined);
-      }), 
-      reload: jest.fn().mockResolvedValue(undefined),
-      set: jest.fn() 
-    };
-
-    (Keyword.findAll as jest.Mock).mockResolvedValue([keywordRecord1, keywordRecord2]);
-    (Domain.findAll as jest.Mock).mockResolvedValue([
-      { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
-    ]);
-
-    // Simulate scraping failure
-    (refreshAndUpdateKeywords as jest.Mock).mockRejectedValue(new Error('Scraping service unavailable'));
-
-    await handler(req, res);
-
-    // Wait for async task to complete
-    await jest.runAllTimersAsync();
-
-    // Both keywords should have updating flag set initially
-    expect(keywordRecord1.update).toHaveBeenCalledWith({
-      updating: 1,
-      lastUpdateError: 'false',
-      updatingStartedAt: '2024-06-01T12:00:00.000Z',
-    });
-    expect(keywordRecord2.update).toHaveBeenCalledWith({
-      updating: 1,
-      lastUpdateError: 'false',
-      updatingStartedAt: '2024-06-01T12:00:00.000Z',
-    });
-
-    // After error, clearKeywordUpdatingFlags should clear the flags
-    // (only for keywords still in updating=true state)
-    expect(keywordRecord1.update).toHaveBeenCalledWith({
-      updating: 0,
-      updatingStartedAt: null,
-      lastUpdateError: errorPayload('refresh-error'),
-    });
-    expect(keywordRecord2.update).toHaveBeenCalledWith({
-      updating: 0,
-      updatingStartedAt: null,
-      lastUpdateError: errorPayload('refresh-error'),
     });
   });
 

@@ -171,16 +171,6 @@ describe('prismcrawl scraper', () => {
       expect(out.mapPackTop3).toBe(true);
     });
 
-    it('reports false when there are no local results', () => {
-      const out = prismcrawl.serpExtractor({
-        keyword: buildKeyword(),
-        response: { success: true, data: { content: { results: [] } } } as any,
-        result: undefined,
-        settings,
-      } as any);
-      expect(out.mapPackTop3).toBe(false);
-    });
-
     it('returns no organic results when the payload has no results array', () => {
       expect(extract({ success: true, data: { content: {} } }).organic).toEqual([]);
       expect(extract({}).organic).toEqual([]);

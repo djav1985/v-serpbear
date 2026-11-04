@@ -47,6 +47,7 @@ describe('getDomainTags', () => {
 describe('getDomainLocations', () => {
    it('returns an empty list when no keyword has a location', () => {
       expect(getDomainLocations([makeKeyword({ location: '' })])).toEqual([]);
+      expect(getDomainLocations([makeKeyword({ location: undefined })])).toEqual([]);
    });
 
    it('returns unique, sorted, non-empty locations', () => {
@@ -57,14 +58,7 @@ describe('getDomainLocations', () => {
          makeKeyword({ ID: 4, location: '  ' }),
       ];
       expect(getDomainLocations(keywords)).toEqual(['Austin,TX,US', 'US']);
-   });
-
-
-   it('handles keywords with a missing location', () => {
-      const keywords = [makeKeyword({ location: undefined })];
-      expect(getDomainLocations(keywords)).toEqual([]);
-   });
-});
+   });});
 
 describe('buildKeywordAddPayloads', () => {
    const items = [
@@ -109,33 +103,26 @@ describe('buildKeywordAddPayloads', () => {
       expect(payloads.every((p) => p.tags === '')).toBe(true);
    });
 
-   it('uses the picked country for a country-only location so the market matches', () => {
-      const payloads = buildKeywordAddPayloads({
-         items: [{ keyword: 'alpha', country: 'US' }],
-         domain: 'example.com',
-         devices: ['desktop'],
-         tags: [],
-         location: '',
-         country: 'GB',
-      });
-
-      expect(payloads).toEqual([
-         expect.objectContaining({ keyword: 'alpha', country: 'GB', location: '' }),
-      ]);
-   });
-
-   it('uses the chosen location country as the keyword country so the market matches', () => {
-      const payloads = buildKeywordAddPayloads({
-         items: [{ keyword: 'alpha', country: 'US' }],
-         domain: 'example.com',
-         devices: ['desktop'],
-         tags: [],
-         location: 'London,England,United Kingdom',
-      });
-
-      expect(payloads).toEqual([
-         expect.objectContaining({ keyword: 'alpha', country: 'GB', location: 'London,England,United Kingdom' }),
-      ]);
+   it('uses the market country as the keyword country so it matches the chosen location', () => {
+      const cases = [
+         // Country-only location: the picked country is used.
+         { location: '', country: 'GB' },
+         // Location-derived market: the location's country is used.
+         { location: 'London,England,United Kingdom', country: undefined },
+      ];
+      for (const { location, country } of cases) {
+         const payloads = buildKeywordAddPayloads({
+            items: [{ keyword: 'alpha', country: 'US' }],
+            domain: 'example.com',
+            devices: ['desktop'],
+            tags: [],
+            location,
+            country,
+         });
+         expect(payloads).toEqual([
+            expect.objectContaining({ keyword: 'alpha', country: 'GB', location }),
+         ]);
+      }
    });
 
    it('returns no payloads when there are no devices or items', () => {

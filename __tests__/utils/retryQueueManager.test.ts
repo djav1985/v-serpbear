@@ -166,27 +166,6 @@ describe('RetryQueueManager', () => {
       });
    });
 
-   describe('getQueue', () => {
-      it('should return the current queue', async () => {
-         const mockQueue = [123, 456, 789];
-         jest.spyOn(retryQueueManager as any, 'readQueue').mockResolvedValue(mockQueue);
-
-         const result = await retryQueueManager.getQueue();
-
-         expect(result).toEqual(mockQueue);
-         expect(lockfile.lock).toHaveBeenCalled();
-         expect(mockRelease).toHaveBeenCalled();
-      });
-
-      it('should return empty array when queue file does not exist', async () => {
-         jest.spyOn(retryQueueManager as any, 'readQueue').mockResolvedValue([]);
-
-         const result = await retryQueueManager.getQueue();
-
-         expect(result).toEqual([]);
-      });
-   });
-
    describe('clearQueue', () => {
       it('should clear the entire queue', async () => {
          await retryQueueManager.clearQueue();
@@ -256,20 +235,61 @@ describe('RetryQueueManager', () => {
       });
    });
 
-   describe('data validation', () => {
-      it('should filter out invalid IDs when reading', async () => {
-         // Mock readQueue to simulate reading a queue with invalid entries
-         jest.spyOn(retryQueueManager as any, 'readQueue').mockImplementation(async function(this: any) {
-            // Simulate reading a queue with invalid entries
-            const mockData = '[123, -456, 0, "invalid", null, 789.5, 999]';
-            const parsed = JSON.parse(mockData);
-            return Array.isArray(parsed) ? parsed.filter((id: any) => Number.isInteger(id) && id > 0) : [];
-         });
+});
 
-         const result = await retryQueueManager.getQueue();
+// Corrupt-file tests need fs/promises mocked, which would break the spies above, so they load in an isolated registry.
+describe('RetryQueueManager with a corrupt queue file', () => {
+  let isolatedQueue: any;
+  let readMock: jest.Mock;
+  let renameMock: jest.Mock;
 
-         // Should only include valid positive integers
-         expect(result).toEqual([123, 999]);
-      });
-   });
+  beforeAll(() => {
+    jest.resetModules();
+    jest.doMock('fs/promises', () => ({
+      __esModule: true,
+      readFile: jest.fn(),
+      rename: jest.fn().mockResolvedValue(undefined),
+      mkdir: jest.fn().mockResolvedValue(undefined),
+    }));
+    jest.doMock('../../utils/atomicWrite', () => ({
+      __esModule: true,
+      atomicWriteFile: jest.fn().mockResolvedValue(undefined),
+    }));
+    jest.doMock('proper-lockfile', () => ({
+      lock: jest.fn().mockResolvedValue(jest.fn().mockResolvedValue(undefined)),
+    }));
+    jest.isolateModules(() => {
+      isolatedQueue = require('../../utils/retryQueueManager').retryQueueManager;
+      readMock = require('fs/promises').readFile;
+      renameMock = require('fs/promises').rename;
+    });
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('moves the damaged file aside once and returns an empty queue', async () => {
+    readMock.mockResolvedValue('{not json');
+
+    await expect(isolatedQueue.peekQueue()).resolves.toEqual([]);
+
+    expect(renameMock).toHaveBeenCalledTimes(1);
+    expect(renameMock).toHaveBeenCalledWith(
+      expect.stringMatching(/failed_queue\.json$/),
+      expect.stringMatching(/failed_queue\.json\.corrupt-\d+$/),
+    );
+  });
+
+  it('keeps queue writes working after the file was reset', async () => {
+    readMock.mockResolvedValue('');
+
+    await expect(isolatedQueue.addToQueue(5)).resolves.toBeUndefined();
+  });
+
+  it('peekQueue never throws, even on an unexpected read error', async () => {
+    readMock.mockRejectedValue(Object.assign(new Error('denied'), { code: 'EACCES' }));
+
+    await expect(isolatedQueue.peekQueue()).resolves.toEqual([]);
+  });
 });

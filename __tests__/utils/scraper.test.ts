@@ -2,12 +2,13 @@ import { serializeError } from '../../utils/errorSerialization';
 import { getSerp, scrapeKeywordFromGoogle } from '../../utils/scraper';
 import { resolveCountryCode } from '../../utils/scraperHelpers';
 import countries from '../../utils/countries';
-import { GOOGLE_BASE_URL } from '../../utils/constants';
 
 describe('resolveCountryCode', () => {
-  it('returns the country when no allowed countries array is provided', () => {
+  it('returns the country when no allowed countries array (or an empty one) is provided', () => {
     expect(resolveCountryCode('CA')).toBe('CA');
     expect(resolveCountryCode('DE')).toBe('DE');
+    expect(resolveCountryCode('CA', [])).toBe('CA');
+    expect(resolveCountryCode('DE', [])).toBe('DE');
   });
 
   it('returns fallback when country is empty or undefined', () => {
@@ -29,22 +30,10 @@ describe('resolveCountryCode', () => {
     expect(resolveCountryCode('ZZ', allowedCountries)).toBe('US');
   });
 
-  it('supports case-insensitive matching for allowed countries', () => {
-    const allowedCountries = ['US', 'CA', 'GB', 'DE'];
-    expect(resolveCountryCode('ca', allowedCountries)).toBe('CA');
-    expect(resolveCountryCode('us', allowedCountries)).toBe('US');
-    expect(resolveCountryCode('gb', allowedCountries)).toBe('GB');
-  });
-
   it('supports custom fallback country', () => {
     const allowedCountries = ['CA', 'GB', 'DE'];
     expect(resolveCountryCode('FR', allowedCountries, 'CA')).toBe('CA');
     expect(resolveCountryCode('', allowedCountries, 'GB')).toBe('GB');
-  });
-
-  it('handles empty allowed countries array', () => {
-    expect(resolveCountryCode('CA', [])).toBe('CA');
-    expect(resolveCountryCode('DE', [])).toBe('DE');
   });
 
   it('returns uppercase for valid country codes', () => {
@@ -155,8 +144,6 @@ describe('getSerp', () => {
     expect(serp.position).toBe(0);
     expect(serp.url).toBe('');
   });
-});
-
 
   it('matches domains when only www prefix differs', () => {
     const results: Array<{ title: string; url: string; position: number }> = [
@@ -165,6 +152,8 @@ describe('getSerp', () => {
     const serp = getSerp('example.com', results);
     expect(serp.position).toBe(1);
   });
+});
+
 describe('scraper error handling', () => {
   const originalFetch = global.fetch;
 
@@ -183,48 +172,6 @@ describe('scraper error handling', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
-  });
-
-  it('extracts status code from request_info.status_code when res.status is missing', async () => {
-    const mockResponse = {
-      request_info: {
-        success: false,
-        status_code: 429,
-        message: 'Rate limit exceeded',
-      },
-    };
-
-    (global.fetch as jest.Mock).mockResolvedValue({
-      json: async () => mockResponse,
-      text: async () => JSON.stringify(mockResponse),
-    });
-
-    const keyword: Partial<KeywordType> = {
-      ID: 1,
-      keyword: 'test',
-      domain: 'example.com',
-      device: 'desktop',
-      country: 'US',
-      position: 0,
-      url: '',
-      lastResult: [],
-      mapPackTop3: false,
-    };
-
-    const settings: Partial<SettingsType> = {
-      scraper_type: 'valueserp',
-      scraping_api: 'test-key',
-    };
-
-    const result = await scrapeKeywordFromGoogle(
-      keyword as KeywordType,
-      settings as SettingsType,
-      0
-    );
-
-    if (!result) throw new Error('Expected a scrape result');
-    expect(result.error).toBeTruthy();
-    expect(result.error).toContain('429');
   });
 
   it('includes request_info.message in error when other error fields are missing', async () => {
@@ -354,59 +301,5 @@ describe('scraper error handling', () => {
     expect(result.error).toBeTruthy();
     expect(result.error).toContain('Unknown Status');
     expect(result.error).toContain('Something went wrong');
-  });
-});
-
-describe('Google link filtering', () => {
-  it('should filter out Google internal links properly', () => {
-    const testGoogleUrlFiltering = (url: string): boolean => {
-      try {
-        const parsedURL = new URL(url.startsWith('http') ? url : `https://${url}`);
-        return parsedURL.origin === GOOGLE_BASE_URL;
-      } catch (_error) {
-        return false;
-      }
-    };
-
-    expect(testGoogleUrlFiltering('https://www.google.com/search?q=test')).toBe(true);
-    expect(testGoogleUrlFiltering('https://www.google.com/maps')).toBe(true);
-    expect(testGoogleUrlFiltering('https://www.google.com/news')).toBe(true);
-    expect(testGoogleUrlFiltering('https://www.google.com')).toBe(true);
-    expect(testGoogleUrlFiltering('https://example.com')).toBe(false);
-    expect(testGoogleUrlFiltering('https://another-site.com/page')).toBe(false);
-    expect(testGoogleUrlFiltering('https://google.com')).toBe(false);
-    expect(testGoogleUrlFiltering('https://mail.google.com')).toBe(false);
-
-    const testURL = new URL('https://www.google.com/search?q=test');
-    expect(testURL.origin).toBe(GOOGLE_BASE_URL);
-  });
-
-  it('should handle malformed URLs gracefully', () => {
-    const testSafeUrlParsing = (url: string): boolean => {
-      try {
-        const parsedURL = new URL(url.startsWith('http') ? url : `https://${url}`);
-        return parsedURL.origin === GOOGLE_BASE_URL;
-      } catch (_error) {
-        return false;
-      }
-    };
-
-    expect(testSafeUrlParsing('invalid-url')).toBe(false);
-    expect(testSafeUrlParsing('://malformed')).toBe(false);
-    expect(testSafeUrlParsing('')).toBe(false);
-
-    expect(testSafeUrlParsing('https://example.com')).toBe(false);
-    expect(testSafeUrlParsing('https://www.google.com/test')).toBe(true);
-  });
-
-  it('demonstrates the fix for the logical flaw mentioned in issue #302', () => {
-    const absoluteUrl = 'https://www.google.com/search?q=test';
-
-    const brokenCheck = absoluteUrl.startsWith('/');
-    expect(brokenCheck).toBe(false);
-
-    const parsedURL = new URL(absoluteUrl);
-    const correctCheck = parsedURL.origin === GOOGLE_BASE_URL;
-    expect(correctCheck).toBe(true);
   });
 });

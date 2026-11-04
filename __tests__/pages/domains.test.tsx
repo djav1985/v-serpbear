@@ -118,23 +118,6 @@ afterEach(() => {
 
 describe('Domains Page', () => {
    const queryClient = new QueryClient();
-   it('Renders without crashing', async () => {
-      render(
-          <QueryClientProvider client={queryClient}>
-              <Domains />
-          </QueryClientProvider>,
-      );
-      expect(screen.getByTestId('domains')).toBeInTheDocument();
-   });
-   it('Renders the Domain Component', async () => {
-      const { container } = render(
-          <QueryClientProvider client={queryClient}>
-              <Domains />
-          </QueryClientProvider>,
-      );
-      expect(container.querySelector('.domItem')).toBeInTheDocument();
-   });
-
    it('handles malformed search console JSON gracefully', async () => {
       useQuerySpy.mockImplementation(buildUseQueryImplementation({
          domains: {
@@ -175,29 +158,11 @@ describe('Domains Page', () => {
       expect(overlay).toHaveClass('fixed');
    });
 
-   it('wraps page content with the shared body gutter', () => {
-      const { container } = render(
-          <QueryClientProvider client={queryClient}>
-              <Domains />
-          </QueryClientProvider>,
-      );
-      const layoutWrapper = container.querySelector('.desktop-container.py-6');
-      expect(layoutWrapper).toBeInTheDocument();
-      expect(layoutWrapper).toHaveClass('py-6');
-   });
    it('Should Display Add Domain Modal on relveant Button Click.', async () => {
       render(<QueryClientProvider client={queryClient}><Domains /></QueryClientProvider>);
       const button = screen.getByTestId('addDomainButton');
       if (button) fireEvent.click(button);
       expect(screen.getByTestId('adddomain_modal')).toBeVisible();
-   });
-   it('does not render the legacy auto-migration banner', async () => {
-      render(
-          <QueryClientProvider client={queryClient}>
-              <Domains />
-          </QueryClientProvider>,
-      );
-      expect(screen.queryByText('Updating database automatically...')).not.toBeInTheDocument();
    });
    it('Should Display the version number in Footer.', async () => {
       render(<QueryClientProvider client={queryClient}><Domains /></QueryClientProvider>);

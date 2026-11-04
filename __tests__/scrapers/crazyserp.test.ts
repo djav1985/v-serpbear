@@ -69,24 +69,6 @@ describe('crazyserp scraper', () => {
          expect(parsed.searchParams.get('location')).toBe('Austin,TX,United States');
       });
 
-      it('passes through location as-is when it already contains the country name', () => {
-         const keyword: Partial<KeywordType> = {
-            keyword: 'plumber',
-            country: 'US',
-            location: 'Austin,TX,United States',
-            device: 'desktop',
-         };
-
-         const url = crazyserp.scrapeURL!(
-            keyword as KeywordType,
-            settings as SettingsType,
-            countryData
-         );
-         const parsed = new URL(url);
-
-         expect(parsed.searchParams.get('location')).toBe('Austin,TX,United States');
-      });
-
       it('omits the location parameter when keyword.location is blank for a country-only keyword', () => {
          const keyword: Partial<KeywordType> = {
             keyword: 'seo tools',

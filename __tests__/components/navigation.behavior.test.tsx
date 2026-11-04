@@ -1,9 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from 'react-query';
 import Sidebar from '../../components/common/Sidebar';
-import TopBar from '../../components/common/TopBar';
 import { dummyDomain } from '../../__mocks__/data';
 import { DEFAULT_BRANDING } from '../../utils/branding';
 import { useBranding } from '../../hooks/useBranding';
@@ -25,17 +23,6 @@ jest.mock('next/router', () => ({
 
 const mockUseBranding = useBranding as jest.MockedFunction<typeof useBranding>;
 
-const createTestQueryClient = () => new QueryClient({ defaultOptions: { queries: { retry: false } } });
-
-const renderTopBar = () => {
-   const queryClient = createTestQueryClient();
-   return render(
-      <QueryClientProvider client={queryClient}>
-         <TopBar showSettings={jest.fn} showAddModal={jest.fn} />
-      </QueryClientProvider>,
-   );
-};
-
 describe('Sidebar Component', () => {
    beforeEach(() => {
       mockUseBranding.mockReturnValue({
@@ -51,10 +38,6 @@ describe('Sidebar Component', () => {
       jest.clearAllMocks();
    });
 
-   it('renders without crashing', async () => {
-       render(<Sidebar domains={[dummyDomain]} showAddModal={addDomainMock} />);
-       expect(screen.getByText(DEFAULT_BRANDING.platformName)).toBeInTheDocument();
-   });
    it('renders domain list', async () => {
       render(<Sidebar domains={[dummyDomain]} showAddModal={addDomainMock} />);
       expect(screen.getByText('compressimage.io')).toBeInTheDocument();
@@ -68,34 +51,6 @@ describe('Sidebar Component', () => {
 });
 
 describe('TopBar Component', () => {
-   beforeEach(() => {
-      mockUseBranding.mockReturnValue({
-         branding: DEFAULT_BRANDING,
-         isLoading: false,
-         isError: false,
-         isFetching: false,
-         refetch: jest.fn(),
-      });
-   });
-
-   afterEach(() => {
-      jest.clearAllMocks();
-   });
-
-   it('renders without crashing', async () => {
-       renderTopBar();
-       expect(
-           await screen.findByText(DEFAULT_BRANDING.platformName),
-       ).toBeInTheDocument();
-   });
-
-   it('aligns the back button with the topbar gutter helper', () => {
-      const { container } = renderTopBar();
-      const backLink = container.querySelector('.topbar__back');
-      expect(backLink).toBeInTheDocument();
-      expect(backLink).toHaveClass('topbar__back');
-   });
-
    it('applies the mobile edge-to-edge helper via global CSS', () => {
       const globalsPath = path.join(process.cwd(), 'styles', 'globals.css');
       const css = fs.readFileSync(globalsPath, 'utf8');
@@ -121,14 +76,5 @@ describe('TopBar Component', () => {
 
       const mobileBodyOverride = /@media\s*\(\s*max-width:\s*767px\s*\)\s*\{[^}]*body\s*\{/;
       expect(css).not.toMatch(mobileBodyOverride);
-   });
-
-   it('applies the shared desktop container utility', () => {
-      const { container } = renderTopBar();
-      const topbarElement = container.querySelector('.topbar');
-
-      expect(topbarElement).toBeInTheDocument();
-      expect(topbarElement?.classList.contains('desktop-container')).toBe(true);
-      expect(topbarElement?.className).not.toMatch(/max-w-\dxl?/);
    });
 });

@@ -1,14 +1,17 @@
 /// <reference path="../../types.d.ts" />
 
-import React from 'react';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from 'react-query';
-import KeywordIdeasTable from '../../components/ideas/KeywordIdeasTable';
-import { useFetchKeywords } from '../../services/keywords';
-import { useEmailKeywordIdeas } from '../../services/ideas';
-import { fetchDomains } from '../../services/domains';
+/**
+ * Tests for the keyword ideas table (DRY tracked-keyword handling) and the
+ * KeywordIdeasUpdater load controls.
+ */
 
 const toastMock = jest.fn();
+const mockMutate = jest.fn();
+const mockRouter = {
+   pathname: '/domain/ideas/example-domain',
+   push: jest.fn(),
+   query: { slug: 'example-domain' },
+};
 
 jest.mock('react-hot-toast', () => ({
    __esModule: true,
@@ -25,6 +28,7 @@ jest.mock('../../services/keywords', () => ({
 
 jest.mock('../../services/adwords', () => ({
    useMutateFavKeywordIdeas: () => ({ mutate: jest.fn(), isLoading: false }),
+   useMutateKeywordIdeas: () => ({ mutate: mockMutate, isLoading: false }),
 }));
 
 jest.mock('../../services/settings', () => ({
@@ -39,22 +43,34 @@ jest.mock('../../services/ideas', () => ({
    useEmailKeywordIdeas: jest.fn(),
 }));
 
+// Delegates to the real SelectField by default; the updater suite swaps in its own stub.
+jest.mock('../../components/common/SelectField', () => ({
+   __esModule: true,
+   default: jest.fn(jest.requireActual('../../components/common/SelectField').default),
+}));
+
 jest.mock('react-chartjs-2', () => ({
    Line: () => null,
 }));
 
-const useFetchKeywordsMock = useFetchKeywords as jest.MockedFunction<typeof useFetchKeywords>;
-const useEmailKeywordIdeasMock = useEmailKeywordIdeas as jest.MockedFunction<typeof useEmailKeywordIdeas>;
-
-const mockRouter = {
-   pathname: '/domain/ideas/example-domain',
-   push: jest.fn(),
-   query: { slug: 'example-domain' },
-};
-
 jest.mock('next/router', () => ({
    useRouter: () => mockRouter,
 }));
+
+import React from 'react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from 'react-query';
+import KeywordIdeasTable from '../../components/ideas/KeywordIdeasTable';
+import KeywordIdeasUpdater from '../../components/ideas/KeywordIdeasUpdater';
+import SelectField from '../../components/common/SelectField';
+import { useFetchKeywords } from '../../services/keywords';
+import { useEmailKeywordIdeas } from '../../services/ideas';
+import { fetchDomains } from '../../services/domains';
+
+const useFetchKeywordsMock = useFetchKeywords as jest.MockedFunction<typeof useFetchKeywords>;
+const useEmailKeywordIdeasMock = useEmailKeywordIdeas as jest.MockedFunction<typeof useEmailKeywordIdeas>;
+const SelectFieldMock = SelectField as unknown as jest.Mock;
+const actualSelectField = jest.requireActual('../../components/common/SelectField').default;
 
 describe('KeywordIdeasTable DRY Principle Implementation', () => {
    let queryClient: QueryClient;
@@ -301,5 +317,95 @@ describe('KeywordIdeasTable DRY Principle Implementation', () => {
       });
 
       expect(firstRow).not.toHaveClass('keyword--selected');
+   });
+});
+
+describe('KeywordIdeasUpdater Component', () => {
+   const mockDomain: DomainType = {
+      ID: 1,
+      domain: 'example.com',
+      slug: 'example-com',
+      lastUpdated: '2023-01-01',
+      added: '2023-01-01',
+      tags: '',
+      notification_interval: '0',
+      notification_emails: '',
+      search_console: '',
+      keywordsTracked: 0,
+   };
+
+   let queryClient: QueryClient;
+
+   beforeEach(() => {
+      // Stub SelectField so the options are visible as plain list items.
+      SelectFieldMock.mockImplementation(({ options }: any) => (
+         <ul data-testid="select-field-options">
+            {options.map((option: { label: string, value: string }) => (
+               <li key={option.value}>{option.label}</li>
+            ))}
+         </ul>
+      ));
+
+      queryClient = new QueryClient({
+         defaultOptions: {
+            queries: { retry: false },
+            mutations: { retry: false },
+         },
+      });
+   });
+
+   afterEach(() => {
+      SelectFieldMock.mockImplementation(actualSelectField);
+   });
+
+   const renderWithQueryClient = (component: React.ReactElement) => render(
+         <QueryClientProvider client={queryClient}>
+            {component}
+         </QueryClientProvider>,
+      );
+
+   it('renders without crashing', () => {
+      renderWithQueryClient(
+         <KeywordIdeasUpdater
+            domain={mockDomain}
+            searchConsoleConnected={false}
+            adwordsConnected={true}
+         />,
+      );
+
+      expect(screen.getByText('Get Keyword Ideas')).toBeInTheDocument();
+      expect(screen.getByText('Load Keyword Ideas')).toBeInTheDocument();
+   });
+
+   it('validates the fix for keywordPayload variable name', () => {
+      const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+
+      renderWithQueryClient(
+         <KeywordIdeasUpdater
+            domain={mockDomain}
+            searchConsoleConnected={false}
+            adwordsConnected={true}
+         />,
+      );
+
+      // The console should not show "keywordPaylod" (with typo) anymore
+      // This validates our fix
+      expect(consoleLogSpy).not.toHaveBeenCalledWith(
+         expect.stringContaining('keywordPaylod'),
+      );
+
+      consoleLogSpy.mockRestore();
+   });
+
+   it('lists the Search Console seed option when the integration is available', () => {
+      renderWithQueryClient(
+         <KeywordIdeasUpdater
+            domain={mockDomain}
+            searchConsoleConnected={true}
+            adwordsConnected={true}
+         />,
+      );
+
+      expect(screen.getAllByTestId('select-field-options')[0]).toHaveTextContent('Based on already ranking keywords (GSC)');
    });
 });

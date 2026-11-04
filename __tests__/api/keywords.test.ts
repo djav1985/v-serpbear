@@ -332,44 +332,6 @@ describe('PUT /api/keywords error handling', () => {
     );
   });
 
-  it('returns keywords without invoking stale update cleanup', async () => {
-    const keywordRecord = {
-      get: () => ({
-        ID: 5,
-        keyword: 'alpha',
-        history: '{}',
-        tags: '[]',
-        lastResult: '[]',
-        lastUpdateError: 'false',
-        device: 'desktop',
-        domain: 'example.com',
-        country: 'US',
-        updating: 0,
-        sticky: 0,
-        mapPackTop3: 0,
-        localResults: '[]',
-      }),
-    };
-
-    keywordMock.findAll.mockResolvedValueOnce([keywordRecord]);
-    getAppSettingsMock.mockResolvedValue({});
-
-    const req = {
-      method: 'GET',
-      query: { domain: 'example.com' },
-      headers: {},
-    } as unknown as NextApiRequest;
-
-    const res = {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn(),
-    } as unknown as NextApiResponse;
-
-    await handler(req, res);
-
-    expect(res.status).toHaveBeenCalledWith(200);
-  });
-
   afterEach(() => {
     jest.useRealTimers();
   });

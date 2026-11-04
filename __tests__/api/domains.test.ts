@@ -393,25 +393,6 @@ describe('PUT /api/domains', () => {
     expect(updatePayload.scraper_settings).toBeNull();
   });
 
-  it('updates business_name as a separate domain field', async () => {
-    domainState.business_name = 'Old Business';
-
-    const req = {
-      method: 'PUT',
-      query: { domain: domainState.domain },
-      body: { business_name: 'New Business' },
-      headers: {},
-    } as unknown as NextApiRequest;
-
-    const res = createMockResponse();
-
-    await handler(req, res);
-
-    expect(res.status).toHaveBeenCalledWith(200);
-    const updatePayload = domainInstance.set.mock.calls[domainInstance.set.mock.calls.length - 1][0];
-    expect(updatePayload.business_name).toBe('New Business');
-  });
-
   it('can set business_name independently of scraper settings', async () => {
     const req = {
       method: 'PUT',
@@ -451,41 +432,16 @@ describe('PUT /api/domains', () => {
     expect(updatePayload.scraper_settings).toEqual(expect.any(String));
   });
 
-  it('returns 500 when SECRET is missing and search_console credentials are provided', async () => {
+  it.each([
+    ['search_console credentials', { search_console: { client_email: 'test@example.com', private_key: 'test-key' } }],
+    ['scraper_settings', { scraper_settings: { scraper_type: 'serpapi', scraping_api: 'new-key' } }],
+  ])('returns 500 when SECRET is missing and %s are provided', async (_label, body) => {
     delete process.env.SECRET;
 
     const req = {
       method: 'PUT',
       query: { domain: domainState.domain },
-      body: { 
-        search_console: { 
-          client_email: 'test@example.com', 
-          private_key: 'test-key' 
-        }
-      },
-      headers: {},
-    } as unknown as NextApiRequest;
-
-    const res = createMockResponse();
-
-    await handler(req, res);
-
-    expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-      error: expect.objectContaining({ message: 'Server configuration error: encryption key not available' }),
-    }));
-    expect(domainInstance.save).not.toHaveBeenCalled();
-  });
-
-  it('returns 500 when SECRET is missing and scraper_settings are provided', async () => {
-    delete process.env.SECRET;
-
-    const req = {
-      method: 'PUT',
-      query: { domain: domainState.domain },
-      body: { 
-        scraper_settings: { scraper_type: 'serpapi', scraping_api: 'new-key' }
-      },
+      body,
       headers: {},
     } as unknown as NextApiRequest;
 
@@ -521,15 +477,14 @@ describe('PUT /api/domains', () => {
     expect(domainInstance.save).toHaveBeenCalled();
   });
 
-  it('rejects partial Search Console updates with only client_email', async () => {
+  it.each([
+    ['client_email', { client_email: 'test@example.com' }],
+    ['private_key', { private_key: 'test-key' }],
+  ])('rejects partial Search Console updates with only %s', async (_label, search_console) => {
     const req = {
       method: 'PUT',
       query: { domain: domainState.domain },
-      body: { 
-        search_console: { 
-          client_email: 'test@example.com'
-        }
-      },
+      body: { search_console },
       headers: {},
     } as unknown as NextApiRequest;
 
@@ -544,15 +499,15 @@ describe('PUT /api/domains', () => {
     expect(domainInstance.save).not.toHaveBeenCalled();
   });
 
-  it('rejects partial Search Console updates with only private_key', async () => {
+  // Empty and whitespace-only values count as absent: no validation or encryption, and the save proceeds
+  it.each([
+    ['empty', '', ''],
+    ['whitespace-only', '   ', '  \t\n  '],
+  ])('treats %s Search Console fields as absent and still saves', async (_label, clientEmail, privateKey) => {
     const req = {
       method: 'PUT',
       query: { domain: domainState.domain },
-      body: { 
-        search_console: { 
-          private_key: 'test-key'
-        }
-      },
+      body: { search_console: { client_email: clientEmail, private_key: privateKey } },
       headers: {},
     } as unknown as NextApiRequest;
 
@@ -560,54 +515,6 @@ describe('PUT /api/domains', () => {
 
     await handler(req, res);
 
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-      error: expect.objectContaining({ message: 'Both client_email and private_key must be provided together for Search Console integration' }),
-    }));
-    expect(domainInstance.save).not.toHaveBeenCalled();
-  });
-
-  it('rejects Search Console updates with both fields as empty strings', async () => {
-    const req = {
-      method: 'PUT',
-      query: { domain: domainState.domain },
-      body: { 
-        search_console: { 
-          client_email: '',
-          private_key: ''
-        }
-      },
-      headers: {},
-    } as unknown as NextApiRequest;
-
-    const res = createMockResponse();
-
-    await handler(req, res);
-
-    // Both empty strings should result in neither being considered present,
-    // so the update should proceed but skip validation and encryption
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(domainInstance.save).toHaveBeenCalled();
-  });
-
-  it('rejects Search Console updates with whitespace-only strings', async () => {
-    const req = {
-      method: 'PUT',
-      query: { domain: domainState.domain },
-      body: { 
-        search_console: { 
-          client_email: '   ',
-          private_key: '  \t\n  '
-        }
-      },
-      headers: {},
-    } as unknown as NextApiRequest;
-
-    const res = createMockResponse();
-
-    await handler(req, res);
-
-    // Whitespace-only strings should be treated as empty after trim()
     expect(res.status).toHaveBeenCalledWith(200);
     expect(domainInstance.save).toHaveBeenCalled();
   });

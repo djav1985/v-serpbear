@@ -2,7 +2,9 @@ import { writeFile, readFile, access, rename, unlink } from 'fs/promises';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import handler from '../../pages/api/settings';
 import * as settingsApi from '../../pages/api/settings';
+import clearFailedHandler from '../../pages/api/clearfailed';
 import { getBranding } from '../../utils/branding';
+import { createMockResponse } from '../__helpers__';
 
 const { platformName } = getBranding();
 import verifyUser from '../../utils/verifyUser';
@@ -25,11 +27,11 @@ jest.mock('fs/promises', () => ({
   unlink: jest.fn(),
 }));
 
-// Mock retryQueueManager
+// Mock retryQueueManager (clearQueue is used by the merged /api/clearfailed suite below)
 jest.mock('../../utils/retryQueueManager', () => ({
   retryQueueManager: {
-    getQueue: jest.fn().mockResolvedValue([]),
     peekQueue: jest.fn().mockResolvedValue([]),
+    clearQueue: jest.fn(),
   },
 }));
 
@@ -169,24 +171,16 @@ describe('validateSettingsPayload', () => {
     expect(validateSettingsPayload({ smtp_port: '', notification_email: '' })).toEqual([]);
   });
 
-  it('ignores fields that are not in the payload', () => {
-    expect(validateSettingsPayload({})).toEqual([]);
-  });
-
-  it('rejects an unknown scraper type', () => {
-    expect(validateSettingsPayload({ scraper_type: 'made-up' })[0]).toMatch(/Unknown scraper type/);
-  });
-
-  it('rejects an unknown scrape strategy', () => {
-    expect(validateSettingsPayload({ scrape_strategy: 'everything' })[0]).toMatch(/scrape_strategy/);
+  it.each([
+    ['scraper_type', 'made-up', /Unknown scraper type/],
+    ['scrape_strategy', 'everything', /scrape_strategy/],
+    ['notification_interval', 'hourly', /notification_interval/],
+  ])('rejects an unknown %s value', (field, value, message) => {
+    expect(validateSettingsPayload({ [field]: value })[0]).toMatch(message);
   });
 
   it.each([0, 11, 2.5, 'abc'])('rejects pagination limit %p', (limit) => {
     expect(validateSettingsPayload({ scrape_pagination_limit: limit })[0]).toMatch(/scrape_pagination_limit/);
-  });
-
-  it('rejects an unknown notification interval', () => {
-    expect(validateSettingsPayload({ notification_interval: 'hourly' })[0]).toMatch(/notification_interval/);
   });
 
   it('rejects non-boolean flags', () => {
@@ -197,12 +191,8 @@ describe('validateSettingsPayload', () => {
     expect(validateSettingsPayload({ smtp_port: '70000' })[0]).toMatch(/smtp_port/);
   });
 
-  it('rejects a malformed notification email', () => {
-    expect(validateSettingsPayload({ notification_email: 'not-an-email' })[0]).toMatch(/notification_email/);
-  });
-
-  it('rejects an address with no dot in the domain', () => {
-    expect(validateSettingsPayload({ notification_email: 'user@localhost' })[0]).toMatch(/notification_email/);
+  it.each(['not-an-email', 'user@localhost'])('rejects malformed notification email %s', (email) => {
+    expect(validateSettingsPayload({ notification_email: email })[0]).toMatch(/notification_email/);
   });
 
   it('rejects a dotted domain with many repeated dots quickly', () => {
@@ -249,30 +239,6 @@ describe('GET /api/settings and configuration requirements', () => {
     await handler(req, res);
 
     // GET no longer calls verifyUser (uses silent auth check to avoid logging anonymous access failures)
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({
-      settings: expect.objectContaining({
-        version: '4.0.0',
-      }),
-    });
-  });
-
-  it('returns settings with version from package.json', async () => {
-    readFileMock.mockResolvedValueOnce(JSON.stringify({})).mockResolvedValueOnce(JSON.stringify([]));
-
-    const req = {
-      method: 'GET',
-      headers: {},
-      query: {},
-    } as unknown as NextApiRequest;
-
-    const res = {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn(),
-    } as unknown as NextApiResponse;
-
-    await handler(req, res);
-
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       settings: expect.objectContaining({
@@ -417,5 +383,196 @@ describe('GET /api/settings and configuration requirements', () => {
     expect(settings.adwords_account_id).toBe('');
     // Non-sensitive fields should still be present
     expect(settings.scraper_type).toBe('serpapi');
+  });
+});
+
+describe('/api/clearfailed', () => {
+   const req = { method: 'PUT', headers: {} } as unknown as NextApiRequest;
+   let res: NextApiResponse;
+
+   beforeEach(() => {
+      res = {
+         status: jest.fn().mockReturnThis(),
+         json: jest.fn(),
+      } as unknown as NextApiResponse;
+
+      (verifyUser as jest.Mock).mockReturnValue('authorized');
+      const { retryQueueManager } = require('../../utils/retryQueueManager');
+      (retryQueueManager.clearQueue as jest.Mock).mockResolvedValue(undefined);
+   });
+
+   afterEach(() => {
+      jest.clearAllMocks();
+   });
+
+   it('responds with error status when clearing the queue fails', async () => {
+      const { retryQueueManager } = require('../../utils/retryQueueManager');
+      (retryQueueManager.clearQueue as jest.Mock).mockRejectedValue(new Error('disk full'));
+
+      await clearFailedHandler(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith(
+         expect.objectContaining({ error: expect.objectContaining({ code: 'INTERNAL_SERVER_ERROR', message: 'disk full' }) }),
+      );
+   });
+});
+
+// Suites below need mocks that differ from the ones above (real Cryptr, atomicWrite/settingsFile, a
+// cookies-aware verifyUser), so they load the handler in an isolated module registry.
+describe('PUT /api/settings keeps secrets that are left out of the payload', () => {
+  const originalSecret = process.env.SECRET;
+  const mockStoredFile = { current: '{}' };
+  let handler: any;
+  let verifyUserInstance: jest.Mock;
+  let writeMock: jest.Mock;
+  let cryptr: any;
+  let storedApiKey: string;
+  let storedSmtpPassword: string;
+
+  beforeAll(() => {
+    jest.resetModules();
+    jest.doMock('fs/promises', () => ({
+      __esModule: true,
+      readFile: jest.fn(async () => mockStoredFile.current),
+      writeFile: jest.fn(),
+      access: jest.fn(),
+      rename: jest.fn(),
+      unlink: jest.fn(),
+    }));
+    jest.doMock('cryptr', () => jest.requireActual('cryptr'));
+    jest.doMock('../../utils/atomicWrite', () => ({
+      __esModule: true,
+      atomicWriteFile: jest.fn().mockResolvedValue(undefined),
+    }));
+    jest.doMock('../../utils/settingsFile', () => ({ withSettingsLock: (section: () => Promise<unknown>) => section() }));
+    jest.isolateModules(() => {
+      handler = require('../../pages/api/settings').default;
+      verifyUserInstance = require('../../utils/verifyUser').default;
+      writeMock = require('../../utils/atomicWrite').atomicWriteFile;
+    });
+    const RealCryptr = jest.requireActual('cryptr');
+    cryptr = new RealCryptr('keep-secrets-test-secret');
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env.SECRET = 'keep-secrets-test-secret';
+    verifyUserInstance.mockReturnValue('authorized');
+    storedApiKey = cryptr.encrypt('stored-scraper-key');
+    storedSmtpPassword = cryptr.encrypt('stored-smtp-password');
+    mockStoredFile.current = JSON.stringify({
+      scraper_type: 'serper',
+      scraping_api: storedApiKey,
+      smtp_password: storedSmtpPassword,
+      adwords_refresh_token: cryptr.encrypt('stored-refresh-token'),
+    });
+  });
+
+  afterEach(() => {
+    if (originalSecret === undefined) {
+      delete process.env.SECRET;
+    } else {
+      process.env.SECRET = originalSecret;
+    }
+  });
+
+  it('keeps the stored encrypted secrets when the payload does not include them', async () => {
+    const req = { method: 'PUT', body: { settings: { scraper_type: 'serper', notification_interval: 'never' } }, headers: {} } as unknown as NextApiRequest;
+    const res = createMockResponse();
+
+    await handler(req, res as unknown as NextApiResponse);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    const saved = JSON.parse(writeMock.mock.calls[0][1]);
+    expect(saved.scraping_api).toBe(storedApiKey);
+    expect(saved.smtp_password).toBe(storedSmtpPassword);
+    expect(cryptr.decrypt(saved.adwords_refresh_token)).toBe('stored-refresh-token');
+  });
+
+  it('replaces a secret when the payload sends a new value, and clears it when the value is empty', async () => {
+    const req = { method: 'PUT', body: { settings: { scraper_type: 'serper', scraping_api: 'new-key', smtp_password: '' } }, headers: {} } as unknown as NextApiRequest;
+    const res = createMockResponse();
+
+    await handler(req, res as unknown as NextApiResponse);
+
+    const saved = JSON.parse(writeMock.mock.calls[0][1]);
+    expect(cryptr.decrypt(saved.scraping_api)).toBe('new-key');
+    expect(saved.smtp_password).toBe('');
+  });
+});
+
+describe('GET /api/settings session checks', () => {
+  const originalSecret = process.env.SECRET;
+  let handler: any;
+  let verifySessionMock: jest.Mock;
+  let readFileMock: jest.Mock;
+  let CookiesMock: jest.Mock;
+
+  beforeAll(() => {
+    jest.resetModules();
+    jest.doMock('cookies', () => jest.fn());
+    jest.doMock('../../utils/verifyUser', () => ({
+      __esModule: true,
+      default: jest.fn(),
+      verifySessionToken: jest.fn(),
+    }));
+    jest.doMock('fs/promises', () => ({
+      readFile: jest.fn(),
+      writeFile: jest.fn(),
+      access: jest.fn(),
+      rename: jest.fn(),
+      unlink: jest.fn(),
+    }));
+    jest.doMock('../../utils/retryQueueManager', () => ({
+      retryQueueManager: { peekQueue: jest.fn().mockResolvedValue([]) },
+    }));
+    jest.isolateModules(() => {
+      handler = require('../../pages/api/settings').default;
+      verifySessionMock = require('../../utils/verifyUser').verifySessionToken;
+      readFileMock = require('fs/promises').readFile;
+      CookiesMock = require('cookies');
+    });
+  });
+
+  const run = async () => {
+    const req = { method: 'GET', headers: {}, query: {} } as unknown as NextApiRequest;
+    const res = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
+    await handler(req, res);
+    return (res.json as jest.Mock).mock.calls[0][0].settings;
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env.SECRET = 'secret';
+    CookiesMock.mockImplementation(() => ({ get: () => 'copied-token' }));
+    readFileMock.mockResolvedValue(JSON.stringify({ smtp_password: 'hunter2', scraping_api: 'key' }));
+  });
+
+  afterEach(() => {
+    if (originalSecret === undefined) { delete process.env.SECRET; } else { process.env.SECRET = originalSecret; }
+  });
+
+  it('returns only public settings when the token was revoked by logout', async () => {
+    verifySessionMock.mockImplementation(() => { throw new Error('Session has been revoked'); });
+
+    const settings = await run();
+
+    expect(settings).toEqual({
+      scraper_type: expect.any(String),
+      available_scapers: expect.any(Array),
+      search_console_integrated: expect.any(Boolean),
+      version: expect.any(String),
+    });
+    expect(settings.smtp_password).toBeUndefined();
+  });
+
+  it('returns full settings for a valid, current session', async () => {
+    verifySessionMock.mockReturnValue({ user: 'admin' });
+
+    const settings = await run();
+
+    expect(verifySessionMock).toHaveBeenCalledWith('copied-token');
+    expect(settings.smtp_password).toBeDefined();
   });
 });

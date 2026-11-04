@@ -102,28 +102,6 @@ describe('DomainSettings Component', () => {
          />,
       );
 
-   it('renders without crashing', () => {
-      mockUseFetchDomain.mockImplementation(() => {});
-
-      renderDomainSettings();
-
-      expect(screen.getByText('Domain Settings')).toBeInTheDocument();
-      expect(screen.getByText('Notification')).toBeInTheDocument();
-      expect(screen.getByText('Search Console')).toBeInTheDocument();
-      expect(screen.getByText('Scraper')).toBeInTheDocument();
-   });
-
-   it('keeps the settings tabs on one row without scrollbars', () => {
-      mockUseFetchDomain.mockImplementation(() => {});
-
-      renderDomainSettings();
-
-      const tabList = screen.getByText('Notification').closest('ul') as HTMLElement;
-      expect(tabList).not.toHaveClass('flex-wrap');
-      expect(tabList).not.toHaveClass('overflow-x-auto');
-      expect(screen.getByText('Search Console').closest('li')).toHaveClass('truncate', 'whitespace-nowrap');
-   });
-
    it('syncs scrape and notify flags when toggling the unified active control', async () => {
       mockUseFetchDomain.mockImplementation(() => {});
       const mutateMock = jest.fn();
@@ -384,30 +362,6 @@ describe('DomainSettings Component', () => {
             },
          }),
       });
-   });
-
-   it('handles the stale closure scenario correctly', () => {
-      // This test validates that the fix prevents the stale closure issue
-      // by ensuring we use the functional form of setState
-
-      let capturedCallback: ((_domainObj: DomainType) => void) | null = null;
-
-      mockUseFetchDomain.mockImplementation((_router, _domain, onSuccess) => {
-         capturedCallback = onSuccess;
-      });
-
-      renderWithQueryClient(
-         <DomainSettings domain={mockDomain} closeModal={mockCloseModal} />,
-      );
-
-      // Verify that useFetchDomain was called and we captured the callback
-      expect(mockUseFetchDomain).toHaveBeenCalled();
-      expect(capturedCallback).toBeTruthy();
-
-      // The key here is that our fix should use prevSettings => ({ ...prevSettings, ... })
-      // instead of the stale { ...domainSettings, ... } pattern
-      // This test just validates that the callback was set up correctly
-      expect(typeof capturedCallback).toBe('function');
    });
 
    it('does not save while the stored domain settings are still loading', () => {

@@ -22,22 +22,20 @@ jest.mock('../../hooks/useOnKey', () => jest.fn());
 const useFetchSingleKeywordMock = useFetchSingleKeyword as unknown as jest.Mock;
 
 describe('KeywordDetails', () => {
-   it('renders stored SERP results immediately when no fresh data is returned', () => {
-      useFetchSingleKeywordMock.mockReturnValue({ data: undefined });
+   it('falls back to stored keyword.lastResult when no fresh data or no fresh search results are returned', () => {
+      const cases = [
+         { data: undefined },
+         { data: { history: dummyKeywords[0].history } },
+      ];
+      for (const { data } of cases) {
+         useFetchSingleKeywordMock.mockReturnValue({ data });
 
-      render(<KeywordDetails keyword={dummyKeywords[0] as KeywordType} closeDetails={jest.fn()} />);
+         const { unmount } = render(<KeywordDetails keyword={dummyKeywords[0] as KeywordType} closeDetails={jest.fn()} />);
 
-      expect(screen.getByText('1. Compress Image Tool')).toBeInTheDocument();
-      expect(screen.getByText('https://compressimage.io/')).toBeInTheDocument();
-   });
-
-   it('falls back to keyword.lastResult when fetched data omits search results', () => {
-      useFetchSingleKeywordMock.mockReturnValue({ data: { history: dummyKeywords[0].history } });
-
-      render(<KeywordDetails keyword={dummyKeywords[0] as KeywordType} closeDetails={jest.fn()} />);
-
-      expect(screen.getByText('1. Compress Image Tool')).toBeInTheDocument();
-      expect(screen.getByText('https://compressimage.io/')).toBeInTheDocument();
+         expect(screen.getByText('1. Compress Image Tool')).toBeInTheDocument();
+         expect(screen.getByText('https://compressimage.io/')).toBeInTheDocument();
+         unmount();
+      }
    });
 
    it('shows "No Results" when position is 0 and no results are skipped', () => {

@@ -23,25 +23,18 @@ const cases: Array<[string, any, any]> = [
 ];
 
 describe.each(cases)('%s map pack when the response has no local results', (_name, scraper, response) => {
-  it('returns no map pack and an empty local list, without throwing', () => {
-    const extraction = scraper.serpExtractor({
-      keyword: { keyword: 'coffee', domain: 'example.com', device: 'desktop' },
-      response,
-      result: undefined,
-      settings: { scraping_api: 'key', business_name: 'Acme Coffee' },
-    } as any);
+  it('returns no map pack and an empty local list without throwing, on desktop and mobile', () => {
+    for (const device of ['desktop', 'mobile']) {
+      const extraction = scraper.serpExtractor({
+        keyword: { keyword: 'coffee', domain: 'example.com', device },
+        response,
+        result: undefined,
+        settings: { scraping_api: 'key', business_name: 'Acme Coffee' },
+      } as any);
 
-    expect(extraction.mapPackTop3).toBe(false);
-    expect(extraction.localResults ?? []).toEqual([]);
-  });
-
-  it('still returns organic results when the local section is missing', () => {
-    expect(() => scraper.serpExtractor({
-      keyword: { keyword: 'coffee', domain: 'example.com', device: 'mobile' },
-      response,
-      result: undefined,
-      settings: { scraping_api: 'key', business_name: 'Acme Coffee' },
-    } as any)).not.toThrow();
+      expect(extraction.mapPackTop3).toBe(false);
+      expect(extraction.localResults ?? []).toEqual([]);
+    }
   });
 });
 

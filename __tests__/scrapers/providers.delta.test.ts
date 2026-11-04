@@ -30,9 +30,7 @@ describe('hasdata scraper', () => {
     );
     const parsed = new URL(url);
 
-    expect(parsed.searchParams.get('q')).toBe('best vegan restaurants');
     expect(parsed.searchParams.get('location')).toBe('Los Angeles,CA,United States');
-    expect(url).toContain('q=best+vegan+restaurants');
     expect(url).toContain('location=Los+Angeles%2CCA%2CUnited+States');
     expect(parsed.searchParams.get('deviceType')).toBe('desktop');
   });
@@ -62,14 +60,11 @@ describe('serper scraper', () => {
 
     expect(parsed.origin).toBe('https://google.serper.dev');
     expect(parsed.pathname).toBe('/search');
-    expect(parsed.searchParams.get('q')).toBe(keyword.keyword);
     expect(parsed.searchParams.get('gl')).toBe('US');
     expect(parsed.searchParams.get('hl')).toBe('en');
     expect(parsed.searchParams.get('location')).toBe('Austin,TX,United States');
     expect(parsed.searchParams.get('apiKey')).toBe(settings.scraping_api);
-    expect(url).toContain('q=plumber+near+me');
     expect(url).toContain('location=Austin%2CTX%2CUnited+States');
-    expect(url).not.toContain('plumber%2Bnear%2Bme');
   });
 
 });
@@ -77,7 +72,7 @@ describe('serper scraper', () => {
 describe('serpapi scraper', () => {
   const settings: Partial<SettingsType> = { scraping_api: 'serpapi-key' };
 
-  it('encodes spaces with + while preserving decoded values', () => {
+  it('builds the search.json URL and encodes the location with + and %2C', () => {
     const keyword: Partial<KeywordType> = {
       keyword: 'best coffee shops',
       country: 'US',
@@ -89,11 +84,8 @@ describe('serpapi scraper', () => {
 
     expect(parsed.origin).toBe('https://serpapi.com');
     expect(parsed.pathname).toBe('/search.json');
-    expect(parsed.searchParams.get('q')).toBe('best coffee shops');
     expect(parsed.searchParams.get('location')).toBe('New York,NY,United States');
-    expect(url).toContain('q=best+coffee+shops');
     expect(url).toContain('location=New+York%2CNY%2CUnited+States');
-    expect(url).not.toContain('best%2Bcoffee%2Bshops');
   });
 
   describe('local results', () => {

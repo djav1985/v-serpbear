@@ -41,12 +41,9 @@ describe('Security Utilities', () => {
          expect(input).not.toBe(result);
       });
 
-      it('should handle empty objects', () => {
-         const result = trimStringProperties({});
-         expect(result).toEqual({});
-      });
+      it('should return an equal copy for empty objects and non-string properties', () => {
+         expect(trimStringProperties({})).toEqual({});
 
-      it('should handle objects with only non-string properties', () => {
          const input = {
             numberProp: 123,
             booleanProp: false,
@@ -65,12 +62,9 @@ describe('Security Utilities', () => {
          expect(trimString('\t\nworld\r\n')).toBe('world');
       });
 
-      it('returns empty string for null and undefined', () => {
+      it('returns empty string for null, undefined and empty input', () => {
          expect(trimString(null)).toBe('');
          expect(trimString(undefined)).toBe('');
-      });
-
-      it('returns empty string for an empty string', () => {
          expect(trimString('')).toBe('');
       });
    });
@@ -88,20 +82,15 @@ describe('Security Utilities', () => {
          expect(hasTrimmedLength('\t\n\r ')).toBe(false);
       });
 
-      it('should handle numeric values correctly', () => {
-         expect(hasTrimmedLength(587)).toBe(true);
-         expect(hasTrimmedLength(0)).toBe(true);
-         expect(hasTrimmedLength(-1)).toBe(true);
+      it('should treat numbers and booleans as present values', () => {
+         for (const value of [587, 0, -1, true, false]) {
+            expect(hasTrimmedLength(value)).toBe(true);
+         }
       });
 
       it('should handle null and undefined values', () => {
          expect(hasTrimmedLength(null)).toBe(false);
          expect(hasTrimmedLength(undefined)).toBe(false);
-      });
-
-      it('should handle boolean values', () => {
-         expect(hasTrimmedLength(true)).toBe(true);
-         expect(hasTrimmedLength(false)).toBe(true);
       });
    });
 });

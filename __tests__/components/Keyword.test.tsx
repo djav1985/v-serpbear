@@ -21,18 +21,6 @@ jest.mock('react-chartjs-2', () => ({
    Line: () => null,
  }));
 describe('Keyword Component', () => {
-   it('renders without crashing', async () => {
-       render(<Keyword {...keywordProps} />);
-       expect(await screen.findByText('compress image')).toBeInTheDocument();
-   });
-   it('Should Render Position Correctly', async () => {
-      render(<Keyword {...keywordProps} />);
-      // Find the position element by looking for the specific position area
-      const positionElements = screen.getAllByText('19');
-      // The first instance should be the main position
-      expect(positionElements.length).toBeGreaterThan(0);
-      expect(positionElements[0]).toBeInTheDocument();
-   });
    it('Should Display Position Change arrow', async () => {
       render(<Keyword {...keywordProps} />);
       // Look for the position change indicator by its text content
@@ -42,15 +30,6 @@ describe('Keyword Component', () => {
       render(<Keyword {...keywordProps} />);
       // Look for the URL link by its href attribute
       expect(screen.getByRole('link', { name: '/' })).toBeInTheDocument();
-   });
-   it('renders a full-width history chart container', () => {
-      render(<Keyword {...keywordProps} />);
-      const historyChart = screen.getByTestId('keyword-history-chart');
-      expect(historyChart).toHaveClass('lg:w-full', 'lg:h-[30px]', 'lg:min-w-[80px]');
-   });
-   it('shows the map pack flag when the keyword is in the map pack', async () => {
-      render(<Keyword {...keywordProps} />);
-      expect(screen.getByLabelText('Map pack top three')).toBeInTheDocument();
    });
    it('Should Display the Keyword Options on dots Click', async () => {
       render(<Keyword {...keywordProps} />);

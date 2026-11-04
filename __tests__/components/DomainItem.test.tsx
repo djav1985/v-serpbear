@@ -32,11 +32,6 @@ describe('DomainItem Component', () => {
       jest.clearAllMocks();
    });
 
-   it('renders without crashing', async () => {
-      const { container } = render(<DomainItem {...defaultProps} />);
-      expect(container.querySelector('.domItem')).toBeInTheDocument();
-   });
-
    it('renders keywords, average position, and map pack stats', async () => {
       render(<DomainItem {...defaultProps} />);
 
@@ -69,13 +64,6 @@ describe('DomainItem Component', () => {
       expect(screen.queryByText('Map Pack')).not.toBeInTheDocument();
    });
 
-   it('renders the unified active toggle', () => {
-      render(<DomainItem {...defaultProps} />);
-
-      expect(screen.getByText('Active')).toBeInTheDocument();
-      expect(screen.getByLabelText('Toggle domain active status')).toBeInTheDocument();
-   });
-
    it('submits a combined toggle payload', async () => {
       toggleMutationMock.mockResolvedValueOnce(undefined);
       render(<DomainItem {...defaultProps} />);
@@ -104,32 +92,18 @@ describe('DomainItem Component', () => {
    });
 
    describe('trend triangles', () => {
-      it('shows a green up triangle when keywords increased since the last refresh', () => {
-         render(<DomainItem {...defaultProps} domain={{ ...dummyDomain, keywordsTracked: 10, prevKeywordsTracked: 8 }} />);
-
-         const triangle = screen.getByText('▲');
-         expect(triangle).toHaveClass('text-[#5ed7c3]');
-      });
-
-      it('shows a red down triangle when keywords decreased since the last refresh', () => {
-         render(<DomainItem {...defaultProps} domain={{ ...dummyDomain, keywordsTracked: 8, prevKeywordsTracked: 10 }} />);
-
-         const triangle = screen.getByText('▼');
-         expect(triangle).toHaveClass('text-red-300');
-      });
-
-      it('shows a green down triangle when avg position improved (lower is better)', () => {
-         render(<DomainItem {...defaultProps} domain={{ ...dummyDomain, avgPosition: 8, prevAvgPosition: 10 }} />);
-
-         const triangle = screen.getByText('▼');
-         expect(triangle).toHaveClass('text-[#5ed7c3]');
-      });
-
-      it('shows a red up triangle when avg position got worse (lower is better)', () => {
-         render(<DomainItem {...defaultProps} domain={{ ...dummyDomain, avgPosition: 12, prevAvgPosition: 10 }} />);
-
-         const triangle = screen.getByText('▲');
-         expect(triangle).toHaveClass('text-red-300');
+      it('colours the triangle by direction, green for improvement and red for decline', () => {
+         const cases = [
+            { domain: { keywordsTracked: 10, prevKeywordsTracked: 8 }, symbol: '▲', className: 'text-[#5ed7c3]' },
+            { domain: { keywordsTracked: 8, prevKeywordsTracked: 10 }, symbol: '▼', className: 'text-red-300' },
+            { domain: { avgPosition: 8, prevAvgPosition: 10 }, symbol: '▼', className: 'text-[#5ed7c3]' },
+            { domain: { avgPosition: 12, prevAvgPosition: 10 }, symbol: '▲', className: 'text-red-300' },
+         ];
+         for (const { domain, symbol, className } of cases) {
+            const { unmount } = render(<DomainItem {...defaultProps} domain={{ ...dummyDomain, ...domain }} />);
+            expect(screen.getByText(symbol)).toHaveClass(className);
+            unmount();
+         }
       });
 
       it('shows a triangle for Search Console visits compared with the previous 7 days', () => {
@@ -144,29 +118,19 @@ describe('DomainItem Component', () => {
          expect(screen.getByText('▼')).toHaveClass('text-red-300');
       });
 
-      it('shows no triangle when there is no baseline (null previous value)', () => {
-         render(<DomainItem {...defaultProps} domain={{ ...dummyDomain, keywordsTracked: 10, prevKeywordsTracked: null }} />);
-
-         expect(screen.queryByText('▲')).not.toBeInTheDocument();
-         expect(screen.queryByText('▼')).not.toBeInTheDocument();
-      });
-
-      it('shows no triangle when avg position moves to or from unranked (0)', () => {
-         const { unmount } = render(<DomainItem {...defaultProps} domain={{ ...dummyDomain, avgPosition: 0, prevAvgPosition: 10 }} />);
-         expect(screen.queryByText('▲')).not.toBeInTheDocument();
-         expect(screen.queryByText('▼')).not.toBeInTheDocument();
-         unmount();
-
-         render(<DomainItem {...defaultProps} domain={{ ...dummyDomain, avgPosition: 10, prevAvgPosition: 0 }} />);
-         expect(screen.queryByText('▲')).not.toBeInTheDocument();
-         expect(screen.queryByText('▼')).not.toBeInTheDocument();
-      });
-
-      it('shows no triangle when the value is unchanged', () => {
-         render(<DomainItem {...defaultProps} domain={{ ...dummyDomain, keywordsTracked: 10, prevKeywordsTracked: 10 }} />);
-
-         expect(screen.queryByText('▲')).not.toBeInTheDocument();
-         expect(screen.queryByText('▼')).not.toBeInTheDocument();
+      it('shows no triangle without a baseline, for unranked (0) moves, or when unchanged', () => {
+         const cases = [
+            { keywordsTracked: 10, prevKeywordsTracked: null },
+            { avgPosition: 0, prevAvgPosition: 10 },
+            { avgPosition: 10, prevAvgPosition: 0 },
+            { keywordsTracked: 10, prevKeywordsTracked: 10 },
+         ];
+         for (const domain of cases) {
+            const { unmount } = render(<DomainItem {...defaultProps} domain={{ ...dummyDomain, ...domain }} />);
+            expect(screen.queryByText('▲')).not.toBeInTheDocument();
+            expect(screen.queryByText('▼')).not.toBeInTheDocument();
+            unmount();
+         }
       });
    });
 });
