@@ -75,7 +75,7 @@ describe('SCfilterKeywords', () => {
       ...overrides,
    });
 
-   it('filters by country and case-sensitive search text', () => {
+   it('filters by country and case-insensitive search text', () => {
       const keywords = [
          createKeyword({ uid: 'a', keyword: 'Alpha', country: 'US' }),
          createKeyword({ uid: 'b', keyword: 'alpha', country: 'GB' }),
@@ -89,6 +89,25 @@ describe('SCfilterKeywords', () => {
       });
 
       expect(filtered.map((k) => k.uid)).toEqual(['a']);
+   });
+
+   it('matches search text regardless of case and surrounding whitespace', () => {
+      const keywords = [
+         createKeyword({ uid: 'a', keyword: 'Coffee Shops', country: 'US' }),
+         createKeyword({ uid: 'b', keyword: 'tea', country: 'US' }),
+      ];
+
+      const filtered = SCfilterKeywords(keywords, {
+         countries: ['US'],
+         tags: [],
+         search: '  COFFEE  ',
+      });
+
+      expect(filtered.map((k) => k.uid)).toEqual(['a']);
+
+      // A whitespace-only search does not filter anything out
+      const unfiltered = SCfilterKeywords(keywords, { countries: ['US'], tags: [], search: '   ' });
+      expect(unfiltered.map((k) => k.uid)).toEqual(['a', 'b']);
    });
 });
 

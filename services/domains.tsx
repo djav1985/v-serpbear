@@ -2,6 +2,7 @@ import { useRouter, NextRouter } from 'next/router';
 import toast from 'react-hot-toast';
 import { useMutation, useQuery, useQueryClient, QueryClient, QueryKey } from 'react-query';
 import { apiGet, apiPost, apiPut, apiDelete } from '../utils/client/apiClient';
+import { showQueryErrorToast } from './queryErrorToast';
 
 type UpdatePayload = {
    domainSettings: Partial<DomainSettings>,
@@ -179,7 +180,9 @@ export async function fetchDomainScreenshot(domain: string, forceFetch = false):
 }
 
 export function useFetchDomains(router: NextRouter, withStats:boolean = false) {
-   return useQuery(['domains', withStats], () => fetchDomains(router, withStats));
+   return useQuery(['domains', withStats], () => fetchDomains(router, withStats), {
+      onError: (error) => showQueryErrorToast(error, 'Error Loading Domains.', 'domains-load-error'),
+   });
 }
 
 export function useFetchDomain(router: NextRouter, domainName:string, onSuccess: (domain: DomainType) => void) {
@@ -188,6 +191,7 @@ export function useFetchDomain(router: NextRouter, domainName:string, onSuccess:
       onSuccess: async (data) => {
          onSuccess(data.domain);
       },
+      onError: (error) => showQueryErrorToast(error, 'Error Loading Domain.', 'domain-load-error'),
    });
 }
 

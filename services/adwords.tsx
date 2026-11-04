@@ -2,6 +2,7 @@ import { NextRouter } from 'next/router';
 import toast from 'react-hot-toast';
 import { useMutation, useQuery, useQueryClient } from 'react-query';
 import { apiGet, apiPost, apiPut } from '../utils/client/apiClient';
+import { showQueryErrorToast } from './queryErrorToast';
 
 export function useTestAdwordsIntegration(onSuccess?: (show?: boolean) => void) {
    return useMutation(async (payload:{developer_token:string, account_id:string}) => (
@@ -31,7 +32,11 @@ export function useFetchKeywordIdeas(router: NextRouter, _adwordsConnected = fal
    return useQuery(
       `keywordIdeas-${domainSlug}`,
       () => fetchAdwordsKeywordIdeas(router, domainSlug),
-      { enabled, retry: false },
+      {
+         enabled,
+         retry: false,
+         onError: (error) => showQueryErrorToast(error, 'Error Loading Keyword Ideas.', 'keyword-ideas-load-error'),
+      },
    );
 }
 

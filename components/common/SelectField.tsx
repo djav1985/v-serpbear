@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Icon from './Icon';
 
 export type SelectionOption = {
@@ -39,6 +39,30 @@ const SelectField = (props: SelectFieldProps) => {
    const [showOptions, setShowOptions] = useState<boolean>(false);
    const [filterInput, setFilterInput] = useState<string>('');
    const [filterdOptions, setFilterdOptions] = useState<SelectionOption[]>([]);
+   const containerRef = useRef<HTMLDivElement>(null);
+
+   // Close the dropdown on outside click or Escape. Listeners exist only while open.
+   useEffect(() => {
+      if (!showOptions) { return undefined; }
+
+      const handleMouseDown = (event: MouseEvent) => {
+         if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+            setShowOptions(false);
+         }
+      };
+      const handleKeyDown = (event: KeyboardEvent) => {
+         if (event.key === 'Escape') { setShowOptions(false); }
+      };
+
+      document.addEventListener('mousedown', handleMouseDown);
+      document.addEventListener('keydown', handleKeyDown);
+      return () => {
+         document.removeEventListener('mousedown', handleMouseDown);
+         document.removeEventListener('keydown', handleKeyDown);
+      };
+   }, [showOptions]);
+
+   const visibleOptions = options.length > 20 && filterInput ? filterdOptions : options;
 
    const selectedLabels = useMemo(() => options.reduce((acc:string[], item:SelectionOption) :string[] => selected.includes(item.value) ? [...acc, item.label] : [...acc], []), [selected, options]);
 
@@ -68,7 +92,7 @@ const SelectField = (props: SelectFieldProps) => {
    };
 
    return (
-      <div className={`select font-semibold text-gray-500 relative ${inline ? 'inline-block' : 'flex'} justify-between items-center`}>
+      <div ref={containerRef} className={`select font-semibold text-gray-500 relative ${inline ? 'inline-block' : 'flex'} justify-between items-center`}>
          {label && <label className='mb-2 font-semibold inline-block text-sm text-gray-700 capitalize'>{label}</label>}
          <div
          className={`selected flex border ${rounded} p-1.5 px-4 cursor-pointer select-none ${fullWidth ? 'w-full' : 'w-full sm:w-[210px]'}
@@ -99,7 +123,12 @@ const SelectField = (props: SelectFieldProps) => {
                   </div>
                )}
                <ul>
-                  {(options.length > 20 && filterdOptions.length > 0 && filterInput ? filterdOptions : options).map((opt) => {
+                  {visibleOptions.length === 0 && (
+                     <li className='select-none px-3 py-2 text-gray-400 cursor-not-allowed' aria-disabled='true'>
+                        No options
+                     </li>
+                  )}
+                  {visibleOptions.map((opt) => {
                      const itemActive = selected.includes(opt.value);
                      return (
                         <li

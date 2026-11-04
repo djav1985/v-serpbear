@@ -138,9 +138,13 @@ const getAppSettings = async () => {
    // console.log('process.env.SECRET: ', process.env.SECRET);
    try {
       const settingsRaw = await promises.readFile(settingsPath, { encoding: 'utf-8' });
+      // Empty or whitespace-only file: treat as no stored settings. Defaults are returned and the file is left as is.
+      if (!settingsRaw || !settingsRaw.trim()) {
+         return defaultSettings;
+      }
       let settings = {};
       try {
-         settings = settingsRaw ? JSON.parse(settingsRaw) : {};
+         settings = JSON.parse(settingsRaw);
       } catch (error) {
          logger.error('CRON: Parsing Settings File.', error instanceof Error ? error : new Error(String(error)));
          return defaultSettings;
