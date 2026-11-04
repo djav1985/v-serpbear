@@ -10,6 +10,7 @@ jest.mock('../../database/database', () => ({
    __esModule: true,
    default: {
       sync: jest.fn(),
+      query: jest.fn(),
    },
 }));
 
@@ -36,10 +37,14 @@ describe('Database Initialization', () => {
 
    it('should initialize database on first call', async () => {
       (db.sync as jest.Mock).mockResolvedValue(undefined);
+      (db.query as jest.Mock).mockResolvedValue([undefined, 0]);
 
       await initializeDatabase();
 
       expect(db.sync).toHaveBeenCalledTimes(1);
+      expect(db.query).toHaveBeenCalledWith(
+         "CREATE UNIQUE INDEX IF NOT EXISTS keyword_tracking_target_idx ON keyword (domain, keyword, COALESCE(country, ''), COALESCE(location, ''), COALESCE(device, ''))",
+      );
       expect(isDatabaseInitialized()).toBe(true);
    });
 
