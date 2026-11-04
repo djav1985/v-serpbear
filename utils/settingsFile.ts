@@ -7,7 +7,7 @@ import { logger } from './logger';
  * Path of data/settings.json. Every read-modify-write of the file must run inside withSettingsLock, so two
  * saves (the settings page, the Google Ads callback, the Ads validation) cannot overwrite each other.
  */
-export const settingsFilePath = (): string => path.join(process.cwd(), 'data', 'settings.json');
+const settingsFilePath = (): string => path.join(process.cwd(), 'data', 'settings.json');
 
 const LOCK_RETRIES = {
    retries: 12,

@@ -147,7 +147,6 @@ interface ScraperSettings {
   resultObjectKey: string       // Response key for results
   allowsCity?: boolean          // City-level location support
   supportsMapPack?: boolean     // Map pack detection
-  nativePagination?: boolean    // Handles pagination internally
   
   scrapeURL?(keyword, settings, countries): string    // API URL builder
   headers?(keyword, settings): Object                 // Custom headers

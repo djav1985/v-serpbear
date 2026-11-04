@@ -75,9 +75,4 @@ export const validateHostname = (value: unknown): { isValid: boolean; hostname: 
    return { isValid: true, hostname: normalizeInput(value as string) };
 };
 
-export const sanitizeHostname = (value: unknown): string => {
-   const { hostname } = validateHostname(value);
-   return hostname;
-};
-
 export default isValidHostname;

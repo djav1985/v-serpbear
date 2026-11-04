@@ -1,12 +1,5 @@
 import { resolveCountryCode, getKeywordLocationParts } from "../../utils/scraperHelpers";
-
-const decodeIfEncoded = (value: string): string => {
-  try {
-    return decodeURIComponent(value);
-  } catch (_error) {
-    return value;
-  }
-};
+import { decodeIfEncoded } from "../scraperHelpers";
 
 interface SerperResult {
   title: string;

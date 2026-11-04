@@ -277,51 +277,8 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
       }
    };
 
-   const tabStyle = `inline-block min-w-0 truncate whitespace-nowrap px-2 sm:px-4 py-2 rounded-md cursor-pointer text-xs sm:text-sm select-none z-10
-                     text-gray-600 border border-b-0 relative top-[1px] rounded-b-none`;
-   return (
-   <div ref={ref || settingsRef}>
-         <Modal closeModal={() => closeModal(false)} title={'Domain Settings'} width="[500px]" verticalCenter={currentTab === 'searchconsole'} >
-            <div data-testid="domain_settings" className=" text-sm">
-               <div className=' mt-3 mb-5 border  border-slate-200 px-2 py-4 pb-0
-               relative left-[-20px] w-[calc(100%+40px)] border-l-0 border-r-0 bg-[#f8f9ff]'>
-                  <ul className='flex gap-1'>
-                     <li
-                     className={getTabClassName('notification', currentTab, tabStyle)}
-                     onClick={() => setCurrentTab('notification')}>
-                       <Icon type='email' /> Notification
-                     </li>
-                     <li
-                     className={getTabClassName('searchconsole', currentTab, tabStyle)}
-                     onClick={() => setCurrentTab('searchconsole')}>
-                        <Icon type='google' /> Search Console
-                     </li>
-                     <li
-                     className={getTabClassName('scraper', currentTab, tabStyle)}
-                     onClick={() => setCurrentTab('scraper')}>
-                        <Icon type='settings-alt' /> Scraper
-                     </li>
-                  </ul>
-               </div>
-
-               <div>
-                  {currentTab === 'notification' && (
-                     <>
-                        <div className="mb-4 flex justify-between items-center w-full">
-                           <InputField
-                           label='Notification Emails'
-                           onChange={(emails:string) => setDomainSettings({ ...domainSettings, notification_emails: emails })}
-                           value={domainSettings.notification_emails || ''}
-                           placeholder='Your Emails'
-                           />
-                        </div>
-                        <p className='text-xs text-gray-500 mb-4 w-full text-left'>
-                           Leave blank to turn off notification emails for this domain.
-                        </p>
-                     </>
-                  )}
-                  {currentTab === 'searchconsole' && (
-                     <>
+   const renderSearchConsoleTab = () => (
+      <>
                         <div className="mb-4 flex justify-between items-center w-full">
                            <label className='mb-2 font-semibold inline-block text-sm text-gray-700 capitalize'>Property Type</label>
                            <SelectField
@@ -373,8 +330,53 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
                               })}
                            />
                         </div>
+      </>
+   );
+
+   const tabStyle = `inline-block min-w-0 truncate whitespace-nowrap px-2 sm:px-4 py-2 rounded-md cursor-pointer text-xs sm:text-sm select-none z-10
+                     text-gray-600 border border-b-0 relative top-[1px] rounded-b-none`;
+   return (
+   <div ref={ref || settingsRef}>
+         <Modal closeModal={() => closeModal(false)} title={'Domain Settings'} width="[500px]" verticalCenter={currentTab === 'searchconsole'} >
+            <div data-testid="domain_settings" className=" text-sm">
+               <div className=' mt-3 mb-5 border  border-slate-200 px-2 py-4 pb-0
+               relative left-[-20px] w-[calc(100%+40px)] border-l-0 border-r-0 bg-[#f8f9ff]'>
+                  <ul className='flex gap-1'>
+                     <li
+                     className={getTabClassName('notification', currentTab, tabStyle)}
+                     onClick={() => setCurrentTab('notification')}>
+                       <Icon type='email' /> Notification
+                     </li>
+                     <li
+                     className={getTabClassName('searchconsole', currentTab, tabStyle)}
+                     onClick={() => setCurrentTab('searchconsole')}>
+                        <Icon type='google' /> Search Console
+                     </li>
+                     <li
+                     className={getTabClassName('scraper', currentTab, tabStyle)}
+                     onClick={() => setCurrentTab('scraper')}>
+                        <Icon type='settings-alt' /> Scraper
+                     </li>
+                  </ul>
+               </div>
+
+               <div>
+                  {currentTab === 'notification' && (
+                     <>
+                        <div className="mb-4 flex justify-between items-center w-full">
+                           <InputField
+                           label='Notification Emails'
+                           onChange={(emails:string) => setDomainSettings({ ...domainSettings, notification_emails: emails })}
+                           value={domainSettings.notification_emails || ''}
+                           placeholder='Your Emails'
+                           />
+                        </div>
+                        <p className='text-xs text-gray-500 mb-4 w-full text-left'>
+                           Leave blank to turn off notification emails for this domain.
+                        </p>
                      </>
                   )}
+                  {currentTab === 'searchconsole' && renderSearchConsoleTab()}
                   {currentTab === 'scraper' && (
                      <>
                         <div className="mb-4 flex flex-col gap-3 w-full">

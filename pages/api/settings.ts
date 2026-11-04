@@ -7,6 +7,7 @@ import { logger } from '../../utils/logger';
 import Cookies from 'cookies';
 import verifyUser, { verifySessionToken } from '../../utils/verifyUser';
 import allScrapers from '../../scrapers/index';
+import { buildAvailableScrapers } from '../../utils/availableScrapers';
 import { withApiLogging } from '../../utils/apiLogging';
 import { trimStringProperties } from '../../utils/security';
 import { getBranding } from '../../utils/branding';
@@ -18,6 +19,7 @@ import { retryQueueManager } from '../../utils/retryQueueManager';
 import { errorResponse } from '../../utils/api/response';
 import { normalizeLegacyGlobalScraperType } from '../../utils/removedScrapers';
 import { APP_TIMEZONE } from '../../utils/timezone';
+import { NOTIFICATION_INTERVALS } from '../../utils/constants';
 
 const buildSettingsDefaults = (): SettingsType => {
    const { platformName } = getBranding();
@@ -67,7 +69,6 @@ const normalizeLegacySettings = (settings: Partial<SettingsType>): Partial<Setti
 };
 
 const SCRAPE_STRATEGIES = ['basic', 'custom', 'smart'];
-const NOTIFICATION_INTERVALS = ['daily', 'weekly', 'monthly', 'never'];
 const MAX_PAGINATION_LIMIT = 10;
 const BOOLEAN_SETTINGS = ['scrape_retry', 'scrape_smart_full_fallback', 'search_console'];
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
@@ -276,13 +277,7 @@ export const getAppSettings = async () : Promise<SettingsType> => {
             adwords_refresh_token: '',
             adwords_developer_token: '',
             adwords_account_id: '',
-            available_scapers: allScrapers.map((scraper) => ({
-               label: scraper.name,
-               value: scraper.id,
-               allowsCity: !!scraper.allowsCity,
-               supportsMapPack: !!scraper.supportsMapPack,
-               scraperCountries: scraper.scraperCountries,
-            })),
+            available_scapers: buildAvailableScrapers(),
             failed_queue: failedQueue,
             search_console_integrated: false,
          };
@@ -340,13 +335,7 @@ export const getAppSettings = async () : Promise<SettingsType> => {
          search_console_integrated:
             !!(process.env.SEARCH_CONSOLE_PRIVATE_KEY && process.env.SEARCH_CONSOLE_CLIENT_EMAIL)
             || !!(decryptedSettings.search_console_client_email && decryptedSettings.search_console_private_key),
-         available_scapers: allScrapers.map((scraper) => ({
-            label: scraper.name,
-            value: scraper.id,
-            allowsCity: !!scraper.allowsCity,
-            supportsMapPack: !!scraper.supportsMapPack,
-            scraperCountries: scraper.scraperCountries,
-         })),
+         available_scapers: buildAvailableScrapers(),
          failed_queue: failedQueue,
       };
    } catch (error) {
@@ -368,13 +357,7 @@ export const getAppSettings = async () : Promise<SettingsType> => {
        await shouldCreateFile(failedQueuePath, JSON.stringify([]));
       return {
          ...defaults,
-         available_scapers: allScrapers.map((scraper) => ({
-            label: scraper.name,
-            value: scraper.id,
-            allowsCity: !!scraper.allowsCity,
-            supportsMapPack: !!scraper.supportsMapPack,
-            scraperCountries: scraper.scraperCountries,
-         })),
+         available_scapers: buildAvailableScrapers(),
          failed_queue: [],
          search_console_integrated: false,
       };

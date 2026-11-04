@@ -4,7 +4,7 @@ import { getKeywordsInsight, getPagesInsight } from './insight';
 import { fetchDomainSCData, getSearchConsoleApiInfo, isSearchConsoleDataFreshForToday, readLocalSCData } from './searchConsole';
 import { parseLocation } from './location';
 import { buildLogoUrl, getBranding } from './branding';
-import { fromDbBool } from './dbBooleans';
+import { normalizeToBoolean } from './dbBooleans';
 import { historyKeyToTime } from './historyDateKey';
 import { APP_TIMEZONE, dateKeyToTime, formatDateKey, todayKey } from './timezone';
 
@@ -12,10 +12,6 @@ const DEFAULT_BRAND_LOGO = 'https://serpbear.b-cdn.net/ikAdjQq.png';
 const mobileIcon = 'https://serpbear.b-cdn.net/SqXD9rd.png';
 const desktopIcon = 'https://serpbear.b-cdn.net/Dx3u0XD.png';
 const googleIcon = 'https://serpbear.b-cdn.net/Sx3u0X9.png';
-
-const normalizeMapPackTop3 = (value: boolean | number | null | undefined): boolean => (
-   typeof value === 'boolean' ? value : fromDbBool(value)
-);
 
 const resolveEmailBranding = () => {
    const brandingDetails = getBranding();
@@ -106,7 +102,7 @@ type KeywordSummary = {
 };
 
 const calculateKeywordSummary = (items: KeywordType[]): KeywordSummary => items.reduce((stats, keyword) => {
-   if (normalizeMapPackTop3(keyword.mapPackTop3)) {
+   if (normalizeToBoolean(keyword.mapPackTop3)) {
       stats.mapPackKeywords += 1;
    }
    if (typeof keyword.position === 'number' && Number.isFinite(keyword.position) && keyword.position > 0) {
@@ -138,7 +134,7 @@ const generateEmail = async (domain:DomainType, keywords:KeywordType[], settings
       const deviceIconImg = keyword.device === 'desktop' ? desktopIcon : mobileIcon;
       const countryFlag = `<img class="flag" src="https://flagcdn.com/w20/${escapeHtml(keyword.country.toLowerCase())}.png" alt="${escapeHtml(keyword.country)}" title="${escapeHtml(keyword.country)}" />`;
       const deviceIcon = `<img class="device" src="${deviceIconImg}" alt="${escapeHtml(keyword.device)}" title="${escapeHtml(keyword.device)}" width="18" height="18" />`;
-      const mapPackFlag = normalizeMapPackTop3(keyword.mapPackTop3)
+      const mapPackFlag = normalizeToBoolean(keyword.mapPackTop3)
          ? `<span class="map-pack-flag" role="img" aria-label="Map pack top three">MP</span>`
          : '';
       const flagStack = `<span class="flag-stack">${countryFlag}${mapPackFlag}</span>`;

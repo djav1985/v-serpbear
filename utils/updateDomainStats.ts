@@ -64,24 +64,10 @@ export const updateDomainStats = async (domainName: string): Promise<void> => {
             [literal('COALESCE(SUM(CASE WHEN position > 0 THEN 1 ELSE 0 END), 0)'), 'positionCount'],
          ],
          raw: true,
-      }) as DomainStatsQueryResult | null;
+      }) as unknown as DomainStatsQueryResult;
 
-      // If no keywords found, update domain with zero values to maintain consistency
-      // This ensures the domain record is always updated even when no keywords exist
-      if (!stats) {
-         logger.info(`No keywords found for domain ${domainName}, updating with zero values`);
-         const zeroStats = { keywordsTracked: 0, avgPosition: 0, mapPackKeywords: 0 };
-         await Domain.update(
-            {
-               ...zeroStats,
-               ...snapshotFor(zeroStats),
-            },
-            { where: { domain: domainName } }
-         );
-         return;
-      }
-
-      // Extract aggregated values
+      // Extract aggregated values. The aggregate has no GROUP BY, so it always returns one row
+      // (all zeros when the domain has no keywords), which keeps the domain record in sync.
       const keywordsTracked = Number(stats.keywordsTracked) || 0;
       const mapPackKeywords = Number(stats.mapPackKeywords) || 0;
       const totalPosition = Number(stats.totalPosition) || 0;

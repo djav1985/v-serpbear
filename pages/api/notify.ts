@@ -1,7 +1,6 @@
 /// <reference path="../../types.d.ts" />
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import nodeMailer from 'nodemailer';
 import Domain from '../../database/models/domain';
 import Keyword from '../../database/models/keyword';
 import generateEmail from '../../utils/generateEmail';
@@ -11,7 +10,7 @@ import verifyUser from '../../utils/verifyUser';
 import { reserveEmailSend } from '../../utils/emailThrottle';
 import { getAppSettings } from './settings';
 import { trimStringProperties, trimString, sanitizeSmtpHost } from '../../utils/security';
-import { getBranding } from '../../utils/branding';
+import { buildMailer } from '../../utils/mailer';
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
 import normalizeDomainBooleans from '../../utils/normalizeDomain';
@@ -122,20 +121,8 @@ const sendNotificationEmail = async (domain: DomainType, settings: SettingsType)
       return 'skipped';
    }
 
-   const { platformName } = getBranding();
-
-   const {
-      smtp_server = '',
-      smtp_port = '',
-      smtp_username = '',
-      smtp_password = '',
-      notification_email_from = '',
-      notification_email_from_name = platformName,
-      smtp_tls_servername = '',
-     } = settings;
-
    // Validate the configuration before taking a throttle slot, so a bad setup never uses up a domain's daily allowance
-   if (!smtp_server) {
+   if (!settings.smtp_server) {
       throw new Error('Invalid SMTP host configured.');
    }
 
@@ -148,23 +135,7 @@ const sendNotificationEmail = async (domain: DomainType, settings: SettingsType)
 
    // Everything after the reservation is inside the try, so any failure gives the slot back
    try {
-      const tlsServername = sanitizeSmtpHost(smtp_tls_servername);
-      const fromAddress = notification_email_from || 'no-reply@serpbear.com';
-      const fromName = notification_email_from_name || platformName;
-      const fromEmail = `${fromName} <${fromAddress}>`;
-      const portNum = parseInt(smtp_port, 10);
-      const validPort = isNaN(portNum) ? 587 : Math.max(1, Math.min(65535, portNum)); // Default to 587, validate range
-      const mailerSettings:any = { host: smtp_server, port: validPort };
-      if (tlsServername) {
-         mailerSettings.tls = { servername: tlsServername };
-      }
-      if (smtp_username || smtp_password) {
-         mailerSettings.auth = {};
-         if (smtp_username) mailerSettings.auth.user = smtp_username;
-         if (smtp_password) mailerSettings.auth.pass = smtp_password;
-      }
-
-      const transporter = nodeMailer.createTransport(mailerSettings);
+      const { transporter, fromEmail } = buildMailer(settings);
       const query = { where: { domain: domainName } };
       const domainKeywords:Keyword[] = await Keyword.findAll(query);
       const keywordsArray = domainKeywords.map((el) => el.get({ plain: true }));

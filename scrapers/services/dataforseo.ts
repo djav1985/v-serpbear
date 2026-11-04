@@ -2,14 +2,7 @@ import countries, { getGoogleDomain } from "../../utils/countries";
 import { resolveCountryCode, getKeywordLocationParts } from "../../utils/scraperHelpers";
 import { computeMapPackTop3 } from "../../utils/mapPack";
 import { DEVICE_MOBILE } from "../../utils/constants";
-
-const decodeIfEncoded = (value: string): string => {
-  try {
-    return decodeURIComponent(value);
-  } catch (_error) {
-    return value;
-  }
-};
+import { decodeIfEncoded } from "../scraperHelpers";
 
 const DATAFORSEO_SUCCESS = 20000;
 
@@ -79,7 +72,7 @@ const dataforseo: ScraperSettings = {
       },
     ];
   },
-  serpExtractor: ({ response, keyword, settings, pagination }) => {
+  serpExtractor: ({ response, settings, pagination }) => {
     const task = getTask(response);
     if (!task) {
       throw new Error("Invalid response for DataForSEO: missing tasks");
@@ -116,7 +109,7 @@ const dataforseo: ScraperSettings = {
         title: item.title as string,
         url: (item.url || undefined) as string | undefined,
       }));
-    const mapPackTop3 = computeMapPackTop3(keyword.domain, localResults, businessName);
+    const mapPackTop3 = computeMapPackTop3(localResults, businessName);
 
     return { organic, mapPackTop3, localResults };
   },

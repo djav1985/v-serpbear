@@ -1,14 +1,7 @@
 import { getGoogleDomain } from "../../utils/countries";
 import { resolveCountryCode, getKeywordLocationParts } from "../../utils/scraperHelpers";
 import { computeMapPackTop3 } from "../../utils/mapPack";
-
-const decodeIfEncoded = (value: string): string => {
-  try {
-    return decodeURIComponent(value);
-  } catch (_error) {
-    return value;
-  }
-};
+import { decodeIfEncoded } from "../scraperHelpers";
 
 interface HasDataResult {
   title: string;
@@ -58,7 +51,7 @@ const hasdata: ScraperSettings = {
   },
   resultObjectKey: "organicResults",
   supportsMapPack: true,
-  serpExtractor: ({ result, response, keyword, settings }) => {
+  serpExtractor: ({ result, response, settings }) => {
     const extractedResult = [];
     let results: HasDataResult[] = [];
     if (typeof result === "string") {
@@ -92,7 +85,7 @@ const hasdata: ScraperSettings = {
       position: index + 1,
       title: place.title as string,
     }));
-    const mapPackTop3 = computeMapPackTop3(keyword.domain, localResults, businessName);
+    const mapPackTop3 = computeMapPackTop3(localResults, businessName);
 
     return { organic: extractedResult, mapPackTop3, localResults };
   },

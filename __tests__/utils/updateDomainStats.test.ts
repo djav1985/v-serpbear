@@ -70,14 +70,18 @@ describe('updateDomainStats', () => {
     );
   });
 
-  it('handles domain with no keywords', async () => {
-    mockKeywordFindOne.mockResolvedValue(null);
+  it('handles domain with no keywords (aggregate returns a zero row)', async () => {
+    mockKeywordFindOne.mockResolvedValue({
+      keywordsTracked: 0,
+      mapPackKeywords: 0,
+      totalPosition: 0,
+      positionCount: 0,
+    } as any);
     mockDomainUpdate.mockResolvedValue([1] as any);
 
     await updateDomainStats('empty.com');
 
     // Should update domain with zero values to maintain consistency
-    expect(logger.info).toHaveBeenCalledWith('No keywords found for domain empty.com, updating with zero values');
     // Stored values were already zero, so nothing changed and prev* is left as it was
     expect(mockDomainUpdate).toHaveBeenCalledWith(
       {

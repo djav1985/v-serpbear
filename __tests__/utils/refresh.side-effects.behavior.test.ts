@@ -24,7 +24,6 @@ jest.mock('../../utils/retryQueueManager', () => ({
     addToQueue: jest.fn().mockResolvedValue(undefined),
     removeFromQueue: jest.fn().mockResolvedValue(undefined),
     removeBatch: jest.fn().mockResolvedValue(undefined),
-    getQueue: jest.fn().mockResolvedValue([]),
   },
 }));
 jest.mock('../../utils/updateDomainStats', () => ({

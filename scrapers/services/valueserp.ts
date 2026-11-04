@@ -2,14 +2,7 @@ import { getGoogleDomain } from "../../utils/countries";
 import { resolveCountryCode, getKeywordLocationParts } from "../../utils/scraperHelpers";
 import { computeMapPackTop3 } from "../../utils/mapPack";
 import { DEVICE_MOBILE } from "../../utils/constants";
-
-const decodeIfEncoded = (value: string): string => {
-  try {
-    return decodeURIComponent(value);
-  } catch (_error) {
-    return value;
-  }
-};
+import { decodeIfEncoded } from "../scraperHelpers";
 
 interface ValueSerpResult {
   title: string;
@@ -57,7 +50,7 @@ const valueSerp: ScraperSettings = {
   },
   resultObjectKey: "organic_results",
   supportsMapPack: true,
-  serpExtractor: ({ result, response, keyword, settings }) => {
+  serpExtractor: ({ result, response, settings }) => {
     const extractedResult = [];
     let results: ValueSerpResult[] = [];
     if (typeof result === "string") {
@@ -91,7 +84,7 @@ const valueSerp: ScraperSettings = {
       url: (item.link || undefined) as string | undefined,
     }));
     const businessName = (settings as ExtendedSettings)?.business_name ?? null;
-    const mapPackTop3 = computeMapPackTop3(keyword.domain, localResults, businessName);
+    const mapPackTop3 = computeMapPackTop3(localResults, businessName);
 
     return { organic: extractedResult, mapPackTop3, localResults };
   },

@@ -106,7 +106,7 @@ describe('refreshAndUpdateKeywords', () => {
     let activeTotal = 0;
     let peakTotal = 0;
 
-    (scrapeKeywordWithStrategy as jest.Mock).mockImplementation(async (keyword, effectiveSettings) => {
+    (scrapeKeywordWithStrategy as jest.Mock).mockImplementation(async (keyword) => {
       const keywordId = keyword.ID as number;
       const domain = keyword.domain as string;
       const device = keyword.device as string;

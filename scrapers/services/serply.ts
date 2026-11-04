@@ -40,7 +40,7 @@ const serply:ScraperSettings = {
    },
    resultObjectKey: 'result',
    supportsMapPack: true,
-   serpExtractor: ({ result, response, keyword, settings }) => {
+   serpExtractor: ({ result, response, settings }) => {
       const extractedResult = [];
       let results: SerplyResult[] = [];
       if (typeof result === 'string') {
@@ -70,7 +70,7 @@ const serply:ScraperSettings = {
         title: business.title as string,
         url: (business.url || undefined) as string | undefined,
       }));
-      const mapPackTop3 = computeMapPackTop3(keyword.domain, localResults, businessName);
+      const mapPackTop3 = computeMapPackTop3(localResults, businessName);
 
       return { organic: extractedResult, mapPackTop3, localResults };
    },

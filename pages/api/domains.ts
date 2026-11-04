@@ -26,10 +26,10 @@ import { errorResponse } from '../../utils/api/response';
 import { retryQueueManager } from '../../utils/retryQueueManager';
 import db from '../../database/database';
 import { atomicWriteFile } from '../../utils/atomicWrite';
+import { NOTIFICATION_INTERVALS } from '../../utils/constants';
 
 // Sent in place of a saved Search Console credential: GET responses mask it, and a save that sends it back keeps the stored value
 const SC_CREDENTIAL_MARKER = 'true';
-const NOTIFICATION_INTERVALS = ['daily', 'weekly', 'monthly', 'never'];
 const TRUTHY = new Set(['true', '1', 'on', 'yes']);
 const FALSY = new Set(['false', '0', 'off', 'no']);
 const DOMAIN_CLEANUP_RETRY_FILE = `${process.cwd()}/data/domain_cleanup_retry.json`;
@@ -325,6 +325,31 @@ export const deleteDomain = async (req: NextApiRequest, res: NextApiResponse) =>
    }
 };
 
+/**
+ * Copies the scrape_strategy, scrape_pagination_limit and scrape_smart_full_fallback fields from the payload
+ * into updates. A field is only written when it is present in the payload, and invalid values are dropped
+ * (strategy falls back to '', pagination is clamped to 0-10).
+ */
+const applyScrapeOptionUpdates = (payload: Partial<DomainSettings>, updates: Partial<Domain>): void => {
+   const { scrape_strategy, scrape_pagination_limit, scrape_smart_full_fallback } = payload;
+   if (Object.prototype.hasOwnProperty.call(payload, 'scrape_strategy')) {
+      const validStrategies: Array<ScrapeStrategy | ''> = ['', 'basic', 'custom', 'smart'];
+      const strategy = scrape_strategy || '';
+      updates.scrape_strategy = validStrategies.includes(strategy as ScrapeStrategy | '') ? strategy : '';
+   }
+   if (Object.prototype.hasOwnProperty.call(payload, 'scrape_pagination_limit')) {
+      if (typeof scrape_pagination_limit === 'number' && Number.isFinite(scrape_pagination_limit)) {
+         const clampedLimit = Math.min(10, Math.max(0, scrape_pagination_limit));
+         updates.scrape_pagination_limit = clampedLimit;
+      }
+   }
+   if (Object.prototype.hasOwnProperty.call(payload, 'scrape_smart_full_fallback')) {
+      if (typeof scrape_smart_full_fallback === 'boolean') {
+         updates.scrape_smart_full_fallback = scrape_smart_full_fallback;
+      }
+   }
+};
+
 export const updateDomain = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
    if (!req.query.domain || typeof req.query.domain !== 'string') {
@@ -339,9 +364,6 @@ export const updateDomain = async (req: NextApiRequest, res: NextApiResponse) =>
       scrapeEnabled,
       scraper_settings,
       business_name,
-      scrape_strategy,
-      scrape_pagination_limit,
-      scrape_smart_full_fallback,
    } = payload;
 
    try {
@@ -420,22 +442,7 @@ export const updateDomain = async (req: NextApiRequest, res: NextApiResponse) =>
       if (Object.prototype.hasOwnProperty.call(payload, 'business_name')) {
          updates.business_name = business_name || null;
       }
-      if (Object.prototype.hasOwnProperty.call(payload, 'scrape_strategy')) {
-         const validStrategies: Array<ScrapeStrategy | ''> = ['', 'basic', 'custom', 'smart'];
-         const strategy = scrape_strategy || '';
-         updates.scrape_strategy = validStrategies.includes(strategy as ScrapeStrategy | '') ? strategy : '';
-      }
-      if (Object.prototype.hasOwnProperty.call(payload, 'scrape_pagination_limit')) {
-         if (typeof scrape_pagination_limit === 'number' && Number.isFinite(scrape_pagination_limit)) {
-            const clampedLimit = Math.min(10, Math.max(0, scrape_pagination_limit));
-            updates.scrape_pagination_limit = clampedLimit;
-         }
-      }
-      if (Object.prototype.hasOwnProperty.call(payload, 'scrape_smart_full_fallback')) {
-         if (typeof scrape_smart_full_fallback === 'boolean') {
-            updates.scrape_smart_full_fallback = scrape_smart_full_fallback;
-         }
-      }
+      applyScrapeOptionUpdates(payload, updates);
       if (Object.prototype.hasOwnProperty.call(payload, 'scraper_settings')) {
          const existingScraperSettings = parseDomainScraperSettings(domainPlain?.scraper_settings);
          const cryptr = new Cryptr(process.env.SECRET as string);

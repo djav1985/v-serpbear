@@ -40,7 +40,6 @@ jest.mock('../../utils/refresh', () => {
 });
 
 jest.mock('../../utils/scraper', () => ({
-  scrapeKeywordFromGoogle: jest.fn(),
   scrapeKeywordWithStrategy: jest.fn(),
   retryScrape: jest.fn(),
   removeFromRetryQueue: jest.fn(),
