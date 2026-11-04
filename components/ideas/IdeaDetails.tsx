@@ -8,6 +8,7 @@ import useOnKey from '../../hooks/useOnKey';
 import { formattedNum } from '../../utils/client/helpers';
 import { formatInZone } from '../../utils/timezone';
 import { getAppTimezone } from '../../utils/client/appTimezone';
+import { closeOnBGClick } from '../../utils/client/closeOnBGClick';
 import { fetchSearchResults, type SearchResultsResponse } from '../../services/keywords';
 
 type IdeaDetailsProps = {
@@ -48,17 +49,11 @@ const IdeaDetails = ({ keyword, closeDetails }:IdeaDetailsProps) => {
       return chartDataObj;
    }, [monthlySearchVolumes]);
 
-   const closeOnBGClick = (e:React.SyntheticEvent) => {
-      e.stopPropagation();
-      e.nativeEvent.stopImmediatePropagation();
-      if (e.target === e.currentTarget) { closeDetails(); }
-   };
-
    const searchResultsFetched = !!keywordSearchResultData?.searchResult?.results;
    const keywordSearchResult = searchResultsFetched ? keywordSearchResultData?.searchResult?.results : dummySearchResults;
 
    return (
-       <div className="IdeaDetails fixed w-full h-screen top-0 left-0 z-[99999]" onClick={closeOnBGClick} data-testid="IdeaDetails">
+       <div className="IdeaDetails fixed w-full h-screen top-0 left-0 z-[99999]" onClick={(e) => closeOnBGClick(e, closeDetails)} data-testid="IdeaDetails">
             <div className="IdeaDetails absolute w-full lg:w-5/12 bg-white customShadow top-0 right-0 h-screen" >
                <div className='IdeaDetails__header p-6 border-b border-b-slate-200 text-slate-500'>
                   <h3 className=' text-lg font-bold'>

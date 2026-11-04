@@ -189,7 +189,6 @@ const Domains: NextPage = () => {
                {domainsData?.domains && domainsData.domains.map((domain:DomainType) => <DomainItem
                            key={domain.ID}
                            domain={domain}
-                           selected={false}
                            isConsoleIntegrated={!!(appSettings && appSettings.search_console_integrated) || !!domainSCAPiObj[domain.ID] }
                            thumb={domainThumbs[domain.domain]}
                            updateThumb={manuallyUpdateThumb}

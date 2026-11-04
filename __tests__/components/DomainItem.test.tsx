@@ -19,7 +19,6 @@ jest.mock('react-hot-toast', () => ({
 
 const defaultProps = {
    domain: dummyDomain,
-   selected: false,
    isConsoleIntegrated: false,
    thumb: '',
    updateThumb: updateThumbMock,

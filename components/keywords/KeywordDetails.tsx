@@ -8,6 +8,7 @@ import useOnKey from '../../hooks/useOnKey';
 import { generateTheChartData } from '../../utils/client/generateChartData';
 import { formatInZone } from '../../utils/timezone';
 import { getAppTimezone } from '../../utils/client/appTimezone';
+import { closeOnBGClick } from '../../utils/client/closeOnBGClick';
 
 type KeywordDetailsProps = {
    keyword: KeywordType,
@@ -90,14 +91,8 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
       }
    }, [resultSegments, keyword.position]);
 
-   const closeOnBGClick = (e:React.SyntheticEvent) => {
-      e.stopPropagation();
-      e.nativeEvent.stopImmediatePropagation();
-      if (e.target === e.currentTarget) { closeDetails(); }
-   };
-
    return (
-       <div className="keywordDetails fixed w-full h-dvh top-0 left-0 z-[99999]" onClick={closeOnBGClick} data-testid="keywordDetails">
+       <div className="keywordDetails fixed w-full h-dvh top-0 left-0 z-[99999]" onClick={(e) => closeOnBGClick(e, closeDetails)} data-testid="keywordDetails">
             <div className="keywordDetails absolute w-full lg:w-5/12 bg-white customShadow top-0 right-0 h-dvh overflow-y-auto" >
                <div className='keywordDetails__header p-6 border-b border-b-slate-200 text-slate-600'>
                   <h3 className=' text-lg font-bold flex items-center'>

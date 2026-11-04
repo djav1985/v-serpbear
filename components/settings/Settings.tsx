@@ -11,6 +11,7 @@ import useOnKey from '../../hooks/useOnKey';
 import IntegrationSettings from './IntegrationSettings';
 import { DEFAULT_BRANDING } from '../../utils/branding';
 import { useBranding } from '../../hooks/useBranding';
+import { closeOnBGClick } from '../../utils/client/closeOnBGClick';
 
 type SettingsProps = {
    closeSettings: () => void,
@@ -122,12 +123,6 @@ const Settings = forwardRef<HTMLDivElement, SettingsProps>(({ closeSettings }:Se
       }
    }, [appSettings?.settings, branding.platformName]);
 
-   const closeOnBGClick = (e:React.SyntheticEvent) => {
-      e.stopPropagation();
-      e.nativeEvent.stopImmediatePropagation();
-      if (e.target === e.currentTarget) { closeSettings(); }
-   };
-
    const updateSettings = (key: string, value:string|number|boolean) => {
       setSettings({ ...settings, [key]: value });
    };
@@ -196,7 +191,7 @@ const Settings = forwardRef<HTMLDivElement, SettingsProps>(({ closeSettings }:Se
    const tabStyleActive = 'bg-white text-blue-600 border-slate-200';
 
    return (
-       <div ref={ref} className="settings fixed w-full h-dvh top-0 left-0 z-[9999]" onClick={closeOnBGClick}>
+       <div ref={ref} className="settings fixed w-full h-dvh top-0 left-0 z-[9999]" onClick={(e) => closeOnBGClick(e, closeSettings)}>
             <div className="absolute w-full max-w-md bg-white customShadow top-0 right-0 h-dvh flex flex-col" data-loading={isLoading} >
                {isLoading && <div className='absolute flex content-center items-center h-full'><Icon type="loading" size={24} /></div>}
                <div className='flex-1 overflow-y-auto'>

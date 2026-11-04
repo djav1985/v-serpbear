@@ -51,7 +51,6 @@ const TrendBadge = ({ current, previous, lowerIsBetter = false }: TrendBadgeProp
 
 type DomainItemProps = {
    domain: DomainType,
-   selected: boolean,
    isConsoleIntegrated: boolean,
    thumb: string,
    updateThumb: (domain: string) => void,
@@ -61,7 +60,6 @@ type DomainItemProps = {
 
 const DomainItem = ({
    domain,
-   selected,
    isConsoleIntegrated = false,
    thumb,
    updateThumb,
@@ -104,7 +102,7 @@ const DomainItem = ({
    };
    // const router = useRouter();
    return (
-      <div className={`domItem bg-white border rounded w-full text-sm mb-10 hover:border-indigo-200 ${selected ? '' : ''}`}>
+      <div className='domItem bg-white border rounded w-full text-sm mb-10 hover:border-indigo-200'>
          <Link href={`/domain/${slug}`} className='flex flex-col lg:flex-row'>
             <div className={`flex-1 p-6 flex ${!isConsoleIntegrated ? 'basis-1/3' : ''}`}>
                <div className="group domain_thumb w-20 h-20 mr-6 bg-slate-100 rounded

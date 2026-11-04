@@ -94,7 +94,7 @@ describe('ToggleField Component', () => {
       expect(mockOnChange).not.toHaveBeenCalled();
    });
 
-   it('properly handles stopPropagation option', () => {
+   it('lets clicks bubble to parent handlers while still calling onChange', () => {
       const mockOnChange = jest.fn();
       const mockParentHandler = jest.fn();
 
@@ -104,28 +104,6 @@ describe('ToggleField Component', () => {
                label="Test Toggle"
                value={false}
                onChange={mockOnChange}
-               stopPropagation={true}
-            />
-         </div>
-      );
-
-      const toggle = screen.getByRole('checkbox');
-      fireEvent.click(toggle);
-
-      expect(mockOnChange).toHaveBeenCalledWith(true);
-   });
-
-   it('does not stop propagation when stopPropagation is false', () => {
-      const mockOnChange = jest.fn();
-      const mockParentHandler = jest.fn();
-
-      render(
-         <div onClick={mockParentHandler}>
-            <ToggleField
-               label="Test Toggle"
-               value={false}
-               onChange={mockOnChange}
-               stopPropagation={false}
             />
          </div>
       );

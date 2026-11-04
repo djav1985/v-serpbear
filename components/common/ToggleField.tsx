@@ -1,4 +1,5 @@
 import React from 'react';
+import { TOGGLE_TRACK_CLASS_NAME } from './toggleStyles';
 
 type ToggleFieldProps = {
    label: string;
@@ -6,7 +7,6 @@ type ToggleFieldProps = {
    onChange: (bool:boolean) => void ;
    classNames?: string;
    disabled?: boolean;
-   stopPropagation?: boolean;
 }
 
 const ToggleField = ({
@@ -15,17 +15,12 @@ const ToggleField = ({
    onChange,
    classNames = '',
    disabled = false,
-   stopPropagation = false,
 }: ToggleFieldProps) => {
    const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
       if (disabled) {
          event.preventDefault();
          event.stopPropagation();
          return;
-      }
-      if (stopPropagation) {
-         event.preventDefault();
-         event.stopPropagation();
       }
       onChange(!value);
    };
@@ -42,13 +37,7 @@ const ToggleField = ({
             onChange={handleChange}
             disabled={disabled}
             />
-            <div className="relative rounded-3xl w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4
-            peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800rounded-full peer dark:bg-gray-700
-            peer-checked:after:translate-x-full peer-checked:after:border-white after:content-['']
-            after:absolute after:top-[2px] after:left-[2px] after:bg-white  after:border-gray-300
-            after:border after:rounded-full after:h-4 after:w-4
-            after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-
+            <div className={TOGGLE_TRACK_CLASS_NAME}></div>
          </label>
       </div>
    );

@@ -1,8 +1,17 @@
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js';
+import { Filler } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import { calculateChartBounds } from '../../utils/client/chartBounds';
+import {
+   registerLineChart,
+   BASE_CHART_OPTIONS,
+   getYAxisBounds,
+   CHART_DATASET_ID_KEY,
+   LINE_DATASET_COLORS,
+   HIDDEN_AXIS_OPTIONS,
+} from './chartSetup';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Title, Tooltip, Legend);
+// The slim sparkline fills the area under the line, so it also needs the Filler plugin.
+registerLineChart(Filler);
 
 type ChartProps = {
    labels: string[];
@@ -17,45 +26,19 @@ const ChartSlim = ({ labels, series, noMaxLimit = false, reverse = true, fillCon
    const chartSeries = mapSentinel ? series.map(v => (v === 111 ? null : v)) : series;
    const { min, max } = calculateChartBounds(mapSentinel ? series.filter(v => v !== 111) : series, { reverse, noMaxLimit });
    const options = {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: false as const,
+      ...BASE_CHART_OPTIONS,
       layout: {
          padding: 0,
          autoPadding: false,
       },
       scales: {
          y: {
-            display: false,
-            reverse,
-            min,
-            max,
-            grid: {
-               display: false,
-               drawBorder: false,
-            },
-            ticks: {
-               display: false,
-               padding: 0,
-            },
-            border: {
-               display: false,
-            },
+            ...HIDDEN_AXIS_OPTIONS,
+            ...getYAxisBounds(reverse, min, max),
          },
          x: {
-            display: false,
+            ...HIDDEN_AXIS_OPTIONS,
             offset: false,
-            grid: {
-               display: false,
-               drawBorder: false,
-            },
-            ticks: {
-               display: false,
-               padding: 0,
-            },
-            border: {
-               display: false,
-            },
          },
       },
       plugins: {
@@ -74,7 +57,7 @@ const ChartSlim = ({ labels, series, noMaxLimit = false, reverse = true, fillCon
    return (
       <div className={`${wrapperClasses} rounded border border-gray-200`}>
          <Line
-            datasetIdKey="XXX"
+            datasetIdKey={CHART_DATASET_ID_KEY}
             className={lineClasses}
             options={options}
             data={{
@@ -85,8 +68,7 @@ const ChartSlim = ({ labels, series, noMaxLimit = false, reverse = true, fillCon
                      showLine: true,
                      data: chartSeries,
                      pointRadius: 0,
-                     borderColor: 'rgb(31, 205, 176)',
-                     backgroundColor: 'rgba(31, 205, 176, 0.5)',
+                     ...LINE_DATASET_COLORS,
                      spanGaps: false,
                   },
                ],

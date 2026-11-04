@@ -83,18 +83,6 @@ body {
    box-shadow: none;
 }
 
-.ct-area {
-   fill: #10b98d73;
-}
-
-.ct-label.ct-horizontal {
-   font-size: 11px;
-}
-
-.ct-label.ct-vertical {
-   font-size: 12px;
-}
-
 .chart_tooltip {
    width: 95px;
    height: 75px;

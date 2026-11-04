@@ -35,12 +35,6 @@ const ICON_RENDERERS: Record<string, IconRenderer> = {
                      </path>
                   </svg>
    ),
-   'menu': ({ color, size, title, xmlnsProps }) => (
-      <svg {...xmlnsProps} width={size} viewBox="0 0 24 24">
-                     {title && <title>{title}</title>}
-                     <path d="M4 6h16M4 12h16M4 18h16" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-   ),
    'close': ({ color, size, title, xmlnsProps }) => (
       <svg {...xmlnsProps} width={size} viewBox="0 0 24 24">
                      {title && <title>{title}</title>}
@@ -59,12 +53,6 @@ const ICON_RENDERERS: Record<string, IconRenderer> = {
                      {title && <title>{title}</title>}
                      <path d="M5 20a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8h2V6h-4V4a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v2H3v2h2zM9 4h6v2H9zM8 8h9v12H7V8z" fill={color} />
                      <path d="M9 10h2v8H9zm4 0h2v8h-2z" fill={color} />
-                  </svg>
-   ),
-   'edit': ({ color, size, title, xmlnsProps }) => (
-      <svg {...xmlnsProps} width={size} viewBox="0 0 1024 1024">
-                  {title && <title>{title}</title>}
-                  <path fill={color} d="M257.7 752c2 0 4-.2 6-.5L431.9 722c2-.4 3.9-1.3 5.3-2.8l423.9-423.9a9.96 9.96 0 0 0 0-14.1L694.9 114.9c-1.9-1.9-4.4-2.9-7.1-2.9s-5.2 1-7.1 2.9L256.8 538.8c-1.5 1.5-2.4 3.3-2.8 5.3l-29.5 168.2a33.5 33.5 0 0 0 9.4 29.8c6.6 6.4 14.9 9.9 23.8 9.9zm67.4-174.4L687.8 215l73.3 73.3l-362.7 362.6l-88.9 15.7l15.6-89zM880 836H144c-17.7 0-32 14.3-32 32v36c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-36c0-17.7-14.3-32-32-32z" />
                   </svg>
    ),
    'check': ({ color, size, title, xmlnsProps }) => (
@@ -91,12 +79,6 @@ const ICON_RENDERERS: Record<string, IconRenderer> = {
                      <path fill={color} d="M160 216a7.975 7.975 0 0 1-5.657-2.343l-80-80a8 8 0 0 1 0-11.314l80-80a8 8 0 0 1 11.314 11.314L91.314 128l74.343 74.343A8 8 0 0 1 160 216z" />
                   </svg>
    ),
-   'caret-right': ({ color, size, title, xmlnsProps }) => (
-      <svg {...xmlnsProps} width={size} viewBox="0 0 256 256">
-                     {title && <title>{title}</title>}
-                     <path fill={color} d="M96 216a8 8 0 0 1-5.657-13.657L164.686 128L90.343 53.657a8 8 0 0 1 11.314-11.314l80 80a8 8 0 0 1 0 11.314l-80 80A7.975 7.975 0 0 1 96 216z" />
-                  </svg>
-   ),
    'caret-down': ({ color, size, title, xmlnsProps }) => (
       <svg {...xmlnsProps} width={size} viewBox="0 0 256 256">
                      {title && <title>{title}</title>}
@@ -107,12 +89,6 @@ const ICON_RENDERERS: Record<string, IconRenderer> = {
       <svg {...xmlnsProps} width={size} viewBox="0 0 256 256">
                      {title && <title>{title}</title>}
                      <path fill={color} d="M208 172a11.962 11.962 0 0 1-8.485-3.515L128 96.971l-71.515 71.514a12 12 0 0 1-16.97-16.97l80-80a12 12 0 0 1 16.97 0l80 80A12 12 0 0 1 208 172z" />
-                  </svg>
-   ),
-   'search': ({ color, size, title, xmlnsProps }) => (
-      <svg {...xmlnsProps} width={size} viewBox="0 0 1024 1024">
-                     {title && <title>{title}</title>}
-                     <path fill={color} d="M909.6 854.5L649.9 594.8C690.2 542.7 712 479 712 412c0-80.2-31.3-155.4-87.9-212.1c-56.6-56.7-132-87.9-212.1-87.9s-155.5 31.3-212.1 87.9C143.2 256.5 112 331.8 112 412c0 80.1 31.3 155.5 87.9 212.1C256.5 680.8 331.8 712 412 712c67 0 130.6-21.8 182.7-62l259.7 259.6a8.2 8.2 0 0 0 11.6 0l43.6-43.5a8.2 8.2 0 0 0 0-11.6zM570.4 570.4C528 612.7 471.8 636 412 636s-116-23.3-158.4-65.6C211.3 528 188 471.8 188 412s23.3-116.1 65.6-158.4C296 211.3 352.2 188 412 188s116.1 23.2 158.4 65.6S636 352.2 636 412s-23.3 116.1-65.6 158.4z"/>
                   </svg>
    ),
    'settings': ({ color, size, title, xmlnsProps }) => (
@@ -220,16 +196,6 @@ const ICON_RENDERERS: Record<string, IconRenderer> = {
                      {title && <title>{title}</title>}
                      <path d="M5.5 5h13a1 1 0 0 1 .5 1.5L14 12v7l-4-3v-4L5 6.5A1 1 0 0 1 5.5 5" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
-   ),
-   'idea': ({ color, size, title, xmlnsProps }) => (
-      <svg {...xmlnsProps} width={size} viewBox="0 0 24 24">
-                        {title && <title>{title}</title>}
-                        <g fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                           <path d="M3 12h1m8-9v1m8 8h1M5.6 5.6l.7.7m12.1-.7l-.7.7"/>
-                           <path d="M9 16a5 5 0 1 1 6 0a3.5 3.5 0 0 0-1 3a2 2 0 0 1-4 0a3.5 3.5 0 0 0-1-3"/>
-                           <path d="M9.7 17h4.6"/>
-                        </g>
-                     </svg>
    ),
    'tracking': ({ color, size, title, xmlnsProps }) => (
       <svg {...xmlnsProps} width={size} viewBox="0 0 24 24">
