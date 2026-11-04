@@ -19,6 +19,7 @@ jest.mock('../../utils/scraper', () => ({
 jest.mock('../../utils/retryQueueManager', () => ({
   retryQueueManager: {
     addToQueue: jest.fn().mockResolvedValue(undefined),
+    getAttempts: jest.fn().mockResolvedValue(0),
     removeFromQueue: jest.fn().mockResolvedValue(undefined),
     removeBatch: jest.fn().mockResolvedValue(undefined),
   },
@@ -241,6 +242,29 @@ describe('refreshAndUpdateKeywords', () => {
     expect(keywordModel.update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0, updatingStartedAt: null }));
     expect(retryScrape).toHaveBeenCalledWith(41);
     expect(removeFromRetryQueue).not.toHaveBeenCalled();
+  });
+
+  it('drops a failed keyword from the retry queue once it has used all its retries', async () => {
+    // MAX_RETRY_ATTEMPTS is 3: a keyword already re-queued 3 times is dropped instead of queued again
+    const { retryQueueManager } = require('../../utils/retryQueueManager');
+    (retryQueueManager.getAttempts as jest.Mock).mockResolvedValueOnce(3);
+    const keywordPlain = { ID: 43, keyword: 'give-up', domain: 'example.com' };
+    const keywordModel = {
+      ...keywordPlain,
+      get: jest.fn().mockReturnValue(keywordPlain),
+      set: jest.fn(),
+      update: jest.fn().mockResolvedValue(undefined),
+    } as unknown as Keyword;
+
+    (Domain.findAll as jest.Mock).mockResolvedValue([
+      { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
+    ]);
+    (scrapeKeywordWithStrategy as jest.Mock).mockResolvedValueOnce(false);
+
+    await refreshAndUpdateKeywords([keywordModel], { scraper_type: 'custom-scraper', scrape_retry: true } as SettingsType);
+
+    expect(removeFromRetryQueue).toHaveBeenCalledWith(43);
+    expect(retryScrape).not.toHaveBeenCalledWith(43);
   });
 
   it('removes keywords from retry queue when sequential scraping is disabled', async () => {
@@ -1412,7 +1436,7 @@ describe('refreshAndUpdateKeywords with a domain scraper key that cannot be decr
     }));
     jest.doMock('../../utils/retryQueueManager', () => ({
       __esModule: true,
-      retryQueueManager: { removeBatch: jest.fn().mockResolvedValue(undefined) },
+      retryQueueManager: { removeBatch: jest.fn().mockResolvedValue(undefined), getAttempts: jest.fn().mockResolvedValue(0) },
     }));
     jest.doMock('../../database/models/keyword', () => ({
       __esModule: true,

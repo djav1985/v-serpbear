@@ -23,6 +23,14 @@ jest.mock('../../utils/adwords', () => ({
   ...jest.requireActual('../../utils/adwords'),
   getAdwordsCredentials: jest.fn(),
   getAdwordsKeywordIdeas: jest.fn(),
+  // The file lock needs a real file on disk; the test only checks the read-modify-write itself
+  withIdeasLock: (_domain: string, fn: () => Promise<unknown>) => fn(),
+}));
+
+// Writes go through atomicWriteFile; route them to the mocked writeFile so the assertions still see the contents
+jest.mock('../../utils/atomicWrite', () => ({
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- forwards the temp path the route computed in tests
+  atomicWriteFile: (filePath: string, data: string, encoding: string) => require('fs/promises').writeFile(filePath, data, encoding),
 }));
 
 jest.mock('fs/promises', () => ({

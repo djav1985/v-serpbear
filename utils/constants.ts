@@ -8,6 +8,6 @@ export const GOOGLE_BASE_URL = 'https://www.google.com';
  */
 export const DEVICE_MOBILE = 'mobile';
 /**
- * Values accepted for a domain's or the app's notification_interval.
+ * Values accepted for the app's notification_interval.
  */
 export const NOTIFICATION_INTERVALS: readonly string[] = ['daily', 'weekly', 'monthly', 'never'];

@@ -546,7 +546,7 @@ const refreshAndUpdateKeyword = async (
 
    try {
       if (effectiveSettings?.scrape_retry) {
-         await retryScrape(keyword.ID);
+         await queueFailedKeywordForRetry(keyword.ID);
       } else {
          await removeFromRetryQueue(keyword.ID);
       }
@@ -557,6 +557,23 @@ const refreshAndUpdateKeyword = async (
    // Return the current keyword with updated state
    const updatedKeywordData = { ...currentkeyword, updating: toDbBool(false), updatingStartedAt: null };
    return parseKeywords([updatedKeywordData])[0];
+};
+
+/** How many times a failed keyword is re-queued before it is dropped from the retry queue */
+export const MAX_RETRY_ATTEMPTS = 3;
+
+/**
+ * Puts a failed keyword back in the retry queue while it has retries left. Once it has been re-queued
+ * MAX_RETRY_ATTEMPTS times it is dropped, so a keyword that always fails does not retry forever.
+ */
+const queueFailedKeywordForRetry = async (keywordID: number): Promise<void> => {
+   const attempts = await retryQueueManager.getAttempts(keywordID);
+   if (attempts >= MAX_RETRY_ATTEMPTS) {
+      logger.warn('Keyword dropped from the retry queue after reaching the retry limit', { keywordId: keywordID, attempts, maxAttempts: MAX_RETRY_ATTEMPTS });
+      await removeFromRetryQueue(keywordID);
+      return;
+   }
+   await retryScrape(keywordID);
 };
 
 /**
@@ -578,7 +595,7 @@ const persistKeywordError = async (
 
    try {
       if (settings?.scrape_retry) {
-         await retryScrape(keyword.ID);
+         await queueFailedKeywordForRetry(keyword.ID);
       } else {
          await removeFromRetryQueue(keyword.ID);
       }

@@ -104,14 +104,14 @@ describe('/api/refresh', () => {
     req.method = 'GET';
     req.query = { status: 'retry', id: '11,12' };
     (Keyword.findAll as jest.Mock).mockResolvedValue([
-      { get: () => ({ ID: 11, updating: 1 }) },
-      { get: () => ({ ID: 12, updating: 0 }) },
+      { get: () => ({ ID: 11, updating: 1, updatingStartedAt: '2024-06-01T11:55:00.000Z' }) },
+      { get: () => ({ ID: 12, updating: 0, updatingStartedAt: null }) },
     ]);
 
     await handler(req, res);
 
     expect(Keyword.findAll).toHaveBeenCalledWith(expect.objectContaining({
-      attributes: ['ID', 'updating'],
+      attributes: ['ID', 'updating', 'updatingStartedAt'],
     }));
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
@@ -162,9 +162,10 @@ describe('/api/refresh', () => {
     await jest.runAllTimersAsync();
 
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ 
+    expect(res.json).toHaveBeenCalledWith({
       message: 'Refresh started',
       keywordCount: 1,
+      skipped: { domains: [], keywordIds: [] },
     });
     expect(keywordRecord.update).toHaveBeenCalledWith({
       updating: 1,
@@ -252,6 +253,7 @@ describe('/api/refresh', () => {
     expect(res.json).toHaveBeenCalledWith({
       message: 'Refresh started',
       keywordCount: 2,
+      skipped: { domains: [], keywordIds: [] },
     });
   });
 
@@ -294,9 +296,9 @@ describe('/api/refresh', () => {
     ]);
 
     // Mock domain as locked
-    // Once for the atomic reservation check, once for building the list of locked domains in the handler
+    // Once for the atomic reservation check of the only domain
     const { refreshQueue } = require('../../utils/refreshQueue');
-    (refreshQueue.isDomainLocked as jest.Mock).mockReturnValueOnce(true).mockReturnValueOnce(true);
+    (refreshQueue.isDomainLocked as jest.Mock).mockReturnValueOnce(true);
 
     await handler(req, res);
 
@@ -309,6 +311,63 @@ describe('/api/refresh', () => {
     // Should NOT enqueue or update keywords
     expect(keywordRecord.update).not.toHaveBeenCalled();
     expect(refreshQueue.enqueue).not.toHaveBeenCalled();
+  });
+
+  it('starts the unlocked domain, skips the locked one, and reports what was skipped', async () => {
+    req.query = { id: '1,2' };
+    const freeKeyword = { ID: 1, domain: 'free.com', updating: 0, update: jest.fn().mockResolvedValue(undefined), set: jest.fn() };
+    const busyKeyword = { ID: 2, domain: 'busy.com', updating: 0, update: jest.fn().mockResolvedValue(undefined), set: jest.fn() };
+    (Keyword.findAll as jest.Mock).mockResolvedValue([freeKeyword, busyKeyword]);
+    (Domain.findAll as jest.Mock).mockResolvedValue([
+      { get: () => ({ domain: 'free.com', scrapeEnabled: 1 }) },
+      { get: () => ({ domain: 'busy.com', scrapeEnabled: 1 }) },
+    ]);
+
+    const { refreshQueue } = require('../../utils/refreshQueue');
+    (refreshQueue.isDomainLocked as jest.Mock).mockImplementation((domain: string) => domain === 'busy.com');
+
+    try {
+      await handler(req, res);
+    } finally {
+      (refreshQueue.isDomainLocked as jest.Mock).mockReturnValue(false);
+    }
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      message: 'Refresh started',
+      keywordCount: 1,
+      skipped: { domains: ['busy.com'], keywordIds: [2] },
+    });
+    expect(busyKeyword.update).not.toHaveBeenCalled();
+    expect(refreshAndUpdateKeywords).toHaveBeenCalledWith([freeKeyword], expect.anything());
+  });
+
+  it('restarts a keyword whose updating flag is stale, but skips one that is still live', async () => {
+    req.query = { id: '1,2', domain: 'example.com' };
+    // Fake clock is 12:00. Live: flagged 10 minutes ago. Stale: flagged 2 hours ago by a run that crashed.
+    const liveKeyword = {
+      ID: 1, domain: 'example.com', updating: 1, updatingStartedAt: '2024-06-01T11:50:00.000Z',
+      update: jest.fn().mockResolvedValue(undefined), set: jest.fn(),
+    };
+    const staleKeyword = {
+      ID: 2, domain: 'example.com', updating: 1, updatingStartedAt: '2024-06-01T10:00:00.000Z',
+      update: jest.fn().mockResolvedValue(undefined), set: jest.fn(),
+    };
+    (Keyword.findAll as jest.Mock).mockResolvedValue([liveKeyword, staleKeyword]);
+    (Domain.findAll as jest.Mock).mockResolvedValue([
+      { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
+    ]);
+
+    await handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      keywordCount: 1,
+      skipped: { domains: [], keywordIds: [1] },
+    }));
+    expect(staleKeyword.update).toHaveBeenCalledWith(expect.objectContaining({ updating: 1 }));
+    expect(liveKeyword.update).not.toHaveBeenCalled();
+    expect(refreshAndUpdateKeywords).toHaveBeenCalledWith([staleKeyword], expect.anything());
   });
 
   it('handles keywords with domains missing from Domain table', async () => {
@@ -417,6 +476,7 @@ describe('/api/refresh', () => {
     expect(res.json).toHaveBeenCalledWith({
       message: 'Refresh started',
       keywordCount: 2,
+      skipped: { domains: [], keywordIds: [] },
     });
   });
 

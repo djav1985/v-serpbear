@@ -3,7 +3,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import verifyUser from '../../utils/verifyUser';
 import {
-   getAdwordsCredentials, getAdwordsKeywordIdeas, getLocalKeywordIdeas, updateLocalKeywordIdeas,
+   getAdwordsCredentials, getAdwordsKeywordIdeas, getLocalKeywordIdeas, updateLocalKeywordIdeas, withIdeasLock,
 } from '../../utils/adwords';
 import { withApiLogging } from '../../utils/apiLogging';
 import { logger } from '../../utils/logger';
@@ -167,8 +167,10 @@ const favoriteKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
    }
 
    try {
-      const keywordsDatabase = await getLocalKeywordIdeas(domain);
-      if (keywordsDatabase && keywordsDatabase.keywords) {
+      // Read and write under one lock, so two toggles at once cannot drop each other's favourite
+      const result = await withIdeasLock(domain, async () => {
+         const keywordsDatabase = await getLocalKeywordIdeas(domain);
+         if (!keywordsDatabase || !keywordsDatabase.keywords) return null;
          const theKeyword = keywordsDatabase.keywords.find((kw) => kw.uid === keywordID);
          const existingKeywords = keywordsDatabase.favorites || [];
          const newFavorites = [...existingKeywords];
@@ -178,10 +180,11 @@ const favoriteKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
          } else if (theKeyword) newFavorites.push(theKeyword);
 
          const updated = await updateLocalKeywordIdeas(domain, { favorites: newFavorites });
+         return updated ? newFavorites : null;
+      });
 
-         if (updated) {
-            return res.status(200).json({ keywords: newFavorites, error: '' });
-         }
+      if (result) {
+         return res.status(200).json({ keywords: result, error: '' });
       }
 
       return res.status(400).json(errorResponse('BAD_REQUEST', errMsg, requestId));

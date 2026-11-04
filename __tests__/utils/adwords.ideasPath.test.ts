@@ -32,6 +32,14 @@ describe('ideas file access only accepts domain slugs', () => {
     expect(writeMock).not.toHaveBeenCalled();
   });
 
+  it('reads the ideas file of a hyphenated domain under its real name', async () => {
+    readMock.mockResolvedValue(JSON.stringify({ keywords: [{ uid: 'k2' }] }));
+
+    await getLocalKeywordIdeas('my_site-com');
+
+    expect(readMock).toHaveBeenCalledWith(expect.stringMatching(/IDEAS_my-site\.com\.json$/), expect.anything());
+  });
+
   it('still reads a valid slug', async () => {
     readMock.mockResolvedValue(JSON.stringify({ keywords: [{ uid: 'k1' }] }));
 

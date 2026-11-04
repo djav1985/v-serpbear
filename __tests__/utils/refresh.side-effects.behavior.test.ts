@@ -22,6 +22,7 @@ jest.mock('../../utils/scraper', () => ({
 jest.mock('../../utils/retryQueueManager', () => ({
   retryQueueManager: {
     addToQueue: jest.fn().mockResolvedValue(undefined),
+    getAttempts: jest.fn().mockResolvedValue(0),
     removeFromQueue: jest.fn().mockResolvedValue(undefined),
     removeBatch: jest.fn().mockResolvedValue(undefined),
   },

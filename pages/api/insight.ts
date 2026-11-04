@@ -2,7 +2,7 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getCountryInsight, getKeywordsInsight, getPagesInsight } from '../../utils/insight';
-import { fetchDomainSCData, getSearchConsoleApiInfo, readLocalSCData } from '../../utils/searchConsole';
+import { fetchDomainSCData, getSearchConsoleApiInfo, readLocalSCData, resolveDomainIdentifier } from '../../utils/searchConsole';
 import verifyUser from '../../utils/verifyUser';
 import Domain from '../../database/models/domain';
 import { logger } from '../../utils/logger';
@@ -26,7 +26,8 @@ export default withApiLogging(handler, { name: 'insight' });
 const getDomainSearchConsoleInsight = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
    if (!req.query.domain || typeof req.query.domain !== 'string') return res.status(400).json(errorResponse('BAD_REQUEST', 'Domain is Missing.', requestId));
-   const domainname = (req.query.domain as string).replaceAll('-', '.').replaceAll('_', '-');
+   // Accepts either a slug (my_site-com) or a real domain (my-site.com); a plain replace would mangle hyphenated domains
+   const domainname = resolveDomainIdentifier(req.query.domain as string);
    const getInsightFromSCData = (localSCData: SCDomainDataType): InsightDataType => {
       const { stats = [] } = localSCData;
       const countries = getCountryInsight(localSCData);

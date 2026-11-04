@@ -43,6 +43,26 @@ describe('getAdwordsKeywordIdeas', () => {
     jest.restoreAllMocks();
   });
 
+  it('fails in test mode when the account ID is invalid instead of reporting success', async () => {
+    await expect(
+      adwordsUtils.getAdwordsKeywordIdeas(
+        { ...creds, account_id: 'not-an-id' },
+        { country: 'US', language: '1000', keywords: ['compress'], seedType: 'custom' },
+        true,
+      ),
+    ).rejects.toThrow(/account ID/);
+  });
+
+  it('fails in test mode when the country has no geo target', async () => {
+    await expect(
+      adwordsUtils.getAdwordsKeywordIdeas(
+        { ...creds, account_id: '1234567890' },
+        { country: 'XX', language: '1000', keywords: ['compress'], seedType: 'custom' },
+        true,
+      ),
+    ).rejects.toThrow(/geo target/);
+  });
+
   it('throws error when no tracked keywords found', async () => {
     await expect(
       adwordsUtils.getAdwordsKeywordIdeas(

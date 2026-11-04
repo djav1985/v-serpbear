@@ -237,6 +237,14 @@ describe('integrateKeywordSCData field mapping', () => {
     position,
   });
 
+  it('matches Search Console rows to tracked keywords regardless of case and surrounding spaces', () => {
+    const scData = buildSCData({ threeDays: [makeItem('us:desktop:test_keyword', 5, 50, 10, 3)] as any });
+
+    const result = integrateKeywordSCData({ ...baseKeyword, keyword: '  Test Keyword ' } as KeywordType, scData);
+
+    expect(result.scData?.visits.threeDays).toBe(5);
+  });
+
   it('maps impressions, visits, ctr, and position from threeDays data', () => {
     const uid = 'us:desktop:test_keyword';
     const scData = buildSCData({

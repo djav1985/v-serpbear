@@ -278,21 +278,5 @@ describe('Search Console credentials stay on the server', () => {
       expect(instance.save).not.toHaveBeenCalled();
     });
 
-    it('rejects a notification interval outside the allowed values', async () => {
-      const { instance } = buildInstance();
-      isoDomainModel.findOne.mockResolvedValue(instance);
-      const req = {
-        method: 'PUT',
-        query: { domain: 'example.com' },
-        body: { notification_interval: 'hourly' },
-        headers: {},
-      } as unknown as NextApiRequest;
-      const res = createMockResponse();
-
-      await isoUpdateDomain(req, res);
-
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(instance.save).not.toHaveBeenCalled();
-    });
   });
 });

@@ -68,6 +68,12 @@ const normalizeLegacySettings = (settings: Partial<SettingsType>): Partial<Setti
    return normalizedSettings;
 };
 
+/**
+ * Fields that GET adds on top of the stored settings (the app version and timezone, and values computed or read
+ * from other stores). A save never writes them, so a client that echoes a GET response cannot store them.
+ */
+export const DERIVED_SETTINGS_FIELDS = ['version', 'timezone', 'available_scapers', 'search_console_integrated', 'failed_queue'] as const;
+
 const SCRAPE_STRATEGIES = ['basic', 'custom', 'smart'];
 const MAX_PAGINATION_LIMIT = 10;
 const BOOLEAN_SETTINGS = ['scrape_retry', 'scrape_smart_full_fallback', 'search_console'];
@@ -194,7 +200,9 @@ const updateSettings = async (req: NextApiRequest, res: NextApiResponse) => {
    }
    
    try {
-      const normalizedSettings: SettingsType = trimStringProperties(normalizeLegacySettings({ ...settings })) as SettingsType;
+      const incomingSettings: Record<string, unknown> = { ...settings };
+      DERIVED_SETTINGS_FIELDS.forEach((field) => { delete incomingSettings[field]; });
+      const normalizedSettings: SettingsType = trimStringProperties(normalizeLegacySettings(incomingSettings as Partial<SettingsType>)) as SettingsType;
 
       const validationErrors = validateSettingsPayload(normalizedSettings as unknown as Record<string, unknown>);
       if (validationErrors.length > 0) {

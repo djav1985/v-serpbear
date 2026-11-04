@@ -53,9 +53,8 @@ const notify = async (req: NextApiRequest, res: NextApiResponse) => {
       let skippedCount = 0;
       let failedCount = 0;
 
-      // A domain takes part only when scraping is enabled and it has a notification interval other than "never".
-      const isNotifiable = (domain: DomainType) => domain.scrapeEnabled
-         && domain.notification_interval !== 'never';
+      // A domain takes part only when scraping is enabled.
+      const isNotifiable = (domain: DomainType) => domain.scrapeEnabled;
 
       // A send skipped on purpose (no address, or throttled) is counted apart from a failure, so skipped
       // domains never turn the response into an error.

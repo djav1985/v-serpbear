@@ -24,9 +24,6 @@ const normalizeDomainPatch = (
       const nextValue = Boolean(patch.scrapeEnabled);
       updates.scrapeEnabled = nextValue;
    }
-   if (typeof patch.notification_interval === 'string') {
-      updates.notification_interval = patch.notification_interval;
-   }
    if (typeof patch.notification_emails === 'string') {
       updates.notification_emails = patch.notification_emails;
    }

@@ -108,6 +108,16 @@ describe('PUT /api/keywords error handling', () => {
     updateKeywordsVolumeDataMock.mockResolvedValue(true);
   });
 
+  it('rejects a non-boolean sticky value with 400 and leaves the keyword unchanged', async () => {
+    const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { sticky: 'true' } });
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(keywordMock.update).not.toHaveBeenCalled();
+  });
+
   it('returns 500 when keyword update fails', async () => {
     const failure = new Error('update failed');
     keywordMock.update.mockRejectedValueOnce(failure);
@@ -398,6 +408,17 @@ describe('PUT /api/keywords tags updates', () => {
     jest.clearAllMocks();
     dbMock.sync.mockResolvedValue(undefined);
     verifyUserMock.mockReturnValue('authorized');
+  });
+
+  it('rejects more than 10 tags for a keyword with 400 before changing any keyword', async () => {
+    const tags = Array.from({ length: 11 }, (_, index) => `tag-${index}`);
+    const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { tags: { 1: tags } } });
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(keywordMock.findAll).not.toHaveBeenCalled();
   });
 
   it('returns refreshed keyword data when tags are updated', async () => {

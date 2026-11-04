@@ -7,6 +7,7 @@
 //  - tags of the removed rows are added to the kept row, and it stays starred if any duplicate was starred
 
 const { logger } = require('../migrationLogger');
+const { backupDatabaseFile } = require('../backupDatabase');
 
 const INDEX_NAME = 'keyword_tracking_target_idx';
 
@@ -99,6 +100,11 @@ module.exports = {
          );
 
          const plans = planDuplicateRemovals(rows || []);
+         if (plans.length > 0) {
+            // Keep a copy of the database file before any duplicate row is deleted
+            backupDatabaseFile(queryInterface);
+         }
+
          let removed = 0;
          for (const plan of plans) {
             if (plan.tagsChanged || plan.stickyChanged) {

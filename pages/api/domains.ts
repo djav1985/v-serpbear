@@ -26,7 +26,8 @@ import { errorResponse } from '../../utils/api/response';
 import { retryQueueManager } from '../../utils/retryQueueManager';
 import db from '../../database/database';
 import { atomicWriteFile } from '../../utils/atomicWrite';
-import { NOTIFICATION_INTERVALS } from '../../utils/constants';
+import { withFileLock } from '../../utils/fileLock';
+import { removeDomainIdeasFile } from '../../utils/domainIdeasFile';
 
 // Sent in place of a saved Search Console credential: GET responses mask it, and a save that sends it back keeps the stored value
 const SC_CREDENTIAL_MARKER = 'true';
@@ -60,6 +61,39 @@ const persistPendingCleanupMap = async (map: PendingCleanupMap): Promise<void> =
    });
    await mkdir(dirname(DOMAIN_CLEANUP_RETRY_FILE), { recursive: true });
    await atomicWriteFile(DOMAIN_CLEANUP_RETRY_FILE, JSON.stringify(serialized), 'utf-8');
+};
+
+// Every read-modify-write of the retry file runs under this lock, so overlapping deletes cannot lose each other's entries
+const withCleanupRetryLock = <T>(fn: () => Promise<T>): Promise<T> => withFileLock(DOMAIN_CLEANUP_RETRY_FILE, fn);
+
+const updatePendingCleanup = (update: (map: PendingCleanupMap) => void): Promise<void> => withCleanupRetryLock(async () => {
+   const map = await readPendingCleanupMap();
+   update(map);
+   await persistPendingCleanupMap(map);
+});
+
+/**
+ * Repeats the auxiliary cleanup of an earlier delete whose cleanup did not finish. True only when every step succeeded.
+ */
+const retryOtherDomainCleanup = async (domain: string, keywordIds: Set<number>): Promise<boolean> => {
+   let complete = true;
+   if (keywordIds.size > 0) {
+      try {
+         await retryQueueManager.removeBatch(keywordIds);
+      } catch (error) {
+         complete = false;
+         logger.error('Retrying pending retry-queue cleanup failed', error instanceof Error ? error : new Error(String(error)), { domain });
+      }
+   }
+   try {
+      if (!(await removeLocalSCData(domain))) {
+         complete = false;
+      }
+   } catch (error) {
+      complete = false;
+      logger.error('Retrying pending Search Console cleanup failed', error instanceof Error ? error : new Error(String(error)), { domain });
+   }
+   return complete;
 };
 
 /**
@@ -183,8 +217,6 @@ const addDomain = async (req: NextApiRequest, res: NextApiResponse) => {
          lastUpdated: now,
          added: now,
          scrapeEnabled: toDbBool(true),
-         // Emails are controlled by the domain's notification address; the interval is set explicitly, not left to the model default
-         notification_interval: 'daily',
       }));
 
       if (domainsToAdd.length === 0) {
@@ -244,12 +276,20 @@ export const deleteDomain = async (req: NextApiRequest, res: NextApiResponse) =>
             taskId,
             async () => {
                try {
-                  const pendingCleanupMap = await readPendingCleanupMap();
-                  const pendingKeywordIds = pendingCleanupMap.get(normalizedDomain);
+                  const pendingSnapshot = await withCleanupRetryLock(readPendingCleanupMap);
+                  // Earlier deletes whose cleanup did not finish are retried first; the ones that succeed are dropped from the file
+                  const clearedDomains: string[] = [];
+                  for (const [pendingDomain, pendingIds] of pendingSnapshot) {
+                     if (pendingDomain !== normalizedDomain && await retryOtherDomainCleanup(pendingDomain, pendingIds)) {
+                        clearedDomains.push(pendingDomain);
+                     }
+                  }
+                  const pendingKeywordIds = pendingSnapshot.get(normalizedDomain);
                   const domainToRemove = await Domain.findOne({ where: { domain: normalizedDomain }, attributes: ['ID'] });
                   // Keywords are looked up by domain even when the Domain row is gone, so no keyword is left orphaned
                   const keywordsToRemove = await Keyword.findAll({ where: { domain: normalizedDomain }, attributes: ['ID'] });
                   if (!domainToRemove && keywordsToRemove.length === 0 && !pendingKeywordIds) {
+                     await updatePendingCleanup((map) => clearedDomains.forEach((domain) => map.delete(domain)));
                      responsePayload = { status: 404, body: errorResponse('NOT_FOUND', 'Domain not found', requestId) };
                      resolve();
                      return;
@@ -266,6 +306,9 @@ export const deleteDomain = async (req: NextApiRequest, res: NextApiResponse) =>
                         throw new Error('Domain disappeared during deletion transaction.');
                      }
                   });
+
+                  // Never fails the delete: a leftover ideas file is only logged
+                  await removeDomainIdeasFile(normalizedDomain);
 
                   const cleanupFailures: string[] = [];
                   if (keywordIdsToRemove.size > 0) {
@@ -289,12 +332,14 @@ export const deleteDomain = async (req: NextApiRequest, res: NextApiResponse) =>
                      logger.error('Domain deleted, but Search Console cleanup failed', error instanceof Error ? error : new Error(String(error)), { domain: normalizedDomain });
                   }
 
-                  if (cleanupFailures.length > 0) {
-                     pendingCleanupMap.set(normalizedDomain, keywordIdsToRemove);
-                  } else {
-                     pendingCleanupMap.delete(normalizedDomain);
-                  }
-                  await persistPendingCleanupMap(pendingCleanupMap);
+                  await updatePendingCleanup((map) => {
+                     clearedDomains.forEach((domain) => map.delete(domain));
+                     if (cleanupFailures.length > 0) {
+                        map.set(normalizedDomain, keywordIdsToRemove);
+                     } else {
+                        map.delete(normalizedDomain);
+                     }
+                  });
 
                   responsePayload = {
                      status: 200,
@@ -356,9 +401,11 @@ export const updateDomain = async (req: NextApiRequest, res: NextApiResponse) =>
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Domain is Required!', requestId));
    }
    const { domain } = req.query || {};
+   if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Request body must be a JSON object.', requestId));
+   }
    const payload = req.body as Partial<DomainSettings>;
    const {
-      notification_interval,
       notification_emails,
       search_console,
       scrapeEnabled,
@@ -385,6 +432,12 @@ export const updateDomain = async (req: NextApiRequest, res: NextApiResponse) =>
 
       // Validate Search Console API Data
       if (search_console) {
+         if (typeof search_console !== 'object' || Array.isArray(search_console)) {
+            return res.status(400).json(errorResponse('BAD_REQUEST', 'search_console must be an object.', requestId));
+         }
+         if ((['client_email', 'private_key'] as const).some((key) => search_console[key] != null && typeof search_console[key] !== 'string')) {
+            return res.status(400).json(errorResponse('BAD_REQUEST', 'search_console credentials must be text.', requestId));
+         }
          const storedSearchConsole = safeJsonParse<Record<string, string> | null>(
             domainPlain?.search_console,
             null,
@@ -425,12 +478,6 @@ export const updateDomain = async (req: NextApiRequest, res: NextApiResponse) =>
       }
 
       const updates: Partial<Domain> = {};
-      if (typeof notification_interval === 'string') {
-         if (!NOTIFICATION_INTERVALS.includes(notification_interval)) {
-            return res.status(400).json(errorResponse('BAD_REQUEST', 'notification_interval must be daily, weekly, monthly or never.', requestId));
-         }
-         updates.notification_interval = notification_interval;
-      }
       if (typeof notification_emails === 'string') { updates.notification_emails = notification_emails; }
       if (typeof scrapeEnabled === 'boolean') {
          // Convert boolean to 1/0 for database storage

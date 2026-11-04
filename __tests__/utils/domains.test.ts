@@ -31,7 +31,7 @@ describe('getdomainStats', () => {
       domain: 'example.com',
       slug: 'example-com',
       notification: false,
-      notification_interval: '',
+     
       notification_emails: '',
       lastUpdated: new Date().toISOString(),
       added: new Date().toISOString(),
@@ -56,7 +56,7 @@ describe('getdomainStats', () => {
       domain: 'example.com',
       slug: 'example-com',
       notification: false,
-      notification_interval: '',
+     
       notification_emails: '',
       lastUpdated: '2023-01-01T00:00:00.000Z',
       added: '2023-01-01T00:00:00.000Z',
@@ -81,7 +81,7 @@ describe('getdomainStats', () => {
       domain: 'persisted.com',
       slug: 'persisted-com',
       notification: false,
-      notification_interval: '',
+     
       notification_emails: '',
       lastUpdated: '2023-01-01T00:00:00.000Z',
       added: '2023-01-01T00:00:00.000Z',
@@ -105,7 +105,7 @@ describe('getdomainStats', () => {
       domain: 'stale-stats.com',
       slug: 'stale-stats-com',
       notification: false,
-      notification_interval: '',
+     
       notification_emails: '',
       lastUpdated: '2023-01-01T00:00:00.000Z',
       added: '2023-01-01T00:00:00.000Z',
@@ -127,8 +127,8 @@ describe('getdomainStats', () => {
     mockReadLocalSCData.mockResolvedValue(null);
 
     const domains = [
-      { ID: 1, domain: 'a.com', slug: 'a-com', notification: false, notification_interval: '', notification_emails: '', lastUpdated: '2023-01-01T00:00:00.000Z', added: '2023-01-01T00:00:00.000Z' },
-      { ID: 2, domain: 'b.com', slug: 'b-com', notification: false, notification_interval: '', notification_emails: '', lastUpdated: '2023-01-01T00:00:00.000Z', added: '2023-01-01T00:00:00.000Z' },
+      { ID: 1, domain: 'a.com', slug: 'a-com', notification: false, notification_emails: '', lastUpdated: '2023-01-01T00:00:00.000Z', added: '2023-01-01T00:00:00.000Z' },
+      { ID: 2, domain: 'b.com', slug: 'b-com', notification: false, notification_emails: '', lastUpdated: '2023-01-01T00:00:00.000Z', added: '2023-01-01T00:00:00.000Z' },
     ] as any[];
 
     await getdomainStats(domains);
@@ -148,7 +148,7 @@ describe('getdomainStats', () => {
     });
 
     const domain = {
-      ID: 1, domain: 'sc.com', slug: 'sc-com', notification: false, notification_interval: '', notification_emails: '',
+      ID: 1, domain: 'sc.com', slug: 'sc-com', notification: false, notification_emails: '',
       lastUpdated: '2023-01-01T00:00:00.000Z', added: '2023-01-01T00:00:00.000Z',
     } as any;
 
@@ -168,7 +168,7 @@ describe('getdomainStats', () => {
     mockReadLocalSCData.mockResolvedValue({ stats: Array.from({ length: 10 }, () => dayStat) });
 
     const domain = {
-      ID: 1, domain: 'short.com', slug: 'short-com', notification: false, notification_interval: '', notification_emails: '',
+      ID: 1, domain: 'short.com', slug: 'short-com', notification: false, notification_emails: '',
       lastUpdated: '2023-01-01T00:00:00.000Z', added: '2023-01-01T00:00:00.000Z',
     } as any;
 
@@ -189,7 +189,7 @@ describe('getdomainStats', () => {
       domain: 'empty.com',
       slug: 'empty-com',
       notification: false,
-      notification_interval: '',
+     
       notification_emails: '',
       lastUpdated: '2022-06-15T12:00:00.000Z',
       added: '2022-06-01T00:00:00.000Z',

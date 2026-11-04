@@ -110,7 +110,6 @@ const mockDomain: any = {
    ID: 1,
    domain: 'example.com',
    slug: 'example-com',
-   notification_interval: '24h',
    notification_emails: '',
    tags: '',
    added: '2024-01-01',

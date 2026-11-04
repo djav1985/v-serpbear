@@ -1,6 +1,6 @@
 import type { NextApiRequest } from 'next';
 import Cryptr from 'cryptr';
-import { readFile } from 'fs/promises';
+import { readFile, unlink } from 'fs/promises';
 import handler from '../../pages/api/domains';
 import db from '../../database/database';
 import Domain from '../../database/models/domain';
@@ -45,7 +45,8 @@ jest.mock('../../utils/searchConsole', () => ({
 
 jest.mock('../../utils/retryQueueManager', () => ({ retryQueueManager: { removeBatch: jest.fn() } }));
 jest.mock('../../utils/atomicWrite', () => ({ atomicWriteFile: jest.fn() }));
-jest.mock('fs/promises', () => ({ readFile: jest.fn(), mkdir: jest.fn().mockResolvedValue(undefined) }));
+jest.mock('fs/promises', () => ({ readFile: jest.fn(), mkdir: jest.fn().mockResolvedValue(undefined), unlink: jest.fn().mockResolvedValue(undefined) }));
+jest.mock('../../utils/fileLock', () => ({ withFileLock: (_path: string, section: () => Promise<unknown>) => section() }));
 jest.mock('../../utils/refreshQueue', () => ({
   refreshQueue: {
     enqueue: jest.fn(async (_taskId: string, task: () => Promise<void>) => { await task(); }),
@@ -65,6 +66,7 @@ const KeywordMock = Keyword as unknown as { destroy: jest.Mock; findAll: jest.Mo
 const removeLocalSCDataMock = removeLocalSCData as unknown as jest.Mock;
 const removeBatchMock = retryQueueManager.removeBatch as jest.Mock;
 const readFileMock = readFile as unknown as jest.Mock;
+const unlinkMock = unlink as unknown as jest.Mock;
 const atomicWriteFileMock = atomicWriteFile as jest.Mock;
 const refreshQueueMock = refreshQueue as unknown as { enqueue: jest.Mock; isDomainLocked: jest.Mock };
 
@@ -463,7 +465,6 @@ describe('PUT /api/domains', () => {
       method: 'PUT',
       query: { domain: domainState.domain },
       body: { 
-        notification_interval: 'weekly',
         notification_emails: 'test@example.com'
       },
       headers: {},
@@ -551,6 +552,23 @@ describe('DELETE /api/domains', () => {
       cleanupState = content;
     });
     refreshQueueMock.enqueue.mockImplementation(async (_taskId: string, task: () => Promise<void>) => { await task(); });
+  });
+
+  it('removes the domain ideas file, and a missing ideas file does not fail the delete', async () => {
+    unlinkMock.mockRejectedValueOnce(Object.assign(new Error('missing'), { code: 'ENOENT' }));
+    const res = createMockResponse(); await handler(request(), res);
+    expect(unlinkMock).toHaveBeenCalledWith(expect.stringMatching(/IDEAS_example\.com\.json$/));
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ domainRemoved: 1, cleanup: { complete: true, failed: [], retryPending: false } }));
+  });
+
+  it('retries an earlier delete whose cleanup failed, and drops its entry once the retry succeeds', async () => {
+    cleanupState = JSON.stringify({ 'older.example': [7] });
+    const res = createMockResponse(); await handler(request(), res);
+    expect(removeBatchMock).toHaveBeenCalledWith(new Set([7]));
+    expect(removeLocalSCDataMock).toHaveBeenCalledWith('older.example');
+    expect(JSON.parse(cleanupState)).toEqual({});
+    expect(res.status).toHaveBeenCalledWith(200);
   });
 
   it('returns 404 when the target domain is missing', async () => {

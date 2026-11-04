@@ -13,7 +13,6 @@ type DomainType = {
    slug: string,
    tags?: string,
    scrapeEnabled?: boolean,
-   notification_interval: string,
    notification_emails: string,
    lastUpdated: string,
    added: string,
@@ -107,7 +106,6 @@ type DomainSearchConsole = {
 }
 
 type DomainSettings = {
-   notification_interval: string,
    notification_emails: string,
    search_console?: DomainSearchConsole,
    scrapeEnabled?: boolean,

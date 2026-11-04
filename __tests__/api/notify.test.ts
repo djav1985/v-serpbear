@@ -498,7 +498,6 @@ const domainRow = (overrides: Record<string, unknown>) => ({
   get: () => ({
     domain: 'example.com',
     scrapeEnabled: 1,
-    notification_interval: 'daily',
     notification_emails: 'owner@example.com',
     ...overrides,
   }),

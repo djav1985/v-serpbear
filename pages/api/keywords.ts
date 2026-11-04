@@ -48,6 +48,17 @@ export default withApiLogging(handler, {
    name: 'keywords',
 });
 
+// Most tags one keyword can carry. POST trims a longer list to this many; PUT rejects it.
+const MAX_TAGS_PER_KEYWORD = 10;
+
+/** Trims, drops blanks and duplicates, and sorts the tags an update sends for one keyword. Non-list input gives no tags. */
+const sanitizeTagList = (raw: unknown): string[] => Array.from(new Set(
+   (Array.isArray(raw) ? raw : [])
+      .filter((tag): tag is string => typeof tag === 'string')
+      .map((tag) => tag.trim())
+      .filter((tag) => tag.length > 0),
+)).sort();
+
 const getKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
    if (!req.query.domain || typeof req.query.domain !== 'string') {
@@ -278,7 +289,7 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
          history: JSON.stringify({}),
          lastResult: JSON.stringify([]),
          url: '',
-         tags: JSON.stringify(dedupedTags.slice(0, 10)), // Limit to 10 tags
+         tags: JSON.stringify(dedupedTags.slice(0, MAX_TAGS_PER_KEYWORD)),
          sticky: toDbBool(false),
          lastUpdated: now,
          added: now,
@@ -450,6 +461,9 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
    try {
       let keywords: KeywordType[] = [];
       if (sticky !== undefined) {
+         if (typeof sticky !== 'boolean') {
+            return res.status(400).json(errorResponse('BAD_REQUEST', 'sticky must be true or false.', requestId));
+         }
          await Keyword.update({ sticky: toDbBool(sticky) }, { where: { ID: { [Op.in]: keywordIDs } } });
          const updateQuery = { where: { ID: { [Op.in]: keywordIDs } } };
          const updatedKeywords:Keyword[] = await Keyword.findAll(updateQuery);
@@ -466,6 +480,10 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
          if (tagsKeywordIDs.length === 0) {
             return res.status(200).json({ keywords: [] });
          }
+         // Checked for the whole payload before any keyword is changed
+         if (Object.values(tags).some((list) => sanitizeTagList(list).length > MAX_TAGS_PER_KEYWORD)) {
+            return res.status(400).json(errorResponse('BAD_REQUEST', `A keyword can have at most ${MAX_TAGS_PER_KEYWORD} tags.`, requestId));
+         }
 
          const numericIds = tagsKeywordIDs.map((keywordID) => Number(keywordID)).filter((id) => Number.isFinite(id));
          // One query for all keywords, instead of a lookup per keyword
@@ -477,16 +495,7 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
 
          for (const selectedKeyword of existingKeywords) {
             const keywordID = selectedKeyword.ID;
-            const tagsForKeywordRaw = tags[String(keywordID)];
-            const tagsForKeyword = Array.isArray(tagsForKeywordRaw)
-               ? tagsForKeywordRaw
-               : [];
-            const sanitizedTags = Array.from(new Set(
-               tagsForKeyword
-                  .filter((tag): tag is string => typeof tag === 'string')
-                  .map((tag) => tag.trim())
-                  .filter((tag) => tag.length > 0),
-            )).sort();
+            const sanitizedTags = sanitizeTagList(tags[String(keywordID)]);
 
             await selectedKeyword.update({ tags: JSON.stringify(sanitizedTags) });
             updatedKeywordIDs.add(keywordID);

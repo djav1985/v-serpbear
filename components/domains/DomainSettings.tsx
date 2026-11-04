@@ -122,7 +122,6 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
    const initialScraperHasKey = domain?.scraper_settings?.has_api_key ?? false;
    const initialBusinessName = domain?.business_name ?? '';
    const [domainSettings, setDomainSettings] = useState<DomainSettings>(() => ({
-      notification_interval: domain?.notification_interval ?? 'never',
       notification_emails: domain?.notification_emails ?? '',
       search_console: parseSearchConsoleSettings(domain?.search_console),
       scrapeEnabled: initialActiveState,

@@ -491,6 +491,21 @@ describe('PUT /api/settings keeps secrets that are left out of the payload', () 
     expect(cryptr.decrypt(saved.adwords_refresh_token)).toBe('stored-refresh-token');
   });
 
+  it('does not persist the derived fields that GET adds to the settings', async () => {
+    const payload = { scraper_type: 'serper', version: '9.9.9', timezone: 'UTC', available_scapers: [{ id: 'x' }], search_console_integrated: true, failed_queue: [1] };
+    const req = { method: 'PUT', body: { settings: payload }, headers: {} } as unknown as NextApiRequest;
+    const res = createMockResponse();
+
+    await handler(req, res as unknown as NextApiResponse);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    const saved = JSON.parse(writeMock.mock.calls[0][1]);
+    expect(saved.scraper_type).toBe('serper');
+    ['version', 'timezone', 'available_scapers', 'search_console_integrated', 'failed_queue'].forEach((field) => {
+      expect(saved).not.toHaveProperty(field);
+    });
+  });
+
   it('replaces a secret when the payload sends a new value, and clears it when the value is empty', async () => {
     const req = { method: 'PUT', body: { settings: { scraper_type: 'serper', scraping_api: 'new-key', smtp_password: '' } }, headers: {} } as unknown as NextApiRequest;
     const res = createMockResponse();

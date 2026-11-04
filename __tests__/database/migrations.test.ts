@@ -26,6 +26,9 @@ import historyDateKeyMigration from '../../database/migrations/1773000000000-pad
 import ideasSlugMigration from '../../database/migrations/1715920000000-update-ideas-domain-slug.js';
 import notificationEmailMigration from '../../database/migrations/1774000000000-copy-global-notification-email-to-domains.js';
 import keywordUniqueMigration from '../../database/migrations/1775000000000-keyword-unique-tracking-target.js';
+import staleUpdatingFlagsMigration from '../../database/migrations/1776000000000-reset-stale-updating-flags.js';
+import dropDomainNotificationIntervalMigration from '../../database/migrations/1777000000000-drop-domain-notification-interval.js';
+import { backupDatabaseFile } from '../../database/backupDatabase';
 
 // Identical in every describe that needs it, so it is shared once at file level
 const sqliteDialect = require('../../database/sqlite-dialect');
@@ -734,6 +737,135 @@ describe('keyword-unique-target.migration.test.ts', () => {
       const createIndex = calls.find((call) => call.sql.includes('CREATE UNIQUE INDEX'));
       expect(createIndex?.sql).toContain("COALESCE(location, '')");
       expect(calls.findIndex((call) => call.sql.startsWith('DELETE'))).toBeLessThan(calls.findIndex((call) => call.sql.includes('CREATE UNIQUE INDEX')));
+    });
+  });
+});
+
+describe('stale-updating-flags.migration.test.ts', () => {
+  describe('reset stale updating flags migration', () => {
+    const { logger } = require('../../database/migrationLogger') as {
+      logger: { info: jest.Mock; warn: jest.Mock; error: jest.Mock; debug: jest.Mock }
+    };
+
+    // Answers the three queries the migration makes: table check, PRAGMA column list, and the stale row count
+    const makeQueryInterface = ({ tables = ['keyword'], columns = ['ID', 'updating', 'updatingStartedAt'], staleCount = 2 } = {}) => {
+      const calls: string[] = [];
+      const query = jest.fn(async (sql: string) => {
+        calls.push(sql);
+        if (sql.includes('sqlite_master')) { return [tables.map((name) => ({ name }))]; }
+        if (sql.startsWith('PRAGMA table_info')) { return columns.map((name) => ({ name })); }
+        if (sql.startsWith('SELECT COUNT(*)')) { return [{ count: staleCount }]; }
+        return [{}];
+      });
+      const queryInterface = {
+        sequelize: {
+          constructor: { QueryTypes: { SELECT: 'SELECT' } },
+          transaction: async (fn: (t: unknown) => Promise<unknown>) => fn({}),
+          query,
+        },
+      };
+      return { queryInterface, calls };
+    };
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('clears truthy updating flags and their start time, and does nothing when none are left', async () => {
+      const { queryInterface, calls } = makeQueryInterface({ staleCount: 2 });
+
+      await staleUpdatingFlagsMigration.up({ context: queryInterface });
+
+      const update = calls.find((sql) => sql.startsWith('UPDATE keyword'));
+      expect(update).toBe('UPDATE keyword SET updating = 0, updatingStartedAt = NULL WHERE updating');
+      expect(logger.info).toHaveBeenCalledWith('[MIGRATION] Reset stale updating flag on 2 keyword row(s)');
+
+      calls.length = 0;
+      jest.clearAllMocks();
+      await staleUpdatingFlagsMigration.up({ context: makeQueryInterface({ staleCount: 0 }).queryInterface });
+      expect(logger.info).not.toHaveBeenCalledWith(expect.stringContaining('Reset stale updating flag'));
+    });
+
+    it('skips without failing when the keyword table does not exist yet', async () => {
+      const { queryInterface, calls } = makeQueryInterface({ tables: [] });
+
+      await expect(staleUpdatingFlagsMigration.up({ context: queryInterface })).resolves.toBeUndefined();
+      expect(calls.some((sql) => sql.startsWith('UPDATE'))).toBe(false);
+      expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('keyword table does not exist'));
+    });
+  });
+
+  describe('backup database file helper', () => {
+    let dir: string;
+
+    beforeEach(() => {
+      dir = mkdtempSync(path.join(os.tmpdir(), 'serpbear-backup-'));
+    });
+
+    afterEach(() => {
+      rmSync(dir, { recursive: true, force: true });
+    });
+
+    it('copies the database file once per day and never overwrites an existing backup; skips :memory:', () => {
+      const file = path.join(dir, 'database.sqlite');
+      writeFileSync(file, 'original');
+      const queryInterface = { sequelize: { options: { storage: file } } };
+      const now = new Date(2026, 10, 4, 12, 0, 0);
+
+      const backupPath = backupDatabaseFile(queryInterface, now);
+      expect(backupPath).toBe(`${file}.bak-2026-11-04`);
+      expect(readFileSync(`${file}.bak-2026-11-04`, 'utf-8')).toBe('original');
+
+      writeFileSync(file, 'changed');
+      expect(backupDatabaseFile(queryInterface, now)).toBeNull();
+      expect(readFileSync(`${file}.bak-2026-11-04`, 'utf-8')).toBe('original');
+
+      expect(backupDatabaseFile({ sequelize: { options: { storage: ':memory:' } } }, now)).toBeNull();
+    });
+  });
+});
+
+describe('drop-domain-notification-interval.migration.test.ts', () => {
+  describe('drop domain notification interval migration', () => {
+    // Answers the three queries the migration makes: table check, PRAGMA column list, and the DROP itself
+    const makeQueryInterface = ({ tables = ['domain'], columns = ['ID', 'domain', 'notification_interval', 'notification_emails'] } = {}) => {
+      const calls: string[] = [];
+      const query = jest.fn(async (sql: string) => {
+        calls.push(sql);
+        if (sql.includes('sqlite_master')) { return [tables.map((name) => ({ name }))]; }
+        if (sql.startsWith('PRAGMA table_info')) { return columns.map((name) => ({ name })); }
+        return [{}];
+      });
+      const queryInterface = {
+        sequelize: {
+          constructor: { QueryTypes: { SELECT: 'SELECT' } },
+          transaction: async (fn: (t: unknown) => Promise<unknown>) => fn({}),
+          query,
+        },
+      };
+      return { queryInterface, calls };
+    };
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('drops the notification_interval column when present, and does nothing when it is already gone', async () => {
+      const { queryInterface, calls } = makeQueryInterface();
+
+      await dropDomainNotificationIntervalMigration.up({ context: queryInterface });
+      expect(calls).toContain('ALTER TABLE domain DROP COLUMN notification_interval');
+
+      const second = makeQueryInterface({ columns: ['ID', 'domain', 'notification_emails'] });
+      await dropDomainNotificationIntervalMigration.up({ context: second.queryInterface });
+      expect(second.calls.some((sql) => sql.startsWith('ALTER TABLE'))).toBe(false);
+    });
+
+    it('skips without failing when the domain table does not exist yet', async () => {
+      const { queryInterface, calls } = makeQueryInterface({ tables: [] });
+
+      await expect(dropDomainNotificationIntervalMigration.up({ context: queryInterface })).resolves.toBeUndefined();
+      expect(calls.some((sql) => sql.startsWith('ALTER TABLE'))).toBe(false);
     });
   });
 });

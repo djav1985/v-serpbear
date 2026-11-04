@@ -5,7 +5,16 @@ import { getBranding } from '../../../utils/branding';
 import { logger } from '../../../utils/logger';
 import { withApiLogging } from '../../../utils/apiLogging';
 
+// Errors are never cached: the logo headers (type, length, cache policy) are dropped before the 404 is sent
 const respondNotFound = (res: NextApiResponse) => {
+   if (res.headersSent) {
+      // Part of a logo was already streamed, so the status can no longer change; cut the response off
+      res.destroy();
+      return;
+   }
+   res.removeHeader('Content-Type');
+   res.removeHeader('Content-Length');
+   res.setHeader('Cache-Control', 'no-store');
    res.status(404).end('Logo not found');
 };
 
@@ -55,7 +64,8 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 
       res.setHeader('Content-Type', logoMimeType);
       res.setHeader('Content-Length', stat.size.toString());
-      res.setHeader('Cache-Control', 'public, max-age=3600, immutable');
+      // Cached only for a successful response. No `immutable`: the file keeps its name when a new logo is uploaded.
+      res.setHeader('Cache-Control', 'public, max-age=3600');
 
       if (req.method === 'HEAD') {
          res.status(200).end();
