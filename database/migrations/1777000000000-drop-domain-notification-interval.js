@@ -3,8 +3,8 @@
 // Notification frequency is a single global setting (settings.notification_interval). Each domain only
 // carries notification_emails, so the per-domain column is dead data.
 //
-// Idempotent: skips when the table or the column is missing. Before the column is dropped the database file
-// is copied to <file>.bak-<date>. Down adds the column back with its old default ('daily') when it is missing.
+// Idempotent: skips when the table or the column is missing. Before the column is dropped the database is
+// backed up to <file>.bak-<date>. Down adds the column back with its old default ('daily') when it is missing.
 
 const { logger } = require('../migrationLogger');
 const { backupDatabaseFile } = require('../backupDatabase');
@@ -37,8 +37,8 @@ module.exports = {
             return;
          }
 
-         // Keep a copy of the database file before the column is removed
-         backupDatabaseFile(queryInterface);
+         // Keep a consistent database snapshot before the column is removed
+         await backupDatabaseFile(queryInterface);
 
          await queryInterface.sequelize.query(
             'ALTER TABLE domain DROP COLUMN notification_interval',

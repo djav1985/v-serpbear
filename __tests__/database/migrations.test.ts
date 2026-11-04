@@ -806,21 +806,32 @@ describe('stale-updating-flags.migration.test.ts', () => {
       rmSync(dir, { recursive: true, force: true });
     });
 
-    it('copies the database file once per day and never overwrites an existing backup; skips :memory:', () => {
+    it('backs up committed WAL data once per day and never overwrites an existing backup; skips :memory:', async () => {
       const file = path.join(dir, 'database.sqlite');
-      writeFileSync(file, 'original');
-      const queryInterface = { sequelize: { options: { storage: file } } };
       const now = new Date(2026, 10, 4, 12, 0, 0);
-
-      const backupPath = backupDatabaseFile(queryInterface, now);
-      expect(backupPath).toBe(`${file}.bak-2026-11-04`);
-      expect(readFileSync(`${file}.bak-2026-11-04`, 'utf-8')).toBe('original');
-
-      writeFileSync(file, 'changed');
-      expect(backupDatabaseFile(queryInterface, now)).toBeNull();
-      expect(readFileSync(`${file}.bak-2026-11-04`, 'utf-8')).toBe('original');
-
-      expect(backupDatabaseFile({ sequelize: { options: { storage: ':memory:' } } }, now)).toBeNull();
+      const script = `
+        const Database = require('better-sqlite3');
+        const { backupDatabaseFile } = require(${JSON.stringify(path.resolve(__dirname, '../../database/backupDatabase.js'))});
+        (async () => {
+          const file = process.argv[1];
+          const database = new Database(file);
+          database.pragma('journal_mode = WAL');
+          database.exec('CREATE TABLE keyword (ID INTEGER PRIMARY KEY, keyword TEXT)');
+          database.prepare('INSERT INTO keyword (keyword) VALUES (?)').run('plumber');
+          database.prepare('INSERT INTO keyword (keyword) VALUES (?)').run('electrician');
+          const queryInterface = { sequelize: { options: { storage: file } } };
+          const now = new Date(2026, 10, 4, 12, 0, 0);
+          const backupPath = await backupDatabaseFile(queryInterface, now);
+          const backup = new Database(backupPath, { readonly: true });
+          const rows = backup.prepare('SELECT keyword FROM keyword ORDER BY ID').all();
+          if (JSON.stringify(rows) !== JSON.stringify([{ keyword: 'plumber' }, { keyword: 'electrician' }])) process.exit(2);
+          backup.close();
+          if (await backupDatabaseFile(queryInterface, now) !== null) process.exit(3);
+          database.close();
+        })().catch((error) => { console.error(error); process.exit(1); });
+      `;
+      execFileSync(process.execPath, ['-e', script, file], { cwd: path.resolve(__dirname, '../..') });
+      expect(await backupDatabaseFile({ sequelize: { options: { storage: ':memory:' } } }, now)).toBeNull();
     });
   });
 });

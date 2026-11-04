@@ -102,7 +102,7 @@ module.exports = {
          const plans = planDuplicateRemovals(rows || []);
          if (plans.length > 0) {
             // Keep a copy of the database file before any duplicate row is deleted
-            backupDatabaseFile(queryInterface);
+            await backupDatabaseFile(queryInterface);
          }
 
          let removed = 0;

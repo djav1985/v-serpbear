@@ -149,34 +149,38 @@ describe('scraperAllowsCity', () => {
 });
 
 describe('planLocationUpdate', () => {
-   const row = (ID: number, keyword: string, country = 'US', device = 'desktop', domain = 'example.com') => ({ ID, keyword, country, device, domain });
+   const row = (ID: number, keyword: string, country = 'US', device = 'desktop', domain = 'example.com', location = '') => ({ ID, keyword, country, device, domain, location });
 
    it('accepts every keyword when nothing else is tracked in the new location', () => {
-      expect(planLocationUpdate([row(1, 'alpha'), row(2, 'beta')], [], 'GB')).toEqual({ acceptedIDs: [1, 2], skipped: [] });
+      expect(planLocationUpdate([row(1, 'alpha'), row(2, 'beta')], [], 'GB', 'London')).toEqual({ acceptedIDs: [1, 2], skipped: [] });
    });
 
    it('skips a keyword whose new location is already tracked by another row', () => {
-      const result = planLocationUpdate([row(1, 'alpha'), row(2, 'beta')], [row(9, 'alpha', 'GB')], 'GB');
+      const result = planLocationUpdate([row(1, 'alpha'), row(2, 'beta')], [row(9, 'alpha', 'GB', 'desktop', 'example.com', 'London')], 'GB', 'London');
       expect(result).toEqual({ acceptedIDs: [2], skipped: ['alpha'] });
    });
 
    it('treats the same keyword on another device or domain as not a duplicate', () => {
-      const others = [row(9, 'alpha', 'GB', 'mobile'), row(10, 'alpha', 'GB', 'desktop', 'other.com')];
-      expect(planLocationUpdate([row(1, 'alpha')], others, 'GB')).toEqual({ acceptedIDs: [1], skipped: [] });
+      const others = [row(9, 'alpha', 'GB', 'mobile', 'example.com', 'London'), row(10, 'alpha', 'GB', 'desktop', 'other.com', 'London'), row(11, 'alpha', 'GB', 'desktop', 'example.com', 'Miami')];
+      expect(planLocationUpdate([row(1, 'alpha')], others, 'GB', 'London')).toEqual({ acceptedIDs: [1], skipped: [] });
    });
 
    it('keeps only the first of two selected keywords that would become the same tracked keyword', () => {
-      const result = planLocationUpdate([row(1, 'alpha'), row(2, 'alpha')], [], 'GB');
+      const result = planLocationUpdate([row(1, 'alpha'), row(2, 'alpha')], [], 'GB', 'London');
       expect(result).toEqual({ acceptedIDs: [1], skipped: ['alpha'] });
    });
 
-   it('never skips a keyword that keeps its own country when only the location text changes', () => {
-      const result = planLocationUpdate([row(1, 'alpha'), row(2, 'alpha')], [], '');
-      expect(result).toEqual({ acceptedIDs: [1, 2], skipped: [] });
+   it('skips selected keywords that would converge on the same destination', () => {
+      const result = planLocationUpdate([row(1, 'alpha'), row(2, 'alpha')], [], '', 'London');
+      expect(result).toEqual({ acceptedIDs: [1], skipped: ['alpha'] });
    });
 
    it('returns nothing to update when there are no selected keywords', () => {
-      expect(planLocationUpdate([], [row(9, 'alpha')], 'GB')).toEqual({ acceptedIDs: [], skipped: [] });
+      expect(planLocationUpdate([], [row(9, 'alpha')], 'GB', 'London')).toEqual({ acceptedIDs: [], skipped: [] });
+   });
+
+   it('skips a same-country location change when that exact destination is already tracked', () => {
+      expect(planLocationUpdate([row(1, 'plumber', 'US', 'desktop', 'example.com', 'Miami')], [row(2, 'plumber', 'US', 'desktop', 'example.com', 'Orlando')], 'US', 'Orlando')).toEqual({ acceptedIDs: [], skipped: ['plumber'] });
    });
 });
 

@@ -552,9 +552,10 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
             ? await Keyword.findAll({ where: { domain: { [Op.in]: domains }, ID: { [Op.notIn]: keywordIDs } } })
             : [];
          const { acceptedIDs, skipped } = planLocationUpdate(
-            selectedKeywords.map((el) => ({ ID: el.ID, keyword: el.keyword, domain: el.domain, country: el.country, device: el.device })),
-            otherKeywords.map((el) => ({ ID: el.ID, keyword: el.keyword, domain: el.domain, country: el.country, device: el.device })),
+            selectedKeywords.map((el) => ({ ID: el.ID, keyword: el.keyword, domain: el.domain, country: el.country, device: el.device, location: el.location || '' })),
+            otherKeywords.map((el) => ({ ID: el.ID, keyword: el.keyword, domain: el.domain, country: el.country, device: el.device, location: el.location || '' })),
             locationCountry,
+            formattedLocation,
          );
          if (acceptedIDs.length > 0) {
             await Keyword.update(locationUpdate, { where: { ID: { [Op.in]: acceptedIDs } } });

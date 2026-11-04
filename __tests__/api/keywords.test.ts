@@ -774,7 +774,7 @@ describe('PUT /api/keywords location updates', () => {
     keywordMock.update.mockResolvedValue([1]);
     mockLocationLookups(
       [locationRow({ ID: 1, keyword: 'alpha' }), locationRow({ ID: 2, keyword: 'beta' })],
-      [locationRow({ ID: 9, keyword: 'alpha', country: 'GB', location: 'London,England,GB' })],
+      [locationRow({ ID: 9, keyword: 'alpha', country: 'GB', location: 'London,England,United Kingdom' })],
     );
     const req = createMockRequest({ method: 'PUT', query: { id: '1,2' }, body: { location: 'London,England,United Kingdom' } });
     const res = createMockResponse();
@@ -793,9 +793,24 @@ describe('PUT /api/keywords location updates', () => {
   it('changes nothing when every selected keyword would duplicate a tracked one', async () => {
     mockLocationLookups(
       [locationRow({ ID: 1, keyword: 'alpha' })],
-      [locationRow({ ID: 9, keyword: 'alpha', country: 'GB', location: 'London,England,GB' })],
+      [locationRow({ ID: 9, keyword: 'alpha', country: 'GB', location: 'London,England,United Kingdom' })],
     );
     const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { location: 'London,England,GB' } });
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    expect(keywordMock.update).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ updatedCount: 0, skipped: ['alpha'] }));
+  });
+
+  it('skips a same-country update when the destination location is already tracked', async () => {
+    mockLocationLookups(
+      [locationRow({ ID: 1, location: 'Miami,Florida,United States' })],
+      [locationRow({ ID: 9, country: 'US', location: 'Orlando,Florida,United States' })],
+    );
+    const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { location: 'Orlando,Florida,United States' } });
     const res = createMockResponse();
 
     await handler(req, res);
