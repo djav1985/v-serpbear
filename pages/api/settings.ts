@@ -17,6 +17,7 @@ import { withSettingsLock } from '../../utils/settingsFile';
 import { retryQueueManager } from '../../utils/retryQueueManager';
 import { errorResponse } from '../../utils/api/response';
 import { normalizeLegacyGlobalScraperType } from '../../utils/removedScrapers';
+import { APP_TIMEZONE } from '../../utils/timezone';
 
 const buildSettingsDefaults = (): SettingsType => {
    const { platformName } = getBranding();
@@ -161,14 +162,15 @@ const getSettings = async (req: NextApiRequest, res: NextApiResponse) => {
       
       if (isAuthenticated) {
          // Return full settings for authenticated users
-         return res.status(200).json({ settings: { ...settings, version } });
+         return res.status(200).json({ settings: { ...settings, version, timezone: APP_TIMEZONE } });
       } else {
          // Return only safe, public settings for unauthenticated users
          const publicSettings = {
             scraper_type: settings.scraper_type || 'none',
             available_scapers: settings.available_scapers || [],
             search_console_integrated: settings.search_console_integrated || false,
-            version
+            version,
+            timezone: APP_TIMEZONE,
          };
          return res.status(200).json({ settings: publicSettings });
       }

@@ -1,5 +1,4 @@
 import React, { useMemo, useRef } from 'react';
-import dayjs from 'dayjs';
 import { useQuery } from 'react-query';
 import { useRouter } from 'next/router';
 import Icon from '../common/Icon';
@@ -7,6 +6,8 @@ import countries from '../../utils/countries';
 import Chart from '../common/Chart';
 import useOnKey from '../../hooks/useOnKey';
 import { formattedNum } from '../../utils/client/helpers';
+import { formatInZone } from '../../utils/timezone';
+import { getAppTimezone } from '../../utils/client/appTimezone';
 import { fetchSearchResults, type SearchResultsResponse } from '../../services/keywords';
 
 type IdeaDetailsProps = {
@@ -23,7 +24,7 @@ const dummySearchResults = [
 
 const IdeaDetails = ({ keyword, closeDetails }:IdeaDetailsProps) => {
    const router = useRouter();
-   const updatedDate = new Date(keyword.updated);
+   const updatedDate = keyword.updated ? formatInZone(keyword.updated, { month: 'long', day: 'numeric', year: 'numeric' }, getAppTimezone()) : '';
    const searchResultContainer = useRef<HTMLDivElement>(null);
    const searchResultFound = useRef<HTMLDivElement>(null);
    const searchResultReqPayload = { keyword: keyword.keyword, country: keyword.country, device: 'desktop' };
@@ -93,7 +94,7 @@ const IdeaDetails = ({ keyword, closeDetails }:IdeaDetailsProps) => {
                               <Icon type='link' size={14} />
                            </a>
                         </h3>
-                        <span className=' text-xs text-gray-500'>{dayjs(updatedDate).format('MMMM D, YYYY')}</span>
+                        <span className=' text-xs text-gray-500'>{updatedDate}</span>
                      </div>
                      <div className={'keywordDetails__section__results styled-scrollbar overflow-y-auto relative'} ref={searchResultContainer}>
                         {!searchResultsFetched && (

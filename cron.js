@@ -50,7 +50,17 @@ const normalizeValue = (value, fallback) => {
    return sanitized || fallback;
 };
 
-const CRON_TIMEZONE = normalizeValue(process.env.CRON_TIMEZONE, 'America/New_York');
+const DEFAULT_CRON_TIMEZONE = 'America/New_York';
+const isValidTimezone = (value) => {
+   try {
+      new Intl.DateTimeFormat('en-US', { timeZone: value });
+      return true;
+   } catch {
+      return false;
+   }
+};
+const configuredTimezone = normalizeValue(process.env.CRON_TIMEZONE, DEFAULT_CRON_TIMEZONE);
+const CRON_TIMEZONE = isValidTimezone(configuredTimezone) ? configuredTimezone : DEFAULT_CRON_TIMEZONE;
 const CRON_MAIN_SCHEDULE = normalizeValue(process.env.CRON_MAIN_SCHEDULE, '0 0 0 * * *');
 const CRON_EMAIL_SCHEDULE = normalizeValue(process.env.CRON_EMAIL_SCHEDULE, '0 0 6 * * *');
 const CRON_FAILED_SCHEDULE = normalizeValue(process.env.CRON_FAILED_SCHEDULE, '0 0 */1 * * *');

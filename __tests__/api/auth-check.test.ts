@@ -89,7 +89,7 @@ describe('GET /api/auth-check', () => {
     await handler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ authenticated: true, user: 'admin' });
+    expect(res.json).toHaveBeenCalledWith({ authenticated: true, user: 'admin', timezone: expect.any(String) });
   });
 
   it('falls back to authenticated_user when no token is present', async () => {
@@ -102,7 +102,7 @@ describe('GET /api/auth-check', () => {
     await handler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ authenticated: true, user: 'authenticated_user' });
+    expect(res.json).toHaveBeenCalledWith({ authenticated: true, user: 'authenticated_user', timezone: expect.any(String) });
   });
 
   it('falls back to authenticated_user when jwt.verify throws', async () => {
@@ -118,6 +118,6 @@ describe('GET /api/auth-check', () => {
     await handler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ authenticated: true, user: 'authenticated_user' });
+    expect(res.json).toHaveBeenCalledWith({ authenticated: true, user: 'authenticated_user', timezone: expect.any(String) });
   });
 });

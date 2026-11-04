@@ -2,6 +2,10 @@
 set -eu
 set -o pipefail 2>/dev/null || true
 
+# Cron fire times and "today" use CRON_TIMEZONE. Exporting TZ makes the processes and their children agree with it.
+TZ="${CRON_TIMEZONE:-America/New_York}"
+export TZ
+
 prepare_data_dir() {
   mkdir -p ./data
 }

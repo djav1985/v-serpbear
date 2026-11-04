@@ -1,4 +1,3 @@
-import dayjs from 'dayjs';
 import { readFile } from 'fs/promises';
 import path from 'path';
 import { getKeywordsInsight, getPagesInsight } from './insight';
@@ -7,6 +6,7 @@ import { parseLocation } from './location';
 import { buildLogoUrl, getBranding } from './branding';
 import { fromDbBool } from './dbBooleans';
 import { historyKeyToTime } from './historyDateKey';
+import { APP_TIMEZONE, dateKeyToTime, formatDateKey, todayKey } from './timezone';
 
 const DEFAULT_BRAND_LOGO = 'https://serpbear.b-cdn.net/ikAdjQq.png';
 const mobileIcon = 'https://serpbear.b-cdn.net/SqXD9rd.png';
@@ -125,7 +125,7 @@ const calculateKeywordSummary = (items: KeywordType[]): KeywordSummary => items.
 const generateEmail = async (domain:DomainType, keywords:KeywordType[], settings: SettingsType) : Promise<string> => {
    const domainName = domain.domain;
    const emailTemplate = await readFile(path.join(process.cwd(), 'email', 'email.html'), { encoding: 'utf-8' });
-   const currentDate = dayjs(new Date()).format('MMMM D, YYYY');
+   const currentDate = formatDateKey(todayKey(APP_TIMEZONE), { month: 'long', day: 'numeric', year: 'numeric' });
    const keywordsCount = keywords.length;
    let improved = 0; let declined = 0;
 
@@ -256,10 +256,9 @@ const generateEmail = async (domain:DomainType, keywords:KeywordType[], settings
 export const generateGoogleConsoleStats = async (domain:DomainType): Promise<string> => {
       const initialSCData = await readLocalSCData(domain.domain);
       let localSCData:SCDomainDataType | null = initialSCData === false ? null : initialSCData;
-      const cronTimezone = process.env.CRON_TIMEZONE || 'America/New_York';
       const hasStats = !!(localSCData?.stats && localSCData.stats.length);
       const lastFetched = localSCData?.lastFetched;
-      const isFresh = hasStats && isSearchConsoleDataFreshForToday(lastFetched, cronTimezone);
+      const isFresh = hasStats && isSearchConsoleDataFreshForToday(lastFetched);
       if (!isFresh) {
          const scDomainAPI = domain.search_console ? await getSearchConsoleApiInfo(domain) : { client_email: '', private_key: '' };
          const scGlobalAPI = await getSearchConsoleApiInfo({} as DomainType);
@@ -302,8 +301,13 @@ export const generateGoogleConsoleStats = async (domain:DomainType): Promise<str
 
       // Create Stats Start, End Date
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      const endDate = new Date(SCStats[0].date);
-      const startDate = new Date(SCStats[SCStats.length - 1].date);
+      // SC dates are "YYYY-MM-DD" day keys. Read them as UTC (dateKeyToTime) so the label shows the day the key names.
+      const dayMonthLabel = (key: string): string => {
+         const time = new Date(dateKeyToTime(key));
+         return `${time.getUTCDate()} ${months[time.getUTCMonth()]}`;
+      };
+      const endLabel = dayMonthLabel(SCStats[0].date);
+      const startLabel = dayMonthLabel(SCStats[SCStats.length - 1].date);
 
       // Add the SC header Title
       let htmlWithSCStats = `<table role="presentation" border="0" cellpadding="0" cellspacing="0" class="console_table">
@@ -312,7 +316,7 @@ export const generateGoogleConsoleStats = async (domain:DomainType): Promise<str
                                  <img class="google_icon" src="${googleIcon}" alt="Google" width="13" height="13"> Google Search Console Stats
                                  </td>
                                  <td class="stat" align="right" style="font-size: 12px;">
-                                 ${startDate.getDate()} ${months[startDate.getMonth()]} -  ${endDate.getDate()} ${months[endDate.getMonth()]} 
+                                 ${startLabel} -  ${endLabel}
                                  (Last 7 Days)
                                  </td>
                               </tr>

@@ -120,6 +120,7 @@ type DomainSettings = {
 
 type SettingsType = {
    scraper_type: string,
+   timezone?: string,
    scraping_api?: string,
    notification_interval: string,
    notification_email: string,

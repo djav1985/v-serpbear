@@ -1,5 +1,4 @@
 import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
-import dayjs from 'dayjs';
 import Icon from '../common/Icon';
 import countries from '../../utils/countries';
 import Chart from '../common/Chart';
@@ -7,6 +6,8 @@ import SelectField from '../common/SelectField';
 import { useFetchSingleKeyword } from '../../services/keywords';
 import useOnKey from '../../hooks/useOnKey';
 import { generateTheChartData } from '../../utils/client/generateChartData';
+import { formatInZone } from '../../utils/timezone';
+import { getAppTimezone } from '../../utils/client/appTimezone';
 
 type KeywordDetailsProps = {
    keyword: KeywordType,
@@ -16,7 +17,7 @@ type KeywordDetailsProps = {
 type ResultSegment = { type: 'result', item: KeywordLastResult } | { type: 'skipped', from: number, to: number };
 
 const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
-   const updatedDate = new Date(keyword.lastUpdated);
+   const updatedDate = keyword.lastUpdated ? formatInZone(keyword.lastUpdated, { month: 'long', day: 'numeric', year: 'numeric' }, getAppTimezone()) : '';
    const [chartTime, setChartTime] = useState<string>('30');
    const searchResultContainer = useRef<HTMLDivElement>(null);
    const searchResultFound = useRef<HTMLDivElement>(null);
@@ -144,7 +145,7 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
                   <div className='keywordDetails__section mt-10'>
                      <div className="keywordDetails__section__head flex justify-between items-center pb-4 mb-4 border-b border-b-slate-200">
                         <h3 className=' font-bold text-gray-700 lg:text-lg'>Local Search Results</h3>
-                        <span className=' text-xs text-gray-500'>{dayjs(updatedDate).format('MMMM D, YYYY')}</span>
+                        <span className=' text-xs text-gray-500'>{updatedDate}</span>
                      </div>
                      <div className='keywordDetails__section__results keywordDetails__section__results--local styled-scrollbar overflow-y-auto'>
                         {keywordLocalResults && Array.isArray(keywordLocalResults) && keywordLocalResults.length > 0 ? (
@@ -184,7 +185,7 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
                               <Icon type='link' size={14} />
                            </a>
                         </h3>
-                        <span className=' text-xs text-gray-500'>{dayjs(updatedDate).format('MMMM D, YYYY')}</span>
+                        <span className=' text-xs text-gray-500'>{updatedDate}</span>
                      </div>
                      <div className='keywordDetails__section__results styled-scrollbar overflow-y-auto' ref={searchResultContainer}>
                         {skippedCount > 0 && (

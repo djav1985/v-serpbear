@@ -1,13 +1,16 @@
 import toast from 'react-hot-toast';
 import { useMutation, useQuery, useQueryClient } from 'react-query';
 import { apiGet, apiPost, apiPut } from '../utils/client/apiClient';
+import { setAppTimezone } from '../utils/client/appTimezone';
 
 export async function fetchSettings() {
    return apiGet<{ settings: SettingsType }>('/api/settings');
 }
 
 export function useFetchSettings() {
-   return useQuery('settings', () => fetchSettings());
+   return useQuery('settings', () => fetchSettings(), {
+      onSuccess: (data) => setAppTimezone(data?.settings?.timezone),
+   });
 }
 
 export const useUpdateSettings = (onSuccess: (() => void) | undefined) => {

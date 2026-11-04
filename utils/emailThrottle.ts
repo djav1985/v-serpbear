@@ -3,6 +3,7 @@ import { readFile } from 'fs/promises';
 import path from 'path';
 import { logger } from './logger';
 import { atomicWriteFile } from './atomicWrite';
+import { APP_TIMEZONE, dateKeyInZone, todayKey } from './timezone';
 
 interface EmailCache {
    [domain: string]: {
@@ -37,6 +38,11 @@ const acquireLock = (): Promise<() => void> => {
 };
 
 /**
+ * The calendar day (in APP_TIMEZONE) an instant falls on, or '' for an invalid instant so it never matches a real day.
+ */
+const dayKeyOf = (instant: Date): string => (Number.isNaN(instant.getTime()) ? '' : dateKeyInZone(instant, APP_TIMEZONE));
+
+/**
  * The throttling rules, applied to one domain's cache entry. Used by reserveEmailSend.
  */
 const throttleVerdict = (domainCache: EmailCache[string] | undefined, now: Date): { canSend: boolean; reason?: string } => {
@@ -45,10 +51,10 @@ const throttleVerdict = (domainCache: EmailCache[string] | undefined, now: Date)
    }
 
    const lastSentDate = new Date(domainCache.lastSent);
-   const lastSentToday = lastSentDate.toDateString();
+   const lastSentDay = dayKeyOf(lastSentDate);
 
-   // Reset daily count if it's a new day
-   const count = lastSentToday !== now.toDateString() ? 0 : domainCache.count;
+   // Reset daily count when the app's calendar day has rolled over
+   const count = lastSentDay !== todayKey(APP_TIMEZONE, now) ? 0 : domainCache.count;
 
    if (count >= MAX_EMAILS_PER_DAY) {
       return {
@@ -87,7 +93,7 @@ export const reserveEmailSend = async (domain: string): Promise<{ reserved: bool
       }
 
       const previous = cache[domain];
-      const sameDay = previous && new Date(previous.lastSent).toDateString() === now.toDateString();
+      const sameDay = previous && dayKeyOf(new Date(previous.lastSent)) === todayKey(APP_TIMEZONE, now);
       cache[domain] = {
          lastSent: now.toISOString(),
          count: sameDay ? previous.count + 1 : 1,

@@ -16,6 +16,8 @@ All notable changes to this project will be documented in this file. Releases no
 - Extractor input now includes the requested pagination, so providers that return a deeper result set can slice out the requested page.
 
 ### Changed
+- All dates now follow `CRON_TIMEZONE` (default `America/New_York`): cron fire times, "today" in results, emails, throttling and the UI, and history keys, which are the calendar date in that zone. Instants are still stored in UTC. If the server previously ran in UTC, the day boundary shifts once on the changeover day, so one day may overlap or be skipped. Existing history keys are not re-keyed, and changing `CRON_TIMEZONE` later leaves old keys with their original dates.
+- Search Console days always follow Google's Pacific Time; the fetch window is computed in Pacific days.
 - Removed the deprecated SpaceSerp, ScrapingAnt, ScrapingRobot, and custom proxy scraper integrations along with the legacy raw Google HTML fallback path.
 - Legacy global scraper selections for removed providers now normalize to `none`, and stale per-domain overrides for removed providers are cleared during migration.
 - Updated README, Copilot instructions, and related tests to reflect the supported managed scraper integrations only.

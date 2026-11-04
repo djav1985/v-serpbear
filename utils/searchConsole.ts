@@ -3,19 +3,12 @@
 import { searchconsole_v1 } from '@googleapis/searchconsole';
 import { JWT } from 'google-auth-library';
 import Cryptr from 'cryptr';
-import dayjs from 'dayjs';
-import timezone from 'dayjs/plugin/timezone';
-import utc from 'dayjs/plugin/utc';
 import { readFile, writeFile, unlink } from 'fs/promises';
 import * as path from 'path';
 import { countryAlphaTwoCodes } from './countries';
 import { logger } from './logger';
 import { safeJsonParse } from './safeJsonParse';
-
-dayjs.extend(utc);
-dayjs.extend(timezone);
-
-const DEFAULT_CRON_TIMEZONE = 'America/New_York';
+import { APP_TIMEZONE, SEARCH_CONSOLE_TIMEZONE, dateKeyInZone, daysAgoKey, todayKey } from './timezone';
 
 export type SCDomainFetchError = {
    error: boolean,
@@ -30,13 +23,11 @@ export const isSearchConsoleDataFreshForToday = (
    lastFetched?: string | null,
    timezoneSetting?: string,
 ): boolean => {
-   const tz = timezoneSetting || process.env.CRON_TIMEZONE || DEFAULT_CRON_TIMEZONE;
+   const tz = timezoneSetting || APP_TIMEZONE;
    if (!lastFetched) return false;
-   const parsedDate = dayjs(lastFetched);
-   if (!parsedDate.isValid()) return false;
-   const lastFetchedInTz = dayjs.tz(parsedDate.toDate(), tz);
-   const nowInTz = dayjs.tz(new Date(Date.now()), tz);
-   return lastFetchedInTz.isSame(nowInTz, 'day');
+   const parsedDate = new Date(lastFetched);
+   if (Number.isNaN(parsedDate.getTime())) return false;
+   return dateKeyInZone(parsedDate, tz) === todayKey(tz, new Date(Date.now()));
 };
 
 /**
@@ -69,10 +60,9 @@ const fetchSearchConsoleData = async (domain:DomainType, days:number, type?:stri
         'https://www.googleapis.com/auth/webmasters.readonly',
       ],
    });
-   const startDateRaw = new Date(new Date().setDate(new Date().getDate() - days));
-   const padDate = (num:number) => String(num).padStart(2, '0');
-   const startDate = `${startDateRaw.getFullYear()}-${padDate(startDateRaw.getMonth() + 1)}-${padDate(startDateRaw.getDate())}`;
-   const endDate = `${new Date().getFullYear()}-${padDate(new Date().getMonth() + 1)}-${padDate(new Date().getDate())}`;
+   // Search Console reports whole days in Pacific Time whatever zone is asked for, so the window is Pacific days
+   const startDate = daysAgoKey(days, SEARCH_CONSOLE_TIMEZONE);
+   const endDate = todayKey(SEARCH_CONSOLE_TIMEZONE);
    const client = new searchconsole_v1.Searchconsole({ auth: authClient });
    // Params: https://developers.google.com/webmaster-tools/v1/searchanalytics/query
    let requestBody:any = {

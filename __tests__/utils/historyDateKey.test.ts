@@ -8,8 +8,8 @@ describe('history date keys', () => {
     expect(toHistoryDateKey(new Date(2026, 10, 12, 0, 0))).toBe('2026-11-12');
   });
 
-  it('reads a key as local midnight of that calendar day', () => {
-    expect(historyKeyToTime('2026-01-05')).toBe(new Date(2026, 0, 5).getTime());
+  it('reads a key as UTC midnight of that calendar day', () => {
+    expect(historyKeyToTime('2026-01-05')).toBe(Date.UTC(2026, 0, 5));
   });
 
   it('orders keys by day', () => {

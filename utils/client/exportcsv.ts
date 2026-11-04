@@ -1,4 +1,6 @@
 import countries from '../countries';
+import { formatInZone } from '../timezone';
+import { getAppTimezone } from './appTimezone';
 
 const getCountryLabel = (countryCode?: string) => {
    if (!countryCode) { return 'Unknown'; }
@@ -101,7 +103,7 @@ export const createKeywordIdeasCsvPayload = (keywords: IdeaKeyword[], domainName
    const fileName = `${domainName}-keyword_ideas.csv`;
    const csvBody = keywords.map((keywordData) => {
       const { keyword, competition, country, competitionIndex, avgMonthlySearches, added } = keywordData;
-      const addedDate = new Intl.DateTimeFormat('en-US').format(new Date(added));
+      const addedDate = formatInZone(added, { year: 'numeric', month: 'numeric', day: 'numeric' }, getAppTimezone());
       return formatKeywordIdeaRow({
          keyword,
          competition,

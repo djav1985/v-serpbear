@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import { formattedNum } from '../../utils/client/helpers';
+import { formatDateKey } from '../../utils/timezone';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
@@ -26,7 +27,6 @@ const InsightStats = ({ stats = [], totalKeywords = 0, totalPages = 0 }:InsightS
     }, [stats]);
 
    const chartData = useMemo(() => {
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const chartSeries: {[key:string]: number[]} = { clicks: [], impressions: [], position: [], ctr: [] };
       stats.forEach((item) => {
          chartSeries.clicks.push(item.clicks);
@@ -35,7 +35,7 @@ const InsightStats = ({ stats = [], totalKeywords = 0, totalPages = 0 }:InsightS
          chartSeries.ctr.push(item.ctr);
       });
       return {
-         labels: stats && stats.length > 0 ? stats.map((item) => `${new Date(item.date).getDate()}-${months[new Date(item.date).getMonth()]}`) : [],
+         labels: stats && stats.length > 0 ? stats.map((item) => `${formatDateKey(item.date, { day: 'numeric' })}-${formatDateKey(item.date, { month: 'short' })}`) : [],
          series: chartSeries };
    }, [stats]);
 

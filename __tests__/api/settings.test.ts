@@ -563,6 +563,7 @@ describe('GET /api/settings session checks', () => {
       scraper_type: expect.any(String),
       available_scapers: expect.any(Array),
       search_console_integrated: expect.any(Boolean),
+      timezone: expect.any(String),
       version: expect.any(String),
     });
     expect(settings.smtp_password).toBeUndefined();
