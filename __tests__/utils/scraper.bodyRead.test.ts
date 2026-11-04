@@ -64,7 +64,7 @@ describe('scraper request cancellation', () => {
     const scraper = { id: 'test', name: 'Test', website: 'x', scrapeURL: () => 'https://example.test/search', resultObjectKey: 'results' } as any;
 
     const client = getScraperClient({ keyword: 'a', device: 'desktop', country: 'US' } as any, {} as any, scraper);
-    const received = await client;
+    const received = (await client) as Response;
     expect(signal?.aborted).toBe(false);
 
     const pending = parseScraperResponse(received);
