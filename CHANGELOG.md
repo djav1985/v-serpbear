@@ -4,8 +4,19 @@ All notable changes to this project will be documented in this file. Releases no
 
 ## [Unreleased]
 
+### Upgrade notes
+1. **Timezone shift:** Dates now follow `CRON_TIMEZONE`. If the server previously ran in UTC, the day boundary shifts once on the changeover day. Old history keys are not re-keyed.
+2. **Runtime data files:** On `main`, `data/settings.json`, `data/failed_queue.json`, `data/session.json` and `data/SC_*.json` are tracked by git. This branch untracks them (`.gitignore` ignores `data/*` except `.gitkeep`), so pulling or merging it can delete your local copies. Back up `data/` before pulling. The database is also backed up to `<db>.bak-<date>` before duplicate keywords are removed.
+3. **Committed secrets:** Secrets that were committed in `data/settings.json` remain in git history. If this repository was ever shared or made public, rotate `SECRET`, `APIKEY`, login passwords, SMTP credentials, and Search Console and Google Ads keys.
+
 ### Security
 - Upgraded the Node.js runtime from 20.18.1 (end-of-life) to 24.22.1 in `.nvmrc`, the Docker base image (`node:24.22.1-alpine3.24`), and CI to fix CVE-2026-111497, an out-of-bounds write in the bundled Brotli decoder reachable through `fetch()` responses with `Content-Encoding: br`.
+- Logout now revokes the session everywhere: tokens carry a session version in `data/session.json`, and `GET /api/settings` and `/api/auth-check` reject revoked tokens.
+- Added `TRUST_PROXY` to read the real client IP from `X-Forwarded-For` behind a reverse proxy. The default is the socket address.
+- Login is limited to 5 failures per username and 20 per client address within 15 minutes, with a 15-minute lock. Lockout, throttle and rate-limit tables are bounded.
+- Passwords, secrets, OAuth `code`/`state` values and other sensitive query values are redacted from logs, and raw usernames are no longer logged.
+- `/api/domain` masks saved Search Console credentials the same way `/api/domains` does.
+- `docker-compose.yml` and `.env.example` no longer contain committed secrets; `SECRET` and `APIKEY` must be set in `.env` or the shell.
 
 ### Features
 - Added a Settings action to immediately retry all keywords in the failed retry queue.
@@ -21,11 +32,36 @@ All notable changes to this project will be documented in this file. Releases no
 - Removed the deprecated SpaceSerp, ScrapingAnt, ScrapingRobot, and custom proxy scraper integrations along with the legacy raw Google HTML fallback path.
 - Legacy global scraper selections for removed providers now normalize to `none`, and stale per-domain overrides for removed providers are cleared during migration.
 - Updated README, Copilot instructions, and related tests to reflect the supported managed scraper integrations only.
+- History date keys are zero-padded `YYYY-MM-DD` and unpadded keys are normalised on read; migration `1773000000000` rewrites existing keys.
+- Keywords have a unique index on domain, keyword, country, location and device (migration `1775000000000`). Duplicate rows are merged, keeping the one with the most history and merging tags. Concurrent duplicate inserts return 409.
+- Stale `updating` keyword flags are reset on upgrade (migration `1776000000000`) and expire after 30 minutes.
+- Refresh retries a failed keyword at most 3 times. A locked domain is skipped instead of failing the whole batch; 409 is returned only if nothing could start.
+- `GET /api/refresh?keyword=` is limited to 20 searches per client address per minute.
+- The cron worker re-reads schedule changes when `settings.json` changes (file watch plus a 30 minute safety check). Weekly and monthly emails run at the email schedule time.
+- `PUT /api/settings` merges partial payloads: keys left out keep their stored values, and a secret left out keeps its stored value.
+- Bulk keyword actions send IDs in the request body; the query form is still accepted.
+- The screenshots flag is read at runtime from `/api/branding/config` (`SCREENSHOTS` or `NEXT_PUBLIC_SCREENSHOTS`).
+- Notification emails go only to each domain's own address. Migration `1774000000000` copies the old global address onto domains that had none.
+- Docker: image adds a `HEALTHCHECK` and `HOSTNAME=0.0.0.0`; the entrypoint supervises web and cron and forwards signals; `docker-compose.yml` reads values from `.env` and has no hard-coded app URL.
+- Dependencies: TypeScript 5.9 and `@types/node` 24.
+- Serper sends the country code as lowercase.
+
+### Removed
+- The global Notification Emails setting. Per-domain notification emails are used instead (see Changed).
+- The per-domain `notification_interval` column (migration `1777000000000`); the global notification interval setting is used.
+- The `moment`, `eslint-config-next` and `@humanfs/node` dependencies.
 
 ### Bug Fixes
+- A corrupt retry queue file no longer takes the app down. It is renamed once to `failed_queue.json.corrupt-<time>` and the queue continues empty.
 - Startup now clears any keyword `updating` flags left set by a previous process (e.g. a container restart mid-scrape), so the UI no longer shows stuck loading spinners after a restart.
 - The research page domain selector shows the chosen domain. It previously stayed on "Select a Domain" after a pick, even though the chosen domain was used for Add and Email.
 - The Domain Settings tabs stay on one row and shrink on narrow screens, instead of showing horizontal and vertical scrollbars.
+- The logo and back button show in the top bar on every page.
+- The cron worker receives shutdown signals directly instead of through the `npx` wrapper.
+- The research page requires login. Google Ads OAuth returns to `/domains?ads=...`, and the result is handled there.
+- Table layouts no longer show blank lists at 640-767px. Sort labels match the real order, and the ideas alphabetical sort and Favorites tab work.
+- Settings keep unsaved edits when refetched. Search Console and console-page averages are weighted by impressions.
+- The CSV export includes a BOM, and large numbers keep all their digits.
 
 ### Performance
 - Reduced per-request scrape retry attempts from 3 to 1 so failing keywords fall through to the hourly failed-queue retry faster instead of blocking on repeated in-request retries.
