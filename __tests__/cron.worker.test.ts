@@ -1,3 +1,4 @@
+/* eslint-disable security/detect-non-literal-fs-filename -- writes only to a temp directory created by the test */
 export {};
 describe('cron worker helpers', () => {
   let makeCronApiCall: (apiKey: string | undefined | null, baseUrl: string, endpoint: string, successMessage: string) => Promise<void>;
@@ -42,7 +43,7 @@ describe('cron worker helpers', () => {
 
   it('sends the authorization header when API key is available', async () => {
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-    (global.fetch as jest.Mock).mockResolvedValue({ 
+    (global.fetch as jest.Mock).mockResolvedValue({
       ok: true,
       status: 200,
       headers: {
@@ -74,7 +75,8 @@ describe('cron worker helpers', () => {
 
 describe('getAppSettings', () => {
   const { promises: fsPromises } = require('fs');
-  const settingsPath = `${process.cwd()}/data/settings.json`;
+  const os = require('os');
+  const path = require('path');
   const defaultSettings = {
     scraper_type: 'none',
     notification_interval: 'never',
@@ -85,23 +87,31 @@ describe('getAppSettings', () => {
     smtp_password: '',
     scrape_interval: '',
   };
-  let originalSettingsContent = '';
+  const originalCwd = process.cwd();
   const originalSecret = process.env.SECRET;
+  let workDir: string;
+  let settingsPath: string;
 
-  beforeAll(async () => {
-    originalSettingsContent = await fsPromises.readFile(settingsPath, { encoding: 'utf-8' });
+  // getAppSettings reads `${process.cwd()}/data/settings.json`. Each case runs in its own temp working
+  // directory so it never touches the real data/settings.json, which other Jest workers also read and write.
+  beforeEach(async () => {
+    workDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'serpbear-cron-settings-'));
+    await fsPromises.mkdir(path.join(workDir, 'data'));
+    settingsPath = path.join(workDir, 'data', 'settings.json');
+    process.chdir(workDir);
   });
 
   afterEach(async () => {
-    process.env.SECRET = originalSecret;
+    process.chdir(originalCwd);
+    if (originalSecret === undefined) {
+      delete process.env.SECRET;
+    } else {
+      process.env.SECRET = originalSecret;
+    }
     jest.unmock('cryptr');
     jest.resetModules();
     jest.restoreAllMocks();
-    await fsPromises.writeFile(settingsPath, originalSettingsContent, { encoding: 'utf-8' });
-  });
-
-  afterAll(() => {
-    process.env.SECRET = originalSecret;
+    await fsPromises.rm(workDir, { recursive: true, force: true });
   });
 
   it('returns non-sensitive settings when decryption fails', async () => {
@@ -145,15 +155,10 @@ describe('getAppSettings', () => {
   });
 
   it('creates settings file with defaults when file is missing (ENOENT)', async () => {
-    const { unlink } = require('fs/promises');
     const { getAppSettings } = require('../cron.js');
-    
-    // Ensure file doesn't exist
-    try {
-      await unlink(settingsPath);
-    } catch (_error) {
-      // File may already not exist, which is fine
-    }
+
+    // The temp data/ directory starts empty, so settings.json does not exist yet
+    await expect(fsPromises.access(settingsPath)).rejects.toMatchObject({ code: 'ENOENT' });
 
     const settings = await getAppSettings();
     const createdContent = await fsPromises.readFile(settingsPath, { encoding: 'utf-8' });

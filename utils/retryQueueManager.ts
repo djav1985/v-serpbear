@@ -1,5 +1,5 @@
 import { rename, readFile, mkdir } from 'fs/promises';
-import { dirname } from 'path';
+import { dirname, join } from 'path';
 import { atomicWriteFile } from './atomicWrite';
 import * as lockfile from 'proper-lockfile';
 import { logger } from './logger';
@@ -16,7 +16,7 @@ class RetryQueueManager {
    private filePath: string;
 
    constructor() {
-      this.filePath = `${process.cwd()}/data/failed_queue.json`;
+      this.filePath = join(process.cwd(), 'data', 'failed_queue.json');
    }
 
    /**

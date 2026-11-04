@@ -216,7 +216,7 @@ describe('scrapeKeywordWithStrategy – page selection', () => {
          }
          return Promise.resolve({
             ok: true, status: 200,
-            text: async function () { return JSON.stringify(await this.json()); },
+            text: async function (this: { json: () => Promise<unknown> }) { return JSON.stringify(await this.json()); },
             json: async () => ({ organic }),
          } as unknown as Response);
       });
@@ -290,7 +290,7 @@ describe('scrapeKeywordWithStrategy – position accuracy', () => {
          if (page === 2) {
             return Promise.resolve({
                ok: true, status: 200,
-               text: async function () { return JSON.stringify(await this.json()); },
+               text: async function (this: { json: () => Promise<unknown> }) { return JSON.stringify(await this.json()); },
                json: async () => ({
                   organic: [
                      { title: 'Other 2-0', link: 'https://other.com/a', position: 1 }, // API says 1 (page-relative)
@@ -323,7 +323,7 @@ describe('scrapeKeywordWithStrategy – position accuracy', () => {
          if (page === 9) {
             return Promise.resolve({
                ok: true, status: 200,
-               text: async function () { return JSON.stringify(await this.json()); },
+               text: async function (this: { json: () => Promise<unknown> }) { return JSON.stringify(await this.json()); },
                json: async () => ({
                   organic: [
                      { title: 'Domain', link: 'https://example.com/p9', position: 1 },

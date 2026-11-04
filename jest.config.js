@@ -17,9 +17,6 @@ const customJestConfig = {
   moduleDirectories: ['node_modules', '<rootDir>/'],
   testEnvironment: '@happy-dom/jest-environment',
   testPathIgnorePatterns: ['/node_modules/', '/__helpers__/(?!.*\\.test\\.[jt]sx?$)'],
-  transformIgnorePatterns: [
-    '/node_modules/(?!(sequelize|until-async|@bundled-es-modules|msw|uuid)/)'
-  ],
   moduleNameMapper: {
     '^uuid$': uuidPath,
     'better-sqlite3': '<rootDir>/__mocks__/better-sqlite3.js',
@@ -56,4 +53,31 @@ const customJestConfig = {
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async
 
-module.exports = createJestConfig(customJestConfig);
+// next/jest always prepends '/node_modules/' to transformIgnorePatterns and Jest skips a file if ANY
+// pattern matches, so a custom allowlist passed above is never effective. Override the final list here
+// so ESM-only packages (msw and its deps) are transformed.
+const TRANSFORM_ALLOWLIST = [
+  'sequelize',
+  'until-async',
+  '@bundled-es-modules',
+  'msw',
+  '@mswjs',
+  'rettime',
+  'headers-polyfill',
+  'cookie',
+  'tough-cookie',
+  'uuid'
+];
+
+const baseJestConfig = createJestConfig(customJestConfig);
+
+module.exports = async () => {
+  const config = await baseJestConfig();
+  config.transformIgnorePatterns = [
+    '^.+\\.module\\.(css|sass|scss)$',
+    // Ignore a file only if it lives under node_modules and no allowlisted package appears in its path
+    // (this also covers nested copies such as node_modules/msw/node_modules/@open-draft/...).
+    `^(?!.*[\\\\/](?:${TRANSFORM_ALLOWLIST.join('|')})[\\\\/]).*[\\\\/]node_modules[\\\\/]`
+  ];
+  return config;
+};
