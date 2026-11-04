@@ -29,7 +29,8 @@ RUN --mount=type=cache,target=/app/.next/cache \
     chmod +x entrypoint.sh
 
 FROM base AS runner
-ENV NODE_ENV=production
+ENV NODE_ENV=production \
+    HOSTNAME=0.0.0.0
 WORKDIR /app
 
 # Copy production dependencies
@@ -55,6 +56,10 @@ RUN mkdir -p /app/data && \
 
 USER nextjs
 EXPOSE 3000
+
+# Alpine ships busybox wget. /api/branding/config is an unauthenticated GET route that returns 200 when the app is up.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD wget -q -O /dev/null "http://127.0.0.1:${PORT:-3000}/api/branding/config" || exit 1
 
 ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["node", "server.js"]
