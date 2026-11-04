@@ -159,8 +159,7 @@ const KeywordsTable = (props: KeywordsTableProps) => {
    const updateColumns = (column:string) => {
       if (!storedSettings) { return; }
       const newColumns = tableColumns.includes(column) ? tableColumns.filter((col) => col !== column) : [...tableColumns, column];
-      const { adwords_refresh_token: _storedRefreshToken, ...settingsToSave } = storedSettings;
-      updateMutate({ ...settingsToSave, keywordsColumns: newColumns });
+      updateMutate({ keywordsColumns: newColumns });
    };
 
    const shouldHideColumn = useCallback((col:string) => settings?.keywordsColumns && !settings?.keywordsColumns.includes(col) ? 'lg:hidden' : '', [settings?.keywordsColumns]);

@@ -74,6 +74,40 @@ const normalizeLegacySettings = (settings: Partial<SettingsType>): Partial<Setti
  */
 export const DERIVED_SETTINGS_FIELDS = ['version', 'timezone', 'available_scapers', 'search_console_integrated', 'failed_queue'] as const;
 
+/**
+ * Reads data/settings.json as stored (secrets still encrypted). A missing, empty or whitespace-only file means
+ * there are no stored settings yet. A non-empty file with invalid JSON is logged and treated as empty.
+ */
+const readStoredSettingsFile = async (settingsPath: string): Promise<Partial<SettingsType>> => {
+   let raw: unknown;
+   try {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename
+      raw = await readFile(settingsPath, { encoding: 'utf-8' });
+   } catch (err) {
+      if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') {
+         return {};
+      }
+      throw err;
+   }
+   if (typeof raw !== 'string' || !raw.trim()) {
+      return {};
+   }
+   return normalizeLegacySettings(safeJsonParse<Partial<SettingsType>>(raw, {}, { context: 'settings.json', logError: true }));
+};
+
+/** Fields stored encrypted. A key present in a save is encrypted (an empty value clears it); an absent key keeps the stored value. */
+const SECRET_SETTINGS_FIELDS = [
+   'scraping_api',
+   'smtp_password',
+   'search_console_client_email',
+   'search_console_private_key',
+   'adwords_client_id',
+   'adwords_client_secret',
+   'adwords_refresh_token',
+   'adwords_developer_token',
+   'adwords_account_id',
+] as const;
+
 const SCRAPE_STRATEGIES = ['basic', 'custom', 'smart'];
 const MAX_PAGINATION_LIMIT = 10;
 const BOOLEAN_SETTINGS = ['scrape_retry', 'scrape_smart_full_fallback', 'search_console'];
@@ -191,7 +225,7 @@ const getSettings = async (req: NextApiRequest, res: NextApiResponse) => {
 const updateSettings = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
    const { settings } = req.body || {};
-   if (!settings) {
+   if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Settings payload is required.', requestId));
    }
    
@@ -212,38 +246,27 @@ const updateSettings = async (req: NextApiRequest, res: NextApiResponse) => {
       const cryptr = new Cryptr(process.env.SECRET);
       const encrypt = (value?: string) => (value ? cryptr.encrypt(value) : '');
 
-      // The stored settings, so a secret that is left out of the payload keeps its stored (encrypted) value.
-      // This also covers adwords_refresh_token, which the Google OAuth callback writes.
-      // Read and write under one lock, so a concurrent save (for example the Google Ads callback) is not lost
+      // Save is a merge: the stored settings are read under the lock, the payload is applied over them, and any
+      // key the payload leaves out keeps its stored value. Secrets are encrypted here; an absent secret keeps its
+      // stored (encrypted) value, which also covers adwords_refresh_token written by the Google OAuth callback.
       await withSettingsLock(async () => {
          let existingSettings: Partial<SettingsType> = {};
          try {
-            const existingSettingsRaw = await readFile(`${process.cwd()}/data/settings.json`, { encoding: 'utf-8' });
-            existingSettings = safeJsonParse<Partial<SettingsType>>(existingSettingsRaw, {}, { context: 'settings.json', logError: false });
+            existingSettings = await readStoredSettingsFile(`${process.cwd()}/data/settings.json`);
          } catch (err) {
-            // If file doesn't exist or can't be read, absent secrets are stored as empty
-            logger.debug('Could not read existing settings for secrets left out of the payload', { error: err instanceof Error ? err.message : String(err) });
+            // If the file can't be read, absent fields are stored as empty
+            logger.debug('Could not read existing settings for fields left out of the payload', { error: err instanceof Error ? err.message : String(err) });
          }
 
-         // A key present in the payload is encrypted (an empty value clears it); an absent key keeps the stored value
-         const secretOrStored = (key: keyof SettingsType): string => (key in normalizedSettings
-            ? encrypt(normalizedSettings[key] as string)
-            : ((existingSettings[key] as string | undefined) ?? ''));
+         const merged: Record<string, unknown> = { ...existingSettings, ...normalizedSettings };
+         SECRET_SETTINGS_FIELDS.forEach((key) => {
+            merged[key] = key in normalizedSettings
+               ? encrypt(normalizedSettings[key] as string)
+               : ((existingSettings[key] as string | undefined) ?? '');
+         });
+         DERIVED_SETTINGS_FIELDS.forEach((field) => { delete merged[field]; });
 
-         const securedSettings = {
-            ...normalizedSettings,
-            scraping_api: secretOrStored('scraping_api'),
-            smtp_password: secretOrStored('smtp_password'),
-            search_console_client_email: secretOrStored('search_console_client_email'),
-            search_console_private_key: secretOrStored('search_console_private_key'),
-            adwords_client_id: secretOrStored('adwords_client_id'),
-            adwords_client_secret: secretOrStored('adwords_client_secret'),
-            adwords_refresh_token: secretOrStored('adwords_refresh_token'),
-            adwords_developer_token: secretOrStored('adwords_developer_token'),
-            adwords_account_id: secretOrStored('adwords_account_id'),
-         };
-
-         await atomicWriteFile(`${process.cwd()}/data/settings.json`, JSON.stringify(securedSettings), 'utf-8');
+         await atomicWriteFile(`${process.cwd()}/data/settings.json`, JSON.stringify(merged), 'utf-8');
       });
       return res.status(200).json({ settings: normalizedSettings });
    } catch (error) {
@@ -267,8 +290,7 @@ export const getAppSettings = async () : Promise<SettingsType> => {
    }
 
    try {
-      const settingsRaw = await readFile(settingsPath, { encoding: 'utf-8' });
-      const settings = normalizeLegacySettings(safeJsonParse<Partial<SettingsType>>(settingsRaw, {}, { context: 'settings.json', logError: true }));
+      const settings = await readStoredSettingsFile(settingsPath);
       const baseSettings: SettingsType = { ...buildSettingsDefaults(), ...settings };
       let decryptedSettings: SettingsType = baseSettings;
 

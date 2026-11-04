@@ -2,6 +2,7 @@ import toast from 'react-hot-toast';
 import { useMutation, useQuery, useQueryClient } from 'react-query';
 import { apiGet, apiPost, apiPut } from '../utils/client/apiClient';
 import { setAppTimezone } from '../utils/client/appTimezone';
+import { showQueryErrorToast } from './queryErrorToast';
 
 export async function fetchSettings() {
    return apiGet<{ settings: SettingsType }>('/api/settings');
@@ -10,13 +11,14 @@ export async function fetchSettings() {
 export function useFetchSettings() {
    return useQuery('settings', () => fetchSettings(), {
       onSuccess: (data) => setAppTimezone(data?.settings?.timezone),
+      onError: (error) => showQueryErrorToast(error, 'Error Loading App Settings.', 'settings-load-error'),
    });
 }
 
 export const useUpdateSettings = (onSuccess: (() => void) | undefined) => {
    const queryClient = useQueryClient();
 
-   return useMutation(async (settings: SettingsType) => (
+   return useMutation(async (settings: Partial<SettingsType>) => (
       apiPut('/api/settings', { settings })
    ), {
       onSuccess: async () => {

@@ -295,16 +295,11 @@ describe('GET /api/settings and configuration requirements', () => {
     expect(settings).not.toHaveProperty('proxy');
   });
 
-  it('returns defaults when files are missing', async () => {
+  it('returns defaults without logging an error when settings.json is missing', async () => {
     const missingSettingsError = Object.assign(new Error('missing settings'), { code: 'ENOENT' });
-    const missingQueueError = Object.assign(new Error('missing failed queue'), { code: 'ENOENT' });
+    const { logger } = require('../../utils/logger');
 
-    readFileMock
-      .mockRejectedValueOnce(missingSettingsError)
-      .mockRejectedValueOnce(missingQueueError);
-    accessMock
-      .mockRejectedValueOnce(missingSettingsError)
-      .mockRejectedValueOnce(missingQueueError);
+    readFileMock.mockRejectedValueOnce(missingSettingsError);
     writeFileMock.mockResolvedValue(undefined);
     renameMock.mockResolvedValue(undefined);
 
@@ -314,9 +309,23 @@ describe('GET /api/settings and configuration requirements', () => {
       scraper_type: 'none',
       available_scapers: expect.any(Array),
     }));
-    // Check that write happened (via atomicWriteFile which calls writeFile then rename)
-    expect(writeFileMock).toHaveBeenCalled();
-    expect(renameMock).toHaveBeenCalled();
+    expect(logger.error).not.toHaveBeenCalled();
+    expect(writeFileMock).not.toHaveBeenCalled();
+  });
+
+  it('treats an empty or whitespace-only settings.json as no stored settings', async () => {
+    const { logger } = require('../../utils/logger');
+    for (const contents of ['', ' \n\t ']) {
+      readFileMock.mockResolvedValueOnce(contents);
+
+      const settings = await settingsApi.getAppSettings();
+
+      expect(settings.scraper_type).toBe('none');
+      expect(settings.keywordsColumns).toEqual(['Best', 'History', 'Volume', 'Search Console']);
+    }
+    expect(logger.error).not.toHaveBeenCalled();
+    expect(logger.warn).not.toHaveBeenCalled();
+    expect(writeFileMock).not.toHaveBeenCalled();
   });
 
   it('does not overwrite settings when JSON is invalid', async () => {
