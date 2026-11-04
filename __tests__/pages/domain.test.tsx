@@ -161,8 +161,8 @@ describe('SingleDomain Page', () => {
       const sortOptionTexts = [
          'Top Position',
          'Lowest Position',
-         'Most Recent (Default)',
-         'Oldest',
+         'Most Recent',
+         'Oldest (Default)',
          'Alphabetically(A-Z)',
          'Alphabetically(Z-A)',
       ];

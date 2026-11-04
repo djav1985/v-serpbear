@@ -9,13 +9,14 @@ type IdeasFilterProps = {
    keywords: IdeaKeyword[],
    favorites: IdeaKeyword[],
    updateSort: (sorted: string) => void,
-   showFavorites: (show: boolean) => void,
+   showFavorites: boolean,
+   setShowFavorites: (show: boolean) => void,
    sortBy: string,
 }
 
 const IdeasFilters = (props: IdeasFilterProps) => {
-   const { filterKeywords, allTags = [], updateSort, showFavorites, sortBy, filterParams, keywords = [], favorites = [] } = props;
-   const [keywordType, setKeywordType] = useState<'all'|'favorites'>('all');
+   const { filterKeywords, allTags = [], updateSort, showFavorites, setShowFavorites, sortBy, filterParams, keywords = [], favorites = [] } = props;
+   const keywordType = showFavorites ? 'favorites' : 'all';
    const [sortOptions, showSortOptions] = useState(false);
    const [filterOptions, showFilterOptions] = useState(false);
 
@@ -48,7 +49,7 @@ const IdeasFilters = (props: IdeasFilterProps) => {
                <li
                 data-testid="desktop_tab"
                className={`${deviceTabStyle} ${keywordType === 'all' ? ' bg-[#F8F9FF] text-gray-700' : ''}`}
-               onClick={() => { setKeywordType('all'); showFavorites(false); }}>
+               onClick={() => setShowFavorites(false)}>
                      <Icon type='keywords' classes='top-[3px]' size={15} />
                      <i className='hidden not-italic lg:inline-block ml-1'>All Keywords</i>
                      <span className={`${deviceTabCountStyle}`}>{keywords.length}</span>
@@ -56,7 +57,7 @@ const IdeasFilters = (props: IdeasFilterProps) => {
                <li
                data-testid="mobile_tab"
                className={`${deviceTabStyle} ${keywordType === 'favorites' ? ' bg-[#F8F9FF] text-gray-700' : ''}`}
-               onClick={() => { setKeywordType('favorites'); showFavorites(true); }}>
+               onClick={() => setShowFavorites(true)}>
                      <Icon type='star' classes='top-[4px]' />
                      <i className='hidden not-italic lg:inline-block ml-1'>Favorites</i>
                      <span className={`${deviceTabCountStyle}`}>{favorites.length}</span>

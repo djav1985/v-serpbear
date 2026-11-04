@@ -76,4 +76,16 @@ describe('Ideas keyword filters', () => {
 
       expect(sorted.map((item) => item.keyword)).toEqual(['Low', 'Medium', 'High']);
    });
+
+   it('IdeasSortKeywords sorts alphabetically in both directions ignoring case', () => {
+      const ideas = [
+         createIdeaKeyword({ keyword: 'banana' }),
+         createIdeaKeyword({ keyword: 'Apple' }),
+         createIdeaKeyword({ keyword: 'cherry' }),
+      ];
+
+      expect(IdeasSortKeywords(ideas, 'alpha_asc').map((item) => item.keyword)).toEqual(['Apple', 'banana', 'cherry']);
+      expect(IdeasSortKeywords(ideas, 'alpha_desc').map((item) => item.keyword)).toEqual(['cherry', 'banana', 'Apple']);
+      expect(ideas[0].keyword).toBe('banana');
+   });
 });

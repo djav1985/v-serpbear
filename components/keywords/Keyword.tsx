@@ -135,7 +135,7 @@ const Keyword = (props: KeywordProps) => {
             title={keyword}
             >
                <span className="fflag-stack mr-2 flex-shrink-0">
-                  <span className={`fflag fflag-${country} w-[18px] h-[12px]`} title={countries[country][0]} />
+                  <span className={`fflag fflag-${country} w-[18px] h-[12px]`} title={countries[country]?.[0] ?? country} />
                   {mapPackTop3 && (
                      <span className="fflag fflag-map-pack w-[18px] h-[12px]" role="img" aria-label="Map pack top three" />
                   )}

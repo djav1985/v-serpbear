@@ -128,7 +128,6 @@ const NotificationSettings = ({ settings, settingsError, updateSettings }:Notifi
                   <div className="settings__section__input mb-5">
                         <InputField
                         label='Email From Name'
-                        hasError={settingsError?.type === 'no_smtp_from'}
                         value={settings?.notification_email_from_name || platformName}
                         placeholder={platformName}
                         onChange={(value:string) => updateSettings('notification_email_from_name', value)}

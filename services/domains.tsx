@@ -13,7 +13,21 @@ const normalizeEnvFlag = (value: string | undefined) => {
    return !['false', '0', 'off', 'disabled', 'no'].includes(normalized);
 };
 
+// Build-time fallback only. NEXT_PUBLIC_* values are inlined at build, so the effective
+// value comes from the runtime branding config (see setRuntimeScreenshotsEnabled) once loaded.
 export const SCREENSHOTS_ENABLED = normalizeEnvFlag(process.env.NEXT_PUBLIC_SCREENSHOTS);
+
+let runtimeScreenshotsEnabled: boolean | undefined;
+
+/**
+ * Stores the runtime screenshots flag served by /api/branding/config.
+ * Pass undefined to fall back to the build-time SCREENSHOTS_ENABLED value.
+ */
+export const setRuntimeScreenshotsEnabled = (value: boolean | undefined) => {
+   runtimeScreenshotsEnabled = typeof value === 'boolean' ? value : undefined;
+};
+
+const isScreenshotsEnabled = () => runtimeScreenshotsEnabled ?? SCREENSHOTS_ENABLED;
 
 const normalizeDomainPatch = (
    patch: Partial<DomainSettings>,
@@ -106,7 +120,7 @@ const isValidThumbEntry = (v: unknown): v is DomainThumbEntry =>
    typeof (v as DomainThumbEntry).ts === 'number';
 
 export async function fetchDomainScreenshot(domain: string, forceFetch = false): Promise<string | false> {
-   if (!SCREENSHOTS_ENABLED) { return false; }
+   if (!isScreenshotsEnabled()) { return false; }
    if (typeof window === 'undefined' || !window.localStorage) { return false; }
 
    let domThumbs: Record<string, DomainThumbEntry> = {};

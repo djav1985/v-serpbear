@@ -5,7 +5,6 @@ import toast from 'react-hot-toast';
 import { useQueryClient } from 'react-query';
 import Icon from './Icon';
 import { BrandTitle } from './Branding';
-import { AUTH_QUERY_KEY } from '../../hooks/useAuth';
 import { apiPost, ApiError } from '../../utils/client/apiClient';
 
 type TopbarProps = {
@@ -22,8 +21,8 @@ const TopBar = ({ showSettings, showAddModal }:TopbarProps) => {
    const logoutUser = async () => {
       try {
          await apiPost('/api/logout', {});
-         // Invalidate the cached auth state so protected pages don't see stale authenticated result
-         await queryClient.invalidateQueries(AUTH_QUERY_KEY);
+         // Drop all cached server state (auth, domains, settings) so no data from the previous session survives
+         queryClient.clear();
          router.push('/login');
       } catch (err) {
          const message = err instanceof ApiError ? err.message : 'Failed to log out. Please try again.';

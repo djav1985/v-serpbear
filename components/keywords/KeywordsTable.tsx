@@ -13,7 +13,6 @@ import AddTags from './AddTags';
 import useWindowResize from '../../hooks/useWindowResize';
 import useIsMobile from '../../hooks/useIsMobile';
 import { useFetchSettings, useUpdateSettings } from '../../services/settings';
-import { defaultSettings } from '../settings/Settings';
 import { getDomainLocations, getDomainTags, scraperAllowsCity } from '../../utils/keywordMeta';
 import ChangeLocationModal from './ChangeLocationModal';
 
@@ -26,6 +25,46 @@ type KeywordsTableProps = {
    isConsoleIntegrated: boolean,
    settings?: SettingsType
 }
+
+type KeywordRowData = {
+   items: KeywordType[],
+   selectedKeywords: number[],
+   selectKeyword: (keywordID: number) => void,
+   refreshKeyword: (keywordID: number) => void,
+   favoriteKeyword: (data: { keywordID: number; sticky: boolean }) => void,
+   manageTags: (keywordID: number) => void,
+   removeKeyword: (keywordID: number) => void,
+   showKeywordDetails: (keyword: KeywordType) => void,
+   showSCData: boolean,
+   scDataType: string,
+   tableColumns: string[],
+   maxTitleColumnWidth: number,
+};
+
+// Defined at module scope so react-window does not remount rows on every render. State comes in through itemData.
+const KeywordRow = ({ data, index, style }: ListChildComponentProps<KeywordRowData>) => {
+   const keyword = data.items[index];
+   return (
+      <Keyword
+      key={keyword.ID}
+      style={style}
+      index={index}
+      selected={data.selectedKeywords.includes(keyword.ID)}
+      selectKeyword={data.selectKeyword}
+      keywordData={keyword}
+      refreshkeyword={() => data.refreshKeyword(keyword.ID)}
+      favoriteKeyword={data.favoriteKeyword}
+      manageTags={() => data.manageTags(keyword.ID)}
+      removeKeyword={() => data.removeKeyword(keyword.ID)}
+      showKeywordDetails={() => data.showKeywordDetails(keyword)}
+      lastItem={index === (data.items.length - 1)}
+      showSCData={data.showSCData}
+      scDataType={data.scDataType}
+      tableColumns={data.tableColumns}
+      maxTitleColumnWidth={data.maxTitleColumnWidth}
+      />
+   );
+};
 
 const KeywordsTable = (props: KeywordsTableProps) => {
    const titleColumnRef = useRef(null);
@@ -112,35 +151,33 @@ const KeywordsTable = (props: KeywordsTableProps) => {
       setSelectedKeywords(updatedSelected);
    };
 
+   const storedSettings = appSettingsData?.settings;
+   const columnsLoaded = !!storedSettings;
+
+   // The settings PUT rewrites the whole settings file, so the payload must carry every stored value.
+   // adwords_refresh_token is left out, as in the Settings page, so a token written by the Google OAuth callback is not overwritten.
    const updateColumns = (column:string) => {
+      if (!storedSettings) { return; }
       const newColumns = tableColumns.includes(column) ? tableColumns.filter((col) => col !== column) : [...tableColumns, column];
-      updateMutate({ ...defaultSettings, ...settings, keywordsColumns: newColumns });
+      const { adwords_refresh_token: _storedRefreshToken, ...settingsToSave } = storedSettings;
+      updateMutate({ ...settingsToSave, keywordsColumns: newColumns });
    };
 
    const shouldHideColumn = useCallback((col:string) => settings?.keywordsColumns && !settings?.keywordsColumns.includes(col) ? 'lg:hidden' : '', [settings?.keywordsColumns]);
 
-   const Row = ({ data, index, style }:ListChildComponentProps) => {
-      const keyword = data[index];
-      return (
-         <Keyword
-         key={keyword.ID}
-         style={style}
-         index={index}
-         selected={selectedKeywords.includes(keyword.ID)}
-         selectKeyword={selectKeyword}
-         keywordData={keyword}
-         refreshkeyword={() => refreshMutate({ ids: [keyword.ID] })}
-         favoriteKeyword={favoriteMutate}
-         manageTags={() => setShowTagManager(keyword.ID)}
-         removeKeyword={() => { setSelectedKeywords([keyword.ID]); setShowRemoveModal(true); }}
-         showKeywordDetails={() => setShowKeyDetails(keyword)}
-         lastItem={index === (processedKeywords[device].length - 1)}
-         showSCData={showSCData}
-         scDataType={scDataType}
-         tableColumns={tableColumns}
-         maxTitleColumnWidth={maxTitleColumnWidth}
-         />
-      );
+   const rowData: KeywordRowData = {
+      items: processedKeywords[device],
+      selectedKeywords,
+      selectKeyword,
+      refreshKeyword: (keywordID: number) => refreshMutate({ ids: [keywordID] }),
+      favoriteKeyword: favoriteMutate,
+      manageTags: (keywordID: number) => setShowTagManager(keywordID),
+      removeKeyword: (keywordID: number) => { setSelectedKeywords([keywordID]); setShowRemoveModal(true); },
+      showKeywordDetails: (keyword: KeywordType) => setShowKeyDetails(keyword),
+      showSCData,
+      scDataType,
+      tableColumns,
+      maxTitleColumnWidth,
    };
 
    const selectedAllItems = selectedKeywords.length === processedKeywords[device].length;
@@ -149,7 +186,7 @@ const KeywordsTable = (props: KeywordsTableProps) => {
    if (processedKeywords[device] && processedKeywords[device].length > 0) {
       if (isMobile) {
          keywordsContent = (
-            <div className='block sm:hidden'>
+            <div className='block md:hidden'>
                {processedKeywords[device].map((keyword, index) => (
                   <Keyword
                      key={keyword.ID}
@@ -174,17 +211,17 @@ const KeywordsTable = (props: KeywordsTableProps) => {
          );
       } else {
          keywordsContent = (
-            <div className='hidden sm:block'>
+            <div className='hidden md:block'>
                <List
                innerElementType="div"
-               itemData={processedKeywords[device]}
+               itemData={rowData}
                itemCount={processedKeywords[device].length}
                itemSize={isMobile ? 146 : 57}
                height={SCListHeight}
                width={'100%'}
                className={'styled-scrollbar'}
                >
-                  {Row}
+                  {KeywordRow}
                </List>
             </div>
          );
@@ -254,6 +291,7 @@ const KeywordsTable = (props: KeywordsTableProps) => {
                   device={device}
                   setDevice={setDevice}
                   updateColumns={updateColumns}
+                  columnsDisabled={!columnsLoaded}
                   tableColumns={tableColumns}
                   integratedConsole={isConsoleIntegrated}
                />
@@ -262,7 +300,7 @@ const KeywordsTable = (props: KeywordsTableProps) => {
             ${showSCData && tableColumns.includes('Search Console') ? 'domkeywordsTable--hasSC' : ''} 
                styled-scrollbar w-full overflow-auto min-h-[60vh]`}>
                <div className=' lg:min-w-[800px]'>
-                  <div className={`domKeywords_head domKeywords_head--${sortBy} hidden sm:flex p-3 px-6 bg-[#FCFCFF]
+                  <div className={`domKeywords_head domKeywords_head--${sortBy} hidden md:flex p-3 px-6 bg-[#FCFCFF]
                    text-gray-600 justify-between items-center font-semibold border-y`}>
                      <span ref={titleColumnRef} className={`domKeywords_head_keyword flex-1 basis-[6rem] w-auto lg:flex-1 
                         ${showSCData && tableColumns.includes('Search Console') ? 'lg:basis-24' : 'lg:basis-12'} lg:w-auto lg:flex lg:items-center `}>

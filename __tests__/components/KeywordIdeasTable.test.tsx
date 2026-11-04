@@ -36,7 +36,7 @@ jest.mock('../../services/settings', () => ({
 }));
 
 jest.mock('../../services/domains', () => ({
-   fetchDomains: jest.fn().mockResolvedValue({ domains: [] }),
+   useFetchDomains: jest.fn(),
 }));
 
 jest.mock('../../services/ideas', () => ({
@@ -65,8 +65,9 @@ import KeywordIdeasUpdater from '../../components/ideas/KeywordIdeasUpdater';
 import SelectField from '../../components/common/SelectField';
 import { useFetchKeywords } from '../../services/keywords';
 import { useEmailKeywordIdeas } from '../../services/ideas';
-import { fetchDomains } from '../../services/domains';
+import { useFetchDomains } from '../../services/domains';
 
+const useFetchDomainsMock = useFetchDomains as jest.Mock;
 const useFetchKeywordsMock = useFetchKeywords as jest.MockedFunction<typeof useFetchKeywords>;
 const useEmailKeywordIdeasMock = useEmailKeywordIdeas as jest.MockedFunction<typeof useEmailKeywordIdeas>;
 const SelectFieldMock = SelectField as unknown as jest.Mock;
@@ -165,7 +166,7 @@ describe('KeywordIdeasTable DRY Principle Implementation', () => {
       } as any);
       useEmailKeywordIdeasMock.mockReturnValue({ mutate: emailMutateMock, isLoading: false } as any);
       toastMock.mockClear();
-      (fetchDomains as jest.Mock).mockResolvedValue({ domains: [] });
+      useFetchDomainsMock.mockReturnValue({ data: { domains: [] } });
       Object.assign(mockRouter, { pathname: '/domain/ideas/example-domain' });
    });
 
@@ -259,8 +260,8 @@ describe('KeywordIdeasTable DRY Principle Implementation', () => {
 
    it('shows the chosen domain in the research page selector and uses it for actions', async () => {
       mockRouter.pathname = '/research';
-      (fetchDomains as jest.Mock).mockResolvedValue({
-         domains: [{ ...domain, ID: 2, domain: 'other.com', slug: 'other-com' }, domain],
+      useFetchDomainsMock.mockReturnValue({
+         data: { domains: [{ ...domain, ID: 2, domain: 'other.com', slug: 'other-com' }, domain] },
       });
       renderTable();
 
@@ -316,6 +317,38 @@ describe('KeywordIdeasTable DRY Principle Implementation', () => {
       });
 
       expect(firstRow).not.toHaveClass('keyword--selected');
+   });
+
+   it('derives the Favorites tab from the showFavorites prop', () => {
+      const favorite: IdeaKeyword = { ...ideaKeywords[1], uid: 'fav-idea', keyword: 'favorite term' };
+      const setShowFavorites = jest.fn();
+      const table = (show: boolean) => (
+         <QueryClientProvider client={queryClient}>
+            <KeywordIdeasTable
+               domain={domain}
+               keywords={ideaKeywords}
+               favorites={[favorite]}
+               isLoading={false}
+               noIdeasDatabase={false}
+               isAdwordsIntegrated={true}
+               showFavorites={show}
+               setShowFavorites={setShowFavorites}
+            />
+         </QueryClientProvider>
+      );
+
+      const { rerender } = render(table(true));
+      expect(screen.getByText('favorite term')).toBeInTheDocument();
+      expect(screen.queryByText('new term')).not.toBeInTheDocument();
+
+      // The tab reports the change to the parent and does not keep its own copy of the state
+      fireEvent.click(screen.getByTestId('desktop_tab'));
+      expect(setShowFavorites).toHaveBeenCalledWith(false);
+      expect(screen.getByText('favorite term')).toBeInTheDocument();
+
+      rerender(table(false));
+      expect(screen.getByText('new term')).toBeInTheDocument();
+      expect(screen.queryByText('favorite term')).not.toBeInTheDocument();
    });
 });
 

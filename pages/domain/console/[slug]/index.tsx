@@ -21,6 +21,43 @@ import { useFetchKeywords } from '../../../../services/keywords';
 import { withAuth } from '../../../../hooks/useAuth';
 import { safeJsonParse } from '../../../../utils/safeJsonParse';
 
+/**
+ * Collapses Search Console rows (one per date) into one row per device/country/keyword.
+ * Clicks and impressions are summed; CTR is total clicks / total impressions (in percent);
+ * position is weighted by impressions. Without impressions, position falls back to a plain average.
+ */
+export const aggregateSCKeywords = (rows: SearchAnalyticsItem[]): SearchAnalyticsItem[] => {
+   const groups = new Map<string, {
+      base: SearchAnalyticsItem,
+      clicks: number,
+      impressions: number,
+      positionWeighted: number,
+      positionSum: number,
+      count: number,
+   }>();
+
+   rows.forEach((row) => {
+      const key = `${row.device}-${row.country}-${row.keyword}`;
+      const group = groups.get(key) || {
+         base: row, clicks: 0, impressions: 0, positionWeighted: 0, positionSum: 0, count: 0,
+      };
+      group.clicks += row.clicks;
+      group.impressions += row.impressions;
+      group.positionWeighted += row.position * row.impressions;
+      group.positionSum += row.position;
+      group.count += 1;
+      groups.set(key, group);
+   });
+
+   return [...groups.values()].map(({ base, clicks, impressions, positionWeighted, positionSum, count }) => ({
+      ...base,
+      clicks,
+      impressions,
+      ctr: impressions > 0 ? Math.round((clicks / impressions) * 10000) / 100 : 0,
+      position: impressions > 0 ? Math.round(positionWeighted / impressions) : Math.round(positionSum / count),
+   }));
+};
+
 export const DomainConsolePage: NextPage = () => {
    const router = useRouter();
    const { branding } = useBranding();
@@ -69,39 +106,7 @@ export const DomainConsolePage: NextPage = () => {
       return scData && scData[scDateFilter] ? scData[scDateFilter] : [];
    }, [keywordsData, scDateFilter]);
 
-   const theKeywordsCount = useMemo(() => theKeywords.reduce<Map<string, number>>((r, o) => {
-         const key = `${o.device}-${o.country}-${o.keyword}`;
-         const item = r.get(key) || 0;
-         return r.set(key, item + 1);
-      }, new Map()) || [], [theKeywords]);
-
-   const theKeywordsReduced : SearchAnalyticsItem[] = useMemo(() => [...theKeywords.reduce<Map<string, SearchAnalyticsItem>>((r, o) => {
-         const key = `${o.device}-${o.country}-${o.keyword}`;
-         const item = r.get(key) || { ...o,
-            ...{
-            clicks: 0,
-            impressions: 0,
-            ctr: 0,
-            position: 0,
-            },
-         };
-         item.clicks += o.clicks;
-         item.impressions += o.impressions;
-         item.ctr = o.ctr + item.ctr;
-         item.position = o.position + item.position;
-         return r.set(key, item);
-      }, new Map()).values()], [theKeywords]);
-
-   const theKeywordsGrouped : SearchAnalyticsItem[] = useMemo(() => [...theKeywordsReduced.map<SearchAnalyticsItem>((o: SearchAnalyticsItem) => {
-         const key = `${o.device}-${o.country}-${o.keyword}`;
-         const count = theKeywordsCount?.get(key) || 0;
-         return { ...o,
-            ...{
-            ctr: Math.round((o.ctr / count) * 100) / 100,
-            position: Math.round(o.position / count),
-            },
-         };
-      })], [theKeywordsReduced, theKeywordsCount]);
+   const theKeywordsGrouped : SearchAnalyticsItem[] = useMemo(() => aggregateSCKeywords(theKeywords), [theKeywords]);
 
    const isConsoleIntegrated = scConnected || domainHasScAPI;
 

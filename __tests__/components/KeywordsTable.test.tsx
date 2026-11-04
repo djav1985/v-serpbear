@@ -19,9 +19,12 @@ jest.mock('../../services/keywords', () => ({
    useRefreshKeywords: () => ({ mutate: jest.fn() }),
 }));
 
+const mockUpdateSettings = jest.fn();
+let mockStoredSettings: Record<string, unknown> | undefined;
+
 jest.mock('../../services/settings', () => ({
-   useUpdateSettings: () => ({ mutate: jest.fn() }),
-   useFetchSettings: () => ({ data: undefined }),
+   useUpdateSettings: () => ({ mutate: mockUpdateSettings }),
+   useFetchSettings: () => ({ data: mockStoredSettings ? { settings: mockStoredSettings } : undefined }),
 }));
 
 jest.mock('../../hooks/useIsMobile', () => () => [false]);
@@ -46,10 +49,12 @@ jest.mock('../../components/keywords/KeywordFilter', () => {
       filterParams,
       allTags,
       filterKeywords,
+      updateColumns,
    }: {
       filterParams: any;
       allTags: string[];
       filterKeywords: (params: any) => void;
+      updateColumns?: (column: string) => void;
    }) => (
       <div data-testid="keyword-filters">
          <span data-testid="active-tags">{filterParams.tags.join(',')}</span>
@@ -60,6 +65,7 @@ jest.mock('../../components/keywords/KeywordFilter', () => {
          >
             Filter by seo
          </button>
+         <button data-testid="toggle-volume-column" onClick={() => updateColumns?.('Volume')}>Toggle Volume</button>
       </div>
    );
    MockKeywordFilters.displayName = 'MockKeywordFilters';
@@ -253,5 +259,45 @@ describe('KeywordsTable – stale tag filter cleanup', () => {
       // Stale 'seo' filter should be cleared and the remaining keyword should be visible
       expect(screen.getByTestId('active-tags').textContent).toBe('');
       expect(screen.getByTestId('keyword-2')).toBeInTheDocument();
+   });
+});
+
+describe('KeywordsTable – column settings save', () => {
+   beforeEach(() => {
+      jest.clearAllMocks();
+      mockStoredSettings = undefined;
+   });
+
+   it('saves the column change on top of the stored settings without the refresh token', () => {
+      mockStoredSettings = {
+         scraper_type: 'serpapi',
+         smtp_server: 'smtp.example.com',
+         adwords_refresh_token: 'stored-refresh-token',
+         keywordsColumns: ['Best', 'History', 'Volume', 'Search Console'],
+      };
+
+      render(
+         <QueryClientProvider client={buildClient()}>
+            <KeywordsTable
+               domain={mockDomain}
+               keywords={[makeKeyword(1, 'seo tips', ['seo'])]}
+               isLoading={false}
+               showAddModal={false}
+               setShowAddModal={jest.fn()}
+               isConsoleIntegrated={false}
+            />
+         </QueryClientProvider>
+      );
+
+      fireEvent.click(screen.getByTestId('toggle-volume-column'));
+
+      expect(mockUpdateSettings).toHaveBeenCalledTimes(1);
+      const savedPayload = mockUpdateSettings.mock.calls[0][0];
+      expect(savedPayload).toEqual({
+         scraper_type: 'serpapi',
+         smtp_server: 'smtp.example.com',
+         keywordsColumns: ['Best', 'History', 'Search Console'],
+      });
+      expect(savedPayload).not.toHaveProperty('adwords_refresh_token');
    });
 });

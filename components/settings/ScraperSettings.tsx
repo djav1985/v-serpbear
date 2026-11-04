@@ -31,7 +31,7 @@ const ScraperSettings = ({ settings, settingsError, updateSettings }:ScraperSett
       { label: '5 Seconds', value: '5000' },
       { label: '10 Seconds', value: '10000' },
       { label: '30 Seconds', value: '30000' },
-      { label: '1 Minutes', value: '60000' },
+      { label: '1 Minute', value: '60000' },
       { label: '2 Minutes', value: '120000' },
       { label: '5 Minutes', value: '300000' },
       { label: '10 Minutes', value: '600000' },
@@ -85,7 +85,7 @@ const ScraperSettings = ({ settings, settingsError, updateSettings }:ScraperSett
                   multiple={false}
                   selected={[settings?.scrape_interval || 'daily']}
                   options={scrapingOptions}
-                  defaultLabel={'Notification Settings'}
+                  defaultLabel={'Select Frequency'}
                   updateField={(updated:string[]) => updated[0] && updateSettings('scrape_interval', updated[0])}
                   rounded='rounded'
                   maxHeight={48}
@@ -96,7 +96,7 @@ const ScraperSettings = ({ settings, settingsError, updateSettings }:ScraperSett
          )}
             <div className="settings__section__input mb-5">
                <SelectField
-                  label='keyword Scrape Delay'
+                  label='Keyword Scrape Delay'
                   multiple={false}
                   selected={[settings?.scrape_delay || '0']}
                   options={delayOptions}

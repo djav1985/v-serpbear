@@ -213,6 +213,19 @@ describe('SCKeywordsTable', () => {
       expect(summaryRow).toHaveTextContent('0');
       expect(summaryRow).toHaveTextContent('0.00%');
    });
+
+   it('weights the summary position by impressions and computes CTR from total clicks and impressions', () => {
+      renderComponent([
+         { ...mockSCKeywords[0], uid: 'w-1', keyword: 'high volume', position: 10, impressions: 100, clicks: 10, ctr: 10 },
+         { ...mockSCKeywords[0], uid: 'w-2', keyword: 'low volume', position: 2, impressions: 900, clicks: 0, ctr: 0 },
+      ]);
+
+      const summaryRow = screen.getByText('2 desktop Keywords').closest('.domKeywords_head') as HTMLElement;
+      // Impression-weighted position is (10*100 + 2*900) / 1000 = 2.8, which rounds to 3. A plain average would be 6.
+      expect(summaryRow.querySelector('.domKeywords_head_position')).toHaveTextContent(/^3$/);
+      // Total clicks / total impressions = 10 / 1000 = 1%. An average of per-row CTRs would be 5%.
+      expect(summaryRow.querySelector('.domKeywords_head_ctr')).toHaveTextContent('1.00%');
+   });
 });
 
 describe('SCKeyword Component', () => {

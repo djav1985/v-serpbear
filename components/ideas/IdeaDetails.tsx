@@ -62,7 +62,7 @@ const IdeaDetails = ({ keyword, closeDetails }:IdeaDetailsProps) => {
             <div className="IdeaDetails absolute w-full lg:w-5/12 bg-white customShadow top-0 right-0 h-screen" >
                <div className='IdeaDetails__header p-6 border-b border-b-slate-200 text-slate-500'>
                   <h3 className=' text-lg font-bold'>
-                     <span title={countries[keyword.country][0]}
+                     <span title={countries[keyword.country]?.[0] ?? keyword.country}
                      className={`fflag fflag-${keyword.country} w-[18px] h-[12px] mr-2`} /> {keyword.keyword}
                      <span className='py-1 px-2 ml-2 rounded bg-blue-50 text-blue-700 text-xs font-bold'>
                         {formattedNum(keyword.avgMonthlySearches)}/month
@@ -88,7 +88,7 @@ const IdeaDetails = ({ keyword, closeDetails }:IdeaDetailsProps) => {
                      <div className="IdeaDetails__section__head flex justify-between items-center pb-4 mb-4 border-b border-b-slate-200">
                         <h3 className=' font-bold text-gray-700 lg:text-lg'>Google Search Result
                            <a className='text-gray-400 hover:text-indigo-600 inline-block ml-1 px-2 py-1'
-                              href={`https://www.google.com/search?q=${encodeURI(keyword.keyword)}`}
+                              href={`https://www.google.com/search?q=${encodeURIComponent(keyword.keyword)}`}
                               target="_blank"
                               rel='noreferrer'>
                               <Icon type='link' size={14} />

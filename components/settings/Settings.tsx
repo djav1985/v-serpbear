@@ -1,7 +1,9 @@
 /// <reference path="../../types.d.ts" />
 
-import React, { forwardRef, useEffect, useState } from 'react';
+import React, { forwardRef, useCallback, useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 import { useFetchSettings, useUpdateSettings } from '../../services/settings';
+import { getClientOrigin } from '../../utils/client/origin';
 import Icon from '../common/Icon';
 import NotificationSettings from './NotificationSettings';
 import ScraperSettings from './ScraperSettings';
@@ -48,7 +50,7 @@ const Settings = forwardRef<HTMLDivElement, SettingsProps>(({ closeSettings }:Se
    const [settingsError, setSettingsError] = useState<SettingsError|null>(null);
    const errorTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
    const { mutateAsync: updateMutateAsync, isLoading: isUpdating } = useUpdateSettings(() => {});
-   const { data: appSettings, isLoading } = useFetchSettings();
+   const { data: appSettings, isLoading, refetch: refetchSettings } = useFetchSettings();
    
    // Cleanup timeout on unmount
    useEffect(() => () => {
@@ -58,11 +60,52 @@ const Settings = forwardRef<HTMLDivElement, SettingsProps>(({ closeSettings }:Se
       }, []);
    useOnKey('Escape', closeSettings);
 
+   // Local edits must survive background refetches, so the server copy is only seeded on the first
+   // successful load and again after a successful save (see performUpdate).
+   const seedPendingRef = React.useRef(true);
    useEffect(() => {
-      if (appSettings && appSettings.settings) {
+      if (appSettings && appSettings.settings && seedPendingRef.current) {
+         seedPendingRef.current = false;
          setSettings(appSettings.settings);
       }
    }, [appSettings]);
+
+   // The Google Ads OAuth result arrives while the drawer is open (postMessage from the auth tab).
+   // The ?ads= redirect fallback is handled by pages/domains/index.tsx so it runs even with the drawer closed.
+   // The OAuth callback has already stored the new token on the server, so a refetch picks it up.
+   const handleAdwordsResult = useCallback((status: string | null | undefined, detail?: string | null) => {
+      if (status === 'success') {
+         toast('Google Ads has been integrated successfully!', { icon: '✔️' });
+         refetchSettings()
+            .then((result) => {
+               if (result.data?.settings) {
+                  setSettings(result.data.settings);
+               }
+            })
+            .catch(() => {
+               // Silently handle refetch errors
+            });
+      } else {
+         toast(detail || 'Google Ads integration failed. Please try again.', { icon: '⚠️' });
+      }
+   }, [refetchSettings]);
+
+   useEffect(() => {
+      if (typeof window === 'undefined') { return undefined; }
+      const expectedOrigin = getClientOrigin();
+
+      const handleIntegrationMessage = (event: MessageEvent) => {
+         if (event.origin !== expectedOrigin) { return; }
+         const data = event.data as { type?: string; status?: string; message?: string };
+         if (!data || data.type !== 'adwordsIntegrated') { return; }
+         handleAdwordsResult(data.status, data.message);
+      };
+
+      window.addEventListener('message', handleIntegrationMessage);
+      return () => {
+         window.removeEventListener('message', handleIntegrationMessage);
+      };
+   }, [handleAdwordsResult]);
 
    useEffect(() => {
       if (!appSettings?.settings) {
@@ -140,6 +183,7 @@ const Settings = forwardRef<HTMLDivElement, SettingsProps>(({ closeSettings }:Se
          // so it is left out and the server keeps the stored token.
          const { adwords_refresh_token: _storedRefreshToken, ...settingsToSave } = sanitizedSettings;
          await updateMutateAsync(settingsToSave as SettingsType);
+         seedPendingRef.current = true;
          // If Scraper is updated, refresh the page when enabling from a disabled state.
          if (previousScraperType === 'none' && scraper_type !== 'none') {
             window.location.reload();

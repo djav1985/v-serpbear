@@ -78,22 +78,37 @@ const getRetryStatus = async (req: NextApiRequest, res: NextApiResponse) => {
    }
 };
 
+/**
+ * Keyword IDs to refresh: the JSON body `ids` array when sent (null if any item is not a positive integer),
+ * otherwise the legacy comma-separated `id` query.
+ */
+const readKeywordIds = (req: NextApiRequest): number[] | null => {
+   if (req.body?.ids !== undefined) {
+      const ids: unknown = req.body.ids;
+      const valid = Array.isArray(ids) && ids.every((id) => Number.isSafeInteger(id) && id > 0);
+      return valid ? Array.from(new Set(ids as number[])) : null;
+   }
+   return typeof req.query.id === 'string' ? parseKeywordIds(req.query.id) : null;
+};
+
 const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
-   if (!req.query.id || typeof req.query.id !== 'string') {
+   const idsInBody = req.body?.ids !== undefined;
+   if (!idsInBody && (!req.query.id || typeof req.query.id !== 'string')) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'keyword ID is Required!', requestId));
    }
-   if (req.query.id === 'all' && !req.query.domain) {
+   const refreshAll = !idsInBody && req.query.id === 'all';
+   if (refreshAll && !req.query.domain) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'When Refreshing all Keywords of a domian, the Domain name Must be provided.', requestId));
    }
-   const keywordIDs = req.query.id !== 'all' ? parseKeywordIds(req.query.id as string) : [];
+   const keywordIDs = refreshAll ? [] : readKeywordIds(req);
    const { domain } = req.query || {};
    if (domain !== undefined && typeof domain !== 'string') {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'domain must be a single domain name.', requestId));
    }
    logger.debug('keywordIDs: ', { data: keywordIDs });
 
-   if (req.query.id !== 'all' && (!keywordIDs || keywordIDs.length === 0)) {
+   if (!refreshAll && (!keywordIDs || keywordIDs.length === 0)) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'No valid keyword IDs provided', requestId));
    }
 
@@ -110,7 +125,7 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse) => 
          logger.debug('Scraper not configured');
          return res.status(400).json(errorResponse('BAD_REQUEST', 'Scraper has not been set up yet.', requestId));
       }
-      const query = req.query.id === 'all' && domain ? { domain } : { ID: { [Op.in]: keywordIDs } };
+      const query = refreshAll && domain ? { domain } : { ID: { [Op.in]: keywordIDs } };
       const keywordQueries: Keyword[] = await Keyword.findAll({ where: query });
 
       if (keywordQueries.length === 0) {
@@ -214,7 +229,7 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse) => 
 
          // Generate unique task ID using crypto to prevent collisions in concurrent scenarios
          const uniqueId = crypto.randomUUID();
-         const taskId = req.query.id === 'all'
+         const taskId = refreshAll
             ? `manual-refresh-domain-${domain}-${uniqueId}`
             : `manual-refresh-ids-${keywordIdsToRefresh.join(',')}-${uniqueId}`;
          logger.info(`Manual refresh enqueued: ${taskId} (${keywordsToStart.length} keywords)`, { domains: domainsToRefresh, skipped });

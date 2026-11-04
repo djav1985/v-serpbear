@@ -154,7 +154,8 @@ export const formatKeywordIdeaRow = ({
  * @param {string} fileName - The file Name for the downlaoded csv file.
  */
 const downloadCSV = (csvHeader:string, csvBody:string, fileName:string) => {
-   const blob = new Blob([csvHeader + csvBody], { type: 'text/csv;charset=utf-8;' });
+   // UTF-8 BOM so spreadsheet apps detect the encoding and show non-ASCII keywords correctly
+   const blob = new Blob(['﻿' + csvHeader + csvBody], { type: 'text/csv;charset=utf-8;' });
    const url = URL.createObjectURL(blob);
    const link = document.createElement('a');
    link.setAttribute('href', url);
@@ -163,6 +164,7 @@ const downloadCSV = (csvHeader:string, csvBody:string, fileName:string) => {
    document.body.appendChild(link);
    link.click();
    document.body.removeChild(link);
+   URL.revokeObjectURL(url);
 };
 
 export default exportCSV;

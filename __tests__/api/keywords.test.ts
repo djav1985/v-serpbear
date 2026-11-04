@@ -821,4 +821,23 @@ describe('DELETE /api/keywords retry queue cleanup', () => {
     expect(retryQueueManager.removeBatch).toHaveBeenCalledWith(new Set([1, 2]));
     expect(res.status).toHaveBeenCalledWith(200);
   });
+
+  it('reads keyword IDs from the JSON body and rejects non-integer body IDs', async () => {
+    verifyUserMock.mockReturnValue('authorized');
+    keywordMock.findAll.mockResolvedValue([{ ID: 7, domain: 'example.com' }]);
+    keywordMock.destroy.mockResolvedValue(1);
+
+    const req = { method: 'DELETE', query: {}, body: { ids: [7] }, headers: {} } as unknown as NextApiRequest;
+    const res = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
+    await handler(req, res);
+
+    expect(keywordMock.destroy).toHaveBeenCalledWith({ where: { ID: { [Op.in]: [7] } } });
+    expect(res.status).toHaveBeenCalledWith(200);
+
+    const badReq = { method: 'DELETE', query: {}, body: { ids: [7, 'abc'] }, headers: {} } as unknown as NextApiRequest;
+    const badRes = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
+    await handler(badReq, badRes);
+
+    expect(badRes.status).toHaveBeenCalledWith(400);
+  });
 });

@@ -1,4 +1,4 @@
-import { useQuery } from 'react-query';
+import { useMutation, useQuery } from 'react-query';
 import { useFetchKeywordIdeas } from '../../services/adwords';
 
 const mockOrigin = 'http://localhost:3000';
@@ -9,9 +9,11 @@ jest.mock('../../utils/client/origin', () => ({
 
 jest.mock('react-query', () => ({
    useQuery: jest.fn(),
+   useMutation: jest.fn(),
+   useQueryClient: jest.fn(),
 }));
 
-import { fetchKeywords } from '../../services/keywords';
+import { fetchKeywords, useDeleteKeywords } from '../../services/keywords';
 
 // ---------------------------------------------------------------------------
 // useFetchKeywordIdeas
@@ -171,5 +173,31 @@ describe('fetchKeywords normalisation', () => {
 
       await expect(fetchKeywords({ push: jest.fn() } as any, 'example.com')).rejects.toThrow('Server error (500): Please try again later');
       expect(textMock).toHaveBeenCalled();
+   });
+});
+
+describe('useDeleteKeywords request shape', () => {
+   it('sends the keyword IDs in a DELETE JSON body, not the URL', async () => {
+      const fetchMock = jest.fn().mockResolvedValue({
+         status: 200,
+         headers: { get: jest.fn().mockReturnValue('application/json') },
+         json: jest.fn().mockResolvedValue({ keywordsRemoved: 2 }),
+      });
+      const originalFetch = global.fetch;
+      global.fetch = fetchMock as unknown as typeof global.fetch;
+      (useMutation as unknown as jest.Mock).mockClear();
+
+      try {
+         useDeleteKeywords(() => {});
+         const mutationFn = (useMutation as unknown as jest.Mock).mock.calls[0][0];
+         await mutationFn([1, 2]);
+
+         expect(fetchMock).toHaveBeenCalledWith(
+            `${mockOrigin}/api/keywords`,
+            expect.objectContaining({ method: 'DELETE', body: JSON.stringify({ ids: [1, 2] }) }),
+         );
+      } finally {
+         global.fetch = originalFetch;
+      }
    });
 });

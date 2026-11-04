@@ -48,20 +48,28 @@ export function useClearFailedQueue(onSuccess: () => void) {
    });
 }
 
+// Upper bound on how long the retry status poll runs before giving up.
+export const RETRY_POLL_MAX_DURATION_MS = 30 * 60 * 1000;
+const RETRY_POLL_INTERVAL_MS = 1000;
+
 export function useRetryFailedQueue() {
    const queryClient = useQueryClient();
    return useMutation(async (keywordIDs: number[]) => {
       const ids = keywordIDs.join(',');
       await apiPost(`/api/refresh?id=${ids}`, {});
 
+      const startedAt = Date.now();
       let pendingKeywordIDs = keywordIDs;
       while (pendingKeywordIDs.length > 0) {
-         const status = await apiGet<{ keywords: Array<{ ID: number; updating: boolean }> }>(
+         if (Date.now() - startedAt > RETRY_POLL_MAX_DURATION_MS) {
+            throw new Error('Keyword retries are still running. Check the keywords later.');
+         }
+         const status = await apiGet<{ keywords?: Array<{ ID: number; updating: boolean }> }>(
             `/api/refresh?status=retry&id=${pendingKeywordIDs.join(',')}`,
          );
-         pendingKeywordIDs = status.keywords.filter((keyword) => keyword.updating).map((keyword) => keyword.ID);
+         pendingKeywordIDs = (status?.keywords ?? []).filter((keyword) => keyword.updating).map((keyword) => keyword.ID);
          if (pendingKeywordIDs.length > 0) {
-            await new Promise<void>((resolve) => setTimeout(resolve, 1000));
+            await new Promise<void>((resolve) => setTimeout(resolve, RETRY_POLL_INTERVAL_MS));
          }
       }
    }, {

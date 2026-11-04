@@ -456,10 +456,13 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
                            <div className="mb-4 flex justify-between items-center w-full">
                               <SelectField
                                  label='Number of Pages to Scrape'
-                                 options={(Array.from({ length: 10 }, (_, i) => (
-                                    { label: `${i + 1} Page${i > 0 ? 's' : ''}`, value: String(i + 1) }
-                                 )) as SelectionOption[])}
-                                 selected={[String(domainSettings.scrape_pagination_limit || 5)]}
+                                 options={([
+                                    { label: 'Global default', value: '0' },
+                                    ...Array.from({ length: 10 }, (_, i) => (
+                                       { label: `${i + 1} Page${i > 0 ? 's' : ''}`, value: String(i + 1) }
+                                    )),
+                                 ] as SelectionOption[])}
+                                 selected={[String(domainSettings.scrape_pagination_limit || 0)]}
                                  defaultLabel="Select Page Count"
                                  updateField={(updated:string[]) => updated[0] && setDomainSettings({ ...domainSettings, scrape_pagination_limit: parseInt(updated[0], 10) })}
                                  multiple={false}

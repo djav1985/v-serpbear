@@ -240,6 +240,10 @@ export const IdeasSortKeywords = (theKeywords: IdeaKeyword[], sortBy: string): I
    const keywordsToSort = [...theKeywords];
 
    switch (sortBy) {
+      case 'alpha_asc':
+         return sortByStringField(keywordsToSort, (item) => item.keyword.toLowerCase(), 'asc');
+      case 'alpha_desc':
+         return sortByStringField(keywordsToSort, (item) => item.keyword.toLowerCase(), 'desc');
       case 'vol_asc':
          return keywordsToSort.sort((a: IdeaKeyword, b: IdeaKeyword) => (a.avgMonthlySearches ?? 0) - (b.avgMonthlySearches ?? 0));
       case 'vol_desc':

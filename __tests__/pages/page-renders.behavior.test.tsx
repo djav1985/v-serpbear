@@ -12,6 +12,12 @@ const mockRouter = {
    query: {} as Record<string, string>,
 };
 
+// Pages are wrapped in withAuth; these render tests cover page content, not the auth gate.
+jest.mock('../../hooks/useAuth', () => ({
+   ...jest.requireActual('../../hooks/useAuth'),
+   withAuth: (Component: any) => Component,
+}));
+
 jest.mock('next/router', () => ({
    useRouter: () => mockRouter,
 }));

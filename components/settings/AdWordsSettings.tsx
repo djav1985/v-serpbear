@@ -1,9 +1,8 @@
 /// <reference path="../../types.d.ts" />
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import toast from 'react-hot-toast';
 import { useMutateKeywordsVolume, useTestAdwordsIntegration } from '../../services/adwords';
-import { getClientOrigin } from '../../utils/client/origin';
 import Icon from '../common/Icon';
 import SecretField from '../common/SecretField';
 
@@ -15,10 +14,12 @@ type AdWordsSettingsProps = {
    },
    updateSettings: (key: string, value: string | number | boolean) => void,
    performUpdate: () => void | Promise<void>,
-   closeSettings: () => void
+   // Kept for IntegrationSettings' prop wiring. Not called: closing the drawer would unmount the
+   // OAuth result handling in Settings before the callback arrives.
+   closeSettings?: () => void
 }
 
-const AdWordsSettings = ({ settings, settingsError, updateSettings, performUpdate, closeSettings }:AdWordsSettingsProps) => {
+const AdWordsSettings = ({ settings, settingsError, updateSettings, performUpdate }:AdWordsSettingsProps) => {
    const {
       adwords_client_id = '',
       adwords_client_secret = '',
@@ -33,67 +34,6 @@ const AdWordsSettings = ({ settings, settingsError, updateSettings, performUpdat
    const cloudProjectIntegrated = adwords_client_id && adwords_client_secret && adwords_refresh_token;
    const hasAllCredentials = adwords_client_id && adwords_client_secret && adwords_refresh_token && adwords_developer_token && adwords_account_id;
 
-   useEffect(() => {
-      if (typeof window === 'undefined') { return undefined; }
-
-      const expectedOrigin = getClientOrigin();
-
-      const handleIntegrationMessage = (event: MessageEvent) => {
-         if (event.origin !== expectedOrigin) { return; }
-         const data = event.data as { type?: string; status?: string; message?: string };
-         if (!data || data.type !== 'adwordsIntegrated') { return; }
-
-         if (data.status === 'success') {
-            toast('Google Ads has been integrated successfully!', { icon: '✔️' });
-            if (performUpdate) {
-               Promise.resolve(performUpdate()).catch((_error) => {
-                  // Silently handle update errors
-               });
-            }
-         } else {
-            const detail = data.message || 'Google Ads integration failed. Please try again.';
-            toast(detail, { icon: '⚠️' });
-         }
-      };
-
-      window.addEventListener('message', handleIntegrationMessage);
-      return () => {
-         window.removeEventListener('message', handleIntegrationMessage);
-      };
-   }, [performUpdate]);
-
-   // Handle URL parameters for fallback integration results
-   useEffect(() => {
-      if (typeof window === 'undefined') { return; }
-
-      const urlParams = new URLSearchParams(window.location.search);
-      const adsParam = urlParams.get('ads');
-      const status = urlParams.get('status');
-      const detail = urlParams.get('detail');
-
-      // Only process if this is an AdWords integration redirect
-      if (adsParam === 'integrated' && status) {
-         if (status === 'success') {
-            toast('Google Ads has been integrated successfully!', { icon: '✔️' });
-            if (performUpdate) {
-               Promise.resolve(performUpdate()).catch((_error) => {
-                  // Silently handle update errors
-               });
-            }
-         } else {
-            const errorMessage = detail || 'Google Ads integration failed. Please try again.';
-            toast(errorMessage, { icon: '⚠️' });
-         }
-
-         // Clean up URL parameters after processing
-         const url = new URL(window.location.href);
-         url.searchParams.delete('ads');
-         url.searchParams.delete('status');
-         url.searchParams.delete('detail');
-         window.history.replaceState({}, document.title, url.toString());
-      }
-   }, [performUpdate]);
-
    const updateAndAuthenticate = async () => {
       if (adwords_client_id && adwords_client_secret) {
          if (performUpdate) {
@@ -106,7 +46,6 @@ const AdWordsSettings = ({ settings, settingsError, updateSettings, performUpdat
             return;
          }
          window.open(result.authUrl, '_blank');
-         closeSettings();
       }
    };
 

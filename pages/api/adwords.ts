@@ -54,7 +54,7 @@ const respondWithIntegrationResult = (
    const origin = getTrustedOrigin(req);
    const status = success ? 'success' : 'error';
    const payload = { type: 'adwordsIntegrated', status, message };
-   const redirectUrl = `${origin}/settings?ads=integrated&status=${status}${message ? `&detail=${encodeURIComponent(message)}` : ''}`;
+   const redirectUrl = `${origin}/domains?ads=integrated&status=${status}${message ? `&detail=${encodeURIComponent(message)}` : ''}`;
 
    const html = `<!DOCTYPE html>
 <html lang="en">

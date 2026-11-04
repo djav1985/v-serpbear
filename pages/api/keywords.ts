@@ -59,6 +59,25 @@ const sanitizeTagList = (raw: unknown): string[] => Array.from(new Set(
       .filter((tag) => tag.length > 0),
 )).sort();
 
+/** True when a bulk request names keywords, in the JSON body `ids` array or the legacy comma-separated `id` query. */
+const hasKeywordIdInput = (req: NextApiRequest): boolean => (
+   req.body?.ids !== undefined || (typeof req.query.id === 'string' && req.query.id.length > 0)
+);
+
+/**
+ * Keyword IDs for a bulk request. The body `ids` array wins; it returns null when any item is not a positive
+ * integer. The legacy `id` query keeps its old lenient parsing, so bad items are dropped.
+ */
+const readKeywordIds = (req: NextApiRequest): number[] | null => {
+   if (req.body?.ids !== undefined) {
+      const ids: unknown = req.body.ids;
+      const valid = Array.isArray(ids) && ids.every((id) => Number.isSafeInteger(id) && id > 0);
+      return valid ? Array.from(new Set(ids as number[])) : null;
+   }
+   const raw = typeof req.query.id === 'string' ? req.query.id : '';
+   return raw.split(',').map((item) => parseInt(item, 10)).filter((id) => Number.isInteger(id) && id > 0);
+};
+
 const getKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
    if (!req.query.domain || typeof req.query.domain !== 'string') {
@@ -401,17 +420,14 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
 
 const deleteKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
-   if (!req.query.id || typeof req.query.id !== 'string') {
+   if (!hasKeywordIdInput(req)) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'keyword ID is Required!', requestId));
    }
-   logger.debug('req.query.id: ', { data: req.query.id });
+   logger.debug('keyword IDs: ', { data: req.body?.ids ?? req.query.id });
 
    try {
-      const keywordsToRemove = (req.query.id as string).split(',').map((item) => {
-         const id = parseInt(item, 10);
-         return isNaN(id) ? 0 : id;
-      }).filter(id => id > 0);
-      
+      const keywordsToRemove = readKeywordIds(req) ?? [];
+
       if (keywordsToRemove.length === 0) {
          return res.status(400).json(errorResponse('BAD_REQUEST', 'No valid keyword IDs provided', requestId));
       }
@@ -445,14 +461,14 @@ const deleteKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
 
 const updateKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
-   if (!req.query.id || typeof req.query.id !== 'string') {
+   if (!hasKeywordIdInput(req)) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'keyword ID is Required!', requestId));
    }
    if (req.body.sticky === undefined && req.body.tags === undefined && req.body.location === undefined) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Keyword update payload is required.', requestId));
    }
-   // Drop anything that is not a positive ID, so NaN and 0 never reach the database query
-   const keywordIDs = (req.query.id as string).split(',').map((item) => parseInt(item, 10)).filter((id) => Number.isInteger(id) && id > 0);
+   // Anything that is not a positive ID is rejected or dropped, so NaN and 0 never reach the database query
+   const keywordIDs = readKeywordIds(req) ?? [];
    if (keywordIDs.length === 0) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'No valid keyword IDs provided', requestId));
    }

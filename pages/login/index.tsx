@@ -17,12 +17,14 @@ const Login: NextPage = () => {
    const [error, setError] = useState<LoginError|null>(null);
    const [username, setUsername] = useState<string>('');
    const [password, setPassword] = useState<string>('');
+   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
    const router = useRouter();
    const queryClient = useQueryClient();
    const { branding } = useBranding();
    const { platformName } = branding;
 
    const loginuser = async () => {
+      if (isSubmitting) { return; }
       let loginError: LoginError |null = null;
       if (!username || !password) {
          if (!username && !password) {
@@ -37,6 +39,7 @@ const Login: NextPage = () => {
          setError(loginError);
          setTimeout(() => { setError(null); }, 3000);
       } else {
+         setIsSubmitting(true);
          try {
             await apiPost<{ success: boolean }>('/api/login', { username, password });
             // Write the authenticated state straight into the cache. A cached "logged out" entry
@@ -51,6 +54,8 @@ const Login: NextPage = () => {
             // (prevents username enumeration), so no field-level error type is set here.
             setError({ type: '', msg });
             setTimeout(() => { setError(null); }, 3000);
+            // On success the page navigates away, so the button stays disabled until then.
+            setIsSubmitting(false);
          }
       }
    };
@@ -68,7 +73,9 @@ const Login: NextPage = () => {
                <h3 className="py-7 text-2xl font-bold text-blue-700 text-center">
                   <BrandTitle markSize={30} />
                </h3>
-               <div className='relative bg-[white] rounded-md text-sm border p-5'>
+               <form
+               className='relative bg-[white] rounded-md text-sm border p-5'
+               onSubmit={(event) => { event.preventDefault(); loginuser(); }}>
                   <div className="settings__section__input mb-5">
                      <label className={labelStyle}>Username</label>
                      <input
@@ -94,9 +101,10 @@ const Login: NextPage = () => {
                      />
                   </div>
                   <button
-                  onClick={() => loginuser()}
-                  className={'py-3 px-5 w-full rounded cursor-pointer bg-blue-700 text-white font-semibold text-sm'}>
-                     Login
+                  type="submit"
+                  disabled={isSubmitting}
+                  className={'py-3 px-5 w-full rounded cursor-pointer bg-blue-700 text-white font-semibold text-sm disabled:cursor-not-allowed disabled:opacity-60'}>
+                     {isSubmitting ? 'Logging in…' : 'Login'}
                   </button>
                   {error && error.msg
                   && <div
@@ -104,7 +112,7 @@ const Login: NextPage = () => {
                         {error.msg}
                      </div>
                   }
-               </div>
+               </form>
             </div>
          </div>
 

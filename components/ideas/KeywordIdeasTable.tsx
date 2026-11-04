@@ -1,6 +1,5 @@
 import { useRouter } from 'next/router';
 import React, { useState, useMemo, useCallback } from 'react';
-import { useQuery } from 'react-query';
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
 import { useAddKeywords, useFetchKeywords } from '../../services/keywords';
 import { useEmailKeywordIdeas } from '../../services/ideas';
@@ -18,7 +17,7 @@ import { IdeasSortKeywords, IdeasfilterKeywords } from '../../utils/client/sortF
 import IdeasFilters from './IdeasFilter';
 import { useMutateFavKeywordIdeas } from '../../services/adwords';
 import IdeaDetails from './IdeaDetails';
-import { fetchDomains } from '../../services/domains';
+import { useFetchDomains } from '../../services/domains';
 import SelectField from '../common/SelectField';
 import toast from 'react-hot-toast';
 
@@ -37,6 +36,34 @@ type IdeasKeywordsTableProps = {
    setShowFavorites: (show: boolean) => void,
    isAdwordsIntegrated: boolean,
 }
+
+type IdeaRowData = {
+   items: IdeaKeywordWithTracking[],
+   selectedKeywords: string[],
+   favoriteIDs: string[],
+   selectKeyword: (keywordID: string, isTrackedKeyword?: boolean) => void,
+   favoriteKeyword: (keywordID: string) => void,
+   showKeywordDetails: (keyword: IdeaKeywordWithTracking) => void,
+}
+
+// Defined outside the component so react-window does not remount rows on every render.
+const IdeaRow = ({ data, index, style }: ListChildComponentProps<IdeaRowData>) => {
+   const { items, selectedKeywords, favoriteIDs, selectKeyword, favoriteKeyword, showKeywordDetails } = data;
+   const keyword = items[index];
+   return (
+      <KeywordIdea
+      style={style}
+      selected={selectedKeywords.includes(keyword.uid)}
+      selectKeyword={selectKeyword}
+      favoriteKeyword={() => favoriteKeyword(keyword.uid)}
+      showKeywordDetails={() => showKeywordDetails(keyword)}
+      isFavorite={favoriteIDs.includes(keyword.uid)}
+      keywordData={keyword}
+      lastItem={index === (items.length - 1)}
+      isTracked={keyword.isTracked}
+      />
+   );
+};
 
 const IdeasKeywordsTable = ({
    domain, keywords = [], favorites = [], isLoading = true, isAdwordsIntegrated = true, setShowFavorites,
@@ -89,11 +116,7 @@ const IdeasKeywordsTable = ({
    // Tracked only when every selected device already has it; a partly tracked idea can still add the missing device
    const isIdeaTracked = useCallback((idea: IdeaKeyword) => trackedDevicesToCheck.every((device) => trackedKeywordLookup[`${idea.keyword}:${idea.country}:${device}`]), [trackedDevicesToCheck, trackedKeywordLookup]);
 
-   const { data: domainsData } = useQuery(
-      ['domains', false],
-      () => fetchDomains(router, false),
-      { enabled: selectedKeywords.length > 0, retry: false },
-   );
+   const { data: domainsData } = useFetchDomains(router, false);
    const theDomains: DomainType[] = (domainsData && domainsData.domains) || [];
 
    useWindowResize(() => setListHeight(window.innerHeight - (isMobile ? 200 : 400)));
@@ -203,29 +226,21 @@ const IdeasKeywordsTable = ({
    const emailButtonDisabled = isEmailing;
    const selectionBannerText = isResearchPage ? 'Select Domain For Action' : '';
 
-   const Row = ({ data, index, style }:ListChildComponentProps) => {
-      const keyword: IdeaKeywordWithTracking = data[index];
-      return (
-         <KeywordIdea
-         key={keyword.uid}
-         style={style}
-         selected={selectedKeywords.includes(keyword.uid)}
-         selectKeyword={selectKeyword}
-         favoriteKeyword={() => favoriteKeyword(keyword.uid)}
-         showKeywordDetails={() => setShowKeyDetails(keyword)}
-         isFavorite={favoriteIDs.includes(keyword.uid)}
-         keywordData={keyword}
-         lastItem={index === (finalKeywords.length - 1)}
-         isTracked={keyword.isTracked}
-         />
-      );
+   const rowData: IdeaRowData = {
+      items: finalKeywords,
+      selectedKeywords,
+      favoriteIDs,
+      selectKeyword,
+      favoriteKeyword,
+      showKeywordDetails: (keyword) => setShowKeyDetails(keyword),
    };
 
    let keywordsContent: JSX.Element | null = null;
    if (!isLoading && finalKeywords && finalKeywords.length > 0) {
+      // Layout is driven only by isMobile (<768px), matching the breakpoint of the header below (md:).
       if (isMobile) {
          keywordsContent = (
-            <div className='block sm:hidden'>
+            <div>
                {finalKeywords.map((keyword, index) => (
                   <KeywordIdea
                      key={keyword.uid}
@@ -244,17 +259,17 @@ const IdeasKeywordsTable = ({
          );
       } else {
          keywordsContent = (
-            <div className='hidden sm:block'>
+            <div>
                <List
                innerElementType="div"
-               itemData={finalKeywords}
+               itemData={rowData}
                itemCount={finalKeywords.length}
-               itemSize={isMobile ? 100 : 57}
+               itemSize={57}
                height={listHeight}
                width={'100%'}
                className={'styled-scrollbar'}
                >
-                  {Row}
+                  {IdeaRow}
                </List>
             </div>
          );
@@ -322,12 +337,13 @@ const IdeasKeywordsTable = ({
                   sortBy={sortBy}
                   keywords={keywords}
                   favorites={favorites}
-                  showFavorites={(show:boolean) => { setShowFavorites(show); }}
+                  showFavorites={showFavorites}
+                  setShowFavorites={setShowFavorites}
                />
             )}
             <div className='domkeywordsTable domkeywordsTable--sckeywords styled-scrollbar w-full overflow-auto min-h-[60vh]'>
                <div className=' lg:min-w-[800px]'>
-                  <div className={`domKeywords_head domKeywords_head--${sortBy} hidden sm:flex p-3 px-6 bg-[#FCFCFF]
+                  <div className={`domKeywords_head domKeywords_head--${sortBy} hidden md:flex p-3 px-6 bg-[#FCFCFF]
                    text-gray-600 justify-between items-center font-semibold border-y`}>
                      <span className='domKeywords_head_keyword flex-1 basis-20 w-auto '>
                      {finalKeywords.length > 0 && (
