@@ -63,6 +63,8 @@ const SelectField = (props: SelectFieldProps) => {
    }, [showOptions]);
 
    const visibleOptions = options.length > 20 && filterInput ? filterdOptions : options;
+   // A caller-supplied emptyMsg replaces the default "No options" row when there are no options at all.
+   const showEmptyMsg = Boolean(emptyMsg) && options.length === 0;
 
    const selectedLabels = useMemo(() => options.reduce((acc:string[], item:SelectionOption) :string[] => selected.includes(item.value) ? [...acc, item.label] : [...acc], []), [selected, options]);
 
@@ -122,9 +124,10 @@ const SelectField = (props: SelectFieldProps) => {
                      />
                   </div>
                )}
+               {showEmptyMsg && <p className='p-4'>{emptyMsg}</p>}
                <ul>
-                  {visibleOptions.length === 0 && (
-                     <li className='select-none px-3 py-2 text-gray-400 cursor-not-allowed' aria-disabled='true'>
+                  {visibleOptions.length === 0 && !showEmptyMsg && (
+                     <li className='select-none px-3 py-2 text-gray-400 cursor-not-allowed'>
                         No options
                      </li>
                   )}
@@ -150,7 +153,6 @@ const SelectField = (props: SelectFieldProps) => {
                      );
                   })}
                </ul>
-               {emptyMsg && options.length === 0 && <p className='p-4'>{emptyMsg}</p>}
             </div>
          )}
        </div>
