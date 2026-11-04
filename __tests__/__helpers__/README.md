@@ -51,8 +51,7 @@ Use the **contract + delta** pattern when multiple implementations share the sam
 ```
 __tests__/scrapers/
   scrapers.matrix.test.ts   ← contract: runs runScraperURLContracts() against all providers
-  serpapi.test.ts            ← delta:    SerpApi-specific URL params & map-pack extraction
-  serper.test.ts             ← delta:    Serper-specific location & header logic
+  providers.delta.test.ts    ← delta:    hasdata, serper, serpapi, serply & searchapi specifics
   ...
 ```
 
@@ -101,7 +100,6 @@ it('returns 401 when not authorised', async () => {
 | `utils/scraper.test.ts` (extended) | scraperHelpers.test.ts, scraperError.test.ts, google-filter.test.ts |
 | `utils/client/apiClient.test.ts` (extended) | utils/client/fetchWithError.test.ts |
 | `utils/client/client-utils.behavior.test.ts` | chartBounds.test.ts, validators.test.ts, helpers.test.ts |
-| `utils/codebase-contracts.behavior.test.ts` | breakpointConsistency.test.ts, mapPackScraperSupport.test.ts |
 | `utils/refresh.core.behavior.test.ts` (extended) | sync-verification.test.ts |
 | `services/domains.behavior.test.ts` | domains.env.test.ts, domains.fetchDomain.test.ts, domains.screenshot-cache.test.ts |
 | `services/keywords.behavior.test.ts` | keywordIdeasFetch.test.ts, keywords.fetchKeywords.test.ts |
@@ -248,6 +246,6 @@ When adding new test helpers:
 
 1. Create the helper function in an appropriate file
 2. Export it from `index.ts`
-3. Add tests in `helpers.test.ts`
+3. Add tests for the helper in the suite that exercises it (there is no separate helper test file)
 4. Document it in this README
 5. Ensure it follows the existing patterns

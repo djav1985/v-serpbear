@@ -179,13 +179,6 @@ class RetryQueueManager {
    }
 
    /**
-    * Get the current retry queue (for reading only)
-    */
-   async getQueue(): Promise<number[]> {
-      return this.withLock(async () => this.readQueue());
-   }
-
-   /**
     * Read the queue without taking the file lock. Writes go through atomicWriteFile (write to a temp file,
     * then rename), so a read always sees either the old or the new complete file. Use this on hot read
     * paths such as loading settings, where taking the lock would make every request queue behind refreshes.

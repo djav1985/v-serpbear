@@ -37,7 +37,7 @@ const acquireLock = (): Promise<() => void> => {
 };
 
 /**
- * The throttling rules, applied to one domain's cache entry. Shared by canSendEmail and reserveEmailSend.
+ * The throttling rules, applied to one domain's cache entry. Used by reserveEmailSend.
  */
 const throttleVerdict = (domainCache: EmailCache[string] | undefined, now: Date): { canSend: boolean; reason?: string } => {
    if (!domainCache) {
@@ -67,62 +67,6 @@ const throttleVerdict = (domainCache: EmailCache[string] | undefined, now: Date)
    }
 
    return { canSend: true };
-};
-
-/**
- * Check if email can be sent based on throttling rules
- */
-export const canSendEmail = async (domain: string): Promise<{ canSend: boolean; reason?: string }> => {
-   let releaseLock: (() => void) | undefined;
-   try {
-      releaseLock = await acquireLock();
-      const cache = await getEmailCache();
-      return throttleVerdict(cache[domain], new Date());
-   } catch (error) {
-      logger.error('Error checking email throttle cache, allowing email', error instanceof Error ? error : new Error(String(error)));
-      return { canSend: true };
-   } finally {
-      if (releaseLock) {
-         releaseLock();
-      }
-   }
-};
-
-/**
- * Record that an email was sent
- */
-export const recordEmailSent = async (domain: string): Promise<void> => {
-   let releaseLock: (() => void) | undefined;
-   try {
-      releaseLock = await acquireLock();
-      const cache = await getEmailCache();
-      const now = new Date();
-      const today = now.toDateString();
-      
-      const domainCache = cache[domain];
-      let count = 1;
-      
-      if (domainCache) {
-         const lastSentToday = new Date(domainCache.lastSent).toDateString();
-         // If same day, increment count
-         if (lastSentToday === today) {
-            count = domainCache.count + 1;
-         }
-      }
-      
-      cache[domain] = {
-         lastSent: now.toISOString(),
-         count
-      };
-      
-      await saveEmailCache(cache);
-   } catch (error) {
-      logger.error('Error recording email sent', error instanceof Error ? error : new Error(String(error)));
-   } finally {
-      if (releaseLock) {
-         releaseLock();
-      }
-   }
 };
 
 /**
