@@ -202,6 +202,10 @@ const addDomain = async (req: NextApiRequest, res: NextApiResponse) => {
          const formattedDomains = newDomains.map((el) => normalizeDomainBooleans(el.get({ plain: true }) as DomainType));
          return res.status(201).json({ domains: formattedDomains });
       } catch (error) {
+         // A concurrent request can add the same domain between the check above and the insert
+         if (error instanceof Error && error.name === 'SequelizeUniqueConstraintError') {
+            return res.status(409).json(errorResponse('CONFLICT', 'Already tracked: this domain was added by another request.', requestId));
+         }
          logger.error('Adding New Domain ', error instanceof Error ? error : new Error(String(error)));
          return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error Adding Domain.', requestId, error instanceof Error ? error.message : String(error)));
       }

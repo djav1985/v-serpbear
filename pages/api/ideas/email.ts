@@ -80,14 +80,13 @@ const emailKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => {
       const normalizedSettings: SettingsType = trimStringProperties({ ...settings });
       const sanitizedHost = sanitizeSmtpHost(normalizedSettings.smtp_server);
       const sanitizedPort = normalizedSettings.smtp_port;
-      const sanitizedDefaultEmail = normalizedSettings.notification_email;
 
       normalizedSettings.smtp_server = sanitizedHost;
       normalizedSettings.smtp_port = sanitizedPort;
-      normalizedSettings.notification_email = sanitizedDefaultEmail;
       normalizedSettings.smtp_tls_servername = sanitizeSmtpHost(normalizedSettings.smtp_tls_servername);
 
-      if (!sanitizedHost || !sanitizedPort || !sanitizedDefaultEmail) {
+      // Recipients are set per domain (notification_emails), so only the SMTP server is needed here
+      if (!sanitizedHost || !sanitizedPort) {
          return res.status(400).json(errorResponse('BAD_REQUEST', 'SMTP has not been setup properly!', requestId));
       }
 

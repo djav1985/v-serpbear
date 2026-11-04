@@ -92,4 +92,14 @@ describe('parseKeywords', () => {
 
       expect(keyword.history7d).toEqual({});
    });
+
+   it('reads legacy unpadded history keys as padded keys, preferring an existing padded entry', () => {
+      const [parsed] = parseKeywords([buildKeyword({
+         history: JSON.stringify({ '2026-1-5': 9, '2026-01-05': 2, '2026-2-3': 4 }),
+         history7d: JSON.stringify({ '2026-1-5': 7 }),
+      }) as any]);
+
+      expect(parsed.history).toEqual({ '2026-01-05': 2, '2026-02-03': 4 });
+      expect(parsed.history7d).toEqual({ '2026-01-05': 7 });
+   });
 });

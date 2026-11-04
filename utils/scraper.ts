@@ -40,6 +40,10 @@ const getRetryDelay = (attempt: number, baseDelay: number = 1000): number => {
    return Math.min(exponentialDelay + jitter, 30000);
 };
 
+// The AbortController of each in-flight scraper request, looked up by its response. The request timer stops once
+// the headers arrive, so reading a stalled body needs the controller to cancel the connection instead of leaving it open.
+const requestControllers = new WeakMap<Response, AbortController>();
+
 /**
  * Creates a SERP Scraper client promise with enhanced error handling and retries
  */
@@ -92,6 +96,9 @@ export const getScraperClient = (
       headers,
       body: requestBody,
       signal: controller.signal,
+   }).then((response) => {
+      requestControllers.set(response, controller);
+      return response;
    }).finally(() => clearTimeout(timeoutId));
 
    return client;
@@ -126,8 +133,12 @@ const SCRAPER_BODY_TIMEOUT_MS = 30000;
 // Kept short enough for log lines and error messages, long enough to show what an error page said.
 const SCRAPER_ERROR_BODY_MAX_LENGTH = 500;
 
-const withTimeout = <T>(promise: Promise<T>, timeoutMs: number): Promise<T> => new Promise<T>((resolve, reject) => {
-   const timer = setTimeout(() => reject(new Error(`Scraper response body timed out after ${timeoutMs}ms`)), timeoutMs);
+const withTimeout = <T>(promise: Promise<T>, timeoutMs: number, onTimeout?: () => void): Promise<T> => new Promise<T>((resolve, reject) => {
+   const timer = setTimeout(() => {
+      // Cancel the underlying request too, so a stalled connection is closed and not just ignored
+      try { onTimeout?.(); } catch (_error) { /* aborting must never hide the timeout error */ }
+      reject(new Error(`Scraper response body timed out after ${timeoutMs}ms`));
+   }, timeoutMs);
    promise.then(
       (value) => { clearTimeout(timer); resolve(value); },
       (error) => { clearTimeout(timer); reject(error); },
@@ -140,7 +151,7 @@ const withTimeout = <T>(promise: Promise<T>, timeoutMs: number): Promise<T> => n
  */
 export const parseScraperResponse = async (response: Response): Promise<any> => {
    // The body can only be read once, so read the text first and parse it, instead of trying json() and then text().
-   const text = await withTimeout(response.text(), SCRAPER_BODY_TIMEOUT_MS);
+   const text = await withTimeout(response.text(), SCRAPER_BODY_TIMEOUT_MS, () => requestControllers.get(response)?.abort());
    try {
       const parsed = JSON.parse(text);
       if (parsed && typeof parsed === 'object') {

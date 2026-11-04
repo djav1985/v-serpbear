@@ -1,10 +1,9 @@
 /// <reference path="../../types.d.ts" />
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import jwt from 'jsonwebtoken';
 import Cookies from 'cookies';
 import { withApiLogging } from '../../utils/apiLogging';
-import verifyUser from '../../utils/verifyUser';
+import verifyUser, { verifySessionToken } from '../../utils/verifyUser';
 import { logger } from '../../utils/logger';
 import { errorResponse } from '../../utils/api/response';
 
@@ -30,7 +29,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       
       let user = 'authenticated_user';
       if (token && process.env.SECRET) {
-        const decoded = jwt.verify(token, process.env.SECRET) as JwtDecodedPayload;
+        const decoded = verifySessionToken(token);
         user = decoded?.user || user;
       }
 

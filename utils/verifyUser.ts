@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { timingSafeEqual } from 'crypto';
 import { logger } from './logger';
 import { getSessionVersion } from './sessionStore';
+import { redactUrl } from './logRedaction';
 
 /**
  * Compares two secrets in constant time. Returns false when either side is missing.
@@ -14,6 +15,24 @@ const safeEqual = (candidate: string, expected: string | undefined): boolean => 
    const expectedBuffer = Buffer.from(expected, 'utf8');
    if (candidateBuffer.length !== expectedBuffer.length) { return false; }
    return timingSafeEqual(candidateBuffer, expectedBuffer);
+};
+
+/**
+ * Verifies a login token: signature, expiry and the session version (a token issued before the last
+ * logout carries an older version and is rejected; a missing version counts as 0).
+ * Throws when the token is not valid. Use this everywhere a cookie token is checked, so a revoked
+ * token is rejected on every route.
+ */
+export const verifySessionToken = (token: string): JwtDecodedPayload => {
+   if (!process.env.SECRET) {
+      throw new Error('JWT SECRET not configured');
+   }
+   const decoded = jwt.verify(token, process.env.SECRET) as JwtDecodedPayload;
+   const tokenVersion = Number((decoded as { sv?: unknown })?.sv ?? 0);
+   if (tokenVersion !== getSessionVersion()) {
+      throw new Error('Session has been revoked');
+   }
+   return decoded;
 };
 
 /**
@@ -61,13 +80,8 @@ const verifyUser = (req: NextApiRequest, res: NextApiResponse): string => {
 
    if (token && process.env.SECRET) {
       try {
-         // Verify JWT token and extract user information
-         const decoded = jwt.verify(token, process.env.SECRET) as JwtDecodedPayload;
-         // Tokens issued before a logout carry an older version and are rejected (a missing version counts as 0)
-         const tokenVersion = Number((decoded as { sv?: unknown })?.sv ?? 0);
-         if (tokenVersion !== getSessionVersion()) {
-            throw new Error('Session has been revoked');
-         }
+         // Verify JWT token (including the session version) and extract user information
+         const decoded = verifySessionToken(token);
          authorized = 'authorized';
          authMethod = 'jwt_token';
          username = decoded?.user;
@@ -122,7 +136,7 @@ const verifyUser = (req: NextApiRequest, res: NextApiResponse): string => {
    if (authorized === 'authorized') {
       logger.debug('Authentication successful', {
          method: req.method,
-         url: req.url,
+         url: redactUrl(req.url),
          authMethod,
          username,
          duration
@@ -130,7 +144,7 @@ const verifyUser = (req: NextApiRequest, res: NextApiResponse): string => {
    } else {
       logger.warn('Authentication failed', {
          method: req.method,
-         url: req.url,
+         url: redactUrl(req.url),
          reason: authorized,
          duration
       });

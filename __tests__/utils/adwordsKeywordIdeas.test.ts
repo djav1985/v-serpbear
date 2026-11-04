@@ -254,3 +254,27 @@ describe('updateKeywordsVolumeData', () => {
     await expect(adwordsUtils.updateKeywordsVolumeData({ 3: 500 })).rejects.toThrow('db failure');
   });
 });
+
+describe('saving fetched keyword ideas', () => {
+  const creds = { client_id: 'a', client_secret: 'b', developer_token: 'c', account_id: '123-456-7890', refresh_token: 'e' } as any;
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    jest.restoreAllMocks();
+  });
+
+  it('fails instead of reporting success when the ideas could not be stored for the domain', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      status: 200,
+      headers: { get: jest.fn().mockReturnValue('application/json') },
+      json: async () => ({ access_token: 'token', results: [{ text: 'shoes', keywordIdeaMetrics: { avgMonthlySearches: 500, competition: 'LOW', competitionIndex: 10, monthlySearchVolumes: [] } }] }),
+      text: async () => JSON.stringify({ access_token: 'token', results: [{ text: 'shoes', keywordIdeaMetrics: { avgMonthlySearches: 500, competition: 'LOW', competitionIndex: 10, monthlySearchVolumes: [] } }] }),
+    }) as any;
+
+    // a slug with characters outside the safe set is refused by the writer, which returns false
+    await expect(
+      adwordsUtils.getAdwordsKeywordIdeas(creds, { country: 'US', language: '1000', keywords: ['shoes'], domainSlug: 'bad/slug', seedType: 'custom' } as any),
+    ).rejects.toThrow('could not be saved');
+  });
+});

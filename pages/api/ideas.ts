@@ -8,6 +8,7 @@ import {
 import { withApiLogging } from '../../utils/apiLogging';
 import { logger } from '../../utils/logger';
 import { errorResponse } from '../../utils/api/response';
+import { SAFE_DOMAIN_SLUG } from '../../utils/domainSlug';
 
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
@@ -58,8 +59,8 @@ const updateKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => 
       seedType,
    } = req.body;
 
-   if (!Array.isArray(keywords)) {
-      return res.status(400).json(errorResponse('BAD_REQUEST', 'keywords must be a list.', requestId));
+   if (!Array.isArray(keywords) || keywords.length > 1000 || keywords.some((item) => typeof item !== 'string')) {
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'keywords must be a list of up to 1000 strings.', requestId));
    }
 
    logger.debug('updateKeywordIdeas called', {
@@ -76,8 +77,21 @@ const updateKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => 
    if (!country || !language) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Please provide both country and language', requestId));
    }
+   // These values go to the paid Google Ads API and into a file name, so check their shape first
+   if (typeof country !== 'string' || !/^[A-Za-z]{2}$/.test(country)) {
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'country must be a two-letter country code.', requestId));
+   }
+   if (!/^\d{1,10}$/.test(String(language))) {
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'language must be a Google Ads language ID.', requestId));
+   }
    if (!domainSlug) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Missing domainSlug', requestId));
+   }
+   if (typeof domainSlug !== 'string' || !SAFE_DOMAIN_SLUG.test(domainSlug)) {
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Invalid domainSlug', requestId));
+   }
+   if (typeof domainUrl !== 'string') {
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'domainUrl must be a string.', requestId));
    }
    if (seedType === 'auto' && !domainUrl) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Missing domainUrl', requestId));

@@ -22,22 +22,16 @@ const NotificationSettings = ({ settings, settingsError, updateSettings }:Notifi
    const { branding } = useBranding();
    const { platformName } = branding;
 
-   const sanitizedNotificationEmails = (settings.notification_email || '')
-      .split(',')
-      .map((email) => email.trim())
-      .filter((email) => email.length > 0);
-   const hasNotificationEmails = sanitizedNotificationEmails.length > 0;
    const hasSmtpServer = hasTrimmedLength(settings.smtp_server);
    const hasSmtpPort = hasTrimmedLength(settings.smtp_port);
    const canSendNotifications = settings.notification_interval !== 'never'
       && hasSmtpServer
-      && hasSmtpPort
-      && hasNotificationEmails;
+      && hasSmtpPort;
 
    const manualTriggerHelpId = 'manual-notification-help';
    const manualTriggerStatusId = 'manual-notification-status';
    const manualTriggerDescription = 'Send a notification email immediately to confirm your SMTP credentials '
-      + 'and recipient list.';
+      + 'and each domain recipient list.';
    const manualTriggerStatus = sendingNotifications
       ? 'Sending notifications…'
       : canSendNotifications
@@ -79,21 +73,15 @@ const NotificationSettings = ({ settings, settingsError, updateSettings }:Notifi
             </div>
             {settings.notification_interval !== 'never' && (
                <>
-                  <div className="settings__section__input mb-5">
-                     <InputField
-                     label='Notification Emails'
-                     hasError={settingsError?.type === 'no_email'}
-                     value={settings?.notification_email}
-                     placeholder={'test@gmail.com, test2@test.com'}
-                     onChange={(value:string) => updateSettings('notification_email', value)}
-                     />
-                  </div>
+                  <p className='text-xs text-gray-500 mb-5'>
+                     Notification recipients are set for each domain, in its Domain Settings.
+                  </p>
                   <div className="settings__section__input mb-5">
                      <InputField
                      label='SMTP Server'
                      hasError={settingsError?.type === 'no_smtp_server'}
                      value={settings?.smtp_server || ''}
-                     placeholder={'test@gmail.com, test2@test.com'}
+                     placeholder={'smtp.example.com'}
                      onChange={(value:string) => updateSettings('smtp_server', value)}
                      />
                   </div>
@@ -117,7 +105,6 @@ const NotificationSettings = ({ settings, settingsError, updateSettings }:Notifi
                   <div className="settings__section__input mb-5">
                      <InputField
                         label='SMTP Username'
-                        hasError={settingsError?.type === 'no_smtp_port'}
                         value={settings?.smtp_username || ''}
                         onChange={(value:string) => updateSettings('smtp_username', value)}
                         />

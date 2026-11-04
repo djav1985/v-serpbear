@@ -112,6 +112,30 @@ describe('/api/notify recipients and outcomes', () => {
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, sent: 0, skipped: 2 }));
   });
 
+  it('sends without a global notification email, because recipients are per domain', async () => {
+    (getAppSettings as jest.Mock).mockResolvedValue({ smtp_server: 'smtp.test', smtp_port: '587', notification_email: '' });
+    (Domain.findAll as jest.Mock).mockResolvedValue([domainRow({})]);
+
+    await handler(req, res as unknown as NextApiResponse);
+
+    expect(res.status).not.toHaveBeenCalledWith(400);
+    expect(sendMailMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('gives the throttle slot back when setup fails after reserving it', async () => {
+    (getAppSettings as jest.Mock).mockResolvedValue({ smtp_server: 'smtp.test', smtp_port: '587' });
+    (Domain.findAll as jest.Mock).mockResolvedValue([domainRow({})]);
+    const release = jest.fn(() => Promise.resolve());
+    (reserveEmailSend as jest.Mock).mockResolvedValue({ reserved: true, release });
+    (nodeMailer.createTransport as jest.Mock).mockImplementation(() => { throw new Error('bad transport'); });
+
+    await handler(req, res as unknown as NextApiResponse);
+
+    expect(reserveEmailSend).toHaveBeenCalledTimes(1);
+    expect(release).toHaveBeenCalledTimes(1);
+    expect(res.status).toHaveBeenCalledWith(500);
+  });
+
   it('returns 500 when every eligible domain fails to send', async () => {
     (Domain.findAll as jest.Mock).mockResolvedValue([domainRow({})]);
     sendMailMock.mockRejectedValue(new Error('SMTP down'));

@@ -103,7 +103,6 @@ const Settings = forwardRef<HTMLDivElement, SettingsProps>(({ closeSettings }:Se
 
       const {
          notification_interval,
-         notification_email,
          notification_email_from,
          scraper_type,
          smtp_port,
@@ -111,10 +110,8 @@ const Settings = forwardRef<HTMLDivElement, SettingsProps>(({ closeSettings }:Se
          scraping_api,
       } = sanitizedSettings;
       if (notification_interval !== 'never') {
-         if (!notification_email) {
-            error = { type: 'no_email', msg: 'Insert a Valid Email address' };
-         }
-         if (notification_email && (!smtp_port || !smtp_server || !notification_email_from)) {
+         // Recipients are set per domain, so only the SMTP details are checked here
+         if (!smtp_port || !smtp_server || !notification_email_from) {
                let type = 'no_smtp_from';
                if (!smtp_port) { type = 'no_smtp_port'; }
                if (!smtp_server) { type = 'no_smtp_server'; }

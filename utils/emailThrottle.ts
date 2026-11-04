@@ -162,13 +162,17 @@ export const reserveEmailSend = async (domain: string): Promise<{ reserved: bool
                   delete current[domain];
                }
                await saveEmailCache(current);
+            } catch (error) {
+               // The caller is already handling a failed send; a cache problem here must not replace that error
+               logger.error('Error giving back a reserved email slot', error instanceof Error ? error : new Error(String(error)));
             } finally {
                unlock();
             }
          },
       };
    } catch (error) {
-      // Like canSendEmail, a broken cache does not block sending
+      // A cache that cannot be read or written does not block sending. Nothing is written in that case, so the
+      // state kept for other domains is not replaced by a partial copy.
       logger.error('Error reserving email send, allowing email', error instanceof Error ? error : new Error(String(error)));
       return { reserved: true, release: noop };
    } finally {
@@ -179,26 +183,33 @@ export const reserveEmailSend = async (domain: string): Promise<{ reserved: bool
 };
 
 /**
- * Get email cache from file
+ * Get email cache from file. A missing file or one holding invalid JSON is an empty cache. Any other read
+ * error (permissions, a busy file) is thrown instead, because treating it as empty would let the next save
+ * replace the throttle state of every other domain with a partial copy.
  */
 const getEmailCache = async (): Promise<EmailCache> => {
+   let cacheData: string;
    try {
-      const cacheData = await readFile(CACHE_FILE, 'utf-8');
-      return JSON.parse(cacheData) || {};
+      cacheData = await readFile(CACHE_FILE, 'utf-8');
    } catch (error) {
-      logger.error('Error loading email throttle cache, returning empty map', error instanceof Error ? error : new Error(String(error)));
-      // File doesn't exist or is invalid, return empty cache
+      if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') {
+         return {};
+      }
+      throw error;
+   }
+
+   try {
+      const parsed = JSON.parse(cacheData);
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as EmailCache : {};
+   } catch (error) {
+      logger.warn('Email throttle cache is not valid JSON, starting from an empty cache', { error: error instanceof Error ? error.message : String(error) });
       return {};
    }
 };
 
 /**
- * Save email cache to file
+ * Save email cache to file. Errors are thrown so callers know the state was not stored.
  */
 const saveEmailCache = async (cache: EmailCache): Promise<void> => {
-   try {
-      await atomicWriteFile(CACHE_FILE, JSON.stringify(cache, null, 2), 'utf-8');
-   } catch (error) {
-      logger.error('Error saving email throttle cache', error instanceof Error ? error : new Error(String(error)));
-   }
+   await atomicWriteFile(CACHE_FILE, JSON.stringify(cache, null, 2), 'utf-8');
 };

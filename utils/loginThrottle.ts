@@ -11,7 +11,19 @@ type Bucket = { failures: number; windowStart: number; lockedUntil: number };
 const WINDOW_MS = 15 * 60 * 1000;
 const LOCK_MS = 15 * 60 * 1000;
 
+// Upper bound on tracked keys. Usernames and addresses come from the client, so without a bound a flood of
+// distinct values would grow this map (and the prune scan below) without limit.
+const MAX_BUCKETS = 5000;
+
 const buckets = new Map<string, Bucket>();
+
+const evictOldest = () => {
+   while (buckets.size >= MAX_BUCKETS) {
+      const oldest = buckets.keys().next().value;
+      if (oldest === undefined) { return; }
+      buckets.delete(oldest);
+   }
+};
 
 const pruneExpired = (now: number) => {
    for (const [key, bucket] of buckets) {
@@ -33,6 +45,7 @@ export const recordLoginFailure = (keys: AttemptKey[], now: number = Date.now())
    keys.forEach(({ key, maxFailures }) => {
       const bucket = buckets.get(key);
       if (!bucket || now - bucket.windowStart >= WINDOW_MS) {
+         if (!bucket) { evictOldest(); }
          buckets.set(key, { failures: 1, windowStart: now, lockedUntil: 0 });
          return;
       }

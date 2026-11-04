@@ -1,6 +1,6 @@
 export {};
 
-import { historyKeyToTime, toHistoryDateKey } from '../../utils/historyDateKey';
+import { historyKeyToTime, normalizeHistoryDateKey, toHistoryDateKey } from '../../utils/historyDateKey';
 
 describe('history date keys', () => {
   it('writes zero-padded local dates', () => {
@@ -20,5 +20,13 @@ describe('history date keys', () => {
 
   it('falls back to Date parsing for anything that is not a date key', () => {
     expect(historyKeyToTime('not a date')).toBeNaN();
+  });
+});
+
+describe('normalizeHistoryDateKey', () => {
+  it('pads unpadded keys and leaves other keys alone', () => {
+    expect(normalizeHistoryDateKey('2026-1-5')).toBe('2026-01-05');
+    expect(normalizeHistoryDateKey('2026-11-12')).toBe('2026-11-12');
+    expect(normalizeHistoryDateKey('not a date')).toBe('not a date');
   });
 });

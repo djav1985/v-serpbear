@@ -65,3 +65,19 @@ describe('login throttle', () => {
     expect(isLoginLocked(ipKey, start)).toBe(true);
   });
 });
+
+describe('loginThrottle bounds', () => {
+  beforeEach(() => resetLoginThrottle());
+
+  it('does not grow without limit when many distinct keys fail', () => {
+    for (let i = 0; i < 6000; i += 1) {
+      recordLoginFailure([{ key: `user:flood-${i}`, maxFailures: 5 }], 1000);
+    }
+    // the newest keys are still tracked, the oldest were evicted
+    for (let i = 0; i < 5; i += 1) {
+      recordLoginFailure([{ key: 'user:flood-5999', maxFailures: 5 }], 1000);
+    }
+    expect(isLoginLocked([{ key: 'user:flood-5999', maxFailures: 5 }], 1001)).toBe(true);
+    expect(isLoginLocked([{ key: 'user:flood-0', maxFailures: 5 }], 1001)).toBe(false);
+  });
+});

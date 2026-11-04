@@ -15,7 +15,7 @@ describe('Email Throttling', () => {
 
    describe('canSendEmail', () => {
       it('should allow email for new domain', async () => {
-         mockReadFile.mockRejectedValue(new Error('File not found'));
+         mockReadFile.mockRejectedValue(Object.assign(new Error('File not found'), { code: 'ENOENT' }));
          
          const result = await canSendEmail('example.com');
          expect(result.canSend).toBe(true);
@@ -94,7 +94,7 @@ describe('Email Throttling', () => {
 
    describe('recordEmailSent', () => {
       it('should record first email for domain', async () => {
-         mockReadFile.mockRejectedValue(new Error('File not found')); // No existing cache
+         mockReadFile.mockRejectedValue(Object.assign(new Error('File not found'), { code: 'ENOENT' })); // No existing cache
          mockWriteFile.mockResolvedValue();
          
          await recordEmailSent('example.com');
@@ -155,7 +155,7 @@ describe('Email Throttling', () => {
       });
 
       it('should handle write errors gracefully', async () => {
-         mockReadFile.mockRejectedValue(new Error('File not found'));
+         mockReadFile.mockRejectedValue(Object.assign(new Error('File not found'), { code: 'ENOENT' }));
          mockWriteFile.mockRejectedValue(new Error('Disk full'));
          
          // Should not throw

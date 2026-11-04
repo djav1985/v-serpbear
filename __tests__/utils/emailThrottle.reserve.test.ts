@@ -68,4 +68,34 @@ describe('reserveEmailSend', () => {
 
     expect(saved()['example.com'].count).toBe(3);
   });
+
+  it('does not write when the cache cannot be read, so other domains keep their state', async () => {
+    const earlier = { 'other.com': { lastSent: new Date().toISOString(), count: 2 } };
+    files.set('throttle', JSON.stringify(earlier));
+    readMock.mockRejectedValue(Object.assign(new Error('busy'), { code: 'EBUSY' }));
+
+    const reservation = await reserveEmailSend('example.com');
+
+    expect(reservation.reserved).toBe(true);
+    expect(writeMock).not.toHaveBeenCalled();
+    expect(saved()).toEqual(earlier);
+  });
+
+  it('starts from an empty cache when the file holds invalid JSON', async () => {
+    files.set('throttle', '{not json');
+
+    const reservation = await reserveEmailSend('example.com');
+
+    expect(reservation.reserved).toBe(true);
+    expect(saved()['example.com'].count).toBe(1);
+  });
+
+  it('still allows the send when saving the reservation fails, and release does not throw', async () => {
+    writeMock.mockRejectedValue(new Error('disk full'));
+
+    const reservation = await reserveEmailSend('example.com');
+
+    expect(reservation.reserved).toBe(true);
+    await expect(reservation.release()).resolves.toBeUndefined();
+  });
 });

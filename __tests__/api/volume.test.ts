@@ -143,4 +143,24 @@ describe('POST /api/volume', () => {
          volumes: { 1: 25, 2: 50 },
       });
    });
+
+   it('returns 400 when a keyword ID is not a positive integer, without querying', async () => {
+      const req = { method: 'POST', body: { keywords: [1, 'abc'] }, headers: {} } as unknown as NextApiRequest;
+      const res = createResponse();
+
+      await handler(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(keywordModelMock.findAll).not.toHaveBeenCalled();
+   });
+
+   it('returns 400 when domain is not a string', async () => {
+      const req = { method: 'POST', body: { keywords: [], domain: { $ne: '' } }, headers: {} } as unknown as NextApiRequest;
+      const res = createResponse();
+
+      await handler(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(keywordModelMock.findAll).not.toHaveBeenCalled();
+   });
 });

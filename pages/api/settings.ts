@@ -4,7 +4,8 @@ import { readFile, access } from 'fs/promises';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import Cryptr from 'cryptr';
 import { logger } from '../../utils/logger';
-import verifyUser from '../../utils/verifyUser';
+import Cookies from 'cookies';
+import verifyUser, { verifySessionToken } from '../../utils/verifyUser';
 import allScrapers from '../../scrapers/index';
 import { withApiLogging } from '../../utils/apiLogging';
 import { trimStringProperties } from '../../utils/security';
@@ -142,12 +143,11 @@ const getSettings = async (req: NextApiRequest, res: NextApiResponse) => {
       // Silently check if user is authenticated without logging auth failures for anonymous GETs
       let isAuthenticated = false;
       try {
-         const Cookies = require('cookies');
-         const jwt = require('jsonwebtoken');
          const cookies = new Cookies(req, res);
          const token = cookies.get('token');
-         if (token && process.env.SECRET) {
-            jwt.verify(token, process.env.SECRET);
+         // Same check as verifyUser, including the session version, so a token revoked by logout is rejected here too
+         if (token) {
+            verifySessionToken(token);
             isAuthenticated = true;
          }
       } catch (_) { /* not authenticated — silent for public endpoint */ }

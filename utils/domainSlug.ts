@@ -10,3 +10,6 @@ export const toDomainSlug = (hostname: string): string => hostname
    .replaceAll('/', '-');
 
 export default toDomainSlug;
+
+/** Characters a stored domain slug may contain. Anything else is rejected before it can reach a file path. */
+export const SAFE_DOMAIN_SLUG = /^[a-zA-Z0-9_-]+$/;

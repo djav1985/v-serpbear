@@ -305,9 +305,13 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
          return res.status(400).json(errorResponse('BAD_REQUEST', `Domains not found in database: ${unknownDomains.join(', ')}. Please ensure domains are created before adding keywords.`, requestId));
       }
 
-      // The same keyword, country and device on the same domain is one tracked keyword
-      const trackingKey = (item: { keyword: string, domain: string, device: string, country: string }) => [item.domain, item.keyword, item.country, item.device].join('|');
-      const existingKeywords: Keyword[] = await Keyword.findAll({ where: { domain: requestedDomains }, attributes: ['keyword', 'domain', 'device', 'country'] });
+      // The same keyword, country, location and device on the same domain is one tracked keyword. The same
+      // keyword in a different city is a separate target (the Add Keywords form lets users pick one), so the
+      // location is part of the key. A missing location and an empty one count as the same (no city).
+      const trackingKey = (item: { keyword: string, domain: string, device: string, country: string, location?: string | null }) => (
+         [item.domain, item.keyword, item.country, (item.location || '').trim(), item.device].join('|')
+      );
+      const existingKeywords: Keyword[] = await Keyword.findAll({ where: { domain: requestedDomains }, attributes: ['keyword', 'domain', 'device', 'country', 'location'] });
       const tracked = new Set(existingKeywords.map((item) => trackingKey(item.get({ plain: true }) as KeywordType)));
       const duplicates: string[] = [];
       keywordsToAdd.forEach((item) => {
@@ -374,6 +378,10 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
 
       return res.status(201).json({ keywords: keywordsParsed });
    } catch (error) {
+      // Two overlapping requests can both pass the duplicate check; the unique index then rejects the second insert
+      if (error instanceof Error && error.name === 'SequelizeUniqueConstraintError') {
+         return res.status(409).json(errorResponse('CONFLICT', 'Already tracked: one or more of these keywords was added by another request.', requestId));
+      }
       logger.error('Adding New Keywords ', error instanceof Error ? error : new Error(String(error)));
       const message = error instanceof Error ? error.message : 'Unknown error';
       return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Failed to add keywords.', requestId, message));

@@ -1,6 +1,6 @@
 export {};
 
-import { parseScraperResponse } from '../../utils/scraper';
+import { getScraperClient, parseScraperResponse } from '../../utils/scraper';
 import dataforseo from '../../scrapers/services/dataforseo';
 import crazyserp from '../../scrapers/services/crazyserp';
 
@@ -43,6 +43,36 @@ describe('parseScraperResponse', () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+});
+
+describe('scraper request cancellation', () => {
+  const originalFetch = global.fetch;
+  afterEach(() => {
+    global.fetch = originalFetch;
+    jest.useRealTimers();
+  });
+
+  it('aborts the request when reading its body times out, so the connection is released', async () => {
+    jest.useFakeTimers();
+    let signal: AbortSignal | undefined;
+    const response = { status: 200, ok: true, text: () => new Promise<string>(() => {}) } as unknown as Response;
+    global.fetch = jest.fn((_url: unknown, init?: RequestInit) => {
+      signal = init?.signal as AbortSignal;
+      return Promise.resolve(response);
+    }) as unknown as typeof fetch;
+    const scraper = { id: 'test', name: 'Test', website: 'x', scrapeURL: () => 'https://example.test/search', resultObjectKey: 'results' } as any;
+
+    const client = getScraperClient({ keyword: 'a', device: 'desktop', country: 'US' } as any, {} as any, scraper);
+    const received = await client;
+    expect(signal?.aborted).toBe(false);
+
+    const pending = parseScraperResponse(received);
+    const assertion = expect(pending).rejects.toThrow('timed out');
+    await jest.advanceTimersByTimeAsync(30000);
+    await assertion;
+
+    expect(signal?.aborted).toBe(true);
   });
 });
 

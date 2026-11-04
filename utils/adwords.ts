@@ -9,13 +9,13 @@ import parseKeywords from './parseKeywords';
 import countries from './countries';
 import { readLocalSCData } from './searchConsole';
 import { logger } from './logger';
+import { SAFE_DOMAIN_SLUG } from './domainSlug';
 
 export const GOOGLE_ADS_API_VERSION = 'v23';
 
 const memoryCache = new TTLCache({ max: 10000 });
 
 // Domain slugs are letters, digits, '-' and '_' only; anything else must not reach a file name
-const SAFE_DOMAIN_SLUG = /^[a-zA-Z0-9_-]+$/;
 
 type keywordIdeasMetrics = {
    competition: IdeaKeyword['competition'],
@@ -201,6 +201,17 @@ export const getAdwordsAccessToken = async (credentials: AdwordsCredentials) => 
    } catch (error) {
       logger.error('Error getting Google Account Access Token', error instanceof Error ? error : new Error(String(error)));
       return '';
+   }
+};
+
+/**
+ * Stores fetched keyword ideas for a domain and fails when nothing was saved, so the caller never reports
+ * success for ideas that were fetched but lost (for example because the domain slug was rejected).
+ */
+const saveFetchedIdeas = async (domainSlug: string, data: IdeaDatabaseUpdateData): Promise<void> => {
+   const saved = await updateLocalKeywordIdeas(domainSlug, data);
+   if (!saved) {
+      throw new Error('Keyword ideas were fetched but could not be saved for this domain.');
    }
 };
 
@@ -419,7 +430,7 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
          }
 
          if (!test && fetchedKeywords.length > 0) {
-            await updateLocalKeywordIdeas(domainSlug, { keywords: fetchedKeywords, settings: adwordsDomainOptions });
+            await saveFetchedIdeas(domainSlug, { keywords: fetchedKeywords, settings: adwordsDomainOptions });
             logger.debug('Updated local keyword ideas', { domainSlug, count: fetchedKeywords.length });
          }
       } catch (error) {

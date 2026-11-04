@@ -2,32 +2,10 @@ import type { NextApiHandler, NextApiRequest, NextApiResponse } from 'next';
 import { logger } from './logger';
 import { ensureDatabase } from '../database/init';
 import { errorResponse } from './api/response';
+import { redactSecrets, redactUrl } from './logRedaction';
+import { getClientIp } from './api/clientIp';
 
-const SECRET_KEY_PATTERN = /pass|secret|token|key|api|smtp_password|private/i;
-
-/**
- * Returns a copy of a request body with secret-looking values replaced, so debug logs never contain
- * passwords, API keys or private keys.
- */
-export const redactSecrets = (value: unknown): unknown => {
-  if (Array.isArray(value)) {
-    return value.map((item) => redactSecrets(item));
-  }
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(([key, nested]) => [
-        key,
-        SECRET_KEY_PATTERN.test(key) && typeof nested === 'string' && nested.length > 0 ? '[REDACTED]' : redactSecrets(nested),
-      ]),
-    );
-  }
-  return value;
-};
-
-/**
- * Removes OAuth `code` and `state` values from a request URL before it is logged.
- */
-export const redactUrl = (url?: string): string => (url || '').replace(/([?&](?:code|state)=)[^&]*/g, '$1[REDACTED]');
+export { redactSecrets, redactUrl };
 
 /**
  * API Logging Middleware - wraps API handlers with request/response logging
@@ -63,8 +41,8 @@ export function withApiLogging(
         requestId,
         method: req.method,
         url: redactUrl(req.url),
-        query: req.query,
-        ip: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'unknown',
+        query: redactSecrets(req.query, ['code', 'state']),
+        ip: getClientIp(req),
         userAgent: req.headers['user-agent'],
         contentType: req.headers['content-type'],
         body: redactSecrets(req.body),

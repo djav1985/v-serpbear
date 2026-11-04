@@ -55,14 +55,16 @@ module.exports = {
          ?? require('sequelize');
 
       return queryInterface.sequelize.transaction(async (transaction) => {
-         let keywordTableDefinition;
-         try {
-            keywordTableDefinition = await queryInterface.describeTable('keyword');
-         } catch (_describeError) {
+         const [tables] = await queryInterface.sequelize.query(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='keyword'",
+            { transaction }
+         );
+         if (!tables || tables.length === 0) {
             logger.info('[MIGRATION] Skipping history date key padding - keyword table does not exist yet');
             return;
          }
 
+         const keywordTableDefinition = await queryInterface.describeTable('keyword');
          if (!keywordTableDefinition?.history) {
             return;
          }

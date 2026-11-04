@@ -10,6 +10,7 @@ import { withApiLogging } from '../../utils/apiLogging';
 import { errorResponse } from '../../utils/api/response';
 import { AttemptKey, clearLoginFailures, isLoginLocked, recordLoginFailure } from '../../utils/loginThrottle';
 import { getSessionVersion } from '../../utils/sessionStore';
+import { getClientIp } from '../../utils/api/clientIp';
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
    const requestId = (req as ExtendedRequest).requestId;
@@ -17,7 +18,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
    
    logger.info('Login API endpoint accessed', {
       method: req.method,
-      ip: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'unknown',
+      ip: getClientIp(req),
       userAgent: req.headers['user-agent']
    });
 
@@ -38,9 +39,9 @@ const loginUser = async (req: NextApiRequest, res: NextApiResponse, startTime: n
    const { username, password } = req.body;
    
    logger.info('Login attempt started', {
-      username: username || 'not_provided',
+      hasUsername: typeof username === 'string' && username.length > 0,
       hasPassword: !!password,
-      ip: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'unknown'
+      ip: getClientIp(req)
    });
 
    const MAX_CREDENTIAL_LENGTH = 1024;
@@ -56,13 +57,27 @@ const loginUser = async (req: NextApiRequest, res: NextApiResponse, startTime: n
       return res.status(401).json(errorResponse('MISSING_CREDENTIALS', error, requestId));
    }
 
-   // Limit guesses per username and per client address. The address comes from the socket, not a forwarded header.
-   const attemptKeys: AttemptKey[] = [
-      { key: `user:${username.toLowerCase()}`, maxFailures: 5 },
-      { key: `ip:${req.socket?.remoteAddress || 'unknown'}`, maxFailures: 20 },
-   ];
+   // Limit guesses without letting a stranger lock the real user out:
+   //  - the user's own lockout (5 failures) is per client address, so one address cannot block the others
+   //  - a higher per-user cap bounds guessing spread over many addresses
+   //  - a per-address cap bounds one address trying many usernames
+   // Names that are not the configured user share one bucket, so made-up usernames cannot grow the tracked set.
+   // The address is the socket address, or the X-Forwarded-For entry selected by TRUST_PROXY (see utils/api/clientIp).
+   const clientIp = getClientIp(req);
+   const configuredUser = (process.env.USER_NAME ? process.env.USER_NAME : process.env.USER) || '';
+   const knownUser = configuredUser !== '' && username.toLowerCase() === configuredUser.toLowerCase();
+   const attemptKeys: AttemptKey[] = knownUser
+      ? [
+         { key: `user:${configuredUser.toLowerCase()}@${clientIp}`, maxFailures: 5 },
+         { key: `user:${configuredUser.toLowerCase()}`, maxFailures: 100 },
+         { key: `ip:${clientIp}`, maxFailures: 20 },
+      ]
+      : [
+         { key: 'user:unknown', maxFailures: 200 },
+         { key: `ip:${clientIp}`, maxFailures: 20 },
+      ];
    if (isLoginLocked(attemptKeys)) {
-      logger.warn('Login blocked: too many failed attempts', { username, duration: Date.now() - startTime });
+      logger.warn('Login blocked: too many failed attempts', { duration: Date.now() - startTime });
       return res.status(429).json(errorResponse('TOO_MANY_ATTEMPTS', 'Too many failed login attempts. Try again in 15 minutes.', requestId));
    }
 
@@ -107,9 +122,8 @@ const loginUser = async (req: NextApiRequest, res: NextApiResponse, startTime: n
          'Login failed: timing-safe comparison error',
          err,
          {
-            username,
             duration: Date.now() - startTime,
-            ip: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'unknown'
+            ip: getClientIp(req)
          }
       );
       return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Internal server error', requestId));
@@ -139,11 +153,10 @@ const loginUser = async (req: NextApiRequest, res: NextApiResponse, startTime: n
          clearLoginFailures(attemptKeys);
 
          logger.info('Login successful', {
-            username: userName,
             sessionDuration: sessionDurationHours,
             expiresAt: expiryDate.toISOString(),
             duration: Date.now() - startTime,
-            ip: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'unknown'
+            ip: getClientIp(req)
          });
 
          return res.status(200).json({ success: true });
@@ -162,9 +175,8 @@ const loginUser = async (req: NextApiRequest, res: NextApiResponse, startTime: n
    const error = 'Invalid credentials';
    
    logger.warn('Login failed: invalid credentials', {
-      username,
       duration: Date.now() - startTime,
-      ip: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'unknown'
+      ip: getClientIp(req)
    });
 
    return res.status(401).json(errorResponse('INVALID_CREDENTIALS', error, requestId));

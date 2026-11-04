@@ -1,7 +1,7 @@
 export {};
 
 import { readFileSync } from 'fs';
-import { getSessionVersion, revokeAllSessions } from '../../utils/sessionStore';
+import { getSessionVersion, revokeAllSessions, resetSessionVersionCache } from '../../utils/sessionStore';
 import { atomicWriteFile } from '../../utils/atomicWrite';
 
 jest.mock('fs', () => ({
@@ -25,6 +25,26 @@ const writeMock = atomicWriteFile as unknown as jest.Mock;
 describe('sessionStore', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    resetSessionVersionCache();
+  });
+
+  it('keeps the last known version when the file becomes unreadable', () => {
+    readMock.mockReturnValueOnce('{"version":3}');
+    expect(getSessionVersion()).toBe(3);
+
+    readMock.mockImplementation(() => { throw Object.assign(new Error('busy'), { code: 'EBUSY' }); });
+    expect(getSessionVersion()).toBe(3);
+
+    readMock.mockReturnValue('not json');
+    expect(getSessionVersion()).toBe(3);
+  });
+
+  it('uses the version written by logout even if the file cannot be read afterwards', async () => {
+    readMock.mockReturnValueOnce('{"version":1}');
+    await revokeAllSessions();
+
+    readMock.mockImplementation(() => { throw new Error('gone'); });
+    expect(getSessionVersion()).toBe(2);
   });
 
   it('reads the stored version', () => {
