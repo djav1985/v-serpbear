@@ -94,7 +94,7 @@ run_migrations
 STATUS_DIR="$(mktemp -d "${TMPDIR:-/tmp}/serpbear-run.XXXXXX")"
 
 # Forward signals only once the services are running, so a signal during migrations keeps the default behaviour.
-start_service cron npx tsx ./cron.js
+start_service cron node --import tsx ./cron.js
 CRON_SUPERVISOR_PID="$LAST_STARTED_PID"
 echo "Started background cron worker."
 
