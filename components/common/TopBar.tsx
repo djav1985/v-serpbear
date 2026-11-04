@@ -37,7 +37,7 @@ const TopBar = ({ showSettings, showAddModal }:TopbarProps) => {
 
          <div className='flex items-center gap-2 h-16'>
             <h3
-               className={`flex items-center gap-3 p-4 text-base font-bold text-blue-700 ${isDomainsPage ? 'lg:pl-0' : 'lg:hidden'}`}
+               className='flex items-center gap-3 p-4 text-base font-bold text-blue-700 lg:pl-0'
             >
                <BrandTitle
                   className="text-base font-bold text-blue-700"
@@ -46,7 +46,7 @@ const TopBar = ({ showSettings, showAddModal }:TopbarProps) => {
                />
                <button className='px-3 py-1 font-bold text-blue-700 lg:hidden text-lg' onClick={() => showAddModal()}>+</button>
             </h3>
-            {!isDomainsPage && router.asPath !== '/research' && (
+            {!isDomainsPage && (
                <Link
                   href={'/domains'}
                   className='topbar__back px-2 py-1 cursor-pointer bg-[#ecf2ff] hover:bg-indigo-100 transition-all
