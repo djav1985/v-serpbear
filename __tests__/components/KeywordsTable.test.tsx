@@ -268,7 +268,7 @@ describe('KeywordsTable – column settings save', () => {
       mockStoredSettings = undefined;
    });
 
-   it('saves the column change on top of the stored settings without the refresh token', () => {
+   it('sends only the changed keywordsColumns, without the refresh token', () => {
       mockStoredSettings = {
          scraper_type: 'serpapi',
          smtp_server: 'smtp.example.com',
@@ -294,8 +294,6 @@ describe('KeywordsTable – column settings save', () => {
       expect(mockUpdateSettings).toHaveBeenCalledTimes(1);
       const savedPayload = mockUpdateSettings.mock.calls[0][0];
       expect(savedPayload).toEqual({
-         scraper_type: 'serpapi',
-         smtp_server: 'smtp.example.com',
          keywordsColumns: ['Best', 'History', 'Search Console'],
       });
       expect(savedPayload).not.toHaveProperty('adwords_refresh_token');

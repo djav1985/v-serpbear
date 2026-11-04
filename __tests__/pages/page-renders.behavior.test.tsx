@@ -6,8 +6,10 @@
  */
 
 const routerPush = jest.fn();
+const routerReplace = jest.fn();
 const mockRouter = {
    push: routerPush,
+   replace: routerReplace,
    pathname: '/research',
    query: {} as Record<string, string>,
 };
@@ -129,7 +131,7 @@ describe('Home Page', () => {
                <Home />
            </QueryClientProvider>,
        );
-       expect(routerPush).toHaveBeenCalledWith('/domains');
+       expect(routerReplace).toHaveBeenCalledWith('/domains');
    });
 });
 

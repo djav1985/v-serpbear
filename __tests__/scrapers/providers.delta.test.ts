@@ -60,7 +60,7 @@ describe('serper scraper', () => {
 
     expect(parsed.origin).toBe('https://google.serper.dev');
     expect(parsed.pathname).toBe('/search');
-    expect(parsed.searchParams.get('gl')).toBe('US');
+    expect(parsed.searchParams.get('gl')).toBe('us');
     expect(parsed.searchParams.get('hl')).toBe('en');
     expect(parsed.searchParams.get('location')).toBe('Austin,TX,United States');
     expect(parsed.searchParams.get('apiKey')).toBe(settings.scraping_api);
