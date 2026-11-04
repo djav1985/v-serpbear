@@ -11,14 +11,12 @@ import parseKeywords from './parseKeywords';
 import countries from './countries';
 import { readLocalSCData } from './searchConsole';
 import { logger } from './logger';
-import { SAFE_DOMAIN_SLUG, slugToDomainName } from './domainSlug';
+import { RESEARCH_IDEAS_KEY, getIdeasFilePath } from './domainIdeasFile';
 import { atomicWriteFile } from './atomicWrite';
 
 export const GOOGLE_ADS_API_VERSION = 'v23';
 
 const memoryCache = new TTLCache({ max: 10000 });
-
-// Domain slugs are letters, digits, '-' and '_' only; anything else must not reach a file name
 
 type keywordIdeasMetrics = {
    competition: IdeaKeyword['competition'],
@@ -41,8 +39,8 @@ type IdeaSettings = {
    state?: string;
    language?: string;
    keywords?: string[];
-   domainUrl?: string;
-   domainSlug?: string;
+   /** Real domain name (example.com). Empty or missing means the research page, which has no domain. */
+   domain?: string;
    seedType: 'auto' | 'custom' | 'tracking' | 'searchconsole';
    seedSCKeywords?: boolean;
    seedCurrentKeywords?: boolean;
@@ -64,7 +62,7 @@ export type KeywordIdeasDatabase = {
 type SeedKeywordBaseOptions = {
    seedKeywords: string[];
    seedType: IdeaSettings['seedType'];
-   domainUrl: string;
+   domain: string;
 };
 
 type SearchConsoleSeedOptions = SeedKeywordBaseOptions & { seedSCKeywords: boolean };
@@ -74,13 +72,13 @@ const seedKeywordsFromSearchConsole = async ({
    seedKeywords,
    seedType,
    seedSCKeywords,
-   domainUrl,
+   domain,
 }: SearchConsoleSeedOptions): Promise<string[]> => {
-   if (!domainUrl || (!seedSCKeywords && seedType !== 'searchconsole')) {
+   if (!domain || (!seedSCKeywords && seedType !== 'searchconsole')) {
       return seedKeywords;
    }
 
-   const domainSCData = await readLocalSCData(domainUrl);
+   const domainSCData = await readLocalSCData(domain);
    if (!domainSCData || !Array.isArray(domainSCData.thirtyDays)) {
       return seedKeywords;
    }
@@ -101,15 +99,15 @@ const seedKeywordsFromTracking = async ({
    seedKeywords,
    seedType,
    seedCurrentKeywords,
-   domainUrl,
+   domain,
 }: TrackingSeedOptions): Promise<string[]> => {
-   if (!domainUrl || (!seedCurrentKeywords && seedType !== 'tracking')) {
+   if (!domain || (!seedCurrentKeywords && seedType !== 'tracking')) {
       return seedKeywords;
    }
 
    const keywordSet = new Set(seedKeywords);
    const allKeywords:Keyword[] = await Keyword.findAll({
-      where: { domain: domainUrl },
+      where: { domain },
       order: [['volume', 'DESC']],
    });
    const currentKeywords: KeywordType[] = parseKeywords(allKeywords.map((e) => e.get({ plain: true })));
@@ -210,8 +208,8 @@ export const getAdwordsAccessToken = async (credentials: AdwordsCredentials) => 
  * Stores fetched keyword ideas for a domain and fails when nothing was saved, so the caller never reports
  * success for ideas that were fetched but lost (for example because the domain slug was rejected).
  */
-const saveFetchedIdeas = async (domainSlug: string, data: IdeaDatabaseUpdateData): Promise<void> => {
-   const saved = await updateLocalKeywordIdeas(domainSlug, data);
+const saveFetchedIdeas = async (domain: string, data: IdeaDatabaseUpdateData): Promise<void> => {
+   const saved = await updateLocalKeywordIdeas(domain, data);
    if (!saved) {
       throw new Error('Keyword ideas were fetched but could not be saved for this domain.');
    }
@@ -266,7 +264,7 @@ const resolveIdeasRequestTarget = (
 const buildKeywordIdeasPayload = (
    seedType: IdeaSettings['seedType'],
    seedKeywords: string[],
-   domainUrl: string,
+   domain: string,
    geoTargetConstants: number,
    language: string,
    test: boolean,
@@ -279,8 +277,8 @@ const buildKeywordIdeasPayload = (
    if (['custom', 'searchconsole', 'tracking'].includes(seedType) && seedKeywords.length > 0) {
       reqPayload.keywordSeed = { keywords: seedKeywords.slice(0, 20) };
    }
-   if (seedType === 'auto' && domainUrl) {
-      reqPayload.siteSeed = { site: domainUrl };
+   if (seedType === 'auto' && domain) {
+      reqPayload.siteSeed = { site: domain };
    }
    return reqPayload;
 };
@@ -303,19 +301,19 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
       country = '2840',
       language = '1000',
       keywords = [],
-      domainUrl = '',
-      domainSlug = '',
+      domain = '',
       seedType,
       seedSCKeywords = false,
       seedCurrentKeywords = false,
    } = adwordsDomainOptions || {};
+   // The ideas file is named after the domain; the research page has no domain and uses IDEAS_research.json
+   const ideasFileKey = domain || RESEARCH_IDEAS_KEY;
 
    logger.debug('getAdwordsKeywordIdeas started', {
       country,
       language,
       keywordsCount: keywords.length,
-      domainUrl,
-      domainSlug,
+      domain,
       seedType,
       seedSCKeywords,
       seedCurrentKeywords,
@@ -349,21 +347,21 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
          seedKeywords,
          seedType,
          seedSCKeywords,
-         domainUrl,
+         domain,
       });
 
       seedKeywords = await seedKeywordsFromTracking({
          seedKeywords,
          seedType,
          seedCurrentKeywords,
-         domainUrl,
+         domain,
       });
 
       if (['tracking', 'searchconsole'].includes(seedType) && seedKeywords.length === 0) {
          const errMessage = seedType === 'tracking'
             ? 'No tracked keywords found for this domain'
             : 'No search console keywords found for this domain';
-         logger.warn(errMessage, { seedType, domainUrl });
+         logger.warn(errMessage, { seedType, domain });
          throw new Error(errMessage);
       }
 
@@ -379,7 +377,7 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
             return [];
          }
          const { customerID, geoTargetConstants } = target;
-         const reqPayload = buildKeywordIdeasPayload(seedType, seedKeywords, domainUrl, geoTargetConstants, language, test);
+         const reqPayload = buildKeywordIdeasPayload(seedType, seedKeywords, domain, geoTargetConstants, language, test);
 
          // Note: DEBUG logging may include sensitive data (seed keywords, API tokens)
          // Only enable DEBUG/VERBOSE mode in secure environments
@@ -455,7 +453,7 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
 
          if (ideaData?.results) {
             logger.debug(`Google Ads API returned ${ideaData.results.length} results`);
-            fetchedKeywords = extractAdwordskeywordIdeas(ideaData.results as keywordIdeasResponseItem[], { country, domain: domainSlug });
+            fetchedKeywords = extractAdwordskeywordIdeas(ideaData.results as keywordIdeasResponseItem[], { country, domain: ideasFileKey });
             logger.info(`Processed ${fetchedKeywords.length} keywords after filtering`, {
                rawResults: ideaData.results.length,
                filteredResults: fetchedKeywords.length,
@@ -468,8 +466,8 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
          }
 
          if (!test && fetchedKeywords.length > 0) {
-            await saveFetchedIdeas(domainSlug, { keywords: fetchedKeywords, settings: adwordsDomainOptions });
-            logger.debug('Updated local keyword ideas', { domainSlug, count: fetchedKeywords.length });
+            await saveFetchedIdeas(ideasFileKey, { keywords: fetchedKeywords, settings: adwordsDomainOptions });
+            logger.debug('Updated local keyword ideas', { domain: ideasFileKey, count: fetchedKeywords.length });
          }
       } catch (error) {
          logger.error('Error fetching keyword ideas from Google Ads API', error instanceof Error ? error : new Error(String(error)), {
@@ -719,13 +717,9 @@ const IDEAS_LOCK_RETRIES = { retries: 12, factor: 1.5, minTimeout: 50, maxTimeou
  * favourite) cannot overwrite a concurrent save. The file must already exist, because the lock is taken on it.
  */
 export const withIdeasLock = async <T>(domain: string, fn: () => Promise<T>): Promise<T> => {
-   if (!SAFE_DOMAIN_SLUG.test(domain)) {
-      throw new Error('Invalid domain slug for keyword ideas');
-   }
-   const dataDir = path.resolve(process.cwd(), 'data');
-   const filePath = path.resolve(dataDir, `IDEAS_${slugToDomainName(domain)}.json`);
-   if (!filePath.startsWith(dataDir + path.sep)) {
-      throw new Error('Invalid domain value for file access');
+   const filePath = getIdeasFilePath(domain);
+   if (!filePath) {
+      throw new Error('Invalid domain value for keyword ideas file access');
    }
    const release = await lockfile.lock(filePath, { retries: IDEAS_LOCK_RETRIES });
    try {
@@ -747,17 +741,10 @@ export const withIdeasLock = async <T>(domain: string, fn: () => Promise<T>): Pr
  */
 export const getLocalKeywordIdeas = async (domain: string): Promise<false | KeywordIdeasDatabase> => {
    try {
-      // The slug becomes part of a file name, so only slug characters are accepted
-      if (!SAFE_DOMAIN_SLUG.test(domain)) {
+      // The domain becomes part of a file name, so only domain-name characters inside the data directory are accepted
+      const filePath = getIdeasFilePath(domain);
+      if (!filePath) {
          return false;
-      }
-      const domainName = slugToDomainName(domain);
-      const filename = `IDEAS_${domainName}.json`;
-      const dataDir = path.resolve(process.cwd(), 'data');
-      const filePath = path.resolve(dataDir, filename);
-      // Ensure the filePath is within the data directory
-      if (!filePath.startsWith(dataDir + path.sep)) {
-         throw new Error('Invalid domain value for file access');
       }
    // eslint-disable-next-line security/detect-non-literal-fs-filename
    const keywordIdeasRaw = await readFile(filePath, { encoding: 'utf-8' });
@@ -781,18 +768,12 @@ export const getLocalKeywordIdeas = async (domain: string): Promise<false | Keyw
  */
 export const updateLocalKeywordIdeas = async (domain: string, data: IdeaDatabaseUpdateData): Promise<boolean> => {
    try {
-      if (!SAFE_DOMAIN_SLUG.test(domain)) {
+      const filePath = getIdeasFilePath(domain);
+      if (!filePath) {
          return false;
       }
-      const domainName = slugToDomainName(domain);
       const existingIdeas = await getLocalKeywordIdeas(domain);
-      const filename = `IDEAS_${domainName}.json`;
-      const dataDir = path.resolve(process.cwd(), 'data');
-      const filePath = path.resolve(dataDir, filename);
-      // Ensure the filePath is within the data directory
-      if (!filePath.startsWith(dataDir + path.sep)) {
-         throw new Error('Invalid domain value for file access');
-      }
+      const filename = path.basename(filePath);
       const fileContent = { ...existingIdeas, updated: new Date().getTime() };
       if (Array.isArray(data.keywords)) {
          fileContent.keywords = data.keywords;

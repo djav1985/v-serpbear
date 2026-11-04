@@ -26,6 +26,7 @@ export const DomainInsightPage: NextPage = () => {
       router,
       domainsLoaded && scConnected,
       domainsLoaded && domainHasScAPI,
+      activeDomain?.domain,
    );
 
    const theInsight: InsightDataType = insightData && insightData.data ? insightData.data : { stats: null, keywords: [], countries: [], pages: [] };

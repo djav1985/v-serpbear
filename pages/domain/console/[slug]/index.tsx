@@ -63,6 +63,7 @@ export const DomainConsolePage: NextPage = () => {
       router,
       domainsLoaded && scConnected,
       domainsLoaded && domainHasScAPI,
+      activeDomain?.domain,
    );
 
    const { keywordsData: trackedKeywordsData } = useFetchKeywords(router, activeDomain?.domain || '');

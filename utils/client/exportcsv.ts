@@ -41,7 +41,7 @@ export const createKeywordCsvPayload = (
    if (!keywords || (Array.isArray(keywords) && keywords.length === 0)) { return null; }
 
    const isSCKeywords = !!(keywords && keywords[0] && (keywords[0] as SCKeywordType).uid);
-   let csvHeader = 'ID,Keyword,Position,URL,Country,State,City,Device,Updated,Added,Tags\r\n';
+   let csvHeader = 'ID,Keyword,Position,URL,Location,Device,Updated,Added,Tags\r\n';
    let csvBody = '';
    let fileName = `${domain}-keywords_serp.csv`;
 
@@ -64,9 +64,7 @@ export const createKeywordCsvPayload = (
          keywordData.keyword,
          keywordData.position === 0 ? '-' : keywordData.position,
          keywordData.url || '-',
-         getCountryLabel(keywordData.country),
-         keywordData.state || '-',
-         keywordData.city || '-',
+         keywordData.location || '-',
          keywordData.device,
          keywordData.lastUpdated,
          keywordData.added,
@@ -154,8 +152,7 @@ export const formatKeywordIdeaRow = ({
  * @param {string} fileName - The file Name for the downlaoded csv file.
  */
 const downloadCSV = (csvHeader:string, csvBody:string, fileName:string) => {
-   // UTF-8 BOM so spreadsheet apps detect the encoding and show non-ASCII keywords correctly
-   const blob = new Blob(['﻿' + csvHeader + csvBody], { type: 'text/csv;charset=utf-8;' });
+   const blob = new Blob([csvHeader + csvBody], { type: 'text/csv;charset=utf-8;' });
    const url = URL.createObjectURL(blob);
    const link = document.createElement('a');
    link.setAttribute('href', url);

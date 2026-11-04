@@ -3,7 +3,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getCountryInsight, getKeywordsInsight, getPagesInsight } from '../../utils/insight';
 import { fetchDomainSCData, getSearchConsoleApiInfo, readLocalSCData } from '../../utils/searchConsole';
-import { SAFE_DOMAIN_SLUG } from '../../utils/domainSlug';
+import { SAFE_DOMAIN_NAME } from '../../utils/domainSlug';
 import verifyUser from '../../utils/verifyUser';
 import Domain from '../../database/models/domain';
 import { logger } from '../../utils/logger';
@@ -27,12 +27,11 @@ export default withApiLogging(handler, { name: 'insight' });
 const getDomainSearchConsoleInsight = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
    if (!req.query.domain || typeof req.query.domain !== 'string') return res.status(400).json(errorResponse('BAD_REQUEST', 'Domain is Missing.', requestId));
-   const slug = req.query.domain.trim();
-   if (!SAFE_DOMAIN_SLUG.test(slug)) {
+   const requestedDomain = req.query.domain.trim().toLowerCase();
+   if (!SAFE_DOMAIN_NAME.test(requestedDomain)) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Domain is Missing.', requestId));
    }
-   // The domain is identified by its slug column; the stored domain name then names the SC data file
-   const foundDomain: Domain | null = await Domain.findOne({ where: { slug } });
+   const foundDomain: Domain | null = await Domain.findOne({ where: { domain: requestedDomain } });
    if (!foundDomain) {
       return res.status(404).json(errorResponse('NOT_FOUND', 'Domain not found.', requestId));
    }

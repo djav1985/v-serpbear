@@ -59,7 +59,7 @@ SerpBear is a full-stack Next.js application that tracks where your pages rank o
 | Layer | Responsibility |
 | --- | --- |
 | **Frontend & API** | Next.js 16 application serving React pages and JSON endpoints from a single codebase. |
-| **Database** | SQLite via a custom `better-sqlite3` dialect by default, with optional external databases through Sequelize. |
+| **Database** | SQLite through a custom `better-sqlite3` dialect (`database/sqlite-dialect.js`). Sequelize and Umzug manage models and migrations. No other database engine is configurable. |
 | **Background workers** | A Node-based cron runner schedules scrapes, retries, Google Search Console refreshes, and notification emails from configurable cron expressions and timezone settings. |
 | **Refresh queue** | Per-domain locking ensures a domain is never refreshed twice at once. Configurable concurrency keeps multiple domains processing in parallel. |
 | **Integrations** | Scraper selection, Google Ads credentials, and SMTP settings are managed in the Settings UI and persisted in `data/settings.json`. Search Console credentials can come from Settings or from the `SEARCH_CONSOLE_*` environment variables as a global fallback. |
@@ -83,7 +83,7 @@ cp .env.example .env
 docker compose up -d
 ```
 
-The default compose stack uses a named Docker volume (`data`) mounted at `/app/data` so your SQLite database and cached Search Console exports persist between updates. To inspect or back up the data, use `docker volume inspect serpbear_data` or copy files out with `docker cp`.
+The default compose stack uses a named Docker volume (`data`) mounted at `/app/data` so your SQLite database and cached Search Console exports persist between updates. Compose prefixes the volume with the project name, which is the folder name by default, so run `docker volume ls` to find it (for example `v-serpbear_data` when cloned into `v-serpbear`). To inspect or back up the data, use `docker volume inspect <volume>` or copy files out with `docker cp`. The app is served at http://localhost:3030 because compose maps host port 3030 to container port 3000.
 
 ### Option 2 – Node.js runtime
 
@@ -115,7 +115,7 @@ SerpBear integrates with several managed SERP APIs. The table summarises their c
 | SerpApi (`serpapi`) | ✅ Working | Free 250/mo + plans from $75/mo | City-level | **Yes**: extracts local map pack | Strategy-controlled (10 per page via the `start` offset, up to 10 pages) | Query string `api_key` |
 | SearchApi (`searchapi`) | ✅ Working | Plans from $40/mo | City-level | **Yes**: extracts local map pack | Strategy-controlled (10 per page via the `page` parameter, up to 10 pages) | Query string `api_key` |
 | ValueSerp (`valueserp`) | ✅ Working | Pay-as-you-go 10,000 for $25 | City-level | **Yes**: extracts local map pack | Strategy-controlled (10 per page, up to 10 pages) | Query string `api_key` |
-| Serper (`serper`) | ✅ Working | Credit-based 50,000 for $50 | City-level | No: organic listings only | Strategy-controlled (10 per page, up to 10 pages) | Query string `api_key` |
+| Serper (`serper`) | ✅ Working | Credit-based 50,000 for $50 | City-level | No: organic listings only | Strategy-controlled (10 per page, up to 10 pages) | Query string `apiKey` |
 | HasData (`hasdata`) | ✅ Working | Free 1,000/mo + plans from $49/mo | City-level | **Yes**: extracts local map pack | Strategy-controlled (10 per page, up to 10 pages) | Header `x-api-key` |
 | CrazySERP (`crazyserp`) | ✅ Working | Pay-as-you-go | City-level | No: organic listings only | Strategy-controlled (10 per page, up to 10 pages) | Header `Authorization: Bearer` |
 | PrismCrawl (`prismcrawl`) | ✅ Working | Free 100 credits on signup; one-time packages from $5 (e.g. $100 = 476,191 credits, ~$0.21 per 1,000); credits valid 90 days; no subscription | City-level | **Yes**: matches local results by business name | Strategy-controlled (10 per page, up to 10 pages) | Header `x-api-key` (POST JSON body) |
@@ -150,18 +150,19 @@ The **Business Name** field in the domain scraper configuration is optional. Map
 
 Runtime behaviour is controlled through environment variables and settings stored in `data/settings.json`. The tables below list the supported environment variables. Defaults mirror `.env.example` where it provides them.
 
-**Env files.** Next.js loads `.env.local` for local development, and Docker Compose reads `.env`. The standalone cron worker (`tsx cron.js` / `npm run cron`) explicitly loads `.env.local`, so keep local credentials there when running the worker outside Docker.
+**Env files.** Next.js loads `.env.local` for local development, and Docker Compose reads `.env`. The standalone cron worker (`tsx cron.js` / `npm run cron`) loads `.env.local` first and then `.env`, so keep local credentials in `.env.local` when running the worker outside Docker.
 
 ### Authentication & session management
 
 | Variable | Default | Required | Description |
 | --- | --- | --- | --- |
-| `USER` | `admin` | Yes | Initial dashboard username. Change it after first login. |
-| `USER_NAME` | — | Optional | Alternate username variable used when `USER` is not set, which helps in some container environments. |
-| `PASSWORD` | `0123456789` | Yes | Initial dashboard password. Change it after first login. |
-| `SECRET` | random string | Yes | Cryptographic secret for cookie signing and JWT verification. Generate a unique value per deployment. |
-| `APIKEY` | random string | Yes | Server-side API key that authenticates REST requests from external clients. |
-| `SESSION_DURATION` | `24` | Yes | Session lifetime in hours. Controls how long login cookies stay valid. |
+| `USER` | — | Yes | Initial dashboard username. `.env.example` uses `admin`. Change it after first login. |
+| `USER_NAME` | — | Optional | Username that takes precedence over `USER` when set. Used by the login check and the database username. |
+| `PASSWORD` | — | Yes | Initial dashboard password. `.env.example` uses the placeholder `change-me`; set a real value. |
+| `SECRET` | — | Yes | Cryptographic secret for cookie signing and JWT verification. Login reports a configuration error when it is unset. Generate a unique value per deployment. |
+| `APIKEY` | — | Yes | Server-side API key that authenticates REST requests from external clients. Generate it with `openssl rand -hex 32`. |
+| `SESSION_DURATION` | `24` | Optional | Session lifetime in hours. Controls how long login cookies stay valid. |
+| `TRUST_PROXY` | `0` | Optional | Number of reverse proxies in front of the app. Login throttling and rate limits then use the `X-Forwarded-For` entry that many hops from the right. |
 
 ### Application runtime
 
@@ -169,7 +170,7 @@ Runtime behaviour is controlled through environment variables and settings store
 | --- | --- | --- | --- |
 | `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | Yes | Public URL of your deployment. Sets OAuth callbacks and absolute links in email digests. Server-side code falls back to `APP_URL` when this is unset. |
 | `APP_URL` | — | Optional | Server-side origin used when `NEXT_PUBLIC_APP_URL` is unset. Useful for CLI scripts that cannot inject the public variable. |
-| `NEXT_PUBLIC_SCREENSHOTS` | `true` | Yes | Toggles keyword thumbnail capture in the UI. Set to `false` to show favicons instead. |
+| `NEXT_PUBLIC_SCREENSHOTS` | `true` | Optional | Toggles keyword thumbnail capture (thum.io) in the UI. Set to `false` to show favicons instead. `SCREENSHOTS` is the preferred name and takes precedence when both are set. |
 | `NEXT_PUBLIC_WHITE_LABEL` | `false` | Optional | Enables white-label branding. When `true`, the platform name and logo come from the variables below. |
 | `WHITE_LABEL_LOGO_FILE` | `branding-logo.png` | Optional | File name under `/app/data` for the custom logo. A 96×96 px PNG, SVG, or WEBP works best. |
 | `NEXT_PUBLIC_PLATFORM_NAME` | `SerpBear` | Optional | Display name for the app and notification emails in white-label mode. |
@@ -196,7 +197,7 @@ Use the Settings UI or `/api/settings` to manage values persisted in `data/setti
 | Area | Keys |
 | --- | --- |
 | Scraper | `scraper_type`, `scraping_api`, `scrape_interval`, `scrape_delay`, `scrape_retry`, `scrape_strategy`, `scrape_pagination_limit`, `scrape_smart_full_fallback` |
-| Notification defaults | `notification_email`, `notification_email_from`, `notification_email_from_name` |
+| Notification defaults | `notification_interval`, `notification_email`, `notification_email_from`, `notification_email_from_name` |
 | SMTP credentials | `smtp_server`, `smtp_port`, `smtp_username`, `smtp_password`, `smtp_tls_servername` |
 | Google integrations | `search_console_client_email`, `search_console_private_key`, and the `adwords_*` credentials used for keyword ideas |
 | UI preferences | `keywordsColumns` |
@@ -205,12 +206,14 @@ Use the Settings UI or `/api/settings` to manage values persisted in `data/setti
 
 | Variable | Default | Required | Description |
 | --- | --- | --- | --- |
-| `CRON_TIMEZONE` | `America/New_York` | Yes | IANA timezone used for all scheduled jobs. |
-| `CRON_MAIN_SCHEDULE` | `0 0 0 * * *` | Yes | Cron expression for daily scraping and Search Console refresh runs. |
-| `CRON_FAILED_SCHEDULE` | `0 0 */1 * * *` | Yes | Cron expression that retries failed scrapes. |
-| `CRON_EMAIL_SCHEDULE` | `0 0 6 * * *` | Yes | Cron expression for the daily notification email digest. |
+| `CRON_TIMEZONE` | `America/New_York` | Optional | IANA timezone used for all scheduled jobs. |
+| `CRON_MAIN_SCHEDULE` | `0 0 0 * * *` | Optional | Cron expression for daily scraping and Search Console refresh runs. |
+| `CRON_FAILED_SCHEDULE` | `0 0 */1 * * *` | Optional | Cron expression that retries failed scrapes. |
+| `CRON_EMAIL_SCHEDULE` | `0 0 6 * * *` | Optional | Cron expression for the daily notification email digest. |
 
 All cron expressions are normalised at runtime. Quotes and stray whitespace are stripped before jobs are scheduled.
+
+The Scraper setting `scrape_interval` selects the schedule used for keyword scrapes (default `daily`). The notification setting `notification_interval` (`daily`, `weekly`, `monthly`, or `never`) selects how often digests go out. Digests are sent at the time set by `CRON_EMAIL_SCHEDULE`.
 
 ### Monitoring & logging
 
@@ -221,8 +224,7 @@ All cron expressions are normalised at runtime. Quotes and stray whitespace are 
 | `NEXT_REMOVE_CONSOLE` | — | Optional | Not wired in `next.config.js`. Currently has no effect. |
 | `REFRESH_QUEUE_CONCURRENCY` | `3` | Optional | Maximum number of domains refreshed in parallel. The queue still prevents duplicate refreshes for the same domain. |
 | `PARALLEL_SCRAPE_CONCURRENCY` | `3` | Optional | Maximum simultaneous keyword scrapes per domain for sequential scraper providers. SerpApi and SearchApi keep their existing parallel behaviour. |
-
-Set `ANALYZE=true` before `next build` to generate a bundle analysis report (`bundle-analyzer-report.html`), as configured in [`next.config.js`](./next.config.js).
+| `PARALLEL_REFRESH_CONCURRENCY` | `10` | Optional | Maximum number of keywords scraped in parallel within a single refresh run. Must be a positive integer. |
 
 ---
 
@@ -277,7 +279,7 @@ Fetched positions carry real SERP data. Positions on pages that were not scraped
 ### Google Search Console insights
 
 - Authenticate with a service account, and SerpBear adds impression, click, and CTR metrics to each keyword.
-- Cached data refreshes once per `CRON_MAIN_SCHEDULE` cycle, respecting `CRON_TIMEZONE`. You can also refresh it manually from the settings view.
+- Cached data refreshes once per `CRON_MAIN_SCHEDULE` cycle, scheduled in `CRON_TIMEZONE`. The Search Console date window is fixed to `America/Los_Angeles` (`SEARCH_CONSOLE_TIMEZONE` in `utils/timezone.ts`). You can also refresh it manually from the settings view.
 - The Discover tab disables Search Console keywords that are already tracked. Its "select all" checkbox skips those rows, matching the Google Ads ideas workflow.
 - Search Console is optional. Without credentials, the related panels stay hidden.
 - With credentials present, manual refreshes and scheduled digests always run the Search Console pipeline.
@@ -285,7 +287,7 @@ Fetched positions carry real SERP data. Positions on pages that were not scraped
 ### Notifications & reporting
 
 - Email digests summarise rank gains and losses, highlight top movers, and include Search Console traffic when available.
-- Cadence is set with `CRON_EMAIL_SCHEDULE`. Clear the SMTP values in Settings to stop emails entirely.
+- Frequency (daily, weekly, monthly, or never) is set by the notification interval in Settings. The send time comes from `CRON_EMAIL_SCHEDULE`. Clear the SMTP values in Settings to stop emails entirely.
 - Send a manual digest with **Send Notifications Now** in the Notification settings modal. Inline guidance walks through the prerequisites, so you can confirm SMTP credentials and recipients.
 - `/api/notify` returns HTTP 401 only for authentication problems. Misconfigured SMTP hosts return 400, and delivery errors return 500 with a descriptive message.
 
@@ -296,9 +298,32 @@ Fetched positions carry real SERP data. Positions on pages that were not scraped
 
 ---
 
-## API contract
+## External API
 
-All JSON responses from the core routes (`/api/domains`, `/api/domain`, `/api/keywords`, `/api/refresh`) follow a shared envelope.
+These endpoints can be called by other programs. Send the header `Authorization: Bearer <APIKEY>`, where `APIKEY` is the value set in your environment. Every other route needs a logged-in session. Every `domain` field is a real domain name such as `example.com` (not a URL slug).
+
+| Method | Endpoint | Fields it takes | What it does |
+|---|---|---|---|
+| GET | `/api/keyword` | Query `id` (one keyword ID, required) | Returns the stored data and position history of one keyword. |
+| GET | `/api/keywords` | Query `domain` (required) | Lists all tracked keywords of a domain. |
+| GET | `/api/domains` | Query `withstats` (optional, `true` adds keyword statistics) | Lists all tracked domains. |
+| POST | `/api/refresh` | Body `ids` (array of keyword IDs), or query `id` (comma-separated IDs, or `all` together with query `domain`) | Starts a position refresh for the chosen keywords. |
+| POST | `/api/cron` | None | Starts a background position refresh for every domain with scraping enabled, the same job the scheduled cron runs. Returns 400 if no scraper is set up. |
+| POST | `/api/notify` | Query `domain` (optional) | Sends the notification email for one domain, or for every domain when `domain` is left out. |
+| GET | `/api/searchconsole` | Query `domain` (required) | Returns the Google Search Console data of a domain (fetched again if older than 24 hours). |
+| POST | `/api/searchconsole` | None | Refreshes the Search Console data of all domains. |
+| GET | `/api/insight` | Query `domain` (required) | Returns Search Console insight (top pages, keywords, countries, stats) for a domain. |
+| GET | `/api/ideas` | Query `domain` (optional; leave it out for the research page) | Returns the saved keyword ideas and favourites. |
+| POST | `/api/ideas` | Body `domain` (optional; leave it out for research), `seedType` (`auto`, `custom`, `tracking` or `searchconsole`), `keywords` (up to 1000 strings), `country` (two letters), `language` (Google Ads language ID), `seedSCKeywords`, `seedCurrentKeywords` | Fetches new keyword ideas from Google Ads and saves them. `seedType: auto` needs a `domain`. |
+
+Examples:
+
+```bash
+curl -H "Authorization: Bearer $APIKEY" "http://localhost:3000/api/keywords?domain=example.com"
+curl -H "Authorization: Bearer $APIKEY" "http://localhost:3000/api/insight?domain=my-site.com"
+```
+
+A `domain` that is not a valid domain name returns 400, and an unknown one returns 404 where the endpoint looks the domain up.
 
 ### Success responses (2xx)
 
@@ -363,7 +388,7 @@ Use the helpers in `utils/client/apiClient.ts` (`apiGet`, `apiPost`, `apiPut`, `
 - **Production build:** `npm run build`, then `npm run start`
 - **Full stack (web + cron):** `npm run start:all` runs the Next.js server and the cron worker in one terminal through `concurrently`.
 - **UI patterns:** add icons through the `ICON_RENDERERS` map in `components/common/Icon.tsx`. Use the exported keyword filtering helpers when you build table views, which keeps predicates shared and complexity low.
-- **Side panels & dropdowns:** `SidePanel` honours its `width` prop (`small`, `medium`, `large`), and `SelectField` respects `minWidth`.
+- **Dropdowns:** `SelectField` respects its `minWidth` prop (default 180).
 - **Settings callouts:** Google Ads and Search Console settings show the latest `settingsError` above the form.
 
 ---

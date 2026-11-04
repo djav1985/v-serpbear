@@ -52,7 +52,7 @@ const Research: NextPage = () => {
 
    const reloadKeywordIdeas = () => {
       const keywordPaylod = seedKeywords ? seedKeywords.split(',').map((key) => key.trim()) : undefined;
-      updateKeywordIdeas({ seedType: 'custom', language, domainSlug: 'research', domainUrl: '', keywords: keywordPaylod, country });
+      updateKeywordIdeas({ seedType: 'custom', language, keywords: keywordPaylod, country });
    };
 
    const countryOptions = useMemo(() => Object.keys(allCountries)

@@ -8,7 +8,20 @@ import {
 import { withApiLogging } from '../../utils/apiLogging';
 import { logger } from '../../utils/logger';
 import { errorResponse } from '../../utils/api/response';
-import { SAFE_DOMAIN_SLUG } from '../../utils/domainSlug';
+import { SAFE_DOMAIN_NAME } from '../../utils/domainSlug';
+import { RESEARCH_IDEAS_KEY } from '../../utils/domainIdeasFile';
+
+/**
+ * Reads the optional `domain` field. Missing or empty means the research page (no domain). A given value must be a
+ * real domain name: letters, digits, dots and hyphens, with at least one dot. Returns null when it is invalid.
+ */
+const parseIdeasDomain = (raw: unknown): string | null => {
+   if (raw === undefined || raw === null || raw === '') return '';
+   if (typeof raw !== 'string') return null;
+   const domain = raw.trim().toLowerCase();
+   if (!domain) return '';
+   return SAFE_DOMAIN_NAME.test(domain) && domain.includes('.') ? domain : null;
+};
 
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
@@ -31,12 +44,13 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 const getKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
    try {
-      const domain = req.query.domain as string;
-      if (domain) {
-         const keywordsDatabase = await getLocalKeywordIdeas(domain);
-         if (keywordsDatabase) {
-            return res.status(200).json({ data: keywordsDatabase });
-         }
+      const domain = parseIdeasDomain(req.query.domain);
+      if (domain === null) {
+         return res.status(400).json(errorResponse('BAD_REQUEST', 'Invalid domain', requestId));
+      }
+      const keywordsDatabase = await getLocalKeywordIdeas(domain || RESEARCH_IDEAS_KEY);
+      if (keywordsDatabase) {
+         return res.status(200).json({ data: keywordsDatabase });
       }
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Error Loading Keyword Ideas.', requestId));
    } catch (error) {
@@ -52,8 +66,7 @@ const updateKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => 
       keywords = [],
       country = 'US',
       language = '1000',
-      domainUrl = '',
-      domainSlug = '',
+      domain: rawDomain,
       seedSCKeywords = false,
       seedCurrentKeywords = false,
       seedType,
@@ -67,8 +80,7 @@ const updateKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => 
       keywordsCount: keywords.length,
       country,
       language,
-      domainUrl,
-      domainSlug,
+      domain: rawDomain,
       seedSCKeywords,
       seedCurrentKeywords,
       seedType,
@@ -84,17 +96,12 @@ const updateKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => 
    if (!/^\d{1,10}$/.test(String(language))) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'language must be a Google Ads language ID.', requestId));
    }
-   if (!domainSlug) {
-      return res.status(400).json(errorResponse('BAD_REQUEST', 'Missing domainSlug', requestId));
+   const domain = parseIdeasDomain(rawDomain);
+   if (domain === null) {
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Invalid domain', requestId));
    }
-   if (typeof domainSlug !== 'string' || !SAFE_DOMAIN_SLUG.test(domainSlug)) {
-      return res.status(400).json(errorResponse('BAD_REQUEST', 'Invalid domainSlug', requestId));
-   }
-   if (typeof domainUrl !== 'string') {
-      return res.status(400).json(errorResponse('BAD_REQUEST', 'domainUrl must be a string.', requestId));
-   }
-   if (seedType === 'auto' && !domainUrl) {
-      return res.status(400).json(errorResponse('BAD_REQUEST', 'Missing domainUrl', requestId));
+   if (seedType === 'auto' && !domain) {
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Missing domain', requestId));
    }
    if (!seedType) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Missing seedType', requestId));
@@ -104,7 +111,7 @@ const updateKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => 
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Invalid seedType', requestId));
    }
    if (seedType === 'custom' && (keywords.length === 0 && !seedSCKeywords && !seedCurrentKeywords)) {
-      return res.status(400).json(errorResponse('BAD_REQUEST', 'Error Fetching Keywords. Please Provide one of these: keywords, url or domainSlug', requestId));
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Error Fetching Keywords. Please Provide one of these: keywords, seedSCKeywords or seedCurrentKeywords', requestId));
    }
    try {
       const adwordsCreds = await getAdwordsCredentials();
@@ -123,7 +130,7 @@ const updateKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => 
          logger.error('Google Ads credentials not configured', undefined, { adwordsCreds: !!adwordsCreds });
          return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Google Ads credentials not configured', requestId));
       }
-      const ideaOptions = { country, language, keywords, domainUrl, domainSlug, seedSCKeywords, seedCurrentKeywords, seedType };
+      const ideaOptions = { country, language, keywords, domain, seedSCKeywords, seedCurrentKeywords, seedType };
       
       logger.debug('Calling getAdwordsKeywordIdeas', { ideaOptions });
       
@@ -160,11 +167,16 @@ const updateKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => 
 const favoriteKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
    const errMsg = 'Error Favorating Keyword Idea. Please try again!';
-   const { keywordID = '', domain = '' } = req.body;
+   const { keywordID = '', domain: rawDomain } = req.body;
 
-   if (!keywordID || !domain) {
-      return res.status(400).json(errorResponse('BAD_REQUEST', 'Missing Necessary data. Please provide both keywordID and domain values.', requestId));
+   if (!keywordID) {
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Missing Necessary data. Please provide a keywordID value.', requestId));
    }
+   const parsedDomain = parseIdeasDomain(rawDomain);
+   if (parsedDomain === null) {
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Invalid domain', requestId));
+   }
+   const domain = parsedDomain || RESEARCH_IDEAS_KEY;
 
    try {
       // Read and write under one lock, so two toggles at once cannot drop each other's favourite
