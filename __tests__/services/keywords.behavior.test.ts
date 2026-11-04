@@ -51,15 +51,23 @@ describe('useFetchKeywordIdeas', () => {
       );
    });
 
-   it('enables keyword ideas when Ads is connected', () => {
+   it('enables keyword ideas when Ads is connected and the real domain name is known', () => {
       const router = { pathname: '/domain/ideas/example', query: { slug: 'example' } } as any;
 
-      useFetchKeywordIdeas(router, true);
+      useFetchKeywordIdeas(router, true, 'example.com');
 
-      expect(useQueryMock).toHaveBeenCalledWith(
+      expect(useQueryMock).toHaveBeenLastCalledWith(
          'keywordIdeas-example',
          expect.any(Function),
          expect.objectContaining({ enabled: true, retry: false }),
+      );
+
+      useFetchKeywordIdeas(router, true);
+
+      expect(useQueryMock).toHaveBeenLastCalledWith(
+         'keywordIdeas-example',
+         expect.any(Function),
+         expect.objectContaining({ enabled: false, retry: false }),
       );
    });
 });

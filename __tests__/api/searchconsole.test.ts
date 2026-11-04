@@ -237,7 +237,7 @@ describe('GET /api/searchconsole', () => {
   beforeEach(() => {
     req = {
       method: 'GET',
-      query: { domain: 'example-com' },
+      query: { domain: 'my-site.com' },
       headers: {
         authorization: 'Bearer test-api-key',
       },
@@ -251,16 +251,26 @@ describe('GET /api/searchconsole', () => {
     mockReadLocalSCData.mockResolvedValue(false);
   });
 
-  it('returns 404 when the requested domain is missing', async () => {
+  it('looks the domain up by its real name, including hyphens, and returns 404 when it is unknown', async () => {
     mockDomainFindOne.mockResolvedValue(null as any);
 
     await handler(req as NextApiRequest, res as NextApiResponse);
 
+    expect(mockDomainFindOne).toHaveBeenCalledWith({ where: { domain: 'my-site.com' } });
     expect(mockFetchDomainSCData).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(404);
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({ error: expect.objectContaining({ code: 'NOT_FOUND', message: 'Domain not found.' }) }),
     );
+  });
+
+  it('returns 400 for a domain that is not a real domain name', async () => {
+    req.query = { domain: '../etc/passwd' };
+
+    await handler(req as NextApiRequest, res as NextApiResponse);
+
+    expect(mockDomainFindOne).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(400);
   });
 });
 
@@ -271,7 +281,7 @@ describe('GET /api/insight', () => {
   beforeEach(() => {
     req = {
       method: 'GET',
-      query: { domain: 'example-com' },
+      query: { domain: 'my-site.com' },
       headers: {
         authorization: 'Bearer token',
       },
@@ -289,16 +299,28 @@ describe('GET /api/insight', () => {
     jest.clearAllMocks();
   });
 
-  it('returns 404 when the domain does not exist', async () => {
+  it('looks the domain up by its real name, including hyphens, and returns 404 when it does not exist', async () => {
     mockDomainFindOne.mockResolvedValue(null as any);
 
     await insightHandler(req as NextApiRequest, res as NextApiResponse);
 
-    expect(mockDomainFindOne).toHaveBeenCalledWith({ where: { slug: 'example-com' } });
+    expect(mockDomainFindOne).toHaveBeenCalledWith({ where: { domain: 'my-site.com' } });
     expect(mockFetchDomainSCData).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(404);
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({ error: expect.objectContaining({ code: 'NOT_FOUND', message: 'Domain not found.' }) }),
+    );
+  });
+
+  it('returns 400 for a domain that is not a real domain name', async () => {
+    req.query = { domain: 'bad/domain' };
+
+    await insightHandler(req as NextApiRequest, res as NextApiResponse);
+
+    expect(mockDomainFindOne).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ error: expect.objectContaining({ code: 'BAD_REQUEST', message: 'Domain is Missing.' }) }),
     );
   });
 });

@@ -51,7 +51,7 @@ jest.mock('../../utils/logger', () => ({
   },
 }));
 
-const valid = { keywords: ['shoes'], country: 'US', language: '1000', domainUrl: 'example.com', domainSlug: 'example-com', seedType: 'custom' };
+const valid = { keywords: ['shoes'], country: 'US', language: '1000', domain: 'example.com', seedType: 'custom' };
 
 const post = async (body: Record<string, unknown>) => {
   const req = createMockRequest({ method: 'POST', body });
@@ -69,12 +69,13 @@ describe('POST /api/ideas input validation', () => {
   });
 
   it.each([
-    ['a domain slug that could leave the data folder', { domainSlug: '../../etc/passwd' }],
-    ['a domain slug that is not a string', { domainSlug: ['a'] }],
+    ['a domain that could leave the data folder', { domain: '../../etc/passwd' }],
+    ['a domain that is not a string', { domain: ['a'] }],
+    ['a domain without a dot', { domain: 'localhost' }],
+    ['an auto seed without a domain', { seedType: 'auto', domain: undefined }],
     ['a country that is not a two-letter code', { country: 'USA' }],
     ['a language that is not a numeric ID', { language: 'english' }],
     ['keywords that are not strings', { keywords: [{ a: 1 }] }],
-    ['a domainUrl that is not a string', { domainUrl: { a: 1 } }],
   ])('returns 400 for %s, before calling Google Ads', async (_label, override) => {
     const res = await post({ ...valid, ...override });
 
@@ -87,6 +88,14 @@ describe('POST /api/ideas input validation', () => {
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(getAdwordsKeywordIdeas).toHaveBeenCalledTimes(1);
+    expect(getAdwordsKeywordIdeas).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ domain: 'example.com' }));
+  });
+
+  it('treats a request without a domain as research and passes no domain to Google Ads', async () => {
+    const res = await post({ ...valid, domain: undefined });
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(getAdwordsKeywordIdeas).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ domain: '' }));
   });
 });
 
@@ -111,7 +120,7 @@ describe('PUT /api/ideas favorites persistence', () => {
 
       const req = {
          method: 'PUT',
-         body: { keywordID: 'kw-1', domain: 'example-com' },
+         body: { keywordID: 'kw-1', domain: 'example.com' },
          headers: {},
          connection: {},
       } as unknown as NextApiRequest;
