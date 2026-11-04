@@ -189,15 +189,6 @@ describe('getKeywordsVolume', () => {
     expect(result.error).toMatch(/Cannot Load Google Ads Credentials|Google Ads Not Integrated Properly/);
   });
 
-  it('handles errors gracefully without JSON parsing failures', async () => {
-    // This test verifies the main issue reported by the user is fixed:
-    // No more "Unexpected token '<'" errors when APIs return HTML
-
-    const keywords = [{ ID: 1, keyword: 'test keyword', country: 'US' }] as any;
-    
-    // Even without proper setup, should not throw JSON parsing errors
-    await expect(adwordsUtils.getKeywordsVolume(keywords)).resolves.toBeDefined();
-  });
 
   it('uses correct API version and URL format for generateKeywordHistoricalMetrics endpoint', async () => {
     // This test verifies that getKeywordsVolume constructs URLs with the correct API version

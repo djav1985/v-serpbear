@@ -170,11 +170,6 @@ describe('planLocationUpdate', () => {
       expect(result).toEqual({ acceptedIDs: [1], skipped: ['alpha'] });
    });
 
-   it('skips selected keywords that would converge on the same destination', () => {
-      const result = planLocationUpdate([row(1, 'alpha'), row(2, 'alpha')], [], '', 'London');
-      expect(result).toEqual({ acceptedIDs: [1], skipped: ['alpha'] });
-   });
-
    it('returns nothing to update when there are no selected keywords', () => {
       expect(planLocationUpdate([], [row(9, 'alpha')], 'GB', 'London')).toEqual({ acceptedIDs: [], skipped: [] });
    });

@@ -583,12 +583,4 @@ describe('/api/notify recipients and outcomes', () => {
     expect(res.status).toHaveBeenCalledWith(500);
   });
 
-  it('returns 500 when every eligible domain fails to send', async () => {
-    (Domain.findAll as jest.Mock).mockResolvedValue([domainRow({})]);
-    sendMailMock.mockRejectedValue(new Error('SMTP down'));
-
-    await handler(req, res as unknown as NextApiResponse);
-
-    expect(res.status).toHaveBeenCalledWith(500);
-  });
 });

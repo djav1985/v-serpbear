@@ -4,7 +4,7 @@
 
 ## What is SerpBear?
 
-SerpBear is a full-stack Next.js application that tracks where your pages rank on Google, enriches those rankings with Google Search Console and Google Ads data, and keeps stakeholders informed with scheduled email digests. The project ships as a production-ready Docker image, a conventional Node.js application, and a programmable REST API so you can integrate SERP intelligence wherever you need it.
+SerpBear is a full-stack Next.js application that tracks where your pages rank on Google, enriches those rankings with Google Search Console and Google Ads data, and keeps stakeholders informed with scheduled email digests. The project ships as a production-ready Docker image, a conventional Node.js application, a programmable REST API, and a read-only MCP server so AI assistants can query your rankings directly. Use whichever fits your pipeline.
 
 > **Warning:** Not every scraper provider is validated on every release. Please report any issues with specific integrations in GitHub Discussions.
 
@@ -31,6 +31,7 @@ SerpBear is a full-stack Next.js application that tracks where your pages rank o
 - 📘 **Documentation:** <https://docs.serpbear.com/>
 - 📜 **Changelog:** [`CHANGELOG.md`](./CHANGELOG.md)
 - 🐳 **Docker Hub image:** <https://hub.docker.com/r/vontainment/v-serpbear>
+- 🔌 **MCP server:** `https://<your-host>/api/mcp`, see [MCP server](#mcp-server)
 - 🆕 **Current version:** v4.0.0 by [Vontainment](https://vontainment.com)
 - 🛟 **Community support:** [GitHub Discussions](https://github.com/djav1985/v-serpbear/discussions)
 
@@ -51,14 +52,14 @@ SerpBear is a full-stack Next.js application that tracks where your pages rank o
 | 9 | **Mobile-ready progressive web app** | Install the dashboard on iOS or Android for monitoring on the go. The top navigation stretches edge to edge on phones. |
 | 10 | **Adaptive desktop canvas** | Domain dashboards, Search Console insights, and the research workspace use a shared `desktop-container` utility that expands to 90% of the viewport on large screens. |
 | 11 | **Focused loading states** | Keyword tables show their own loading indicators, so the single-domain and research workspaces stay visible while data refreshes. Only the domains index shows the full-page bootstrap overlay on first load. |
-| 12 | **Robust API** | Manage domains, keywords, settings, and refresh jobs programmatically for automated reporting pipelines. |
+| 12 | **Robust API** | Manage domains, keywords, settings, and refresh jobs programmatically for automated reporting pipelines, or connect an MCP client to read rankings and Search Console data. |
 | 13 | **Transparent SERP coverage in keyword details** | Search results are grouped into segments. Dashed "Page X: N results skipped" placeholders mark unchecked positions, an inline banner summarises scraped vs. skipped counts, and not-found keywords read "Not in First N" instead of a hardcoded 100. |
 
 ## Platform architecture at a glance
 
 | Layer | Responsibility |
 | --- | --- |
-| **Frontend & API** | Next.js 16 application serving React pages and JSON endpoints from a single codebase. |
+| **Frontend & API** | Next.js 16 application serving React pages, JSON endpoints and the MCP server (`/api/mcp`) from a single codebase. |
 | **Database** | SQLite through a custom `better-sqlite3` dialect (`database/sqlite-dialect.js`). Sequelize and Umzug manage models and migrations. No other database engine is configurable. |
 | **Background workers** | A Node-based cron runner schedules scrapes, retries, Google Search Console refreshes, and notification emails from configurable cron expressions and timezone settings. |
 | **Refresh queue** | Per-domain locking ensures a domain is never refreshed twice at once. Configurable concurrency keeps multiple domains processing in parallel. |
@@ -160,7 +161,7 @@ Runtime behaviour is controlled through environment variables and settings store
 | `USER_NAME` | — | Optional | Username that takes precedence over `USER` when set. Used by the login check and the database username. |
 | `PASSWORD` | — | Yes | Initial dashboard password. `.env.example` uses the placeholder `change-me`; set a real value. |
 | `SECRET` | — | Yes | Cryptographic secret for cookie signing and JWT verification. Login reports a configuration error when it is unset. Generate a unique value per deployment. |
-| `APIKEY` | — | Yes | Server-side API key that authenticates REST requests from external clients. Generate it with `openssl rand -hex 32`. |
+| `APIKEY` | — | Yes | Server-side API key that authenticates REST and MCP requests from external clients. Generate it with `openssl rand -hex 32`. |
 | `SESSION_DURATION` | `24` | Optional | Session lifetime in hours. Controls how long login cookies stay valid. |
 | `TRUST_PROXY` | `0` | Optional | Number of reverse proxies in front of the app. Login throttling and rate limits then use the `X-Forwarded-For` entry that many hops from the right. |
 
@@ -300,7 +301,7 @@ Fetched positions carry real SERP data. Positions on pages that were not scraped
 
 ## External API
 
-These endpoints can be called by other programs. Send the header `Authorization: Bearer <APIKEY>`, where `APIKEY` is the value set in your environment. Every other route needs a logged-in session. Every `domain` field is a real domain name such as `example.com` (not a URL slug).
+These endpoints can be called by other programs. Send the header `Authorization: Bearer <APIKEY>`, where `APIKEY` is the value set in your environment. The same key authenticates the [MCP server](#mcp-server). Every other route needs a logged-in session. Every `domain` field is a real domain name such as `example.com` (not a URL slug).
 
 | Method | Endpoint | Fields it takes | What it does |
 |---|---|---|---|
@@ -358,15 +359,26 @@ Error responses always use this envelope:
 | `error.details` | `unknown` (optional) | Extra context, such as validation error lists |
 | `requestId` | `string` (optional) | Matches the `X-Request-Id` header for log correlation |
 
-### Frontend client
+### MCP server
 
-Use the helpers in `utils/client/apiClient.ts` (`apiGet`, `apiPost`, `apiPut`, `apiDelete`) for all service-layer fetch calls. They:
+SerpBear also serves a read-only [Model Context Protocol](https://modelcontextprotocol.io) server at `/api/mcp`, using the Streamable HTTP transport in stateless mode. Any MCP client that accepts a remote server URL with a header can connect.
 
-- Build full URLs from the detected client origin
-- Set `Content-Type: application/json` and `Accept: application/json`
-- Parse JSON responses
-- Extract error messages from both structured and legacy error shapes
-- Pass the `X-Request-Id` header into thrown `ApiError` instances
+- **URL:** `https://<your-host>/api/mcp`. Serve it over HTTPS (for example behind a reverse proxy), because the key is sent on every request.
+- **Header:** `Authorization: Bearer <APIKEY>`
+- **Requests:** `POST` only. `GET` and other methods return 405.
+
+The server exposes six tools, all reading data:
+
+| Tool | What it returns |
+|---|---|
+| `get_keyword` | One keyword by `id`, with its position history |
+| `list_keywords` | All tracked keywords of a `domain` |
+| `list_domains` | All tracked domains, optionally with `withstats` |
+| `get_searchconsole` | Raw Search Console rows for a `domain` (3, 7 and 30 days) |
+| `get_insight` | Summary of top pages, keywords and countries for a `domain` |
+| `get_keyword_ideas` | Saved keyword ideas and favourites for a `domain`, or the research list when `domain` is omitted |
+
+Domain fields take real domain names such as `example.com`. Tools that start scrapes, send email or spend Google Ads quota are not exposed through MCP; use the REST endpoints in [External API](#external-api) for those.
 
 ---
 

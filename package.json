@@ -20,6 +20,7 @@
   "dependencies": {
     "@googleapis/searchconsole": "^5.0.0",
     "@isaacs/ttlcache": "^1.4.1",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "better-sqlite3": "^12.11.1",
     "chart.js": "^3.9.1",
     "cookies": "^0.9.2",

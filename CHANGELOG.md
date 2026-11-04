@@ -9,6 +9,9 @@ All notable changes to this project will be documented in this file. Releases no
 2. **Runtime data files:** On `main`, `data/settings.json`, `data/failed_queue.json`, `data/session.json` and `data/SC_*.json` are tracked by git. This branch untracks them (`.gitignore` ignores `data/*` except `.gitkeep`), so pulling or merging it can delete your local copies. Back up `data/` before pulling. The database is also backed up to `<db>.bak-<date>` before duplicate keywords are removed.
 3. **Committed secrets:** Secrets that were committed in `data/settings.json` remain in git history. If this repository was ever shared or made public, rotate `SECRET`, `APIKEY`, login passwords, SMTP credentials, and Search Console and Google Ads keys.
 
+### Added
+- Read-only MCP server at `POST /api/mcp` (Streamable HTTP, stateless) with six tools: `get_keyword`, `list_keywords`, `list_domains`, `get_searchconsole`, `get_insight` and `get_keyword_ideas`. It uses the same `Authorization: Bearer <APIKEY>` header as the REST API.
+
 ### Changed
 - **Breaking for API callers:** every API endpoint now takes a real domain name (`example.com`) instead of a URL slug. `GET /api/searchconsole` and `GET /api/insight` no longer accept slugs. On `/api/ideas`, `domainSlug` and `domainUrl` are merged into one `domain` field (GET query, PUT body and POST body); leaving `domain` out means the research page. Data file names and page URLs are unchanged.
 - README: the `API contract` section is now `External API` and lists the endpoints reachable with the API key.
