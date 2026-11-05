@@ -5,6 +5,8 @@ import { timingSafeEqual } from 'crypto';
 import { logger } from './logger';
 import { getSessionVersion } from './sessionStore';
 import { redactUrl } from './logRedaction';
+import { clearLoginFailures, recordLoginFailure } from './loginThrottle';
+import { getApiKeyAttemptKeys } from './apiKeyThrottle';
 
 /**
  * Compares two secrets in constant time. Returns false when either side is missing.
@@ -68,6 +70,13 @@ const verifyUser = (req: NextApiRequest, res: NextApiResponse): string => {
       if (req.headers.authorization.startsWith('Bearer ')) {
          const apiKey = req.headers.authorization.substring('Bearer '.length);
          verifiedAPI = safeEqual(apiKey, process.env.APIKEY);
+      }
+      // Count a wrong key against the client address; withApiLogging answers 429 once the limit is reached
+      const attemptKeys = getApiKeyAttemptKeys(req);
+      if (verifiedAPI) {
+         clearLoginFailures(attemptKeys);
+      } else {
+         recordLoginFailure(attemptKeys);
       }
    }
    
