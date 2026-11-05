@@ -274,6 +274,8 @@ type scraperExtractedItem = {
    title: string,
    url: string,
    position: number,
+   /** Used in place of `url` when `url` is a Google redirect link that cannot be resolved (for example the result's bare domain). */
+   fallbackUrl?: string,
 }
 
 type ScraperExtractorInput = {

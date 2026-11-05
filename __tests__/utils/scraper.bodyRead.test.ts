@@ -129,7 +129,7 @@ describe('CrazySERP extractor', () => {
       settings: {} as any,
     } as any);
 
-    expect(extract()).toEqual({ organic: [] });
+    expect(extract()).toEqual({ organic: [], mapPackTop3: false, localResults: [] });
   });
 
   it('reads the organic list from an object payload', () => {

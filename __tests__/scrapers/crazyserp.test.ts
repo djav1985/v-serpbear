@@ -150,6 +150,62 @@ describe('crazyserp scraper', () => {
          location: '',
       };
 
+      describe('map pack from locations', () => {
+         const locations = [
+            { title: 'CeJay Websites', website_url: 'https://cejaywebsites.com/', rating: 5 },
+            { title: 'Vontainment', website_url: 'https://vontainment.com/' },
+            { title: 'No Site' },
+         ];
+
+         it('reads the documented payload shape, where the scraper passes parsed_data as the result', () => {
+            const response = {
+               success: true,
+               parsed_data: {
+                  has_map: true,
+                  organic: [{ title: 'Vontainment', url: 'https://vontainment.com/', position: 1 }],
+                  locations,
+               },
+            };
+
+            const extraction = crazyserp.serpExtractor!({
+               keyword: baseKeyword,
+               response,
+               result: response.parsed_data,
+               settings: { business_name: 'Vontainment' } as any,
+            } as any);
+
+            expect(extraction.organic).toHaveLength(1);
+            expect(extraction.mapPackTop3).toBe(true);
+            expect(extraction.localResults).toHaveLength(3);
+         });
+
+         it('gives the same map pack whether parsed_data arrives as an object or a JSON string', () => {
+            const parsedData = { organic: [{ title: 'Vontainment', url: 'https://vontainment.com/', position: 1 }], locations };
+            const run = (result: unknown) => crazyserp.serpExtractor!({
+               keyword: baseKeyword, response: {}, result, settings: { business_name: 'Vontainment' } as any,
+            } as any);
+
+            const fromObject = run(parsedData);
+            const fromString = run(JSON.stringify(parsedData));
+
+            expect(fromString.mapPackTop3).toBe(true);
+            expect(fromString).toEqual(fromObject);
+         });
+
+         it('is false when no top-3 business matches, or there are no locations', () => {
+            const noMatch = crazyserp.serpExtractor!({
+               keyword: baseKeyword, response: {}, result: { organic: [], locations }, settings: { business_name: 'Other Co' } as any,
+            } as any);
+            const none = crazyserp.serpExtractor!({
+               keyword: baseKeyword, response: {}, result: { organic: [] }, settings: { business_name: 'Vontainment' } as any,
+            } as any);
+
+            expect(noMatch.mapPackTop3).toBe(false);
+            expect(none.mapPackTop3).toBe(false);
+            expect(none.localResults).toEqual([]);
+         });
+      });
+
       it('extracts organic results from a JSON string response', () => {
          const results = [
             { title: 'Result 1', url: 'https://example.com', position: 1 },
@@ -247,14 +303,15 @@ describe('crazyserp scraper', () => {
          expect(extraction.organic).toHaveLength(0);
       });
 
-      it('does not set mapPackTop3 (supportsMapPack is false)', () => {
+      it('reports no map pack when the response has no locations', () => {
          const extraction = crazyserp.serpExtractor!({
             keyword: baseKeyword,
             response: {},
             result: [{ title: 'R', url: 'https://r.com', position: 1 }],
          });
 
-         expect(extraction.mapPackTop3).toBeUndefined();
+         expect(extraction.mapPackTop3).toBe(false);
+         expect(extraction.localResults).toEqual([]);
       });
    });
 
@@ -265,8 +322,8 @@ describe('crazyserp scraper', () => {
          expect(crazyserp.website).toBe('crazyserp.com');
       });
 
-      it('has supportsMapPack set to false', () => {
-         expect(crazyserp.supportsMapPack).toBe(false);
+      it('has supportsMapPack set to true', () => {
+         expect(crazyserp.supportsMapPack).toBe(true);
       });
 
       it('has allowsCity set to true', () => {

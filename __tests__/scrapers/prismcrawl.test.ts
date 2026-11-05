@@ -126,6 +126,18 @@ describe('prismcrawl scraper', () => {
       ]);
     });
 
+    it('keeps the result domain as a fallback for unresolved Google redirect links', () => {
+      const { organic } = extract(payloadWith([
+        { type: 'organic', title: 'Insurance Inspections', url: 'https://www.google.com/goto?url=CAESfwHE', domain: 'tailoredinspection.com', position: { absolute: 5 } },
+        { type: 'organic', title: 'Facebook thread', url: 'https://www.google.com/goto?url=CAEShQEB', domain: '', position: { absolute: 3 } },
+        { type: 'organic', title: 'Plain', url: 'https://a.example/', domain: 'a.example', position: { absolute: 1 } },
+      ]));
+
+      expect(organic[0].fallbackUrl).toBe('https://tailoredinspection.com/');
+      expect(organic[1].fallbackUrl).toBeUndefined();
+      expect(organic[2].fallbackUrl).toBeUndefined();
+    });
+
     it('ignores non-organic items such as local_results and ai_summary', () => {
       const { organic } = extract(payloadWith([
         { type: 'ai_summary', title: 'AI Overview' },
