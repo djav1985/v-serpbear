@@ -21,7 +21,7 @@ SerpBear is a full-stack Next.js application that tracks where your pages rank o
 | 7 | **White labeling** | Easy white-labeling. |
 | 8 | **Per-domain scraping** | Set scrapers per domain, globally, or both. |
 | 9 | **Transparent SERP result coverage** | The keyword details panel shows exactly which pages were scraped and which were skipped. Skipped page ranges appear as clearly labelled placeholder blocks between real results, and the "not found" badge reflects the number of results checked rather than always displaying "No Results". |
-| 10 | **Dynamic scraping strategy** | A flexible 3-tier system controls how many pages are checked per keyword at the global and per-domain level. **Basic** (default) scrapes only the first page; **Custom** scrapes a fixed number of pages (1–10); **Smart** targets the page where the keyword was last seen ± one neighbour, with an optional full-10-page fallback. This addresses Google's removal of `num=100` support, so keywords beyond position 10 are no longer always reported as "No Results". |
+| 10 | **Dynamic scraping strategy** | A two-mode system controls how many pages are checked per keyword at the global and per-domain level. **Basic** (default) scrapes only the first page; **Custom** scrapes a fixed number of pages (1–10). This addresses Google's removal of `num=100` support, so keywords beyond position 10 are no longer always reported as "No Results". |
 | 11 | **Resilient restarts** | Any keyword left in a stuck "updating" state by a crash or container restart mid-scrape is reset on the next startup, so the UI never shows permanently stuck loading spinners. |
 
 ---
@@ -197,7 +197,7 @@ Use the Settings UI or `/api/settings` to manage values persisted in `data/setti
 
 | Area | Keys |
 | --- | --- |
-| Scraper | `scraper_type`, `scraping_api`, `scrape_interval`, `scrape_delay`, `scrape_retry`, `scrape_strategy`, `scrape_pagination_limit`, `scrape_smart_full_fallback` |
+| Scraper | `scraper_type`, `scraping_api`, `scrape_interval`, `scrape_delay`, `scrape_retry`, `scrape_strategy`, `scrape_pagination_limit` |
 | Notification defaults | `notification_interval`, `notification_email`, `notification_email_from`, `notification_email_from_name` |
 | SMTP credentials | `smtp_server`, `smtp_port`, `smtp_username`, `smtp_password`, `smtp_tls_servername` |
 | Google integrations | `search_console_client_email`, `search_console_private_key`, and the `adwords_*` credentials used for keyword ideas |
@@ -256,13 +256,12 @@ Google's removal of `num=100` support limits most SERP APIs to 10 results per re
 | --- | --- | --- |
 | **Basic** (default) | Fetches only the first page, positions 1–10. Fastest and cheapest. | 1 request |
 | **Custom** | Fetches a fixed number of pages you choose (1–10). Useful when rankings are stable in a known range. | 1–10 requests |
-| **Smart** | Fetches the page where the keyword was last seen, plus the pages immediately before and after it. If the keyword is not found and **Full Fallback** is enabled, all remaining pages are checked. | Usually 1–3 requests; up to 10 with full fallback |
 
 **Failed pages:** If a page request fails and the domain was not found on the pages that loaded, the keyword is reported as an error with the provider's message. It keeps its previous position and history rather than being recorded as "not ranked".
 
 #### Configuring the strategy
 
-- **Globally:** open **Settings → Scraper** and use the _Scrape Strategy_ drop-down. Choosing **Custom** shows a page-count selector (1–10). Choosing **Smart** shows a _Full Fallback_ toggle.
+- **Globally:** open **Settings → Scraper** and use the _Scrape Strategy_ drop-down. Choosing **Custom** shows a page-count selector (1–10).
 - **Per domain:** open a domain, switch to the **Scraper** tab, and choose a _Scrape Strategy Override_. Any value other than **Use Global Setting** enables the domain-level controls.
 
 #### How results are stored

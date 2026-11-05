@@ -5,7 +5,6 @@ import Modal from '../common/Modal';
 import { useDeleteDomain, useFetchDomain, useUpdateDomain } from '../../services/domains';
 import InputField from '../common/InputField';
 import SelectField, { SelectionOption } from '../common/SelectField';
-import ToggleField from '../common/ToggleField';
 import { TOGGLE_TRACK_CLASS_NAME } from '../common/toggleStyles';
 import { isValidEmail } from '../../utils/client/validators';
 import SecretField from '../common/SecretField';
@@ -133,7 +132,6 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
       business_name: initialBusinessName,
       scrape_strategy: (domain?.scrape_strategy as ScrapeStrategy | '' | undefined) ?? '',
       scrape_pagination_limit: domain?.scrape_pagination_limit ?? 0,
-      scrape_smart_full_fallback: domain?.scrape_smart_full_fallback ?? false,
    }));
 
    const scraperOptions = useMemo(() => ([
@@ -223,7 +221,7 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
    };
 
    const buildDomainSettingsPayload = (): Partial<DomainSettings> => {
-      const { scraper_settings, business_name, scrape_strategy, scrape_pagination_limit, scrape_smart_full_fallback, ...rest } = domainSettings;
+      const { scraper_settings, business_name, scrape_strategy, scrape_pagination_limit, ...rest } = domainSettings;
       const payload: Partial<DomainSettings> = { ...rest };
 
       // Handle business_name separately
@@ -233,7 +231,6 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
       // Handle strategy fields
       payload.scrape_strategy = scrape_strategy || '';
       payload.scrape_pagination_limit = scrape_pagination_limit || 0;
-      payload.scrape_smart_full_fallback = !!scrape_smart_full_fallback;
 
       if (scraper_settings) {
          const nextType = typeof scraper_settings.scraper_type === 'string' && scraper_settings.scraper_type
@@ -442,7 +439,6 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
                                  { label: 'Use Global Setting', value: '' },
                                  { label: 'Basic (First page only)', value: 'basic' },
                                  { label: 'Custom (Set number of pages)', value: 'custom' },
-                                 { label: 'Smart (Based on last known position)', value: 'smart' },
                               ] as SelectionOption[])}
                               selected={[domainSettings.scrape_strategy || '']}
                               defaultLabel="Use Global Setting"
@@ -468,15 +464,6 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
                                  multiple={false}
                                  rounded={'rounded'}
                                  minWidth={210}
-                              />
-                           </div>
-                        )}
-                        {domainSettings.scrape_strategy === 'smart' && (
-                           <div className="mb-4 flex items-center w-full">
-                              <ToggleField
-                                 label='Full Fallback: Scrape all pages if not found nearby'
-                                 value={!!domainSettings.scrape_smart_full_fallback}
-                                 onChange={(val) => setDomainSettings({ ...domainSettings, scrape_smart_full_fallback: val })}
                               />
                            </div>
                         )}

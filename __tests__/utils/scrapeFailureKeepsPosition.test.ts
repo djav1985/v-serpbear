@@ -31,7 +31,6 @@ const serperSettings = {
    scraping_api: 'test-key',
    scrape_strategy: 'basic',
    scrape_pagination_limit: 5,
-   scrape_smart_full_fallback: false,
 } as unknown as SettingsType;
 
 describe('scrapeKeywordWithStrategy when every request fails', () => {

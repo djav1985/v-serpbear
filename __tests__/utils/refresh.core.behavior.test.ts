@@ -1407,7 +1407,6 @@ describe('refreshAndUpdateKeywords with a domain scraper key that cannot be decr
       business_name: null,
       scrape_strategy: '',
       scrape_pagination_limit: 0,
-      scrape_smart_full_fallback: false,
     }),
   });
 

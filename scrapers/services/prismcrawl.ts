@@ -23,6 +23,7 @@ const prismcrawl: ScraperSettings = {
   website: "prismcrawl.com",
   allowsCity: true,
   supportsMapPack: true,
+  usesResultOffset: true,
   timeoutMs: 20000,
   resultObjectKey: "data",
   method: "POST",

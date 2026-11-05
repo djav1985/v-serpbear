@@ -44,7 +44,6 @@ const ScraperSettings = ({ settings, settingsError, updateSettings }:ScraperSett
    const strategyOptions: SelectionOption[] = [
       { label: 'Basic (First page only — 10 results)', value: 'basic' },
       { label: 'Custom (Set number of pages)', value: 'custom' },
-      { label: 'Smart (Based on last known position)', value: 'smart' },
    ];
 
    const paginationLimitOptions: SelectionOption[] = Array.from({ length: 10 }, (_, i) => (
@@ -131,7 +130,6 @@ const ScraperSettings = ({ settings, settingsError, updateSettings }:ScraperSett
                         {(!settings.scrape_strategy || settings.scrape_strategy === 'basic')
                            && 'Scrape only the first page (10 results). Fastest, uses least API credits.'}
                         {settings.scrape_strategy === 'custom' && 'Scrape a fixed number of pages per keyword on every refresh.'}
-                        {settings.scrape_strategy === 'smart' && 'Scrape page 1 plus the pages around the last known position, so top-10 improvements are never missed.'}
                      </small>
                </div>
             )}
@@ -148,18 +146,6 @@ const ScraperSettings = ({ settings, settingsError, updateSettings }:ScraperSett
                      minWidth={220}
                   />
                   <small className='text-gray-500 pt-2 block'>Each page returns up to 10 results. 5 pages = top 50 results checked.</small>
-               </div>
-            )}
-            {settings.scraper_type !== 'none' && settings.scrape_strategy === 'smart' && (
-               <div className="settings__section__input mb-5">
-                  <ToggleField
-                     label='Full Fallback: Scrape all pages if not found on nearby pages'
-                     value={!!settings?.scrape_smart_full_fallback}
-                     onChange={(val) => updateSettings('scrape_smart_full_fallback', val)}
-                  />
-                  <small className='text-gray-500 pt-2 block'>
-                     When enabled, all 10 pages will be scraped if the keyword is not found near its last known position.
-                  </small>
                </div>
             )}
             {settings?.scrape_retry && (settings.failed_queue?.length || 0) > 0 && (

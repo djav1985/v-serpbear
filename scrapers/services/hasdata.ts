@@ -50,6 +50,7 @@ const hasdata: ScraperSettings = {
   },
   resultObjectKey: "organicResults",
   supportsMapPack: true,
+  usesResultOffset: true,
   serpExtractor: ({ result, response, settings }) => {
     const extractedResult = [];
     let results: HasDataResult[] = [];

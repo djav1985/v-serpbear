@@ -39,7 +39,6 @@ const buildSettingsDefaults = (): SettingsType => {
       scrape_retry: false,
       scrape_strategy: 'basic' as ScrapeStrategy,
       scrape_pagination_limit: 5,
-      scrape_smart_full_fallback: false,
       search_console: true,
       search_console_client_email: '',
       search_console_private_key: '',
@@ -91,9 +90,9 @@ const SECRET_SETTINGS_FIELDS = [
    'adwords_account_id',
 ] as const;
 
-const SCRAPE_STRATEGIES = ['basic', 'custom', 'smart'];
+const SCRAPE_STRATEGIES = ['basic', 'custom'];
 const MAX_PAGINATION_LIMIT = 10;
-const BOOLEAN_SETTINGS = ['scrape_retry', 'scrape_smart_full_fallback', 'search_console'];
+const BOOLEAN_SETTINGS = ['scrape_retry', 'search_console'];
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
 
 /**
@@ -111,7 +110,7 @@ export const validateSettingsPayload = (settings: Record<string, unknown>): stri
       }
    }
    if (has('scrape_strategy') && !SCRAPE_STRATEGIES.includes(settings.scrape_strategy as string)) {
-      errors.push('scrape_strategy must be basic, custom or smart.');
+      errors.push('scrape_strategy must be basic or custom.');
    }
    if (has('scrape_pagination_limit')) {
       const limit = Number(settings.scrape_pagination_limit);

@@ -171,7 +171,8 @@ const withTimeout = <T>(promise: Promise<T>, timeoutMs: number, onTimeout?: () =
 export const parseScraperResponse = async (response: Response): Promise<any> => {
    // The body can only be read once, so read the text first and parse it, instead of trying json() and then text().
    const text = await withTimeout(response.text(), SCRAPER_BODY_TIMEOUT_MS, () => requestControllers.get(response)?.abort());
-   logger.debug('[SCRAPE] Raw response', { status: response.status, ok: response.ok, body: text });
+   // Providers can echo the API key back in their response (e.g. ValueSERP's json_url), so mask it here too
+   logger.debug('[SCRAPE] Raw response', { status: response.status, ok: response.ok, body: maskSecrets(text) });
    try {
       const parsed = JSON.parse(text);
       if (parsed && typeof parsed === 'object') {
@@ -283,19 +284,18 @@ const buildFullResults = (scrapedResults: SearchResult[]): KeywordLastResult[] =
 const resolveStrategy = (
    settings: SettingsType,
    domainSettings?: Partial<DomainType>,
-): { strategy: ScrapeStrategy, paginationLimit: number, smartFullFallback: boolean } => {
+): { strategy: ScrapeStrategy, paginationLimit: number } => {
+   // Only 'custom' scrapes more than page 1; any other value (including the removed 'smart') means page 1 only.
+   const toStrategy = (value: unknown): ScrapeStrategy => (value === 'custom' ? 'custom' : 'basic');
    const domainStrategy = domainSettings?.scrape_strategy;
    if (!domainStrategy) {
       return {
-         strategy: (settings.scrape_strategy || 'basic') as ScrapeStrategy,
+         strategy: toStrategy(settings.scrape_strategy),
          paginationLimit: settings.scrape_pagination_limit || 5,
-         smartFullFallback: settings.scrape_smart_full_fallback || false,
       };
    }
-   const strategy = domainStrategy as ScrapeStrategy;
    const paginationLimit = domainSettings?.scrape_pagination_limit || settings.scrape_pagination_limit || 5;
-   const smartFullFallback = domainSettings?.scrape_smart_full_fallback ?? (settings.scrape_smart_full_fallback || false);
-   return { strategy, paginationLimit, smartFullFallback };
+   return { strategy: toStrategy(domainStrategy), paginationLimit };
 };
 
 /**
@@ -342,17 +342,12 @@ export const scrapeKeywordWithStrategy = async (
       return { ...errorResult, error: `Scraper type '${scraperType}' not found` };
    }
 
-   const { strategy, paginationLimit, smartFullFallback } = resolveStrategy(settings, domainSettings);
+   const { strategy, paginationLimit } = resolveStrategy(settings, domainSettings);
    let pagesToScrape: number[];
 
    if (strategy === 'custom') {
       const limit = Math.max(1, Math.min(paginationLimit, TOTAL_PAGES));
       pagesToScrape = Array.from({ length: limit }, (_, i) => i + 1);
-   } else if (strategy === 'smart') {
-      const lastPos = keyword.position;
-      const lastPage = lastPos > 0 ? Math.min(Math.ceil(lastPos / PAGE_SIZE), TOTAL_PAGES) : 1;
-      const neighbors = [1, lastPage - 1, lastPage, lastPage + 1].filter((p) => p >= 1 && p <= TOTAL_PAGES);
-      pagesToScrape = [...new Set(neighbors)];
    } else {
       pagesToScrape = [1];
    }
@@ -368,13 +363,29 @@ export const scrapeKeywordWithStrategy = async (
    // Resolves to 'ok' when the page had results, 'empty' when Google has no more results,
    // and 'failed' when the request itself failed (the reason is kept in state.failureMessage).
    const scrapePage = async (pageNum: number): Promise<'ok' | 'empty' | 'failed'> => {
-      const pagination: ScraperPagination = { start: (pageNum - 1) * PAGE_SIZE, num: PAGE_SIZE, page: pageNum };
+      // Offset-based providers continue after the results already returned (2 results -> start 2, then 5 more -> start 7).
+      let start = (pageNum - 1) * PAGE_SIZE;
+      if (scraperObj.usesResultOffset) {
+         start = 0;
+         for (let earlier = 1; earlier < pageNum; earlier += 1) {
+            start += pageResults.get(earlier)?.length ?? PAGE_SIZE;
+         }
+      }
+      const pagination: ScraperPagination = { start, num: PAGE_SIZE, page: pageNum };
       const scraped = await scrapeSinglePage(keyword, settings, scraperObj, pagination);
       if (scraped.failed) {
          state.failureMessage = scraped.error || 'Scrape request failed';
          return 'failed';
       }
-      if (scraped.results.length === 0) { return 'empty'; }
+      // Page 1 can hold a map pack but no organic results; still record the map pack (position stays 0).
+      if (scraped.results.length === 0) {
+         if (pageNum === 1 && !state.page1Scraped && scraped.localResults.length > 0) {
+            state.page1MapPackTop3 = scraped.mapPackTop3;
+            state.page1LocalResults = scraped.localResults;
+            state.page1Scraped = true;
+         }
+         return 'empty';
+      }
       pageResults.set(pageNum, scraped.results);
       if (pageNum === 1 && !state.page1Scraped) {
          state.page1MapPackTop3 = scraped.mapPackTop3;
@@ -396,19 +407,20 @@ export const scrapeKeywordWithStrategy = async (
    }
 
    if (pageResults.size === 0) {
-      return { ...errorResult, error: state.failureMessage || errorResult.error };
-   }
-
-   if (strategy === 'smart' && smartFullFallback && !state.failureMessage
-      && getSerp(keyword.domain, assemblePositions(pageResults)).position === 0) {
-      const alreadyScraped = new Set(pagesToScrape);
-      const remainingPages = Array.from({ length: TOTAL_PAGES }, (_, i) => i + 1).filter((p) => !alreadyScraped.has(p));
-      for (const pageNum of remainingPages) {
-         const outcome = await scrapePage(pageNum);
-         if (outcome !== 'ok') {
-            break;
-         }
+      if (state.page1Scraped && !state.failureMessage) {
+         // Local results only: not ranked organically (position 0), map pack updated.
+         return {
+            ID: keyword.ID,
+            keyword: keyword.keyword,
+            position: 0,
+            url: '',
+            result: [],
+            mapPackTop3: state.page1MapPackTop3,
+            localResults: state.page1LocalResults,
+            error: false,
+         };
       }
+      return { ...errorResult, error: state.failureMessage || errorResult.error };
    }
 
    const allScrapedResults = assemblePositions(pageResults);

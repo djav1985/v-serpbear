@@ -4,7 +4,6 @@
  * Verifies that each strategy scrapes exactly the right pages:
  *  - basic  → page 1 only
  *  - custom → pages 1..N
- *  - smart  → page 1 always, plus the neighbours of the last known page
  *
  * Also verifies that positions are computed correctly even when:
  *  - a page returns fewer than PAGE_SIZE results (variable page sizes)
@@ -71,7 +70,6 @@ const baseSettings = {
    scraping_api: 'test-key',
    scrape_strategy: 'basic',
    scrape_pagination_limit: 5,
-   scrape_smart_full_fallback: false,
 } as unknown as SettingsType;
 
 /** Returns the unique page numbers from all fetch calls in ascending order. */
@@ -156,71 +154,12 @@ describe('scrapeKeywordWithStrategy – page selection', () => {
       expect(capturedPages(fetchSpy)[9]).toBe(10);
    });
 
-   // ── Smart ────────────────────────────────────────────────────────────────
+   // ── Removed smart strategy ───────────────────────────────────────────────
 
-   it('smart: scrapes [1, 2] for lastPos=0 (unknown, treated as page 1)', async () => {
-      const settings = { ...baseSettings, scrape_strategy: 'smart' as ScrapeStrategy };
-      await scrapeKeywordWithStrategy({ ...baseKeyword, position: 0 }, settings);
-      expect(capturedPages(fetchSpy)).toEqual([1, 2]);
-   });
-
-   it('smart: scrapes [1, 2] for lastPos=5 (page 1)', async () => {
-      const settings = { ...baseSettings, scrape_strategy: 'smart' as ScrapeStrategy };
-      await scrapeKeywordWithStrategy({ ...baseKeyword, position: 5 }, settings);
-      expect(capturedPages(fetchSpy)).toEqual([1, 2]);
-   });
-
-   it('smart: scrapes [1, 2, 3] for lastPos=15 (page 2)', async () => {
-      const settings = { ...baseSettings, scrape_strategy: 'smart' as ScrapeStrategy };
-      await scrapeKeywordWithStrategy({ ...baseKeyword, position: 15 }, settings);
-      expect(capturedPages(fetchSpy)).toEqual([1, 2, 3]);
-   });
-
-   it('smart: scrapes [1, 2, 3, 4] for lastPos=25 (page 3) – always includes page 1', async () => {
-      const settings = { ...baseSettings, scrape_strategy: 'smart' as ScrapeStrategy };
+   it('treats a leftover smart strategy as basic (page 1 only)', async () => {
+      const settings = { ...baseSettings, scrape_strategy: 'smart' as unknown as ScrapeStrategy };
       await scrapeKeywordWithStrategy({ ...baseKeyword, position: 25 }, settings);
-      expect(capturedPages(fetchSpy)).toContain(1);
-      expect(capturedPages(fetchSpy)).toEqual([1, 2, 3, 4]);
-   });
-
-   it('smart: scrapes [1, 9, 10] for lastPos=100 (page 10) – always includes page 1', async () => {
-      const settings = { ...baseSettings, scrape_strategy: 'smart' as ScrapeStrategy };
-      await scrapeKeywordWithStrategy({ ...baseKeyword, position: 100 }, settings);
-      expect(capturedPages(fetchSpy)).toContain(1);
-      expect(capturedPages(fetchSpy)).toEqual([1, 9, 10]);
-   });
-
-   it('smart: page 1 result wins when keyword improved from page 3 to page 1', async () => {
-      // keyword last seen at pos 25 (page 3), but actually now at pos 3 (page 1).
-      // scrapeSinglePage returns page-relative positions (1..N based on index);
-      // the cumulative offset is applied by scrapeKeywordWithStrategy.
-      // The domain is the 3rd item (i=2) on page 1: cumulativeOffset=0, position=0+3=3.
-      fetchSpy.mockImplementation((url: RequestInfo | URL) => {
-         const pageMatch = String(url).match(/[?&]page=(\d+)/);
-         const page = pageMatch ? Number(pageMatch[1]) : 1;
-         let organic: Array<{ title: string; link: string; position: number }>;
-         if (page === 1) {
-            organic = [
-               { title: 'Other 1', link: 'https://other1.com/', position: 1 },
-               { title: 'Other 2', link: 'https://other2.com/', position: 2 },
-               { title: 'Domain result', link: 'https://example.com/new', position: 3 },
-            ];
-         } else {
-            organic = [{ title: `Other result ${page}`, link: `https://other-${page}.com/`, position: (page - 1) * 10 + 1 }];
-         }
-         return Promise.resolve({
-            ok: true, status: 200,
-            text: async function (this: { json: () => Promise<unknown> }) { return JSON.stringify(await this.json()); },
-            json: async () => ({ organic }),
-         } as unknown as Response);
-      });
-
-      const settings = { ...baseSettings, scrape_strategy: 'smart' as ScrapeStrategy };
-      const result = await scrapeKeywordWithStrategy({ ...baseKeyword, position: 25 }, settings);
-      expect(result).not.toBe(false);
-      if (result) {
-         expect(result.position).toBe(3);
-      }
+      expect(capturedPages(fetchSpy)).toEqual([1]);
    });
 });
 
@@ -303,37 +242,6 @@ describe('scrapeKeywordWithStrategy – position accuracy', () => {
       if (result) {
          // offset after page 1 = 10; domain is at index 2 on page 2 → position 10+3 = 13
          expect(result.position).toBe(13);
-      }
-   });
-
-   it('smart non-contiguous: domain on page 9 → gap-estimated offset preserves correct page-9 position range', async () => {
-      // keyword last known at pos 100 (page 10), smart scrapes [1, 9, 10].
-      // page 1: 10 results; pages 9 and 10 both have 10 results; domain is first on page 9.
-      // Gap from page 1 to page 9 = 7 pages × PAGE_SIZE(10) = 70, offset = 10+70 = 80.
-      // Domain at index 0 on page 9 → absolute position 81.
-      fetchSpy = jest.spyOn(global, 'fetch').mockImplementation((url: RequestInfo | URL) => {
-         const pageMatch = String(url).match(/[?&]page=(\d+)/);
-         const page = pageMatch ? Number(pageMatch[1]) : 1;
-         if (page === 9) {
-            return Promise.resolve({
-               ok: true, status: 200,
-               text: async function (this: { json: () => Promise<unknown> }) { return JSON.stringify(await this.json()); },
-               json: async () => ({
-                  organic: [
-                     { title: 'Domain', link: 'https://example.com/p9', position: 1 },
-                     ...Array.from({ length: 9 }, (_, i) => ({ title: `Other 9-${i}`, link: `https://other9-${i}.com/`, position: i + 2 })),
-                  ],
-               }),
-            } as unknown as Response);
-         }
-         return Promise.resolve(makeSerperResponseN(page, 10) as unknown as Response);
-      });
-
-      const settings: SettingsType = { ...baseSettings, scrape_strategy: 'smart' as ScrapeStrategy };
-      const result = await scrapeKeywordWithStrategy({ ...baseKeyword, domain: 'example.com', position: 100 }, settings);
-      expect(result).not.toBe(false);
-      if (result) {
-         expect(result.position).toBe(81);
       }
    });
 });

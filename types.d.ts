@@ -1,4 +1,4 @@
-type ScrapeStrategy = 'basic' | 'custom' | 'smart'
+type ScrapeStrategy = 'basic' | 'custom'
 
 type DomainScraperSettings = {
    scraper_type?: string | null,
@@ -35,7 +35,6 @@ type DomainType = {
    business_name?: string | null,
    scrape_strategy?: ScrapeStrategy | '',
    scrape_pagination_limit?: number,
-   scrape_smart_full_fallback?: boolean,
 }
 
 type KeywordHistory = {
@@ -113,7 +112,6 @@ type DomainSettings = {
    business_name?: string | null,
    scrape_strategy?: ScrapeStrategy | '',
    scrape_pagination_limit?: number,
-   scrape_smart_full_fallback?: boolean,
 }
 
 type SettingsType = {
@@ -135,7 +133,6 @@ type SettingsType = {
    scrape_retry?: boolean,
    scrape_strategy?: ScrapeStrategy,
    scrape_pagination_limit?: number,
-   scrape_smart_full_fallback?: boolean,
    failed_queue?: number[]
    version?: string,
    search_console: boolean,
@@ -337,6 +334,12 @@ interface ScraperSettings {
     * map pack visibility for tracked keywords.
     */
    supportsMapPack?: boolean,
+   /**
+    * Set to true when the provider pages with a result offset (`start`) rather than a page number.
+    * The next page's `start` is then the number of organic results already returned, so a short page
+    * does not skip results. Unscraped earlier pages count as a full page.
+    */
+   usesResultOffset?: boolean,
    /**
     * Optional timeout override in milliseconds for this scraper.
     * If not provided, the default timeout logic will be used.
