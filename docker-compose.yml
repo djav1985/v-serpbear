@@ -35,6 +35,8 @@ services:
       - CRON_EMAIL_SCHEDULE=${CRON_EMAIL_SCHEDULE:-0 0 6 * * *}
       - REFRESH_QUEUE_CONCURRENCY=${REFRESH_QUEUE_CONCURRENCY:-3}
       - PARALLEL_SCRAPE_CONCURRENCY=${PARALLEL_SCRAPE_CONCURRENCY:-3}
+      # Optional. Free Serper API key used to turn google.com/goto result links into real URLs (serper.dev).
+      - SERPER_API_KEY=${SERPER_API_KEY:-}
     volumes:
       - data:/app/data
 

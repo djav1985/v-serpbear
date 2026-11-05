@@ -225,6 +225,7 @@ The Scraper setting `scrape_interval` selects the schedule used for keyword scra
 | `NEXT_REMOVE_CONSOLE` | — | Optional | Not wired in `next.config.js`. Currently has no effect. |
 | `REFRESH_QUEUE_CONCURRENCY` | `3` | Optional | Maximum number of domains refreshed in parallel. The queue still prevents duplicate refreshes for the same domain. |
 | `PARALLEL_SCRAPE_CONCURRENCY` | `3` | Optional | Maximum simultaneous keyword scrapes per domain for sequential scraper providers. SerpApi and SearchApi keep their existing parallel behaviour. |
+| `SERPER_API_KEY` | _(empty)_ | Optional | Free [Serper](https://serper.dev) API key. When set, organic results that come back as `google.com/goto` links are turned into real URLs through Serper's `/resolve` endpoint. It can add up to a minute to a scrape. Without it those links are left as they are. |
 | `PARALLEL_REFRESH_CONCURRENCY` | `10` | Optional | Maximum number of keywords scraped in parallel within a single refresh run. Must be a positive integer. |
 
 ---

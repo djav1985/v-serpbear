@@ -13,6 +13,17 @@ describe('markOwnLocalResults', () => {
       expect(out.map((entry) => entry.isOwn)).toEqual([false, true, false, false]);
    });
 
+   it('still matches when only spacing, punctuation or "&" differ', () => {
+      const listed = [
+         { position: 1, title: 'Smith &  Sons, Inc.' },
+         { position: 2, title: 'Other' },
+      ];
+      expect(markOwnLocalResults(listed, 'smith and sons inc')[0].isOwn).toBe(true);
+      expect(markOwnLocalResults(listed, "Smith & Sons Inc")[0].isOwn).toBe(true);
+      expect(computeMapPackTop3(listed, 'Smith and Sons, Inc')).toBe(true);
+      expect(markOwnLocalResults(listed, 'Smith Sons')[0].isOwn).toBe(false);
+   });
+
    it('marks nothing without a business name, and copes with missing lists', () => {
       expect(markOwnLocalResults(results, '').every((entry) => entry.isOwn === false)).toBe(true);
       expect(markOwnLocalResults(results, null).every((entry) => entry.isOwn === false)).toBe(true);

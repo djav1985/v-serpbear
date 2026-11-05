@@ -10,7 +10,8 @@ All notable changes to this project will be documented in this file. Releases no
 3. **Committed secrets:** Secrets that were committed in `data/settings.json` remain in git history. If this repository was ever shared or made public, rotate `SECRET`, `APIKEY`, login passwords, SMTP credentials, and Search Console and Google Ads keys.
 
 ### Added
-- PrismCrawl organic results that come back as Google redirect links (`google.com/goto?url=...`) now use the result's own `domain` as the URL, so the tracked domain can be matched. A link with no domain is looked up once (a GET to Google with redirects disabled, reading the `Location` header) and left as it was if Google does not answer with a redirect; failures are logged as warnings.
+- Added optional `SERPER_API_KEY` (passed through `docker-compose.yml`): organic results that are `google.com/goto` links for any scraper are resolved to real URLs with Serper's free `/resolve` endpoint, with one lookup per link and no retries. Failures are logged as warnings and leave the link unchanged.
+- PrismCrawl organic results that come back as Google redirect links (`google.com/goto?url=...`) now use the result's own `domain` as the URL, so the tracked domain can be matched. A link with no domain stays a `goto` link unless `SERPER_API_KEY` is set (see the entry above).
 - CrazySERP now reports map pack results from its `locations` block (title and `website_url`) and matches the top 3 against the domain's business name.
 - Added `usesResultOffset` for scrapers that page by result offset (`start`): each page now starts after the results already returned, so short pages no longer skip results (PrismCrawl, SerpApi, HasData, Serply).
 - Read-only MCP server at `POST /api/mcp` (Streamable HTTP, stateless) with six tools: `get_keyword`, `list_keywords`, `list_domains`, `get_searchconsole`, `get_insight` and `get_keyword_ideas`. It uses the same `Authorization: Bearer <APIKEY>` header as the REST API.

@@ -1,90 +1,77 @@
 import { logger } from './logger';
 
-const REDIRECT_TIMEOUT_MS = 5000;
-const REDIRECT_CONCURRENCY = 5;
-const CACHE_MAX_ENTRIES = 500;
-
-// Resolved links are kept for the life of the process: a token always leads to the same page.
-const resolvedCache = new Map<string, string>();
-
+const SERPER_RESOLVE_URL = 'https://google.serper.dev/resolve';
+// Serper waits for Google on our behalf, which can take about 30 seconds right after a search
+const REQUEST_TIMEOUT_MS = 60000;
 const GOOGLE_HOST = /^(www\.)?google\.[a-z.]{2,6}$/i;
-// Any Google host, including subdomains such as consent.google.com and accounts.google.com
-const ANY_GOOGLE_HOST = /(^|\.)google\.[a-z.]{2,6}$/i;
 
-const parseGoogleRedirect = (value: string | undefined | null): URL | null => {
-   if (!value) { return null; }
-   let parsed: URL;
+/** True for Google redirect links such as https://www.google.com/goto?url=CAES... or /url?q=... */
+export const isGoogleRedirectUrl = (value: string | undefined | null): boolean => {
+   if (!value) { return false; }
    try {
-      parsed = new URL(value);
+      const parsed = new URL(value);
+      return /^https?:$/.test(parsed.protocol) && GOOGLE_HOST.test(parsed.hostname)
+         && (parsed.pathname === '/goto' || parsed.pathname === '/url');
    } catch (_error) {
-      return null;
+      return false;
    }
-   if (!/^https?:$/.test(parsed.protocol) || !GOOGLE_HOST.test(parsed.hostname)) { return null; }
-   if (parsed.pathname !== '/goto' && parsed.pathname !== '/url') { return null; }
-   return parsed;
 };
 
-/** True for Google redirect links such as https://www.google.com/goto?url=CAES... or /url?q=https://example.com */
-export const isGoogleRedirectUrl = (value: string | undefined | null): boolean => parseGoogleRedirect(value) !== null;
-
-const isHttpUrl = (value: string | null | undefined): value is string => !!value && /^https?:\/\//i.test(value);
+const isRealUrl = (value: unknown): value is string => (
+   typeof value === 'string' && /^https?:\/\//i.test(value) && !isGoogleRedirectUrl(value)
+);
 
 /**
- * Turns a Google redirect link into the page it points to. /url?q=<address> carries the address in the query, so no
- * request is needed. /goto?url=<token> is opaque, so one request is made to Google (never to the destination) and the
- * Location header is read without following it. Anything that cannot be resolved is returned unchanged.
+ * Replaces Google redirect links (google.com/goto?url=...) with the real address using Serper's free /resolve
+ * endpoint. Needs SERPER_API_KEY; without it the items are returned unchanged. Items that are not Google redirect
+ * links are never sent. Each link gets one lookup; anything Serper cannot resolve is left as the Google link.
  */
-export const resolveGoogleRedirect = async (value: string, timeoutMs: number = REDIRECT_TIMEOUT_MS): Promise<string> => {
-   const parsed = parseGoogleRedirect(value);
-   if (!parsed) { return value; }
-
-   const inline = parsed.searchParams.get('q') || parsed.searchParams.get('url');
-   if (isHttpUrl(inline)) { return inline; }
-
-   const cached = resolvedCache.get(value);
-   if (cached) { return cached; }
-
-   try {
-      const response = await fetch(value, {
-         redirect: 'manual',
-         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36' },
-         signal: AbortSignal.timeout(timeoutMs),
-      });
-      const location = response.headers.get('location');
-      let locationHost = '';
-      try { locationHost = location ? new URL(location).hostname : ''; } catch (_error) { /* not a URL, reported below */ }
-      // A redirect back to Google (a consent or "unusual traffic" verification page) is not the destination
-      if (response.status >= 300 && response.status < 400 && isHttpUrl(location) && !ANY_GOOGLE_HOST.test(locationHost)) {
-         if (resolvedCache.size >= CACHE_MAX_ENTRIES) {
-            const oldest = resolvedCache.keys().next().value;
-            if (oldest !== undefined) { resolvedCache.delete(oldest); }
-         }
-         resolvedCache.set(value, location);
-         return location;
-      }
-      // Warn, not debug: when Google blocks the server (verification page, rate limit) every link stays unresolved
-      logger.warn('[SCRAPE] Google redirect did not resolve', { status: response.status, location: (location || '').slice(0, 120) });
-   } catch (error: any) {
-      logger.warn('[SCRAPE] Google redirect lookup failed', { error: error?.message || '' });
-   }
-   return value;
-};
-
-/** Resolves the url of every item that is a Google redirect link, a few at a time. Links that cannot be resolved are left as they were. */
-export const resolveGoogleRedirects = async <T extends { url?: string }>(items: T[]): Promise<T[]> => {
-   const pending = items.map((item, index) => ({ item, index })).filter(({ item }) => isGoogleRedirectUrl(item.url));
-   if (pending.length === 0) { return items; }
+export const resolveGoogleRedirects = async <T extends { title?: string, url?: string }>(
+   items: T[],
+   apiKey: string | undefined = process.env.SERPER_API_KEY,
+): Promise<T[]> => {
+   const pending = items.map((item, index) => (isGoogleRedirectUrl(item.url) ? index : -1)).filter((index) => index >= 0);
+   const key = (apiKey || '').trim();
+   if (pending.length === 0 || !key) { return items; }
 
    const resolved = [...items];
-   let next = 0;
-   const worker = async () => {
-      while (next < pending.length) {
-         const { item, index } = pending[next];
-         next += 1;
-         const url = await resolveGoogleRedirect(item.url as string);
-         if (url !== item.url) { resolved[index] = { ...item, url }; }
+
+   try {
+      const response = await fetch(SERPER_RESOLVE_URL, {
+         method: 'POST',
+         headers: { 'X-API-KEY': key, 'Content-Type': 'application/json' },
+         body: JSON.stringify({ organic: pending.map((index) => ({ title: items[index].title ?? '', link: items[index].url })) }),
+         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+      if (!response.ok) {
+         logger.warn('[SCRAPE] Serper link resolve failed, keeping Google links', { status: response.status });
+         return resolved;
       }
-   };
-   await Promise.all(Array.from({ length: Math.min(REDIRECT_CONCURRENCY, pending.length) }, worker));
+
+      const data: any = await response.json();
+      const organic: any[] = Array.isArray(data?.organic) ? data.organic : [];
+      if (organic.length !== pending.length) {
+         logger.warn('[SCRAPE] Serper link resolve returned an unexpected list, keeping Google links', { sent: pending.length, received: organic.length });
+         return resolved;
+      }
+
+      let unresolved = 0;
+      pending.forEach((itemIndex, position) => {
+         const link = organic[position]?.link;
+         if (isRealUrl(link)) {
+            resolved[itemIndex] = { ...items[itemIndex], url: link };
+         } else {
+            unresolved += 1;
+         }
+      });
+
+      if (unresolved > 0) {
+         logger.warn('[SCRAPE] Google links left unresolved', { unresolved, total: pending.length });
+      } else {
+         logger.info('[SCRAPE] Resolved Google links', { total: pending.length });
+      }
+   } catch (error: any) {
+      logger.warn('[SCRAPE] Serper link resolve request failed, keeping Google links', { error: error?.message || '' });
+   }
    return resolved;
 };

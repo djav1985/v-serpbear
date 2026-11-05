@@ -2,16 +2,7 @@ import { getGoogleDomain } from "../../utils/countries";
 import { resolveCountryCode, getKeywordLocationParts } from "../../utils/scraperHelpers";
 import { DEVICE_MOBILE } from "../../utils/constants";
 import { computeMapPackTop3 } from "../../utils/mapPack";
-
-// Google redirect links such as https://www.google.com/goto?url=CAES... (PrismCrawl could not resolve them)
-const isGoogleRedirect = (value: string | undefined): boolean => {
-  try {
-    const parsed = new URL(value ?? "");
-    return /^(www\.)?google\.[a-z.]{2,6}$/i.test(parsed.hostname) && (parsed.pathname === "/goto" || parsed.pathname === "/url");
-  } catch (_error) {
-    return false;
-  }
-};
+import { isGoogleRedirectUrl } from "../../utils/resolveGoogleLinks";
 
 interface PrismCrawlResult {
   type: string;
@@ -84,7 +75,7 @@ const prismcrawl: ScraperSettings = {
       .map((item, index) => ({
         title: item.title as string,
         // A google.com/goto link cannot be matched to a domain, so use the result's own domain when PrismCrawl gives one
-        url: isGoogleRedirect(item.url) && item.domain ? `https://${item.domain}/` : (item.url as string),
+        url: isGoogleRedirectUrl(item.url) && item.domain ? `https://${item.domain}/` : (item.url as string),
         position: item.position?.absolute ?? item.rank ?? index + 1,
       }));
 
