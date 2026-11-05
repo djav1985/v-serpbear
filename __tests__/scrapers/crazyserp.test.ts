@@ -179,6 +179,19 @@ describe('crazyserp scraper', () => {
             expect(extraction.localResults).toHaveLength(3);
          });
 
+         it('gives the same map pack whether parsed_data arrives as an object or a JSON string', () => {
+            const parsedData = { organic: [{ title: 'Vontainment', url: 'https://vontainment.com/', position: 1 }], locations };
+            const run = (result: unknown) => crazyserp.serpExtractor!({
+               keyword: baseKeyword, response: {}, result, settings: { business_name: 'Vontainment' } as any,
+            } as any);
+
+            const fromObject = run(parsedData);
+            const fromString = run(JSON.stringify(parsedData));
+
+            expect(fromString.mapPackTop3).toBe(true);
+            expect(fromString).toEqual(fromObject);
+         });
+
          it('is false when no top-3 business matches, or there are no locations', () => {
             const noMatch = crazyserp.serpExtractor!({
                keyword: baseKeyword, response: {}, result: { organic: [], locations }, settings: { business_name: 'Other Co' } as any,
