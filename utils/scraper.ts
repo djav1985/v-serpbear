@@ -244,7 +244,7 @@ const scrapeSinglePage = async (
          const scrapeResult = res.data || res.results || scraperResult || null;
          if (res && scrapeResult) {
             const extraction = scraperObj.serpExtractor({ keyword, response: res, result: scrapeResult, settings, pagination });
-            // Links PrismCrawl could not resolve (no domain) stay as google.com/goto links; look up where they lead
+            // Google redirect links (google.com/goto) are resolved through Serper when SERPER_API_KEY is set
             const organic = await resolveGoogleRedirects(extraction.organic);
             const mapPackTop3 = extraction.mapPackTop3 ?? false;
             const localResults = markOwnLocalResults(extraction.localResults ?? [], (settings as ExtendedSettings)?.business_name);
