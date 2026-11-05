@@ -2,13 +2,22 @@ import { getGoogleDomain } from "../../utils/countries";
 import { resolveCountryCode, getKeywordLocationParts } from "../../utils/scraperHelpers";
 import { DEVICE_MOBILE } from "../../utils/constants";
 import { computeMapPackTop3 } from "../../utils/mapPack";
-import { isGoogleRedirectUrl } from "../../utils/resolveGoogleLinks";
+
+// Google redirect links such as https://www.google.com/goto?url=CAES... (PrismCrawl could not resolve them)
+const isGoogleRedirect = (value: string | undefined): boolean => {
+  try {
+    const parsed = new URL(value ?? "");
+    return /^(www\.)?google\.[a-z.]{2,6}$/i.test(parsed.hostname) && (parsed.pathname === "/goto" || parsed.pathname === "/url");
+  } catch (_error) {
+    return false;
+  }
+};
 
 interface PrismCrawlResult {
   type: string;
   title?: string;
   url?: string;
-  /** Bare domain of the result; set even when `url` is a Google redirect link */
+  /** Bare domain of the result; set even when `url` is a Google redirect link, empty for some (e.g. social posts) */
   domain?: string;
   rank?: number;
   position?: { absolute?: number };
@@ -74,10 +83,9 @@ const prismcrawl: ScraperSettings = {
       .filter((item) => item?.type === "organic" && item.title && item.url)
       .map((item, index) => ({
         title: item.title as string,
-        url: item.url as string,
+        // A google.com/goto link cannot be matched to a domain, so use the result's own domain when PrismCrawl gives one
+        url: isGoogleRedirect(item.url) && item.domain ? `https://${item.domain}/` : (item.url as string),
         position: item.position?.absolute ?? item.rank ?? index + 1,
-        // An unresolved google.com/goto link cannot be matched to a domain, so keep the result's own domain as a fallback
-        ...(isGoogleRedirectUrl(item.url) && item.domain ? { fallbackUrl: `https://${item.domain}/` } : {}),
       }));
 
     const businessName = (settings as ExtendedSettings)?.business_name ?? null;

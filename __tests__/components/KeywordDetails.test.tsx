@@ -111,3 +111,35 @@ describe('KeywordDetails', () => {
       expect(screen.queryByText(/scraped/)).not.toBeInTheDocument();
    });
 });
+
+describe('KeywordDetails local results panel', () => {
+   const renderWithLocal = (localResults: unknown[]) => {
+      useFetchSingleKeywordMock.mockReturnValue({ data: undefined });
+      const keyword = { ...dummyKeywords[0], localResults } as unknown as KeywordType;
+      return render(<KeywordDetails keyword={keyword} closeDetails={jest.fn()} />);
+   };
+
+   it('shows every local result in a yellow box, and only the tracked business in green', () => {
+      renderWithLocal([
+         { position: 1, title: 'CeJay Websites', url: 'https://cejaywebsites.com/', isOwn: false },
+         { position: 2, title: 'Vontainment', url: 'https://vontainment.com/', isOwn: true },
+         { position: 3, title: 'US Web Central', url: 'https://uswebcentral.com/', isOwn: false },
+      ]);
+
+      const box = (title: string) => screen.getByText(title).closest('[data-own]') as HTMLElement;
+      expect(box('1. CeJay Websites')).toHaveClass('bg-yellow-50');
+      expect(box('3. US Web Central')).toHaveClass('bg-yellow-50');
+      expect(box('2. Vontainment')).toHaveClass('bg-green-50');
+      expect(box('2. Vontainment')).not.toHaveClass('bg-yellow-50');
+   });
+
+   it('keeps all boxes yellow when none is the tracked business, or the results are older and have no flag', () => {
+      renderWithLocal([
+         { position: 1, title: 'A', url: 'https://a.example/' },
+         { position: 2, title: 'B', url: 'https://b.example/', isOwn: false },
+      ]);
+
+      expect(screen.getByText('1. A').closest('[data-own]')).toHaveClass('bg-yellow-50');
+      expect(screen.getByText('2. B').closest('[data-own]')).toHaveClass('bg-yellow-50');
+   });
+});
