@@ -151,8 +151,9 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
                               
                               return (
                                  <div
-                                 className={`leading-6 mb-4 mr-3 p-3 text-sm break-all pr-3 rounded 
-                                 ${mapPackTop3 && index < 3 ? ' bg-green-50 border border-green-200' : ''}`}
+                                 className={`leading-6 mb-4 mr-3 p-3 text-sm break-all pr-3 rounded border
+                                 ${item.isOwn ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'}`}
+                                 data-own={item.isOwn ? 'true' : 'false'}
                                  key={url + position}>
                                     <h4 className='font-semibold text-blue-700'>
                                        {url ? (

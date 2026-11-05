@@ -10,12 +10,13 @@ All notable changes to this project will be documented in this file. Releases no
 3. **Committed secrets:** Secrets that were committed in `data/settings.json` remain in git history. If this repository was ever shared or made public, rotate `SECRET`, `APIKEY`, login passwords, SMTP credentials, and Search Console and Google Ads keys.
 
 ### Added
-- Scraped organic results that are Google redirect links (`google.com/goto?url=...`, `/url?q=...`) are now resolved to the destination address, so the tracked domain can be matched. A link that cannot be resolved is left as it was.
+- PrismCrawl organic results that come back as Google redirect links (`google.com/goto?url=...`) now use the result's own `domain` as the URL, so the tracked domain can be matched. A link with no domain is left as it was.
 - CrazySERP now reports map pack results from its `locations` block (title and `website_url`) and matches the top 3 against the domain's business name.
 - Added `usesResultOffset` for scrapers that page by result offset (`start`): each page now starts after the results already returned, so short pages no longer skip results (PrismCrawl, SerpApi, HasData, Serply).
 - Read-only MCP server at `POST /api/mcp` (Streamable HTTP, stateless) with six tools: `get_keyword`, `list_keywords`, `list_domains`, `get_searchconsole`, `get_insight` and `get_keyword_ideas`. It uses the same `Authorization: Bearer <APIKEY>` header as the REST API.
 
 ### Changed
+- The Local Search Results panel now shows every business in a yellow box and only the tracked business (matched by business name in the top 3) in green. Local results saved before this change have no flag, so they show yellow until the keyword is refreshed.
 - **Breaking for API callers:** every API endpoint now takes a real domain name (`example.com`) instead of a URL slug. `GET /api/searchconsole` and `GET /api/insight` no longer accept slugs. On `/api/ideas`, `domainSlug` and `domainUrl` are merged into one `domain` field (GET query, PUT body and POST body); leaving `domain` out means the research page. Data file names and page URLs are unchanged.
 - README: the `API contract` section is now `External API` and lists the endpoints reachable with the API key.
 - `POST /api/domains` now strips a leading `www.` from hostnames, matching the Add Domain form. A new migration renames existing `www.` domains (skipped when the bare domain already exists).

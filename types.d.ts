@@ -80,6 +80,8 @@ type KeywordLocalResult = {
    position: number,
    url?: string,
    title?: string,
+   /** True when this entry is the tracked business (matched by business name in the top 3) */
+   isOwn?: boolean,
    [key: string]: unknown
 }
 
@@ -274,8 +276,6 @@ type scraperExtractedItem = {
    title: string,
    url: string,
    position: number,
-   /** Used in place of `url` when `url` is a Google redirect link that cannot be resolved (for example the result's bare domain). */
-   fallbackUrl?: string,
 }
 
 type ScraperExtractorInput = {

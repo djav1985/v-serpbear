@@ -126,16 +126,16 @@ describe('prismcrawl scraper', () => {
       ]);
     });
 
-    it('keeps the result domain as a fallback for unresolved Google redirect links', () => {
+    it('uses the result domain in place of a Google redirect link, and leaves the link when there is no domain', () => {
       const { organic } = extract(payloadWith([
         { type: 'organic', title: 'Insurance Inspections', url: 'https://www.google.com/goto?url=CAESfwHE', domain: 'tailoredinspection.com', position: { absolute: 5 } },
         { type: 'organic', title: 'Facebook thread', url: 'https://www.google.com/goto?url=CAEShQEB', domain: '', position: { absolute: 3 } },
         { type: 'organic', title: 'Plain', url: 'https://a.example/', domain: 'a.example', position: { absolute: 1 } },
       ]));
 
-      expect(organic[0].fallbackUrl).toBe('https://tailoredinspection.com/');
-      expect(organic[1].fallbackUrl).toBeUndefined();
-      expect(organic[2].fallbackUrl).toBeUndefined();
+      expect(organic[0].url).toBe('https://tailoredinspection.com/');
+      expect(organic[1].url).toBe('https://www.google.com/goto?url=CAEShQEB');
+      expect(organic[2].url).toBe('https://a.example/');
     });
 
     it('ignores non-organic items such as local_results and ai_summary', () => {
