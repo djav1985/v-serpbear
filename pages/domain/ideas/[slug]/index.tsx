@@ -21,19 +21,19 @@ export const DomainIdeasPage: NextPage = () => {
    const { data: appSettings } = useFetchSettings();
    const appSettingsData: SettingsType = appSettings?.settings || {} as SettingsType;
    const { data: domainsData } = useFetchDomains(router, false);
+   const activeDomain = useActiveDomain(router, domainsData);
    const adwordsConnected = Boolean(
       appSettingsData?.adwords_refresh_token
       && appSettingsData?.adwords_developer_token
       && appSettingsData?.adwords_account_id,
    );
    const globalSearchConsoleConnected = Boolean(appSettingsData?.search_console_integrated);
-   const { data: keywordIdeasData, isLoading: isLoadingIdeas, isError: errorLoadingIdeas } = useFetchKeywordIdeas(router, adwordsConnected);
+   const { data: keywordIdeasData, isLoading: isLoadingIdeas, isError: errorLoadingIdeas } = useFetchKeywordIdeas(router, adwordsConnected, activeDomain?.domain);
    const theDomains: DomainType[] = (domainsData && domainsData.domains) || [];
    const keywordIdeas:IdeaKeyword[] = keywordIdeasData?.data?.keywords || [];
    const favorites:IdeaKeyword[] = keywordIdeasData?.data?.favorites || [];
    const keywordIdeasSettings = keywordIdeasData?.data?.settings;
 
-   const activeDomain = useActiveDomain(router, domainsData);
    const domainHasScAPI = useDomainHasScAPI(activeDomain);
 
    const searchConsoleConnected = globalSearchConsoleConnected || domainHasScAPI;

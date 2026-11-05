@@ -64,13 +64,13 @@ describe('prismcrawl scraper', () => {
     expect(body.start).toBe(0);
   });
 
-  it('decodes percent-encoded keywords before sending them', () => {
+  it('sends keywords as stored without decoding them', () => {
     const body = bodyOf(
-      buildKeyword({ keyword: 'coffee%20shops' }),
+      buildKeyword({ keyword: '50%25 off' }),
       settings,
       countryData,
     );
-    expect(body.query).toBe('coffee shops');
+    expect(body.query).toBe('50%25 off');
   });
 
   it('includes city, state and country in location when provided', () => {

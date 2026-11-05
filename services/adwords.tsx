@@ -20,18 +20,20 @@ export function useTestAdwordsIntegration(onSuccess?: (show?: boolean) => void) 
    });
 }
 
-export async function fetchAdwordsKeywordIdeas(router: NextRouter, domainSlug: string) {
-   return apiGet<{ data: { keywords: IdeaKeyword[], favorites: IdeaKeyword[], settings: DomainIdeasSettings } }>(`/api/ideas?domain=${encodeURIComponent(domainSlug)}`, router);
+export async function fetchAdwordsKeywordIdeas(router: NextRouter, domainName?: string) {
+   // No domain on the research page; the backend treats a missing domain as research.
+   const url = domainName ? `/api/ideas?domain=${encodeURIComponent(domainName)}` : '/api/ideas';
+   return apiGet<{ data: { keywords: IdeaKeyword[], favorites: IdeaKeyword[], settings: DomainIdeasSettings } }>(url, router);
 }
 
 // React hook; should be used within a React component or another hook
-export function useFetchKeywordIdeas(router: NextRouter, _adwordsConnected = false) {
+export function useFetchKeywordIdeas(router: NextRouter, _adwordsConnected = false, domainName?: string) {
    const isResearch = router.pathname === '/research';
    const domainSlug = isResearch ? 'research' : (router.query.slug as string);
-   const enabled = !!domainSlug && _adwordsConnected;
+   const enabled = !!domainSlug && _adwordsConnected && (isResearch || !!domainName);
    return useQuery(
       `keywordIdeas-${domainSlug}`,
-      () => fetchAdwordsKeywordIdeas(router, domainSlug),
+      () => fetchAdwordsKeywordIdeas(router, isResearch ? undefined : domainName),
       {
          enabled,
          retry: false,

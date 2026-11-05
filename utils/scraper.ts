@@ -43,6 +43,14 @@ const getRetryDelay = (attempt: number, baseDelay: number = 1000): number => {
 // the headers arrive, so reading a stalled body needs the controller to cancel the connection instead of leaving it open.
 const requestControllers = new WeakMap<Response, AbortController>();
 
+// Hides API keys and tokens in debug logs: query-string values, JSON body values and auth headers.
+const SECRET_PARAM = /([?&](?:apiKey|api_key|key|token)=)[^&#]*/gi;
+const SECRET_JSON_FIELD = /("(?:apiKey|api_key|key|token|password)"\s*:\s*")[^"]*(")/gi;
+const maskSecrets = (value: string): string => value.replace(SECRET_PARAM, '$1***').replace(SECRET_JSON_FIELD, '$1***$2');
+const maskHeaders = (headers: Record<string, string>): Record<string, string> => Object.fromEntries(
+   Object.entries(headers).map(([name, value]) => [name, /authorization|api-?key|token/i.test(name) ? '***' : value]),
+);
+
 /**
  * Creates a SERP Scraper client promise with enhanced error handling and retries
  */
@@ -84,6 +92,18 @@ export const getScraperClient = (
          return false;
       }
    }
+
+   logger.debug('[SCRAPE] Request sent', {
+      keywordId: keyword?.ID,
+      keyword: keyword?.keyword,
+      device: keyword?.device,
+      page: pagination?.page,
+      attempt: retryAttempt,
+      method: scraper?.method ?? 'GET',
+      url: maskSecrets(apiURL),
+      headers: maskHeaders(headers),
+      body: requestBody ? maskSecrets(requestBody) : undefined,
+   });
 
    const controller = new AbortController();
    const defaultTimeout = Math.min(30000, 15000 + retryAttempt * 5000);
@@ -151,6 +171,7 @@ const withTimeout = <T>(promise: Promise<T>, timeoutMs: number, onTimeout?: () =
 export const parseScraperResponse = async (response: Response): Promise<any> => {
    // The body can only be read once, so read the text first and parse it, instead of trying json() and then text().
    const text = await withTimeout(response.text(), SCRAPER_BODY_TIMEOUT_MS, () => requestControllers.get(response)?.abort());
+   logger.debug('[SCRAPE] Raw response', { status: response.status, ok: response.ok, body: text });
    try {
       const parsed = JSON.parse(text);
       if (parsed && typeof parsed === 'object') {

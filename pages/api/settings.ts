@@ -1,6 +1,6 @@
 /// <reference path="../../types.d.ts" />
 
-import { readFile, access } from 'fs/promises';
+import { access } from 'fs/promises';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import Cryptr from 'cryptr';
 import { logger } from '../../utils/logger';
@@ -12,9 +12,8 @@ import { withApiLogging } from '../../utils/apiLogging';
 import { trimStringProperties } from '../../utils/security';
 import { getBranding } from '../../utils/branding';
 import packageJson from '../../package.json';
-import { safeJsonParse } from '../../utils/safeJsonParse';
 import { atomicWriteFile } from '../../utils/atomicWrite';
-import { withSettingsLock } from '../../utils/settingsFile';
+import { readSettingsFile, withSettingsLock } from '../../utils/settingsFile';
 import { retryQueueManager } from '../../utils/retryQueueManager';
 import { errorResponse } from '../../utils/api/response';
 import { normalizeLegacyGlobalScraperType } from '../../utils/removedScrapers';
@@ -74,26 +73,10 @@ const normalizeLegacySettings = (settings: Partial<SettingsType>): Partial<Setti
  */
 export const DERIVED_SETTINGS_FIELDS = ['version', 'timezone', 'available_scapers', 'search_console_integrated', 'failed_queue'] as const;
 
-/**
- * Reads data/settings.json as stored (secrets still encrypted). A missing, empty or whitespace-only file means
- * there are no stored settings yet. A non-empty file with invalid JSON is logged and treated as empty.
- */
-const readStoredSettingsFile = async (settingsPath: string): Promise<Partial<SettingsType>> => {
-   let raw: unknown;
-   try {
-      // eslint-disable-next-line security/detect-non-literal-fs-filename
-      raw = await readFile(settingsPath, { encoding: 'utf-8' });
-   } catch (err) {
-      if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') {
-         return {};
-      }
-      throw err;
-   }
-   if (typeof raw !== 'string' || !raw.trim()) {
-      return {};
-   }
-   return normalizeLegacySettings(safeJsonParse<Partial<SettingsType>>(raw, {}, { context: 'settings.json', logError: true }));
-};
+/** Reads data/settings.json as stored (secrets still encrypted), upgrading legacy field names. */
+const readStoredSettingsFile = async (settingsPath: string): Promise<Partial<SettingsType>> => (
+   normalizeLegacySettings(await readSettingsFile(settingsPath))
+);
 
 /** Fields stored encrypted. A key present in a save is encrypted (an empty value clears it); an absent key keeps the stored value. */
 const SECRET_SETTINGS_FIELDS = [

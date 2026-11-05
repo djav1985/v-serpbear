@@ -1,5 +1,4 @@
 import { resolveCountryCode, getKeywordLocationParts } from "../../utils/scraperHelpers";
-import { decodeIfEncoded } from "../scraperHelpers";
 
 interface SerperResult {
   title: string;
@@ -24,7 +23,7 @@ const serper: ScraperSettings = {
     const locationParts = getKeywordLocationParts(keyword.location);
     const p = pagination || { start: 0, num: 10, page: 1 };
     const params = new URLSearchParams();
-    params.set("q", decodeIfEncoded(keyword.keyword));
+    params.set("q", keyword.keyword);
     if (locationParts.length) {
       params.set("location", locationParts.join(","));
     }

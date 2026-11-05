@@ -38,11 +38,15 @@ module.exports = {
             return;
          }
 
-         const [result] = await queryInterface.sequelize.query(
-            "UPDATE domain SET notification_emails = :email WHERE notification_emails IS NULL OR TRIM(notification_emails) = ''",
+         // An UPDATE does not report its row count through Sequelize's raw query, so count the rows first
+         const noEmail = "notification_emails IS NULL OR TRIM(notification_emails) = ''";
+         const [countRows] = await queryInterface.sequelize.query(`SELECT COUNT(*) AS total FROM domain WHERE ${noEmail}`, { transaction });
+         const rowsUpdated = Number(countRows?.[0]?.total ?? 0);
+         await queryInterface.sequelize.query(
+            `UPDATE domain SET notification_emails = :email WHERE ${noEmail}`,
             { transaction, replacements: { email: globalEmail } }
          );
-         logger.info(`Copied the global notification email onto domains without one (${result?.changes ?? 'unknown number of'} row(s)).`);
+         logger.info(`Copied the global notification email onto domains without one (${rowsUpdated} row(s)).`);
       });
    },
 

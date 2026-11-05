@@ -149,14 +149,6 @@ describe('SingleDomain Page', () => {
       }
    });
 
-   it('Sort Options Should be visible Sort Button on Click.', async () => {
-      render(<QueryClientProvider client={queryClient}><SingleDomain /></QueryClientProvider>);
-      const button = screen.getByTestId('sort_button');
-      if (button) fireEvent.click(button);
-      // Look for sort options by finding specific sort option text
-      expect(screen.getByText('Top Position')).toBeVisible();
-   });
-
    it('applies each sort option from the sort menu and keeps the keywords rendered', () => {
       const sortOptionTexts = [
          'Top Position',

@@ -55,9 +55,5 @@ export const getKeywordLocationParts = (location?: string | null): string[] => {
   if (typeof location !== "string") return [];
   const trimmed = location.trim();
   if (!trimmed) return [];
-  try {
-    return [decodeURIComponent(trimmed)];
-  } catch (_error) {
-    return [trimmed];
-  }
+  return [trimmed];
 };

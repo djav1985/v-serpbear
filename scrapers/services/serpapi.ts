@@ -2,7 +2,6 @@ import countries, { getGoogleDomain } from "../../utils/countries";
 import { resolveCountryCode, getKeywordLocationParts } from "../../utils/scraperHelpers";
 import { computeMapPackTop3 } from "../../utils/mapPack";
 import { DEVICE_MOBILE } from "../../utils/constants";
-import { decodeIfEncoded } from "../scraperHelpers";
 
 interface SerpApiResult {
   title: string;
@@ -27,7 +26,7 @@ const serpapi: ScraperSettings = {
     const googleDomain = getGoogleDomain(country);
     const params = new URLSearchParams();
     params.set("engine", "google");
-    params.set("q", decodeIfEncoded(keyword.keyword));
+    params.set("q", keyword.keyword);
     if (locationParts.length) {
       params.set("location", locationParts.join(","));
     }

@@ -2,7 +2,6 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { OAuth2Client } from 'google-auth-library';
-import { readFile } from 'fs/promises';
 import Cryptr from 'cryptr';
 import { randomBytes } from 'crypto';
 import verifyUser from '../../utils/verifyUser';
@@ -10,7 +9,7 @@ import { getAdwordsCredentials, getAdwordsKeywordIdeas } from '../../utils/adwor
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
 import { atomicWriteFile } from '../../utils/atomicWrite';
-import { withSettingsLock } from '../../utils/settingsFile';
+import { readSettingsFile, withSettingsLock } from '../../utils/settingsFile';
 import { errorResponse } from '../../utils/api/response';
 import normalizeOrigin from '../../utils/normalizeOrigin';
 import { serializeForScript } from '../../utils/api/scriptJson';
@@ -118,8 +117,7 @@ const beginAdwordsIntegration = async (req: NextApiRequest, res: NextApiResponse
       if (!trustedOrigin) {
          return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'A trusted APP_URL or NEXT_PUBLIC_APP_URL must be configured for OAuth.', requestId));
       }
-      const settingsRaw = await readFile(`${process.cwd()}/data/settings.json`, { encoding: 'utf-8' });
-      const settings: SettingsType = settingsRaw ? JSON.parse(settingsRaw) : {};
+      const settings = await readSettingsFile() as SettingsType;
       const cryptr = new Cryptr(process.env.SECRET as string);
       const clientId = settings.adwords_client_id ? cryptr.decrypt(settings.adwords_client_id) : '';
       if (!clientId) {
@@ -177,8 +175,7 @@ const getAdwordsRefreshToken = async (req: NextApiRequest, res: NextApiResponse)
             });
          }
          try {
-            const settingsRaw = await readFile(`${process.cwd()}/data/settings.json`, { encoding: 'utf-8' });
-            const settings: SettingsType = settingsRaw ? JSON.parse(settingsRaw) : {};
+            const settings = await readSettingsFile() as SettingsType;
             const cryptr = new Cryptr(process.env.SECRET as string);
             const adwords_client_id = settings.adwords_client_id ? cryptr.decrypt(settings.adwords_client_id) : '';
             const adwords_client_secret = settings.adwords_client_secret ? cryptr.decrypt(settings.adwords_client_secret) : '';
@@ -192,8 +189,7 @@ const getAdwordsRefreshToken = async (req: NextApiRequest, res: NextApiResponse)
                const adwords_refresh_token = cryptr.encrypt(r.tokens.refresh_token);
                // Re-read under the lock so settings saved while Google was answering are kept
                await withSettingsLock(async () => {
-                  const currentRaw = await readFile(`${process.cwd()}/data/settings.json`, { encoding: 'utf-8' });
-                  const current: SettingsType = currentRaw ? JSON.parse(currentRaw) : {};
+                  const current = await readSettingsFile() as SettingsType;
                   await atomicWriteFile(`${process.cwd()}/data/settings.json`, JSON.stringify({ ...current, adwords_refresh_token }), 'utf-8');
                });
                return respondWithIntegrationResult(req, res, { success: true, message: 'Integrated.' });
@@ -245,8 +241,6 @@ const validateAdwordsIntegration = async (req: NextApiRequest, res: NextApiRespo
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Please Provide the Google Ads Developer Token and Test Account ID', requestId));
    }
    try {
-      const settingsRaw = await readFile(`${process.cwd()}/data/settings.json`, { encoding: 'utf-8' });
-      const settings: SettingsType = settingsRaw ? JSON.parse(settingsRaw) : {};
       const cryptr = new Cryptr(process.env.SECRET as string);
       const trimmedDeveloperToken = developer_token.trim();
       const trimmedAccountId = account_id.trim();
@@ -276,8 +270,7 @@ const validateAdwordsIntegration = async (req: NextApiRequest, res: NextApiRespo
 
       // Re-read under the lock, so the write keeps any settings saved while Google was answering
       await withSettingsLock(async () => {
-         const currentRaw = await readFile(`${process.cwd()}/data/settings.json`, { encoding: 'utf-8' });
-         const current: SettingsType = currentRaw ? JSON.parse(currentRaw) : settings;
+         const current = await readSettingsFile() as SettingsType;
          const securedSettings = {
             ...current,
             adwords_developer_token: encryptedDeveloperToken,

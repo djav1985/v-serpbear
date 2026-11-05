@@ -168,7 +168,7 @@ const IdeasKeywordsTable = ({
 
    const favoriteKeyword = (keywordID: string) => {
       if (!isFaving) {
-         faveKeyword({ keywordID, domain: isResearchPage ? 'research' : domain?.slug });
+         faveKeyword({ keywordID, domain: isResearchPage ? undefined : domain?.domain });
       }
    };
 

@@ -158,12 +158,6 @@ describe('scrapeKeywordWithStrategy – page selection', () => {
 
    // ── Smart ────────────────────────────────────────────────────────────────
 
-   it('smart: includes page 1 when lastPos is 0 (unranked)', async () => {
-      const settings = { ...baseSettings, scrape_strategy: 'smart' as ScrapeStrategy };
-      await scrapeKeywordWithStrategy({ ...baseKeyword, position: 0 }, settings);
-      expect(capturedPages(fetchSpy)).toContain(1);
-   });
-
    it('smart: scrapes [1, 2] for lastPos=0 (unknown, treated as page 1)', async () => {
       const settings = { ...baseSettings, scrape_strategy: 'smart' as ScrapeStrategy };
       await scrapeKeywordWithStrategy({ ...baseKeyword, position: 0 }, settings);

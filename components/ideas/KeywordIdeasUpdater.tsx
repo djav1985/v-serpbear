@@ -72,15 +72,14 @@ const KeywordIdeasUpdater = ({ onUpdate, settings, domain, searchConsoleConnecte
          // For tracking and searchconsole, send empty array - backend will populate from DB/SC
          keywordPayload = [];
       } else {
-         // For auto seed type, don't send keywords (undefined) - domainUrl will be used
+         // For auto seed type, don't send keywords (undefined) - domain will be used
          keywordPayload = undefined;
       }
 
       updateKeywordIdeas({
          seedType,
          language,
-         domainUrl: domain?.domain,
-         domainSlug: domain?.slug,
+         domain: domain?.domain,
          keywords: keywordPayload,
          country: countries[0],
       });

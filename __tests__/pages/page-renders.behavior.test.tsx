@@ -190,6 +190,8 @@ describe('Domain ideas page credentials handling', () => {
       renderPage();
 
       expect(KeywordIdeasTableMock).toHaveBeenCalledWith(expect.objectContaining({ isAdwordsIntegrated: false }));
+      // The ideas are requested by the real domain name, not the URL slug
+      expect(useFetchKeywordIdeasMock).toHaveBeenCalledWith(expect.anything(), expect.any(Boolean), 'example.com');
    });
 
    it('combines domain Search Console credentials with global flag for the updater', async () => {

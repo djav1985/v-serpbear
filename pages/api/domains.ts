@@ -19,8 +19,9 @@ import {
    maskDomainScraperSettings,
    parseDomainScraperSettings,
 } from '../../utils/domainScraperSettings';
-import { toDbBool } from '../../utils/dbBooleans';
+import { parseBooleanStrict, toDbBool } from '../../utils/dbBooleans';
 import { safeJsonParse } from '../../utils/safeJsonParse';
+import { maskSearchConsole } from '../../utils/maskSearchConsole';
 import normalizeDomainBooleans from '../../utils/normalizeDomain';
 import { errorResponse } from '../../utils/api/response';
 import { retryQueueManager } from '../../utils/retryQueueManager';
@@ -31,8 +32,6 @@ import { removeDomainIdeasFile } from '../../utils/domainIdeasFile';
 
 // Sent in place of a saved Search Console credential: GET responses mask it, and a save that sends it back keeps the stored value
 const SC_CREDENTIAL_MARKER = 'true';
-const TRUTHY = new Set(['true', '1', 'on', 'yes']);
-const FALSY = new Set(['false', '0', 'off', 'no']);
 const DOMAIN_CLEANUP_RETRY_FILE = `${process.cwd()}/data/domain_cleanup_retry.json`;
 type PendingCleanupMap = Map<string, Set<number>>;
 
@@ -112,8 +111,8 @@ export const parseStrictBooleanQueryParam = (
    if (lower === '') {
       return { ok: false, message: 'Boolean query parameter must not be empty' };
    }
-   if (TRUTHY.has(lower)) { return { ok: true, value: true }; }
-   if (FALSY.has(lower)) { return { ok: true, value: false }; }
+   const parsed = parseBooleanStrict(lower);
+   if (parsed !== null) { return { ok: true, value: parsed }; }
    return { ok: false, message: `Invalid boolean value: "${raw}". Expected one of: true, false, 1, 0, on, off, yes, no` };
 };
 
@@ -157,19 +156,7 @@ export const getDomains = async (req: NextApiRequest, res: NextApiResponse) => {
       const allDomains: Domain[] = await Domain.findAll();
       const formattedDomains: DomainType[] = allDomains.map((el) => {
          const domainPlain = el.get({ plain: true }) as any;
-         const scData = safeJsonParse<Record<string, string> | null>(
-            domainPlain?.search_console,
-            null,
-            { context: `domain ${domainPlain?.domain ?? domainPlain?.ID ?? ''} search_console`, logError: true },
-         );
-         const { client_email, private_key } = scData || {};
-         const searchConsoleData = scData
-            ? {
-               ...scData,
-               client_email: client_email ? 'true' : '',
-               private_key: private_key ? 'true' : '',
-            }
-            : {};
+         const searchConsoleData = maskSearchConsole(domainPlain?.search_console, String(domainPlain?.domain ?? domainPlain?.ID ?? ''));
          const persistedScraperSettings = parseDomainScraperSettings(domainPlain?.scraper_settings);
          const maskedDomain = {
             ...domainPlain,
@@ -500,19 +487,7 @@ export const updateDomain = async (req: NextApiRequest, res: NextApiResponse) =>
       await domainToUpdate.save();
 
       const savedPlain = domainToUpdate.get({ plain: true }) as any;
-      const scData = safeJsonParse<Record<string, string> | null>(
-         savedPlain?.search_console,
-         null,
-         { context: `domain ${savedPlain?.domain ?? savedPlain?.ID ?? ''} search_console`, logError: true },
-      );
-      const { client_email, private_key } = scData || {};
-      const searchConsoleData = scData
-         ? {
-            ...scData,
-            client_email: client_email ? 'true' : '',
-            private_key: private_key ? 'true' : '',
-         }
-         : {};
+      const searchConsoleData = maskSearchConsole(savedPlain?.search_console, String(savedPlain?.domain ?? savedPlain?.ID ?? ''));
       const persistedScraperSettingsAfter = parseDomainScraperSettings(savedPlain?.scraper_settings);
       const maskedDomain = {
          ...savedPlain,

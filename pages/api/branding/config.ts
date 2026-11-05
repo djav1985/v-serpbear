@@ -5,16 +5,14 @@ import { getBranding } from '../../../utils/branding';
 import { logger } from '../../../utils/logger';
 import { withApiLogging } from '../../../utils/apiLogging';
 import { errorResponse } from '../../../utils/api/response';
+import { parseEnvFlag } from '../../../utils/dbBooleans';
 
 export type BrandingConfigResponse = ReturnType<typeof getBranding> & { screenshots: boolean };
 type BrandingResponse = BrandingConfigResponse;
 
 // Read at request time (not build time) so docker-compose env changes take effect without a rebuild.
 // SCREENSHOTS is the runtime name; NEXT_PUBLIC_SCREENSHOTS is still honoured for existing setups.
-const isScreenshotsEnabled = (): boolean => {
-   const normalized = (process.env.SCREENSHOTS || process.env.NEXT_PUBLIC_SCREENSHOTS || 'true').trim().toLowerCase();
-   return !['false', '0', 'off', 'disabled', 'no'].includes(normalized);
-};
+const isScreenshotsEnabled = (): boolean => parseEnvFlag(process.env.SCREENSHOTS || process.env.NEXT_PUBLIC_SCREENSHOTS);
 
 const handler = (req: NextApiRequest, res: NextApiResponse<BrandingResponse | ReturnType<typeof errorResponse>>) => {
    const requestId = (req as ExtendedRequest).requestId;

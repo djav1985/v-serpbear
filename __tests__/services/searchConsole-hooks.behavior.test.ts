@@ -28,10 +28,10 @@ describe('Search Console hooks', () => {
       (global as any).fetch = originalFetch;
    });
 
-   it('includes the slug in the Search Console keywords query key', () => {
+   it('includes the slug in the Search Console keywords query key and disables the query without a slug', () => {
       const routerWithSlug = { ...baseRouter, query: { slug: 'first-slug' } };
 
-      useFetchSCKeywords(routerWithSlug, true, false);
+      useFetchSCKeywords(routerWithSlug, true, false, 'first-slug.com');
 
       expect(mockUseQuery).toHaveBeenCalledTimes(1);
       expect(mockUseQuery).toHaveBeenCalledWith(
@@ -43,7 +43,7 @@ describe('Search Console hooks', () => {
       mockUseQuery.mockClear();
       const routerWithoutSlug = { ...baseRouter, query: {} };
 
-      useFetchSCKeywords(routerWithoutSlug, true, false);
+      useFetchSCKeywords(routerWithoutSlug, true, false, 'first-slug.com');
 
       expect(mockUseQuery).toHaveBeenCalledWith(
          ['sckeywords', ''],
@@ -52,22 +52,30 @@ describe('Search Console hooks', () => {
       );
    });
 
-   it('enables keyword queries when only domain-level credentials exist', () => {
+   it('enables keyword queries when only domain-level credentials exist, and only once a domain name is known', () => {
       const routerWithSlug = { ...baseRouter, query: { slug: 'domain-creds' } };
 
-      useFetchSCKeywords(routerWithSlug, false, true);
+      useFetchSCKeywords(routerWithSlug, false, true, 'domain-creds.com');
 
-      expect(mockUseQuery).toHaveBeenCalledWith(
+      expect(mockUseQuery).toHaveBeenLastCalledWith(
          ['sckeywords', 'domain-creds'],
          expect.any(Function),
          expect.objectContaining({ enabled: true }),
       );
+
+      useFetchSCKeywords(routerWithSlug, false, true);
+
+      expect(mockUseQuery).toHaveBeenLastCalledWith(
+         ['sckeywords', 'domain-creds'],
+         expect.any(Function),
+         expect.objectContaining({ enabled: false }),
+      );
    });
 
-   it('includes the slug in the Search Console insight query key', () => {
+   it('includes the slug in the Search Console insight query key and disables the query without a slug', () => {
       const routerWithSlug = { ...baseRouter, query: { slug: 'insight-slug' } };
 
-      useFetchSCInsight(routerWithSlug, true, false);
+      useFetchSCInsight(routerWithSlug, true, false, 'insight-slug.com');
 
       expect(mockUseQuery).toHaveBeenCalledWith(
          ['scinsight', 'insight-slug'],
@@ -78,7 +86,7 @@ describe('Search Console hooks', () => {
       mockUseQuery.mockClear();
       const routerWithoutSlug = { ...baseRouter, query: {} };
 
-      useFetchSCInsight(routerWithoutSlug, true, false);
+      useFetchSCInsight(routerWithoutSlug, true, false, 'insight-slug.com');
 
       expect(mockUseQuery).toHaveBeenCalledWith(
          ['scinsight', ''],
@@ -90,7 +98,7 @@ describe('Search Console hooks', () => {
    it('enables insight queries when only domain-level credentials exist', () => {
       const routerWithSlug = { ...baseRouter, query: { slug: 'insight-creds' } };
 
-      useFetchSCInsight(routerWithSlug, false, true);
+      useFetchSCInsight(routerWithSlug, false, true, 'insight-creds.com');
 
       expect(mockUseQuery).toHaveBeenCalledWith(
          ['scinsight', 'insight-creds'],
@@ -103,8 +111,8 @@ describe('Search Console hooks', () => {
       const firstRouter = { ...baseRouter, query: { slug: 'first' } };
       const secondRouter = { ...baseRouter, query: { slug: 'second' } };
 
-      useFetchSCKeywords(firstRouter, true, false);
-      useFetchSCKeywords(secondRouter, true, false);
+      useFetchSCKeywords(firstRouter, true, false, 'first.com');
+      useFetchSCKeywords(secondRouter, true, false, 'second.com');
 
       expect(mockUseQuery).toHaveBeenNthCalledWith(
          1,
@@ -124,8 +132,8 @@ describe('Search Console hooks', () => {
       const firstRouter = { ...baseRouter, query: { slug: 'alpha' } };
       const secondRouter = { ...baseRouter, query: { slug: 'beta' } };
 
-      useFetchSCInsight(firstRouter, true, false);
-      useFetchSCInsight(secondRouter, true, false);
+      useFetchSCInsight(firstRouter, true, false, 'alpha.com');
+      useFetchSCInsight(secondRouter, true, false, 'beta.com');
 
       expect(mockUseQuery).toHaveBeenNthCalledWith(
          1,
@@ -141,38 +149,38 @@ describe('Search Console hooks', () => {
       );
    });
 
-   it('skips fetch when slug is absent for keywords', async () => {
-      const routerWithoutSlug = { ...baseRouter, query: {} };
+   it('skips fetch when no domain name is given for keywords', async () => {
+      const routerWithSlug = { ...baseRouter, query: { slug: 'some-slug' } };
 
-      const result = await fetchSCKeywords(routerWithoutSlug);
-
-      expect(global.fetch).not.toHaveBeenCalled();
-      expect(result).toBeNull();
-   });
-
-   it('skips fetch when slug is absent for insight', async () => {
-      const routerWithoutSlug = { ...baseRouter, query: {} };
-
-      const result = await fetchSCInsight(routerWithoutSlug);
+      const result = await fetchSCKeywords(routerWithSlug);
 
       expect(global.fetch).not.toHaveBeenCalled();
       expect(result).toBeNull();
    });
 
-   it('passes the slug to fetchers when present', async () => {
+   it('skips fetch when no domain name is given for insight', async () => {
+      const routerWithSlug = { ...baseRouter, query: { slug: 'some-slug' } };
+
+      const result = await fetchSCInsight(routerWithSlug);
+
+      expect(global.fetch).not.toHaveBeenCalled();
+      expect(result).toBeNull();
+   });
+
+   it('sends the real domain name to the fetchers as ?domain=', async () => {
       const routerWithSlug = { ...baseRouter, query: { slug: 'live-slug' } };
 
-      await fetchSCKeywords(routerWithSlug);
-      await fetchSCInsight(routerWithSlug);
+      await fetchSCKeywords(routerWithSlug, 'my-site.com');
+      await fetchSCInsight(routerWithSlug, 'my-site.com');
 
       expect(global.fetch).toHaveBeenNthCalledWith(
          1,
-         expect.stringContaining('domain=live-slug'),
+         expect.stringContaining('domain=my-site.com'),
          expect.objectContaining({ method: 'GET' }),
       );
       expect(global.fetch).toHaveBeenNthCalledWith(
          2,
-         expect.stringContaining('domain=live-slug'),
+         expect.stringContaining('domain=my-site.com'),
          expect.objectContaining({ method: 'GET' }),
       );
    });

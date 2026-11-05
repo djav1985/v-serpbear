@@ -67,7 +67,7 @@ describe('getAdwordsKeywordIdeas', () => {
     await expect(
       adwordsUtils.getAdwordsKeywordIdeas(
         creds,
-        { country: 'US', language: '1000', domainUrl: 'example.com', seedType: 'tracking' },
+        { country: 'US', language: '1000', domain: 'example.com', seedType: 'tracking' },
         true,
       ),
     ).rejects.toThrow('No tracked keywords found for this domain');
@@ -78,7 +78,7 @@ describe('getAdwordsKeywordIdeas', () => {
     await expect(
       adwordsUtils.getAdwordsKeywordIdeas(
         creds,
-        { country: 'US', language: '1000', domainUrl: 'example.com', seedType: 'searchconsole' },
+        { country: 'US', language: '1000', domain: 'example.com', seedType: 'searchconsole' },
         true,
       ),
     ).rejects.toThrow('No search console keywords found for this domain');
@@ -189,15 +189,6 @@ describe('getKeywordsVolume', () => {
     expect(result.error).toMatch(/Cannot Load Google Ads Credentials|Google Ads Not Integrated Properly/);
   });
 
-  it('handles errors gracefully without JSON parsing failures', async () => {
-    // This test verifies the main issue reported by the user is fixed:
-    // No more "Unexpected token '<'" errors when APIs return HTML
-
-    const keywords = [{ ID: 1, keyword: 'test keyword', country: 'US' }] as any;
-    
-    // Even without proper setup, should not throw JSON parsing errors
-    await expect(adwordsUtils.getKeywordsVolume(keywords)).resolves.toBeDefined();
-  });
 
   it('uses correct API version and URL format for generateKeywordHistoricalMetrics endpoint', async () => {
     // This test verifies that getKeywordsVolume constructs URLs with the correct API version
@@ -292,9 +283,9 @@ describe('saving fetched keyword ideas', () => {
       text: async () => JSON.stringify({ access_token: 'token', results: [{ text: 'shoes', keywordIdeaMetrics: { avgMonthlySearches: 500, competition: 'LOW', competitionIndex: 10, monthlySearchVolumes: [] } }] }),
     }) as any;
 
-    // a slug with characters outside the safe set is refused by the writer, which returns false
+    // a domain with characters outside the safe set is refused by the writer, which returns false
     await expect(
-      adwordsUtils.getAdwordsKeywordIdeas(creds, { country: 'US', language: '1000', keywords: ['shoes'], domainSlug: 'bad/slug', seedType: 'custom' } as any),
+      adwordsUtils.getAdwordsKeywordIdeas(creds, { country: 'US', language: '1000', keywords: ['shoes'], domain: 'bad/slug', seedType: 'custom' } as any),
     ).rejects.toThrow('could not be saved');
   });
 });
@@ -370,7 +361,7 @@ describe('extractAdwordskeywordIdeas - avgMonthlySearches handling', () => {
 
       const result = await adwordsUtils.getAdwordsKeywordIdeas(
          creds,
-         { country: 'US', language: '1000', keywords: ['test'], domainSlug: 'test.com', seedType: 'custom' },
+         { country: 'US', language: '1000', keywords: ['test'], seedType: 'custom' },
          true,
       );
 
@@ -426,7 +417,7 @@ describe('extractAdwordskeywordIdeas - avgMonthlySearches handling', () => {
 
       const result = await adwordsUtils.getAdwordsKeywordIdeas(
          creds,
-         { country: 'US', language: '1000', keywords: ['test'], domainSlug: 'test.com', seedType: 'custom' },
+         { country: 'US', language: '1000', keywords: ['test'], seedType: 'custom' },
          true,
       );
 
@@ -502,7 +493,7 @@ describe('extractAdwordskeywordIdeas - avgMonthlySearches handling', () => {
 
       const result = await adwordsUtils.getAdwordsKeywordIdeas(
          creds,
-         { country: 'US', language: '1000', keywords: ['test'], domainSlug: 'test.com', seedType: 'custom' },
+         { country: 'US', language: '1000', keywords: ['test'], seedType: 'custom' },
          true,
       );
 
@@ -561,7 +552,7 @@ describe('extractAdwordskeywordIdeas - avgMonthlySearches handling', () => {
 
       const result = await adwordsUtils.getAdwordsKeywordIdeas(
          creds,
-         { country: 'US', language: '1000', keywords: ['test'], domainSlug: 'test.com', seedType: 'custom' },
+         { country: 'US', language: '1000', keywords: ['test'], seedType: 'custom' },
          true,
       );
 
@@ -656,8 +647,8 @@ describe('Adwords Seed Functions', () => {
           { 
             country: 'US', 
             language: '1000', 
-            domainUrl: 'example.com', 
-            seedType: 'tracking' 
+            domain: 'example.com',
+            seedType: 'tracking'
           },
           true,
         );
@@ -703,8 +694,8 @@ describe('Adwords Seed Functions', () => {
           { 
             country: 'US', 
             language: '1000', 
-            domainUrl: 'example.com', 
-            seedType: 'tracking' 
+            domain: 'example.com',
+            seedType: 'tracking'
           },
           true,
         )

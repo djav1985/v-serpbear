@@ -17,12 +17,12 @@ jest.mock('../../database/models/keyword', () => ({
 const readMock = readFile as unknown as jest.Mock;
 const writeMock = writeFile as unknown as jest.Mock;
 
-describe('ideas file access only accepts domain slugs', () => {
+describe('ideas file access only accepts real domain names', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it.each(['../settings', 'example/../../x', 'a.b', 'a b', '%2e%2e', ''])('refuses to read for %p without touching the file system', async (domain) => {
+  it.each(['../settings', 'example/../../x', 'my_site-com.com', 'a b', '%2e%2e', ''])('refuses to read for %p without touching the file system', async (domain) => {
     await expect(getLocalKeywordIdeas(domain)).resolves.toBe(false);
     expect(readMock).not.toHaveBeenCalled();
   });
@@ -33,19 +33,11 @@ describe('ideas file access only accepts domain slugs', () => {
   });
 
   it('reads the ideas file of a hyphenated domain under its real name', async () => {
-    readMock.mockResolvedValue(JSON.stringify({ keywords: [{ uid: 'k2' }] }));
-
-    await getLocalKeywordIdeas('my_site-com');
-
-    expect(readMock).toHaveBeenCalledWith(expect.stringMatching(/IDEAS_my-site\.com\.json$/), expect.anything());
-  });
-
-  it('still reads a valid slug', async () => {
     readMock.mockResolvedValue(JSON.stringify({ keywords: [{ uid: 'k1' }] }));
 
-    const result = await getLocalKeywordIdeas('my-site_com');
+    const result = await getLocalKeywordIdeas('my-site.com');
 
-    expect(readMock).toHaveBeenCalledWith(expect.stringMatching(/IDEAS_my\.site-com\.json$/), expect.anything());
+    expect(readMock).toHaveBeenCalledWith(expect.stringMatching(/IDEAS_my-site\.com\.json$/), expect.anything());
     expect(result).toEqual({ keywords: [{ uid: 'k1' }] });
   });
 });
