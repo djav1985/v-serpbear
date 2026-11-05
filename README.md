@@ -300,7 +300,7 @@ Fetched positions carry real SERP data. Positions on pages that were not scraped
 
 ## External API
 
-These endpoints can be called by other programs. Send the header `Authorization: Bearer <APIKEY>`, where `APIKEY` is the value set in your environment. The same key authenticates the [MCP server](#mcp-server). Every other route needs a logged-in session. Every `domain` field is a real domain name such as `example.com` (not a URL slug).
+These endpoints can be called by other programs. Send the header `Authorization: Bearer <APIKEY>`, where `APIKEY` is the value set in your environment. The same key authenticates the [MCP server](#mcp-server). Every other route needs a logged-in session. Every `domain` field is a real domain name such as `example.com` (not a URL slug). After 5 wrong keys from one client address, further requests carrying an `Authorization` header get `429` with `Retry-After: 900` for 15 minutes, even with the right key. The count is kept in memory (it resets on restart) and uses the address selected by `TRUST_PROXY`.
 
 | Method | Endpoint | Fields it takes | What it does |
 |---|---|---|---|

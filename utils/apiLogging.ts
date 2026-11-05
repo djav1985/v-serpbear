@@ -4,6 +4,8 @@ import { ensureDatabase } from '../database/init';
 import { errorResponse } from './api/response';
 import { redactSecrets, redactUrl } from './logRedaction';
 import { getClientIp } from './api/clientIp';
+import { isLoginLocked } from './loginThrottle';
+import { getApiKeyAttemptKeys } from './apiKeyThrottle';
 
 export { redactSecrets, redactUrl };
 
@@ -47,6 +49,15 @@ export function withApiLogging(
         contentType: req.headers['content-type'],
         body: redactSecrets(req.body),
       });
+    }
+
+    // A client address that sent too many wrong API keys is refused before any handler or key check runs
+    if (req.headers?.authorization && isLoginLocked(getApiKeyAttemptKeys(req))) {
+      res.setHeader('Retry-After', '900');
+      logger.warn(`${req.method} ${redactUrl(req.url)}${name ? ` [${name}]` : ''} - 429 (API key locked)`);
+      return res.status(429).json(
+        errorResponse('TOO_MANY_ATTEMPTS', 'Too many failed API key attempts. Try again in 15 minutes.', requestId),
+      );
     }
 
     try {

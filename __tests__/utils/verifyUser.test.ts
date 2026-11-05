@@ -3,6 +3,8 @@ import verifyUser from '../../utils/verifyUser';
 import jwt from 'jsonwebtoken';
 import Cookies from 'cookies';
 import { getSessionVersion } from '../../utils/sessionStore';
+import { getApiKeyAttemptKeys } from '../../utils/apiKeyThrottle';
+import { isLoginLocked, resetLoginThrottle } from '../../utils/loginThrottle';
 
 jest.mock('jsonwebtoken');
 jest.mock('cookies');
@@ -76,6 +78,26 @@ describe('verifyUser', () => {
          const result = verifyUser(req as NextApiRequest, res as NextApiResponse);
 
          expect(result).toBe('Invalid API Key Provided.');
+      });
+
+      it('should lock a client address after 5 wrong keys, and clear the count on a right key', () => {
+         process.env.APIKEY = 'test-api-key';
+         req.socket = { remoteAddress: '203.0.113.9' } as NextApiRequest['socket'];
+         const attempt = (key: string) => {
+            req.headers = { authorization: `Bearer ${key}` };
+            verifyUser(req as NextApiRequest, res as NextApiResponse);
+         };
+         const keys = getApiKeyAttemptKeys(req as NextApiRequest);
+         resetLoginThrottle();
+
+         for (let i = 0; i < 4; i += 1) { attempt('wrong'); }
+         expect(isLoginLocked(keys)).toBe(false);
+         attempt('test-api-key');
+         for (let i = 0; i < 4; i += 1) { attempt('wrong'); }
+         expect(isLoginLocked(keys)).toBe(false);
+         attempt('wrong');
+         expect(isLoginLocked(keys)).toBe(true);
+         resetLoginThrottle();
       });
 
       it('should reject Bearer token without space', () => {
