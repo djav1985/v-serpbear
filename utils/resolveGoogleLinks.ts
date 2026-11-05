@@ -8,6 +8,8 @@ const CACHE_MAX_ENTRIES = 500;
 const resolvedCache = new Map<string, string>();
 
 const GOOGLE_HOST = /^(www\.)?google\.[a-z.]{2,6}$/i;
+// Any Google host, including subdomains such as consent.google.com and accounts.google.com
+const ANY_GOOGLE_HOST = /(^|\.)google\.[a-z.]{2,6}$/i;
 
 const parseGoogleRedirect = (value: string | undefined | null): URL | null => {
    if (!value) { return null; }
@@ -52,7 +54,7 @@ export const resolveGoogleRedirect = async (value: string, timeoutMs: number = R
       let locationHost = '';
       try { locationHost = location ? new URL(location).hostname : ''; } catch (_error) { /* not a URL, reported below */ }
       // A redirect back to Google (a consent or "unusual traffic" verification page) is not the destination
-      if (response.status >= 300 && response.status < 400 && isHttpUrl(location) && !GOOGLE_HOST.test(locationHost)) {
+      if (response.status >= 300 && response.status < 400 && isHttpUrl(location) && !ANY_GOOGLE_HOST.test(locationHost)) {
          if (resolvedCache.size >= CACHE_MAX_ENTRIES) {
             const oldest = resolvedCache.keys().next().value;
             if (oldest !== undefined) { resolvedCache.delete(oldest); }

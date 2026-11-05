@@ -74,6 +74,16 @@ describe('resolveGoogleRedirect', () => {
       await expect(resolveGoogleRedirect(link)).resolves.toBe(link);
    });
 
+   it('does not accept or cache a redirect to a Google subdomain such as the consent page', async () => {
+      const link = 'https://www.google.com/goto?url=CAESconsent';
+      fetchSpy.mockResolvedValue(redirectResponse('https://consent.google.com/m?continue=x'));
+
+      await expect(resolveGoogleRedirect(link)).resolves.toBe(link);
+      await expect(resolveGoogleRedirect(link)).resolves.toBe(link);
+      // Not cached, so the second call asks Google again
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+   });
+
    it('returns the original link when there is no usable Location, a non-redirect status, or the request fails', async () => {
       const link = 'https://www.google.com/goto?url=CAESfail';
 
