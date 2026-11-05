@@ -7,7 +7,14 @@ export type LocalResultItem = {
    isOwn?: boolean;
 };
 
-const normaliseName = (value: string | null | undefined): string => (value ?? '').trim().toLowerCase();
+// Compares names the way a person would: case, spacing (including non-breaking spaces), "&" vs "and" and
+// punctuation such as commas, dashes or curly quotes do not make two names different.
+const normaliseName = (value: string | null | undefined): string => (value ?? '')
+   .normalize('NFKC')
+   .toLowerCase()
+   .replace(/&/g, ' and ')
+   .replace(/[^\p{L}\p{N}]+/gu, ' ')
+   .trim();
 
 // Flags the local result that is the tracked business, using the same rule as computeMapPackTop3: only the first
 // three entries can match, by title equal to business_name (ignoring case). Every entry gets an explicit isOwn.
