@@ -339,12 +339,15 @@ describe('SearchConsoleSettings Component', () => {
     } as any;
     const updateSettings = jest.fn();
 
+    const { QueryClient, QueryClientProvider } = require('react-query');
     render(
-      <SearchConsoleSettings
-        settings={settings}
-        settingsError={null}
-        updateSettings={updateSettings}
-      />,
+      <QueryClientProvider client={new QueryClient()}>
+        <SearchConsoleSettings
+          settings={settings}
+          settingsError={null}
+          updateSettings={updateSettings}
+        />
+      </QueryClientProvider>,
     );
 
     const button = screen.getByRole('button', { name: /refresh search console data/i });

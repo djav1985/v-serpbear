@@ -63,7 +63,8 @@ const fetchSearchConsoleData = async (domain:DomainType, days:number, type?:stri
       ],
    });
    // Search Console reports whole days in Pacific Time whatever zone is asked for, so the window is Pacific days
-   const startDate = daysAgoKey(days, SEARCH_CONSOLE_TIMEZONE);
+   // The window includes today, so "N days" starts N-1 days back: both ends are inclusive and it covers N calendar days
+   const startDate = daysAgoKey(Math.max(days - 1, 0), SEARCH_CONSOLE_TIMEZONE);
    const endDate = todayKey(SEARCH_CONSOLE_TIMEZONE);
    const client = new searchconsole_v1.Searchconsole({ auth: authClient });
    // Params: https://developers.google.com/webmaster-tools/v1/searchanalytics/query

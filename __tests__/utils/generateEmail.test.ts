@@ -59,6 +59,19 @@ describe('generateEmail', () => {
     expect(html).toContain('map-pack-flag');
   });
 
+  it('renders a keyword whose country is null instead of throwing', async () => {
+    mockReadFile.mockResolvedValue('<html>{{domainStats}}{{keywordsTable}}</html>');
+    const keywords = [{
+      ID: 1, keyword: 'no country', device: 'desktop', country: null, domain: 'example.com',
+      lastUpdated: new Date().toISOString(), added: new Date().toISOString(), position: 5, volume: 0, sticky: false,
+      history: {}, lastResult: [], url: '', tags: [], updating: false, lastUpdateError: false, mapPackTop3: 0,
+    }] as any;
+
+    const html = await generateEmail({ domain: 'example.com', keywordsTracked: 1, avgPosition: 5 } as any, keywords, createSettings());
+
+    expect(html).toContain('no country');
+  });
+
   it('separates icons from keyword text into dedicated column', async () => {
     mockReadFile.mockResolvedValue('<html>{{domainStats}}{{keywordsTable}}</html>');
 

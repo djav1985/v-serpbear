@@ -12,7 +12,8 @@ import SCKeyword from './SCKeyword';
 import useWindowResize from '../../hooks/useWindowResize';
 import useIsMobile from '../../hooks/useIsMobile';
 import { formattedNum } from '../../utils/client/helpers';
-import { buildKeywordAddPayloads, getDomainLocations, getDomainTags, scraperAllowsCity, splitAlreadyTracked, TrackerDevice } from '../../utils/keywordMeta';
+import { buildKeywordAddPayloads, getDomainLocations, getDomainTags, scraperAllowsCity, TrackerDevice } from '../../utils/keywordMeta';
+import { isCountryOnlyLocation } from '../../utils/location';
 import { useFetchSettings } from '../../services/settings';
 import AddToTrackerBar from './AddToTrackerBar';
 import AddKeywordsMetaStep from './AddKeywordsMetaStep';
@@ -37,6 +38,16 @@ type SCRowData = {
    trackedKeywordLookup: Record<string, boolean>,
 };
 
+// Search Console rows are country level, so a row counts as tracked only when it is tracked without a city location.
+const scTrackedKey = (keyword: string, country: string, device: string) => `${keyword}:${country}:${device}`;
+// A blank location and a country-only location ("US", "United States") are the same country-level target.
+const normalizeLocation = (location?: string | null) => {
+   const trimmed = (location || '').trim();
+   return isCountryOnlyLocation(trimmed) ? '' : trimmed;
+};
+// Full tracking identity used when adding: keyword, country, device and location.
+const fullTrackedKey = (keyword: string, country: string, device: string, location: string) => `${keyword}:${country}:${device}:${location}`;
+
 // Defined at module scope so react-window does not remount rows on every render. State comes in through itemData.
 const SCKeywordRow = ({ data, index, style }: ListChildComponentProps<SCRowData>) => {
    const keyword = data.items[index];
@@ -47,7 +58,7 @@ const SCKeywordRow = ({ data, index, style }: ListChildComponentProps<SCRowData>
       selected={data.selectedKeywords.includes(keyword.uid)}
       selectKeyword={data.selectKeyword}
       keywordData={keyword}
-      isTracked={!!data.trackedKeywordLookup[`${keyword.keyword}:${keyword.country}:${keyword.device}`]}
+      isTracked={!!data.trackedKeywordLookup[scTrackedKey(keyword.keyword, keyword.country, keyword.device)]}
       lastItem={index === (data.items.length - 1)}
       />
    );
@@ -74,8 +85,16 @@ const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleInt
 
    const trackedKeywordLookup = useMemo(() => trackedKeywordsList.reduce((lookup: Record<string, boolean>, trackedKeyword: KeywordType) => {
       const { keyword: trackedKeywordValue, country: trackedCountry, device: trackedDevice } = trackedKeyword;
+      if (trackedKeywordValue && trackedCountry && trackedDevice && !normalizeLocation(trackedKeyword.location)) {
+         lookup[scTrackedKey(trackedKeywordValue, trackedCountry, trackedDevice)] = true;
+      }
+      return lookup;
+   }, {}), [trackedKeywordsList]);
+   // Exact tracking targets (including location), used to skip only true duplicates when adding
+   const trackedTargetLookup = useMemo(() => trackedKeywordsList.reduce((lookup: Record<string, boolean>, trackedKeyword: KeywordType) => {
+      const { keyword: trackedKeywordValue, country: trackedCountry, device: trackedDevice } = trackedKeyword;
       if (trackedKeywordValue && trackedCountry && trackedDevice) {
-         lookup[`${trackedKeywordValue}:${trackedCountry}:${trackedDevice}`] = true;
+         lookup[fullTrackedKey(trackedKeywordValue, trackedCountry, trackedDevice, normalizeLocation(trackedKeyword.location))] = true;
       }
       return lookup;
    }, {}), [trackedKeywordsList]);
@@ -93,18 +112,17 @@ const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleInt
    const SCCountryData: {[key:string] : SCCountryDataType } = useMemo(() => {
       const countryData:{[key:string] : SCCountryDataType } = {};
 
-      Object.keys(finalKeywords).forEach((dateKey) => {
-         finalKeywords[dateKey].forEach((keyword) => {
-            const kCountry = keyword.country;
-            if (!countryData[kCountry]) { countryData[kCountry] = { keywords: 0, impressions: 0, visits: 0 }; }
-            countryData[kCountry].keywords += 1;
-            countryData[kCountry].visits += (keyword.clicks || 0);
-            countryData[kCountry].impressions += (keyword.impressions || 0);
-         });
+      // Built from the unfiltered keywords so the country options do not shrink to the selected country
+      keywords.filter((x) => x.device === device).forEach((keyword) => {
+         const kCountry = keyword.country;
+         if (!countryData[kCountry]) { countryData[kCountry] = { keywords: 0, impressions: 0, visits: 0 }; }
+         countryData[kCountry].keywords += 1;
+         countryData[kCountry].visits += (keyword.clicks || 0);
+         countryData[kCountry].impressions += (keyword.impressions || 0);
       });
 
       return countryData;
-   }, [finalKeywords]);
+   }, [keywords, device]);
 
    const viewSummary: {[key:string] : number } = useMemo(() => {
       const keywordsForDevice = finalKeywords[device] || [];
@@ -154,14 +172,21 @@ const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleInt
       const selectedItems = finalKeywords[device]
          .filter((kitem:SCKeywordType) => selectedKeywords.includes(kitem.uid))
          .map(({ keyword, country: itemCountry }) => ({ keyword, country: itemCountry }));
-      const { payloads, skipped } = splitAlreadyTracked(buildKeywordAddPayloads({
+      const skipped: string[] = [];
+      const payloads = buildKeywordAddPayloads({
          items: selectedItems,
          domain: domain?.domain || '',
          devices: addDevices,
          tags,
          location,
          country,
-      }), trackedKeywordLookup);
+      }).filter((payload) => {
+         if (trackedTargetLookup[fullTrackedKey(payload.keyword, payload.country, payload.device, normalizeLocation(payload.location))]) {
+            skipped.push(`${payload.keyword} (${payload.device})`);
+            return false;
+         }
+         return true;
+      });
       addKeywords({ payloads, skipped });
       setSelectedKeywords([]);
       setShowAddStep(false);
@@ -170,7 +195,7 @@ const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleInt
    const selectableKeywordIds = useMemo(() => {
       const keywordsForDevice = finalKeywords[device] || [];
       return keywordsForDevice
-         .filter((keyword) => !trackedKeywordLookup[`${keyword.keyword}:${keyword.country}:${keyword.device}`])
+         .filter((keyword) => !trackedKeywordLookup[scTrackedKey(keyword.keyword, keyword.country, keyword.device)])
          .map((keyword) => keyword.uid);
    }, [finalKeywords, device, trackedKeywordLookup]);
 

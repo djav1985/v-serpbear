@@ -35,7 +35,7 @@ const serpapi: ScraperSettings = {
       params.set("device", "mobile");
     }
     params.set("google_domain", googleDomain);
-    params.set("gl", country);
+    params.set("gl", country.toLowerCase());
     params.set("hl", countryInfo?.[2] ?? "en");
     if (pagination && pagination.start > 0) {
       params.set("start", String(pagination.start));

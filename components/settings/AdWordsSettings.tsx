@@ -39,13 +39,17 @@ const AdWordsSettings = ({ settings, settingsError, updateSettings, performUpdat
          if (performUpdate) {
             await performUpdate();
          }
-         const response = await fetch('/api/adwords', { method: 'GET', credentials: 'same-origin' });
-         const result = await response.json() as { authUrl?: string };
-         if (!response.ok || !result.authUrl) {
+         try {
+            const response = await fetch('/api/adwords', { method: 'GET', credentials: 'same-origin' });
+            const result = await response.json() as { authUrl?: string };
+            if (!response.ok || !result.authUrl) {
+               toast('Unable to start Google Ads integration.', { icon: '⚠️' });
+               return;
+            }
+            window.open(result.authUrl, '_blank');
+         } catch (_error) {
             toast('Unable to start Google Ads integration.', { icon: '⚠️' });
-            return;
          }
-         window.open(result.authUrl, '_blank');
       }
    };
 

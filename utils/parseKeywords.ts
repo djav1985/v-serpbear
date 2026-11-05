@@ -34,7 +34,7 @@ const parseKeywords = (allKeywords: Keyword[]) : KeywordType[] => {
       const keywordData = keywrd as unknown as Record<string, any>;
 
       const historyRaw = typeof keywordData.history === 'string' 
-         ? safeJsonParse<unknown>(keywordData.history, {}, {})
+         ? safeJsonParse<unknown>(keywordData.history, {}, { context: `history of keyword ${keywordData.ID}`, logError: true })
          : (keywordData.history || {});
       const history = normaliseHistory(historyRaw);
 

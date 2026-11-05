@@ -42,6 +42,16 @@ describe('RetryQueueManager', () => {
       (atomicWriteFile as jest.MockedFunction<typeof atomicWriteFile>).mockResolvedValue(undefined);
    });
 
+   describe('locking', () => {
+      it('takes the lock without resolving the real path, so the queue file can be created inside it', async () => {
+         jest.spyOn(retryQueueManager as any, 'readQueue').mockResolvedValue([]);
+
+         await retryQueueManager.addToQueue(5);
+
+         expect(lockfile.lock).toHaveBeenCalledWith(testFilePath, expect.objectContaining({ realpath: false }));
+      });
+   });
+
    describe('addToQueue', () => {
       it('should add a keyword ID to an empty queue', async () => {
          // Mock reading empty queue

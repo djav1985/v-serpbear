@@ -232,6 +232,14 @@ const scrapeSinglePage = async (
       try {
          const response = await scraperClient;
          const res = await parseScraperResponse(response);
+         if (!res || typeof res !== 'object') {
+            lastError = 'Provider returned an empty or invalid response';
+            if (attempt < maxRetries) {
+               await new Promise(resolve => setTimeout(resolve, getRetryDelay(attempt)));
+               continue;
+            }
+            break;
+         }
          if (hasScraperError(res)) {
             lastError = describeScraperFailure(res);
             if (attempt < maxRetries) {

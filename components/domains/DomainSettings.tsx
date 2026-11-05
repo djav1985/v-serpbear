@@ -154,8 +154,12 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
    const { mutate: updateMutate, error: domainUpdateError, isLoading: isUpdating } = useUpdateDomain(() => closeModal(false));
    const { mutate: deleteMutate } = useDeleteDomain(() => { closeModal(false); router.push('/domains'); });
 
+   // The form is seeded from the fetched domain once per domain, so a background refetch never wipes typed input
+   const seededDomainRef = useRef<string | null>(null);
    // Get the Full Domain Data along with the Search Console API Data.
     const domainQuery = useFetchDomain(router, domain?.domain || '', (domainObj:DomainType) => {
+      if (seededDomainRef.current === domainObj.domain) { return; }
+      seededDomainRef.current = domainObj.domain;
       const currentSearchConsoleSettings = parseSearchConsoleSettings(domainObj.search_console);
       const nextActive = deriveDomainActiveState(domainObj);
       const fetchedScraperSettings = domainObj.scraper_settings || null;
@@ -209,6 +213,18 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
          scraper_settings: {
             ...(prevSettings.scraper_settings || { scraper_type: null, has_api_key: false }),
             scraping_api: value,
+         },
+      }));
+   };
+
+   const handleRemoveStoredKey = () => {
+      setDomainSettings(prevSettings => ({
+         ...prevSettings,
+         scraper_settings: {
+            ...(prevSettings.scraper_settings || { scraper_type: null }),
+            scraping_api: '',
+            has_api_key: false,
+            clear_api_key: true,
          },
       }));
    };
@@ -421,6 +437,19 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
                            {hasScraperOverride && hasStoredScraperKey && !scraperKeyInput && (
                               <p className='text-xs text-gray-500 mt-2 w-full text-left'>
                                  An API key is already stored for this domain.
+                              </p>
+                           )}
+                           {hasScraperOverride && hasStoredScraperKey && !scraperKeyInput && (
+                              <button
+                                 type='button'
+                                 className='text-xs font-semibold text-red-500 hover:text-red-600'
+                                 onClick={handleRemoveStoredKey}>
+                                 Remove stored key
+                              </button>
+                           )}
+                           {hasScraperOverride && !hasStoredScraperKey && domainSettings.scraper_settings?.clear_api_key && !scraperKeyInput && (
+                              <p className='text-xs text-gray-500 mt-2 w-full text-left'>
+                                 The stored key will be removed when you save. Enter a new key or switch to the system scraper.
                               </p>
                            )}
                         </div>

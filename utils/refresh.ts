@@ -95,6 +95,29 @@ const mapWithConcurrency = async <T, R>(items: T[], limit: number, task: (item: 
    return results;
 };
 
+/** Configured delay between requests in ms (0 when unset or invalid), capped at 30s. */
+const getScrapeDelay = (settings: SettingsType): number => {
+   const configuredDelay = settings.scrape_delay ? parseInt(settings.scrape_delay, 10) : 0;
+   return Number.isFinite(configuredDelay) && configuredDelay > 0 ? Math.min(configuredDelay, 30000) : 0;
+};
+
+/**
+ * Returns a function that resolves when the next request for a domain may start. Request starts are spaced
+ * at least `delayMs` apart per domain, no matter how many workers share the gate. No delay means no waiting.
+ */
+const createDomainRateGate = (delayMs: number) => {
+   const nextSlot = new Map<string, number>();
+   return async (domain: string): Promise<void> => {
+      if (delayMs <= 0) { return; }
+      const now = Date.now();
+      const slot = Math.max(now, nextSlot.get(domain) ?? 0);
+      nextSlot.set(domain, slot + delayMs);
+      if (slot > now) {
+         await sleep(slot - now);
+      }
+   };
+};
+
 type KeywordRefreshPartition = {
    keywordsToRefresh: Keyword[];
    skippedKeywords: Keyword[];
@@ -319,7 +342,10 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                ? {
                   ...settings,
                   scraper_type: overrideScraperType as SettingsType['scraper_type'],
-                  ...(typeof decryptedOverride?.scraping_api === 'string' && { scraping_api: decryptedOverride.scraping_api }),
+                  ...(typeof decryptedOverride?.scraping_api === 'string' && decryptedOverride.scraping_api
+                     ? { scraping_api: decryptedOverride.scraping_api }
+                     // Never send the global provider's key to a different override provider
+                     : overrideScraperType !== settings.scraper_type && { scraping_api: '' }),
                }
                : { ...settings };
 
@@ -359,6 +385,10 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
    if (unreadableKeyKeywords.length > 0) {
       logger.warn('Skipping keyword refresh: domain scraper key could not be decrypted', { count: unreadableKeyKeywords.length });
       await markKeywordsWithUnreadableKey(unreadableKeyKeywords);
+      // These keywords can never succeed until the settings are saved again, so keep them out of the hourly retry loop
+      await retryQueueManager.removeBatch(new Set(unreadableKeyKeywords.map((keyword) => keyword.ID))).catch((error: any) => {
+         logger.error('[ERROR] Failed to update retry queue:', error);
+      });
    }
 
    if (skippedKeywords.length > 0) {
@@ -402,10 +432,8 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
             keywordsByDomain.set(keyword.domain, domainKeywords);
          }
 
-         const configuredDelay = settings.scrape_delay ? parseInt(settings.scrape_delay, 10) : 0;
-         const batchDelay = Number.isFinite(configuredDelay) && configuredDelay > 0
-            ? Math.min(configuredDelay, 30000)
-            : 0;
+         // One gate shared by every worker of a domain so the configured delay is the real request spacing
+         const waitForDomainSlot = createDomainRateGate(getScrapeDelay(settings));
 
          const domainResults = await Promise.allSettled(
             Array.from(keywordsByDomain.entries()).map(async ([domain, domainKeywords]) => {
@@ -417,6 +445,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                      const keywordPlain = keyword.get({ plain: true });
                      logger.info('Processing keyword refresh', { keywordId: keywordPlain.ID, keyword: keywordPlain.keyword });
                      const domainStrategy = domainStrategyMap.get(domain);
+                     await waitForDomainSlot(domain);
                      const updatedKeyword = await refreshAndUpdateKeyword(
                         keyword,
                         settings,
@@ -425,10 +454,6 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                      );
 
                      updatedKeywords.push(updatedKeyword);
-
-                     if (batchDelay > 0 && nextKeywordIndex < domainKeywords.length) {
-                        await sleep(batchDelay);
-                     }
                   }
                };
 
@@ -630,9 +655,17 @@ const persistKeywordError = async (
  * @returns {Promise<KeywordType>}
  */
 export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: RefreshResult, settings: SettingsType): Promise<KeywordType> => {
-   const keywordParsed = parseKeywords([keywordRaw.get({ plain: true })]);
+   const keywordPlain = keywordRaw.get({ plain: true }) as Record<string, any>;
+   const keywordParsed = parseKeywords([keywordPlain as Keyword]);
    const keyword = keywordParsed[0];
    let updated = keyword;
+   // A stored history that cannot be parsed is left untouched, instead of replacing it with a one-point history
+   const storedHistoryUnreadable = typeof keywordPlain.history === 'string' && keywordPlain.history.trim() !== '' && (() => {
+      try { JSON.parse(keywordPlain.history); return false; } catch { return true; }
+   })();
+   if (storedHistoryUnreadable) {
+      logger.error('[ERROR] Stored keyword history is corrupt; keeping it unchanged', new Error('Unparseable history'), { keywordId: keywordPlain.ID });
+   }
 
    if (updatedKeyword && keyword && updatedKeyword.error) {
       return persistKeywordError(keywordRaw, keyword, updatedKeyword, settings);
@@ -686,8 +719,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          url: urlValue,
          lastResult: JSON.stringify(parsedNormalizedResult),
          localResults: JSON.stringify(parsedLocalResults),
-         history: JSON.stringify(history),
-         history7d: JSON.stringify(history7dObj),
+         ...(storedHistoryUnreadable ? {} : { history: JSON.stringify(history), history7d: JSON.stringify(history7dObj) }),
          lastUpdated: lastUpdatedValue,
          lastUpdateError: 'false',
          mapPackTop3: toDbBool(isMapPackTop3),
@@ -821,7 +853,8 @@ const refreshParallel = async (
    domainStrategyMap?: Map<string, Partial<DomainType>>,
 ): Promise<KeywordType[]> => {
    const updatedKeywords: KeywordType[] = [];
-   
+   const waitForDomainSlot = createDomainRateGate(getScrapeDelay(settings));
+
    // Create map for quick model lookup by ID
    const modelMap = new Map(keywordModels.map(m => [m.ID, m]));
    
@@ -838,6 +871,7 @@ const refreshParallel = async (
       }
       
       try {
+         await waitForDomainSlot(keyword.domain);
          // Scrape the keyword using the strategy-aware function
          const result = await scrapeKeywordWithStrategy(keyword, effectiveSettings, domainStrategy);
          

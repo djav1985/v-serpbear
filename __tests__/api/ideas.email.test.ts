@@ -204,4 +204,42 @@ describe('/api/ideas/email', () => {
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({ success: true, error: null });
    });
+
+   it('rejects more than 1000 keyword ideas', async () => {
+      req.body = { domain: 'example.com', keywords: Array.from({ length: 1001 }, (_, i) => ({ keyword: `k${i}` })) };
+
+      await handler(req as NextApiRequest, res as NextApiResponse);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(sendMailMock).not.toHaveBeenCalled();
+   });
+
+   it('rejects keyword items that are not objects', async () => {
+      req.body = { domain: 'example.com', keywords: [null] };
+
+      await handler(req as NextApiRequest, res as NextApiResponse);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(sendMailMock).not.toHaveBeenCalled();
+   });
+
+   it('limits how many idea emails one domain can send per hour and hides send errors', async () => {
+      const { resetRateLimits } = jest.requireActual('../../utils/rateLimit');
+      resetRateLimits();
+      for (let i = 0; i < 10; i += 1) {
+         const okRes = { status: jest.fn().mockReturnThis(), json: jest.fn() } as MockedResponse;
+         await handler(req as NextApiRequest, okRes as NextApiResponse);
+         expect(okRes.status).toHaveBeenCalledWith(200);
+      }
+      await handler(req as NextApiRequest, res as NextApiResponse);
+      expect(res.status).toHaveBeenCalledWith(429);
+
+      resetRateLimits();
+      sendMailMock.mockRejectedValueOnce(new Error('smtp password rejected by host'));
+      const failRes = { status: jest.fn().mockReturnThis(), json: jest.fn() } as MockedResponse;
+      await handler(req as NextApiRequest, failRes as NextApiResponse);
+      expect(failRes.status).toHaveBeenCalledWith(500);
+      expect(JSON.stringify(failRes.json.mock.calls[0][0])).not.toContain('smtp password');
+      resetRateLimits();
+   });
 });

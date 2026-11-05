@@ -1,4 +1,5 @@
-import { readFileSync } from 'fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { randomInt } from 'crypto';
 import { mkdir } from 'fs/promises';
 import path from 'path';
 import { atomicWriteFile } from './atomicWrite';
@@ -21,8 +22,29 @@ export const resetSessionVersionCache = (): void => {
 };
 
 /**
+ * Picks a non-zero version for a session file that does not exist yet (or holds nothing usable) and stores it,
+ * so tokens issued under an older file, or without a version (which count as 0), are not accepted again after
+ * the file is lost or restored. Failing to store it is not fatal: the version still lives in memory.
+ */
+const initialiseVersion = (): number => {
+   const version = lastKnownVersion ?? randomInt(1, 2 ** 31);
+   lastKnownVersion = version;
+   try {
+      const filePath = sessionFilePath();
+      // eslint-disable-next-line security/detect-non-literal-fs-filename
+      mkdirSync(path.dirname(filePath), { recursive: true });
+      // eslint-disable-next-line security/detect-non-literal-fs-filename
+      writeFileSync(filePath, JSON.stringify({ version }), 'utf-8');
+   } catch (_error) {
+      // Kept in memory only
+   }
+   return version;
+};
+
+/**
  * Reads the current session version synchronously, because verifyUser is synchronous.
- * A missing or unreadable file means the last version seen by this process, or 0 if none was seen yet.
+ * A missing or unparseable file gets a fresh non-zero version (or the last one this process saw), which is stored.
+ * Any other read error (busy file) uses the last version seen by this process without touching the file.
  */
 export const getSessionVersion = (): number => {
    try {
@@ -33,9 +55,13 @@ export const getSessionVersion = (): number => {
          lastKnownVersion = version;
          return version;
       }
-      return lastKnownVersion ?? 0;
-   } catch (_error) {
-      return lastKnownVersion ?? 0;
+      return initialiseVersion();
+   } catch (error) {
+      const code = (error as NodeJS.ErrnoException)?.code;
+      if (code === 'ENOENT' || error instanceof SyntaxError) {
+         return initialiseVersion();
+      }
+      return lastKnownVersion ?? (lastKnownVersion = randomInt(1, 2 ** 31));
    }
 };
 

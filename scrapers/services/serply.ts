@@ -30,6 +30,8 @@ const serply:ScraperSettings = {
       const localeInfo = countryData?.[country] ?? countryData?.US ?? Object.values(countryData ?? {})[0];
       const lang = localeInfo?.[2] ?? 'en';
       const p = pagination || { start: 0, num: 10 };
+      // Serply only targets a country (X-Proxy-Location); it has no city-level parameter, so a stored city
+      // location is intentionally not sent (allowsCity stays unset so the UI does not offer it).
       const searchParams = new URLSearchParams({
          q: keyword.keyword,
          num: String(p.num),

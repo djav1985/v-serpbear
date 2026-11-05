@@ -6,7 +6,7 @@ jest.mock('../../database/migrationLogger', () => ({
   logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
 }));
 
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { readdirSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
 import migration from '../../database/migrations/1779000000000-replace-smart-scrape-strategy.js';
@@ -60,6 +60,12 @@ describe('replace-smart-scrape-strategy.migration', () => {
     await migration.up({ context: makeQueryInterface().queryInterface });
 
     expect(readSettings()).toEqual({ scrape_strategy: 'basic', scrape_pagination_limit: 5 });
+  });
+
+  it('writes settings.json atomically and leaves no temp file behind', () => {
+    writeSettings({ scrape_strategy: 'smart' });
+    expect(migration.replaceGlobalSmartStrategy()).toBe(true);
+    expect(readdirSync(path.join(dir, 'data'))).toEqual(['settings.json']);
   });
 
   it('leaves settings.json alone when the global strategy is not smart, and copes with a missing file', async () => {

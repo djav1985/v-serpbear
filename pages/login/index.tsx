@@ -1,7 +1,7 @@
 import type { NextPage } from 'next';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from 'react-query';
 import { BrandTitle } from '../../components/common/Branding';
 import { useBranding } from '../../hooks/useBranding';
@@ -19,6 +19,14 @@ const Login: NextPage = () => {
    const [password, setPassword] = useState<string>('');
    const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
    const router = useRouter();
+   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+   // Clearing the previous timer keeps an older timeout from hiding a newer error early
+   const showError = (loginError: LoginError) => {
+      if (errorTimerRef.current) { clearTimeout(errorTimerRef.current); }
+      setError(loginError);
+      errorTimerRef.current = setTimeout(() => { setError(null); errorTimerRef.current = null; }, 3000);
+   };
+   useEffect(() => () => { if (errorTimerRef.current) { clearTimeout(errorTimerRef.current); } }, []);
    const queryClient = useQueryClient();
    const { branding } = useBranding();
    const { platformName } = branding;
@@ -36,8 +44,7 @@ const Login: NextPage = () => {
          if (!password && username) {
             loginError = { type: 'empty_password', msg: 'Please Insert Your App Password' };
          }
-         setError(loginError);
-         setTimeout(() => { setError(null); }, 3000);
+         if (loginError) { showError(loginError); }
       } else {
          setIsSubmitting(true);
          try {
@@ -52,8 +59,7 @@ const Login: NextPage = () => {
                : 'Network error: Unable to connect to the server.';
             // The backend returns a generic 'Invalid credentials' message intentionally
             // (prevents username enumeration), so no field-level error type is set here.
-            setError({ type: '', msg });
-            setTimeout(() => { setError(null); }, 3000);
+            showError({ type: '', msg });
             // On success the page navigates away, so the button stays disabled until then.
             setIsSubmitting(false);
          }
@@ -77,25 +83,29 @@ const Login: NextPage = () => {
                className='relative bg-[white] rounded-md text-sm border p-5'
                onSubmit={(event) => { event.preventDefault(); loginuser(); }}>
                   <div className="settings__section__input mb-5">
-                     <label className={labelStyle}>Username</label>
+                     <label className={labelStyle} htmlFor="login-username">Username</label>
                      <input
                         className={`
                            ${inputStyle} 
                            ${error && error.type.includes('username') ? errorBorderStyle : ''} 
                         `}
+                        id="login-username"
                         type="text"
+                        autoComplete="username"
                         value={username}
                         onChange={(event) => setUsername(event.target.value)}
                      />
                   </div>
                   <div className="settings__section__input mb-5">
-                     <label className={labelStyle}>Password</label>
+                     <label className={labelStyle} htmlFor="login-password">Password</label>
                      <input
                         className={`
                            ${inputStyle} 
                            ${error && error.type.includes('password') ? errorBorderStyle : ''} 
                         `}
+                        id="login-password"
                         type="password"
+                        autoComplete="current-password"
                         value={password}
                         onChange={(event) => setPassword(event.target.value)}
                      />

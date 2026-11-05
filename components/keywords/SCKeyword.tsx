@@ -48,9 +48,9 @@ const SCKeyword = (props: SCKeywordProps) => {
                >
                   <Icon type="check" size={10} title={isTracked ? 'Already in Tracker' : ''} />
             </button>
-            <a className='py-2 hover:text-blue-600'>
+            <span className='py-2 hover:text-blue-600'>
                <span className={`fflag fflag-${country} w-[18px] h-[12px] mr-2`} title={countries[country] && countries[country][0]} />{keyword}
-            </a>
+            </span>
          </div>
 
          <div className={`keyword_position absolute bg-[#f8f9ff] w-fit min-w-[50px] h-15 p-2 text-base mt-[-20px] rounded right-5 lg:relative

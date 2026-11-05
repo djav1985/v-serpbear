@@ -364,3 +364,16 @@ describe('formattedNum and Search Console aggregation', () => {
     expect(empty.position).toBe(3); // plain average when there are no impressions
   });
 });
+
+describe('Search Console CSV payload', () => {
+   it('numbers rows from 1 under a "#" header instead of an ID column', () => {
+      const payload = createKeywordCsvPayload([
+         { uid: 'a', keyword: 'one', position: 3, impressions: 10, clicks: 1, ctr: 10, country: 'US', device: 'desktop' },
+         { uid: 'b', keyword: 'two', position: 0, impressions: 5, clicks: 0, ctr: 0, country: 'US', device: 'mobile' },
+      ] as unknown as SCKeywordType[], 'example.com', 'thirtyDays');
+      expect(payload!.header).toBe('#,Keyword,Position,Impressions,Clicks,CTR,Country,Device\r\n');
+      const rows = payload!.body.trim().split('\n');
+      expect(parseCsvRow(rows[0])[0]).toBe('1');
+      expect(parseCsvRow(rows[1])[0]).toBe('2');
+   });
+});

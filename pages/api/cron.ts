@@ -13,6 +13,7 @@ import { withApiLogging } from '../../utils/apiLogging';
 import { fromDbBool } from '../../utils/dbBooleans';
 import { refreshQueue } from '../../utils/refreshQueue';
 import { errorResponse } from '../../utils/api/response';
+import { isKeywordUpdating } from '../../utils/keywordUpdating';
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
    const requestId = (req as ExtendedRequest).requestId;
@@ -45,29 +46,52 @@ const cronRefreshkeywords = async (_req: NextApiRequest, res: NextApiResponse) =
 
       if (enabledDomains.length === 0) {
          logger.warn('Cron refresh skipped: No domains have scraping enabled');
+         // Stays 200: cron.js and scheduled callers treat "nothing to do" as a successful run, not a failure
          return res.status(200).json({ started: false, error: 'No domains have scraping enabled.' });
       }
 
-      logger.info(`Cron refresh started for ${enabledDomains.length} domains`);
-      
-      // Enqueue each domain separately to allow parallel processing
-      // The queue will process up to maxConcurrency domains in parallel
-      // while ensuring the same domain is never processed twice simultaneously
-      for (const domain of enabledDomains) {
-         // Generate unique task ID using crypto to prevent collisions in concurrent scenarios
-         const uniqueId = crypto.randomUUID();
-         refreshQueue.enqueue(
-            `cron-refresh-${domain}-${uniqueId}`,
-            async () => {
-               await processSingleDomain(domain, settings, domainRecords);
-            },
-            [domain]
-         ).catch((queueError) => {
-            logger.error(`[CRON] ERROR enqueueing refresh task for ${domain}: `, queueError instanceof Error ? queueError : new Error(String(queueError)));
-         });
+      // Claim each domain before enqueueing. A domain that is already being refreshed or queued (a manual refresh,
+      // or an earlier cron call) is skipped, so a second POST does not queue a duplicate full scrape.
+      const releases: Array<() => void> = [];
+      const skippedDomains: string[] = [];
+      const startedDomains: string[] = [];
+      try {
+         for (const domain of enabledDomains) {
+            const release = refreshQueue.reserveDomains([domain]);
+            if (!release) {
+               skippedDomains.push(domain);
+               continue;
+            }
+            releases.push(release);
+            startedDomains.push(domain);
+            // Generate unique task ID using crypto to prevent collisions in concurrent scenarios
+            const uniqueId = crypto.randomUUID();
+            // Enqueue each domain separately to allow parallel processing
+            // The queue will process up to maxConcurrency domains in parallel
+            // while ensuring the same domain is never processed twice simultaneously
+            refreshQueue.enqueue(
+               `cron-refresh-${domain}-${uniqueId}`,
+               async () => {
+                  await processSingleDomain(domain, settings, domainRecords);
+               },
+               [domain]
+            ).catch((queueError) => {
+               logger.error(`[CRON] ERROR enqueueing refresh task for ${domain}: `, queueError instanceof Error ? queueError : new Error(String(queueError)));
+            });
+         }
+      } finally {
+         // The tasks are now in the queue (which also locks the domains), or the request failed
+         releases.forEach((release) => release());
       }
 
-      return res.status(200).json({ started: true });
+      if (skippedDomains.length > 0) {
+         logger.info('Cron refresh skipped domains that are already being refreshed', { skippedDomains });
+      }
+      logger.info(`Cron refresh started for ${startedDomains.length} domains`);
+      // 200 either way (cron.js treats any 2xx as success); skipped lists what was already running
+      return res.status(200).json(skippedDomains.length > 0
+         ? { started: startedDomains.length > 0, skipped: { domains: skippedDomains } }
+         : { started: true });
    } catch (error) {
       logger.error('Error starting cron refresh', error instanceof Error ? error : new Error(String(error)));
       return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error Starting the Cron Job', requestId));
@@ -98,7 +122,8 @@ const processSingleDomain = async (domain: string, settings: SettingsType, domai
          missingDomainKeywords,
       } = await partitionKeywordsByDomainStatus(keywordQueries, domainRecords);
 
-      keywordsToRefresh = eligibleKeywords;
+      // Keywords a live run is already refreshing are left alone. A stale flag (crashed run) does not count.
+      keywordsToRefresh = eligibleKeywords.filter((keyword) => !isKeywordUpdating(keyword));
 
       if (missingDomainKeywords.length > 0) {
          await clearKeywordUpdatingFlags(missingDomainKeywords, 'for missing domains', {

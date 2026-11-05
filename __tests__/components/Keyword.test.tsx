@@ -21,6 +21,12 @@ jest.mock('react-chartjs-2', () => ({
    Line: () => null,
  }));
 describe('Keyword Component', () => {
+   it('Should unfavorite a sticky keyword from the star button', () => {
+      const favoriteKeyword = jest.fn();
+      render(<Keyword {...keywordProps} favoriteKeyword={favoriteKeyword} keywordData={{ ...dummyKeywords[0], sticky: true }} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Unfavorite Keyword' }));
+      expect(favoriteKeyword).toHaveBeenCalledWith({ keywordID: dummyKeywords[0].ID, sticky: false });
+   });
    it('Should Display Position Change arrow', async () => {
       render(<Keyword {...keywordProps} />);
       // Look for the position change indicator by its text content

@@ -1,4 +1,4 @@
-import { readFile } from 'fs/promises';
+import { readFile, writeFile } from 'fs/promises';
 import { readSettingsFile } from './settingsFile';
 import * as path from 'path';
 import * as lockfile from 'proper-lockfile';
@@ -209,7 +209,11 @@ export const getAdwordsAccessToken = async (credentials: AdwordsCredentials) => 
  * success for ideas that were fetched but lost (for example because the domain slug was rejected).
  */
 const saveFetchedIdeas = async (domain: string, data: IdeaDatabaseUpdateData): Promise<void> => {
-   const saved = await updateLocalKeywordIdeas(domain, data);
+   // The read-merge-write runs under the same lock as the favourites toggle, so neither overwrites the other.
+   // updateLocalKeywordIdeas itself takes no lock (the toggle already holds it), so it is not called re-entrantly.
+   const saved = getIdeasFilePath(domain)
+      ? await withIdeasLock(domain, () => updateLocalKeywordIdeas(domain, data), { createIfMissing: true })
+      : false;
    if (!saved) {
       throw new Error('Keyword ideas were fetched but could not be saved for this domain.');
    }
@@ -298,7 +302,7 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
    if (!credentials) { return false; }
    const { account_id, developer_token } = credentials;
    const {
-      country = '2840',
+      country: rawCountry = '2840',
       language = '1000',
       keywords = [],
       domain = '',
@@ -306,6 +310,8 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
       seedSCKeywords = false,
       seedCurrentKeywords = false,
    } = adwordsDomainOptions || {};
+   // The countries table is keyed by upper-case ISO codes; a lower-case code would find no geo target
+   const country = String(rawCountry).toUpperCase();
    // The ideas file is named after the domain; the research page has no domain and uses IDEAS_research.json
    const ideasFileKey = domain || RESEARCH_IDEAS_KEY;
 
@@ -716,10 +722,18 @@ const IDEAS_LOCK_RETRIES = { retries: 12, factor: 1.5, minTimeout: 50, maxTimeou
  * Runs fn while holding an OS-level lock on the domain's ideas file, so a read-modify-write (for example toggling a
  * favourite) cannot overwrite a concurrent save. The file must already exist, because the lock is taken on it.
  */
-export const withIdeasLock = async <T>(domain: string, fn: () => Promise<T>): Promise<T> => {
+export const withIdeasLock = async <T>(domain: string, fn: () => Promise<T>, options: { createIfMissing?: boolean } = {}): Promise<T> => {
    const filePath = getIdeasFilePath(domain);
    if (!filePath) {
       throw new Error('Invalid domain value for keyword ideas file access');
+   }
+   if (options.createIfMissing) {
+      try {
+         // eslint-disable-next-line security/detect-non-literal-fs-filename
+         await writeFile(filePath, '{}', { encoding: 'utf-8', flag: 'wx' });
+      } catch (err: any) {
+         if (err?.code !== 'EEXIST') { throw err; }
+      }
    }
    const release = await lockfile.lock(filePath, { retries: IDEAS_LOCK_RETRIES });
    try {

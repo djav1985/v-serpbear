@@ -1,3 +1,4 @@
+import { Filler } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import { calculateChartBounds } from '../../utils/client/chartBounds';
 import {
@@ -8,7 +9,8 @@ import {
    LINE_DATASET_COLORS,
 } from './chartSetup';
 
-registerLineChart();
+// The line fill ('start') needs the Filler plugin; register it here so it does not depend on ChartSlim being loaded.
+registerLineChart(Filler);
 
 type ChartProps = {
    labels: string[];

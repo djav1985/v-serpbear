@@ -46,10 +46,10 @@ export const createKeywordCsvPayload = (
    let fileName = `${domain}-keywords_serp.csv`;
 
    if (isSCKeywords) {
-      csvHeader = 'ID,Keyword,Position,Impressions,Clicks,CTR,Country,Device\r\n';
+      csvHeader = '#,Keyword,Position,Impressions,Clicks,CTR,Country,Device\r\n';
       fileName = `${domain}-search-console-${scDataDuration}.csv`;
       csvBody = (keywords as SCKeywordType[]).map((keywordData, index) => buildCsvRow([
-         index,
+         index + 1,
          keywordData.keyword,
          keywordData.position === 0 ? '-' : keywordData.position,
          keywordData.impressions,

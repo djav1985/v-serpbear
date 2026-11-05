@@ -290,4 +290,24 @@ describe('login lockout', () => {
     expect(await attempt('3.3.3.3', 'made-up-next', 'wrong')).toBe(429);
     expect(await attempt('4.4.4.4', 'made-up-next', 'wrong')).toBe(401);
   });
+
+  it('does not let failures spread over many addresses lock out the correct password', async () => {
+    for (let i = 0; i < 25; i += 1) {
+      for (let j = 0; j < 4; j += 1) {
+        expect(await attempt(`10.0.0.${i}`, 'admin', 'wrong')).toBe(401);
+      }
+    }
+    // the user-wide cap (100) is reached: wrong passwords are refused, the right one still works
+    expect(await attempt('9.9.9.9', 'admin', 'wrong')).toBe(429);
+    expect(await attempt('9.9.9.9', 'admin', 'right-password')).toBe(200);
+  });
+
+  it('returns 400 for a missing or non-object body', async () => {
+    for (const body of [null, undefined, 'text', ['admin']]) {
+      const req = { method: 'POST', body, headers: {}, socket: { remoteAddress: '8.8.8.8' } } as unknown as NextApiRequest;
+      const res = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
+      await isolatedLoginHandler(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+    }
+  });
 });

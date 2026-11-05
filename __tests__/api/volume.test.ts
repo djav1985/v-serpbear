@@ -163,4 +163,32 @@ describe('POST /api/volume', () => {
       expect(res.status).toHaveBeenCalledWith(400);
       expect(keywordModelMock.findAll).not.toHaveBeenCalled();
    });
+
+   it('limits how often domain=all can start paid lookups', async () => {
+      const { resetRateLimits } = jest.requireActual('../../utils/rateLimit');
+      resetRateLimits();
+      const run = async () => {
+         const req = { method: 'POST', body: { domain: 'all', update: false }, headers: {}, socket: { remoteAddress: '192.0.2.5' } } as unknown as NextApiRequest;
+         const res = createResponse();
+         await handler(req, res);
+         return res;
+      };
+
+      expect((await run()).status).toHaveBeenCalledWith(200);
+      expect((await run()).status).toHaveBeenCalledWith(200);
+      const limited = await run();
+      expect(limited.status).toHaveBeenCalledWith(429);
+      expect(getKeywordsVolumeMock).toHaveBeenCalledTimes(2);
+      resetRateLimits();
+   });
+
+   it('answers 500 when saving the volumes fails', async () => {
+      updateKeywordsVolumeDataMock.mockResolvedValue(false);
+      const req = { method: 'POST', body: { keywords: [1] }, headers: {} } as unknown as NextApiRequest;
+      const res = createResponse();
+
+      await handler(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+   });
 });

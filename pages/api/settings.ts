@@ -90,6 +90,30 @@ const SECRET_SETTINGS_FIELDS = [
    'adwords_account_id',
 ] as const;
 
+/** Every key a save may store (SettingsType minus the derived fields). Anything else in a payload is ignored. */
+const PERSISTED_SETTINGS_FIELDS = [
+   'scraper_type',
+   'notification_interval',
+   'notification_email',
+   'notification_email_from',
+   'notification_email_from_name',
+   'smtp_server',
+   'smtp_port',
+   'smtp_tls_servername',
+   'smtp_username',
+   'scrape_interval',
+   'scrape_delay',
+   'scrape_retry',
+   'scrape_strategy',
+   'scrape_pagination_limit',
+   'search_console',
+   'keywordsColumns',
+   'white_label_enabled',
+   'white_label_logo_file',
+   'platform_name',
+   ...SECRET_SETTINGS_FIELDS,
+] as const;
+
 const SCRAPE_STRATEGIES = ['basic', 'custom'];
 const MAX_PAGINATION_LIMIT = 10;
 const BOOLEAN_SETTINGS = ['scrape_retry', 'search_console'];
@@ -199,8 +223,7 @@ const getSettings = async (req: NextApiRequest, res: NextApiResponse) => {
       }
    } catch (error) {
       logger.error('Error loading app settings', error instanceof Error ? error : new Error(String(error)));
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Failed to load settings.', requestId, message));
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Failed to load settings.', requestId));
    }
 };
 
@@ -216,8 +239,11 @@ const updateSettings = async (req: NextApiRequest, res: NextApiResponse) => {
    }
    
    try {
-      const incomingSettings: Record<string, unknown> = { ...settings };
-      DERIVED_SETTINGS_FIELDS.forEach((field) => { delete incomingSettings[field]; });
+      // Only known settings are stored; derived fields and unknown keys in the payload are dropped
+      const incomingSettings: Record<string, unknown> = {};
+      PERSISTED_SETTINGS_FIELDS.forEach((field) => {
+         if (Object.prototype.hasOwnProperty.call(settings, field)) { incomingSettings[field] = settings[field]; }
+      });
       const normalizedSettings: SettingsType = trimStringProperties(normalizeLegacySettings(incomingSettings as Partial<SettingsType>)) as SettingsType;
 
       const validationErrors = validateSettingsPayload(normalizedSettings as unknown as Record<string, unknown>);
@@ -232,13 +258,9 @@ const updateSettings = async (req: NextApiRequest, res: NextApiResponse) => {
       // key the payload leaves out keeps its stored value. Secrets are encrypted here; an absent secret keeps its
       // stored (encrypted) value, which also covers adwords_refresh_token written by the Google OAuth callback.
       await withSettingsLock(async () => {
-         let existingSettings: Partial<SettingsType> = {};
-         try {
-            existingSettings = await readStoredSettingsFile(`${process.cwd()}/data/settings.json`);
-         } catch (err) {
-            // If the file can't be read, absent fields are stored as empty
-            logger.debug('Could not read existing settings for fields left out of the payload', { error: err instanceof Error ? err.message : String(err) });
-         }
+         // A file that cannot be read (corrupt JSON included) fails the save instead of being overwritten, so
+         // the stored secrets are not blanked. A missing or empty file reads as {}.
+         const existingSettings: Partial<SettingsType> = await readStoredSettingsFile(`${process.cwd()}/data/settings.json`);
 
          const merged: Record<string, unknown> = { ...existingSettings, ...normalizedSettings };
          SECRET_SETTINGS_FIELDS.forEach((key) => {
@@ -253,8 +275,7 @@ const updateSettings = async (req: NextApiRequest, res: NextApiResponse) => {
       return res.status(200).json({ settings: normalizedSettings });
    } catch (error) {
       logger.error('Error updating app settings', error instanceof Error ? error : new Error(String(error)));
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Failed to update settings.', requestId, message));
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Failed to update settings.', requestId));
    }
 };
 

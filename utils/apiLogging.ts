@@ -6,6 +6,7 @@ import { redactSecrets, redactUrl } from './logRedaction';
 import { getClientIp } from './api/clientIp';
 import { isLoginLocked } from './loginThrottle';
 import { getApiKeyAttemptKeys } from './apiKeyThrottle';
+import { hasValidSessionCookie, isBearerAuthorization } from './verifyUser';
 
 export { redactSecrets, redactUrl };
 
@@ -51,8 +52,9 @@ export function withApiLogging(
       });
     }
 
-    // A client address that sent too many wrong API keys is refused before any handler or key check runs
-    if (req.headers?.authorization && isLoginLocked(getApiKeyAttemptKeys(req))) {
+    // A client address that sent too many wrong API keys is refused before any handler or key check runs.
+    // Only Bearer attempts count, and a request with a valid login cookie is never refused for it.
+    if (isBearerAuthorization(req.headers?.authorization) && isLoginLocked(getApiKeyAttemptKeys(req)) && !hasValidSessionCookie(req, res)) {
       res.setHeader('Retry-After', '900');
       logger.warn(`${req.method} ${redactUrl(req.url)}${name ? ` [${name}]` : ''} - 429 (API key locked)`);
       return res.status(429).json(

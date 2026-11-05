@@ -50,31 +50,21 @@ class RetryQueueManager {
    private async withLock<T>(operation: () => Promise<T>): Promise<T> {
       let release: () => Promise<void>;
 
-      // Ensure the queue file exists before trying to lock it
+      // Make sure the data directory exists; the lock itself is taken before the queue file is created, so two
+      // parallel first refreshes cannot both create the file and overwrite each other's entries.
       try {
          // eslint-disable-next-line security/detect-non-literal-fs-filename
-         await readFile(this.filePath, { encoding: 'utf-8' });
+         await mkdir(dirname(this.filePath), { recursive: true });
       } catch (err: any) {
-         if (err.code === 'ENOENT') {
-            // File doesn't exist - create it with empty array
-            try {
-               const dir = dirname(this.filePath);
-               // eslint-disable-next-line security/detect-non-literal-fs-filename
-               await mkdir(dir, { recursive: true });
-               await atomicWriteFile(this.filePath, JSON.stringify([]), 'utf-8');
-            } catch (createErr: any) {
-               logger.debug('Failed to create retry queue file', { error: createErr?.message });
-               throw createErr;
-            }
-         } else {
-            logger.debug('Failed to read retry queue file', { error: err?.message });
-            throw err;
-         }
+         logger.debug('Failed to create retry queue directory', { error: err?.message });
+         throw err;
       }
 
       try {
          // Acquire a cross-process file lock on the queue file with retry/backoff.
          release = await lockfile.lock(this.filePath, {
+            // The queue file may not exist yet, so do not resolve its real path
+            realpath: false,
             // Parallel refreshes can hold this lock for a while; retry for roughly 10 seconds in total
             // before giving up, so a busy queue does not drop retry entries.
             retries: {
@@ -90,6 +80,22 @@ class RetryQueueManager {
       }
 
       try {
+         // Create the queue file (empty) while holding the lock when it does not exist yet
+         try {
+            // eslint-disable-next-line security/detect-non-literal-fs-filename
+            await readFile(this.filePath, { encoding: 'utf-8' });
+         } catch (err: any) {
+            if (err.code !== 'ENOENT') {
+               logger.debug('Failed to read retry queue file', { error: err?.message });
+               throw err;
+            }
+            try {
+               await atomicWriteFile(this.filePath, JSON.stringify([]), 'utf-8');
+            } catch (createErr: any) {
+               logger.debug('Failed to create retry queue file', { error: createErr?.message });
+               throw createErr;
+            }
+         }
          // Execute this operation while holding the file lock.
          return await operation();
       } finally {

@@ -101,6 +101,16 @@ describe('/api/domain handler', () => {
     expect((res.status as jest.Mock)).toHaveBeenCalledWith(404);
   });
 
+  it('looks the domain up trimmed and lowercase', async () => {
+    verifyUserMock.mockReturnValue('authorized');
+    DomainMock.findOne.mockResolvedValue(null);
+    const req = { method: 'GET', query: { domain: '  Example.COM ' }, headers: {} } as unknown as NextApiRequest;
+
+    await handler(req, res);
+
+    expect(DomainMock.findOne).toHaveBeenCalledWith({ where: { domain: 'example.com' } });
+  });
+
   it('returns 200 with domain data on successful GET', async () => {
     verifyUserMock.mockReturnValue('authorized');
     DomainMock.findOne.mockResolvedValue({

@@ -59,23 +59,32 @@ const sanitizeTagList = (raw: unknown): string[] => Array.from(new Set(
       .filter((tag) => tag.length > 0),
 )).sort();
 
+/** The JSON body as an object; null, arrays and other types read as an empty object. */
+const readBody = (req: NextApiRequest): Record<string, any> => (
+   req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {}
+);
+
 /** True when a bulk request names keywords, in the JSON body `ids` array or the legacy comma-separated `id` query. */
 const hasKeywordIdInput = (req: NextApiRequest): boolean => (
-   req.body?.ids !== undefined || (typeof req.query.id === 'string' && req.query.id.length > 0)
+   readBody(req).ids !== undefined || (typeof req.query.id === 'string' && req.query.id.length > 0)
 );
 
 /**
  * Keyword IDs for a bulk request. The body `ids` array wins; it returns null when any item is not a positive
- * integer. The legacy `id` query keeps its old lenient parsing, so bad items are dropped.
+ * integer. The legacy `id` query is strict too: any item that is not a plain positive integer (such as "12abc") gives null.
  */
 const readKeywordIds = (req: NextApiRequest): number[] | null => {
-   if (req.body?.ids !== undefined) {
-      const ids: unknown = req.body.ids;
+   const body = readBody(req);
+   if (body.ids !== undefined) {
+      const ids: unknown = body.ids;
       const valid = Array.isArray(ids) && ids.every((id) => Number.isSafeInteger(id) && id > 0);
       return valid ? Array.from(new Set(ids as number[])) : null;
    }
    const raw = typeof req.query.id === 'string' ? req.query.id : '';
-   return raw.split(',').map((item) => parseInt(item, 10)).filter((id) => Number.isInteger(id) && id > 0);
+   const items = raw.split(',').map((item) => item.trim());
+   if (items.some((item) => !/^\d+$/.test(item))) { return null; }
+   const ids = Array.from(new Set(items.map((item) => Number(item))));
+   return ids.every((id) => Number.isSafeInteger(id) && id > 0) ? ids : null;
 };
 
 const getKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
@@ -154,8 +163,7 @@ const getKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
       return;
    } catch (error) {
       logger.error(`Error getting domain keywords for: ${domain}`, error instanceof Error ? error : new Error(String(error)));
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Failed to load keywords for this domain.', requestId, message));
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Failed to load keywords for this domain.', requestId));
    }
 };
 
@@ -163,6 +171,9 @@ const getKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
  * Validates and sanitizes keyword input data
  */
 const validateKeywordData = (kwrd: any): { isValid: boolean, sanitized?: any, errors?: string[] } => {
+   if (!kwrd || typeof kwrd !== 'object' || Array.isArray(kwrd)) {
+      return { isValid: false, errors: ['Keyword must be an object'] };
+   }
    const errors: string[] = [];
    
    // Required fields validation
@@ -237,7 +248,7 @@ const validateKeywordData = (kwrd: any): { isValid: boolean, sanitized?: any, er
 
 const addKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
-   const { keywords } = req.body;
+   const { keywords } = readBody(req);
    
    // Enhanced input validation
    if (!keywords) {
@@ -413,8 +424,7 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
          return res.status(409).json(errorResponse('CONFLICT', 'Already tracked: one or more of these keywords was added by another request.', requestId));
       }
       logger.error('Adding New Keywords ', error instanceof Error ? error : new Error(String(error)));
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Failed to add keywords.', requestId, message));
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Failed to add keywords.', requestId));
    }
 };
 
@@ -439,23 +449,28 @@ const deleteKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
       });
       
       const affectedDomains = Array.from(new Set(keywordsToCheck.map(k => k.domain)));
-      const lockedDomains = affectedDomains.filter(domain => refreshQueue.isDomainLocked(domain));
-      
-      if (lockedDomains.length > 0) {
+      // Claim the domains for the duration of the delete, so a refresh that starts after the check cannot begin
+      // while the rows are being removed. A null claim means a domain is locked.
+      const releaseDomains = refreshQueue.reserveDomains(affectedDomains);
+      if (!releaseDomains) {
+         const lockedDomains = affectedDomains.filter(domain => refreshQueue.isDomainLocked(domain));
          logger.warn(`Cannot delete keywords while domains are being refreshed`, { lockedDomains });
          return res.status(409).json(
             errorResponse('CONFLICT', `Cannot delete keywords while their domains are being refreshed: ${lockedDomains.join(', ')}. Please wait for the refresh to complete.`, requestId),
          );
       }
-      
-      const removeQuery = { where: { ID: { [Op.in]: keywordsToRemove } } };
-      const removedKeywordCount: number = await Keyword.destroy(removeQuery);
-      await retryQueueManager.removeBatch(new Set(keywordsToRemove));
-      return res.status(200).json({ keywordsRemoved: removedKeywordCount });
+
+      try {
+         const removeQuery = { where: { ID: { [Op.in]: keywordsToRemove } } };
+         const removedKeywordCount: number = await Keyword.destroy(removeQuery);
+         await retryQueueManager.removeBatch(new Set(keywordsToRemove));
+         return res.status(200).json({ keywordsRemoved: removedKeywordCount });
+      } finally {
+         releaseDomains();
+      }
    } catch (error) {
       logger.error('Removing Keyword. ', error instanceof Error ? error : new Error(String(error)));
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Failed to remove keywords.', requestId, message));
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Failed to remove keywords.', requestId));
    }
 };
 
@@ -464,7 +479,8 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
    if (!hasKeywordIdInput(req)) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'keyword ID is Required!', requestId));
    }
-   if (req.body.sticky === undefined && req.body.tags === undefined && req.body.location === undefined) {
+   const body = readBody(req);
+   if (body.sticky === undefined && body.tags === undefined && body.location === undefined) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Keyword update payload is required.', requestId));
    }
    // Anything that is not a positive ID is rejected or dropped, so NaN and 0 never reach the database query
@@ -472,7 +488,7 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
    if (keywordIDs.length === 0) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'No valid keyword IDs provided', requestId));
    }
-   const { sticky, tags, location } = req.body;
+   const { sticky, tags, location } = body;
 
    try {
       let keywords: KeywordType[] = [];
@@ -495,6 +511,10 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
          const tagsKeywordIDs = Object.keys(tags);
          if (tagsKeywordIDs.length === 0) {
             return res.status(200).json({ keywords: [] });
+         }
+         // Keys must be plain positive integers ("1.0" or "01" would select a keyword but never match its tag list)
+         if (tagsKeywordIDs.some((keywordID) => !/^[1-9]\d*$/.test(keywordID) || !Number.isSafeInteger(Number(keywordID)))) {
+            return res.status(400).json(errorResponse('BAD_REQUEST', 'Tag keys must be keyword IDs (positive whole numbers).', requestId));
          }
          // Checked for the whole payload before any keyword is changed
          if (Object.values(tags).some((list) => sanitizeTagList(list).length > MAX_TAGS_PER_KEYWORD)) {
@@ -527,7 +547,7 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
       }
       if (location !== undefined) {
          const rawLocation = typeof location === 'string' ? location.trim().substring(0, 255) : '';
-         const requestedCountry = typeof req.body.country === 'string' && /^[A-Z]{2}$/.test(req.body.country) ? req.body.country : '';
+         const requestedCountry = typeof body.country === 'string' && /^[A-Z]{2}$/.test(body.country) ? body.country : '';
          const locationCountry = requestedCountry || getLocationCountry(rawLocation);
          if (!locationCountry) {
             return res.status(400).json(errorResponse('BAD_REQUEST', 'Country is required!', requestId));
@@ -568,7 +588,6 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Invalid Payload!', requestId));
    } catch (error) {
       logger.error('Updating Keyword. ', error instanceof Error ? error : new Error(String(error)));
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Failed to update keywords.', requestId, message));
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Failed to update keywords.', requestId));
    }
 };

@@ -305,6 +305,23 @@ const mockDomainForSC = {
 
 const mockApiForSC = { client_email: 'test@example.com', private_key: 'test-key' };
 
+describe('fetchSearchConsoleData date window', () => {
+  const { default: realFetchSearchConsoleData } = jest.requireActual('../../utils/searchConsole');
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSCQuery.mockResolvedValue({ data: { rows: [] } });
+  });
+
+  it.each([3, 7, 30])('covers exactly %i inclusive calendar days', async (days) => {
+    await realFetchSearchConsoleData(mockDomainForSC, days, undefined, mockApiForSC);
+
+    const { startDate, endDate } = mockSCQuery.mock.calls[0][0].requestBody;
+    const span = (Date.parse(`${endDate}T00:00:00Z`) - Date.parse(`${startDate}T00:00:00Z`)) / 86400000 + 1;
+    expect(span).toBe(days);
+  });
+});
+
 describe('fetchSearchConsoleData error logging', () => {
   const { fetchDomainSCData: realFetchDomainSCData } = jest.requireActual('../../utils/searchConsole');
 

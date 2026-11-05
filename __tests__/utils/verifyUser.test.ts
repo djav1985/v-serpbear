@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import verifyUser from '../../utils/verifyUser';
+import verifyUser, { checkApiKey } from '../../utils/verifyUser';
 import jwt from 'jsonwebtoken';
 import Cookies from 'cookies';
 import { getSessionVersion } from '../../utils/sessionStore';
@@ -98,6 +98,37 @@ describe('verifyUser', () => {
          attempt('wrong');
          expect(isLoginLocked(keys)).toBe(true);
          resetLoginThrottle();
+      });
+
+      it('does not count non-Bearer Authorization headers as API key attempts', () => {
+         process.env.APIKEY = 'test-api-key';
+         req.socket = { remoteAddress: '203.0.113.20' } as NextApiRequest['socket'];
+         const keys = getApiKeyAttemptKeys(req as NextApiRequest);
+         resetLoginThrottle();
+
+         for (let i = 0; i < 10; i += 1) {
+            req.headers = { authorization: 'Basic dXNlcjpwYXNz' };
+            verifyUser(req as NextApiRequest, res as NextApiResponse);
+         }
+
+         expect(isLoginLocked(keys)).toBe(false);
+      });
+
+      it('does not count a wrong Bearer key sent together with a valid session cookie', () => {
+         process.env.APIKEY = 'test-api-key';
+         process.env.SECRET = 'test-secret';
+         req.socket = { remoteAddress: '203.0.113.21' } as NextApiRequest['socket'];
+         (Cookies as jest.MockedClass<typeof Cookies>).mockImplementation(() => ({ get: jest.fn().mockReturnValue('valid-jwt-token') } as any));
+         (jwt.verify as jest.Mock).mockReturnValue({ user: 'testuser' });
+         const keys = getApiKeyAttemptKeys(req as NextApiRequest);
+         resetLoginThrottle();
+
+         for (let i = 0; i < 10; i += 1) {
+            req.headers = { authorization: 'Bearer wrong' };
+            expect(verifyUser(req as NextApiRequest, res as NextApiResponse)).toBe('authorized');
+         }
+
+         expect(isLoginLocked(keys)).toBe(false);
       });
 
       it('should reject Bearer token without space', () => {
@@ -240,4 +271,47 @@ describe('verifyUser session revocation', () => {
     versionMock.mockReturnValue(1);
     expect(verifyUser(req, res)).toBe('Not authorized');
   });
+});
+
+describe('checkApiKey', () => {
+   const makeReq = (authorization?: string) => ({
+      method: 'POST',
+      url: '/api/mcp',
+      headers: authorization ? { authorization } : {},
+      socket: { remoteAddress: '203.0.113.9' },
+   } as unknown as NextApiRequest);
+
+   beforeEach(() => {
+      process.env.APIKEY = 'right-key';
+      resetLoginThrottle();
+   });
+
+   it('accepts only the exact Bearer key', () => {
+      expect(checkApiKey(makeReq('Bearer right-key'))).toBe(true);
+      expect(checkApiKey(makeReq('Bearer wrong-key'))).toBe(false);
+      expect(checkApiKey(makeReq('Basic right-key'))).toBe(false);
+      expect(checkApiKey(makeReq())).toBe(false);
+   });
+
+   it('counts wrong Bearer keys, but not other schemes or a missing header, and a right key clears them', () => {
+      const req = makeReq('Bearer wrong-key');
+      for (let i = 0; i < 4; i += 1) { checkApiKey(req); }
+      checkApiKey(makeReq('Basic whatever'));
+      checkApiKey(makeReq());
+      expect(isLoginLocked(getApiKeyAttemptKeys(req))).toBe(false);
+      checkApiKey(req);
+      expect(isLoginLocked(getApiKeyAttemptKeys(req))).toBe(true);
+
+      resetLoginThrottle();
+      checkApiKey(req);
+      checkApiKey(makeReq('Bearer right-key'));
+      for (let i = 0; i < 4; i += 1) { checkApiKey(req); }
+      expect(isLoginLocked(getApiKeyAttemptKeys(req))).toBe(false);
+   });
+
+   it('does not count a wrong key when shouldCountFailure says no', () => {
+      const req = makeReq('Bearer wrong-key');
+      for (let i = 0; i < 6; i += 1) { checkApiKey(req, () => false); }
+      expect(isLoginLocked(getApiKeyAttemptKeys(req))).toBe(false);
+   });
 });

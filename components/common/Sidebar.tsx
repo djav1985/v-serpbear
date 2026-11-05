@@ -10,6 +10,8 @@ type SidebarProps = {
 
 const Sidebar = ({ domains, showAddModal } : SidebarProps) => {
    const router = useRouter();
+   // Ignore any query string or hash so the active domain stays highlighted
+   const currentPath = (router.asPath || '').split(/[?#]/)[0];
 
    return (
       <div className="sidebar pt-44 w-1/5 hidden lg:block" data-testid="sidebar">
@@ -24,8 +26,8 @@ const Sidebar = ({ domains, showAddModal } : SidebarProps) => {
                                     <Link
                                        href={`/domain/${d.slug}`}
                                        className={`block cursor-pointer px-4 text-ellipsis max-w-[215px] overflow-hidden whitespace-nowrap rounded
-                                        rounded-r-none ${((`/domain/${d.slug}` === router.asPath || `/domain/console/${d.slug}` === router.asPath
-                                        || `/domain/insight/${d.slug}` === router.asPath || `/domain/ideas/${d.slug}` === router.asPath)
+                                        rounded-r-none ${((`/domain/${d.slug}` === currentPath || `/domain/console/${d.slug}` === currentPath
+                                        || `/domain/insight/${d.slug}` === currentPath || `/domain/ideas/${d.slug}` === currentPath)
                                         ? 'bg-white text-zinc-800 border border-r-0' : 'text-zinc-500')}`}>
                                           <img
                                           className={' inline-block mr-1'}

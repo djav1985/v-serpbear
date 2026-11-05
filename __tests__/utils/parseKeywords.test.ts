@@ -102,4 +102,14 @@ describe('parseKeywords', () => {
       expect(parsed.history).toEqual({ '2026-01-05': 2, '2026-02-03': 4 });
       expect(parsed.history7d).toEqual({ '2026-01-05': 7 });
    });
+
+   it('logs a warning when the stored history cannot be parsed', () => {
+      const { logger } = require('../../utils/logger');
+      const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
+      const [keyword] = parseKeywords([buildKeyword({ history: '{not json' }) as any]);
+
+      expect(keyword.history).toEqual({});
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('history'), expect.anything());
+      warnSpy.mockRestore();
+   });
 });

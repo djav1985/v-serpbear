@@ -117,6 +117,28 @@ describe('/api/notify - authentication', () => {
     expect(sendMailMock).not.toHaveBeenCalled();
   });
 
+  it('returns 404 for a domain that does not exist', async () => {
+    (verifyUser as jest.Mock).mockReturnValue('authorized');
+    (Domain.findOne as jest.Mock).mockResolvedValue(null);
+    req.query = { domain: 'Missing.com ' };
+
+    await handler(req as NextApiRequest, res as NextApiResponse);
+
+    expect(Domain.findOne).toHaveBeenCalledWith({ where: { domain: 'missing.com' } });
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(sendMailMock).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when the domain query is repeated', async () => {
+    (verifyUser as jest.Mock).mockReturnValue('authorized');
+    req.query = { domain: ['a.com', 'b.com'] };
+
+    await handler(req as NextApiRequest, res as NextApiResponse);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(Domain.findOne).not.toHaveBeenCalled();
+  });
+
   it('sends notifications when authorized via API key header', async () => {
     req.headers = {
       authorization: 'Bearer valid-key',

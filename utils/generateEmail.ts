@@ -132,7 +132,7 @@ const generateEmail = async (domain:DomainType, keywords:KeywordType[], settings
 
       const positionChange = getPositionChange(keyword.history, keyword.position);
       const deviceIconImg = keyword.device === 'desktop' ? desktopIcon : mobileIcon;
-      const countryFlag = `<img class="flag" src="https://flagcdn.com/w20/${escapeHtml(keyword.country.toLowerCase())}.png" alt="${escapeHtml(keyword.country)}" title="${escapeHtml(keyword.country)}" />`;
+      const countryFlag = `<img class="flag" src="https://flagcdn.com/w20/${escapeHtml(String(keyword.country ?? '').toLowerCase())}.png" alt="${escapeHtml(keyword.country)}" title="${escapeHtml(keyword.country)}" />`;
       const deviceIcon = `<img class="device" src="${deviceIconImg}" alt="${escapeHtml(keyword.device)}" title="${escapeHtml(keyword.device)}" width="18" height="18" />`;
       const mapPackFlag = normalizeToBoolean(keyword.mapPackTop3)
          ? `<span class="map-pack-flag" role="img" aria-label="Map pack top three">MP</span>`

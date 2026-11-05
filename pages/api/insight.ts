@@ -67,6 +67,7 @@ const getDomainSearchConsoleInsight = async (req: NextApiRequest, res: NextApiRe
       const scGlobalAPI = await getSearchConsoleApiInfo({} as DomainType);
       if (!(scDomainAPI.client_email && scDomainAPI.private_key)
           && !(scGlobalAPI.client_email && scGlobalAPI.private_key)) {
+         // Stays 200: "not integrated" is a normal state the pages render from the error field, not a failure
          return res.status(200).json({ data: null, error: 'Google Search Console is not Integrated.' });
       }
       const scData = await fetchDomainSCData(domainObj, scDomainAPI, scGlobalAPI);
@@ -74,7 +75,7 @@ const getDomainSearchConsoleInsight = async (req: NextApiRequest, res: NextApiRe
          const response = getInsightFromSCData(scData);
          return res.status(200).json({ data: response });
       }
-      return res.status(400).json(errorResponse('BAD_REQUEST', 'Error Fetching Stats from Google Search Console.', requestId));
+      return res.status(502).json(errorResponse('BAD_GATEWAY', 'Error Fetching Stats from Google Search Console.', requestId));
    } catch (error) {
       logger.error(`Error getting domain insight for: ${domainname}`, error instanceof Error ? error : new Error(String(error)));
       return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Internal error fetching Search Console stats.', requestId));

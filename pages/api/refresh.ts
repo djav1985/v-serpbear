@@ -72,9 +72,8 @@ const getRetryStatus = async (req: NextApiRequest, res: NextApiResponse) => {
          }),
       });
    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('Error reading retry status', error instanceof Error ? error : new Error(message));
-      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Failed to read retry status', requestId, message));
+      logger.error('Error reading retry status', error instanceof Error ? error : new Error(String(error)));
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Failed to read retry status', requestId));
    }
 };
 
@@ -266,9 +265,8 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse) => 
          releases.forEach((release) => release());
       }
    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      logger.debug('[REFRESH] ERROR refreshTheKeywords: ', { data: errorMessage });
-      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', errorMessage, requestId));
+      logger.error('[REFRESH] ERROR refreshTheKeywords: ', error instanceof Error ? error : new Error(String(error)));
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Failed to start the refresh.', requestId));
    }
 };
 
@@ -320,11 +318,12 @@ const getKeywordSearchResults = async (req: NextApiRequest, res: NextApiResponse
          };
          return res.status(200).json({ searchResult });
       }
-      return res.status(400).json(errorResponse('BAD_REQUEST', 'Error Scraping Search Results for the given keyword!', requestId));
+      // The scraper was configured and the request was valid, so a failed scrape is an upstream failure, not a bad request
+      logger.warn('Keyword search scrape failed', { error: scrapeResult ? String((scrapeResult as { error?: unknown }).error ?? 'no result') : 'no result' });
+      return res.status(502).json(errorResponse('BAD_GATEWAY', 'Error Scraping Search Results for the given keyword!', requestId));
    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      logger.debug('ERROR getKeywordSearchResults: ', { data: errorMessage });
-      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', errorMessage, requestId));
+      logger.error('ERROR getKeywordSearchResults: ', error instanceof Error ? error : new Error(String(error)));
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Failed to search for the keyword.', requestId));
    }
 };
 

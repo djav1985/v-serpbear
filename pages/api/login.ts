@@ -36,6 +36,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
 const loginUser = async (req: NextApiRequest, res: NextApiResponse, startTime: number) => {
    const requestId = (req as ExtendedRequest).requestId;
+   if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Request body must be a JSON object', requestId));
+   }
    const { username, password } = req.body;
    
    logger.info('Login attempt started', {
@@ -59,24 +62,25 @@ const loginUser = async (req: NextApiRequest, res: NextApiResponse, startTime: n
 
    // Limit guesses without letting a stranger lock the real user out:
    //  - the user's own lockout (5 failures) is per client address, so one address cannot block the others
-   //  - a higher per-user cap bounds guessing spread over many addresses
+   //  - a higher per-user cap bounds guessing spread over many addresses; it only turns away requests whose
+   //    credentials are wrong, so strangers filling it cannot lock out the correct password
    //  - a per-address cap bounds one address trying many usernames
    // Names that are not the configured user share one bucket, so made-up usernames cannot grow the tracked set.
    // The address is the socket address, or the X-Forwarded-For entry selected by TRUST_PROXY (see utils/api/clientIp).
    const clientIp = getClientIp(req);
    const configuredUser = (process.env.USER_NAME ? process.env.USER_NAME : process.env.USER) || '';
    const knownUser = configuredUser !== '' && username.toLowerCase() === configuredUser.toLowerCase();
-   const attemptKeys: AttemptKey[] = knownUser
+   const userWideKey: AttemptKey = knownUser
+      ? { key: `user:${configuredUser.toLowerCase()}`, maxFailures: 100 }
+      : { key: 'user:unknown', maxFailures: 200 };
+   const addressKeys: AttemptKey[] = knownUser
       ? [
          { key: `user:${configuredUser.toLowerCase()}@${clientIp}`, maxFailures: 5 },
-         { key: `user:${configuredUser.toLowerCase()}`, maxFailures: 100 },
          { key: `ip:${clientIp}`, maxFailures: 20 },
       ]
-      : [
-         { key: 'user:unknown', maxFailures: 200 },
-         { key: `ip:${clientIp}`, maxFailures: 20 },
-      ];
-   if (isLoginLocked(attemptKeys)) {
+      : [{ key: `ip:${clientIp}`, maxFailures: 20 }];
+   const attemptKeys: AttemptKey[] = [...addressKeys, userWideKey];
+   if (isLoginLocked(addressKeys)) {
       logger.warn('Login blocked: too many failed attempts', { duration: Date.now() - startTime });
       return res.status(429).json(errorResponse('TOO_MANY_ATTEMPTS', 'Too many failed login attempts. Try again in 15 minutes.', requestId));
    }
@@ -167,6 +171,12 @@ const loginUser = async (req: NextApiRequest, res: NextApiResponse, startTime: n
          });
          return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Internal server error', requestId));
       }
+   }
+
+   // Wrong credentials while the user-wide cap is reached are refused without further counting
+   if (isLoginLocked([userWideKey])) {
+      logger.warn('Login blocked: too many failed attempts for this user', { duration: Date.now() - startTime });
+      return res.status(429).json(errorResponse('TOO_MANY_ATTEMPTS', 'Too many failed login attempts. Try again in 15 minutes.', requestId));
    }
 
    recordLoginFailure(attemptKeys);

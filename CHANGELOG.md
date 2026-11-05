@@ -18,13 +18,29 @@ All notable changes to this project will be documented in this file. Releases no
 - API-key brute-force limit: 5 wrong `Authorization` keys from one client address lock that address out of the API for 15 minutes (`429` with `Retry-After`). It reuses the login throttle in `utils/loginThrottle.ts`.
 
 ### Changed
+- **API behaviour:** `/api/notify` returns 404 for an unknown domain; upstream failures from Google or a scraper now return 502 and write failures 500 (were 400); `/api/cron` may include a `skipped` list; `POST /api/volume` (domain mode, `domain=all`) and `POST /api/ideas/email` are rate limited; a corrupt `settings.json` fails saves with 500.
 - The Local Search Results panel now shows every business in a yellow box and only the tracked business (matched by business name in the top 3) in green. Local results saved before this change have no flag, so they show yellow until the keyword is refreshed.
 - **Breaking for API callers:** every API endpoint now takes a real domain name (`example.com`) instead of a URL slug. `GET /api/searchconsole` and `GET /api/insight` no longer accept slugs. On `/api/ideas`, `domainSlug` and `domainUrl` are merged into one `domain` field (GET query, PUT body and POST body); leaving `domain` out means the research page. Data file names and page URLs are unchanged.
 - README: the `API contract` section is now `External API` and lists the endpoints reachable with the API key.
 - `POST /api/domains` now strips a leading `www.` from hostnames, matching the Add Domain form. A new migration renames existing `www.` domains (skipped when the bare domain already exists).
 - Keywords and locations are sent to scrapers exactly as stored; the old `decodeURIComponent` step (which corrupted values such as `50%25 off`) is removed; the same migration decodes any percent-encoded values already stored.
 
+### Fixed
+- A domain scraper override without its own key no longer sends the global scraper's API key to a different provider.
+- Keywords whose domain override key cannot be decrypted now leave the retry queue instead of being retried every hour.
+- `scrape_delay` is now one per-domain spacing between requests on both the parallel and sequential paths (it was ignored on the parallel path and applied per worker, about 3x too fast, on the sequential one).
+- SerpApi sends `gl` in lowercase like the other providers. A `null` provider response now gives a clear error. Serper logs a warning that it has no mobile option. A corrupt stored `history` value is logged and no longer overwritten by the next refresh.
+- The retry queue file is created inside its lock, so two first refreshes can no longer drop a keyword.
+- `keyword.volume` is now an INTEGER on upgraded installs (new migration `1780000000000`), so volume ordering is numeric. The same migration sets the `country` default to `US`, matching the model.
+- Indexes are created on fresh installs (the index migrations ran before the tables existed). A failing unique index at startup is logged instead of stopping the app. The `www.` domain migration no longer aborts on colliding rows, and the Smart-strategy migration writes `settings.json` atomically.
+- Cron: the worker honours `APP_URL` for its own calls (also passed through `docker-compose.yml`), keeps its schedule when `settings.json` is unreadable, no longer writes `settings.json`, logs a clear message when `SECRET` is unset, and "every other day" now runs on odd days of the month, including the 31st.
+- The PR auto-fix workflow no longer interpolates the branch name into a shell and skips fork PRs.
+- Login: a correct password is no longer refused because strangers filled the user-wide failure cap. A non-Bearer `Authorization` header, or one sent with a valid session cookie, no longer counts as a wrong API key. `POST /api/cron` skips domains that are already being refreshed. A missing `session.json` now yields a fresh session version so logged-out tokens stay invalid. A corrupt `settings.json` fails a save with a 500 instead of blanking secrets.
+- API hardening: null or malformed bodies return 400, ids must be whole numbers, tag keys must be canonical ids, internal error text is logged and not returned, unknown settings keys are ignored, and domains are trimmed and lowercased consistently. Lowercase country codes work for keyword ideas, ideas saves are locked against the favourites toggle, and Search Console "Last 7 Days" covers 7 days.
+- UI: Discover country filter, location picker, tracked-keyword check by location, select-all pruning, sticky star, app-timezone tooltips, numpad Enter for tags, safe result links, domain settings and Ads callbacks no longer wipe unsaved input, research seeds are trimmed and capped at 20, a "Remove stored key" control for per-domain scraper keys, plus accessibility and dropdown fixes in several components.
+
 ### Security
+- The MCP server at `/api/mcp` now accepts only `Authorization: Bearer <APIKEY>`. Cookies and login sessions are ignored there. Wrong keys still count towards the API-key lockout.
 - Upgraded the Node.js runtime from 20.18.1 (end-of-life) to 24.22.1 in `.nvmrc`, the Docker base image (`node:24.22.1-alpine3.24`), and CI to fix CVE-2026-111497, an out-of-bounds write in the bundled Brotli decoder reachable through `fetch()` responses with `Content-Encoding: br`.
 - Logout now revokes the session everywhere: tokens carry a session version in `data/session.json`, and `GET /api/settings` and `/api/auth-check` reject revoked tokens.
 - Added `TRUST_PROXY` to read the real client IP from `X-Forwarded-For` behind a reverse proxy. The default is the socket address.

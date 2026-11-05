@@ -12,6 +12,12 @@ import { getBranding } from '../../../utils/branding';
 import { logger } from '../../../utils/logger';
 import { withApiLogging } from '../../../utils/apiLogging';
 import { errorResponse } from '../../../utils/api/response';
+import { takeRateLimitToken } from '../../../utils/rateLimit';
+
+// Same cap as the ideas list (pages/api/ideas.ts)
+const MAX_EMAIL_KEYWORDS = 1000;
+// Idea emails stay off the digest throttle (utils/emailThrottle) but are bounded on their own, per domain
+const IDEAS_EMAILS_PER_HOUR = 10;
 
 type EmailKeywordIdeasRequest = {
    domain?: string;
@@ -64,6 +70,9 @@ export default withApiLogging(handler, { name: 'ideas/email' });
 
 const emailKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
+   if (req.body !== undefined && req.body !== null && (typeof req.body !== 'object' || Array.isArray(req.body))) {
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Request body must be a JSON object.', requestId));
+   }
    const body = (req.body || {}) as EmailKeywordIdeasRequest;
    const { platformName } = getBranding();
    const targetDomain = trimString(body.domain);
@@ -73,6 +82,13 @@ const emailKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => {
 
    if (!Array.isArray(body.keywords) || body.keywords.length === 0) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Select at least one keyword idea to email.', requestId));
+   }
+
+   if (body.keywords.length > MAX_EMAIL_KEYWORDS) {
+      return res.status(400).json(errorResponse('BAD_REQUEST', `Select at most ${MAX_EMAIL_KEYWORDS} keyword ideas to email.`, requestId));
+   }
+   if (body.keywords.some((keyword) => !keyword || typeof keyword !== 'object' || Array.isArray(keyword))) {
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Each keyword idea must be an object.', requestId));
    }
 
    try {
@@ -109,6 +125,10 @@ const emailKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => {
          return res.status(400).json(errorResponse('BAD_REQUEST', 'SMTP has not been setup properly!', requestId));
       }
 
+      if (!takeRateLimitToken(`ideas-email:${normalizedDomain.domain}`, IDEAS_EMAILS_PER_HOUR, 60 * 60 * 1000)) {
+         return res.status(429).json(errorResponse('TOO_MANY_REQUESTS', 'Too many keyword idea emails for this domain. Please try again later.', requestId));
+      }
+
       const { transporter, fromEmail } = buildMailer(normalizedSettings);
       const normalizedKeywords = normalizeKeywords(body.keywords);
       const emailHTML = generateKeywordIdeasEmail({
@@ -128,7 +148,6 @@ const emailKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => {
       return res.status(200).json({ success: true, error: null });
    } catch (error) {
       logger.error('Error sending keyword ideas email', error instanceof Error ? error : new Error(String(error)));
-      const message = error instanceof Error && error.message ? error.message : 'Error sending keyword ideas email.';
-      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', message, requestId));
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error sending keyword ideas email.', requestId));
    }
 };

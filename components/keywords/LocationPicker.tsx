@@ -37,6 +37,8 @@ const LocationPicker = ({ existingLocations = [], value, onChange, allowsCity = 
    const [state, setState] = useState('');
    const [country, setCountry] = useState<string>(defaultCountry || getDefaultCountry);
    const [error, setError] = useState('');
+   // True once a country-only choice (blank location) was added, so a later country change must be reported too
+   const [countryOnlyPicked, setCountryOnlyPicked] = useState(false);
 
    const locationValues = [
       ...existingLocations,
@@ -48,6 +50,7 @@ const LocationPicker = ({ existingLocations = [], value, onChange, allowsCity = 
    const pickExistingLocation = (selectedLocation: string) => {
       const pickedCountry = getLocationCountry(selectedLocation) || country;
       setNewLocation(null);
+      setCountryOnlyPicked(false);
       setCountry(pickedCountry);
       onChange(selectedLocation, pickedCountry);
    };
@@ -64,6 +67,7 @@ const LocationPicker = ({ existingLocations = [], value, onChange, allowsCity = 
          ? buildStoredLocation({ city: trimmedCity, state: trimmedState, countryCode: country })
          : '';
       setNewLocation(location || null);
+      setCountryOnlyPicked(!location);
       onChange(location, country);
       setCity('');
       setState('');
@@ -117,7 +121,12 @@ const LocationPicker = ({ existingLocations = [], value, onChange, allowsCity = 
                   selected={[country]}
                   options={countryOptions}
                   defaultLabel='All Countries'
-                  updateField={(updated: string[]) => { if (updated[0]) setCountry(updated[0]); }}
+                  updateField={(updated: string[]) => {
+                     if (!updated[0]) { return; }
+                     setCountry(updated[0]);
+                     // Keep a country-only selection in step with the dropdown so the saved country is not stale
+                     if (countryOnlyPicked) { onChange('', updated[0]); }
+                  }}
                   rounded='rounded'
                   maxHeight={48}
                   flags={true}

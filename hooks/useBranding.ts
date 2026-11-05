@@ -64,11 +64,12 @@ export const useBranding = () => {
       branding: queryResult.data ?? serverSideBranding ?? DEFAULT_BRANDING,
       // Runtime flag from /api/branding/config; undefined until it loads (callers may fall back to the build-time default)
       screenshotsEnabled: typeof runtimeScreenshots === 'boolean' ? runtimeScreenshots : undefined,
-      isLoading: queryResult.isLoading && queryResult.isFetching,
+      // With placeholderData react-query reports status 'success', so loading is the placeholder still being shown while fetching
+      isLoading: queryResult.isPlaceholderData && queryResult.isFetching,
       isFetching: queryResult.isFetching,
       isError: queryResult.isError,
       refetch: queryResult.refetch,
-   }), [queryResult.data, queryResult.isError, queryResult.isFetching, queryResult.isLoading, queryResult.refetch, runtimeScreenshots, serverSideBranding]);
+   }), [queryResult.data, queryResult.isError, queryResult.isFetching, queryResult.isPlaceholderData, queryResult.refetch, runtimeScreenshots, serverSideBranding]);
 
    return brandingState;
 };

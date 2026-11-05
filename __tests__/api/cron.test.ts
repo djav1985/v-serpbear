@@ -6,6 +6,7 @@ import Keyword from '../../database/models/keyword';
 import verifyUser from '../../utils/verifyUser';
 import refreshAndUpdateKeywords from '../../utils/refresh';
 import { getAppSettings } from '../../pages/api/settings';
+import { refreshQueue } from '../../utils/refreshQueue';
 
 jest.mock('../../database/database', () => ({
   __esModule: true,
@@ -48,6 +49,7 @@ jest.mock('../../utils/refreshQueue', () => ({
       // Execute task immediately in tests
       await task();
     }),
+    reserveDomains: jest.fn().mockImplementation(() => jest.fn()),
     getStatus: jest.fn().mockReturnValue({ 
       queueLength: 0, 
       activeProcesses: 0,
@@ -262,5 +264,36 @@ describe('/api/cron', () => {
   afterEach(() => {
     jest.clearAllMocks();
     jest.useRealTimers();
+  });
+
+  it('skips domains that are already being refreshed and reports them', async () => {
+    (Domain.findAll as jest.Mock).mockResolvedValue([
+      { get: () => ({ domain: 'busy.com', scrapeEnabled: 1 }) },
+      { get: () => ({ domain: 'free.com', scrapeEnabled: 1 }) },
+    ]);
+    (Keyword.findAll as jest.Mock).mockResolvedValue([]);
+    (refreshQueue.enqueue as jest.Mock).mockClear();
+    (refreshQueue.reserveDomains as jest.Mock).mockImplementation((domains: string[]) => (domains[0] === 'busy.com' ? null : jest.fn()));
+
+    await handler(req, res as NextApiResponse);
+    await jest.runAllTimersAsync();
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ started: true, skipped: { domains: ['busy.com'] } });
+    expect(refreshQueue.enqueue).toHaveBeenCalledTimes(1);
+    expect((refreshQueue.enqueue as jest.Mock).mock.calls[0][0]).toContain('free.com');
+  });
+
+  it('reports started: false when every domain is already being refreshed', async () => {
+    (Domain.findAll as jest.Mock).mockResolvedValue([{ get: () => ({ domain: 'busy.com', scrapeEnabled: 1 }) }]);
+    (refreshQueue.enqueue as jest.Mock).mockClear();
+    (refreshQueue.reserveDomains as jest.Mock).mockImplementation(() => null);
+
+    await handler(req, res as NextApiResponse);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ started: false, skipped: { domains: ['busy.com'] } });
+    expect(refreshQueue.enqueue).not.toHaveBeenCalled();
+    (refreshQueue.reserveDomains as jest.Mock).mockImplementation(() => jest.fn());
   });
 });

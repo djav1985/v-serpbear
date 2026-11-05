@@ -51,16 +51,18 @@ const getDomainSearchConsoleData = async (req: NextApiRequest, res: NextApiRespo
       const scGlobalAPI = await getSearchConsoleApiInfo({} as DomainType);
       if (!(scDomainAPI.client_email && scDomainAPI.private_key)
           && !(scGlobalAPI.client_email && scGlobalAPI.private_key)) {
+         // Stays 200: "not integrated" is a normal state the pages render from the error field, not a failure
          return res.status(200).json({ data: null, error: 'Google Search Console is not Integrated.' });
       }
       const scData = await fetchDomainSCData(domainObj, scDomainAPI, scGlobalAPI);
       if (scData && scData.thirtyDays && scData.thirtyDays.length) {
          return res.status(200).json({ data: scData });
       }
-      return res.status(400).json(errorResponse('BAD_REQUEST', 'Error Fetching Data from Google Search Console.', requestId));
+      // The request was valid; Google returned nothing usable, so this is an upstream failure
+      return res.status(502).json(errorResponse('BAD_GATEWAY', 'Error Fetching Data from Google Search Console.', requestId));
    } catch (error) {
       logger.error('Error getting Search Console data for domain', error instanceof Error ? error : new Error(String(error)), { domain: domainname });
-      return res.status(400).json(errorResponse('BAD_REQUEST', 'Error Fetching Data from Google Search Console.', requestId));
+      return res.status(502).json(errorResponse('BAD_GATEWAY', 'Error Fetching Data from Google Search Console.', requestId));
    }
 };
 
@@ -69,6 +71,8 @@ const cronRefreshSearchConsoleData = async (_req: NextApiRequest, res: NextApiRe
    try {
       const allDomainsRaw = await Domain.findAll();
       const Domains: DomainType[] = allDomainsRaw.map((el) => el.get({ plain: true }));
+      let updatedCount = 0;
+      let failedCount = 0;
       for (const domain of Domains) {
          try {
             const scDomainAPI = domain.search_console ? await getSearchConsoleApiInfo(domain) : { client_email: '', private_key: '' };
@@ -80,17 +84,28 @@ const cronRefreshSearchConsoleData = async (_req: NextApiRequest, res: NextApiRe
                } else {
                   logger.error(`Failed to update Search Console data for domain: ${domain.domain}`);
                }
+               // A site with no recent data is still a successful fetch; only a missing result or a recorded fetch error is a failure
+               if (scData && !scData.lastFetchError) {
+                  updatedCount += 1;
+               } else {
+                  failedCount += 1;
+               }
             } else {
                logger.debug(`No Search Console API credentials found for domain: ${domain.domain}`);
             }
          } catch (domainError) {
+            failedCount += 1;
             logger.error(`Failed to update Search Console data for domain: ${domain.domain}`, domainError instanceof Error ? domainError : new Error(String(domainError)));
          }
+      }
+      // Every domain that was tried failed: report it instead of "completed". Partial failures stay 200 (logged above).
+      if (failedCount > 0 && updatedCount === 0) {
+         return res.status(502).json(errorResponse('BAD_GATEWAY', 'Failed to update Search Console data for every domain.', requestId));
       }
       return res.status(200).json({ status: 'completed' });
    } catch (error) {
       logger.error('Error in CRON updating Search Console data', error instanceof Error ? error : new Error(String(error)));
-      return res.status(400).json(errorResponse('BAD_REQUEST', 'Error Fetching Data from Google Search Console.', requestId));
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error updating Search Console data.', requestId));
    }
 };
 

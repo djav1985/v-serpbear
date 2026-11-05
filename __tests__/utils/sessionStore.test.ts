@@ -1,12 +1,14 @@
 export {};
 
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
 import { getSessionVersion, revokeAllSessions, resetSessionVersionCache } from '../../utils/sessionStore';
 import { atomicWriteFile } from '../../utils/atomicWrite';
 
 jest.mock('fs', () => ({
   __esModule: true,
   readFileSync: jest.fn(),
+  writeFileSync: jest.fn(),
+  mkdirSync: jest.fn(),
 }));
 
 jest.mock('fs/promises', () => ({
@@ -20,6 +22,7 @@ jest.mock('../../utils/atomicWrite', () => ({
 }));
 
 const readMock = readFileSync as unknown as jest.Mock;
+const writeSyncMock = writeFileSync as unknown as jest.Mock;
 const writeMock = atomicWriteFile as unknown as jest.Mock;
 
 describe('sessionStore', () => {
@@ -53,18 +56,31 @@ describe('sessionStore', () => {
     expect(getSessionVersion()).toBe(3);
   });
 
-  it('treats a missing file as version 0', () => {
+  it('generates and stores a non-zero version when the file is missing', () => {
     readMock.mockImplementation(() => { throw Object.assign(new Error('missing'), { code: 'ENOENT' }); });
 
-    expect(getSessionVersion()).toBe(0);
+    const version = getSessionVersion();
+
+    expect(version).toBeGreaterThan(0);
+    expect(writeSyncMock).toHaveBeenCalledWith(expect.stringMatching(/session\.json$/), JSON.stringify({ version }), 'utf-8');
+    // Stays stable while the file is still missing
+    expect(getSessionVersion()).toBe(version);
   });
 
-  it('treats a corrupt or negative value as version 0', () => {
+  it('generates a non-zero version for a corrupt or negative value', () => {
     readMock.mockReturnValue('not json');
-    expect(getSessionVersion()).toBe(0);
+    expect(getSessionVersion()).toBeGreaterThan(0);
 
+    resetSessionVersionCache();
     readMock.mockReturnValue('{"version":-2}');
-    expect(getSessionVersion()).toBe(0);
+    expect(getSessionVersion()).toBeGreaterThan(0);
+  });
+
+  it('does not overwrite the file on a transient read error', () => {
+    readMock.mockImplementation(() => { throw Object.assign(new Error('busy'), { code: 'EBUSY' }); });
+
+    expect(getSessionVersion()).toBeGreaterThan(0);
+    expect(writeSyncMock).not.toHaveBeenCalled();
   });
 
   it('moves the version forward and stores it on logout', async () => {
@@ -75,9 +91,10 @@ describe('sessionStore', () => {
     expect(writeMock).toHaveBeenCalledWith(expect.stringMatching(/session\.json$/), '{"version":4}', 'utf-8');
   });
 
-  it('starts at version 1 when no version was stored before', async () => {
-    readMock.mockImplementation(() => { throw new Error('missing'); });
+  it('moves past a freshly generated version on logout', async () => {
+    readMock.mockImplementation(() => { throw Object.assign(new Error('missing'), { code: 'ENOENT' }); });
+    const first = getSessionVersion();
 
-    await expect(revokeAllSessions()).resolves.toBe(1);
+    await expect(revokeAllSessions()).resolves.toBe(first + 1);
   });
 });

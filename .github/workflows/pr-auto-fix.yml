@@ -10,11 +10,16 @@ permissions:
 
 jobs:
   lint-fix:
+    # Fork PRs cannot be pushed to with the default token, so only run for branches in this repository
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
+    env:
+      HEAD_REF: ${{ github.head_ref }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.head_ref }}
 
       - name: Set up Node.js
@@ -71,7 +76,7 @@ jobs:
             git config user.name  "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git commit -m "chore: auto-lint fixes"
-            git push origin HEAD:${{ github.head_ref }}
+            git push origin "HEAD:${HEAD_REF}"
           else
             echo "No changes to commit."
           fi

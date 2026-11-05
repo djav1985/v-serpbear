@@ -48,6 +48,28 @@ describe('Database Initialization', () => {
       expect(isDatabaseInitialized()).toBe(true);
    });
 
+   it('creates the keyword hot-path indexes after sync for fresh installs', async () => {
+      (db.sync as jest.Mock).mockResolvedValue(undefined);
+      (db.query as jest.Mock).mockResolvedValue([undefined, 0]);
+
+      await initializeDatabase();
+
+      const statements = (db.query as jest.Mock).mock.calls.map((call) => call[0] as string);
+      ['keyword_unique_combination_idx', 'keyword_last_updated_idx', 'keyword_position_idx', 'keyword_updating_idx', 'keyword_domain_updating_idx']
+         .forEach((name) => expect(statements.some((sql) => sql.includes(`IF NOT EXISTS ${name}`))).toBe(true));
+   });
+
+   it('keeps starting when the unique tracking index cannot be created', async () => {
+      (db.sync as jest.Mock).mockResolvedValue(undefined);
+      (db.query as jest.Mock).mockImplementation(async (sql: string) => {
+         if (sql.includes('CREATE UNIQUE INDEX')) { throw new Error('UNIQUE constraint failed'); }
+         return [undefined, 0];
+      });
+
+      await expect(initializeDatabase()).resolves.toBeUndefined();
+      expect(isDatabaseInitialized()).toBe(true);
+   });
+
    it('should reset stale keyword updating flags on startup', async () => {
       (db.sync as jest.Mock).mockResolvedValue(undefined);
       (Keyword.update as jest.Mock).mockResolvedValue([2]);

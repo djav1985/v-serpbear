@@ -16,11 +16,13 @@ const SecretField = ({ label = '', value = '', placeholder = '', onChange, hasEr
    return (
       <div className="settings__section__secret w-full relative flex justify-between items-center">
          <label className={labelStyle}>{label}</label>
-         <span
+         <button
+         type="button"
+         aria-label={showValue ? 'Hide value' : 'Show value'}
          className="absolute top-1 right-0 px-2 py-1 cursor-pointer text-gray-400 select-none"
          onClick={() => setShowValue(!showValue)}>
             <Icon type={showValue ? 'eye-closed' : 'eye'} size={18} />
-         </span>
+         </button>
          <input
             className={`w-[210px] p-2 border border-gray-200 rounded focus:outline-none
             focus:border-blue-200 ${hasError ? ' border-red-400 focus:border-red-400' : ''} ${disabled ? ' bg-gray-100 text-gray-500 cursor-not-allowed' : ''} `}

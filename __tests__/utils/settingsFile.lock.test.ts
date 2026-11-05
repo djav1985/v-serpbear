@@ -4,7 +4,7 @@ export {};
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
-import { withSettingsLock } from '../../utils/settingsFile';
+import { readSettingsFile, withSettingsLock } from '../../utils/settingsFile';
 
 describe('withSettingsLock', () => {
   let dir: string;
@@ -49,5 +49,40 @@ describe('withSettingsLock', () => {
     await expect(withSettingsLock(async () => { throw new Error('boom'); })).rejects.toThrow('boom');
     await expect(withSettingsLock(async () => 'next')).resolves.toBe('next');
     expect(existsSync(path.join(dir, 'data', 'settings.json'))).toBe(true);
+  });
+});
+
+describe('readSettingsFile', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(path.join(os.tmpdir(), 'serpbear-read-'));
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('reads a missing, empty or whitespace-only file as {}', async () => {
+    const file = path.join(dir, 'settings.json');
+    await expect(readSettingsFile(file)).resolves.toEqual({});
+    writeFileSync(file, '');
+    await expect(readSettingsFile(file)).resolves.toEqual({});
+    writeFileSync(file, '   ');
+    await expect(readSettingsFile(file)).resolves.toEqual({});
+  });
+
+  it('throws for non-empty invalid JSON instead of reading it as {}', async () => {
+    const file = path.join(dir, 'settings.json');
+    writeFileSync(file, '{"scraping_api": "enc", ');
+    await expect(readSettingsFile(file)).rejects.toThrow(/not valid JSON/);
+    writeFileSync(file, '[1,2]');
+    await expect(readSettingsFile(file)).rejects.toThrow(/JSON object/);
+  });
+
+  it('returns the stored settings', async () => {
+    const file = path.join(dir, 'settings.json');
+    writeFileSync(file, '{"scraper_type":"none"}');
+    await expect(readSettingsFile(file)).resolves.toEqual({ scraper_type: 'none' });
   });
 });

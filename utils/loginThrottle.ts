@@ -17,11 +17,21 @@ const MAX_BUCKETS = 5000;
 
 const buckets = new Map<string, Bucket>();
 
-const evictOldest = () => {
+// Makes room for one more key. Buckets whose window has passed go first, then the oldest unlocked ones;
+// an active lock is only dropped when every tracked key is locked.
+const evictOldest = (now: number = Date.now()) => {
+   if (buckets.size < MAX_BUCKETS) { return; }
+   pruneExpired(now);
    while (buckets.size >= MAX_BUCKETS) {
-      const oldest = buckets.keys().next().value;
-      if (oldest === undefined) { return; }
-      buckets.delete(oldest);
+      let victim: string | undefined;
+      for (const [key, bucket] of buckets) {
+         if (bucket.lockedUntil <= now) { victim = key; break; }
+      }
+      if (victim === undefined) {
+         victim = buckets.keys().next().value;
+      }
+      if (victim === undefined) { return; }
+      buckets.delete(victim);
    }
 };
 
@@ -45,7 +55,7 @@ export const recordLoginFailure = (keys: AttemptKey[], now: number = Date.now())
    keys.forEach(({ key, maxFailures }) => {
       const bucket = buckets.get(key);
       if (!bucket || now - bucket.windowStart >= WINDOW_MS) {
-         if (!bucket) { evictOldest(); }
+         if (!bucket) { evictOldest(now); }
          buckets.set(key, { failures: 1, windowStart: now, lockedUntil: 0 });
          return;
       }

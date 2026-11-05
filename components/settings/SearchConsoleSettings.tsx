@@ -1,6 +1,7 @@
 /// <reference path="../../types.d.ts" />
 
 import React, { useState } from 'react';
+import { useQueryClient } from 'react-query';
 import InputField from '../common/InputField';
 import Icon from '../common/Icon';
 import { refreshSearchConsoleData } from '../../services/searchConsole';
@@ -16,11 +17,17 @@ type SearchConsoleSettingsProps = {
 
 const SearchConsoleSettings = ({ settings, settingsError, updateSettings }:SearchConsoleSettingsProps) => {
    const [refreshing, setRefreshing] = useState(false);
+   const queryClient = useQueryClient();
 
    const handleRefresh = async () => {
       setRefreshing(true);
       try {
          await refreshSearchConsoleData();
+         // Refreshed data should show up without a reload
+         queryClient.invalidateQueries(['sckeywords']);
+         queryClient.invalidateQueries(['scinsight']);
+      } catch (_error) {
+         // refreshSearchConsoleData already shows an error toast
       } finally {
          setRefreshing(false);
       }

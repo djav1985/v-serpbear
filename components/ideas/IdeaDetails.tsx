@@ -9,6 +9,7 @@ import { formattedNum } from '../../utils/client/helpers';
 import { formatInZone } from '../../utils/timezone';
 import { getAppTimezone } from '../../utils/client/appTimezone';
 import { closeOnBGClick } from '../../utils/client/closeOnBGClick';
+import { safeHttpUrl } from '../../utils/client/safeUrl';
 import { fetchSearchResults, type SearchResultsResponse } from '../../services/keywords';
 
 type IdeaDetailsProps = {
@@ -16,12 +17,8 @@ type IdeaDetailsProps = {
    closeDetails: () => void
 }
 
-const dummySearchResults = [
-   { position: 1, url: 'https://google.com/?search=dummy+text', title: 'Google Search Result One' },
-   { position: 1, url: 'https://yahoo.com/?search=dummy+text', title: 'Yahoo Results | Sample Dummy' },
-   { position: 1, url: 'https://gamespot.com/?search=dummy+text', title: 'GameSpot | Dummy Search Results' },
-   { position: 1, url: 'https://compressimage.com/?search=dummy+text', title: 'Compress Images Online' },
-];
+// Neutral placeholder rows shown behind the blur until real results are fetched (no fake URLs)
+const PLACEHOLDER_ROWS = [0, 1, 2, 3];
 
 const IdeaDetails = ({ keyword, closeDetails }:IdeaDetailsProps) => {
    const router = useRouter();
@@ -50,7 +47,7 @@ const IdeaDetails = ({ keyword, closeDetails }:IdeaDetailsProps) => {
    }, [monthlySearchVolumes]);
 
    const searchResultsFetched = !!keywordSearchResultData?.searchResult?.results;
-   const keywordSearchResult = searchResultsFetched ? keywordSearchResultData?.searchResult?.results : dummySearchResults;
+   const keywordSearchResult = searchResultsFetched ? keywordSearchResultData?.searchResult?.results : [];
 
    return (
        <div className="IdeaDetails fixed w-full h-screen top-0 left-0 z-[99999]" onClick={(e) => closeOnBGClick(e, closeDetails)} data-testid="IdeaDetails">
@@ -102,10 +99,21 @@ const IdeaDetails = ({ keyword, closeDetails }:IdeaDetailsProps) => {
                               </button>
                            </div>
                         )}
-                        <div className={`${!searchResultsFetched ? ' blur-sm ' : ''}`}>
+                        {!searchResultsFetched && (
+                           <div className='blur-sm' aria-hidden='true'>
+                              {PLACEHOLDER_ROWS.map((row) => (
+                                 <div key={row} className='mb-4 mr-3 p-3 rounded'>
+                                    <div className='h-4 w-3/4 mb-2 rounded bg-slate-200' />
+                                    <div className='h-3 w-1/2 rounded bg-slate-100' />
+                                 </div>
+                              ))}
+                           </div>
+                        )}
+                        <div>
                            {keywordSearchResult && Array.isArray(keywordSearchResult) && keywordSearchResult.length > 0 && (
                               keywordSearchResult.map((item, index) => {
                                  const { position } = keyword;
+                                 const itemUrl = safeHttpUrl(item.url);
                                  const domainExist = position < 100 && index === (position - 1);
                                  return (
                                     <div
@@ -114,10 +122,14 @@ const IdeaDetails = ({ keyword, closeDetails }:IdeaDetailsProps) => {
                                     ${domainExist ? ' bg-amber-50 border border-amber-200' : ''}`}
                                     key={item.url + item.position}>
                                        <h4 className='font-semibold text-blue-700'>
-                                          <a href={item.url} target="_blank" rel='noreferrer'>{`${index + 1}. ${item.title}`}</a>
+                                          {itemUrl
+                                             ? <a href={itemUrl} target="_blank" rel='noreferrer'>{`${index + 1}. ${item.title}`}</a>
+                                             : `${index + 1}. ${item.title}`}
                                        </h4>
                                        {/* <p>{item.description}</p> */}
-                                       <a className=' text-green-900' href={item.url} target="_blank" rel='noreferrer'>{item.url}</a>
+                                       {itemUrl
+                                          ? <a className=' text-green-900' href={itemUrl} target="_blank" rel='noreferrer'>{item.url}</a>
+                                          : <span className=' text-green-900'>{item.url}</span>}
                                     </div>
                                  );
                               })

@@ -68,10 +68,12 @@ const KeywordIdea = (props: KeywordIdeaProps) => {
                >
                   <Icon type="check" size={10} title={isTracked ? 'Already in Tracker' : ''} />
             </button>
-            <a className='py-2 hover:text-blue-600' onClick={() => showKeywordDetails()}>
+            <button type='button' className='py-2 hover:text-blue-600 font-semibold' onClick={() => showKeywordDetails()}>
                <span className={`fflag fflag-${country} w-[18px] h-[12px] mr-2`} title={countries[country] && countries[country][0]} />{keyword}
-            </a>
+            </button>
             <button
+            type='button'
+            aria-label={isFavorite ? 'Unfavorite keyword idea' : 'Favorite keyword idea'}
             className={`ml-2 hover:text-yellow-600 hover:opacity-100 ${isFavorite ? 'text-yellow-600' : ' opacity-50'}`}
             onClick={() => favoriteKeyword()}>
                <Icon type={isFavorite ? 'star-filled' : 'star'} classes='top-[4px]' size={18} />

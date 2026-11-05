@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from 'react-query';
 import Settings from '../../components/settings/Settings';
 
 const toastMock = jest.fn();
@@ -55,7 +56,13 @@ describe('Google Ads OAuth result handling in Settings', () => {
 
    const noop = () => undefined;
 
-   const renderSettings = () => render(<Settings closeSettings={noop} />);
+   const queryClient = new QueryClient();
+   const settingsElement = (
+      <QueryClientProvider client={queryClient}>
+         <Settings closeSettings={noop} />
+      </QueryClientProvider>
+   );
+   const renderSettings = () => render(settingsElement);
 
    beforeEach(() => {
       jest.clearAllMocks();
@@ -139,7 +146,7 @@ describe('Google Ads OAuth result handling in Settings', () => {
          isLoading: false,
          refetch: mockRefetchSettings,
       });
-      rerender(<Settings closeSettings={noop} />);
+      rerender(settingsElement);
 
       expect((screen.getByPlaceholderText('smtp.example.com') as HTMLInputElement).value).toBe('unsaved.example.com');
    });

@@ -32,7 +32,12 @@ export default withApiLogging(handler, { name: 'notify' });
 
 const notify = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
-   const reqDomain = req?.query?.domain as string || '';
+   const rawDomain = req?.query?.domain;
+   if (rawDomain !== undefined && typeof rawDomain !== 'string') {
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'domain must be a single domain name.', requestId));
+   }
+   // Domains are stored trimmed and lowercase
+   const reqDomain = (rawDomain || '').trim().toLowerCase();
    try {
       const settings = await getAppSettings();
       const normalizedSettings: SettingsType = trimStringProperties({ ...settings });
@@ -71,11 +76,12 @@ const notify = async (req: NextApiRequest, res: NextApiResponse) => {
 
       if (reqDomain) {
          const theDomain = await Domain.findOne({ where: { domain: reqDomain } });
-         if (theDomain) {
-            const normalizedDomain = normalizeDomainBooleans(theDomain.get({ plain: true }) as DomainType);
-            if (isNotifiable(normalizedDomain)) {
-               await notifyDomain(normalizedDomain);
-            }
+         if (!theDomain) {
+            return res.status(404).json(errorResponse('NOT_FOUND', 'Domain not found.', requestId));
+         }
+         const normalizedDomain = normalizeDomainBooleans(theDomain.get({ plain: true }) as DomainType);
+         if (isNotifiable(normalizedDomain)) {
+            await notifyDomain(normalizedDomain);
          }
       } else {
          const allDomains: Domain[] = await Domain.findAll();
@@ -102,9 +108,8 @@ const notify = async (req: NextApiRequest, res: NextApiResponse) => {
       return res.status(200).json({ success: true, error: null, sent: sentCount, skipped: skippedCount });
    } catch (error) {
       logger.error('Error sending notification emails', error instanceof Error ? error : new Error(String(error)));
-      const message = error instanceof Error && error.message ? error.message : 'Error Sending Notification Email.';
-      const isConfigError = error instanceof Error && error.message === 'Invalid SMTP host configured.';
-      return res.status(isConfigError ? 400 : 500).json(errorResponse(isConfigError ? 'BAD_REQUEST' : 'INTERNAL_SERVER_ERROR', message, requestId));
+      // A missing or invalid SMTP host is answered with 400 before any send (see the check above)
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error Sending Notification Email.', requestId));
    }
 };
 
@@ -120,10 +125,8 @@ const sendNotificationEmail = async (domain: DomainType, settings: SettingsType)
       return 'skipped';
    }
 
-   // Validate the configuration before taking a throttle slot, so a bad setup never uses up a domain's daily allowance
-   if (!settings.smtp_server) {
-      throw new Error('Invalid SMTP host configured.');
-   }
+   // The SMTP host was validated by notify() before any domain is processed, so a bad setup never reaches the
+   // throttle and never uses up a domain's daily allowance.
 
    // Check the throttle and reserve the send in one step, so overlapping runs cannot both send
    const reservation = await reserveEmailSend(domainName);

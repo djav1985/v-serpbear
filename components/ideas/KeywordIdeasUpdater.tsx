@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useMutateKeywordIdeas } from '../../services/adwords';
 import allCountries, { adwordsLanguages } from '../../utils/countries';
@@ -28,24 +28,34 @@ const KeywordIdeasUpdater = ({ onUpdate, settings, domain, searchConsoleConnecte
    const countriesSetting = settings?.countries;
    const keywordsSetting = settings?.keywords;
 
-   const [seedType, setSeedType] = useState(() => (seedTypeSetting ? seedTypeSetting : 'auto'));
-   const [language, setLanguage] = useState(() => (languageSetting ? languageSetting.toString() : '1000'));
-   const [countries, setCountries] = useState<string[]>(() => {
-      if (Array.isArray(countriesSetting) && countriesSetting.length > 0) {
-         return countriesSetting;
-      }
-      return ['US'];
-   });
-   const [keywords, setKeywords] = useState(() => {
-      if (!keywordsSetting) { return ''; }
-      if (Array.isArray(keywordsSetting)) {
-         return keywordsSetting.join(',');
-      }
-      if (typeof keywordsSetting === 'string') {
-         return keywordsSetting;
-      }
-      return '';
-   });
+   const toKeywordsText = (value?: string | string[]): string => {
+      if (!value) { return ''; }
+      if (Array.isArray(value)) { return value.join(','); }
+      return typeof value === 'string' ? value : '';
+   };
+   const toCountries = (value?: string[]): string[] => (Array.isArray(value) && value.length > 0 ? value : ['US']);
+   const countriesKey = Array.isArray(countriesSetting) ? countriesSetting.join(',') : '';
+   const keywordsKey = toKeywordsText(keywordsSetting);
+
+   // Set once the user edits a field, so a later settings refresh never clobbers their edits
+   const touchedRef = useRef(false);
+   const [seedType, setSeedTypeState] = useState(() => (seedTypeSetting ? seedTypeSetting : 'auto'));
+   const [language, setLanguageState] = useState(() => (languageSetting ? languageSetting.toString() : '1000'));
+   const [countries, setCountriesState] = useState<string[]>(() => toCountries(countriesSetting));
+   const [keywords, setKeywordsState] = useState(() => toKeywordsText(keywordsSetting));
+   const setSeedType = (value: string) => { touchedRef.current = true; setSeedTypeState(value); };
+   const setLanguage = (value: string) => { touchedRef.current = true; setLanguageState(value); };
+   const setCountries = (value: string[]) => { touchedRef.current = true; setCountriesState(value); };
+   const setKeywords = (value: string) => { touchedRef.current = true; setKeywordsState(value); };
+
+   // Settings can arrive after the first render; adopt them until the user starts editing
+   useEffect(() => {
+      if (touchedRef.current) { return; }
+      setSeedTypeState(seedTypeSetting ? seedTypeSetting : 'auto');
+      setLanguageState(languageSetting ? languageSetting.toString() : '1000');
+      setCountriesState(countriesKey ? countriesKey.split(',') : ['US']);
+      setKeywordsState(keywordsKey);
+   }, [seedTypeSetting, languageSetting, countriesKey, keywordsKey]);
    const { mutate: updateKeywordIdeas, isLoading: isUpdatingIdeas } = useMutateKeywordIdeas(router, () => onUpdate && onUpdate());
 
    const seedTypeOptions = useMemo(() => {

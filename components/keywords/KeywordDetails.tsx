@@ -9,11 +9,15 @@ import { generateTheChartData } from '../../utils/client/generateChartData';
 import { formatInZone } from '../../utils/timezone';
 import { getAppTimezone } from '../../utils/client/appTimezone';
 import { closeOnBGClick } from '../../utils/client/closeOnBGClick';
+import { safeHttpUrl } from '../../utils/client/safeUrl';
 
 type KeywordDetailsProps = {
    keyword: KeywordType,
    closeDetails: () => void
 }
+
+// Providers return 10 organic results per page in this app; used only to label skipped position ranges as pages.
+const RESULTS_PER_PAGE = 10;
 
 type ResultSegment = { type: 'result', item: KeywordLastResult } | { type: 'skipped', from: number, to: number };
 
@@ -147,14 +151,15 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
                            keywordLocalResults.map((item, index) => {
                               const position = item.position || index + 1;
                               const title = item.title || (item.name as string | undefined) || `Local Result ${position}`;
-                              const url = item.url || (item.website as string | undefined) || (item.link as string | undefined) || (item.business_website as string | undefined) || (item.place_link as string | undefined) || '';
+                              const rawUrl = item.url || (item.website as string | undefined) || (item.link as string | undefined) || (item.business_website as string | undefined) || (item.place_link as string | undefined) || '';
+                              const url = safeHttpUrl(rawUrl);
                               
                               return (
                                  <div
                                  className={`leading-6 mb-4 mr-3 p-3 text-sm break-all pr-3 rounded border
                                  ${item.isOwn ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'}`}
                                  data-own={item.isOwn ? 'true' : 'false'}
-                                 key={url + position}>
+                                 key={rawUrl + position}>
                                     <h4 className='font-semibold text-blue-700'>
                                        {url ? (
                                           <a href={url} target="_blank" rel='noreferrer'>{`${position}. ${title}`}</a>
@@ -162,7 +167,7 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
                                           `${position}. ${title}`
                                        )}
                                     </h4>
-                                    {url && <a className=' text-green-900' href={url} target="_blank" rel='noreferrer'>{url}</a>}
+                                    {url ? <a className=' text-green-900' href={url} target="_blank" rel='noreferrer'>{url}</a> : (rawUrl && <span className=' text-green-900'>{String(rawUrl)}</span>)}
                                  </div>
                               );
                            })
@@ -194,8 +199,8 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
                         )}
                         {resultSegments.length > 0 && resultSegments.map((seg) => {
                            if (seg.type === 'skipped') {
-                              const pageFrom = Math.ceil(seg.from / 10);
-                              const pageTo = Math.ceil(seg.to / 10);
+                              const pageFrom = Math.ceil(seg.from / RESULTS_PER_PAGE);
+                              const pageTo = Math.ceil(seg.to / RESULTS_PER_PAGE);
                               const count = seg.to - seg.from + 1;
                               const pagesLabel = pageFrom === pageTo ? `Page ${pageFrom}` : `Pages ${pageFrom}–${pageTo}`;
                               return (
@@ -207,6 +212,7 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
                               );
                            }
                            const { position } = keyword;
+                           const segUrl = safeHttpUrl(seg.item.url);
                            const domainExist = position > 0 && seg.item.position === position;
                            return (
                               <div
@@ -215,9 +221,13 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
                               ${domainExist ? ' bg-green-50 border border-green-200' : ''}`}
                               key={seg.item.url + seg.item.position}>
                                  <h4 className='font-semibold text-blue-700'>
-                                    <a href={seg.item.url} target="_blank" rel='noreferrer'>{`${seg.item.position}. ${seg.item.title}`}</a>
+                                    {segUrl
+                                       ? <a href={segUrl} target="_blank" rel='noreferrer'>{`${seg.item.position}. ${seg.item.title}`}</a>
+                                       : `${seg.item.position}. ${seg.item.title}`}
                                  </h4>
-                                 <a className=' text-green-900' href={seg.item.url} target="_blank" rel='noreferrer'>{seg.item.url}</a>
+                                 {segUrl
+                                    ? <a className=' text-green-900' href={segUrl} target="_blank" rel='noreferrer'>{seg.item.url}</a>
+                                    : <span className=' text-green-900'>{seg.item.url}</span>}
                               </div>
                            );
                         })}

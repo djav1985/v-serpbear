@@ -1398,6 +1398,7 @@ describe('refreshAndUpdateKeywords with a domain scraper key that cannot be decr
   const originalSecret = process.env.SECRET;
   let isoRefresh: any;
   let scrapeMock: jest.Mock;
+  let queueMock: { removeBatch: jest.Mock };
 
   const makeDomain = (scraperSettings: string | null) => ({
     get: () => ({
@@ -1448,6 +1449,7 @@ describe('refreshAndUpdateKeywords with a domain scraper key that cannot be decr
     jest.isolateModules(() => {
       isoRefresh = require('../../utils/refresh').default;
       scrapeMock = require('../../utils/scraper').scrapeKeywordWithStrategy;
+      queueMock = require('../../utils/retryQueueManager').retryQueueManager;
     });
   });
 
@@ -1478,6 +1480,47 @@ describe('refreshAndUpdateKeywords with a domain scraper key that cannot be decr
       const payload = keyword.update.mock.calls[0][0];
       expect(JSON.parse(payload.lastUpdateError).error).toContain('could not be decrypted');
     });
+  });
+
+  it('removes keywords with an unreadable domain key from the retry queue', async () => {
+    const encryptedForAnotherSecret = new Cryptr('some-other-secret').encrypt('serper-key');
+    const domain = makeDomain(JSON.stringify({ scraper_type: 'serper', scraping_api: encryptedForAnotherSecret }));
+
+    await isoRefresh([makeKeyword(7), makeKeyword(8)] as any, { scraper_type: 'serpapi', scraping_api: 'global-key' } as any, [domain] as any);
+
+    expect(queueMock.removeBatch).toHaveBeenCalledWith(new Set([7, 8]));
+  });
+
+  it('does not send the global key to an override provider without its own key', async () => {
+    const domain = makeDomain(JSON.stringify({ scraper_type: 'serper', scraping_api: null }));
+    scrapeMock.mockResolvedValue({ ID: 9, keyword: 'kw 9', position: 4, url: 'https://example.com/', result: [], mapPackTop3: false, error: false });
+
+    await isoRefresh([makeKeyword(9)] as any, { scraper_type: 'serpapi', scraping_api: 'global-key' } as any, [domain] as any);
+
+    expect(scrapeMock).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ scraper_type: 'serper', scraping_api: '' }), expect.anything());
+  });
+
+  it('keeps the global key when the override uses the same provider', async () => {
+    const domain = makeDomain(JSON.stringify({ scraper_type: 'serpapi', scraping_api: null }));
+    scrapeMock.mockResolvedValue({ ID: 10, keyword: 'kw 10', position: 4, url: 'https://example.com/', result: [], mapPackTop3: false, error: false });
+
+    await isoRefresh([makeKeyword(10)] as any, { scraper_type: 'serpapi', scraping_api: 'global-key' } as any, [domain] as any);
+
+    expect(scrapeMock).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ scraper_type: 'serpapi', scraping_api: 'global-key' }), expect.anything());
+  });
+
+  it('spaces parallel-path requests of a domain by scrape_delay', async () => {
+    const domain = makeDomain(null);
+    const starts: number[] = [];
+    scrapeMock.mockImplementation(async (kw: any) => {
+      starts.push(Date.now());
+      return { ID: kw.ID, keyword: kw.keyword, position: 4, url: 'https://example.com/', result: [], mapPackTop3: false, error: false };
+    });
+
+    await isoRefresh([makeKeyword(11), makeKeyword(12), makeKeyword(13)] as any, { scraper_type: 'serpapi', scraping_api: 'k', scrape_delay: '100' } as any, [domain] as any);
+
+    expect(starts).toHaveLength(3);
+    expect(starts[2] - starts[0]).toBeGreaterThanOrEqual(180);
   });
 
   it('still scrapes when the domain has no saved override key', async () => {

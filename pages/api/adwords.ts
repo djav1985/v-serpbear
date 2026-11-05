@@ -117,6 +117,10 @@ const beginAdwordsIntegration = async (req: NextApiRequest, res: NextApiResponse
       if (!trustedOrigin) {
          return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'A trusted APP_URL or NEXT_PUBLIC_APP_URL must be configured for OAuth.', requestId));
       }
+      if (!process.env.SECRET) {
+         logger.error('Starting Google Ads OAuth integration: SECRET is not configured');
+         return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Server configuration error', requestId));
+      }
       const settings = await readSettingsFile() as SettingsType;
       const cryptr = new Cryptr(process.env.SECRET as string);
       const clientId = settings.adwords_client_id ? cryptr.decrypt(settings.adwords_client_id) : '';
@@ -135,7 +139,7 @@ const beginAdwordsIntegration = async (req: NextApiRequest, res: NextApiResponse
       return res.status(200).json({ authUrl: `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}` });
    } catch (error) {
       logger.error('Starting Google Ads OAuth integration', error instanceof Error ? error : new Error(String(error)));
-      return res.status(400).json(errorResponse('BAD_REQUEST', 'Unable to start Google Ads integration.', requestId));
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Unable to start Google Ads integration.', requestId));
    }
 };
 

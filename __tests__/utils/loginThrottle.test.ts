@@ -83,6 +83,23 @@ describe('loginThrottle bounds', () => {
   });
 });
 
+describe('login throttle eviction', () => {
+  beforeEach(() => {
+    resetLoginThrottle();
+  });
+
+  it('keeps an active lock when the tracked set is full', () => {
+    const victim = [{ key: 'user:victim', maxFailures: 2 }];
+    recordLoginFailure(victim, 1000);
+    recordLoginFailure(victim, 1000);
+    expect(isLoginLocked(victim, 1001)).toBe(true);
+    for (let i = 0; i < 6000; i += 1) {
+      recordLoginFailure([{ key: `user:flood-${i}`, maxFailures: 5 }], 1000);
+    }
+    expect(isLoginLocked(victim, 1001)).toBe(true);
+  });
+});
+
 describe('takeRateLimitToken', () => {
   const start = 1_000_000;
 

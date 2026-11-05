@@ -230,6 +230,23 @@ describe('/api/searchconsole - CRON functionality', () => {
   });
 });
 
+describe('/api/searchconsole - CRON failure reporting', () => {
+  it('answers 502 when every domain fails to update', async () => {
+    mockDomainFindAll.mockResolvedValue([
+      { get: () => ({ domain: 'a.com', search_console: JSON.stringify({ client_email: 'a@x.com', private_key: 'k' }) }) },
+    ] as any);
+    mockGetSearchConsoleApiInfo.mockResolvedValue({ client_email: 'a@x.com', private_key: 'k' });
+    mockFetchDomainSCData.mockRejectedValue(new Error('Google down'));
+    const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+    const req = { method: 'POST', headers: {}, query: {} };
+    (verifyUser as jest.Mock).mockReturnValue('authorized');
+
+    await handler(req as unknown as NextApiRequest, res as unknown as NextApiResponse);
+
+    expect(res.status).toHaveBeenCalledWith(502);
+  });
+});
+
 describe('GET /api/searchconsole', () => {
   let req: Partial<NextApiRequest>;
   let res: Partial<NextApiResponse>;

@@ -169,13 +169,13 @@ export const getDomains = async (req: NextApiRequest, res: NextApiResponse) => {
       return res.status(200).json({ domains: theDomains });
    } catch (error) {
       logger.error('Getting Domains.', error instanceof Error ? error : new Error(String(error)));
-      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error Getting Domains.', requestId, error instanceof Error ? error.message : String(error)));
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error Getting Domains.', requestId));
    }
 };
 
 const addDomain = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
-   const { domains } = req.body;
+   const { domains } = (req.body && typeof req.body === 'object' ? req.body : {}) as { domains?: unknown };
    if (domains && Array.isArray(domains) && domains.length > 0) {
       const invalidDomains: string[] = [];
       const uniqueHosts = new Map<string, string>();
@@ -226,7 +226,7 @@ const addDomain = async (req: NextApiRequest, res: NextApiResponse) => {
             return res.status(409).json(errorResponse('CONFLICT', 'Already tracked: this domain was added by another request.', requestId));
          }
          logger.error('Adding New Domain ', error instanceof Error ? error : new Error(String(error)));
-         return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error Adding Domain.', requestId, error instanceof Error ? error.message : String(error)));
+         return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error Adding Domain.', requestId));
       }
    } else {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Necessary data missing.', requestId));
@@ -353,7 +353,7 @@ export const deleteDomain = async (req: NextApiRequest, res: NextApiResponse) =>
       return res.status(finalizedResponse.status).json(finalizedResponse.body);
    } catch (error) {
       logger.error(`Error deleting domain: ${req.query.domain}`, error instanceof Error ? error : new Error(String(error)));
-      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error Deleting Domain.', requestId, error instanceof Error ? error.message : String(error)));
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error Deleting Domain.', requestId));
    }
 };
 
@@ -382,7 +382,8 @@ export const updateDomain = async (req: NextApiRequest, res: NextApiResponse) =>
    if (!req.query.domain || typeof req.query.domain !== 'string') {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Domain is Required!', requestId));
    }
-   const { domain } = req.query || {};
+   // Same normalisation as DELETE: domains are stored trimmed and lowercase
+   const domain = req.query.domain.trim().toLowerCase();
    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Request body must be a JSON object.', requestId));
    }
@@ -492,7 +493,7 @@ export const updateDomain = async (req: NextApiRequest, res: NextApiResponse) =>
       return res.status(200).json({ domain: normalizeDomainBooleans(maskedDomain) });
    } catch (error) {
       logger.error('Updating Domain: ', error instanceof Error ? error : new Error(String(error)), { context: req.query.domain });
-      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error Updating Domain. An Unknown Error Occurred.', requestId, error instanceof Error ? error.message : String(error)));
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error Updating Domain. An Unknown Error Occurred.', requestId));
    }
 };
 

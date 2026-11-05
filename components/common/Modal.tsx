@@ -39,6 +39,8 @@ const Modal = React.forwardRef<HTMLDivElement, ModalProps>(({
          ${verticalCenter ? ' top-1/2 translate-y-[-50%]' : 'top-1/4'}`}>
             {title && <h3 className=' font-semibold mb-3'>{title}</h3>}
             <button
+            type='button'
+            aria-label='Close'
             className='modal-close absolute right-2 top-2 p-2 cursor-pointer text-gray-400 transition-all
              hover:text-gray-700 hover:rotate-90' onClick={() => closeModal()}>
                <Icon type="close" size={18} />

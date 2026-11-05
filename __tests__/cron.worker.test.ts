@@ -156,18 +156,49 @@ describe('getAppSettings', () => {
     writeSpy.mockRestore();
   });
 
-  it('creates settings file with defaults when file is missing (ENOENT)', async () => {
+  it('returns defaults without creating the settings file when it is missing (ENOENT)', async () => {
     const { getAppSettings } = require('../cron.js');
 
     // The temp data/ directory starts empty, so settings.json does not exist yet
     await expect(fsPromises.access(settingsPath)).rejects.toMatchObject({ code: 'ENOENT' });
 
     const settings = await getAppSettings();
-    const createdContent = await fsPromises.readFile(settingsPath, { encoding: 'utf-8' });
-    const createdSettings = JSON.parse(createdContent);
 
     expect(settings).toEqual(defaultSettings);
-    expect(createdSettings).toEqual(defaultSettings);
+    await expect(fsPromises.access(settingsPath)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('throws on invalid JSON in strict mode so the caller can keep its schedule', async () => {
+    await fsPromises.writeFile(settingsPath, '{not-json', { encoding: 'utf-8' });
+    const { getAppSettings } = require('../cron.js');
+
+    await expect(getAppSettings({ strict: true })).rejects.toThrow();
+  });
+
+  it('logs a clear message when SECRET is not set', async () => {
+    const original = process.env.SECRET;
+    delete process.env.SECRET;
+    await fsPromises.writeFile(settingsPath, JSON.stringify({ scraper_type: 'serpapi', scraping_api: 'x' }), { encoding: 'utf-8' });
+    const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+    const { getAppSettings } = require('../cron.js');
+
+    const settings = await getAppSettings();
+
+    expect(settings).toMatchObject({ scraper_type: 'serpapi', scraping_api: '', smtp_password: '' });
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('SECRET is not set'));
+    consoleSpy.mockRestore();
+    if (original !== undefined) { process.env.SECRET = original; }
+  });
+
+  it('runs the other_day schedule on odd days with no gap longer than 2 days', () => {
+    const { Cron } = require('croner');
+    const { CRON_INTERVAL_MAP } = require('../cron.js');
+    const runs = new Cron(CRON_INTERVAL_MAP.other_day, { timezone: 'UTC' }).nextRuns(200, new Date('2027-01-01T00:00:00Z')) as Date[];
+    for (let i = 1; i < runs.length; i += 1) {
+      const gapDays = Math.round((runs[i].getTime() - runs[i - 1].getTime()) / 86400000);
+      expect(gapDays).toBeLessThanOrEqual(2);
+    }
+    expect(runs.some((run) => run.getUTCDate() === 31)).toBe(true);
   });
 });
 

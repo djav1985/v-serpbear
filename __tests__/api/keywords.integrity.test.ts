@@ -35,7 +35,14 @@ jest.mock('../../utils/adwords', () => ({
 }));
 jest.mock('../../utils/refreshQueue', () => ({
   __esModule: true,
-  refreshQueue: { enqueue: jest.fn().mockResolvedValue(undefined), isDomainLocked: jest.fn(() => false) },
+  refreshQueue: (() => {
+    const isDomainLocked = jest.fn((_domain?: string) => false);
+    return {
+      enqueue: jest.fn().mockResolvedValue(undefined),
+      isDomainLocked,
+      reserveDomains: jest.fn((domains: string[]) => (domains.some((domain) => isDomainLocked(domain)) ? null : jest.fn())),
+    };
+  })(),
 }));
 jest.mock('../../utils/retryQueueManager', () => ({
   __esModule: true,
@@ -152,8 +159,18 @@ describe('/api/keywords data rules', () => {
     expect(refreshQueue.enqueue).not.toHaveBeenCalled();
   });
 
-  it('drops invalid IDs from a sticky update and keeps the valid ones', async () => {
-    const req = createMockRequest({ method: 'PUT', query: { id: 'abc,7' }, body: { sticky: true } });
+  it.each(['abc,7', '12abc', '1.5', '1e3'])('rejects a legacy id query with a malformed item (%s)', async (id) => {
+    const req = createMockRequest({ method: 'PUT', query: { id }, body: { sticky: true } });
+    const res = createMockResponse();
+
+    await handler(req as unknown as NextApiRequest, res as unknown as NextApiResponse);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(KeywordMock.update).not.toHaveBeenCalled();
+  });
+
+  it('accepts a legacy id query made of plain positive integers', async () => {
+    const req = createMockRequest({ method: 'PUT', query: { id: '7,8' }, body: { sticky: true } });
     const res = createMockResponse();
     KeywordMock.update.mockResolvedValue([1]);
     KeywordMock.findAll.mockResolvedValueOnce([]);
@@ -162,6 +179,25 @@ describe('/api/keywords data rules', () => {
 
     expect(KeywordMock.update).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ where: { ID: expect.anything() } }));
     expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('answers 400 instead of 500 for a null body or null keyword items', async () => {
+    for (const [method, body] of [['POST', null], ['PUT', null], ['POST', { keywords: [null] }]] as const) {
+      const req = createMockRequest({ method, query: { id: '1' }, body });
+      const res = createMockResponse();
+      await handler(req as unknown as NextApiRequest, res as unknown as NextApiResponse);
+      expect(res.status).toHaveBeenCalledWith(400);
+    }
+  });
+
+  it('rejects tag keys that are not canonical integers', async () => {
+    for (const key of ['1.0', '01', 'abc', '1e1']) {
+      const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { tags: { [key]: ['x'] } } });
+      const res = createMockResponse();
+      await handler(req as unknown as NextApiRequest, res as unknown as NextApiResponse);
+      expect(res.status).toHaveBeenCalledWith(400);
+    }
+    expect(KeywordMock.findAll).not.toHaveBeenCalled();
   });
 });
 

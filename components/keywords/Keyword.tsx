@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import TimeAgo from 'react-timeago';
-import dayjs from 'dayjs';
 import Icon from '../common/Icon';
 import countries from '../../utils/countries';
 import ChartSlim from '../common/ChartSlim';
@@ -9,7 +8,14 @@ import { generateTheChartData } from '../../utils/client/generateChartData';
 import { formattedNum } from '../../utils/client/helpers';
 import { parseLocation } from '../../utils/location';
 import { historyKeyToTime } from '../../utils/historyDateKey';
-import { formatDateKey } from '../../utils/timezone';
+import { formatDateKey, formatInZone } from '../../utils/timezone';
+import { getAppTimezone } from '../../utils/client/appTimezone';
+import { safeHttpUrl } from '../../utils/client/safeUrl';
+
+// Tooltip timestamps are shown in the app timezone, not the browser's
+const formatUpdatedTooltip = (date?: string | number | Date | null): string => (date
+   ? formatInZone(date, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }, getAppTimezone())
+   : '');
 
 type KeywordProps = {
    keywordData: KeywordType,
@@ -68,6 +74,8 @@ const Keyword = (props: KeywordProps) => {
    const [showPositionError, setPositionError] = useState(false);
 
    const turncatedURL = useMemo(() => url.replace(`https://${domain}`, '').replace(`https://www.${domain}`, '').replace(`http://${domain}`, ''), [url, domain]);
+
+   const safeResultUrl = useMemo(() => safeHttpUrl(url), [url]);
 
    const chartData = useMemo(() => generateTheChartData(history, '7'), [history]);
 
@@ -151,7 +159,7 @@ const Keyword = (props: KeywordProps) => {
                   )}
                </span>
             </a>
-            {sticky && <button className='ml-2 relative top-[2px]' title='Favorite'><Icon type="star-filled" size={16} color="#fbd346" /></button>}
+            {sticky && <button type='button' className='ml-2 relative top-[2px]' title='Unfavorite Keyword' aria-label='Unfavorite Keyword' onClick={() => favoriteKeyword({ keywordID: ID, sticky: false })}><Icon type="star-filled" size={16} color="#fbd346" /></button>}
             {lastUpdateError && lastUpdateError.date
                && <button className='ml-2 relative top-[2px]' onClick={() => setPositionError(true)}>
                   <Icon type="error" size={18} color="#FF3672" />
@@ -198,15 +206,19 @@ const Keyword = (props: KeywordProps) => {
          <div
          className={`keyword_url inline-block mt-4 mr-5 ml-5 lg:flex-1 lg:basis-32 text-gray-400 lg:m-0 max-w-[70px] 
          overflow-hidden text-ellipsis whitespace-nowrap lg:max-w-none lg:pr-5 lg:pl-3`}>
-            <a href={url} target="_blank" rel="noreferrer"><span className='mr-3 lg:hidden'>
-               <Icon type="link-alt" size={14} color="#999" /></span>{turncatedURL || '-'}
-            </a>
+            {safeResultUrl ? (
+               <a href={safeResultUrl} target="_blank" rel="noreferrer"><span className='mr-3 lg:hidden'>
+                  <Icon type="link-alt" size={14} color="#999" /></span>{turncatedURL || '-'}
+               </a>
+            ) : (
+               <span><span className='mr-3 lg:hidden'><Icon type="link-alt" size={14} color="#999" /></span>{turncatedURL || '-'}</span>
+            )}
          </div>
 
          <div
          className='inline-block mt-[4] top-[-5px] relative lg:flex-1 lg:m-0 lg:top-0 max-w-[150px]'>
             <span className='mr-2 lg:hidden'><Icon type="clock" size={14} color="#999" /></span>
-            <TimeAgo title={dayjs(lastUpdated).format('DD-MMM-YYYY, hh:mm:ss A')} date={lastUpdated} />
+            <TimeAgo title={formatUpdatedTooltip(lastUpdated)} date={lastUpdated} />
          </div>
 
          {showSCData && tableColumns.includes('Search Console') && (
@@ -263,7 +275,7 @@ const Keyword = (props: KeywordProps) => {
             <div className={`absolute p-2 bg-white z-30 border border-red-200 rounded w-[220px] left-4 shadow-sm text-xs 
             ${index > 2 ? 'lg:bottom-12 mt-[-70px]' : ' top-12'}`}>
                Error Updating Keyword position (Tried <TimeAgo
-                                                         title={dayjs(lastUpdateError.date).format('DD-MMM-YYYY, hh:mm:ss A')}
+                                                         title={formatUpdatedTooltip(lastUpdateError.date)}
                                                          date={lastUpdateError.date} />)
                <i className='absolute top-0 right-0 ml-2 p-2 font-semibold not-italic cursor-pointer' onClick={() => setPositionError(false)}>
                   <Icon type="close" size={16} color="#999" />

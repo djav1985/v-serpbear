@@ -17,6 +17,9 @@ import { BrandTitle } from '../../components/common/Branding';
 import { useBranding } from '../../hooks/useBranding';
 import { withAuth } from '../../hooks/useAuth';
 
+// Matches the "Max 20" label next to the seed keywords field
+const MAX_SEED_KEYWORDS = 20;
+
 const Research: NextPage = () => {
    const router = useRouter();
    const { branding } = useBranding();
@@ -51,7 +54,9 @@ const Research: NextPage = () => {
    }, [previousCountry, previousLang, previousSeedKeywords]);
 
    const reloadKeywordIdeas = () => {
-      const keywordPaylod = seedKeywords ? seedKeywords.split(',').map((key) => key.trim()) : undefined;
+      // Trim, drop empties, dedupe and cap at 20 seeds (the "Max 20" limit shown in the form)
+      const parsedSeeds = [...new Set(seedKeywords.split(',').map((key) => key.trim()).filter((key) => key.length > 0))].slice(0, MAX_SEED_KEYWORDS);
+      const keywordPaylod = parsedSeeds.length > 0 ? parsedSeeds : undefined;
       updateKeywordIdeas({ seedType: 'custom', language, keywords: keywordPaylod, country });
    };
 

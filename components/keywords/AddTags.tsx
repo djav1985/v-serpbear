@@ -67,7 +67,7 @@ const AddTags = ({ keywords = [], existingTags = [], mode = 'add', closeModal }:
                placeholder={`${mode === 'remove' ? 'Remove Tags' : 'Insert Tags'}. eg: tag1, tag2`}
                inputClassName='w-full border rounded border-gray-200 py-3 px-4 pl-12 outline-none focus:border-indigo-300'
                onKeyDown={(e) => {
-                  if (e.code === 'Enter') {
+                  if (e.key === 'Enter') {
                     e.preventDefault();
                     applyTags();
                   }

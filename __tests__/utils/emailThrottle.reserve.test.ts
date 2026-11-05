@@ -76,7 +76,7 @@ describe('reserveEmailSend', () => {
 
     const reservation = await reserveEmailSend('example.com');
 
-    expect(reservation.reserved).toBe(true);
+    expect(reservation.reserved).toBe(false);
     expect(writeMock).not.toHaveBeenCalled();
     expect(saved()).toEqual(earlier);
   });
@@ -90,12 +90,12 @@ describe('reserveEmailSend', () => {
     expect(saved()['example.com'].count).toBe(1);
   });
 
-  it('still allows the send when saving the reservation fails, and release does not throw', async () => {
+  it('does not send when saving the reservation fails, and release does not throw', async () => {
     writeMock.mockRejectedValue(new Error('disk full'));
 
     const reservation = await reserveEmailSend('example.com');
 
-    expect(reservation.reserved).toBe(true);
+    expect(reservation.reserved).toBe(false);
     await expect(reservation.release()).resolves.toBeUndefined();
   });
 });

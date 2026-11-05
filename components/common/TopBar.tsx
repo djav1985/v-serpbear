@@ -44,7 +44,7 @@ const TopBar = ({ showSettings, showAddModal }:TopbarProps) => {
                   markSize={64}
                   markClassName="mr-2"
                />
-               <button className='px-3 py-1 font-bold text-blue-700 lg:hidden text-lg' onClick={() => showAddModal()}>+</button>
+               <button type='button' aria-label='Add Domain' className='px-3 py-1 font-bold text-blue-700 lg:hidden text-lg' onClick={() => showAddModal()}>+</button>
             </h3>
             {!isDomainsPage && (
                <Link
@@ -57,7 +57,7 @@ const TopBar = ({ showSettings, showAddModal }:TopbarProps) => {
             )}
          </div>
          <div className="topbar__right">
-            <button className={' lg:hidden p-3'} onClick={() => setShowMobileMenu(!showMobileMenu)}>
+            <button type='button' aria-label='Toggle menu' className={' lg:hidden p-3'} onClick={() => setShowMobileMenu(!showMobileMenu)}>
                <Icon type="hamburger" size={24} />
             </button>
             <ul
@@ -75,9 +75,9 @@ const TopBar = ({ showSettings, showAddModal }:TopbarProps) => {
                   </Link>
                </li>
                <li className='block lg:inline-block lg:ml-5'>
-                  <a className='block px-3 py-2 cursor-pointer' onClick={() => showSettings()}>
+                  <button type='button' className='block px-3 py-2 cursor-pointer font-semibold' onClick={() => showSettings()}>
                      <Icon type="settings-alt" color={'#888'} size={14} /> Settings
-                  </a>
+                  </button>
                </li>
                <li className='block lg:inline-block lg:ml-5'>
                   <a className='block px-3 py-2 cursor-pointer' href='https://docs.serpbear.com/' target="_blank" rel='noreferrer'>
@@ -85,9 +85,9 @@ const TopBar = ({ showSettings, showAddModal }:TopbarProps) => {
                   </a>
                </li>
                <li className='block lg:inline-block lg:ml-5'>
-                  <a className='block px-3 py-2 cursor-pointer' onClick={() => logoutUser()}>
+                  <button type='button' className='block px-3 py-2 cursor-pointer font-semibold' onClick={() => logoutUser()}>
                      <Icon type="logout" color={'#888'} size={14} /> Logout
-                  </a>
+                  </button>
                </li>
             </ul>
          </div>

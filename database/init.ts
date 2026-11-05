@@ -19,6 +19,20 @@ globalForDb.__serpbearDbInit ??= { initialized: false, promise: null };
 const dbState: DbInitState = globalForDb.__serpbearDbInit;
 
 /**
+ * Indexes the index migrations (1735640000000, 1750000000001) cannot create on a fresh install. Same names as
+ * those migrations. keyword_domain_idx and domain_slug_idx are left out on purpose (removed by 1760000000000).
+ */
+const KEYWORD_INDEX_STATEMENTS = [
+   'CREATE INDEX IF NOT EXISTS keyword_unique_combination_idx ON keyword (keyword, domain, device, country)',
+   'CREATE INDEX IF NOT EXISTS keyword_last_updated_idx ON keyword (lastUpdated)',
+   'CREATE INDEX IF NOT EXISTS keyword_position_idx ON keyword (position)',
+   'CREATE INDEX IF NOT EXISTS keyword_updating_idx ON keyword (updating)',
+   'CREATE INDEX IF NOT EXISTS keyword_domain_updating_idx ON keyword (domain, updating)',
+];
+
+const UNIQUE_TARGET_INDEX_STATEMENT = "CREATE UNIQUE INDEX IF NOT EXISTS keyword_tracking_target_idx ON keyword (domain, keyword, COALESCE(country, ''), COALESCE(location, ''), COALESCE(device, ''))";
+
+/**
  * Clears any keyword `updating` flags left set from a previous process (e.g. container
  * restart/crash mid-scrape), otherwise the UI shows stuck loading spinners forever.
  */
@@ -54,11 +68,24 @@ export async function initializeDatabase(): Promise<void> {
       try {
          logger.info('Initializing database...');
          await db.sync();
-         // Migrations run before sync in fresh installations, so the tracking-target migration may
-         // have skipped a not-yet-created keyword table. Ensure its index after model sync as well.
-         await db.query(
-            "CREATE UNIQUE INDEX IF NOT EXISTS keyword_tracking_target_idx ON keyword (domain, keyword, COALESCE(country, ''), COALESCE(location, ''), COALESCE(device, ''))",
-         );
+         // Fresh installs run migrations before the tables exist, so the index migrations skip themselves.
+         // Create the indexes here after sync; IF NOT EXISTS keeps this a no-op on upgraded databases.
+         for (const statement of KEYWORD_INDEX_STATEMENTS) {
+            try {
+               await db.query(statement);
+            } catch (error) {
+               logger.error('Failed to create a keyword index; continuing without it', error instanceof Error ? error : new Error(String(error)), { statement });
+            }
+         }
+         try {
+            await db.query(UNIQUE_TARGET_INDEX_STATEMENT);
+         } catch (error) {
+            // Typically duplicate keyword rows because migration 1775000000000-keyword-unique-tracking-target did not run.
+            logger.error(
+               'Could not create the unique keyword tracking index (duplicate keywords exist?). Run the database migrations to merge duplicates (restart the container, or npm run db:migrate); continuing without it.',
+               error instanceof Error ? error : new Error(String(error)),
+            );
+         }
          await resetStaleUpdatingFlags();
          dbState.initialized = true;
          logger.info('Database initialized successfully');

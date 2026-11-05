@@ -2,12 +2,14 @@
 // import { useRouter } from 'next/router';
 // import { useState } from 'react';
 import TimeAgo from 'react-timeago';
-import dayjs from 'dayjs';
 import Link from 'next/link';
+import Router from 'next/router';
 import toast from 'react-hot-toast';
 import Icon from '../common/Icon';
 import { useUpdateDomainToggles } from '../../services/domains';
 import { TOGGLE_TRACK_CLASS_NAME } from '../common/toggleStyles';
+import { formatInZone } from '../../utils/timezone';
+import { getAppTimezone } from '../../utils/client/appTimezone';
 
 const COMPACT_NUMBER_FORMATTER = new Intl.NumberFormat('en-US', {
    notation: 'compact',
@@ -103,7 +105,16 @@ const DomainItem = ({
    // const router = useRouter();
    return (
       <div className='domItem bg-white border rounded w-full text-sm mb-10 hover:border-indigo-200'>
-         <Link href={`/domain/${slug}`} className='flex flex-col lg:flex-row'>
+         {/* A div with a click handler instead of a wrapping anchor, so the checkbox and buttons are not nested inside a link.
+             The domain name below is a real link for keyboard and new-tab use. */}
+         <div
+            className='flex flex-col lg:flex-row cursor-pointer'
+            onClick={(event) => {
+               const target = event.target as HTMLElement;
+               if (target.closest('a, button, label, input')) { return; }
+               Router.push(`/domain/${slug}`);
+            }}
+         >
             <div className={`flex-1 p-6 flex ${!isConsoleIntegrated ? 'basis-1/3' : ''}`}>
                <div className="group domain_thumb w-20 h-20 mr-6 bg-slate-100 rounded
                   border border-gray-200 overflow-hidden flex justify-center relative">
@@ -123,11 +134,13 @@ const DomainItem = ({
                   />
                </div>
                <div className="domain_details flex-1">
-                  <h3 className='font-semibold text-base mb-2 max-w-[200px] text-ellipsis overflow-hidden' title={domain.domain}>{domain.domain}</h3>
+                  <h3 className='font-semibold text-base mb-2 max-w-[200px] text-ellipsis overflow-hidden' title={domain.domain}>
+                     <Link href={`/domain/${slug}`}>{domain.domain}</Link>
+                  </h3>
                  <div className='flex items-center justify-between gap-3 text-xs text-gray-600'>
                     {keywordsUpdated ? (
                        <span>
-                          Updated <TimeAgo title={dayjs(keywordsUpdated).format('DD-MMM-YYYY, hh:mm:ss A')} date={keywordsUpdated} />
+                          Updated <TimeAgo title={formatInZone(keywordsUpdated, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }, getAppTimezone())} date={keywordsUpdated} />
                        </span>
                     ) : (
                        <span>Status</span>
@@ -201,7 +214,7 @@ const DomainItem = ({
                   </div>
                </div>
             )}
-         </Link>
+         </div>
       </div>
    );
 };

@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 // eslint-disable-next-line import/no-unresolved
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import verifyUser from '../../utils/verifyUser';
+import { checkApiKey } from '../../utils/verifyUser';
 import { withApiLogging } from '../../utils/apiLogging';
 import { errorResponse } from '../../utils/api/response';
 
@@ -85,13 +85,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
    if (req.method !== 'POST') {
       return res.status(405).json(errorResponse('METHOD_NOT_ALLOWED', 'Method not allowed', requestId));
    }
-   const authorized = verifyUser(req, res);
-   if (authorized !== 'authorized') {
-      return res.status(401).json(errorResponse('UNAUTHORIZED', authorized, requestId));
-   }
+   // Only the API key is accepted here: no cookies, no login session (see checkApiKey)
    const apiKey = process.env.APIKEY;
    if (!apiKey) {
       return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'APIKEY is not configured.', requestId));
+   }
+   if (!checkApiKey(req)) {
+      return res.status(401).json(errorResponse('UNAUTHORIZED', 'The MCP server requires "Authorization: Bearer <APIKEY>".', requestId));
    }
 
    // Tools call this same server on the port the request arrived on

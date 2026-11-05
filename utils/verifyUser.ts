@@ -37,6 +37,41 @@ export const verifySessionToken = (token: string): JwtDecodedPayload => {
    return decoded;
 };
 
+/** True when the Authorization header uses the Bearer scheme (other schemes, such as Basic, are not API-key attempts). */
+export const isBearerAuthorization = (header: string | undefined): boolean => typeof header === 'string' && header.startsWith('Bearer ');
+
+/** True when the request carries a login cookie with a valid signature, expiry and session version. */
+export const hasValidSessionCookie = (req: NextApiRequest, res: NextApiResponse): boolean => {
+   try {
+      const token = new Cookies(req, res).get('token');
+      if (!token || !process.env.SECRET) { return false; }
+      verifySessionToken(token);
+      return true;
+   } catch (_error) {
+      return false;
+   }
+};
+
+/**
+ * Checks `Authorization: Bearer <APIKEY>` in constant time. This is the only place the API key is compared.
+ * Cookies are never looked at. A wrong Bearer key is recorded against the client address (withApiLogging answers
+ * 429 once the limit is reached) and a right one clears that record. Other schemes, such as Basic, are not API-key
+ * attempts and are ignored. `shouldCountFailure` can veto counting a wrong key (verifyUser skips it for requests
+ * with a valid login cookie).
+ */
+export const checkApiKey = (req: NextApiRequest, shouldCountFailure: () => boolean = () => true): boolean => {
+   const header = req.headers.authorization;
+   if (!isBearerAuthorization(header)) { return false; }
+   const verified = safeEqual((header as string).substring('Bearer '.length), process.env.APIKEY);
+   const attemptKeys = getApiKeyAttemptKeys(req);
+   if (verified) {
+      clearLoginFailures(attemptKeys);
+   } else if (shouldCountFailure()) {
+      recordLoginFailure(attemptKeys);
+   }
+   return verified;
+};
+
 /**
  * Psuedo Middleware: Verifies the user by their cookie value or their API Key
  * When accessing with API key only certain routes are accessible.
@@ -61,25 +96,11 @@ const verifyUser = (req: NextApiRequest, res: NextApiResponse): string => {
       'GET:/api/insight',
       'GET:/api/ideas',
       'POST:/api/ideas',
-      'POST:/api/mcp',
    ];
    
-   // Validate Bearer prefix before extracting API key
-   let verifiedAPI = false;
-   if (req.headers.authorization) {
-      if (req.headers.authorization.startsWith('Bearer ')) {
-         const apiKey = req.headers.authorization.substring('Bearer '.length);
-         verifiedAPI = safeEqual(apiKey, process.env.APIKEY);
-      }
-      // Count a wrong key against the client address; withApiLogging answers 429 once the limit is reached
-      const attemptKeys = getApiKeyAttemptKeys(req);
-      if (verifiedAPI) {
-         clearLoginFailures(attemptKeys);
-      } else {
-         recordLoginFailure(attemptKeys);
-      }
-   }
-   
+   // Wrong keys are not counted when the request also carries a valid login cookie
+   const verifiedAPI = checkApiKey(req, () => !hasValidSessionCookie(req, res));
+
    // Compute normalized path once for all route checks
    const normalizedPath = req.url && req.method ? `${req.method}:${req.url.replace(/\?(.*)/, '')}` : '';
    const accessingAllowedRoute = normalizedPath && allowedApiRoutes.includes(normalizedPath);

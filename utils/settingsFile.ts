@@ -2,7 +2,6 @@ import { readFile, writeFile } from 'fs/promises';
 import * as path from 'path';
 import * as lockfile from 'proper-lockfile';
 import { logger } from './logger';
-import { safeJsonParse } from './safeJsonParse';
 
 /**
  * Path of data/settings.json. Every read-modify-write of the file must run inside withSettingsLock, so two
@@ -53,8 +52,8 @@ export const withSettingsLock = async <T>(fn: () => Promise<T>): Promise<T> => {
 
 /**
  * Reads data/settings.json as stored (secrets still encrypted). A missing, empty or whitespace-only file means
- * there are no stored settings yet. A non-empty file with invalid JSON is logged and treated as empty.
- * Any other read error is thrown.
+ * there are no stored settings yet. A non-empty file that is not a valid JSON object is logged and thrown, so a
+ * save never builds on {} and blanks the stored secrets. Any other read error is thrown too.
  */
 export const readSettingsFile = async (settingsPath: string = settingsFilePath()): Promise<Partial<SettingsType>> => {
    let raw: unknown;
@@ -70,5 +69,18 @@ export const readSettingsFile = async (settingsPath: string = settingsFilePath()
    if (typeof raw !== 'string' || !raw.trim()) {
       return {};
    }
-   return safeJsonParse<Partial<SettingsType>>(raw, {}, { context: 'settings.json', logError: true });
+   let parsed: unknown;
+   try {
+      parsed = JSON.parse(raw);
+   } catch (err) {
+      const error = new Error(`settings.json is not valid JSON: ${err instanceof Error ? err.message : String(err)}`);
+      logger.error('Settings file is corrupt', error);
+      throw error;
+   }
+   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      const error = new Error('settings.json does not hold a JSON object');
+      logger.error('Settings file is corrupt', error);
+      throw error;
+   }
+   return parsed as Partial<SettingsType>;
 };

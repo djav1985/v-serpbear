@@ -27,6 +27,12 @@ jest.mock('fs/promises', () => ({
   unlink: jest.fn(),
 }));
 
+// Run the critical section directly: the lock file is not what these tests exercise
+jest.mock('../../utils/settingsFile', () => ({
+  ...jest.requireActual('../../utils/settingsFile'),
+  withSettingsLock: jest.fn(async (fn: () => Promise<unknown>) => fn()),
+}));
+
 // Mock retryQueueManager (clearQueue is used by the merged /api/clearfailed suite below)
 jest.mock('../../utils/retryQueueManager', () => ({
   retryQueueManager: {
@@ -124,8 +130,46 @@ describe('PUT /api/settings validation and errors', () => {
     const jsonCall = (res.json as jest.Mock).mock.calls[0][0];
     expect(jsonCall.error.code).toBe('INTERNAL_SERVER_ERROR');
     expect(jsonCall.error.message).toBe('Failed to update settings.');
-    expect(jsonCall.error.details).toBe('disk full');
-    expect(jsonCall.error.details).not.toEqual(expect.objectContaining({ details: expect.anything() }));
+    // The internal error text stays in the server log
+    expect(jsonCall.error.details).toBeUndefined();
+    expect(JSON.stringify(jsonCall)).not.toContain('disk full');
+  });
+
+  it('does not overwrite a corrupt settings file and answers 500', async () => {
+    readFileMock.mockResolvedValue('{"scraping_api": "enc", broken');
+
+    const req = {
+      method: 'PUT',
+      body: { settings: { scrape_strategy: 'basic' } },
+      headers: {},
+    } as unknown as NextApiRequest;
+    const res = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
+
+    await handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    // Only the lock file creation may write ({}), never the merged settings
+    expect(renameMock).not.toHaveBeenCalled();
+  });
+
+  it('ignores unknown keys in the payload', async () => {
+    readFileMock.mockResolvedValue('{}');
+    writeFileMock.mockResolvedValue(undefined);
+    renameMock.mockResolvedValue(undefined);
+
+    const req = {
+      method: 'PUT',
+      body: { settings: { scrape_strategy: 'basic', evil_key: 'x', __proto__: { polluted: true } } },
+      headers: {},
+    } as unknown as NextApiRequest;
+    const res = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
+
+    await handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    const stored = writeFileMock.mock.calls.map((call) => call[1]).filter((data) => typeof data === 'string' && data.includes('scrape_strategy'));
+    expect(stored).toHaveLength(1);
+    expect(JSON.parse(stored[0])).not.toHaveProperty('evil_key');
   });
 
   it('returns 400 and does not save when a field has an invalid value', async () => {

@@ -154,8 +154,7 @@ const KeywordsTable = (props: KeywordsTableProps) => {
    const storedSettings = appSettingsData?.settings;
    const columnsLoaded = !!storedSettings;
 
-   // The settings PUT rewrites the whole settings file, so the payload must carry every stored value.
-   // adwords_refresh_token is left out, as in the Settings page, so a token written by the Google OAuth callback is not overwritten.
+   // The settings PUT merges the submitted fields into the stored settings, so only the changed column list is sent.
    const updateColumns = (column:string) => {
       if (!storedSettings) { return; }
       const newColumns = tableColumns.includes(column) ? tableColumns.filter((col) => col !== column) : [...tableColumns, column];
@@ -179,7 +178,18 @@ const KeywordsTable = (props: KeywordsTableProps) => {
       maxTitleColumnWidth,
    };
 
-   const selectedAllItems = selectedKeywords.length === processedKeywords[device].length;
+   const visibleKeywordIds = useMemo(() => (processedKeywords[device] || []).map((k: KeywordType) => k.ID), [processedKeywords, device]);
+
+   // Drop selected rows that are no longer visible (filtered out, removed or on another device tab)
+   useEffect(() => {
+      setSelectedKeywords((currentSelected) => {
+         const kept = currentSelected.filter((id) => visibleKeywordIds.includes(id));
+         return kept.length === currentSelected.length ? currentSelected : kept;
+      });
+   }, [visibleKeywordIds]);
+
+   const selectedAllItems = visibleKeywordIds.length > 0
+      && visibleKeywordIds.every((id: number) => selectedKeywords.includes(id));
 
    let keywordsContent: JSX.Element | null = null;
    if (processedKeywords[device] && processedKeywords[device].length > 0) {

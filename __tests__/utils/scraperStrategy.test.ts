@@ -314,3 +314,19 @@ describe('scrapeKeywordWithStrategy – DataForSEO per-page depth', () => {
    });
 });
 
+
+describe('scrapeKeywordWithStrategy – JSON null response', () => {
+   it('returns a provider error instead of throwing a TypeError', async () => {
+      const fetchSpy = jest.spyOn(global, 'fetch').mockImplementation(() => Promise.resolve({
+         ok: true,
+         status: 200,
+         text: async () => 'null',
+      } as unknown as Response));
+      try {
+         const result: any = await scrapeKeywordWithStrategy(baseKeyword, baseSettings);
+         expect(result.error).toContain('empty or invalid response');
+      } finally {
+         fetchSpy.mockRestore();
+      }
+   });
+});

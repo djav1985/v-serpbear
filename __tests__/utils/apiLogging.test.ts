@@ -203,6 +203,30 @@ describe('withApiLogging', () => {
     expect(res.setHeader).toHaveBeenCalledWith('X-Request-Id', expect.any(String));
   });
 
+  it('refuses a locked address only for Bearer attempts without a valid session', async () => {
+    const { withApiLogging } = await import('../../utils/apiLogging');
+    const { recordLoginFailure, resetLoginThrottle } = await import('../../utils/loginThrottle');
+    const { getApiKeyAttemptKeys } = await import('../../utils/apiKeyThrottle');
+    const handler = jest.fn(async (_req: NextApiRequest, res: NextApiResponse) => {
+      res.status(200).json({ ok: true });
+    });
+    const wrapped = withApiLogging(handler);
+    const buildRequest = (authorization: string) => ({ ...createRequest(), headers: { authorization }, socket: { remoteAddress: '198.51.100.7' } } as unknown as NextApiRequest);
+    resetLoginThrottle();
+    const keys = getApiKeyAttemptKeys(buildRequest('Bearer x'));
+    for (let i = 0; i < 6; i += 1) { recordLoginFailure(keys); }
+
+    const bearerRes = createResponse();
+    await wrapped(buildRequest('Bearer wrong'), bearerRes);
+    expect(bearerRes.status).toHaveBeenCalledWith(429);
+    expect(handler).not.toHaveBeenCalled();
+
+    const basicRes = createResponse();
+    await wrapped(buildRequest('Basic dXNlcjpwYXNz'), basicRes);
+    expect(basicRes.status).toHaveBeenCalledWith(200);
+    resetLoginThrottle();
+  });
+
   it('exposes requestId on req object for downstream handlers', async () => {
     const { withApiLogging } = await import('../../utils/apiLogging');
     let capturedRequestId: string | undefined;

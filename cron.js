@@ -71,7 +71,9 @@ const CRON_FAILED_SCHEDULE = normalizeValue(process.env.CRON_FAILED_SCHEDULE, '0
 const CRON_INTERVAL_MAP = {
    hourly: CRON_FAILED_SCHEDULE,
    daily: CRON_MAIN_SCHEDULE,
-   other_day: '0 0 0 2-30/2 * *',
+   // Odd days of the month (1, 3, ..., 31). Day 31 is included so month ends never leave a 3 day gap;
+   // the only irregularity is a back-to-back run on the 31st and the 1st (and 2 days after the 29th/30th).
+   other_day: '0 0 0 1-31/2 * *',
    daily_morning: CRON_EMAIL_SCHEDULE,
    weekly: '0 0 0 * * 1',
    monthly: '0 0 0 1 * *', // Run every first day of the month at 00:00 (midnight)
@@ -112,30 +114,33 @@ const SETTINGS_WATCH_DEBOUNCE_MS = 1000;
 /** Slow safety re-check of settings (every 30 minutes, at second 0). Covers missed file events and watcher failures. */
 const SETTINGS_SAFETY_CHECK_SCHEDULE = '0 */30 * * * *';
 
+const DEFAULT_APP_SETTINGS = {
+   scraper_type: 'none',
+   notification_interval: 'never',
+   notification_email: '',
+   smtp_server: '',
+   smtp_port: '',
+   smtp_username: '',
+   smtp_password: '',
+   scrape_interval: '',
+};
+
 /**
  * Get application settings from data/settings.json
- * 
+ *
  * Error handling behavior:
- * - ENOENT (file missing): Creates file with defaults and returns defaults
- * - Invalid JSON: Returns defaults WITHOUT overwriting the file (to preserve recoverable data)
- * - Decryption failure: Returns parsed settings with empty strings for encrypted fields
- * 
+ * - ENOENT (file missing): Returns defaults in memory. The cron worker never writes the file, so it cannot
+ *   overwrite settings that were just saved by the app.
+ * - Invalid JSON / read error: Returns defaults WITHOUT overwriting the file (to preserve recoverable data).
+ *   With `{ strict: true }` it throws instead, so the caller can keep the schedule it already applied.
+ * - Missing SECRET or decryption failure: Returns parsed settings with empty strings for encrypted fields
+ *
  * Note: This differs from pages/api/settings.ts which overwrites the file on ANY read error.
  * The cron worker is more conservative to avoid data loss during automated operations.
  */
-const getAppSettings = async () => {
+const getAppSettings = async ({ strict = false } = {}) => {
    const settingsPath = `${process.cwd()}/data/settings.json`;
-   const defaultSettings = {
-      scraper_type: 'none',
-      notification_interval: 'never',
-      notification_email: '',
-      smtp_server: '',
-      smtp_port: '',
-      smtp_username: '',
-      smtp_password: '',
-      scrape_interval: '',
-   };
-   // console.log('process.env.SECRET: ', process.env.SECRET);
+   const defaultSettings = { ...DEFAULT_APP_SETTINGS };
    try {
       const settingsRaw = await promises.readFile(settingsPath, { encoding: 'utf-8' });
       // Empty or whitespace-only file: treat as no stored settings. Defaults are returned and the file is left as is.
@@ -147,7 +152,13 @@ const getAppSettings = async () => {
          settings = JSON.parse(settingsRaw);
       } catch (error) {
          logger.error('CRON: Parsing Settings File.', error instanceof Error ? error : new Error(String(error)));
+         if (strict) { throw error; }
          return defaultSettings;
+      }
+
+      if (!process.env.SECRET) {
+         logger.error('CRON: SECRET is not set; cannot decrypt the API keys in settings. Set SECRET in your environment.');
+         return { ...settings, scraping_api: '', smtp_password: '' };
       }
 
       try {
@@ -165,9 +176,9 @@ const getAppSettings = async () => {
       }
    } catch (error) {
       if (error?.code === 'ENOENT') {
-         await promises.writeFile(settingsPath, JSON.stringify(defaultSettings), { encoding: 'utf-8' });
          return defaultSettings;
       }
+      if (strict) { throw error; }
       logger.error('CRON: Reading Settings File.', error instanceof Error ? error : new Error(String(error)));
       return defaultSettings;
    }
@@ -231,8 +242,9 @@ const RETRY_BATCH_SIZE = 100;
 const runAppCronJobs = () => {
    logger.info('CRON: Initializing application cron jobs.', { timezone: CRON_TIMEZONE });
    
-   // Prefer configured URL, fallback to localhost
-   const internalApiUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'http://localhost:3000';
+   // APP_URL is the internal origin for the worker's own calls and wins when set (the public URL may not be
+   // reachable from inside the container). Falls back to NEXT_PUBLIC_APP_URL, then localhost.
+   const internalApiUrl = normalizeValue(process.env.APP_URL, '') || normalizeValue(process.env.NEXT_PUBLIC_APP_URL, '') || 'http://localhost:3000';
    
    logger.debug('CRON: Worker configuration.', { url: internalApiUrl, apiKeyConfigured: !!process.env.APIKEY });
    
@@ -248,7 +260,17 @@ const runAppCronJobs = () => {
    let applyChain = Promise.resolve();
 
    const applyScheduleFromSettings = async () => {
-      const settings = await getAppSettings();
+      let settings;
+      try {
+         settings = await getAppSettings({ strict: true });
+      } catch (error) {
+         // Unreadable settings must not tear down jobs that are already running
+         logger.error('CRON: Could not read settings; keeping the current schedule.', error instanceof Error ? error : new Error(String(error)));
+         if (activePlanKey !== null) {
+            return;
+         }
+         settings = { ...DEFAULT_APP_SETTINGS };
+      }
       const scrapeInterval = settings.scrape_interval || 'daily';
       const notifInterval = settings.notification_interval;
 
@@ -369,6 +391,7 @@ module.exports = {
    runAppCronJobs,
    makeCronApiCall,
    getAppSettings,
+   CRON_INTERVAL_MAP,
    normalizeValue,
    loadEnvFiles,
 };

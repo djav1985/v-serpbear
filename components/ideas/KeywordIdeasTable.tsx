@@ -1,5 +1,5 @@
 import { useRouter } from 'next/router';
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
 import { useAddKeywords, useFetchKeywords } from '../../services/keywords';
 import { useEmailKeywordIdeas } from '../../services/ideas';
@@ -133,6 +133,19 @@ const IdeasKeywordsTable = ({
 
    const selectableKeywordIds = useMemo(() => finalKeywords.filter((keyword) => !keyword.isTracked).map((keyword) => keyword.uid), [finalKeywords]);
 
+   // Keep the selection limited to ideas that can still be added. This also covers switching the research-page domain,
+   // where ideas already tracked in the new domain are dropped from the selection (with a notice).
+   useEffect(() => {
+      const kept = selectedKeywords.filter((id) => selectableKeywordIds.includes(id));
+      if (kept.length === selectedKeywords.length) { return; }
+      const trackedIds = new Set(finalKeywords.filter((keyword) => keyword.isTracked).map((keyword) => keyword.uid));
+      const droppedTracked = selectedKeywords.filter((id) => trackedIds.has(id)).length;
+      setSelectedKeywords(kept);
+      if (droppedTracked > 0) {
+         toast(`${droppedTracked} selected idea${droppedTracked === 1 ? ' is' : 's are'} already tracked and ${droppedTracked === 1 ? 'was' : 'were'} deselected.`, { icon: 'ℹ️' });
+      }
+   }, [selectedKeywords, selectableKeywordIds, finalKeywords]);
+
    const favoriteIDs: string[] = useMemo(() => favorites.map((fav) => fav.uid), [favorites]);
 
    const allTags:string[] = useMemo(() => {
@@ -218,6 +231,8 @@ const IdeasKeywordsTable = ({
          })),
       });
    };
+
+   const addableSelectedCount = useMemo(() => getSelectedUntrackedKeywords(finalKeywords, selectedKeywords).length, [finalKeywords, selectedKeywords]);
 
    const selectedAllItems = selectableKeywordIds.length > 0 && selectedKeywords.length === selectableKeywordIds.length;
 
@@ -372,7 +387,7 @@ const IdeasKeywordsTable = ({
          )}
          {showAddStep && (
             <AddKeywordsMetaStep
-               selectedCount={selectedKeywords.length}
+               selectedCount={addableSelectedCount}
                existingTags={existingTags}
                existingLocations={existingLocations}
                allowsCity={allowsCity}

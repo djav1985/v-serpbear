@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import type { NextPage } from 'next';
 import { useRouter } from 'next/router';
-import exportCSV from '../../../../utils/client/exportcsv';
 import { useFetchDomains } from '../../../../services/domains';
 import { useFetchSCInsight } from '../../../../services/searchConsole';
 import SCInsight from '../../../../components/insight/Insight';
@@ -13,7 +12,6 @@ import DomainPageLayout from '../../../../components/common/DomainPageLayout';
 
 export const DomainInsightPage: NextPage = () => {
    const router = useRouter();
-   const [scDateFilter, setSCDateFilter] = useState('thirtyDays');
    const { data: appSettings } = useFetchSettings();
    const appSettingsData: SettingsType = appSettings?.settings || {} as SettingsType;
    const { data: domainsData } = useFetchDomains(router, false);
@@ -40,9 +38,8 @@ export const DomainInsightPage: NextPage = () => {
          appSettings={appSettingsData}
          trackedKeywords={trackedKeywords}
          headerProps={{
-            exportCsv: () => exportCSV([], activeDomain?.domain || '', scDateFilter),
-            scFilter: scDateFilter,
-            setScFilter: (item:string) => setSCDateFilter(item),
+            // The export and date filter controls are hidden on the insight page
+            exportCsv: () => undefined,
          }}
          renderContent={() => (
             <SCInsight

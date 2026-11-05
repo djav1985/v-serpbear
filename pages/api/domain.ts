@@ -31,7 +31,7 @@ const getDomain = async (req: NextApiRequest, res: NextApiResponse) => {
    }
 
    try {
-      const query = { domain: req.query.domain as string };
+      const query = { domain: (req.query.domain as string).trim().toLowerCase() };
       const foundDomain:Domain| null = await Domain.findOne({ where: query });
 
       if (!foundDomain) {

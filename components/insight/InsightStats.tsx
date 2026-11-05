@@ -27,12 +27,10 @@ const InsightStats = ({ stats = [], totalKeywords = 0, totalPages = 0 }:InsightS
     }, [stats]);
 
    const chartData = useMemo(() => {
-      const chartSeries: {[key:string]: number[]} = { clicks: [], impressions: [], position: [], ctr: [] };
+      const chartSeries: {[key:string]: number[]} = { clicks: [], impressions: [] };
       stats.forEach((item) => {
          chartSeries.clicks.push(item.clicks);
          chartSeries.impressions.push(item.impressions);
-         chartSeries.position.push(item.position);
-         chartSeries.ctr.push(item.ctr);
       });
       return {
          labels: stats && stats.length > 0 ? stats.map((item) => `${formatDateKey(item.date, { day: 'numeric' })}-${formatDateKey(item.date, { month: 'short' })}`) : [],

@@ -21,8 +21,12 @@ const replaceGlobalSmartStrategy = () => {
       return false;
    }
    parsed.scrape_strategy = 'basic';
+   // Write to a temp file and rename it over settings.json, so a crash or a concurrent reader never sees a partial file
+   const tempPath = `${filePath}.${process.pid}.tmp`;
    // eslint-disable-next-line security/detect-non-literal-fs-filename
-   fs.writeFileSync(filePath, JSON.stringify(parsed, null, 2), 'utf-8');
+   fs.writeFileSync(tempPath, JSON.stringify(parsed, null, 2), 'utf-8');
+   // eslint-disable-next-line security/detect-non-literal-fs-filename
+   fs.renameSync(tempPath, filePath);
    return true;
 };
 

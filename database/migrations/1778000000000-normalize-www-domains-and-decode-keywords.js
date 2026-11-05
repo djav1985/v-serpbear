@@ -64,6 +64,25 @@ const moveDomainDataFiles = async (renames) => {
    }
 };
 
+// Moves keywords from "www.example.com" to "example.com" one row at a time. A row that would collide with the
+// unique tracking index (an orphan keyword already stored under the bare domain) is left under the old name and
+// logged, instead of failing the whole migration and crash-looping startup. SAVEPOINTs keep the surrounding
+// transaction usable after a failed statement.
+const renameKeywordDomain = async (sequelize, transaction, oldDomain, bareDomain) => {
+   const [rows] = await sequelize.query('SELECT ID FROM keyword WHERE domain = :old', { transaction, replacements: { old: oldDomain } });
+   for (const keywordRow of rows) {
+      await sequelize.query('SAVEPOINT rename_keyword_domain', { transaction });
+      try {
+         await sequelize.query('UPDATE keyword SET domain = :bare WHERE ID = :id', { transaction, replacements: { bare: bareDomain, id: keywordRow.ID } });
+         await sequelize.query('RELEASE SAVEPOINT rename_keyword_domain', { transaction });
+      } catch (_error) {
+         await sequelize.query('ROLLBACK TO SAVEPOINT rename_keyword_domain', { transaction });
+         await sequelize.query('RELEASE SAVEPOINT rename_keyword_domain', { transaction });
+         logger.info(`[MIGRATION] Left keyword ${keywordRow.ID} under ${oldDomain} - it conflicts with an existing keyword on ${bareDomain}.`);
+      }
+   }
+};
+
 module.exports = {
    up: async function up(params = {}) {
       const queryInterface = params?.context ?? params;
@@ -87,7 +106,7 @@ module.exports = {
                   { transaction, replacements: { bare, slug: toDomainSlug(bare), id: row.ID } }
                );
                if (await tableExists(sequelize, 'keyword', transaction)) {
-                  await sequelize.query('UPDATE keyword SET domain = :bare WHERE domain = :old', { transaction, replacements: { bare, old: row.domain } });
+                  await renameKeywordDomain(sequelize, transaction, row.domain, bare);
                }
                renames.push({ from: row.domain, to: bare });
                renamed += 1;

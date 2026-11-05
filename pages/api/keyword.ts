@@ -30,9 +30,10 @@ const getKeyword = async (req: NextApiRequest, res: NextApiResponse) => {
 
    try {
       const idParam = req.query.id as string;
-      const id = parseInt(idParam, 10);
+      // Plain digits only: "12abc" or "1.5" are not IDs
+      const id = /^\d+$/.test(idParam) ? Number(idParam) : NaN;
       
-      if (isNaN(id) || id <= 0) {
+      if (!Number.isSafeInteger(id) || id <= 0) {
          return res.status(400).json(errorResponse('BAD_REQUEST', 'Invalid keyword ID provided', requestId));
       }
       

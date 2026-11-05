@@ -79,8 +79,17 @@ const Settings = forwardRef<HTMLDivElement, SettingsProps>(({ closeSettings }:Se
          toast('Google Ads has been integrated successfully!', { icon: '✔️' });
          refetchSettings()
             .then((result) => {
-               if (result.data?.settings) {
-                  setSettings(result.data.settings);
+               const serverSettings = result.data?.settings;
+               if (serverSettings) {
+                  // Merge only the Google Ads fields so unsaved edits elsewhere in the drawer survive
+                  setSettings((current) => ({
+                     ...current,
+                     adwords_client_id: serverSettings.adwords_client_id,
+                     adwords_client_secret: serverSettings.adwords_client_secret,
+                     adwords_refresh_token: serverSettings.adwords_refresh_token,
+                     adwords_developer_token: serverSettings.adwords_developer_token,
+                     adwords_account_id: serverSettings.adwords_account_id,
+                  }));
                }
             })
             .catch(() => {
@@ -124,7 +133,7 @@ const Settings = forwardRef<HTMLDivElement, SettingsProps>(({ closeSettings }:Se
    }, [appSettings?.settings, branding.platformName]);
 
    const updateSettings = (key: string, value:string|number|boolean) => {
-      setSettings({ ...settings, [key]: value });
+      setSettings((current) => ({ ...current, [key]: value }));
    };
 
    const performUpdate = async () => {
@@ -177,7 +186,12 @@ const Settings = forwardRef<HTMLDivElement, SettingsProps>(({ closeSettings }:Se
          // back could overwrite a newer token (for example right after re-authorising) with a stale one,
          // so it is left out and the server keeps the stored token.
          const { adwords_refresh_token: _storedRefreshToken, ...settingsToSave } = sanitizedSettings;
-         await updateMutateAsync(settingsToSave as SettingsType);
+         try {
+            await updateMutateAsync(settingsToSave as SettingsType);
+         } catch (_updateError) {
+            // useUpdateSettings already shows an error toast; keep the local edits
+            return;
+         }
          seedPendingRef.current = true;
          // If Scraper is updated, refresh the page when enabling from a disabled state.
          if (previousScraperType === 'none' && scraper_type !== 'none') {

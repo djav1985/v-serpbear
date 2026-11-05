@@ -55,16 +55,19 @@ const getKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Error Loading Keyword Ideas.', requestId));
    } catch (error) {
       logger.error('Error fetching keyword ideas', error instanceof Error ? error : new Error(String(error)));
-      return res.status(400).json(errorResponse('BAD_REQUEST', 'Error Loading Keyword Ideas.', requestId));
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error Loading Keyword Ideas.', requestId));
    }
 };
 
 const updateKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
    const errMsg = 'Error Fetching Keywords. Please try again!';
+   if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Request body must be a JSON object.', requestId));
+   }
    const {
       keywords = [],
-      country = 'US',
+      country: rawCountry = 'US',
       language = '1000',
       domain: rawDomain,
       seedSCKeywords = false,
@@ -78,7 +81,7 @@ const updateKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => 
 
    logger.debug('updateKeywordIdeas called', {
       keywordsCount: keywords.length,
-      country,
+      country: rawCountry,
       language,
       domain: rawDomain,
       seedSCKeywords,
@@ -86,13 +89,15 @@ const updateKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => 
       seedType,
    });
 
-   if (!country || !language) {
+   if (!rawCountry || !language) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Please provide both country and language', requestId));
    }
    // These values go to the paid Google Ads API and into a file name, so check their shape first
-   if (typeof country !== 'string' || !/^[A-Za-z]{2}$/.test(country)) {
+   if (typeof rawCountry !== 'string' || !/^[A-Za-z]{2}$/.test(rawCountry)) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'country must be a two-letter country code.', requestId));
    }
+   // The country table is keyed by upper-case codes, so a lower-case code would find no geo target
+   const country = rawCountry.toUpperCase();
    if (!/^\d{1,10}$/.test(String(language))) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'language must be a Google Ads language ID.', requestId));
    }
@@ -155,19 +160,23 @@ const updateKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => 
             message: error?.message,
             ideaOptions,
          });
-         const message = error?.message || errMsg;
-         return res.status(400).json(errorResponse('BAD_REQUEST', message, requestId));
+         // Only the "no seed keywords" messages are about the request; everything else stays in the log
+         const seedMessage = typeof error?.message === 'string' && /^No (tracked|search console) keywords found for this domain$/.test(error.message);
+         if (seedMessage) {
+            return res.status(400).json(errorResponse('BAD_REQUEST', error.message, requestId));
+         }
+         return res.status(502).json(errorResponse('BAD_GATEWAY', errMsg, requestId));
       }
    } catch (error) {
       logger.error('Error in updateKeywordIdeas', error instanceof Error ? error : new Error(String(error)));
-      return res.status(400).json(errorResponse('BAD_REQUEST', errMsg, requestId));
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', errMsg, requestId));
    }
 };
 
 const favoriteKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
    const errMsg = 'Error Favorating Keyword Idea. Please try again!';
-   const { keywordID = '', domain: rawDomain } = req.body;
+   const { keywordID = '', domain: rawDomain } = (req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {}) as { keywordID?: string, domain?: unknown };
 
    if (!keywordID) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Missing Necessary data. Please provide a keywordID value.', requestId));
@@ -202,7 +211,7 @@ const favoriteKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
       return res.status(400).json(errorResponse('BAD_REQUEST', errMsg, requestId));
    } catch (error) {
       logger.error('Error favorating keyword idea', error instanceof Error ? error : new Error(String(error)));
-      return res.status(400).json(errorResponse('BAD_REQUEST', errMsg, requestId));
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', errMsg, requestId));
    }
 };
 

@@ -98,3 +98,21 @@ describe.each(providers.map((p) => [p.providerName, p] as const))(
     runScraperURLContracts(config);
   },
 );
+
+describe('provider URL details', () => {
+  const kw = { keyword: 'k', country: 'US', device: 'mobile', location: '' } as any;
+
+  it('sends a lowercase gl to SerpApi', () => {
+    const url = new URL(serpapi.scrapeURL!(kw, { scraping_api: 'x' } as any, {} as any) as string);
+    expect(url.searchParams.get('gl')).toBe('us');
+  });
+
+  it('warns once that Serper cannot return mobile results', () => {
+    const { logger } = require('../../utils/logger');
+    const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
+    serper.scrapeURL!(kw, { scraping_api: 'x' } as any, {} as any);
+    serper.scrapeURL!(kw, { scraping_api: 'x' } as any, {} as any);
+    expect(warnSpy.mock.calls.filter(([msg]) => String(msg).includes('mobile'))).toHaveLength(1);
+    warnSpy.mockRestore();
+  });
+});

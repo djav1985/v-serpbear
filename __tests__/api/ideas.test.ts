@@ -91,6 +91,29 @@ describe('POST /api/ideas input validation', () => {
     expect(getAdwordsKeywordIdeas).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ domain: 'example.com' }));
   });
 
+  it('upper-cases a lower-case country code before calling Google Ads', async () => {
+    const res = await post({ ...valid, country: 'gb' });
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(getAdwordsKeywordIdeas).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ country: 'GB' }));
+  });
+
+  it('answers 400 instead of 500 for a null body', async () => {
+    const req = createMockRequest({ method: 'POST', body: null });
+    const res = createMockResponse();
+    await handler(req as unknown as NextApiRequest, res as unknown as NextApiResponse);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+  });
+
+  it('does not return the raw Google Ads error text to the client', async () => {
+    (getAdwordsKeywordIdeas as jest.Mock).mockRejectedValue(new Error('Google Ads API error (403): developer token secret-detail'));
+    const res = await post(valid);
+
+    expect(res.status).toHaveBeenCalledWith(502);
+    expect(JSON.stringify((res.json as jest.Mock).mock.calls[0][0])).not.toContain('secret-detail');
+  });
+
   it('treats a request without a domain as research and passes no domain to Google Ads', async () => {
     const res = await post({ ...valid, domain: undefined });
 

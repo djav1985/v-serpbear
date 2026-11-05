@@ -69,7 +69,14 @@ jest.mock('../../utils/retryQueueManager', () => ({
 
 jest.mock('../../utils/refreshQueue', () => ({
   __esModule: true,
-  refreshQueue: { enqueue: jest.fn().mockResolvedValue(undefined), isDomainLocked: jest.fn(() => false) },
+  refreshQueue: (() => {
+    const isDomainLocked = jest.fn((_domain?: string) => false);
+    return {
+      enqueue: jest.fn().mockResolvedValue(undefined),
+      isDomainLocked,
+      reserveDomains: jest.fn((domains: string[]) => (domains.some((domain) => isDomainLocked(domain)) ? null : jest.fn())),
+    };
+  })(),
 }));
 
 jest.mock('../../utils/apiLogging', () => ({

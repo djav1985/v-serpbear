@@ -121,10 +121,10 @@ export const reserveEmailSend = async (domain: string): Promise<{ reserved: bool
          },
       };
    } catch (error) {
-      // A cache that cannot be read or written does not block sending. Nothing is written in that case, so the
-      // state kept for other domains is not replaced by a partial copy.
-      logger.error('Error reserving email send, allowing email', error instanceof Error ? error : new Error(String(error)));
-      return { reserved: true, release: noop };
+      // A cache that cannot be read or written fails closed: without a record of the send the limits could not
+      // be enforced. Nothing is written in that case, so the state kept for other domains is not replaced.
+      logger.error('Error reserving email send, not sending email', error instanceof Error ? error : new Error(String(error)));
+      return { reserved: false, reason: 'Email throttle state is unavailable, so the email was not sent.', release: noop };
    } finally {
       if (releaseLock) {
          releaseLock();

@@ -140,7 +140,8 @@ describe('useBranding hook', () => {
       const { result } = renderHook(() => useBranding(), { wrapper });
 
       expect(result.current.branding).toEqual(DEFAULT_BRANDING);
-      expect(result.current.isLoading).toBe(false);
+      // The placeholder branding is shown while the runtime config is still being fetched
+      expect(result.current.isLoading).toBe(true);
       expect(result.current.isError).toBe(false);
    });
 

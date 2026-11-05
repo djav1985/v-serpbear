@@ -133,6 +133,16 @@ describe('POST /api/domains', () => {
     dbMock.sync.mockResolvedValue(undefined);
   });
 
+  it('answers 400 for a null request body', async () => {
+    const req = { method: 'POST', body: null, headers: {} } as unknown as NextApiRequest;
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(DomainMock.bulkCreate).not.toHaveBeenCalled();
+  });
+
   it('rejects invalid or blank hostnames', async () => {
     const req = {
       method: 'POST',
