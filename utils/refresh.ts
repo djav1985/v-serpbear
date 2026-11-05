@@ -604,11 +604,13 @@ const persistKeywordError = async (
    }
 
    try {
-      await keywordRaw.update({
+      const errorPayload = {
          updating: toDbBool(false),
          updatingStartedAt: null,
          lastUpdateError: JSON.stringify(errorInfo),
-      });
+      };
+      logger.debug('[DB] Keyword error update', { keywordId: keyword.ID, keyword: keyword.keyword, previous: { position: keyword.position, url: keyword.url, lastUpdated: keyword.lastUpdated }, payload: errorPayload });
+      await keywordRaw.update(errorPayload);
       logger.info('Keyword updating flag cleared after scrape error', { keywordId: keyword.ID, keyword: keyword.keyword, error: errorInfo.error });
    } catch (error: any) {
       logger.error(
@@ -696,6 +698,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
       try {
          // Single atomic DB update with all fields from API response + flags
          // Sequelize automatically updates the in-memory instance on success
+         logger.debug('[DB] Keyword update', { keywordId: keyword.ID, keyword: keyword.keyword, previous: { position: keyword.position, url: keyword.url, lastUpdated: keyword.lastUpdated }, payload: dbPayload });
          await keywordRaw.update(dbPayload);
 
          // Only a saved result leaves the retry queue. Removing it earlier would drop the retry if the save failed.
