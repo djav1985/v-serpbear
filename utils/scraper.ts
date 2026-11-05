@@ -4,6 +4,7 @@ import allScrapers from '../scrapers/index';
 import { GOOGLE_BASE_URL, DEVICE_MOBILE } from './constants';
 import { logger } from './logger';
 import { retryQueueManager } from './retryQueueManager';
+import { resolveGoogleRedirects } from './resolveGoogleLinks';
 
 type SearchResult = {
    title: string,
@@ -242,7 +243,8 @@ const scrapeSinglePage = async (
          const scrapeResult = res.data || res.results || scraperResult || null;
          if (res && scrapeResult) {
             const extraction = scraperObj.serpExtractor({ keyword, response: res, result: scrapeResult, settings, pagination });
-            const organic = extraction.organic;
+            // Some providers leave results as google.com/goto links; resolve them so the domain can be matched
+            const organic = await resolveGoogleRedirects(extraction.organic);
             const mapPackTop3 = extraction.mapPackTop3 ?? false;
             const localResults = extraction.localResults ?? [];
             return {

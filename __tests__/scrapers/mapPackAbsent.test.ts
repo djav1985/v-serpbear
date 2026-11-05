@@ -5,6 +5,7 @@ import serply from '../../scrapers/services/serply';
 import valueSerp from '../../scrapers/services/valueserp';
 import prismcrawl from '../../scrapers/services/prismcrawl';
 import dataforseo from '../../scrapers/services/dataforseo';
+import crazyserp from '../../scrapers/services/crazyserp';
 import { computeMapPackTop3 } from '../../utils/mapPack';
 
 jest.mock('../../utils/logger', () => ({
@@ -20,6 +21,7 @@ const cases: Array<[string, any, any]> = [
   ['valueserp', valueSerp, { organic_results: [] }],
   ['prismcrawl', prismcrawl, { data: { content: { results: [], serp_features: [] } } }],
   ['dataforseo', dataforseo, { tasks: [{ status_code: 20000, result: [{ items: [] }] }] }],
+  ['crazyserp', crazyserp, { organic: [] }],
 ];
 
 describe.each(cases)('%s map pack when the response has no local results', (_name, scraper, response) => {

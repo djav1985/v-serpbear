@@ -1,5 +1,6 @@
 import { getGoogleDomain } from "../../utils/countries";
 import { resolveCountryCode, getKeywordLocationParts } from "../../utils/scraperHelpers";
+import { computeMapPackTop3 } from "../../utils/mapPack";
 
 interface CrazySerpResult {
    position: number;
@@ -7,12 +8,18 @@ interface CrazySerpResult {
    title: string;
 }
 
+// A business in the "locations" (map pack) block
+interface CrazySerpLocation {
+   title?: string;
+   website_url?: string;
+}
+
 const crazyserp: ScraperSettings = {
    id: 'crazyserp',
    name: 'CrazySERP',
    website: 'crazyserp.com',
    allowsCity: true,
-   supportsMapPack: false,
+   supportsMapPack: true,
    resultObjectKey: 'parsed_data',
    headers: (_keyword: KeywordType, settings: SettingsType) => ({
       'Content-Type': 'application/json',
@@ -44,9 +51,11 @@ const crazyserp: ScraperSettings = {
       params.set('device', keyword.device || 'desktop');
       return `https://crazyserp.com/api/search?${params.toString()}`;
    },
-   serpExtractor: ({ result, response }) => {
+   serpExtractor: ({ result, response, settings }) => {
       const extractedResult = [];
       let results: CrazySerpResult[] = [];
+      // Map pack businesses are in parsed_data.locations, which is the result passed in
+      const locations: CrazySerpLocation[] = Array.isArray((result as any)?.locations) ? (result as any).locations : [];
 
       if (typeof result === 'string') {
          try {
@@ -60,6 +69,8 @@ const crazyserp: ScraperSettings = {
          }
       } else if (Array.isArray(result)) {
          results = result as CrazySerpResult[];
+      } else if (result && typeof result === 'object' && Array.isArray((result as any).organic)) {
+         results = (result as any).organic as CrazySerpResult[];
       } else if (Array.isArray(response?.organic)) {
          results = response.organic as CrazySerpResult[];
       } else if (Array.isArray(response?.parsed_data)) {
@@ -72,7 +83,15 @@ const crazyserp: ScraperSettings = {
          }
       }
 
-      return { organic: extractedResult };
+      const businessName = (settings as ExtendedSettings)?.business_name ?? null;
+      const localResults = locations.map((place, index) => ({
+         position: index + 1,
+         title: place.title as string,
+         url: (place.website_url || undefined) as string | undefined,
+      }));
+      const mapPackTop3 = computeMapPackTop3(localResults, businessName);
+
+      return { organic: extractedResult, mapPackTop3, localResults };
    },
 };
 

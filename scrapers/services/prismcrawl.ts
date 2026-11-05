@@ -2,11 +2,14 @@ import { getGoogleDomain } from "../../utils/countries";
 import { resolveCountryCode, getKeywordLocationParts } from "../../utils/scraperHelpers";
 import { DEVICE_MOBILE } from "../../utils/constants";
 import { computeMapPackTop3 } from "../../utils/mapPack";
+import { isGoogleRedirectUrl } from "../../utils/resolveGoogleLinks";
 
 interface PrismCrawlResult {
   type: string;
   title?: string;
   url?: string;
+  /** Bare domain of the result; set even when `url` is a Google redirect link */
+  domain?: string;
   rank?: number;
   position?: { absolute?: number };
 }
@@ -73,6 +76,8 @@ const prismcrawl: ScraperSettings = {
         title: item.title as string,
         url: item.url as string,
         position: item.position?.absolute ?? item.rank ?? index + 1,
+        // An unresolved google.com/goto link cannot be matched to a domain, so keep the result's own domain as a fallback
+        ...(isGoogleRedirectUrl(item.url) && item.domain ? { fallbackUrl: `https://${item.domain}/` } : {}),
       }));
 
     const businessName = (settings as ExtendedSettings)?.business_name ?? null;
