@@ -358,14 +358,14 @@ export const deleteDomain = async (req: NextApiRequest, res: NextApiResponse) =>
 };
 
 /**
- * Copies the scrape_strategy, scrape_pagination_limit and scrape_smart_full_fallback fields from the payload
+ * Copies the scrape_strategy and scrape_pagination_limit fields from the payload
  * into updates. A field is only written when it is present in the payload, and invalid values are dropped
  * (strategy falls back to '', pagination is clamped to 0-10).
  */
 const applyScrapeOptionUpdates = (payload: Partial<DomainSettings>, updates: Partial<Domain>): void => {
-   const { scrape_strategy, scrape_pagination_limit, scrape_smart_full_fallback } = payload;
+   const { scrape_strategy, scrape_pagination_limit } = payload;
    if (Object.prototype.hasOwnProperty.call(payload, 'scrape_strategy')) {
-      const validStrategies: Array<ScrapeStrategy | ''> = ['', 'basic', 'custom', 'smart'];
+      const validStrategies: Array<ScrapeStrategy | ''> = ['', 'basic', 'custom'];
       const strategy = scrape_strategy || '';
       updates.scrape_strategy = validStrategies.includes(strategy as ScrapeStrategy | '') ? strategy : '';
    }
@@ -373,11 +373,6 @@ const applyScrapeOptionUpdates = (payload: Partial<DomainSettings>, updates: Par
       if (typeof scrape_pagination_limit === 'number' && Number.isFinite(scrape_pagination_limit)) {
          const clampedLimit = Math.min(10, Math.max(0, scrape_pagination_limit));
          updates.scrape_pagination_limit = clampedLimit;
-      }
-   }
-   if (Object.prototype.hasOwnProperty.call(payload, 'scrape_smart_full_fallback')) {
-      if (typeof scrape_smart_full_fallback === 'boolean') {
-         updates.scrape_smart_full_fallback = scrape_smart_full_fallback;
       }
    }
 };

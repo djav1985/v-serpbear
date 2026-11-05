@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file. Releases no
 3. **Committed secrets:** Secrets that were committed in `data/settings.json` remain in git history. If this repository was ever shared or made public, rotate `SECRET`, `APIKEY`, login passwords, SMTP credentials, and Search Console and Google Ads keys.
 
 ### Added
+- Added `usesResultOffset` for scrapers that page by result offset (`start`): each page now starts after the results already returned, so short pages no longer skip results (PrismCrawl, SerpApi, HasData, Serply).
 - Read-only MCP server at `POST /api/mcp` (Streamable HTTP, stateless) with six tools: `get_keyword`, `list_keywords`, `list_domains`, `get_searchconsole`, `get_insight` and `get_keyword_ideas`. It uses the same `Authorization: Bearer <APIKEY>` header as the REST API.
 
 ### Changed
@@ -26,6 +27,10 @@ All notable changes to this project will be documented in this file. Releases no
 - Passwords, secrets, OAuth `code`/`state` values and other sensitive query values are redacted from logs, and raw usernames are no longer logged.
 - `/api/domain` masks saved Search Console credentials the same way `/api/domains` does.
 - `docker-compose.yml` and `.env.example` no longer contain committed secrets; `SECRET` and `APIKEY` must be set in `.env` or the shell.
+
+### Changed
+- Removed the **Smart** scrape strategy and its Full Fallback option: it estimated pages from the last position, which drifts when the map pack takes organic slots. Existing Smart settings (per domain, and the global setting in `data/settings.json`) are migrated to **Basic** (page 1 only).
+- A page 1 with local results but no organic results now records the map pack and reports position 0 instead of keeping the old map pack value.
 
 ### Features
 - Added a Settings action to immediately retry all keywords in the failed retry queue.

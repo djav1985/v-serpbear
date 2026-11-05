@@ -15,6 +15,7 @@ const serpapi: ScraperSettings = {
   website: "serpapi.com",
   allowsCity: true,
   supportsMapPack: true,
+  usesResultOffset: true,
   headers: (_keyword: KeywordType, settings: SettingsType) => ({
     "Content-Type": "application/json",
     "X-API-Key": settings.scraping_api,

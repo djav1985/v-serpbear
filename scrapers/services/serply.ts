@@ -40,6 +40,7 @@ const serply:ScraperSettings = {
    },
    resultObjectKey: 'result',
    supportsMapPack: true,
+   usesResultOffset: true,
    serpExtractor: ({ result, response, settings }) => {
       const extractedResult = [];
       let results: SerplyResult[] = [];

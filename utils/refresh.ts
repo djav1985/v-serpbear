@@ -103,7 +103,7 @@ type KeywordRefreshPartition = {
 };
 
 /** Domain columns the refresh pipeline reads. Loaded once per cron run and passed down. */
-export const DOMAIN_REFRESH_ATTRIBUTES = ['domain', 'scrapeEnabled', 'scraper_settings', 'business_name', 'scrape_strategy', 'scrape_pagination_limit', 'scrape_smart_full_fallback'];
+export const DOMAIN_REFRESH_ATTRIBUTES = ['domain', 'scrapeEnabled', 'scraper_settings', 'business_name', 'scrape_strategy', 'scrape_pagination_limit'];
 
 const domainNameOf = (record: Domain): string => (record.get({ plain: true }) as { domain: string }).domain;
 
@@ -299,7 +299,6 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
          domainStrategyMap.set(normalizedDomain.domain, {
             scrape_strategy: (domainPlain.scrape_strategy || '') as ScrapeStrategy | '',
             scrape_pagination_limit: domainPlain.scrape_pagination_limit || 0,
-            scrape_smart_full_fallback: domainPlain.scrape_smart_full_fallback || false,
          });
 
          // The scraper override is stored encrypted, so it needs the secret. The business name is plain text

@@ -125,7 +125,7 @@ describe('serializeError', () => {
 describe('getSerp', () => {
   it('returns the highest-ranking (lowest position number) match when the domain appears on multiple pages', () => {
     const results: Array<{ title: string; url: string; position: number }> = [
-      { position: 45, url: 'https://example.com/page-a', title: '' }, // from page 5, scraped first (smart strategy)
+      { position: 45, url: 'https://example.com/page-a', title: '' }, // from page 5, scraped first
       { position: 50, url: 'https://other.com/x', title: '' },
       { position: 15, url: 'https://example.com/page-b', title: '' }, // from page 2, scraped later
       { position: 20, url: 'https://other.com/y', title: '' },
