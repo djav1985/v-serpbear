@@ -198,6 +198,7 @@ describe('CSV payload formatting', () => {
       position: 0,
       url: 'https://example.com/path,1',
       location: 'Austin, Texas, United States',
+      country: 'US',
       device: 'desktop',
       lastUpdated: '2024-01-01',
       added: '2024-01-02',
@@ -213,7 +214,7 @@ describe('CSV payload formatting', () => {
 
     const payload = createKeywordCsvPayload([keyword], 'example.com');
     expect(payload).not.toBeNull();
-    expect(payload!.header).toBe('ID,Keyword,Position,URL,Location,Device,Updated,Added,Tags\r\n');
+    expect(payload!.header).toBe('ID,Keyword,Position,URL,Country,Location,Device,Updated,Added,Tags\r\n');
 
     const [row] = payload!.body.trim().split('\n');
     const parsedRow = parseCsvRow(row);
@@ -222,8 +223,9 @@ describe('CSV payload formatting', () => {
     expect(parsedRow[1]).toBe('hello, "world"');
     expect(parsedRow[2]).toBe('-');
     expect(parsedRow[3]).toBe('https://example.com/path,1');
-    expect(parsedRow[4]).toBe('Austin, Texas, United States');
-    expect(parsedRow[8]).toBe('tag,one,tag"two');
+    expect(parsedRow[4]).toBe('United States');
+    expect(parsedRow[5]).toBe('Austin, Texas, United States');
+    expect(parsedRow[9]).toBe('tag,one,tag"two');
   });
 
   it('escapes keyword idea exports and preserves quotes and commas', () => {

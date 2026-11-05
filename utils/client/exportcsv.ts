@@ -41,7 +41,7 @@ export const createKeywordCsvPayload = (
    if (!keywords || (Array.isArray(keywords) && keywords.length === 0)) { return null; }
 
    const isSCKeywords = !!(keywords && keywords[0] && (keywords[0] as SCKeywordType).uid);
-   let csvHeader = 'ID,Keyword,Position,URL,Location,Device,Updated,Added,Tags\r\n';
+   let csvHeader = 'ID,Keyword,Position,URL,Country,Location,Device,Updated,Added,Tags\r\n';
    let csvBody = '';
    let fileName = `${domain}-keywords_serp.csv`;
 
@@ -64,6 +64,7 @@ export const createKeywordCsvPayload = (
          keywordData.keyword,
          keywordData.position === 0 ? '-' : keywordData.position,
          keywordData.url || '-',
+         getCountryLabel(keywordData.country),
          keywordData.location || '-',
          keywordData.device,
          keywordData.lastUpdated,
