@@ -212,7 +212,7 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
                               <div
                               ref={domainExist ? searchResultFound : null}
                               className={`leading-6 mb-4 mr-3 p-3 text-sm break-all pr-3 rounded 
-                              ${domainExist ? ' bg-amber-50 border border-amber-200' : ''}`}
+                              ${domainExist ? ' bg-green-50 border border-green-200' : ''}`}
                               key={seg.item.url + seg.item.position}>
                                  <h4 className='font-semibold text-blue-700'>
                                     <a href={seg.item.url} target="_blank" rel='noreferrer'>{`${seg.item.position}. ${seg.item.title}`}</a>

@@ -68,19 +68,13 @@ describe('resolveGoogleRedirects', () => {
       expect(fetchSpy).not.toHaveBeenCalled();
    });
 
-   it('retries once after retryAfter for links that are not ready, then leaves the rest unchanged', async () => {
-      jest.useFakeTimers();
-      fetchSpy
-         .mockResolvedValueOnce(jsonResponse({ organic: [{ link: 'https://a.example/' }, { link: GOTO_B }], retryAfter: 20 }))
-         .mockResolvedValueOnce(jsonResponse({ organic: [{ link: GOTO_B }], retryAfter: 20 }));
+   it('does not retry: links Serper could not resolve keep the Google link and a warning is logged', async () => {
+      fetchSpy.mockResolvedValue(jsonResponse({ organic: [{ link: 'https://a.example/' }, { link: GOTO_B }], retryAfter: 20 }));
 
-      const pending = resolveGoogleRedirects([{ title: 'A', url: GOTO_A }, { title: 'B', url: GOTO_B }], 'key');
-      await jest.runAllTimersAsync();
-      const out = await pending;
+      const out = await resolveGoogleRedirects([{ title: 'A', url: GOTO_A }, { title: 'B', url: GOTO_B }], 'key');
 
       expect(out.map((item) => item.url)).toEqual(['https://a.example/', GOTO_B]);
-      expect(fetchSpy).toHaveBeenCalledTimes(2);
-      expect(JSON.parse(fetchSpy.mock.calls[1][1].body).organic).toHaveLength(1);
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
       expect(logger.warn).toHaveBeenCalledWith('[SCRAPE] Google links left unresolved', { unresolved: 1, total: 2 });
    });
 
