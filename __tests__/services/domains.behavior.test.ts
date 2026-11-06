@@ -23,23 +23,11 @@ describe('domains service environment toggle', () => {
       jest.resetModules();
    });
 
-   it('enables screenshots by default', () => {
-      let screenshotsEnabled: boolean | undefined;
-      jest.isolateModules(() => {
-         const mod = require('../../services/domains');
-         screenshotsEnabled = mod.SCREENSHOTS_ENABLED;
-      });
-      expect(screenshotsEnabled).toBe(true);
-   });
-
-   it('disables screenshot fetching when NEXT_PUBLIC_SCREENSHOTS is false', async () => {
-      process.env = { ...originalEnv, NEXT_PUBLIC_SCREENSHOTS: 'false' };
-      jest.resetModules();
-
+   it('disables screenshot fetching when the runtime screenshots flag is false', async () => {
       let fetchDomainScreenshot: FetchDomainScreenshot | undefined;
       jest.isolateModules(() => {
          const mod = require('../../services/domains');
-         expect(mod.SCREENSHOTS_ENABLED).toBe(false);
+         mod.setRuntimeScreenshotsEnabled(false);
          fetchDomainScreenshot = mod.fetchDomainScreenshot;
       });
 

@@ -48,7 +48,9 @@ const resolveSettingsError = (
    if (domainSettings.scraper_settings?.scraper_type) {
       const hasInput = typeof domainSettings.scraper_settings.scraping_api === 'string'
          && domainSettings.scraper_settings.scraping_api.trim().length > 0;
-      if (!hasInput && !hasStoredScraperKey) {
+      // "Remove stored key" leaves the field blank on purpose: the save sends clear_api_key
+      const isClearingKey = domainSettings.scraper_settings.clear_api_key === true;
+      if (!hasInput && !hasStoredScraperKey && !isClearingKey) {
          return { type: 'scraper', msg: 'API key is required for the selected scraper.' };
       }
    }

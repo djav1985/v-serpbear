@@ -3,28 +3,24 @@ import toast from 'react-hot-toast';
 import { useMutation, useQuery, useQueryClient, QueryClient, QueryKey } from 'react-query';
 import { apiGet, apiPost, apiPut, apiDelete } from '../utils/client/apiClient';
 import { showQueryErrorToast } from './queryErrorToast';
-import { parseEnvFlag } from '../utils/dbBooleans';
 
 type UpdatePayload = {
    domainSettings: Partial<DomainSettings>,
    domain: DomainType
 };
 
-// Build-time fallback only. NEXT_PUBLIC_* values are inlined at build, so the effective
-// value comes from the runtime branding config (see setRuntimeScreenshotsEnabled) once loaded.
-export const SCREENSHOTS_ENABLED = parseEnvFlag(process.env.NEXT_PUBLIC_SCREENSHOTS);
-
+// The effective value comes from the runtime branding config (see setRuntimeScreenshotsEnabled) once loaded.
 let runtimeScreenshotsEnabled: boolean | undefined;
 
 /**
  * Stores the runtime screenshots flag served by /api/branding/config.
- * Pass undefined to fall back to the build-time SCREENSHOTS_ENABLED value.
+ * Pass undefined to go back to the default (enabled) until the config loads.
  */
 export const setRuntimeScreenshotsEnabled = (value: boolean | undefined) => {
    runtimeScreenshotsEnabled = typeof value === 'boolean' ? value : undefined;
 };
 
-const isScreenshotsEnabled = () => runtimeScreenshotsEnabled ?? SCREENSHOTS_ENABLED;
+const isScreenshotsEnabled = () => runtimeScreenshotsEnabled ?? true;
 
 const normalizeDomainPatch = (
    patch: Partial<DomainSettings>,

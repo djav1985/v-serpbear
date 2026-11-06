@@ -4,21 +4,14 @@ All notable changes to this project will be documented in this file. Releases no
 
 ## [Unreleased]
 
-### Upgrade notes
-
-- `CRON_MAIN_SCHEDULE` and `CRON_EMAIL_SCHEDULE` are now times of day (`HH:MM`, 24 hour, defaults `00:00` and `06:00`) instead of cron expressions, and `CRON_FAILED_SCHEDULE` is now `hourly` (default), `daily` or `never`. An old cron expression is ignored with a warning and the default is used, so update your `.env` and compose file.
-
-### Changed
-
-- The scrape intervals (`daily`, `other_day`, `weekly`, `monthly`) all run at the `CRON_MAIN_SCHEDULE` time instead of a fixed midnight, and the digests run at the `CRON_EMAIL_SCHEDULE` time. Failed-scrape retries can run daily at the main time, or be turned off. Removed the hidden `hourly` scrape interval; a stored `hourly` value now runs daily.
-- Serper is now targeted by country only: it no longer sends the stored city location, and the State and City fields are not offered for it. Existing keywords with a city are checked at country level. SerpApi sends its key only as the `api_key` query parameter, not also as an `X-API-Key` header, and Serply now sends `gl`.
-
 ## [5.0.0] (2026-11-06)
 
 ### Upgrade notes
 1. **Timezone shift:** Dates now follow `CRON_TIMEZONE`. If the server previously ran in UTC, the day boundary shifts once on the changeover day. Old history keys are not re-keyed.
 2. **Runtime data files:** On `main`, `data/settings.json`, `data/failed_queue.json`, `data/session.json` and `data/SC_*.json` are tracked by git. This branch untracks them (`.gitignore` ignores `data/*` except `.gitkeep`), so pulling or merging it can delete your local copies. Back up `data/` before pulling. The database is also backed up to `<db>.bak-<date>` before duplicate keywords are removed.
 3. **Committed secrets:** Secrets that were committed in `data/settings.json` remain in git history. If this repository was ever shared or made public, rotate `SECRET`, `APIKEY`, login passwords, SMTP credentials, and Search Console and Google Ads keys.
+4. **Cron settings:** `CRON_MAIN_SCHEDULE` and `CRON_EMAIL_SCHEDULE` are now times of day (`HH:MM`, 24 hour, defaults `00:00` and `06:00`) instead of cron expressions, and `CRON_FAILED_SCHEDULE` is now `hourly` (default), `daily` or `never`. An old cron expression is ignored with a warning and the default is used, so update your `.env` and compose file.
+5. **Screenshots setting:** `NEXT_PUBLIC_SCREENSHOTS` is removed. Use `SCREENSHOTS` (default `true`; `false` shows favicons instead of thum.io thumbnails). If you set `NEXT_PUBLIC_SCREENSHOTS=false`, change it to `SCREENSHOTS=false`.
 
 ### Added
 - Added optional `SERPER_API_KEY` (passed through `docker-compose.yml`): organic results that are `google.com/goto` links for any scraper are resolved to real URLs with Serper's free `/resolve` endpoint, with one lookup per link and no retries. Failures are logged as warnings and leave the link unchanged.
@@ -60,6 +53,9 @@ All notable changes to this project will be documented in this file. Releases no
 - The domain Active toggle moved to the Scraper tab of Domain Settings, and the Notification tab says that a blank address turns email off for that domain.
 - Deleting a domain while it is being refreshed returns `409` instead of hanging.
 
+- The scrape intervals (`daily`, `other_day`, `weekly`, `monthly`) all run at the `CRON_MAIN_SCHEDULE` time instead of a fixed midnight, and the digests run at the `CRON_EMAIL_SCHEDULE` time. Failed-scrape retries can run daily at the main time, or be turned off. Removed the hidden `hourly` scrape interval; a stored `hourly` value now runs daily.
+- Serper is now targeted by country only: it no longer sends the stored city location, and the State and City fields are not offered for it. Existing keywords with a city are checked at country level. SerpApi sends its key only as the `api_key` query parameter, not also as an `X-API-Key` header, and Serply now sends `gl`.
+- Fixed review findings: the Insight tab's keyword, page and country totals are now computed in one pass, so a 25,000-row Search Console window no longer blocks the server for seconds. "Remove stored key" on a domain scraper can now be saved without typing a new key.
 ### Fixed
 - The Scraping Frequency, Keyword Scrape Delay and Notification Frequency settings no longer say they need a server or Docker restart: changes to the scrape and notification schedules are applied live by the cron worker, and the scrape delay is read on every refresh.
 - A domain scraper override without its own key no longer sends the global scraper's API key to a different provider.

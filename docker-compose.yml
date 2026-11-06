@@ -13,35 +13,44 @@ services:
       - path: ./.env
         required: false
     environment:
+      # --- Authentication and security ---
       - SECRET=${SECRET:-}
       - APIKEY=${APIKEY:-}
       - SESSION_DURATION=${SESSION_DURATION:-24}
       # Number of reverse proxies in front of the app (see README). Unset means 0, the socket address is used.
       - TRUST_PROXY=${TRUST_PROXY:-0}
-      # Thum.io thumbnail capture; false disables those requests. Read at request time, no rebuild needed.
-      # SCREENSHOTS is the preferred name and takes precedence over NEXT_PUBLIC_SCREENSHOTS.
-      - SCREENSHOTS=${SCREENSHOTS:-true}
-      - NEXT_PUBLIC_SCREENSHOTS=${NEXT_PUBLIC_SCREENSHOTS:-true}
-      - NEXT_PUBLIC_WHITE_LABEL=${NEXT_PUBLIC_WHITE_LABEL:-false}
-      # File name (stored in /app/data) for the white-label logo. Recommended dimensions: 96x96 pixels.
-      - WHITE_LABEL_LOGO_FILE=${WHITE_LABEL_LOGO_FILE:-branding-logo.png}
-      - NEXT_PUBLIC_PLATFORM_NAME=${NEXT_PUBLIC_PLATFORM_NAME:-SerpBear}
-      - SEARCH_CONSOLE_CLIENT_EMAIL=${SEARCH_CONSOLE_CLIENT_EMAIL:-}
-      - SEARCH_CONSOLE_PRIVATE_KEY=${SEARCH_CONSOLE_PRIVATE_KEY:-}
+
+      # --- App URLs ---
       # Public URL used for OAuth redirects and email links. Set this to your real deployment URL in .env.
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
       # Optional. Internal origin the cron worker uses to call the app (for example http://localhost:3000 when the
       # public URL is not reachable from inside the container). When empty, NEXT_PUBLIC_APP_URL is used.
       - APP_URL=${APP_URL:-}
+
+      # --- Interface and branding ---
+      # Thum.io thumbnail capture; false disables those requests. Read at request time, no rebuild needed.
+      - SCREENSHOTS=${SCREENSHOTS:-true}
+      - NEXT_PUBLIC_WHITE_LABEL=${NEXT_PUBLIC_WHITE_LABEL:-false}
+      # File name (stored in /app/data) for the white-label logo. Recommended dimensions: 96x96 pixels.
+      - WHITE_LABEL_LOGO_FILE=${WHITE_LABEL_LOGO_FILE:-branding-logo.png}
+      - NEXT_PUBLIC_PLATFORM_NAME=${NEXT_PUBLIC_PLATFORM_NAME:-SerpBear}
+
+      # --- Scheduling ---
       - CRON_TIMEZONE=${CRON_TIMEZONE:-America/New_York}
       - TZ=${CRON_TIMEZONE:-America/New_York}
       - CRON_MAIN_SCHEDULE=${CRON_MAIN_SCHEDULE:-00:00}
       - CRON_FAILED_SCHEDULE=${CRON_FAILED_SCHEDULE:-hourly}
       - CRON_EMAIL_SCHEDULE=${CRON_EMAIL_SCHEDULE:-06:00}
+
+      # --- Scraping and performance ---
       - REFRESH_QUEUE_CONCURRENCY=${REFRESH_QUEUE_CONCURRENCY:-3}
       - PARALLEL_SCRAPE_CONCURRENCY=${PARALLEL_SCRAPE_CONCURRENCY:-3}
       # Optional. Free Serper API key used to turn google.com/goto result links into real URLs (serper.dev).
       - SERPER_API_KEY=${SERPER_API_KEY:-}
+
+      # --- Google integrations ---
+      - SEARCH_CONSOLE_CLIENT_EMAIL=${SEARCH_CONSOLE_CLIENT_EMAIL:-}
+      - SEARCH_CONSOLE_PRIVATE_KEY=${SEARCH_CONSOLE_PRIVATE_KEY:-}
     volumes:
       - data:/app/data
 

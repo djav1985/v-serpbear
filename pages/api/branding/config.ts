@@ -11,8 +11,7 @@ export type BrandingConfigResponse = ReturnType<typeof getBranding> & { screensh
 type BrandingResponse = BrandingConfigResponse;
 
 // Read at request time (not build time) so docker-compose env changes take effect without a rebuild.
-// SCREENSHOTS is the runtime name; NEXT_PUBLIC_SCREENSHOTS is still honoured for existing setups.
-const isScreenshotsEnabled = (): boolean => parseEnvFlag(process.env.SCREENSHOTS || process.env.NEXT_PUBLIC_SCREENSHOTS);
+const isScreenshotsEnabled = (): boolean => parseEnvFlag(process.env.SCREENSHOTS);
 
 const handler = (req: NextApiRequest, res: NextApiResponse<BrandingResponse | ReturnType<typeof errorResponse>>) => {
    const requestId = (req as ExtendedRequest).requestId;

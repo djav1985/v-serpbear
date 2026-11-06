@@ -171,6 +171,17 @@ describe('Insight Functions', () => {
       expect(spaced?.position).toBe(3);
       expect(underscored?.clicks).toBe(1);
       expect(underscored?.position).toBe(6);
+
+      // Large Search Console windows (25,000 distinct queries and pages) are aggregated in a single pass
+      const largeRows = Array.from({ length: 25000 }, (_, i) => ({
+        keyword: `kw ${i}`, uid: `us:desktop:${i}`, device: 'desktop', country: i % 2 ? 'US' : 'CA', clicks: 1, impressions: 2, ctr: 5, position: 3, page: `/p${i}`,
+      }));
+      const large: SCDomainDataType = { ...data, threeDays: largeRows as SCDomainDataType['threeDays'] };
+      const startedAt = Date.now();
+      expect(getKeywordsInsight(large, 'clicks', 'threeDays')).toHaveLength(25000);
+      expect(getPagesInsight(large, 'clicks', 'threeDays')).toHaveLength(25000);
+      expect(getCountryInsight(large, 'clicks', 'threeDays')).toHaveLength(2);
+      expect(Date.now() - startedAt).toBeLessThan(2000);
     });
 
     it('should handle null/undefined values in data', () => {
