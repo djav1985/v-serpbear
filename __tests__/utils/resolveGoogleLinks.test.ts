@@ -68,38 +68,61 @@ describe('resolveGoogleRedirects', () => {
       expect(fetchSpy).not.toHaveBeenCalled();
    });
 
-   it('does not retry: links Serper could not resolve keep the Google link and a warning is logged', async () => {
-      fetchSpy.mockResolvedValue(jsonResponse({ organic: [{ link: 'https://a.example/' }, { link: GOTO_B }], retryAfter: 20 }));
+   it('sends unresolved links once more after waiting retryAfter seconds, and keeps the Google link if still unresolved', async () => {
+      jest.useFakeTimers();
+      fetchSpy
+         .mockResolvedValueOnce(jsonResponse({ organic: [{ link: 'https://a.example/' }, { link: GOTO_B }], retryAfter: 20 }))
+         .mockResolvedValueOnce(jsonResponse({ organic: [{ link: GOTO_B }] }));
 
-      const out = await resolveGoogleRedirects([{ title: 'A', url: GOTO_A }, { title: 'B', url: GOTO_B }], 'key');
+      const promise = resolveGoogleRedirects([{ title: 'A', url: GOTO_A }, { title: 'B', url: GOTO_B }], 'key');
+      await jest.advanceTimersByTimeAsync(19000);
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      await jest.advanceTimersByTimeAsync(1000);
+      const out = await promise;
 
       expect(out.map((item) => item.url)).toEqual(['https://a.example/', GOTO_B]);
-      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      expect(JSON.parse(fetchSpy.mock.calls[1][1].body)).toEqual({ organic: [{ title: 'B', link: GOTO_B }] });
       expect(logger.warn).toHaveBeenCalledWith('[SCRAPE] Google links left unresolved', { unresolved: 1, total: 2 });
+   });
+
+   it('uses a 30 second timeout per call', async () => {
+      const timeoutSpy = jest.spyOn(AbortSignal, 'timeout');
+      fetchSpy.mockResolvedValue(jsonResponse({ organic: [{ link: 'https://a.example/' }] }));
+      await resolveGoogleRedirects([{ title: 'A', url: GOTO_A }], 'key');
+      expect(timeoutSpy).toHaveBeenCalledWith(30000);
+      timeoutSpy.mockRestore();
+   });
+
+   it('tries a timed out call once more, then gives up without throwing', async () => {
+      const items = [{ title: 'A', url: GOTO_A }];
+      fetchSpy.mockRejectedValue(new Error('timeout'));
+      await expect(resolveGoogleRedirects(items, 'key')).resolves.toEqual(items);
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+
+      fetchSpy.mockReset();
+      fetchSpy.mockRejectedValueOnce(new Error('timeout')).mockResolvedValueOnce(jsonResponse({ organic: [{ link: 'https://a.example/' }] }));
+      expect((await resolveGoogleRedirects(items, 'key'))[0].url).toBe('https://a.example/');
    });
 
    it.each([
       ['an HTTP error', () => fetchSpy.mockResolvedValue(jsonResponse({}, 401))],
-      ['a network error or timeout', () => fetchSpy.mockRejectedValue(new Error('timeout'))],
       ['a response with the wrong shape', () => fetchSpy.mockResolvedValue(jsonResponse({ organic: [] }))],
       ['an unreadable response', () => fetchSpy.mockResolvedValue({ ok: true, status: 200, json: async () => { throw new Error('bad json'); } } as unknown as Response)],
-   ])('leaves the links unchanged on %s, never throws, and tries again on the next call', async (_name, arrange) => {
+   ])('leaves the links unchanged on %s, tries once more, and never throws', async (_name, arrange) => {
       arrange();
       const items = [{ title: 'A', url: GOTO_A }];
 
       await expect(resolveGoogleRedirects(items, 'key')).resolves.toEqual(items);
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
       expect(logger.warn).toHaveBeenCalled();
-
-      // No pause: the next page gets its own attempt
-      fetchSpy.mockClear();
-      await expect(resolveGoogleRedirects(items, 'key')).resolves.toEqual(items);
-      expect(fetchSpy).toHaveBeenCalledTimes(1);
    });
 
-   it('does not accept a Google link as the answer', async () => {
+   it('does not accept a Google link as the answer, and tries once more', async () => {
       fetchSpy.mockResolvedValue(jsonResponse({ organic: [{ link: 'https://www.google.com/goto?url=CAESstill' }] }));
       const items = [{ title: 'A', url: GOTO_A }];
 
       expect(await resolveGoogleRedirects(items, 'key')).toEqual(items);
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
    });
 });

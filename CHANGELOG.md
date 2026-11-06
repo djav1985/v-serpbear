@@ -14,7 +14,7 @@ All notable changes to this project will be documented in this file. Releases no
 5. **Screenshots setting:** `NEXT_PUBLIC_SCREENSHOTS` is removed. Use `SCREENSHOTS` (default `true`; `false` shows favicons instead of thum.io thumbnails). If you set `NEXT_PUBLIC_SCREENSHOTS=false`, change it to `SCREENSHOTS=false`.
 
 ### Added
-- Added optional `SERPER_API_KEY` (passed through `docker-compose.yml`): organic results that are `google.com/goto` links for any scraper are resolved to real URLs with Serper's free `/resolve` endpoint, with one lookup per link and no retries. Failures are logged as warnings and leave the link unchanged.
+- Added optional `SERPER_API_KEY` (passed through `docker-compose.yml`): organic results that are `google.com/goto` links for any scraper are resolved to real URLs with Serper's free `/resolve` endpoint, with a 30 second timeout per call. A failed or timed-out call is tried once more, and links that come back unresolved are sent once more after the `retryAfter` seconds Serper reports. Anything still unresolved is logged as a warning and keeps the Google link.
 - PrismCrawl organic results that come back as Google redirect links (`google.com/goto?url=...`) now use the result's own `domain` as the URL, so the tracked domain can be matched. A link with no domain stays a `goto` link unless `SERPER_API_KEY` is set (see the entry above).
 - CrazySERP now reports map pack results from its `locations` block (title and `website_url`) and matches the top 3 against the domain's business name.
 - Added `usesResultOffset` for scrapers that page by result offset (`start`): each page now starts after the results already returned, so short pages no longer skip results (PrismCrawl, SerpApi, HasData, Serply).
