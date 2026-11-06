@@ -9,6 +9,12 @@ These pages live in the `docs/` folder of the [main repository](https://github.c
 - [Installation](Installation): run it with Docker, sign in, and update it
 - [Configuration](Configuration): every environment variable and setting
 
+## Deployment
+
+- [Deployment overview](Deployment): which guide to follow
+- [Docker](Deploy-with-Docker), [Node.js](Deploy-with-Node.js), [Reverse Proxy and SSL](Reverse-Proxy-and-SSL)
+- [Coolify](Deploy-to-Coolify) and [Fly.io](Deploy-to-Fly.io)
+
 ## Using SerpBear
 
 - [Scrapers](Scrapers): the supported SERP providers, per-domain scrapers and the scrape strategy
