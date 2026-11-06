@@ -117,6 +117,8 @@ Back up `data/` first. With Docker, run `docker compose pull && docker compose u
 > \*Pricing is indicative. Check each vendor before buying. The request formats are implemented in [`scrapers/services`](./scrapers/services).
 Each page request asks for 10 results. The [scrape strategy](#scrape-strategy) sets how many pages are fetched.
 
+
+
 ### Settings configured in `docker-compose.yml ENVs`
 
 Behaviour is controlled by environment variables inside docker compose as well as in app settings.
