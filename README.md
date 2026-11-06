@@ -63,6 +63,13 @@ The full list of changes is in the [changelog](./CHANGELOG.md). See [Update Serp
 
 <br><br>
 
+**Feature roadmap**
+
+- [ ] **Multi-user support.** More than one login, instead of the single `USER` and `PASSWORD`.
+- [ ] **Domain-specific users.** Give a user access to only the domains you choose.
+
+<br><br>
+
 **Core capabilities**
 
 | Capability | Details |
