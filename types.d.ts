@@ -333,6 +333,12 @@ interface ScraperSettings {
     */
    usesResultOffset?: boolean,
    /**
+    * Set to true when the provider cannot request mobile results, so a mobile keyword gets the same
+    * (desktop) results as its desktop twin. A refresh then reuses the desktop result for a matching
+    * mobile keyword instead of scraping it again.
+    */
+   reusesDesktopForMobile?: boolean,
+   /**
     * Optional timeout override in milliseconds for this scraper.
     * If not provided, the default timeout logic will be used.
     * Useful for scrapers that require longer response times (e.g., ValueSerp).

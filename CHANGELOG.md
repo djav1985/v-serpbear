@@ -34,7 +34,7 @@ All notable changes to this project will be documented in this file. Releases no
 - Fixed the scrape delay setting: it now offers No Delay, 5, 10 and 30 seconds (the minute options were silently capped at 30 seconds). A saved value above 30 seconds still applies as 30 seconds.
 - Fixed the hourly failed-scrape retry job: it now does nothing unless Auto Retry is on. The daily notification job skips the digest when no SMTP server is set instead of failing with a 400 each run.
 - Fixed the add-keywords dialogs: the button shows "Adding..." and is disabled while the request runs, so a double click cannot submit twice.
-- Serper has no device option, so a warning is now logged for every mobile keyword (desktop results are used).
+- Serper has no device option. A mobile keyword whose matching desktop keyword (same domain, keyword, country and location) is in the same refresh now takes the desktop result without its own request. Any other mobile keyword is still scraped with desktop results and a warning is logged for each one.
 - `docker-compose.yml` now passes `SCREENSHOTS` and `TRUST_PROXY` (default `0`), and its comment about `SECRET` and `APIKEY` is corrected (nothing checks them at startup). `zod` is now a declared dependency.
 - Emails without `NEXT_PUBLIC_APP_URL` use the default logo instead of a broken relative URL. Business-name matching ignores accents. Search Console data is read in pages of 25,000 rows instead of stopping at 1000. The ideas "no results" message no longer mentions a volume minimum.
 - Every writer of `settings.json` (including the Google Ads callback) now strips the removed keys.

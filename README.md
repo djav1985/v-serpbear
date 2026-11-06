@@ -130,7 +130,7 @@ Back up `data/` first. With Docker, run `docker compose pull && docker compose u
 | SerpApi (`serpapi`) | Free 250/mo, plans from $75/mo | City | Yes | Yes | Query `api_key` and header `X-API-Key` |
 | SearchApi (`searchapi`) | Plans from $40/mo | City | Yes | Yes | Query `api_key` |
 | ValueSerp (`valueserp`) | Pay-as-you-go, 10,000 for $25 | City | Yes | Yes | Query `api_key` |
-| Serper (`serper`) | Credit-based, 50,000 for $50 | City | No | No (desktop results, warning logged) | Query `apiKey` |
+| Serper (`serper`) | Credit-based, 50,000 for $50 | City | No | No (desktop results; see below) | Query `apiKey` |
 | HasData (`hasdata`) | Free 1,000/mo, plans from $49/mo | City | Yes | Yes | Header `x-api-key` |
 | CrazySERP (`crazyserp`) | Pay-as-you-go | City | Yes (`locations` block) | Yes | Header `Authorization: Bearer` |
 | PrismCrawl (`prismcrawl`) | 100 free credits, packages from $5 (about $0.21 per 1,000, valid 90 days) | City | Yes | Yes | Header `x-api-key` (POST JSON) |
@@ -139,6 +139,8 @@ Back up `data/` first. With Docker, run `docker compose pull && docker compose u
 \*Pricing is indicative. Check each vendor before buying. The request formats are implemented in [`scrapers/services`](./scrapers/services).
 
 Each page request asks for 10 results. The [scrape strategy](#scrape-strategy) sets how many pages are fetched.
+
+Serper has no mobile option. In a refresh, a mobile keyword that has a matching desktop keyword (same domain, keyword, country and location) in the same run is not scraped. It takes the desktop keyword's result, so no extra request is made. A mobile keyword with no matching desktop keyword is scraped with desktop results, and a warning is logged for it.
 
 ### Per-domain scraper overrides
 

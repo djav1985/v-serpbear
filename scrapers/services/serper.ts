@@ -13,6 +13,7 @@ const serper: ScraperSettings = {
   name: "Serper.dev",
   allowsCity: true,
   supportsMapPack: false,
+  reusesDesktopForMobile: true,
   scrapeURL: (keyword, settings, countryData, pagination?: ScraperPagination) => {
     const countryCode = resolveCountryCode(keyword.country);
     const fallbackInfo =

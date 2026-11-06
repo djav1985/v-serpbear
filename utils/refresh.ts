@@ -15,6 +15,8 @@ import { fromDbBool, normalizeToBoolean, toDbBool } from './dbBooleans';
 import normalizeDomainBooleans from './normalizeDomain';
 import { retryQueueManager } from './retryQueueManager';
 import { historyKeyToTime, toHistoryDateKey } from './historyDateKey';
+import allScrapers from '../scrapers/index';
+import { DEVICE_MOBILE } from './constants';
 
 const describeScraperType = (scraperType?: SettingsType['scraper_type']): string => {
    if (!scraperType || scraperType.length === 0) {
@@ -417,16 +419,24 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
       return parallelScrapers.includes(effectiveSettings.scraper_type);
    });
 
+   // Mobile keywords whose desktop twin is in this batch reuse its result instead of being scraped again
+   const { twinsByDesktopId, reusedIds } = buildMobileTwinPlan(eligibleKeywordModels, settings, domainSpecificSettings);
+   if (reusedIds.size > 0) {
+      logger.info('Reusing desktop results for mobile keywords', { count: reusedIds.size });
+   }
+   const scrapeKeywords = keywords.filter((keyword) => !reusedIds.has(keyword.ID));
+   const scrapeModels = eligibleKeywordModels.filter((keyword) => !reusedIds.has(keyword.ID));
+
    try {
       if (canScrapeInParallel) {
          // Parallel scraping: each keyword is updated immediately upon receiving API response
-         const parallelUpdatedKeywords = await refreshParallel(keywords, eligibleKeywordModels, settings, domainSpecificSettings, domainStrategyMap);
+         const parallelUpdatedKeywords = await refreshParallel(scrapeKeywords, scrapeModels, settings, domainSpecificSettings, domainStrategyMap, twinsByDesktopId);
          updatedKeywords.push(...parallelUpdatedKeywords);
       } else {
          // Sequential scraping: each domain's keywords are scraped one at a time, while domains run in parallel.
          const parallelScrapeConcurrency = getParallelScrapeConcurrency();
          const keywordsByDomain = new Map<string, Keyword[]>();
-         for (const keyword of eligibleKeywordModels) {
+         for (const keyword of scrapeModels) {
             const domainKeywords = keywordsByDomain.get(keyword.domain) || [];
             domainKeywords.push(keyword);
             keywordsByDomain.set(keyword.domain, domainKeywords);
@@ -446,14 +456,15 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                      logger.info('Processing keyword refresh', { keywordId: keywordPlain.ID, keyword: keywordPlain.keyword });
                      const domainStrategy = domainStrategyMap.get(domain);
                      await waitForDomainSlot(domain);
-                     const updatedKeyword = await refreshAndUpdateKeyword(
+                     const updatedKeywordsForScrape = await refreshAndUpdateKeyword(
                         keyword,
                         settings,
                         domainSpecificSettings,
                         domainStrategy,
+                        twinsByDesktopId.get(keyword.ID),
                      );
 
-                     updatedKeywords.push(updatedKeyword);
+                     updatedKeywords.push(...updatedKeywordsForScrape);
                   }
                };
 
@@ -508,20 +519,134 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
    return updatedKeywords;
 };
 
+/** Identifies keywords that are the same search apart from the device. */
+const mobileTwinKey = (keyword: KeywordType): string => [
+   keyword.domain,
+   String(keyword.keyword ?? '').trim().toLowerCase(),
+   String(keyword.country ?? '').trim(),
+   String(keyword.location ?? '').trim(),
+].join('\u0000');
+
+/**
+ * Finds mobile keywords that can reuse the result of a desktop keyword in the same batch. Only domains whose
+ * effective scraper sets reusesDesktopForMobile are considered. Each reused mobile keyword is left out of the scrape.
+ */
+const buildMobileTwinPlan = (
+   keywords: Keyword[],
+   settings: SettingsType,
+   domainSpecificSettings: Map<string, SettingsType>,
+): { twinsByDesktopId: Map<number, Keyword[]>; reusedIds: Set<number> } => {
+   const twinsByDesktopId = new Map<number, Keyword[]>();
+   const reusedIds = new Set<number>();
+   const reusingKeywords = keywords.filter((keyword) => {
+      const scraperType = resolveEffectiveSettings(keyword.domain, settings, domainSpecificSettings).scraper_type;
+      return allScrapers.find((scraper: ScraperSettings) => scraper.id === scraperType)?.reusesDesktopForMobile === true;
+   });
+   const plainOf = (keyword: Keyword) => keyword.get({ plain: true }) as KeywordType;
+
+   const desktopByKey = new Map<string, Keyword>();
+   for (const keyword of reusingKeywords) {
+      const plain = plainOf(keyword);
+      if (plain.device !== DEVICE_MOBILE && !desktopByKey.has(mobileTwinKey(plain))) {
+         desktopByKey.set(mobileTwinKey(plain), keyword);
+      }
+   }
+
+   for (const keyword of reusingKeywords) {
+      const plain = plainOf(keyword);
+      if (plain.device !== DEVICE_MOBILE) { continue; }
+      const desktop = desktopByKey.get(mobileTwinKey(plain));
+      if (!desktop) { continue; }
+      reusedIds.add(keyword.ID);
+      const twins = twinsByDesktopId.get(desktop.ID) ?? [];
+      twins.push(keyword);
+      twinsByDesktopId.set(desktop.ID, twins);
+   }
+
+   return { twinsByDesktopId, reusedIds };
+};
+
+/**
+ * Applies a desktop keyword's outcome to its reused mobile twins. A twin that fails to save is still returned
+ * with its updating flag cleared.
+ */
+const applyToMobileTwins = async (
+   twins: Keyword[],
+   apply: (twin: Keyword) => Promise<KeywordType>,
+): Promise<KeywordType[]> => {
+   const results: KeywordType[] = [];
+   for (const twin of twins) {
+      try {
+         results.push(await apply(twin));
+      } catch (error: any) {
+         logger.error('[ERROR] Failed to apply desktop result to reused mobile keyword', error instanceof Error ? error : new Error(String(error)), { keywordId: twin.ID });
+         await clearKeywordUpdatingFlags([twin], 'after reused mobile keyword error', undefined, true, 'refresh-error');
+         results.push(parseKeywords([{ ...twin.get({ plain: true }), updating: toDbBool(false), updatingStartedAt: null }])[0]);
+      }
+   }
+   return results;
+};
+
+/**
+ * Records a failed scrape without data. Clears the updating flag, saves the error and queues a retry when enabled.
+ */
+const persistScrapeFailure = async (
+   keywordRaw: Keyword,
+   effectiveSettings: SettingsType,
+   scraperError: string | false,
+): Promise<KeywordType> => {
+   const currentkeyword = keywordRaw.get({ plain: true });
+   try {
+      const updateData: any = { updating: toDbBool(false), updatingStartedAt: null };
+
+      if (scraperError) {
+         const theDate = new Date();
+         updateData.lastUpdateError = JSON.stringify({
+            date: theDate.toJSON(),
+            error: scraperError,
+            scraper: effectiveSettings.scraper_type,
+         });
+      }
+
+      // Update database to clear flags and persist error details if available.
+      await keywordRaw.update(updateData);
+      logger.info('Keyword updating flag cleared after scraper error', { keywordId: keywordRaw.ID, error: scraperError });
+   } catch (updateError: any) {
+      logger.error('[ERROR] Failed to update keyword error status:', updateError);
+   }
+
+   try {
+      if (effectiveSettings?.scrape_retry) {
+         await queueFailedKeywordForRetry(keywordRaw.ID);
+      } else {
+         await removeFromRetryQueue(keywordRaw.ID);
+      }
+   } catch (queueError: any) {
+      logger.error('[ERROR] Failed to update retry queue for keyword:', queueError, { keywordId: keywordRaw.ID });
+   }
+
+   // Return the current keyword with updated state
+   const updatedKeywordData = { ...currentkeyword, updating: toDbBool(false), updatingStartedAt: null };
+   return parseKeywords([updatedKeywordData])[0];
+};
+
 /**
  * Scrape Serp for given keyword and update the position in DB.
+ * Mobile twins listed in mobileTwins get the same outcome without being scraped.
  * @param {Keyword} keyword - Keywords to scrape
  * @param {SettingsType} settings - The App Settings that contain the Scraper settings
  * @param {Map<string, SettingsType>} domainSpecificSettings - Domain-specific settings
  * @param {Partial<DomainType>} domainStrategy - Optional domain-level scrape strategy overrides
- * @returns {Promise<KeywordType>}
+ * @param {Keyword[]} mobileTwins - Mobile keywords that reuse this keyword's result
+ * @returns {Promise<KeywordType[]>} The keyword first, then its reused mobile twins
  */
 const refreshAndUpdateKeyword = async (
    keyword: Keyword,
    settings: SettingsType,
    domainSpecificSettings: Map<string, SettingsType>,
    domainStrategy?: Partial<DomainType>,
-): Promise<KeywordType> => {
+   mobileTwins: Keyword[] = [],
+): Promise<KeywordType[]> => {
    const currentkeyword = keyword.get({ plain: true });
    const effectiveSettings = resolveEffectiveSettings(currentkeyword.domain, settings, domainSpecificSettings);
    let refreshedkeywordData: RefreshResult | false = false;
@@ -542,45 +667,17 @@ const refreshAndUpdateKeyword = async (
       logger.error('[ERROR] Scraper failed for keyword:', error, { keyword: currentkeyword.keyword, scraperError });
    }
 
-   // Update keyword position or handle error
+   // Update keyword position or handle error, and give the same outcome to each reused mobile twin
    if (refreshedkeywordData) {
       const updatedkeyword = await updateKeywordPosition(keyword, refreshedkeywordData, effectiveSettings);
-      return updatedkeyword;
+      const twinResults = await applyToMobileTwins(mobileTwins, (twin) => updateKeywordPosition(twin, refreshedkeywordData as RefreshResult, effectiveSettings));
+      return [updatedkeyword, ...twinResults];
    }
 
    // Handle error case: set updating to false and save error
-   try {
-      const updateData: any = { updating: toDbBool(false), updatingStartedAt: null };
-
-      if (scraperError) {
-         const theDate = new Date();
-         updateData.lastUpdateError = JSON.stringify({
-            date: theDate.toJSON(),
-            error: scraperError,
-            scraper: effectiveSettings.scraper_type,
-         });
-      }
-
-      // Update database to clear flags and persist error details if available.
-      await keyword.update(updateData);
-      logger.info('Keyword updating flag cleared after scraper error', { keywordId: keyword.ID, error: scraperError });
-   } catch (updateError: any) {
-      logger.error('[ERROR] Failed to update keyword error status:', updateError);
-   }
-
-   try {
-      if (effectiveSettings?.scrape_retry) {
-         await queueFailedKeywordForRetry(keyword.ID);
-      } else {
-         await removeFromRetryQueue(keyword.ID);
-      }
-   } catch (queueError: any) {
-      logger.error('[ERROR] Failed to update retry queue for keyword:', queueError, { keywordId: keyword.ID });
-   }
-
-   // Return the current keyword with updated state
-   const updatedKeywordData = { ...currentkeyword, updating: toDbBool(false), updatingStartedAt: null };
-   return parseKeywords([updatedKeywordData])[0];
+   const failedKeyword = await persistScrapeFailure(keyword, effectiveSettings, scraperError);
+   const failedTwinResults = await applyToMobileTwins(mobileTwins, (twin) => persistScrapeFailure(twin, effectiveSettings, scraperError));
+   return [failedKeyword, ...failedTwinResults];
 };
 
 /** How many times a failed keyword is re-queued before it is dropped from the retry queue */
@@ -851,52 +948,58 @@ const refreshParallel = async (
    settings:SettingsType,
    domainSpecificSettings: Map<string, SettingsType>,
    domainStrategyMap?: Map<string, Partial<DomainType>>,
+   twinsByDesktopId: Map<number, Keyword[]> = new Map(),
 ): Promise<KeywordType[]> => {
    const updatedKeywords: KeywordType[] = [];
    const waitForDomainSlot = createDomainRateGate(getScrapeDelay(settings));
 
    // Create map for quick model lookup by ID
    const modelMap = new Map(keywordModels.map(m => [m.ID, m]));
-   
+
    // Scrape in parallel with a bounded number of in-flight keywords, updating the database immediately
    // upon each response. An unbounded fan-out floods the provider, SQLite and the retry queue lock.
-   const scrapeKeyword = async (keyword: KeywordType): Promise<KeywordType> => {
+   // Returns the keyword first, then its reused mobile twins.
+   const scrapeKeyword = async (keyword: KeywordType): Promise<KeywordType[]> => {
       const effectiveSettings = resolveEffectiveSettings(keyword.domain, settings, domainSpecificSettings);
       const domainStrategy = domainStrategyMap?.get(keyword.domain);
       const keywordModel = modelMap.get(keyword.ID);
-      
+      const mobileTwins = twinsByDesktopId.get(keyword.ID) ?? [];
+
       if (!keywordModel) {
          logger.error('No keyword model found for ID', new Error(`Missing keyword model for keyword ID ${keyword.ID}`), { keywordId: keyword.ID });
-         return keyword;
+         return [keyword];
       }
-      
+
       try {
          await waitForDomainSlot(keyword.domain);
          // Scrape the keyword using the strategy-aware function
          const result = await scrapeKeywordWithStrategy(keyword, effectiveSettings, domainStrategy);
-         
+
          // Immediately update the database with the result
          if (result === false || !result) {
             const errorResult = buildErrorResult(keyword, result === false ? 'Scraper returned no data' : 'Unknown scraper response');
             const updatedKeyword = await updateKeywordPosition(keywordModel, errorResult, effectiveSettings);
-            return updatedKeyword;
+            const twinResults = await applyToMobileTwins(mobileTwins, (twin) => updateKeywordPosition(twin, errorResult, effectiveSettings));
+            return [updatedKeyword, ...twinResults];
          }
-         
+
          // Update database immediately upon receiving the API response
          const updatedKeyword = await updateKeywordPosition(keywordModel, result, effectiveSettings);
-         return updatedKeyword;
-         
+         const twinResults = await applyToMobileTwins(mobileTwins, (twin) => updateKeywordPosition(twin, result, effectiveSettings));
+         return [updatedKeyword, ...twinResults];
+
       } catch (error: any) {
          logger.error('[ERROR] Parallel scrape failed for keyword:', error, { keyword: keyword.keyword });
          const errorResult = buildErrorResult(keyword, error);
-         
+
          // Update database with error immediately
          const updatedKeyword = await updateKeywordPosition(keywordModel, errorResult, effectiveSettings);
-         return updatedKeyword;
+         const twinResults = await applyToMobileTwins(mobileTwins, (twin) => updateKeywordPosition(twin, errorResult, effectiveSettings));
+         return [updatedKeyword, ...twinResults];
       }
    };
 
-   updatedKeywords.push(...await mapWithConcurrency(keywords, getParallelRefreshConcurrency(), scrapeKeyword));
+   updatedKeywords.push(...(await mapWithConcurrency(keywords, getParallelRefreshConcurrency(), scrapeKeyword)).flat());
    
    logger.info('Parallel keyword refresh completed', { count: updatedKeywords.length });
    return updatedKeywords;

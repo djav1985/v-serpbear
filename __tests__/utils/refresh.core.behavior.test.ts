@@ -318,7 +318,7 @@ describe('refreshAndUpdateKeywords', () => {
     );
   });
 
-  it('clears updating state when a scrape rejects, for both sequential and parallel scrapers', async () => {
+  it('clears updating state when a scrape rejects, for both sequential and parallel scrapers, and reuses desktop results for Serper mobile twins', async () => {
     (Domain.findAll as jest.Mock).mockResolvedValue([
       { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
     ]);
@@ -367,6 +367,52 @@ describe('refreshAndUpdateKeywords', () => {
       }));
       expect(results[0].updating).toBe(false);
     }
+
+    // Serper cannot request mobile results, so a mobile keyword with a desktop twin in the batch reuses its result.
+    const makeRow = (ID: number, keyword: string, device: string) => {
+      const plain = {
+        ID, keyword, domain: 'example.com', device, country: 'US', location: '', position: 0, volume: 0, updating: 1,
+        sticky: 0, history: '{}', lastResult: '[]', lastUpdateError: 'false', lastUpdated: '2024-01-01T00:00:00.000Z',
+        added: '2024-01-01T00:00:00.000Z', url: '', tags: '[]', mapPackTop3: false,
+      };
+      return { ...plain, get: jest.fn().mockReturnValue(plain), update: jest.fn().mockResolvedValue(undefined) } as unknown as Keyword;
+    };
+    const serperSettings = { scraper_type: 'serper', scrape_retry: false } as SettingsType;
+    (Domain.findAll as jest.Mock).mockResolvedValue([{ get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) }]);
+
+    // Failed desktop scrape: one scraper call, and the mobile twin records the same error and clears updating
+    jest.clearAllMocks();
+    const failedDesktop = makeRow(60, 'Twin Query', 'desktop');
+    const failedMobile = makeRow(61, ' twin query ', 'mobile');
+    (scrapeKeywordWithStrategy as jest.Mock).mockRejectedValueOnce(new Error('serper boom'));
+    const failedResults = await refreshAndUpdateKeywords([failedDesktop, failedMobile], serperSettings);
+    expect(scrapeKeywordWithStrategy).toHaveBeenCalledTimes(1);
+    for (const row of [failedDesktop, failedMobile]) {
+      expect(row.update).toHaveBeenCalledWith(expect.objectContaining({
+        updating: 0,
+        updatingStartedAt: null,
+        lastUpdateError: expect.stringContaining('serper boom'),
+      }));
+    }
+    expect(failedResults.map((row) => row.ID).sort()).toEqual([60, 61]);
+    expect(failedResults.every((row) => row.updating === false)).toBe(true);
+
+    // Successful desktop scrape: the mobile twin gets the same position and is not scraped; a lone mobile keyword is scraped
+    jest.clearAllMocks();
+    const okDesktop = makeRow(62, 'Shared Query', 'desktop');
+    const okMobile = makeRow(63, 'Shared Query', 'mobile');
+    const loneMobile = makeRow(64, 'Lone Query', 'mobile');
+    (scrapeKeywordWithStrategy as jest.Mock).mockImplementation(async (keyword: { ID: number }) => ({
+      ID: keyword.ID, position: keyword.ID === 62 ? 3 : 5, result: [], localResults: [], mapPackTop3: false, error: false,
+    }));
+    const okResults = await refreshAndUpdateKeywords([okDesktop, okMobile, loneMobile], serperSettings);
+    const scrapedIds = (scrapeKeywordWithStrategy as jest.Mock).mock.calls.map((call) => call[0].ID).sort();
+    (scrapeKeywordWithStrategy as jest.Mock).mockReset();
+    expect(scrapedIds).toEqual([62, 64]);
+    expect(okDesktop.update).toHaveBeenCalledWith(expect.objectContaining({ position: 3, updating: 0 }));
+    expect(okMobile.update).toHaveBeenCalledWith(expect.objectContaining({ position: 3, updating: 0, updatingStartedAt: null }));
+    expect(loneMobile.update).toHaveBeenCalledWith(expect.objectContaining({ position: 5, updating: 0 }));
+    expect(okResults.map((row) => [row.ID, row.position]).sort()).toEqual([[62, 3], [63, 3], [64, 5]]);
   });
 
   it('uses batched retry queue removal for improved performance', async () => {
