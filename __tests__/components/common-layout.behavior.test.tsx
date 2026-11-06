@@ -132,7 +132,7 @@ describe('Common layout components', () => {
     it('renders an overlay while loading', async () => {
       const PageLoader = (await import('../../components/common/PageLoader')).default;
       render(
-        <PageLoader isLoading label='Loading test'>
+        <PageLoader isLoading>
           <div>Child content</div>
         </PageLoader>,
       );
@@ -141,7 +141,7 @@ describe('Common layout components', () => {
       expect(overlay).toBeInTheDocument();
       expect(overlay).toHaveClass('fixed');
       expect(screen.getByText('Child content')).toBeInTheDocument();
-      expect(screen.getByRole('status', { name: 'Loading test' })).toBeInTheDocument();
+      expect(screen.getByRole('status', { name: 'Loading content' })).toBeInTheDocument();
     });
 
     it('hides the overlay when loading finishes', async () => {
@@ -159,14 +159,14 @@ describe('Common layout components', () => {
     it('should not have redundant screen reader announcements', async () => {
       const PageLoader = (await import('../../components/common/PageLoader')).default;
       render(
-        <PageLoader isLoading label='Loading test'>
+        <PageLoader isLoading>
           <div>Child content</div>
         </PageLoader>,
       );
 
       const overlay = screen.getByTestId('page-loader-overlay');
       expect(overlay.querySelector('.sr-only')).not.toBeInTheDocument();
-      expect(overlay).toHaveAttribute('aria-label', 'Loading test');
+      expect(overlay).toHaveAttribute('aria-label', 'Loading content');
     });
   });
 

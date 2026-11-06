@@ -23,7 +23,6 @@ const buildLocation = (keyword: KeywordType): string | undefined => {
 const prismcrawl: ScraperSettings = {
   id: "prismcrawl",
   name: "PrismCrawl",
-  website: "prismcrawl.com",
   allowsCity: true,
   supportsMapPack: true,
   usesResultOffset: true,

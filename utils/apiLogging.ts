@@ -8,8 +8,6 @@ import { isLoginLocked } from './loginThrottle';
 import { getApiKeyAttemptKeys } from './apiKeyThrottle';
 import { hasValidSessionCookie, isBearerAuthorization } from './verifyUser';
 
-export { redactSecrets, redactUrl };
-
 /**
  * API Logging Middleware - wraps API handlers with request/response logging
  * @param handler - The API handler function to wrap

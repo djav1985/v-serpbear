@@ -61,7 +61,7 @@ describe('scraper request cancellation', () => {
       signal = init?.signal as AbortSignal;
       return Promise.resolve(response);
     }) as unknown as typeof fetch;
-    const scraper = { id: 'test', name: 'Test', website: 'x', scrapeURL: () => 'https://example.test/search', resultObjectKey: 'results' } as any;
+    const scraper = { id: 'test', name: 'Test', scrapeURL: () => 'https://example.test/search', resultObjectKey: 'results' } as any;
 
     const client = getScraperClient({ keyword: 'a', device: 'desktop', country: 'US' } as any, {} as any, scraper);
     const received = (await client) as Response;

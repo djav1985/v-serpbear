@@ -12,7 +12,6 @@ interface SerpApiResult {
 const serpapi: ScraperSettings = {
   id: "serpapi",
   name: "SerpApi.com",
-  website: "serpapi.com",
   allowsCity: true,
   supportsMapPack: true,
   usesResultOffset: true,

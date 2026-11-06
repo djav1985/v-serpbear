@@ -12,7 +12,6 @@ interface SearchApiResult {
 const searchapi:ScraperSettings = {
   id: 'searchapi',
   name: 'SearchApi.io',
-  website: 'searchapi.io',
   allowsCity: true,
   supportsMapPack: true,
    headers: () => ({

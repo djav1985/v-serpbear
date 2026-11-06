@@ -199,7 +199,6 @@ describe('getScraperClient with a POST scraper', () => {
     const getScraper = {
       id: 'get-test',
       name: 'Get',
-      website: 'example.com',
       resultObjectKey: 'organic',
       scrapeURL: () => 'https://example.com/search?q=x',
       serpExtractor: () => ({ organic: [] }),

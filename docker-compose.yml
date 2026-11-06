@@ -1,6 +1,5 @@
 services:
   app:
-    #image: towfiqi/serpbear:latest
     image: vontainment/v-serpbear:latest
     restart: unless-stopped
     container_name: serpbear

@@ -70,7 +70,6 @@ export function useMutateFavKeywordIdeas(router:NextRouter, onSuccess?: (show?: 
       apiPut('/api/ideas', { ...payload }, router)
    ), {
       onSuccess: async (_data) => {
-         // toast('Keyword Updated!', { icon: '✔️' });
          if (onSuccess) {
             onSuccess(false);
          }

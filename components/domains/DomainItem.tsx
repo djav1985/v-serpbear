@@ -1,6 +1,4 @@
 /* eslint-disable @next/next/no-img-element */
-// import { useRouter } from 'next/router';
-// import { useState } from 'react';
 import TimeAgo from 'react-timeago';
 import Link from 'next/link';
 import Router from 'next/router';
@@ -105,7 +103,6 @@ const DomainItem = ({
          // Error handling is done by mutation
       }
    };
-   // const router = useRouter();
    return (
       <div className='domItem bg-white border rounded w-full text-sm mb-10 hover:border-indigo-200'>
          {/* A div with a click handler instead of a wrapping anchor, so the checkbox and buttons are not nested inside a link.

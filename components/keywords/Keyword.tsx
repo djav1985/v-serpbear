@@ -237,7 +237,6 @@ const Keyword = (props: KeywordProps) => {
                <span className='min-w-[40px]'>
                   <span className='lg:hidden'>Visits: </span>{keywordData?.scData?.visits[scDataType as keyof KeywordSCDataChild] || 0}
                </span>
-               {/* <span>{keywordData?.scData?.ctr[scDataType] || '0.00%'}</span> */}
             </div>
          )}
 

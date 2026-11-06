@@ -140,7 +140,6 @@ const DomainHeader = (
             )}
             {isConsole && (
                <div className='text-xs whitespace-nowrap pl-4 ml-2 border-l border-gray-200 relative'>
-                  {/* <span className='hidden lg:inline-block'>Data From Last: </span> */}
                   <span className='block cursor-pointer py-3' onClick={() => setShowSCDates(!ShowSCDates)}>
                      <Icon type='date' size={13} classes="mr-1" /> {daysName(scFilter)}
                   </span>

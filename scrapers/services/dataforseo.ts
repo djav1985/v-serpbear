@@ -33,7 +33,6 @@ const getTask = (response: any): DataForSeoTask | undefined => {
 const dataforseo: ScraperSettings = {
   id: "dataforseo",
   name: "DataForSEO",
-  website: "dataforseo.com",
   allowsCity: true,
   supportsMapPack: true,
   timeoutMs: 30000,

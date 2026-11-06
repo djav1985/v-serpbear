@@ -297,8 +297,6 @@ interface ScraperSettings {
    id:string,
    /** The Name of the Scraper */
    name:string,
-   /** The Website address of the Scraper */
-   website:string,
    /** The result object's key that contains the results of the scraped data. For example,
     * if your scraper API the data like this `{scraped:[item1,item2..]}` the resultObjectKey should be "scraped" */
    resultObjectKey: string,

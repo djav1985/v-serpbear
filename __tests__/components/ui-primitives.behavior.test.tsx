@@ -75,25 +75,6 @@ describe('Modal Component', () => {
 });
 
 describe('ToggleField Component', () => {
-   it('does not call onChange when disabled toggle is clicked', () => {
-      const mockOnChange = jest.fn();
-      render(
-         <ToggleField
-            label="Test Toggle"
-            value={false}
-            onChange={mockOnChange}
-            disabled={true}
-         />
-      );
-
-      const toggle = screen.getByRole('checkbox');
-      expect(toggle).toBeDisabled();
-
-      fireEvent.click(toggle);
-
-      expect(mockOnChange).not.toHaveBeenCalled();
-   });
-
    it('lets clicks bubble to parent handlers while still calling onChange', () => {
       const mockOnChange = jest.fn();
       const mockParentHandler = jest.fn();

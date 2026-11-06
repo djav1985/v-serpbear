@@ -112,19 +112,6 @@ const makeKeyword = (id: number, keyword: string, tags: string[]): any => ({
    mapPackTop3: false,
 });
 
-const mockDomain: any = {
-   ID: 1,
-   domain: 'example.com',
-   slug: 'example-com',
-   notification_emails: '',
-   added: '2024-01-01',
-   lastUpdated: '2024-01-01',
-   keywordCount: 2,
-   avgPosition: 5,
-   lastFetched: '2024-01-01',
-   scrapeEnabled: true,
-};
-
 const buildClient = () => new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -136,11 +123,8 @@ describe('KeywordsTable – stale tag filter cleanup', () => {
       const { rerender } = render(
          <QueryClientProvider client={buildClient()}>
             <KeywordsTable
-               domain={mockDomain}
                keywords={initialKeywords}
                isLoading={false}
-               showAddModal={false}
-               setShowAddModal={jest.fn()}
                isConsoleIntegrated={false}
             />
          </QueryClientProvider>
@@ -155,11 +139,8 @@ describe('KeywordsTable – stale tag filter cleanup', () => {
          rerender(
             <QueryClientProvider client={buildClient()}>
                <KeywordsTable
-                  domain={mockDomain}
                   keywords={[]}
                   isLoading={false}
-                  showAddModal={false}
-                  setShowAddModal={jest.fn()}
                   isConsoleIntegrated={false}
                />
             </QueryClientProvider>
@@ -179,11 +160,8 @@ describe('KeywordsTable – stale tag filter cleanup', () => {
       const { rerender } = render(
          <QueryClientProvider client={buildClient()}>
             <KeywordsTable
-               domain={mockDomain}
                keywords={initialKeywords}
                isLoading={false}
-               showAddModal={false}
-               setShowAddModal={jest.fn()}
                isConsoleIntegrated={false}
             />
          </QueryClientProvider>
@@ -198,11 +176,8 @@ describe('KeywordsTable – stale tag filter cleanup', () => {
          rerender(
             <QueryClientProvider client={buildClient()}>
                <KeywordsTable
-                  domain={mockDomain}
                   keywords={[makeKeyword(2, 'link building', ['seo', 'links'])]}
                   isLoading={false}
-                  showAddModal={false}
-                  setShowAddModal={jest.fn()}
                   isConsoleIntegrated={false}
                />
             </QueryClientProvider>
@@ -223,11 +198,8 @@ describe('KeywordsTable – stale tag filter cleanup', () => {
       const { rerender } = render(
          <QueryClientProvider client={buildClient()}>
             <KeywordsTable
-               domain={mockDomain}
                keywords={initialKeywords}
                isLoading={false}
-               showAddModal={false}
-               setShowAddModal={jest.fn()}
                isConsoleIntegrated={false}
             />
          </QueryClientProvider>
@@ -244,11 +216,8 @@ describe('KeywordsTable – stale tag filter cleanup', () => {
          rerender(
             <QueryClientProvider client={buildClient()}>
                <KeywordsTable
-                  domain={mockDomain}
                   keywords={[makeKeyword(2, 'link building', ['links'])]}
                   isLoading={false}
-                  showAddModal={false}
-                  setShowAddModal={jest.fn()}
                   isConsoleIntegrated={false}
                />
             </QueryClientProvider>
@@ -278,11 +247,8 @@ describe('KeywordsTable – column settings save', () => {
       render(
          <QueryClientProvider client={buildClient()}>
             <KeywordsTable
-               domain={mockDomain}
                keywords={[makeKeyword(1, 'seo tips', ['seo'])]}
                isLoading={false}
-               showAddModal={false}
-               setShowAddModal={jest.fn()}
                isConsoleIntegrated={false}
             />
          </QueryClientProvider>

@@ -276,7 +276,6 @@ describe('crazyserp scraper', () => {
       it('has the correct id and metadata, with supportsMapPack and allowsCity enabled', () => {
          expect(crazyserp.id).toBe('crazyserp');
          expect(crazyserp.name).toBe('CrazySERP');
-         expect(crazyserp.website).toBe('crazyserp.com');
          expect(crazyserp.supportsMapPack).toBe(true);
          expect(crazyserp.allowsCity).toBe(true);
       });

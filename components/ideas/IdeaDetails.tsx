@@ -126,7 +126,6 @@ const IdeaDetails = ({ keyword, closeDetails }:IdeaDetailsProps) => {
                                              ? <a href={itemUrl} target="_blank" rel='noreferrer'>{`${index + 1}. ${item.title}`}</a>
                                              : `${index + 1}. ${item.title}`}
                                        </h4>
-                                       {/* <p>{item.description}</p> */}
                                        {itemUrl
                                           ? <a className=' text-green-900' href={itemUrl} target="_blank" rel='noreferrer'>{item.url}</a>
                                           : <span className=' text-green-900'>{item.url}</span>}

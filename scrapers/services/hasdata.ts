@@ -11,7 +11,6 @@ interface HasDataResult {
 const hasdata: ScraperSettings = {
   id: "hasdata",
   name: "HasData",
-  website: "hasdata.com",
   allowsCity: true,
   headers: (_keyword: KeywordType, settings: SettingsType) => ({
     // use global types

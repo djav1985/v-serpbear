@@ -5,28 +5,19 @@ type ToggleFieldProps = {
    label: string;
    value: boolean;
    onChange: (bool:boolean) => void ;
-   classNames?: string;
-   disabled?: boolean;
 }
 
 const ToggleField = ({
    label = '',
    value = false,
    onChange,
-   classNames = '',
-   disabled = false,
 }: ToggleFieldProps) => {
-   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-      if (disabled) {
-         event.preventDefault();
-         event.stopPropagation();
-         return;
-      }
+   const handleChange = () => {
       onChange(!value);
    };
 
    return (
-      <div className={`field--toggle w-full relative ${classNames}`}>
+      <div className="field--toggle w-full relative">
          <label className="relative inline-flex items-center cursor-pointer w-full justify-between">
             <span className="text-sm font-medium text-gray-900 dark:text-gray-300 w-auto">{label}</span>
             <input
@@ -35,7 +26,6 @@ const ToggleField = ({
             checked={!!value}
             className="sr-only peer"
             onChange={handleChange}
-            disabled={disabled}
             />
             <div className={TOGGLE_TRACK_CLASS_NAME}></div>
          </label>

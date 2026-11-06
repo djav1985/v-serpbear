@@ -17,11 +17,8 @@ import { getDomainLocations, getDomainTags, scraperAllowsCity } from '../../util
 import ChangeLocationModal from './ChangeLocationModal';
 
 type KeywordsTableProps = {
-   domain: DomainType | null,
    keywords: KeywordType[],
    isLoading: boolean,
-   showAddModal: boolean,
-   setShowAddModal: (show: boolean) => void,
    isConsoleIntegrated: boolean,
    settings?: SettingsType
 }
@@ -322,7 +319,6 @@ const KeywordsTable = (props: KeywordsTableProps) => {
                               <Icon type="check" size={10} />
                         </button>
                      )}
-                  {/* ${showSCData ? 'lg:min-w-[220px]' : 'lg:min-w-[280px]'} */}
                         <span className={`inline-block lg:flex lg:items-center 
                            ${showSCData && tableColumns.includes('Search Console') ? 'lg:max-w-[320px]' : ''}`}>
                            Keyword
@@ -361,7 +357,6 @@ const KeywordsTable = (props: KeywordsTableProps) => {
                               <span className='min-w-[40px]'>Pos</span>
                               <span className='min-w-[40px]'>Imp</span>
                               <span className='min-w-[40px]'>Visits</span>
-                              {/* <span>CTR</span> */}
                            </div>
                         </div>
                      )}

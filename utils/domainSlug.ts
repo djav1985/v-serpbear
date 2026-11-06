@@ -11,8 +11,5 @@ export const toDomainSlug = (hostname: string): string => hostname
 
 export default toDomainSlug;
 
-/** Characters a stored domain slug may contain. */
-export const SAFE_DOMAIN_SLUG = /^[a-zA-Z0-9_-]+$/;
-
 /** Characters a real domain name may contain (letters, digits, dots, hyphens). Checked before a name reaches a file path. */
 export const SAFE_DOMAIN_NAME = /^[a-zA-Z0-9.-]+$/;

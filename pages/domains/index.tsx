@@ -25,7 +25,6 @@ const Domains: NextPage = () => {
    // Runtime flag from /api/branding/config. Stays false until it loads, so no screenshots are fetched early.
    const screenshotsOn = screenshotsEnabled === true;
    const adsResultHandledRef = useRef(false);
-   // const [noScrapprtError, setNoScrapprtError] = useState(false);
    const [showSettings, setShowSettings] = useState(false);
    const [showAddDomain, setShowAddDomain] = useState(false);
    const addDomainNodeRef = useRef<HTMLDivElement>(null);
@@ -194,7 +193,6 @@ const Domains: NextPage = () => {
                            updateThumb={manuallyUpdateThumb}
                            screenshotsEnabled={screenshotsOn}
                            showMapPackStat={showMapPackStat}
-                           // isConsoleIntegrated={false}
                            />)}
                {!isDomainsLoading && domainsData && domainsData.domains && domainsData.domains.length === 0 && (
                   <div className='noDomains mt-4 p-5 py-12 rounded border text-center bg-white text-sm'>

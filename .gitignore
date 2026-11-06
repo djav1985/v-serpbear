@@ -18,7 +18,6 @@
 .DS_Store
 *.pem
 .vscode
-fly.toml
 
 # debug
 npm-debug.log*
@@ -38,15 +37,9 @@ yarn-error.log*
 next-env.d.ts
 
 
-#todo
-TODO
-
-#database
 data/database.sqlite
 data/database.sqlite-shm
 data/database.sqlite-wal
-data/verify-fix.js
-SARIF test files
 *.sarif
 
 # runtime state (settings, Search Console cache, retry queue, email throttle); keep the folder via .gitkeep

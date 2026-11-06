@@ -15,7 +15,6 @@ import { closeOnBGClick } from '../../utils/client/closeOnBGClick';
 
 type SettingsProps = {
    closeSettings: () => void,
-   settings?: SettingsType
 }
 
 type SettingsError = {

@@ -36,13 +36,10 @@ export const DomainPage: NextPage = () => {
                A scraper has not been set up yet. Open Settings to configure it and start using the app.
             </div>
          ) : null}
-         renderContent={({ showAddKeywords, setShowAddKeywords }) => (
+         renderContent={() => (
             <KeywordsTable
             isLoading={keywordsLoading}
-            domain={activeDomain}
             keywords={theKeywords}
-            showAddModal={showAddKeywords}
-            setShowAddModal={setShowAddKeywords}
             isConsoleIntegrated={!!(appSettings && appSettings.search_console_integrated) || domainHasScAPI }
             settings={appSettings}
             />

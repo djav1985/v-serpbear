@@ -13,7 +13,6 @@ interface SerperResult {
 const serper: ScraperSettings = {
   id: "serper",
   name: "Serper.dev",
-  website: "serper.dev",
   allowsCity: true,
   supportsMapPack: false,
   scrapeURL: (keyword, settings, countryData, pagination?: ScraperPagination) => {

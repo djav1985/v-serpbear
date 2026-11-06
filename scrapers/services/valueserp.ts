@@ -7,13 +7,11 @@ interface ValueSerpResult {
   title: string;
   link: string;
   position: number;
-  domain: string;
 }
 
 const valueSerp: ScraperSettings = {
   id: "valueserp",
   name: "Value Serp",
-  website: "valueserp.com",
   allowsCity: true,
   timeoutMs: 20000, // 20s — fail fast; long hangs are usually a broken connection, not a slow response
   scrapeURL: (

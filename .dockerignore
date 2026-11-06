@@ -42,8 +42,6 @@ coverage.lcov
 .claude
 .swc
 scripts
-fly.toml
-TODO
 jest.config.js
 jest.setup.js
 

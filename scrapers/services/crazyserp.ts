@@ -17,7 +17,6 @@ interface CrazySerpLocation {
 const crazyserp: ScraperSettings = {
    id: 'crazyserp',
    name: 'CrazySERP',
-   website: 'crazyserp.com',
    allowsCity: true,
    supportsMapPack: true,
    resultObjectKey: 'parsed_data',

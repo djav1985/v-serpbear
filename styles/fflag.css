@@ -515,37 +515,3 @@
 .fflag-VU { background-position: left 52.9933%; }
 
 .fflag-WF { background-position: center 53.215%; }
-
-.fflag-TD.ff-round,
-.fflag-GN.ff-round,
-.fflag-CI.ff-round,
-.fflag-ML.ff-round,
-.fflag-NG.ff-round,
-.fflag-BE.ff-round,
-.fflag-FR.ff-round,
-.fflag-IE.ff-round,
-.fflag-IT.ff-round,
-.fflag-RO.ff-round { background-size: 100%  50000%; }
-
-.fflag.ff-sm { width: 18px; height: 11px }
-
-.fflag.ff-md { width: 27px; height: 17px }
-
-.fflag.ff-lg { width: 42px; height: 27px }
-
-.fflag.ff-xl { width: 60px; height: 37px }
-
-/* ff-round = circular icons */
-.ff-round {
-   background-size: 160%;
-   background-clip: content-box;
-   border-radius: 50%;
-}
-
-.ff-round.ff-sm { width: 12px; height: 12px }
-
-.ff-round.ff-md { width: 18px; height: 18px }
-
-.ff-round.ff-lg { width: 24px; height: 24px }
-
-.ff-round.ff-xl { width: 32px; height: 32px }

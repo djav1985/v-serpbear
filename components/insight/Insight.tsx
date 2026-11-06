@@ -21,7 +21,6 @@ const SCInsight = ({ insight, isLoading = true, isConsoleIntegrated = true, doma
    const endDate = insight && insight.stats && insight.stats.length > 0 ? insight.stats[insight.stats.length - 1].date : null;
 
    const switchTab = (tab: string) => {
-      // window.insightTab = tab;
       setActiveTab(tab);
    };
 

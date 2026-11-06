@@ -69,14 +69,12 @@ export const getBranding = (): BrandingConfig => {
 
 type BuildLogoUrlFirstArg = BrandingConfig | string | undefined;
 
-export const buildLogoUrl = (brandingOrOrigin?: BuildLogoUrlFirstArg, originOverride = ''): string => {
+export const buildLogoUrl = (brandingOrOrigin?: BuildLogoUrlFirstArg): string => {
    const branding = typeof brandingOrOrigin === 'string' || brandingOrOrigin === undefined
       ? getBranding()
       : brandingOrOrigin;
 
-   const origin = typeof brandingOrOrigin === 'string' || brandingOrOrigin === undefined
-      ? (brandingOrOrigin || '')
-      : originOverride;
+   const origin = typeof brandingOrOrigin === 'string' ? brandingOrOrigin : '';
 
    if (!branding.hasCustomLogo) {
       return '';

@@ -11,9 +11,6 @@ interface KeywordIdeasUpdaterProps {
    searchConsoleConnected: boolean,
    adwordsConnected: boolean,
    settings?: {
-      seedSCKeywords: boolean,
-      seedCurrentKeywords: boolean,
-      seedDomain: boolean,
       language: string,
       countries: string[],
       keywords: string | string[],
