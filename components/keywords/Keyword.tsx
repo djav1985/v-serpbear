@@ -131,7 +131,7 @@ const Keyword = (props: KeywordProps) => {
       <div
       key={keyword + ID}
       style={style}
-      className={`keyword relative py-5 px-4 text-gray-600 border-b-[1px] border-gray-200 lg:py-4 lg:px-6 lg:border-0 
+      className={`keyword relative pt-2 pb-5 px-4text-gray-600 border-b-[1px] border-gray-200 lg:py-4 lg:px-6 lg:border-0 
       lg:flex lg:justify-between lg:items-center ${selected ? ' bg-indigo-50 keyword--selected' : ''} ${lastItem ? 'border-b-0' : ''}`}>
 
          <div className=' w-3/4 font-semibold cursor-pointer lg:flex-1 lg:shrink-0 lg:basis-32 lg:w-auto lg:flex lg:items-center'>
