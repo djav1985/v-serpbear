@@ -334,6 +334,8 @@ A read-only [Model Context Protocol](https://modelcontextprotocol.io) server for
 
 Tools that start scrapes, send email or spend Google Ads quota are not exposed; use the REST API for those.
 
+<br><br>
+
 ### External API
 
 A REST API for scripts and automation. Send `Authorization: Bearer <APIKEY>`. After 5 wrong keys from one address within 15 minutes, that address gets `429` for 15 minutes. Routes not listed below need a logged-in session.
