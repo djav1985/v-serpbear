@@ -8,6 +8,8 @@ SerpBear is a full-stack Next.js application that tracks where your pages rank o
 
 > **Warning:** Not every scraper provider is validated on every release. Report problems with a specific provider in [GitHub Discussions](https://github.com/djav1985/v-serpbear/discussions).
 
+---
+
 ## Contents
 
 - [Quick links](#quick-links)
@@ -24,14 +26,6 @@ SerpBear is a full-stack Next.js application that tracks where your pages rank o
 - [Contributing](#contributing)
 - [Credits](#credits)
 - [License](#license)
-
-## Quick links
-
-- 📘 **Documentation:** <https://docs.serpbear.com/>
-- 📜 **Changelog:** [`CHANGELOG.md`](./CHANGELOG.md)
-- 🐳 **Docker Hub image:** <https://hub.docker.com/r/vontainment/v-serpbear>
-- 🛟 **Community support:** [GitHub Discussions](https://github.com/djav1985/v-serpbear/discussions)
-- Made by [Vontainment](https://vontainment.com)
 
 ---
 
