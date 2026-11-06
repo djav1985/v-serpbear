@@ -248,7 +248,7 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
                      outline-none focus:border-indigo-300 ${!allowsCity ? ' cursor-not-allowed' : ''} `}
                      disabled={!allowsCity}
                      title={!allowsCity ? `Your scraper ${scraperName} doesn't have city level scraping feature.` : ''}
-                     placeholder={`State (Optional${!allowsCity ? ` — not available for ${scraperName}` : ''})`}
+                     placeholder={allowsCity ? 'State (Optional)' : 'N/A'}
                      value={newKeywordsData.state}
                      onChange={(e) => setNewKeywordsData({ ...newKeywordsData, state: e.target.value })}
                   />
@@ -260,7 +260,7 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
                      outline-none focus:border-indigo-300 ${!allowsCity ? ' cursor-not-allowed' : ''} `}
                      disabled={!allowsCity}
                      title={!allowsCity ? `Your scraper ${scraperName} doesn't have city level scraping feature.` : ''}
-                     placeholder={`City (Optional${!allowsCity ? ` — not available for ${scraperName}` : ''})`}
+                     placeholder={allowsCity ? 'City (Optional)' : 'N/A'}
                      value={newKeywordsData.city}
                      onChange={(e) => setNewKeywordsData({ ...newKeywordsData, city: e.target.value })}
                   />

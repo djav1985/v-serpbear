@@ -32,7 +32,9 @@ type KeywordProps = {
    scDataType: string,
    style: React.CSSProperties,
    maxTitleColumnWidth: number,
-   tableColumns? : string[]
+   tableColumns? : string[],
+   // False for scrapers that only target a country: the stored city and state are then not shown
+   allowsCity?: boolean
 }
 
 const Keyword = (props: KeywordProps) => {
@@ -52,6 +54,7 @@ const Keyword = (props: KeywordProps) => {
       scDataType = 'threeDays',
       tableColumns = [],
       maxTitleColumnWidth,
+      allowsCity = true,
    } = props;
      const {
         keyword,
@@ -115,9 +118,10 @@ const Keyword = (props: KeywordProps) => {
    }, [location, country]);
 
    const displayLocation = useMemo(() => {
+      if (!allowsCity) { return ''; }
       const parts = [locationCity, locationState].filter((part) => part && part.trim() !== '');
       return parts.join(', ');
-   }, [locationCity, locationState]);
+   }, [allowsCity, locationCity, locationState]);
 
    const optionsButtonStyle = 'block px-2 py-2 cursor-pointer hover:bg-indigo-50 hover:text-blue-700';
 

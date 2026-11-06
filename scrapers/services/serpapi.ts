@@ -15,10 +15,6 @@ const serpapi: ScraperSettings = {
   allowsCity: true,
   supportsMapPack: true,
   usesResultOffset: true,
-  headers: (_keyword: KeywordType, settings: SettingsType) => ({
-    "Content-Type": "application/json",
-    "X-API-Key": settings.scraping_api,
-  }),
   scrapeURL: (keyword, settings, _countryData, pagination) => {
     const country = resolveCountryCode(keyword.country);
     const locationParts = getKeywordLocationParts(keyword.location);

@@ -36,6 +36,7 @@ type KeywordRowData = {
    scDataType: string,
    tableColumns: string[],
    maxTitleColumnWidth: number,
+   allowsCity: boolean,
 };
 
 // Defined at module scope so react-window does not remount rows on every render. State comes in through itemData.
@@ -59,6 +60,7 @@ const KeywordRow = ({ data, index, style }: ListChildComponentProps<KeywordRowDa
       scDataType={data.scDataType}
       tableColumns={data.tableColumns}
       maxTitleColumnWidth={data.maxTitleColumnWidth}
+      allowsCity={data.allowsCity}
       />
    );
 };
@@ -173,6 +175,7 @@ const KeywordsTable = (props: KeywordsTableProps) => {
       scDataType,
       tableColumns,
       maxTitleColumnWidth,
+      allowsCity,
    };
 
    const visibleKeywordIds = useMemo(() => (processedKeywords[device] || []).map((k: KeywordType) => k.ID), [processedKeywords, device]);
@@ -211,6 +214,7 @@ const KeywordsTable = (props: KeywordsTableProps) => {
                      scDataType={scDataType}
                      maxTitleColumnWidth={maxTitleColumnWidth}
                      tableColumns={tableColumns}
+                     allowsCity={allowsCity}
                   />
                ))}
             </div>

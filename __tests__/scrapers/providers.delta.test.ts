@@ -137,6 +137,7 @@ describe('serply scraper', () => {
     expect(parsed.searchParams.get('num')).toBe('10');
     // hl is the interface language (from the locale table), not the country code
     expect(parsed.searchParams.get('hl')).toBe('en');
+    expect(parsed.searchParams.get('gl')).toBe('us');
   });
 
   it('preserves header configuration for device and country handling', () => {

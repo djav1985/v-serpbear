@@ -35,6 +35,7 @@ const serply:ScraperSettings = {
          q: keyword.keyword,
          num: String(p.num),
          start: String(p.start),
+         gl: country.toLowerCase(),
          hl: lang,
       });
       return `https://api.serply.io/v1/search?${searchParams.toString()}`;

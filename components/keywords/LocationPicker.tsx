@@ -2,7 +2,7 @@ import { useState } from 'react';
 import Icon from '../common/Icon';
 import SelectField from '../common/SelectField';
 import countries from '../../utils/countries';
-import { buildStoredLocation, getLocationCountry, hasValidCityStatePair } from '../../utils/location';
+import { buildStoredLocation, getLocationCountry, hasValidCityStatePair, isCountryOnlyLocation } from '../../utils/location';
 
 type LocationPickerProps = {
    existingLocations: string[],
@@ -44,7 +44,7 @@ const LocationPicker = ({ existingLocations = [], value, onChange, allowsCity = 
       ...existingLocations,
       value,
       newLocation,
-   ].filter((loc): loc is string => typeof loc === 'string' && loc !== '');
+   ].filter((loc): loc is string => typeof loc === 'string' && loc !== '' && (allowsCity || isCountryOnlyLocation(loc)));
    const locationOptions = [...new Set(locationValues)].map((loc) => ({ label: loc, value: loc }));
 
    const pickExistingLocation = (selectedLocation: string) => {
@@ -98,7 +98,7 @@ const LocationPicker = ({ existingLocations = [], value, onChange, allowsCity = 
             <input
                className={`w-full h-[42px] border rounded border-gray-200 py-2 px-4 pl-8 text-sm outline-none focus:border-indigo-300 ${!allowsCity ? ' cursor-not-allowed' : ''}`}
                disabled={!allowsCity}
-               placeholder={`City (Optional${!allowsCity ? ' — not available for this scraper' : ''})`}
+               placeholder={allowsCity ? 'City (Optional)' : 'N/A'}
                value={city}
                onChange={(e) => setCity(e.target.value)}
             />
@@ -108,7 +108,7 @@ const LocationPicker = ({ existingLocations = [], value, onChange, allowsCity = 
             <input
                className={`w-full h-[42px] border rounded border-gray-200 py-2 px-4 pl-8 text-sm outline-none focus:border-indigo-300 ${!allowsCity ? ' cursor-not-allowed' : ''}`}
                disabled={!allowsCity}
-               placeholder={`State (Optional${!allowsCity ? ' — not available for this scraper' : ''})`}
+               placeholder={allowsCity ? 'State (Optional)' : 'N/A'}
                value={state}
                onChange={(e) => setState(e.target.value)}
             />

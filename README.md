@@ -116,15 +116,15 @@ Back up `data/` first. With Docker, run `docker compose pull && docker compose u
 
 | Provider | Pricing snapshot* | Geo targeting | Map pack | Mobile | Authentication |
 | --- | --- | --- | --- | --- | --- |
-| Serply (`serply`) | Plans from $49/mo | Country only (13 markets) | Yes | Yes | Headers `X-Api-Key` and `X-Proxy-Location` |
-| SerpApi (`serpapi`) | Free 250/mo, plans from $75/mo | City | Yes | Yes | Query `api_key` and header `X-API-Key` |
+| Serply (`serply`) | Plans from $49/mo | Country | Yes | Yes | Header `X-Api-Key` |
+| SerpApi (`serpapi`) | Free 250/mo, plans from $75/mo | City | Yes | Yes | Query `api_key` |
 | SearchApi (`searchapi`) | Plans from $40/mo | City | Yes | Yes | Query `api_key` |
 | ValueSerp (`valueserp`) | Pay-as-you-go, 10,000 for $25 | City | Yes | Yes | Query `api_key` |
-| Serper (`serper`) | Credit-based, 50,000 for $50 | Country | No | No (desktop results; see below) | Query `apiKey` |
+| Serper (`serper`) | Credit-based, 50,000 for $50 | Country | No | No | Query `apiKey` |
 | HasData (`hasdata`) | Free 1,000/mo, plans from $49/mo | City | Yes | Yes | Header `x-api-key` |
-| CrazySERP (`crazyserp`) | Pay-as-you-go | City | Yes (`locations` block) | Yes | Header `Authorization: Bearer` |
+| CrazySERP (`crazyserp`) | Pay-as-you-go | City | Yes | Yes | Header `Authorization: Bearer` |
 | PrismCrawl (`prismcrawl`) | 100 free credits, packages from $5 (about $0.21 per 1,000, valid 90 days) | City | Yes | Yes | Header `x-api-key` (POST JSON) |
-| DataForSEO (`dataforseo`) | Pay-as-you-go, $50 minimum top-up | City | Yes (`local_pack`) | Yes | HTTP Basic, `login:password` in the API key field |
+| DataForSEO (`dataforseo`) | Pay-as-you-go, $50 minimum top-up | City | Yes | Yes | HTTP Basic, `login:password` in the API key field |
 
 > \*Pricing is indicative. Check each vendor before buying. The request formats are implemented in [`scrapers/services`](./scrapers/services).
 Each page request asks for 10 results. The [scrape strategy](#scrape-strategy) sets how many pages are fetched.
