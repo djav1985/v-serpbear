@@ -114,11 +114,8 @@ Back up `data/` first. With Docker, run `docker compose pull && docker compose u
 | PrismCrawl (`prismcrawl`) | 100 free credits, packages from $5 (about $0.21 per 1,000, valid 90 days) | City | Yes | Yes | Header `x-api-key` (POST JSON) |
 | DataForSEO (`dataforseo`) | Pay-as-you-go, $50 minimum top-up | City | Yes (`local_pack`) | Yes | HTTP Basic, `login:password` in the API key field |
 
-\*Pricing is indicative. Check each vendor before buying. The request formats are implemented in [`scrapers/services`](./scrapers/services).
-
+> \*Pricing is indicative. Check each vendor before buying. The request formats are implemented in [`scrapers/services`](./scrapers/services).
 Each page request asks for 10 results. The [scrape strategy](#scrape-strategy) sets how many pages are fetched.
-
-Serper has no mobile option. In a refresh, a mobile keyword that has a matching desktop keyword (same domain, keyword, country and location) in the same run is not scraped. It takes the desktop keyword's result, so no extra request is made. A mobile keyword with no matching desktop keyword is scraped with desktop results, and a warning is logged for it.
 
 ### Settings configured in `docker-compose.yml ENVs`
 
@@ -150,6 +147,7 @@ Behaviour is controlled by environment variables inside docker compose as well a
 | `CRON_MAIN_SCHEDULE` | `0 0 0 * * *` | Time of the daily scrape (`scrape_interval` = `daily`) and of the Search Console refresh. |
 | `CRON_FAILED_SCHEDULE` | `0 0 */1 * * *` | Retry of failed scrapes. Also drives the `hourly` scrape option, which is not in the Settings UI. |
 | `CRON_EMAIL_SCHEDULE` | `0 0 6 * * *` | Time of day for digests. Weekly digests run on Mondays and monthly digests on the 1st, both at this time. |
+
 
 ### Settings configured in `data/settings.json`
 
