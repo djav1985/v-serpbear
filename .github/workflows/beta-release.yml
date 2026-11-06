@@ -1,4 +1,4 @@
-name: beta release
+name: Beta Belease
 
 on:
   workflow_dispatch:
