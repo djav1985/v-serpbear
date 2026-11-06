@@ -1,0 +1,43 @@
+name: wiki sync
+
+# Publishes the docs/ folder to the GitHub wiki. docs/ is the source of truth: edits made in the wiki itself are
+# overwritten by the next sync, and pages removed from docs/ are removed from the wiki.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - '.github/workflows/wiki-sync.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: wiki-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Publish docs/ to the wiki
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.wiki.git" wiki
+          rsync -a --delete --exclude '.git' docs/ wiki/
+          cd wiki
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Wiki is already up to date"
+            exit 0
+          fi
+          git commit -m "Sync docs from ${GITHUB_SHA::7}"
+          git push
