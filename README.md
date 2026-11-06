@@ -193,58 +193,13 @@ Manage these in the Settings UI or at `/api/settings`.
 
 ## Feature deep dive
 
-`GET /api/settings` is public. Without a session it returns only `scraper_type`, `available_scapers`, `search_console_integrated`, `version` and `timezone`. `PUT /api/settings` needs a login session, and an API key is not accepted. It merges the payload: keys left out keep their stored values, and a secret sent empty is cleared.
-How the settings map onto the schedule:
-
-- Search Console credentials are read in this order: the domain's own credentials (saved in the domain's settings), then the Settings page, then the two environment variables above. Google Ads credentials are configured only in Settings (stored encrypted); there are no Google Ads environment variables. Google Ads sign-in requires `NEXT_PUBLIC_APP_URL` or `APP_URL` to be set.
-
-- SMTP settings (server, port, username, password, sender, display name and TLS server name) are set in the Notification settings modal or via the settings API, and are not read from environment variables. The port is required: a blank port returns `400` with `SMTP has not been setup properly!`. The sender defaults to `no-reply@serpbear.com`, and the display name to the platform name. Recipients are set per domain, in the domain's settings. There is no global recipient address. The optional `smtp_tls_servername` is trimmed of whitespace and trailing dots before it reaches Nodemailer.
-
-
-- `scrape_interval`: runs at the `CRON_MAIN_SCHEDULE` time. `daily` runs every day, `other_day` on odd days of the month, `weekly` on Mondays and `monthly` on the 1st. `never` turns scheduled scraping off.
-- `notification_interval`: runs at the `CRON_EMAIL_SCHEDULE` time. `daily` runs every day, `weekly` on Mondays and `monthly` on the 1st. `never` turns digests off.
-- Settings changes apply without a restart. The worker watches `data/settings.json` and re-checks it every 30 minutes. `CRON_*` variables are read at startup, so they need a restart.
-
-
-Compose stores data in a named volume (`data`) mounted at `/app/data`. The volume name is prefixed with the project name (for example `v-serpbear_data`); find it with `docker volume ls`. The volume holds the SQLite database, `settings.json`, Search Console exports (`SC_<domain>.json`), keyword ideas (`IDEAS_*.json`), `session.json`, `email-throttle.json`, `failed_queue.json` and any white-label logo.
-
-Branding changes need two different actions. Logo file changes apply on the next request, so refresh the browser. Environment value changes need a restart (`docker compose up -d` for Compose, or restart the Node.js process). Neither needs a rebuild.
-
-The Docker image sets `HOSTNAME=0.0.0.0`, and the entrypoint sets `TZ` from `CRON_TIMEZONE`. The health check reads `PORT` (default 3000).
-
-### Per-domain scraper overrides
-
-A domain can use its own provider without changing the global default. Open **Domains**, click a domain, and switch to the **Scraper** tab. Pick a provider (or **System Scraper** to inherit the global one) and enter the API key. Stored keys are encrypted.
-
-Provider choice also affects speed: only SerpApi and SearchApi runs use the faster parallel path (see [Performance, integrations and logging](#performance-integrations-and-logging)).
-
-### Business name and map pack detection
-
-The optional **Business Name** field in the domain scraper tab turns on map pack detection. Matching uses the name only, never the link.
-
-1. Each provider builds a list of local results from its response, in the order Google shows them.
-2. If one of the first three titles matches your business name, the keyword counts as a map pack appearance.
-3. Names match ignoring case, punctuation, repeated spaces and `&` versus `and`, so `Smith & Sons, Inc.` matches `smith and sons inc`. Accents still matter.
-
-Only the first results page is checked. In the keyword details, **Local Search Results** shows your listing in green and every other business in yellow. Only a match among the first three local results is green. The matching organic result is highlighted green too. Local results saved before this flag existed show yellow until the keyword is refreshed.
-
-**Example:** for `vontainment.com`, enter "Vontainment" if that is your Google Business Profile name.
-
 ### Keyword tracking workflow
 
 1. **Add a domain** with the host name to monitor.
 2. **Add keywords** with the query, country, optional state and city, and device (desktop or mobile).
-3. **Scrape.** The cron worker asks the app to refresh keywords. The app queries your provider and stores positions, using the [scrape strategy](#scrape-strategy).
+3. **Scrape.** The cron worker (or **Refresh**) asks your provider for results and stores positions, using the [scrape strategy](#scrape-strategy).
 4. **Analyse.** Charts and tables show history, average position and day-over-day change.
-5. **Share.** Use the API or MCP server, or send email digests.
-
-### Keyword details panel
-
-Click a keyword row for the full SERP snapshot, the rank-history chart and the local results.
-
-- **Google Search Result.** Your result is highlighted green, matched by position value so non-contiguous result sets still work.
-- **Not found.** The badge reads `Not in First N`, where N is the number of results actually scraped. It reads `No Results` when nothing was scraped.
-- **Map pack badge.** A "MAP" badge under the country flag in the dashboard and details, and "MP" in email digests. The domains overview shows a Map Pack counter.
+5. **Share** through the API, the MCP server or email digests.
 
 ### Scrape strategy
 
@@ -257,11 +212,45 @@ Google's removal of `num=100` limits SERP APIs to 10 results per request. The st
 
 - **Globally:** **Settings → Scraper → Scrape Strategy**. Choosing Custom shows a page-count selector.
 - **Per domain:** the domain's **Scraper** tab, **Scrape Strategy Override**. Any value other than **Use Global Setting** enables the domain controls.
-- **Failed pages:** if a page request fails and the domain was not found on the pages that loaded, the keyword is reported as an error with the provider's message. It keeps its previous position and history, rather than being recorded as "not ranked".
+- **Failed pages:** if a page request fails and the domain was not found on the pages that loaded, the keyword is reported as an error with the provider's message. It keeps its previous position and history rather than being recorded as "not ranked".
+
+### Per-domain scrapers
+
+A domain can use its own provider without changing the global default. Open the domain, switch to the **Scraper** tab, pick a provider (or **System Scraper** to inherit the global one) and enter its API key. Stored keys are encrypted.
+
+A refresh uses the faster parallel path only when every keyword in the run uses SerpApi or SearchApi. See `PARALLEL_REFRESH_CONCURRENCY` and `PARALLEL_SCRAPE_CONCURRENCY` in the settings table above.
+
+**Serper.** Serper has no mobile option. In a refresh, a mobile keyword with a matching desktop keyword (same domain, keyword, country and location) in the same run is not scraped. It takes the desktop keyword's result, so no extra request is made. A mobile keyword with no matching desktop keyword is scraped with desktop results, and a warning is logged for it.
+
+### Scheduling
+
+- `scrape_interval` runs at the `CRON_MAIN_SCHEDULE` time: `daily` every day, `other_day` on odd days of the month, `weekly` on Mondays, `monthly` on the 1st. `never` turns scheduled scraping off.
+- `notification_interval` runs at the `CRON_EMAIL_SCHEDULE` time: `daily`, `weekly` (Mondays) or `monthly` (the 1st). `never` turns digests off.
+- Failed scrapes are retried at the `CRON_FAILED_SCHEDULE` rate, and only while **Auto Retry** (`scrape_retry`) is on.
+- Settings changes apply without a restart: the worker watches `data/settings.json` and re-checks it every 30 minutes. `CRON_*` variables are read at startup, so they need a restart.
+
+### Business name and map pack detection
+
+The optional **Business Name** field in the domain's scraper tab turns on map pack detection. Matching uses the name only, never the link.
+
+1. Each provider builds a list of local results from its response, in the order Google shows them.
+2. If one of the first three titles matches your business name, the keyword counts as a map pack appearance.
+3. Names match ignoring case, accents, punctuation, repeated spaces and `&` versus `and`, so `Smith & Sons, Inc.` matches `smith and sons inc`.
+
+**Example:** for `vontainment.com`, enter "Vontainment" if that is your Google Business Profile name.
+
+Only the first results page is checked. The keyword details panel shows **Local Search Results** with your listing in green (a match among the first three) and other businesses in yellow, and highlights your organic result in green. Results saved before this flag existed show yellow until the keyword is refreshed.
+
+### Keyword details panel
+
+Click a keyword row for the SERP snapshot, the rank-history chart and the local results.
+
+- **Not found.** The badge reads `Not in First N`, where N is the number of results actually scraped, or `No Results` when nothing was scraped.
+- **Map pack.** A "MAP" badge sits under the country flag in the dashboard and details, and "MP" in email digests. The domains overview shows a Map Pack counter.
 
 ### How the average position is calculated
 
-A domain's average position (on the dashboard card and in the digest) is a whole number, rounded from the keyword positions below. It is recalculated and saved after every refresh that stores results, and whenever keywords are added or deleted. Changing the scrape strategy, page count or business name does not change it until the next refresh. Digest emails recalculate it from the keywords when they are sent.
+A domain's average position (on the dashboard card and in the digest) is a whole number, rounded from the keyword positions below. It is recalculated after every refresh that stores results and whenever keywords are added or deleted. Changing the scrape strategy, page count or business name does not change it until the next refresh.
 
 Each keyword is counted as follows:
 
@@ -269,48 +258,51 @@ Each keyword is counted as follows:
 2. **In the map pack top three with a known spot (1–3):** counts at the better (lower) of its spot and its organic position. An organic position of 0 is ignored, so the spot is used.
 3. **Organic position above 0:** counts at that position.
 4. **Position 0, ranked before** (any saved history value above 0), **and not in the map pack top three:** counts at 10 × the pages scraped. Basic is 10. Custom is 10 × the page count, taken from the domain's setting first, then the global one (default 5).
-5. **Anything else** (a keyword that never ranked, or a map pack keyword at 0 with no known spot): left out.
+5. **Anything else** (never ranked, or a map pack keyword at 0 with no known spot): left out.
 
-The Keywords and Map Pack counts include every keyword, whether or not it is in the average.
+The Keywords and Map Pack counts include every keyword, whether or not it is in the average. The dashboard trend arrows compare each stat with its previous saved value.
 
 **Example:** keywords at positions 4 and 0 (ranked before, Basic), plus a map pack keyword at spot 2 with organic position 0, give (4 + 10 + 2) / 3 = 5.33, shown as 5.
 
-The dashboard trend arrows compare each stat with its previous saved value. That value is replaced only when the stat changes.
-
 ### Keyword CSV export
 
-Use **Export as csv** in the domain header. The file is named `<domain>-keywords_serp.csv` and has these columns: `ID`, `Keyword`, `Map Pack`, `Position`, `URL`, `Country`, `Location`, `Device`, `Updated`, `Added`, `Tags`.
+**Export as csv** in the domain header downloads `<domain>-keywords_serp.csv` with the columns `ID`, `Keyword`, `Map Pack`, `Position`, `URL`, `Country`, `Location`, `Device`, `Updated`, `Added` and `Tags`.
 
-- **Map Pack:** `0` when the keyword is not in the map pack top three, `1`, `2` or `3` for its spot, and empty when it is in the top three but no spot is known (rows saved before local results were stored).
+- **Map Pack:** `0` when not in the top three, `1`–`3` for its spot, and empty when it is in the top three but no spot is known.
 - **Position:** `-` when the keyword is unranked.
-- Text cells that start with `=`, `+`, `-` or `@` get a leading apostrophe, so spreadsheet apps read them as text. A lone `-` is the placeholder and is not changed.
+- Text cells that start with `=`, `+`, `-` or `@` get a leading apostrophe so spreadsheet apps read them as text.
+
+### Google Search Console
+
+- Add a service account to show impressions, clicks and CTR next to each keyword. Credentials are read from the domain's own settings first, then the Settings page, then `SEARCH_CONSOLE_CLIENT_EMAIL` and `SEARCH_CONSOLE_PRIVATE_KEY`.
+- Cached data is refetched when a dashboard or API read finds it more than 24 hours old, and by the cron at the `CRON_MAIN_SCHEDULE` time. Search Console days follow Pacific Time (`America/Los_Angeles`) whatever `CRON_TIMEZONE` is.
+- The Discover tab disables keywords that are already tracked, and "select all" skips them.
+- It is optional. Without credentials the dashboard card is hidden and the Insight tab shows a message.
 
 ### Keyword research and Google Ads
 
-- Connect a Google Ads account in Settings to get suggestions and historical volumes. Ideas are also available through the REST API.
-- The seed type decides where suggestions come from: `auto` uses the domain as a Google Ads site seed, `custom` uses your keyword list, `tracking` uses the domain's tracked keywords, and `searchconsole` uses the top 100 Search Console queries by impressions over the last 30 days.
-- Ideas already tracked are disabled only when they are tracked for every selected device. A partly tracked idea can still be added for the missing device.
-- When no ideas match, the API responds `404` and the UI shows an error toast.
-- Email selected ideas from the research table or a domain's ideas tab. The research view asks for a destination domain first, and domain pages use the domain's notification addresses. Idea emails have their own limit of 10 per domain per hour and do not use the digest throttle.
+- Connect a Google Ads account in Settings (there are no Google Ads environment variables) to get suggestions and historical volumes. Sign-in needs `NEXT_PUBLIC_APP_URL` or `APP_URL` to be set.
+- The seed type decides where suggestions come from: `auto` uses the domain as a site seed, `custom` your keyword list, `tracking` the domain's tracked keywords, and `searchconsole` its top 100 Search Console queries by impressions over the last 30 days.
+- An idea is disabled only when it is tracked for every selected device, so a partly tracked idea can still be added for the missing device.
+- Selected ideas can be emailed from the research table or a domain's ideas tab, limited to 10 per domain per hour.
 
-### Google Search Console insights
+### Email digests
 
-- Authenticate with a service account (see [Google integrations](#google-integrations)) to add impressions, clicks and CTR to each keyword.
-- Cached data is refetched when a dashboard or API read finds it more than 24 hours old, and by the cron at `CRON_MAIN_SCHEDULE`. Search Console days follow Pacific Time (`America/Los_Angeles`) whatever `CRON_TIMEZONE` is.
-- The Discover tab disables keywords that are already tracked, and "select all" skips them.
-- Search Console is optional. Without credentials, the dashboard card is hidden and the Insight tab shows a message.
-
-### Notifications and reporting
-
-- Digests summarise gains and losses, top movers and, when available, Search Console traffic.
-- Frequency and send time are set as in [Cron scheduling](#cron-scheduling). Clearing the SMTP settings makes each scheduled send fail with `400`.
-- Each domain gets at most one digest per hour and five per calendar day in `CRON_TIMEZONE` (`utils/emailThrottle.ts`).
+- Digests summarise gains and losses, top movers and, when available, Search Console traffic, opening with a tracker summary.
+- SMTP (server, port, username, password, sender, display name and TLS server name) is set in the Notification settings modal, not in environment variables. The port is required. The sender defaults to `no-reply@serpbear.com`.
+- Recipients are set per domain, in the domain's settings. There is no global recipient. Clearing the SMTP settings makes scheduled sends fail with `400`.
+- Each domain gets at most one digest per hour and five per calendar day in `CRON_TIMEZONE`.
 - **Send Notifications Now** in the Notification modal sends a digest for every domain with scraping enabled. Domains without a notification address, or held back by the throttle, are reported as skipped.
-- `/api/notify` answers `401` for authentication problems, `404` for an unknown domain, `400` when the SMTP host or port is missing, and `500` only when every eligible domain failed to send. Otherwise it answers `200` with `sent` and `skipped` counts.
 
-### Loading states
+### White labelling
 
-The domains index shows a full-page loader on first load. Keyword, idea and insight tables show their own spinner, so the surrounding workspace stays visible while data refreshes.
+Set `NEXT_PUBLIC_WHITE_LABEL=true` for a custom name and logo. Logo file changes apply on the next request, so refresh the browser. Environment value changes need a restart (`docker compose up -d` or restarting the Node.js process). Neither needs a rebuild.
+
+### Settings and data
+
+Settings are stored in `data/settings.json`, with secrets encrypted using `SECRET`. `GET /api/settings` is public and returns only `scraper_type`, `available_scapers`, `search_console_integrated`, `version` and `timezone` without a session. `PUT /api/settings` needs a login session (an API key is not accepted). It merges the payload: keys left out keep their stored values, and a secret sent empty is cleared.
+
+Docker Compose stores data in a named volume (`data`) mounted at `/app/data`, prefixed with the project name (for example `v-serpbear_data`; find it with `docker volume ls`). It holds the SQLite database, `settings.json`, Search Console exports (`SC_<domain>.json`), keyword ideas (`IDEAS_*.json`), `session.json`, `email-throttle.json`, `failed_queue.json` and any white-label logo.
 
 <br><br>
 
