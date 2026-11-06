@@ -57,6 +57,8 @@ The full list of changes is in the [changelog](./CHANGELOG.md). See [Updating](#
 - **MCP server.** Read-only access to rankings, Search Console and ideas for AI assistants.
 - **Hardening and stability.** Current Node.js, encrypted stored keys, login and API-key throttling, layered retries, and keywords stuck in "updating" after a crash are reset on the next startup.
 
+<br><br>
+
 **Core capabilities**
 
 | Capability | Details |
@@ -70,6 +72,8 @@ The full list of changes is in the [changelog](./CHANGELOG.md). See [Updating](#
 | **Progressive web app** | Install the dashboard on iOS or Android. |
 | **REST API** | Manage and read data programmatically (see [API and MCP server](#api-and-mcp-server)). |
 
+<br><br>
+
 **Architecture**
 
 | Layer | Responsibility |
@@ -78,6 +82,8 @@ The full list of changes is in the [changelog](./CHANGELOG.md). See [Updating](#
 | **Database** | SQLite through a custom `better-sqlite3` dialect (`database/sqlite-dialect.js`), with Sequelize and Umzug for models and migrations. No other engine is supported. |
 | **Background workers** | A Node cron runner schedules scrapes, retries, Search Console refreshes and digests from cron expressions and a timezone setting. |
 | **Settings** | Scraper, SMTP and Google Ads credentials live in the Settings UI and are stored in `data/settings.json` (secrets encrypted with `SECRET`). |
+
+<br><br>
 
 ---
 
