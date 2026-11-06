@@ -1,0 +1,58 @@
+services:
+  app:
+    image: vontainment/v-serpbear:latest
+    restart: unless-stopped
+    container_name: serpbear
+    shm_size: "1024MB"
+    network_mode: bridge
+    ports:
+      - "3030:3000"
+    # Edit the values below. Replace the change-me placeholders before you use this anywhere real.
+    environment:
+      # --- Authentication and security ---
+      USER_NAME: admin
+      PASSWORD: change-me
+      SECRET: change-me-to-a-long-random-string
+      APIKEY: change-me-to-another-long-random-string
+      SESSION_DURATION: 24
+      # Number of reverse proxies in front of the app (see README). 0 uses the socket address.
+      TRUST_PROXY: 0
+
+      # --- App URLs ---
+      # Public URL used for OAuth redirects and email links. Set this to your real deployment URL.
+      NEXT_PUBLIC_APP_URL: http://localhost:3030
+      # Optional. Internal origin the cron worker uses to call the app (for example http://localhost:3000 when the
+      # public URL is not reachable from inside the container). When empty, NEXT_PUBLIC_APP_URL is used.
+      APP_URL: http://localhost:3000
+
+      # --- Interface and branding ---
+      # Thum.io thumbnail capture; false disables those requests. Read at request time, no rebuild needed.
+      SCREENSHOTS: true
+      NEXT_PUBLIC_WHITE_LABEL: false
+      # File name (stored in /app/data) for the white-label logo. Recommended dimensions: 96x96 pixels.
+      WHITE_LABEL_LOGO_FILE: branding-logo.png
+      NEXT_PUBLIC_PLATFORM_NAME: SerpBear
+
+      # --- Scheduling ---
+      # IANA timezone, for example Europe/London
+      TZ: America/New_York
+      # Times of day (HH:MM, 24 hour) for the scrapes, and for the email digests
+      CRON_MAIN_SCHEDULE: "00:00"
+      CRON_EMAIL_SCHEDULE: "06:00"
+      # Failed scrape retries: hourly, daily or never
+      CRON_FAILED_SCHEDULE: hourly
+
+      # --- Scraping and performance ---
+      REFRESH_QUEUE_CONCURRENCY: 3
+      PARALLEL_SCRAPE_CONCURRENCY: 3
+      # Optional. Free Serper API key used to turn google.com/goto result links into real URLs (serper.dev).
+      SERPER_API_KEY: ""
+
+      # --- Google integrations (optional) ---
+      SEARCH_CONSOLE_CLIENT_EMAIL: ""
+      SEARCH_CONSOLE_PRIVATE_KEY: ""
+    volumes:
+      - data:/app/data
+
+volumes:
+  data:

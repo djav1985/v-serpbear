@@ -1,0 +1,118 @@
+name: Production Release
+
+# Manual only. Tags the selected branch, attaches a source code ZIP and uses the matching CHANGELOG.md section
+# as the release notes, then builds and pushes the Docker image tagged <version> without the v and latest. Stable releases only: the beta image comes from the beta release workflow.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release, for example 5.0.0 (the tag becomes v5.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Validate the version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'; then
+            echo "::error::Version must look like 5.0.0 or 5.0.0-beta.1 (no leading v)"
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/v${VERSION}" >/dev/null 2>&1; then
+            echo "::error::Tag v${VERSION} already exists"
+            exit 1
+          fi
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          if [ "$PACKAGE_VERSION" != "$VERSION" ]; then
+            echo "::warning::package.json says ${PACKAGE_VERSION}, releasing ${VERSION}"
+          fi
+
+      - name: Build the release notes from CHANGELOG.md
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          # Everything under "## [VERSION]" up to the next "## [" heading
+          awk -v v="$VERSION" '
+            /^## \[/ { if (found) exit; if (index($0, "## [" v "]") == 1) { found = 1; next } }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "::warning::No CHANGELOG.md section for ${VERSION}; using GitHub generated notes"
+            rm -f release-notes.md
+          fi
+
+      - name: Create the source code ZIP
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          git archive --format=zip --prefix="serpbear-${VERSION}/" -o "serpbear-${VERSION}-source.zip" HEAD
+          ls -l "serpbear-${VERSION}-source.zip"
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          args=(--target "$GITHUB_SHA" --title "v${VERSION}")
+          if [ -f release-notes.md ]; then
+            args+=(--notes-file release-notes.md)
+          else
+            args+=(--generate-notes)
+          fi
+          gh release create "v${VERSION}" "serpbear-${VERSION}-source.zip" "${args[@]}"
+
+  docker:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the release tag
+        uses: actions/checkout@v7
+        with:
+          ref: v${{ inputs.version }}
+
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USER }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata
+        uses: docker/metadata-action@v6
+        id: meta
+        with:
+          images: vontainment/v-serpbear
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=${{ inputs.version }}
+            type=raw,value=latest
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=release
+          cache-to: type=gha,scope=release,mode=max

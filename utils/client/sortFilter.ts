@@ -1,0 +1,282 @@
+type SortDirection = 'asc' | 'desc';
+
+export const sortByNumericField = <T>(items: T[], getValue: (item: T) => number, direction: SortDirection = 'asc'): T[] => (
+   [...items].sort((a, b) => {
+      const delta = getValue(a) - getValue(b);
+      return direction === 'asc' ? delta : -delta;
+   })
+);
+
+export const sortByStringField = <T>(items: T[], getValue: (item: T) => string, direction: SortDirection = 'asc'): T[] => (
+   [...items].sort((a, b) => {
+      const delta = getValue(a).localeCompare(getValue(b));
+      return direction === 'asc' ? delta : -delta;
+   })
+);
+
+// ── Predicates (single-item checks) ─────────────────────────────────────────
+
+export const matchesCountry = (keywordCountry: string, countries: string[]): boolean => (
+   countries.length === 0 || countries.includes(keywordCountry)
+);
+
+export const matchesSearch = (keyword: string, search: string): boolean => {
+   if (!search) { return true; }
+   const normalizedKeyword = keyword.toLowerCase();
+   const normalizedSearch = search.toLowerCase();
+   return normalizedKeyword.includes(normalizedSearch);
+};
+
+// Sentinel value the tag filter uses for "keywords that have no tags".
+export const NO_TAGS_FILTER = '__no_tags__';
+
+export const matchesTags = (keywordTags: string[], tags: string[]): boolean => {
+   if (tags.length === 0) { return true; }
+   if (keywordTags.length === 0) { return tags.includes(NO_TAGS_FILTER); }
+   return tags.some((tag) => keywordTags.includes(tag));
+};
+
+// "No Tags" cannot be combined with specific tags. Picking it clears the other selections,
+// and picking a specific tag while it is selected removes it.
+export const resolveTagSelection = (previous: string[], next: string[]): string[] => {
+   const newlyAdded = next.filter((tag) => !previous.includes(tag));
+   if (newlyAdded.includes(NO_TAGS_FILTER)) { return [NO_TAGS_FILTER]; }
+   return next.filter((tag) => tag !== NO_TAGS_FILTER);
+};
+
+export const filterByDevice = <T extends { device: string }>(items: T[], device: string): {[key: string]: T[] } => {
+   const deviceKeywords: {[key:string] : T[]} = { desktop: [], mobile: [] };
+   items.forEach((keyword) => {
+      if (keyword.device === device) { deviceKeywords[device].push(keyword); }
+   });
+   return deviceKeywords;
+};
+
+const sortByPositionWithFallback = <T extends { position: number }>(items: T[], direction: SortDirection): T[] => {
+   const keywordsWithFallback = items.map((item) => ({ ...item, position: item.position === 0 ? 111 : item.position }));
+   const sortedItems = sortByNumericField(keywordsWithFallback, (item) => item.position, direction);
+   return sortedItems.map((item) => ({ ...item, position: item.position === 111 ? 0 : item.position }));
+};
+
+/**
+ * Sort Keywords by user's given input.
+ * @param {KeywordType[]} theKeywords - The Keywords to sort.
+ * @param {string} sortBy - The sort method.
+ * @returns {KeywordType[]}
+ */
+export const sortKeywords = (theKeywords:KeywordType[], sortBy:string, scDataType?: string) : KeywordType[] => {
+   const baseKeywords = [...theKeywords];
+   let sortedItems: KeywordType[] = [];
+   switch (sortBy) {
+      case 'date_asc':
+            sortedItems = sortByNumericField(baseKeywords, (item) => new Date(item.added).getTime(), 'asc');
+            break;
+      case 'date_desc':
+            sortedItems = sortByNumericField(baseKeywords, (item) => new Date(item.added).getTime(), 'desc');
+            break;
+      case 'pos_asc':
+            sortedItems = sortByPositionWithFallback(baseKeywords, 'asc');
+            break;
+      case 'pos_desc':
+            sortedItems = sortByPositionWithFallback(baseKeywords, 'desc');
+            break;
+      case 'alpha_asc':
+            sortedItems = sortByStringField(baseKeywords, (item) => item.keyword, 'asc');
+            break;
+      case 'alpha_desc':
+            sortedItems = sortByStringField(baseKeywords, (item) => item.keyword, 'desc');
+         break;
+      case 'vol_asc':
+            sortedItems = sortByNumericField(baseKeywords, (item) => item.volume, 'asc');
+            break;
+      case 'vol_desc':
+            sortedItems = sortByNumericField(baseKeywords, (item) => item.volume, 'desc');
+            break;
+      case 'imp_desc':
+            if (scDataType) {
+               sortedItems = sortByNumericField(
+                  baseKeywords,
+                  (item) => item.scData?.impressions[scDataType as keyof KeywordSCDataChild] || 0,
+                  'desc'
+               );
+            }
+            break;
+      case 'imp_asc':
+            if (scDataType) {
+               sortedItems = sortByNumericField(
+                  baseKeywords,
+                  (item) => item.scData?.impressions[scDataType as keyof KeywordSCDataChild] || 0,
+                  'asc'
+               );
+            }
+         break;
+      case 'visits_desc':
+            if (scDataType) {
+               sortedItems = sortByNumericField(
+                  baseKeywords,
+                  (item) => item.scData?.visits[scDataType as keyof KeywordSCDataChild] || 0,
+                  'desc'
+               );
+            }
+            break;
+      case 'visits_asc':
+            if (scDataType) {
+               sortedItems = sortByNumericField(
+                  baseKeywords,
+                  (item) => item.scData?.visits[scDataType as keyof KeywordSCDataChild] || 0,
+                  'asc'
+               );
+            }
+            break;
+      default:
+            return theKeywords;
+   }
+
+   // Stick Favorites item to top
+   sortedItems = [...sortedItems].sort((a: KeywordType, b: KeywordType) => {
+      const aSticky = Boolean(a.sticky);
+      const bSticky = Boolean(b.sticky);
+      return aSticky === bSticky ? 0 : (bSticky ? 1 : -1);
+   });
+
+   return sortedItems;
+};
+
+/**
+ * Filters the Keywords by Device when the Device buttons are switched
+ * @param {KeywordType[]} sortedKeywords - The Sorted Keywords.
+ * @param {string} device - Device name (desktop or mobile).
+ * @returns {{desktop: KeywordType[], mobile: KeywordType[] } }
+ */
+export const keywordsByDevice = (sortedKeywords: KeywordType[], device: string): {[key: string]: KeywordType[] } => (
+   filterByDevice(sortedKeywords, device)
+);
+
+/**
+ * Filters the keywords by country, search string or tags.
+ * @param {KeywordType[]} keywords - The keywords.
+ * @param {KeywordFilters} filterParams - The user Selected filter object.
+ * @returns {KeywordType[]}
+ */
+export const filterKeywords = (keywords: KeywordType[], filterParams: KeywordFilters):KeywordType[] => (
+   keywords.filter((keyword) => (
+      matchesCountry(keyword.country, filterParams.countries)
+      && matchesSearch(keyword.keyword, filterParams.search)
+      && matchesTags(keyword.tags, filterParams.tags)
+   ))
+);
+
+/**
+ * Sort Search Console keywords by user's given input.
+ * @param {SCKeywordType[]} theKeywords - The Keywords to sort.
+ * @param {string} sortBy - The sort method.
+ * @returns {SCKeywordType[]}
+ */
+export const SCsortKeywords = (theKeywords:SCKeywordType[], sortBy:string) : SCKeywordType[] => {
+   const baseKeywords = [...theKeywords];
+   let sortedItems: SCKeywordType[] = [];
+   switch (sortBy) {
+      case 'imp_asc':
+            sortedItems = sortByNumericField(baseKeywords, (item) => item.impressions ?? 0, 'asc');
+            break;
+      case 'imp_desc':
+            sortedItems = sortByNumericField(baseKeywords, (item) => item.impressions ?? 0, 'desc');
+            break;
+      case 'visits_asc':
+            sortedItems = sortByNumericField(baseKeywords, (item) => item.clicks ?? 0, 'asc');
+            break;
+      case 'visits_desc':
+            sortedItems = sortByNumericField(baseKeywords, (item) => item.clicks ?? 0, 'desc');
+            break;
+      case 'ctr_asc':
+            sortedItems = sortByNumericField(baseKeywords, (item) => item.ctr ?? 0, 'asc');
+            break;
+      case 'ctr_desc':
+            sortedItems = sortByNumericField(baseKeywords, (item) => item.ctr ?? 0, 'desc');
+            break;
+      case 'pos_asc':
+            sortedItems = sortByPositionWithFallback(baseKeywords, 'asc');
+            break;
+      case 'pos_desc':
+            sortedItems = sortByPositionWithFallback(baseKeywords, 'desc');
+            break;
+      case 'alpha_desc':
+            sortedItems = sortByStringField(baseKeywords, (item) => item.keyword, 'desc');
+            break;
+      case 'alpha_asc':
+            sortedItems = sortByStringField(baseKeywords, (item) => item.keyword, 'asc');
+         break;
+      default:
+            return theKeywords;
+   }
+
+   return [...sortedItems];
+};
+
+/**
+ * Filters the Keywords by Device when the Device buttons are switched
+ * @param {SCKeywordType[]} sortedKeywords - The Sorted Keywords.
+ * @param {string} device - Device name (desktop or mobile).
+ * @returns {{desktop: SCKeywordType[], mobile: SCKeywordType[] } }
+ */
+export const SCkeywordsByDevice = (sortedKeywords: SCKeywordType[], device: string): {[key: string]: SCKeywordType[] } => (
+   filterByDevice(sortedKeywords, device)
+);
+
+/**
+ * Filters the keywords by country, search string or tags.
+ * @param {SCKeywordType[]} keywords - The keywords.
+ * @param {KeywordFilters} filterParams - The user Selected filter object.
+ * @returns {SCKeywordType[]}
+ */
+export const SCfilterKeywords = (keywords: SCKeywordType[], filterParams: KeywordFilters):SCKeywordType[] => {
+   const searchTerm = (filterParams.search || '').trim().toLowerCase();
+   return keywords.filter((keyword) => (
+      matchesCountry(keyword.country, filterParams.countries)
+      && (!searchTerm || keyword.keyword.toLowerCase().includes(searchTerm))
+   ));
+};
+
+export const IdeasSortKeywords = (theKeywords: IdeaKeyword[], sortBy: string): IdeaKeyword[] => {
+   const keywordsToSort = [...theKeywords];
+
+   switch (sortBy) {
+      case 'alpha_asc':
+         return sortByStringField(keywordsToSort, (item) => item.keyword.toLowerCase(), 'asc');
+      case 'alpha_desc':
+         return sortByStringField(keywordsToSort, (item) => item.keyword.toLowerCase(), 'desc');
+      case 'vol_asc':
+         return keywordsToSort.sort((a: IdeaKeyword, b: IdeaKeyword) => (a.avgMonthlySearches ?? 0) - (b.avgMonthlySearches ?? 0));
+      case 'vol_desc':
+         return keywordsToSort.sort((a: IdeaKeyword, b: IdeaKeyword) => (b.avgMonthlySearches ?? 0) - (a.avgMonthlySearches ?? 0));
+      case 'competition_asc':
+         return keywordsToSort.sort((a: IdeaKeyword, b: IdeaKeyword) => (a.competitionIndex ?? 0) - (b.competitionIndex ?? 0));
+      case 'competition_desc':
+         return keywordsToSort.sort((a: IdeaKeyword, b: IdeaKeyword) => (b.competitionIndex ?? 0) - (a.competitionIndex ?? 0));
+      default:
+         return [...theKeywords];
+   }
+};
+
+export const normalizeIdeaTag = (tag: string): string => tag.replace(/\s*\(\d+\)/, '').trim();
+
+const reversePhrase = (value: string): string => value.split(' ').reverse().join(' ');
+
+export const matchesIdeaTags = (keyword: string, tags: string[]): boolean => {
+   if (tags.length === 0) { return true; }
+   const normalizedKeyword = keyword.toLowerCase();
+   return tags.some((tag) => {
+      const normalizedTag = normalizeIdeaTag(tag).toLowerCase();
+      if (!normalizedTag) { return false; }
+      const reversedTag = reversePhrase(normalizedTag);
+      return normalizedKeyword.includes(normalizedTag) || normalizedKeyword.includes(reversedTag);
+   });
+};
+
+export const IdeasfilterKeywords = (keywords: IdeaKeyword[], filterParams: KeywordFilters): IdeaKeyword[] => (
+   keywords.filter((keywrd) => (
+      matchesCountry(keywrd.country, filterParams.countries)
+      && matchesSearch(keywrd.keyword, filterParams.search)
+      && matchesIdeaTags(keywrd.keyword, filterParams.tags)
+   ))
+);

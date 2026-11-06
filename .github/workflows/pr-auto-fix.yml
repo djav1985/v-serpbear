@@ -1,0 +1,82 @@
+name: PR Lint and Auto-Fix
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  lint-fix:
+    # Fork PRs cannot be pushed to with the default token, so only run for branches in this repository
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    env:
+      HEAD_REF: ${{ github.head_ref }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.head_ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install dependencies (with dev)
+        run: npm ci --include=dev
+
+      # ESLint Fix
+      - name: ESLint Fix
+        shell: bash
+        run: |
+          if [ -f node_modules/eslint/bin/eslint.js ]; then
+            if find components pages utils -type f \( -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" \) | grep -q .; then
+              node node_modules/eslint/bin/eslint.js \
+                --config eslint.config.mjs \
+                "components/**/*.{js,jsx,ts,tsx}" \
+                "pages/**/*.{js,jsx,ts,tsx}" \
+                "utils/**/*.{js,jsx,ts,tsx}" \
+                --fix || true
+            else
+              echo "No JS/TS files found in components, pages, or utils. Skipping ESLint."
+            fi
+          else
+            echo "ESLint not installed locally. Skipping."
+          fi
+
+      # Stylelint Fix
+      - name: Stylelint Fix
+        shell: bash
+        run: |
+          if [ -f node_modules/stylelint/bin/stylelint.mjs ]; then
+            if find styles -type f -name "*.css" | grep -q .; then
+              node node_modules/stylelint/bin/stylelint.mjs \
+                "styles/**/*.css" \
+                --fix || true
+            else
+              echo "No CSS files found in styles. Skipping Stylelint."
+            fi
+          else
+            echo "Stylelint not installed locally. Skipping."
+          fi
+
+      # Commit changes directly to the PR branch
+      - name: Commit fixes to PR branch
+        id: commit_push
+        continue-on-error: true
+        run: |
+          git config core.filemode false
+          git add -A
+          if [ -n "$(git status --porcelain)" ]; then
+            git config user.name  "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git commit -m "chore: auto-lint fixes"
+            git push origin "HEAD:${HEAD_REF}"
+          else
+            echo "No changes to commit."
+          fi

@@ -1,0 +1,169 @@
+/// <reference path="../../types.d.ts" />
+
+import { useClearFailedQueue, useRetryFailedQueue } from '../../services/settings';
+import Icon from '../common/Icon';
+import SelectField, { SelectionOption } from '../common/SelectField';
+import SecretField from '../common/SecretField';
+import ToggleField from '../common/ToggleField';
+
+type ScraperSettingsProps = {
+   settings: SettingsType,
+   settingsError: null | {
+      type: string,
+      msg: string
+   },
+   updateSettings: (key: string, value: string | number | boolean) => void,
+}
+
+const ScraperSettings = ({ settings, settingsError, updateSettings }:ScraperSettingsProps) => {
+   const { mutate: clearFailedMutate, isLoading: clearingQueue } = useClearFailedQueue(() => {});
+   const { mutate: retryFailedMutate, isLoading: retryingQueue } = useRetryFailedQueue();
+
+   const scrapingOptions: SelectionOption[] = [
+      { label: 'Daily', value: 'daily' },
+      { label: 'Every Other Day', value: 'other_day' },
+      { label: 'Weekly', value: 'weekly' },
+      { label: 'Monthly', value: 'monthly' },
+      { label: 'Never', value: 'never' },
+   ];
+   const delayOptions: SelectionOption[] = [
+      { label: 'No Delay', value: '0' },
+      { label: '5 Seconds', value: '5000' },
+      { label: '10 Seconds', value: '10000' },
+      { label: '30 Seconds', value: '30000' },
+   ];
+   const allScrapers: SelectionOption[] = settings.available_scapers ? settings.available_scapers : [];
+   const scraperOptions: SelectionOption[] = [{ label: 'None', value: 'none' }, ...allScrapers];
+   const labelStyle = 'mb-2 font-semibold inline-block text-sm text-gray-700 capitalize';
+   const strategyOptions: SelectionOption[] = [
+      { label: 'Basic (First page only — 10 results)', value: 'basic' },
+      { label: 'Custom (Set number of pages)', value: 'custom' },
+   ];
+
+   const paginationLimitOptions: SelectionOption[] = Array.from({ length: 10 }, (_, i) => (
+      { label: `${i + 1} Page${i > 0 ? 's' : ''}`, value: String(i + 1) }
+   ));
+
+   return (
+      <div>
+      <div className='settings__content styled-scrollbar p-6 text-sm'>
+
+         <div className="settings__section__select mb-5">
+            <SelectField
+            label='Scraping Method'
+            options={scraperOptions}
+            selected={[settings.scraper_type || 'none']}
+            defaultLabel="Select Scraper"
+            updateField={(updatedTime: string[]) => updateSettings('scraper_type', updatedTime[0])}
+            multiple={false}
+            rounded={'rounded'}
+            minWidth={220}
+            />
+         </div>
+         {settings.scraper_type !== 'none' && (
+            <div className="settings__section__secret mb-5">
+               <SecretField
+               label='Scraper API Key or Token'
+               placeholder={'API Key/Token'}
+               value={settings?.scraping_api || ''}
+               hasError={settingsError?.type === 'no_api_key'}
+               onChange={(value:string) => updateSettings('scraping_api', value)}
+               />
+            </div>
+         )}
+         {settings.scraper_type !== 'none' && (
+            <div className="settings__section__input mb-5">
+               <SelectField
+                  label='Scraping Frequency'
+                  multiple={false}
+                  selected={[settings?.scrape_interval || 'daily']}
+                  options={scrapingOptions}
+                  defaultLabel={'Select Frequency'}
+                  updateField={(updated:string[]) => updated[0] && updateSettings('scrape_interval', updated[0])}
+                  rounded='rounded'
+                  maxHeight={48}
+                  minWidth={220}
+               />
+            </div>
+         )}
+            <div className="settings__section__input mb-5">
+               <SelectField
+                  label='Keyword Scrape Delay'
+                  multiple={false}
+                  selected={[settings?.scrape_delay || '0']}
+                  options={delayOptions}
+                  defaultLabel={'Delay Settings'}
+                  updateField={(updated:string[]) => updated[0] && updateSettings('scrape_delay', updated[0])}
+                  rounded='rounded'
+                  maxHeight={48}
+                  minWidth={220}
+               />
+            </div>
+            <div className="settings__section__input mb-5">
+               <ToggleField
+               label='Auto Retry Failed Keyword Scrape'
+               value={!!settings?.scrape_retry }
+               onChange={(val) => updateSettings('scrape_retry', val)}
+               />
+            </div>
+            {settings.scraper_type !== 'none' && (
+               <div className="settings__section__select mb-5">
+                  <SelectField
+                        label='Scrape Strategy'
+                        options={strategyOptions}
+                        selected={[settings?.scrape_strategy || 'basic']}
+                        defaultLabel="Select Strategy"
+                        updateField={(updated:string[]) => updated[0] && updateSettings('scrape_strategy', updated[0])}
+                        multiple={false}
+                        rounded={'rounded'}
+                        minWidth={220}
+                     />
+                     <small className='text-gray-500 pt-2 block'>
+                        {(!settings.scrape_strategy || settings.scrape_strategy === 'basic')
+                           && 'Scrape only the first page (10 results). Fastest, uses least API credits.'}
+                        {settings.scrape_strategy === 'custom' && 'Scrape a fixed number of pages per keyword on every refresh.'}
+                     </small>
+               </div>
+            )}
+            {settings.scraper_type !== 'none' && settings.scrape_strategy === 'custom' && (
+               <div className="settings__section__select mb-5">
+                  <SelectField
+                     label='Number of Pages to Scrape'
+                     options={paginationLimitOptions}
+                     selected={[String(settings?.scrape_pagination_limit || 5)]}
+                     defaultLabel="Select Page Count"
+                     updateField={(updated:string[]) => updated[0] && updateSettings('scrape_pagination_limit', parseInt(updated[0], 10))}
+                     multiple={false}
+                     rounded={'rounded'}
+                     minWidth={220}
+                  />
+                  <small className='text-gray-500 pt-2 block'>Each page returns up to 10 results. 5 pages = top 50 results checked.</small>
+               </div>
+            )}
+            {settings?.scrape_retry && (settings.failed_queue?.length || 0) > 0 && (
+               <div className="settings__section__input mb-5">
+                  <label className={labelStyle}>Clear Failed Retry Queue</label>
+                  <button
+                  onClick={() => clearFailedMutate()}
+                  className=' py-3 px-5 w-full rounded cursor-pointer bg-gray-100 text-gray-800
+                  font-semibold text-sm hover:bg-gray-200'>
+                     {clearingQueue && <Icon type="loading" size={14} />} Clear Failed Queue
+                       ({settings.failed_queue?.length || 0} Keywords)
+                  </button>
+                  <label className={`${labelStyle} mt-5`}>Retry Failed Keywords</label>
+                  <button
+                  onClick={() => retryFailedMutate(settings.failed_queue || [])}
+                  disabled={retryingQueue}
+                  className=' py-3 px-5 w-full rounded cursor-pointer bg-gray-100 text-gray-800
+                  font-semibold text-sm hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-60'>
+                     {retryingQueue && <Icon type="loading" size={14} />} Retry All Failed Now
+                       ({settings.failed_queue?.length || 0} Keywords)
+                  </button>
+               </div>
+            )}
+      </div>
+   </div>
+   );
+};
+
+export default ScraperSettings;

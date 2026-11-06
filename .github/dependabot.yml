@@ -1,0 +1,18 @@
+version: 2
+updates:
+  # Keep npm/TypeScript deps current
+  - package-ecosystem: "npm"
+    directory: "/"                # Location of package.json / pnpm-workspace.yaml
+    schedule:
+      interval: "weekly"          # Check once a week
+    open-pull-requests-limit: 10
+    rebase-strategy: "auto"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"] # avoid auto-bumping majors
+
+  # Keep GitHub Actions up to date
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

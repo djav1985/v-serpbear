@@ -1,0 +1,109 @@
+/// <reference path="../../types.d.ts" />
+
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { z } from 'zod';
+// The SDK exposes these subpaths through a "./*" export pattern that ESLint's resolver cannot read (Node and tsc resolve them)
+// eslint-disable-next-line import/no-unresolved
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+// eslint-disable-next-line import/no-unresolved
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { checkApiKey } from '../../utils/verifyUser';
+import { withApiLogging } from '../../utils/apiLogging';
+import { errorResponse } from '../../utils/api/response';
+
+type ApiResult = { ok: boolean, status: number, data: unknown };
+type ApiCall = (method: 'GET' | 'POST', path: string, query?: Record<string, string>, body?: unknown) => Promise<ApiResult>;
+
+const domainField = z.string().describe('Real domain name, for example example.com');
+
+/** Calls the app's own /api routes over loopback with the same Bearer key, so every existing check still applies. */
+const makeApiCall = (baseUrl: string, authorization: string): ApiCall => async (method, path, query, body) => {
+   const url = new URL(path, baseUrl);
+   Object.entries(query ?? {}).forEach(([key, value]) => url.searchParams.set(key, value));
+   const res = await fetch(url, {
+      method,
+      headers: {
+         Authorization: authorization,
+         Accept: 'application/json',
+         ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+   });
+   const text = await res.text();
+   let data: unknown = text;
+   try {
+      data = text ? JSON.parse(text) : null;
+   } catch {
+      // Keep the raw text when the response is not JSON
+   }
+   return { ok: res.ok, status: res.status, data };
+};
+
+const buildServer = (call: ApiCall): McpServer => {
+   const server = new McpServer({ name: 'serpbear', version: '1.0.0' });
+   const reply = (result: ApiResult) => ({
+      isError: !result.ok,
+      content: [{ type: 'text' as const, text: JSON.stringify(result.data ?? null, null, 2) }],
+   });
+
+   server.registerTool('get_keyword', {
+      description: 'Get one tracked keyword by its ID, with its position history.',
+      inputSchema: { id: z.string().describe('Keyword ID') },
+   }, async ({ id }) => reply(await call('GET', '/api/keyword', { id })));
+
+   server.registerTool('list_keywords', {
+      description: 'List all tracked keywords of a domain.',
+      inputSchema: { domain: domainField },
+   }, async ({ domain }) => reply(await call('GET', '/api/keywords', { domain })));
+
+   server.registerTool('list_domains', {
+      description: 'List all tracked domains. Set withstats to include keyword statistics.',
+      inputSchema: { withstats: z.boolean().optional() },
+   }, async ({ withstats }) => reply(await call('GET', '/api/domains', withstats ? { withstats: 'true' } : {})));
+
+   server.registerTool('get_searchconsole', {
+      description: 'Get the raw Google Search Console data for a domain: per-keyword rows for the last 3, 7 and 30 days, plus stats. Fetched again from Google if the stored copy is older than 24 hours.',
+      inputSchema: { domain: domainField },
+   }, async ({ domain }) => reply(await call('GET', '/api/searchconsole', { domain })));
+
+   server.registerTool('get_insight', {
+      description: 'Get a summary of a domain\'s Google Search Console data: the top pages, top keywords and top countries, with stats. Use this for an overview; use get_searchconsole for the full per-keyword rows.',
+      inputSchema: { domain: domainField },
+   }, async ({ domain }) => reply(await call('GET', '/api/insight', { domain })));
+
+   server.registerTool('get_keyword_ideas', {
+      description: 'Get the saved keyword ideas and favourites of a domain. Leave domain out for the research list.',
+      inputSchema: { domain: domainField.optional() },
+   }, async ({ domain }) => reply(await call('GET', '/api/ideas', domain ? { domain } : {})));
+
+   return server;
+};
+
+async function handler(req: NextApiRequest, res: NextApiResponse) {
+   const requestId = (req as ExtendedRequest).requestId;
+   // Stateless Streamable HTTP: only POST carries requests; there is no server-initiated stream to open
+   if (req.method !== 'POST') {
+      return res.status(405).json(errorResponse('METHOD_NOT_ALLOWED', 'Method not allowed', requestId));
+   }
+   // Only the API key is accepted here: no cookies, no login session (see checkApiKey)
+   const apiKey = process.env.APIKEY;
+   if (!apiKey) {
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'APIKEY is not configured.', requestId));
+   }
+   if (!checkApiKey(req)) {
+      return res.status(401).json(errorResponse('UNAUTHORIZED', 'The MCP server requires "Authorization: Bearer <APIKEY>".', requestId));
+   }
+
+   // Tools call this same server on the port the request arrived on
+   const call = makeApiCall(`http://127.0.0.1:${req.socket.localPort ?? 3000}`, `Bearer ${apiKey}`);
+   const server = buildServer(call);
+   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+   res.on('close', () => {
+      transport.close();
+      server.close();
+   });
+   await server.connect(transport);
+   await transport.handleRequest(req, res, req.body);
+}
+
+export default withApiLogging(handler, { name: 'mcp' });

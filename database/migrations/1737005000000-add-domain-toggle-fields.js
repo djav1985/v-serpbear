@@ -1,0 +1,84 @@
+// Migration: Adds scrape_enabled and notify_enabled flags to the domain table so
+// scraping and notification behaviour can be toggled per domain.
+
+const { logger } = require('../migrationLogger');
+
+module.exports = {
+   up: async function up(params = {}, legacySequelize) {
+      const queryInterface = params?.context ?? params;
+      const SequelizeLib = params?.Sequelize
+         ?? legacySequelize
+         ?? queryInterface?.sequelize?.constructor
+         ?? require('sequelize');
+
+      return queryInterface.sequelize.transaction(async (t) => {
+         try {
+            let domainTableDefinition;
+            try {
+               domainTableDefinition = await queryInterface.describeTable('domain');
+            } catch (_describeError) {
+               // Table doesn't exist yet - skip migration
+               // Tables will be created by db.sync() after migrations run
+               logger.info('[MIGRATION] Skipping migration - domain table does not exist yet');
+               return;
+            }
+
+            if (domainTableDefinition && !domainTableDefinition.scrape_enabled) {
+               await queryInterface.addColumn(
+                  'domain',
+                  'scrape_enabled',
+                  { type: SequelizeLib.DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+                  { transaction: t }
+               );
+            }
+
+            if (domainTableDefinition && !domainTableDefinition.notify_enabled) {
+               await queryInterface.addColumn(
+                  'domain',
+                  'notify_enabled',
+                  { type: SequelizeLib.DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+                  { transaction: t }
+               );
+
+               if (domainTableDefinition.notification) {
+                  await queryInterface.sequelize.query(
+                     'UPDATE domain SET notify_enabled = notification',
+                     { transaction: t }
+                  );
+               }
+            }
+         } catch (error) {
+            logger.error('Migration error', error instanceof Error ? error : new Error(String(error)));
+            throw error;
+         }
+      });
+   },
+
+   down: async function down(params = {}) {
+      const queryInterface = params?.context ?? params;
+
+      return queryInterface.sequelize.transaction(async (t) => {
+         try {
+            let domainTableDefinition;
+            try {
+               domainTableDefinition = await queryInterface.describeTable('domain');
+            } catch (_describeError) {
+               // Table doesn't exist - skip rollback
+               logger.info('[MIGRATION] Skipping rollback - domain table does not exist');
+               return;
+            }
+
+            if (domainTableDefinition && domainTableDefinition.notify_enabled) {
+               await queryInterface.removeColumn('domain', 'notify_enabled', { transaction: t });
+            }
+
+            if (domainTableDefinition && domainTableDefinition.scrape_enabled) {
+               await queryInterface.removeColumn('domain', 'scrape_enabled', { transaction: t });
+            }
+         } catch (error) {
+            logger.error('Migration error', error instanceof Error ? error : new Error(String(error)));
+            throw error;
+         }
+      });
+   },
+};

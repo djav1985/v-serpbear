@@ -1,0 +1,84 @@
+import Keyword from '../database/models/keyword';
+import { normalizeToBoolean } from './dbBooleans';
+import { safeJsonParse } from './safeJsonParse';
+import { normalizeHistoryDateKey } from './historyDateKey';
+
+export const normaliseHistory = (rawHistory: unknown): KeywordHistory => {
+   if (!rawHistory || typeof rawHistory !== 'object' || Array.isArray(rawHistory)) {
+      return {};
+   }
+
+   // Keys are padded ("2026-1-5" becomes "2026-01-05"). If both forms exist for one day, the entry already
+   // stored under the padded key wins, which is the same rule the history migration applies.
+   const entries = Object.entries(rawHistory as Record<string, unknown>)
+      .sort(([left], [right]) => Number(normalizeHistoryDateKey(left) === left) - Number(normalizeHistoryDateKey(right) === right));
+
+   return entries.reduce<KeywordHistory>((acc, [key, value]) => {
+      if (!key) { return acc; }
+
+      const numericValue = typeof value === 'number' ? value : Number(value);
+      if (!Number.isNaN(numericValue)) {
+         acc[normalizeHistoryDateKey(key)] = numericValue;
+      }
+      return acc;
+   }, {});
+};
+
+/**
+ * Parses the SQL Keyword Model object to frontend cosumable object.
+ * @param {Keyword[]} allKeywords - Keywords to scrape
+ * @returns {KeywordType[]}
+ */
+const parseKeywords = (allKeywords: Keyword[]) : KeywordType[] => {
+   const parsedItems = allKeywords.map((keywrd:Keyword) => {
+      const keywordData = keywrd as unknown as Record<string, any>;
+
+      const historyRaw = typeof keywordData.history === 'string' 
+         ? safeJsonParse<unknown>(keywordData.history, {}, { context: `history of keyword ${keywordData.ID}`, logError: true })
+         : (keywordData.history || {});
+      const history = normaliseHistory(historyRaw);
+
+      const rawHistory7d = keywordData.history7d;
+      const history7d = rawHistory7d != null
+         ? normaliseHistory(
+            typeof rawHistory7d === 'string'
+               ? safeJsonParse<unknown>(rawHistory7d, {}, {})
+               : (rawHistory7d || {}),
+         )
+         : undefined;
+
+      const tags = typeof keywordData.tags === 'string'
+         ? safeJsonParse<string[]>(keywordData.tags, [], {})
+         : (Array.isArray(keywordData.tags) ? keywordData.tags : []);
+
+      const lastResult = typeof keywordData.lastResult === 'string'
+         ? safeJsonParse<any[]>(keywordData.lastResult, [], {})
+         : (Array.isArray(keywordData.lastResult) ? keywordData.lastResult : []);
+
+      const localResults = typeof keywordData.localResults === 'string'
+         ? safeJsonParse<any[]>(keywordData.localResults, [], {})
+         : (Array.isArray(keywordData.localResults) ? keywordData.localResults : []);
+
+      let lastUpdateError: any = false;
+      if (typeof keywordData.lastUpdateError === 'string' && keywordData.lastUpdateError !== 'false' && keywordData.lastUpdateError.includes('{')) {
+         lastUpdateError = safeJsonParse<any>(keywordData.lastUpdateError, {}, {});
+      }
+
+      return {
+         ...keywordData,
+         location: typeof keywordData.location === 'string' ? keywordData.location : '',
+         history,
+         ...(history7d !== undefined ? { history7d } : {}),
+         tags,
+         lastResult,
+         localResults,
+         lastUpdateError,
+         sticky: normalizeToBoolean(keywordData.sticky),
+         updating: normalizeToBoolean(keywordData.updating),
+         mapPackTop3: normalizeToBoolean(keywordData.mapPackTop3),
+      } as KeywordType;
+   });
+   return parsedItems;
+};
+
+export default parseKeywords;

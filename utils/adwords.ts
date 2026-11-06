@@ -1,0 +1,808 @@
+import { readFile, writeFile } from 'fs/promises';
+import { readSettingsFile } from './settingsFile';
+import * as path from 'path';
+import * as lockfile from 'proper-lockfile';
+import Cryptr from 'cryptr';
+import TTLCache from '@isaacs/ttlcache';
+import { setTimeout as sleep } from 'timers/promises';
+import { Op } from 'sequelize';
+import Keyword from '../database/models/keyword';
+import parseKeywords from './parseKeywords';
+import countries from './countries';
+import { readLocalSCData } from './searchConsole';
+import { logger } from './logger';
+import { RESEARCH_IDEAS_KEY, getIdeasFilePath } from './domainIdeasFile';
+import { atomicWriteFile } from './atomicWrite';
+
+export const GOOGLE_ADS_API_VERSION = 'v23';
+
+const memoryCache = new TTLCache({ max: 10000 });
+
+type keywordIdeasMetrics = {
+   competition: IdeaKeyword['competition'],
+   monthlySearchVolumes: { month: string, year: string, monthlySearches: string }[],
+   avgMonthlySearches: string,
+   competitionIndex: string,
+   lowTopOfPageBidMicros: string,
+   highTopOfPageBidMicros: string
+}
+
+type keywordIdeasResponseItem = {
+   keywordIdeaMetrics: keywordIdeasMetrics,
+   text: string,
+   keywordAnnotations: Record<string, unknown>
+};
+
+type IdeaSettings = {
+   country?: string;
+   city?: string;
+   state?: string;
+   language?: string;
+   keywords?: string[];
+   /** Real domain name (example.com). Empty or missing means the research page, which has no domain. */
+   domain?: string;
+   seedType: 'auto' | 'custom' | 'tracking' | 'searchconsole';
+   seedSCKeywords?: boolean;
+   seedCurrentKeywords?: boolean;
+}
+
+type IdeaDatabaseUpdateData = {
+   keywords?: IdeaKeyword[],
+   settings?: IdeaSettings,
+   favorites?: IdeaKeyword[]
+}
+
+export type KeywordIdeasDatabase = {
+   keywords: IdeaKeyword[],
+   favorites: IdeaKeyword[],
+   settings: IdeaSettings,
+   updated: number
+}
+
+type SeedKeywordBaseOptions = {
+   seedKeywords: string[];
+   seedType: IdeaSettings['seedType'];
+   domain: string;
+};
+
+type SearchConsoleSeedOptions = SeedKeywordBaseOptions & { seedSCKeywords: boolean };
+type TrackingSeedOptions = SeedKeywordBaseOptions & { seedCurrentKeywords: boolean };
+
+const seedKeywordsFromSearchConsole = async ({
+   seedKeywords,
+   seedType,
+   seedSCKeywords,
+   domain,
+}: SearchConsoleSeedOptions): Promise<string[]> => {
+   if (!domain || (!seedSCKeywords && seedType !== 'searchconsole')) {
+      return seedKeywords;
+   }
+
+   const domainSCData = await readLocalSCData(domain);
+   if (!domainSCData || !Array.isArray(domainSCData.thirtyDays)) {
+      return seedKeywords;
+   }
+
+   const keywordSet = new Set(seedKeywords);
+   const sortedSCKeywords = [...domainSCData.thirtyDays].sort((a, b) => b.impressions - a.impressions);
+
+   sortedSCKeywords.slice(0, 100).forEach((sckeywrd) => {
+      if (sckeywrd.keyword) {
+         keywordSet.add(sckeywrd.keyword);
+      }
+   });
+
+   return Array.from(keywordSet);
+};
+
+const seedKeywordsFromTracking = async ({
+   seedKeywords,
+   seedType,
+   seedCurrentKeywords,
+   domain,
+}: TrackingSeedOptions): Promise<string[]> => {
+   if (!domain || (!seedCurrentKeywords && seedType !== 'tracking')) {
+      return seedKeywords;
+   }
+
+   const keywordSet = new Set(seedKeywords);
+   const allKeywords:Keyword[] = await Keyword.findAll({
+      where: { domain },
+      order: [['volume', 'DESC']],
+   });
+   const currentKeywords: KeywordType[] = parseKeywords(allKeywords.map((e) => e.get({ plain: true })));
+
+   currentKeywords.slice(0, 100).forEach((keyword) => {
+      if (keyword.keyword) {
+         keywordSet.add(keyword.keyword);
+      }
+   });
+
+   return Array.from(keywordSet);
+};
+
+/**
+ * The function `getAdwordsCredentials` reads and decrypts Google Ads credentials from the App settings file.
+ * @returns {Promise<false | AdwordsCredentials>} returns either a decrypted `AdwordsCredentials` object if the settings are successfully decrypted,
+ * or `false` if the decryption process fails.
+ */
+export const getAdwordsCredentials = async (): Promise<false | AdwordsCredentials> => {
+   try {
+      const settings = await readSettingsFile() as SettingsType;
+      let decryptedSettings: false | AdwordsCredentials = false;
+
+      try {
+         const cryptr = new Cryptr(process.env.SECRET as string);
+         const client_id = settings.adwords_client_id ? cryptr.decrypt(settings.adwords_client_id) : '';
+         const client_secret = settings.adwords_client_secret ? cryptr.decrypt(settings.adwords_client_secret) : '';
+         const developer_token = settings.adwords_developer_token ? cryptr.decrypt(settings.adwords_developer_token) : '';
+         const account_id = settings.adwords_account_id ? cryptr.decrypt(settings.adwords_account_id) : '';
+         const refresh_token = settings.adwords_refresh_token ? cryptr.decrypt(settings.adwords_refresh_token) : '';
+
+         decryptedSettings = {
+            client_id,
+            client_secret,
+            developer_token,
+            account_id,
+            refresh_token,
+         };
+      } catch (error) {
+         logger.error('Error decrypting settings API keys', error instanceof Error ? error : new Error(String(error)));
+      }
+
+      return decryptedSettings;
+   } catch (error) {
+      logger.error('Error getting app settings', error instanceof Error ? error : new Error(String(error)));
+   }
+
+   return false;
+};
+
+/**
+ * retrieves an access token using Google Ads credentials for Google API authentication.
+ * @param {AdwordsCredentials} credentials - The `credentials` to use to generate the access token,
+ * @returns {Promise<string>} the fetched access token or an empty string if failed.
+ */
+export const getAdwordsAccessToken = async (credentials: AdwordsCredentials) => {
+   const { client_id, client_secret, refresh_token } = credentials;
+   try {
+      const resp = await fetch('https://www.googleapis.com/oauth2/v3/token', {
+         method: 'POST',
+         body: new URLSearchParams({ grant_type: 'refresh_token', client_id, client_secret, refresh_token }),
+      });
+
+      let tokens;
+      try {
+         const contentType = resp.headers.get('content-type');
+         if (contentType && contentType.includes('application/json')) {
+            tokens = await resp.json();
+         } else {
+            // Handle non-JSON responses from Google OAuth
+            const textResponse = await resp.text();
+            logger.warn(`Google OAuth returned non-JSON response (${resp.status})`, { response: textResponse.substring(0, 200) });
+            return '';
+         }
+      } catch (parseError) {
+         logger.warn(`Failed to parse Google OAuth response (${resp.status})`, { error: parseError instanceof Error ? parseError.message : String(parseError) });
+         return '';
+      }
+
+      const accessToken: string = tokens?.access_token || '';
+      if (!accessToken) {
+         // Google explains why it rejected the refresh token (for example invalid_grant or invalid_client).
+         // Without logging it, the failure only shows up as a generic "Failed to get access token".
+         logger.error('Google OAuth rejected the refresh token request', undefined, {
+            status: resp.status,
+            error: tokens?.error,
+            errorDescription: tokens?.error_description,
+         });
+      }
+      return accessToken;
+   } catch (error) {
+      logger.error('Error getting Google Account Access Token', error instanceof Error ? error : new Error(String(error)));
+      return '';
+   }
+};
+
+/**
+ * Stores fetched keyword ideas for a domain and fails when nothing was saved, so the caller never reports
+ * success for ideas that were fetched but lost (for example because the domain slug was rejected).
+ */
+const saveFetchedIdeas = async (domain: string, data: IdeaDatabaseUpdateData): Promise<void> => {
+   // The read-merge-write runs under the same lock as the favourites toggle, so neither overwrites the other.
+   // updateLocalKeywordIdeas itself takes no lock (the toggle already holds it), so it is not called re-entrantly.
+   const saved = getIdeasFilePath(domain)
+      ? await withIdeasLock(domain, () => updateLocalKeywordIdeas(domain, data), { createIfMissing: true })
+      : false;
+   if (!saved) {
+      throw new Error('Keyword ideas were fetched but could not be saved for this domain.');
+   }
+};
+
+/**
+ * Validates the Google Ads account ID and resolves the geo target constant for the country. Returns `null` when the
+ * keyword idea lookup should be skipped. In test mode invalid values throw instead, so the caller reports them.
+ */
+const resolveIdeasRequestTarget = (
+   account_id: unknown,
+   country: string,
+   test: boolean,
+): { customerID: string; geoTargetConstants: number } | null => {
+   // Accept only Google Ads customer IDs in expected format: digits with optional dashes.
+   const normalizedAccountId = typeof account_id === 'string' ? account_id.trim() : '';
+   // In test mode a bad account ID must fail loudly; otherwise the caller would report the account as valid
+   if (!/^\d[\d-]*\d$|^\d$/.test(normalizedAccountId)) {
+      if (test) throw new Error('Google Ads account ID is not in a valid format (digits, optionally with dashes).');
+      logger.warn('Skipping keyword idea lookup: invalid Google Ads account_id format');
+      return null;
+   }
+   const customerID = normalizedAccountId.replaceAll('-', '');
+   if (!/^\d{10}$/.test(customerID)) {
+      if (test) throw new Error('Google Ads account ID must contain exactly 10 digits.');
+      logger.warn('Skipping keyword idea lookup: invalid Google Ads customerID length');
+      return null;
+   }
+   const countryData = countries[country];
+   const geoTargetConstants = countryData ? countryData[3] : undefined;
+
+   logger.debug('Google Ads API request preparation', {
+      customerID,
+      geoTargetConstants,
+      hasCountryData: !!countryData,
+   });
+
+   if (!geoTargetConstants || Number(geoTargetConstants) === 0) {
+      if (test) throw new Error(`No Google Ads geo target is configured for country "${country}".`);
+      logger.warn('Skipping keyword idea lookup: missing geo target constant', {
+         country,
+         countryData: countryData ? 'present' : 'missing',
+      });
+      return null;
+   }
+   return { customerID, geoTargetConstants };
+};
+
+/**
+ * Builds the `generateKeywordIdeas` request body from the seed settings. In test mode only one idea is requested.
+ */
+const buildKeywordIdeasPayload = (
+   seedType: IdeaSettings['seedType'],
+   seedKeywords: string[],
+   domain: string,
+   geoTargetConstants: number,
+   language: string,
+   test: boolean,
+): Record<string, any> => {
+   const reqPayload: Record<string, any> = {
+      geoTargetConstants: [`geoTargetConstants/${geoTargetConstants}`],
+      language: `languageConstants/${language}`,
+      pageSize: test ? 1 : 1000,
+   };
+   if (['custom', 'searchconsole', 'tracking'].includes(seedType) && seedKeywords.length > 0) {
+      reqPayload.keywordSeed = { keywords: seedKeywords.slice(0, 20) };
+   }
+   if (seedType === 'auto' && domain) {
+      reqPayload.siteSeed = { site: domain };
+   }
+   return reqPayload;
+};
+
+/**
+ * The function `getAdwordsKeywordIdeas` retrieves keyword ideas from Google Ads API based on
+ * provided credentials and settings.
+ * @param {AdwordsCredentials} credentials - an object containing Google Ads credentials needed to authenticate
+ * the API request.
+ * @param {IdeaSettings} adwordsDomainOptions - an object that contains settings and options for fetching
+ * keyword ideas from Google Ads.
+ * @param {boolean} [test=false] - a boolean flag that indicates whether the function is being run in a test mode or not.
+ * When `test` is set to `true`, only 1 keyword is requested from adwords.
+ * @returns returns an array of fetched keywords (`fetchedKeywords`) after processing the Google Ads API response.
+ */
+export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, adwordsDomainOptions: IdeaSettings, test: boolean = false) => {
+   if (!credentials) { return false; }
+   const { account_id, developer_token } = credentials;
+   const {
+      country: rawCountry = '2840',
+      language = '1000',
+      keywords = [],
+      domain = '',
+      seedType,
+      seedSCKeywords = false,
+      seedCurrentKeywords = false,
+   } = adwordsDomainOptions || {};
+   // The countries table is keyed by upper-case ISO codes; a lower-case code would find no geo target
+   const country = String(rawCountry).toUpperCase();
+   // The ideas file is named after the domain; the research page has no domain and uses IDEAS_research.json
+   const ideasFileKey = domain || RESEARCH_IDEAS_KEY;
+
+   logger.debug('getAdwordsKeywordIdeas started', {
+      country,
+      language,
+      keywordsCount: keywords.length,
+      domain,
+      seedType,
+      seedSCKeywords,
+      seedCurrentKeywords,
+      test,
+   });
+
+   let accessToken = '';
+
+   const cachedAccessToken: string | false | undefined = memoryCache.get('adwords_token');
+   if (cachedAccessToken && !test) {
+      accessToken = cachedAccessToken;
+      logger.debug('Using cached Google Ads access token');
+   } else {
+      logger.debug('Fetching new Google Ads access token');
+      accessToken = await getAdwordsAccessToken(credentials);
+      if (!accessToken) {
+         logger.error('Failed to get Google Ads access token');
+         throw new Error('Failed to authenticate with Google Ads API');
+      }
+      memoryCache.delete('adwords_token');
+      memoryCache.set('adwords_token', accessToken, { ttl: 3300000 });
+      logger.debug('Successfully obtained and cached Google Ads access token');
+   }
+
+   let fetchedKeywords: IdeaKeyword[] = [];
+   if (accessToken) {
+      let seedKeywords = [...keywords];
+
+      // Load Keywords from Google Search Console File.
+      seedKeywords = await seedKeywordsFromSearchConsole({
+         seedKeywords,
+         seedType,
+         seedSCKeywords,
+         domain,
+      });
+
+      seedKeywords = await seedKeywordsFromTracking({
+         seedKeywords,
+         seedType,
+         seedCurrentKeywords,
+         domain,
+      });
+
+      if (['tracking', 'searchconsole'].includes(seedType) && seedKeywords.length === 0) {
+         const errMessage = seedType === 'tracking'
+            ? 'No tracked keywords found for this domain'
+            : 'No search console keywords found for this domain';
+         logger.warn(errMessage, { seedType, domain });
+         throw new Error(errMessage);
+      }
+
+      logger.debug('Seed keywords prepared', { 
+         seedKeywordsCount: seedKeywords.length,
+         // Note: Seed keywords not logged to avoid exposing sensitive search terms in production logs
+      });
+
+      try {
+         // API: https://developers.google.com/google-ads/api/rest/reference/rest/v21/customers/generateKeywordIdeas
+         const target = resolveIdeasRequestTarget(account_id, country, test);
+         if (!target) {
+            return [];
+         }
+         const { customerID, geoTargetConstants } = target;
+         const reqPayload = buildKeywordIdeasPayload(seedType, seedKeywords, domain, geoTargetConstants, language, test);
+
+         // Note: DEBUG logging may include sensitive data (seed keywords, API tokens)
+         // Only enable DEBUG/VERBOSE mode in secure environments
+         logger.debug('Google Ads API request payload', {
+            url: `https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}/customers/${customerID}:generateKeywordIdeas`,
+            geoTargetConstants: reqPayload.geoTargetConstants,
+            language: reqPayload.language,
+            pageSize: reqPayload.pageSize,
+            hasSeedKeywords: !!reqPayload.keywordSeed,
+            seedKeywordCount: reqPayload.keywordSeed?.keywords?.length || 0,
+            hasSiteSeed: !!reqPayload.siteSeed,
+            hasDeveloperToken: !!developer_token,
+            hasAccessToken: !!accessToken,
+         });
+
+         const resp = await fetch(`https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}/customers/${customerID}:generateKeywordIdeas`, {
+            method: 'POST',
+            headers: {
+               'Content-Type': 'application/json',
+               'developer-token': developer_token,
+               Authorization: `Bearer ${accessToken}`,
+               'login-customer-id': customerID,
+            },
+            body: JSON.stringify(reqPayload),
+         });
+
+         logger.debug('Google Ads API response received', {
+            status: resp.status,
+            statusText: resp.statusText,
+            contentType: resp.headers.get('content-type'),
+         });
+
+         let ideaData;
+         let responseText = '';
+         try {
+            responseText = await resp.text();
+            const contentType = resp.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+               try {
+                  ideaData = JSON.parse(responseText);
+               } catch (jsonParseError) {
+                  logger.warn(`Failed to parse Google Ads JSON response (${resp.status})`, { 
+                     response: responseText.substring(0, 200),
+                     error: jsonParseError instanceof Error ? jsonParseError.message : String(jsonParseError),
+                  });
+                  throw new Error(`Google Ads API error (${resp.status}): Invalid JSON response format`);
+               }
+            } else {
+               // Handle non-JSON responses
+               logger.warn(`Google Ads returned non-JSON response (${resp.status})`, { response: responseText.substring(0, 200) });
+               throw new Error(`Google Ads API error (${resp.status}): Server returned non-JSON response`);
+            }
+         } catch (parseError) {
+            if (parseError instanceof Error && parseError.message.includes('Google Ads API error')) {
+               throw parseError;
+            }
+            const textResponse = responseText || 'Could not read response';
+            logger.warn(`Failed to parse Google Ads response (${resp.status})`, { 
+               response: textResponse.substring(0, 200),
+               error: parseError instanceof Error ? parseError.message : String(parseError),
+            });
+            throw new Error(`Google Ads API error (${resp.status}): Invalid response format`);
+         }
+
+         if (resp.status !== 200) {
+            const errMessage = ideaData?.error?.details?.[0]?.errors?.[0]?.message || 'Failed to fetch keyword ideas';
+            logger.error('Google Ads API error response', new Error(errMessage), {
+               status: resp.status,
+               errorDetails: ideaData?.error,
+            });
+            throw new Error(errMessage);
+         }
+
+         if (ideaData?.results) {
+            logger.debug(`Google Ads API returned ${ideaData.results.length} results`);
+            fetchedKeywords = extractAdwordskeywordIdeas(ideaData.results as keywordIdeasResponseItem[], { country, domain: ideasFileKey });
+            logger.info(`Processed ${fetchedKeywords.length} keywords after filtering`, {
+               rawResults: ideaData.results.length,
+               filteredResults: fetchedKeywords.length,
+            });
+         } else {
+            logger.debug('Google Ads API returned no results (ideaData?.results is falsy)', {
+               hasIdeaData: !!ideaData,
+               ideaDataKeys: ideaData ? Object.keys(ideaData) : [],
+            });
+         }
+
+         if (!test && fetchedKeywords.length > 0) {
+            await saveFetchedIdeas(ideasFileKey, { keywords: fetchedKeywords, settings: adwordsDomainOptions });
+            logger.debug('Updated local keyword ideas', { domain: ideasFileKey, count: fetchedKeywords.length });
+         }
+      } catch (error) {
+         logger.error('Error fetching keyword ideas from Google Ads API', error instanceof Error ? error : new Error(String(error)), {
+            errorType: error instanceof Error ? error.constructor.name : typeof error,
+            message: error instanceof Error ? error.message : String(error),
+         });
+         throw error;
+      }
+   }
+
+   logger.debug('getAdwordsKeywordIdeas completed', {
+      fetchedKeywordsCount: fetchedKeywords.length,
+      hasAccessToken: !!accessToken,
+   });
+
+   return fetchedKeywords;
+};
+
+/**
+ * The function `extractAdwordskeywordIdeas` processes keyword ideas data and returns an array of
+ * IdeaKeyword objects sorted by average monthly searches.
+ * @param {keywordIdeasResponseItem[]} keywordIdeas - The `keywordIdeas` parameter is an array of
+ * objects that contain keyword ideas and their metrics.
+ * @param options - The `options` parameter in the `extractAdwordskeywordIdeas` function is an object
+ * that can contain two properties: `country` and `domain`.
+ * @returns returns an array of `IdeaKeyword` array sorted based on the average monthly searches in descending order.
+ */
+const extractAdwordskeywordIdeas = (keywordIdeas: keywordIdeasResponseItem[], options: Record<string, string>) => {
+   const keywords: IdeaKeyword[] = [];
+   if (keywordIdeas.length > 0) {
+      const { country = '', domain = '' } = options;
+      logger.debug(`Processing ${keywordIdeas.length} keyword ideas from Google Ads API`);
+      keywordIdeas.forEach((kwRaw) => {
+         const { text, keywordIdeaMetrics } = kwRaw;
+         if (keywordIdeaMetrics && text) {
+            // Handle avgMonthlySearches which may be string, number, null, or undefined
+            const avgMonthlySearchesRaw = keywordIdeaMetrics.avgMonthlySearches;
+            const avgMonthlySearches = avgMonthlySearchesRaw != null ? String(avgMonthlySearchesRaw) : '0';
+            const competitionIndex = keywordIdeaMetrics.competitionIndex != null ? String(keywordIdeaMetrics.competitionIndex) : '0';
+            const { competition, monthlySearchVolumes = [] } = keywordIdeaMetrics;
+            
+            const searchVolumeTrend: Record<string, string> = {};
+            const searchVolume = parseInt(avgMonthlySearches, 10);
+            const compIndex = parseInt(competitionIndex, 10);
+            
+            // Note: Detailed keyword logging disabled to prevent exposing search terms in production
+            
+            if (isNaN(searchVolume) || searchVolume < 0) {
+               return; // Skip invalid search volume
+            }
+            
+            monthlySearchVolumes.forEach((item) => {
+               searchVolumeTrend[`${item.month}-${item.year}`] = item.monthlySearches;
+            });
+            
+            // Accept keywords with any non-negative search volume (including 0)
+            // Previously filtered out keywords with volume <= 10, but this was too aggressive
+            keywords.push({
+               // Ideas-only id (country:keyword) stored in the IDEAS files for favourites; it is never compared with the
+               // Search Console join key from buildKeywordUid (utils/searchConsole.ts), so the two formats stay separate.
+               uid: `${country.toLowerCase()}:${text.replaceAll(' ', '-')}`,
+               keyword: text,
+               competition,
+               competitionIndex: isNaN(compIndex) ? 0 : Math.max(0, compIndex),
+               monthlySearchVolumes: searchVolumeTrend,
+               avgMonthlySearches: searchVolume,
+               added: new Date().getTime(),
+               updated: new Date().getTime(),
+               country,
+               domain,
+               position: 999,
+            });
+         }
+      });
+      logger.debug(`Returning ${keywords.length} keywords after filtering`);
+   }
+   return keywords.sort((a: IdeaKeyword, b: IdeaKeyword) => b.avgMonthlySearches - a.avgMonthlySearches);
+};
+
+/**
+ * Retrieves keyword search volumes from Google Ads API based on provided keywords and their countries.
+ * @param {KeywordType[]} keywords - The keywords that you want to get the search volume data for.
+ * @returns returns a Promise that resolves to an object with a `volumes` and error `proprties`.
+ *  The `volumes` propery which outputs `false` if the request fails and outputs the volume data in `{[keywordID]: volume}` object if succeeds.
+ *  The `error` porperty that outputs the error message if any.
+ */
+export const getKeywordsVolume = async (keywords: KeywordType[]): Promise<{ error?: string, volumes: false | Record<number, number> }> => {
+   const credentials = await getAdwordsCredentials();
+   if (!credentials) { return { error: 'Cannot Load Google Ads Credentials', volumes: false }; }
+   const { client_id, client_secret, developer_token, account_id } = credentials;
+   if (!client_id || !client_secret || !developer_token || !account_id) {
+      return { error: 'Google Ads Not Integrated Properly', volumes: false };
+   }
+
+   // Generate Access Token
+   let accessToken = '';
+   const cachedAccessToken: string | false | undefined = memoryCache.get('adwords_token');
+   if (cachedAccessToken) {
+      accessToken = cachedAccessToken;
+   } else {
+      accessToken = await getAdwordsAccessToken(credentials);
+      memoryCache.delete('adwords_token');
+      memoryCache.set('adwords_token', accessToken, { ttl: 3300000 });
+   }
+   const fetchedKeywords: Record<number, number> = {};
+
+   if (accessToken) {
+      // Group keywords based on their country.
+      const keywordRequests: Record<string, KeywordType[]> = {};
+      keywords.forEach((kw) => {
+         const kwCountry = kw.country;
+         if (keywordRequests[kwCountry]) {
+            keywordRequests[kwCountry].push(kw);
+         } else {
+            keywordRequests[kwCountry] = [kw];
+         }
+      });
+
+      // Send Requests to adwords based on grouped countries.
+      // Since adwords does not allow sending country data for each keyword we are making requests for.
+      let volumeRequestSent = false;
+      for (const country in keywordRequests) {
+         if (Object.hasOwn(keywordRequests, country) && keywordRequests[country].length > 0) {
+            try {
+               // API: https://developers.google.com/google-ads/api/rest/reference/rest/v21/customers/generateKeywordHistoricalMetrics
+               const customerID = account_id.replaceAll('-', '');
+               const countryData = countries[country];
+               const geoTargetConstants = countryData ? countryData[3] : undefined;
+
+               if (!geoTargetConstants || Number(geoTargetConstants) === 0) {
+                  logger.warn(`Skipping keyword volume lookup for ${country}`, { reason: 'missing geo target constant' });
+                  continue;
+               }
+               const reqKeywords = keywordRequests[country].map((kw) => kw.keyword);
+               const reqPayload: Record<string, any> = {
+                  keywords: [...new Set(reqKeywords)],
+                  geoTargetConstants: [`geoTargetConstants/${geoTargetConstants}`],
+                  // language: `languageConstants/${language}`,
+               };
+               // Pause only between country requests, never before the first or after the last
+               if (volumeRequestSent) await sleep(7000);
+               volumeRequestSent = true;
+               const resp = await fetch(`https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}/customers/${customerID}:generateKeywordHistoricalMetrics`, {
+                  method: 'POST',
+                  headers: {
+                     'Content-Type': 'application/json',
+                     'developer-token': developer_token,
+                     Authorization: `Bearer ${accessToken}`,
+                     'login-customer-id': customerID,
+                  },
+                  body: JSON.stringify(reqPayload),
+               });
+
+               let ideaData;
+               try {
+                  const contentType = resp.headers.get('content-type');
+                  const responseText = await resp.text();
+                  if (contentType && contentType.includes('application/json')) {
+                     try {
+                        ideaData = JSON.parse(responseText);
+                     } catch (parseError) {
+                        logger.warn(`Failed to parse Google Ads Volume response (${resp.status})`, { response: responseText.substring(0, 200), error: parseError instanceof Error ? parseError.message : String(parseError) });
+                        continue; // Skip this country and continue with next
+                     }
+                  } else {
+                     // Handle non-JSON responses
+                     logger.warn(`Google Ads Volume API returned non-JSON response (${resp.status})`, { response: responseText.substring(0, 200) });
+                     continue; // Skip this country and continue with next
+                  }
+               } catch (error) {
+                  logger.warn(`Exception while handling Google Ads Volume response (${resp.status})`, { error: error instanceof Error ? error.message : String(error) });
+                  continue; // Skip this country and continue with next
+               }
+
+               if (resp.status !== 200) {
+                  const errorMessage = ideaData?.error?.details?.[0]?.errors?.[0]?.message || 'Unknown error';
+                  logger.error('Google Ads Volume Request Response', new Error(errorMessage), {
+                     status: resp.status,
+                     errorDetails: ideaData?.error,
+                  });
+               }
+
+               if (ideaData?.results) {
+                  if (Array.isArray(ideaData.results) && ideaData.results.length > 0) {
+                     const volumeDataObj: Map<string, number> = new Map();
+                     ideaData.results.forEach((item: { keywordMetrics: keywordIdeasMetrics, text: string }) => {
+                        const kwVol = item?.keywordMetrics?.avgMonthlySearches;
+                        const parsedVolume = kwVol ? parseInt(kwVol, 10) : 0;
+                        const validVolume = isNaN(parsedVolume) ? 0 : Math.max(0, parsedVolume);
+                        volumeDataObj.set(`${country}:${item.text}`, validVolume);
+                     });
+
+                     keywordRequests[country].forEach((keyword) => {
+                        const keywordKey = `${keyword.country}:${keyword.keyword}`;
+                        if (volumeDataObj.has(keywordKey)) {
+                           const volume = volumeDataObj.get(keywordKey);
+                           if (volume !== undefined) {
+                              fetchedKeywords[keyword.ID] = volume;
+                           }
+                        }
+                     });
+                  }
+               }
+            } catch (error) {
+               logger.error('Error fetching keyword volume from Google Ads', error instanceof Error ? error : new Error(String(error)));
+            }
+         }
+      }
+   }
+
+   return { volumes: fetchedKeywords };
+};
+
+/**
+ * Updates volume data for keywords in the Keywords database using async/await and error handling.
+ * @param {false | Record<number, number>} volumesData - The `volumesData` parameter can either be `false` or an object containing
+ * keyword IDs as keys and corresponding volume data as values.
+ * @returns returns a Promise that resolves to `true` if `volumesData` is not `false` else it returns `false`.
+ */
+export const updateKeywordsVolumeData = async (volumesData: false | Record<number, number>) => {
+   if (volumesData === false) { return false; }
+
+   // Group keyword IDs by volume so each distinct volume is one UPDATE instead of one per keyword.
+   const idsByVolume = new Map<number, number[]>();
+   for (const [keywordID, volume] of Object.entries(volumesData)) {
+      const keyID = Number(keywordID);
+      if (!Number.isNaN(keyID)) {
+         const volumeData = typeof volume === 'number' ? volume : 0;
+         const ids = idsByVolume.get(volumeData) ?? [];
+         ids.push(keyID);
+         idsByVolume.set(volumeData, ids);
+      }
+   }
+
+   for (const [volumeData, ids] of idsByVolume) {
+      await Keyword.update({ volume: volumeData }, { where: { ID: { [Op.in]: ids } } });
+   }
+
+   return true;
+};
+
+const IDEAS_LOCK_RETRIES = { retries: 12, factor: 1.5, minTimeout: 50, maxTimeout: 1500 };
+
+/**
+ * Runs fn while holding an OS-level lock on the domain's ideas file, so a read-modify-write (for example toggling a
+ * favourite) cannot overwrite a concurrent save. The file must already exist, because the lock is taken on it.
+ */
+export const withIdeasLock = async <T>(domain: string, fn: () => Promise<T>, options: { createIfMissing?: boolean } = {}): Promise<T> => {
+   const filePath = getIdeasFilePath(domain);
+   if (!filePath) {
+      throw new Error('Invalid domain value for keyword ideas file access');
+   }
+   if (options.createIfMissing) {
+      try {
+         // eslint-disable-next-line security/detect-non-literal-fs-filename
+         await writeFile(filePath, '{}', { encoding: 'utf-8', flag: 'wx' });
+      } catch (err: any) {
+         if (err?.code !== 'EEXIST') { throw err; }
+      }
+   }
+   const release = await lockfile.lock(filePath, { retries: IDEAS_LOCK_RETRIES });
+   try {
+      return await fn();
+   } finally {
+      try {
+         await release();
+      } catch (err: any) {
+         logger.debug('Failed to release keyword ideas lock', { error: err?.message });
+      }
+   }
+};
+
+/**
+ * The function `getLocalKeywordIdeas` reads keyword ideas data from a local JSON file based on a domain slug and returns it as a Promise.
+ * @param {string} domain - The `domain` parameter is the domain slug for which the keyword Ideas are fetched.
+ * @returns returns either a `KeywordIdeasDatabase` object if the data is successfully retrieved , or it returns `false` if
+ * there are no keywords found in the retrieved data or if an error occurs during the process.
+ */
+export const getLocalKeywordIdeas = async (domain: string): Promise<false | KeywordIdeasDatabase> => {
+   try {
+      // The domain becomes part of a file name, so only domain-name characters inside the data directory are accepted
+      const filePath = getIdeasFilePath(domain);
+      if (!filePath) {
+         return false;
+      }
+   // eslint-disable-next-line security/detect-non-literal-fs-filename
+   const keywordIdeasRaw = await readFile(filePath, { encoding: 'utf-8' });
+      const keywordIdeasData = JSON.parse(keywordIdeasRaw) as KeywordIdeasDatabase;
+      if (keywordIdeasData.keywords) {
+         return keywordIdeasData;
+      }
+      return false;
+   } catch (error) {
+      logger.warn('Error getting local ideas', { error: error instanceof Error ? error.message : String(error) });
+      return false;
+   }
+};
+
+/**
+ * The function `updateLocalKeywordIdeas` updates a local JSON file containing keyword ideas for a specific domain with new data provided.
+ * @param {string} domain - The `domain` parameter is the domain slug for which the keyword Ideas are being updated.
+ * @param {IdeaDatabaseUpdateData} data - The `data` parameter is an object of type `IdeaDatabaseUpdateData`.
+ *  It contains the following properties: `keywords`, `favorites` & `settings`
+ * @returns The function `updateLocalKeywordIdeas` returns a Promise<boolean>.
+ */
+export const updateLocalKeywordIdeas = async (domain: string, data: IdeaDatabaseUpdateData): Promise<boolean> => {
+   try {
+      const filePath = getIdeasFilePath(domain);
+      if (!filePath) {
+         return false;
+      }
+      const existingIdeas = await getLocalKeywordIdeas(domain);
+      const filename = path.basename(filePath);
+      const fileContent = { ...existingIdeas, updated: new Date().getTime() };
+      if (Array.isArray(data.keywords)) {
+         fileContent.keywords = data.keywords;
+      }
+      if (Array.isArray(data.favorites)) {
+         fileContent.favorites = data.favorites;
+      }
+      if (data.settings) {
+         fileContent.settings = data.settings;
+      }
+
+   await atomicWriteFile(filePath, JSON.stringify(fileContent, null, 2), 'utf-8');
+      logger.info(`Data saved to ${filename} successfully!`);
+      return true;
+   } catch (error) {
+      logger.error(`Error saving data to IDEAS_${domain}.json`, error instanceof Error ? error : new Error(String(error)));
+      return false;
+   }
+};
