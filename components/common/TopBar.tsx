@@ -31,9 +31,8 @@ const TopBar = ({ showSettings, showAddModal }:TopbarProps) => {
    };
 
    return (
-      <div
-         className='topbar desktop-container flex items-center justify-between bg-white'
-      >
+      <div className='topbar bg-white'>
+      <div className='desktop-container flex items-center justify-between'>
 
          <div className='flex items-center gap-2 h-16'>
             <h3
@@ -91,7 +90,8 @@ const TopBar = ({ showSettings, showAddModal }:TopbarProps) => {
                </li>
             </ul>
          </div>
-       </div>
+      </div>
+      </div>
    );
  };
 
