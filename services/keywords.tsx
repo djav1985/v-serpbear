@@ -110,8 +110,9 @@ export function useDeleteKeywords(onSuccess: () => void) {
 
 export function useFavKeywords(onSuccess: () => void) {
    const queryClient = useQueryClient();
-   return useMutation(async ({ keywordID, sticky }:{keywordID:number, sticky:boolean}) => (
-      apiPut<{ keywords: KeywordType[] }>(`/api/keywords?id=${keywordID}`, { sticky })
+   // keywordID is one ID (row menu) or a list (bulk menu); the API takes a comma separated list
+   return useMutation(async ({ keywordID, sticky }:{keywordID:number | number[], sticky:boolean}) => (
+      apiPut<{ keywords: KeywordType[] }>(`/api/keywords?id=${[keywordID].flat().join(',')}`, { sticky })
    ), {
       onSuccess: async (data) => {
          onSuccess();

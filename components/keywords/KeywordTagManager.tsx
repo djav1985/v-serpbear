@@ -5,27 +5,39 @@ import Modal from '../common/Modal';
 import AddTags from './AddTags';
 
 type keywordTagManagerProps = {
-   keyword: KeywordType|undefined,
+   // One keyword (the row menu) or the selected keywords (the bulk menu)
+   keywords: KeywordType[],
    closeModal: (show?: boolean) => void,
    allTags: string[]
 }
 
-const KeywordTagManager = ({ keyword, allTags = [], closeModal }: keywordTagManagerProps) => {
+const KeywordTagManager = ({ keywords = [], allTags = [], closeModal }: keywordTagManagerProps) => {
    const [showAddTag, setShowAddTag] = useState<boolean>(false);
    const { mutate: updateMutate } = useUpdateKeywordTags(() => { });
+   const isSingle = keywords.length === 1;
+   // Every tag on any of the keywords, once; removing one takes it off each keyword that has it
+   const tags: string[] = Array.from(new Set(keywords.flatMap((keyword) => keyword.tags)));
 
-   const removeTag = (tag:String) => {
-      if (!keyword) { return; }
-      const newTags = keyword.tags.filter((t) => t !== tag.trim());
-      updateMutate({ tags: { [keyword.ID]: newTags } });
+   const removeTag = (tag: string) => {
+      const tagsPayload: Record<number, string[]> = {};
+      keywords.forEach((keyword) => {
+         if (keyword.tags.includes(tag.trim())) {
+            tagsPayload[keyword.ID] = keyword.tags.filter((t) => t !== tag.trim());
+         }
+      });
+      if (Object.keys(tagsPayload).length > 0) {
+         updateMutate({ tags: tagsPayload });
+      }
    };
 
+   const title = isSingle ? `Tags for Keyword "${keywords[0].keyword}"` : `Tags for ${keywords.length} Selected Keywords`;
+
    return (
-      <Modal closeModal={() => { closeModal(false); }} title={`Tags for Keyword "${keyword && keyword.keyword}"`}>
+      <Modal closeModal={() => { closeModal(false); }} title={title}>
          <div className="text-sm my-8 ">
-            {keyword && keyword.tags.length > 0 && (
+            {tags.length > 0 && (
                <ul>
-                  {keyword.tags.map((tag:string) => <li key={tag} className={'inline-block bg-slate-50 py-1 px-3 border rounded mr-4 mb-3 text-slate-500'}>
+                  {tags.map((tag:string) => <li key={tag} className={'inline-block bg-slate-50 py-1 px-3 border rounded mr-4 mb-3 text-slate-500'}>
                                  <Icon type="tags" size={14} classes="mr-2" />{tag}
                                  <button
                                  className="ml-1 cursor-pointer rounded px-1 hover:bg-red-200 hover:text-red-700"
@@ -41,16 +53,16 @@ const KeywordTagManager = ({ keyword, allTags = [], closeModal }: keywordTagMana
                   </li>
                </ul>
             )}
-            {keyword && keyword.tags.length === 0 && (
+            {tags.length === 0 && (
                <div className="text-center w-full text-gray-500">
-                  No Tags Added to this Keyword. <button className=' text-indigo-600' onClick={() => setShowAddTag(true)}>+ Add Tag</button>
+                  No Tags Added to {isSingle ? 'this Keyword' : 'these Keywords'}. <button className=' text-indigo-600' onClick={() => setShowAddTag(true)}>+ Add Tag</button>
                </div>
             )}
          </div>
-         {showAddTag && keyword && (
+         {showAddTag && keywords.length > 0 && (
             <AddTags
                existingTags={allTags}
-               keywords={[keyword]}
+               keywords={keywords}
                closeModal={() => setShowAddTag(false)}
                />
          )}

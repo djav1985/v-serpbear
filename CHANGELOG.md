@@ -11,12 +11,14 @@ All notable changes to this project will be documented in this file. Releases no
 - **Red MAP badge.** A keyword that dropped out of the map pack (its removal date is set) shows a red MAP badge, in the dashboard, the keyword details and email digests.
 - **White-label tab icon.** With `NEXT_PUBLIC_WHITE_LABEL=true`, a `favicon.ico` file in `/app/data` is used as the browser tab icon (the default icon when the file is missing). It is served at `/api/branding/favicon.ico`.
 - **Per-scraper request spacing.** A scraper can set a baseline minimum interval between requests (`minRequestIntervalMs`, 0 by default; TinyFish uses 2 seconds). The Keyword Scrape Delay setting is added on top of it, and the spacing applies across all keywords, domains, pages and retries for the same API key.
+- **Bulk favorite.** With keywords selected, the bulk menu now has Favorite Keywords and Unfavorite Keywords next to Refresh, Remove, Tags and Change Location.
 - **Per-scraper Google link resolving.** A scraper can set `resolveGoogleUrl: false` to skip Serper's `/resolve` endpoint. It defaults to on, and TinyFish and Jina AI turn it off because they return real URLs.
 
 ### Fixed
 - **Map pack removal date migration skipped on some databases.** The migration read the `keyword` columns with Sequelize's `describeTable`, which crashes on SQLite when the table has an expression index (`keyword_tracking_target_idx`). The crash was taken for "no table", so the migration was recorded as run without adding `mapPackRemovedAt`, and every keyword request then failed with `no such column: mapPackRemovedAt`. It now reads the columns with `PRAGMA table_info`, and a repair migration adds the column to databases that were hit.
 
 ### Changed
+- **Bulk tags menu.** The Tag Keywords and Remove Tags items in the bulk menu are now one Add/Edit Tags item that opens the same tag window as the three-dots menu, for one or several selected keywords: remove a tag with its ×, add tags with +.
 - **Email map pack badge.** The badge in email digests now reads "MAP" in the same green outline as the dashboard, instead of the yellow "MP".
 - **Email digest layout.** The mobile icon is blue, the side padding is 10px (was 20px) and the Keyword column is wider (300px, was 240px).
 - **White-label logo address.** The logo is now served at `/api/branding/logo.<extension>` (for example `.png`), and the dashboard and email digests use that address, because some mail apps skip images without a file extension. The extension-less `/api/branding/logo` address is gone.

@@ -61,7 +61,7 @@ const TopBar = ({ showSettings, showAddModal }:TopbarProps) => {
             </button>
             <ul
                className={`text-sm font-semibold text-gray-500 absolute mt-0 right-3 bg-white
-               border border-gray-200 lg:mt-2 lg:relative lg:block lg:border-0 lg:bg-transparent ${showMobileMenu ? 'block z-50' : 'hidden'}`}
+               border border-gray-200 lg:mt-0 lg:relative lg:flex lg:items-center lg:border-0 lg:bg-transparent ${showMobileMenu ? 'block z-50' : 'hidden'}`}
             >
                <li className={`block lg:inline-block lg:ml-5 ${router.asPath === '/domains' ? ' text-blue-700' : ''}`}>
                   <Link href={'/domains'} className='block px-3 py-2 cursor-pointer'>
