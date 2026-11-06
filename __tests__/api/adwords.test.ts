@@ -122,6 +122,16 @@ describe('Google Ads OAuth state flow', () => {
     expect(OAuth2Client).toHaveBeenCalledWith(expect.objectContaining({ redirectUri: 'https://trusted.example/api/adwords' }));
     expect(atomicWriteFile).toHaveBeenCalledWith(expect.stringContaining('data/settings.json'), expect.stringContaining('encrypted-refresh-token'), 'utf-8');
   });
+
+  it('drops removed settings keys when it writes the refresh token', async () => {
+    (readFile as jest.Mock).mockResolvedValue('{"adwords_client_id":"encrypted-client-id","search_console":{"client_email":"x"},"notification_email":"a@example.com"}');
+    const state = await startFlow();
+    const res = response(); await handler(callback(state), res);
+    const written = (atomicWriteFile as jest.Mock).mock.calls[0][1] as string;
+    expect(written).toContain('encrypted-refresh-token');
+    expect(written).not.toContain('search_console');
+    expect(written).not.toContain('notification_email');
+  });
 });
 
 describe('POST /api/adwords validation flow', () => {

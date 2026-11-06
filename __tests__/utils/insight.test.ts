@@ -143,6 +143,36 @@ describe('Insight Functions', () => {
       expect(keyword2Data?.countries).toBe(1); // Should be 1 country: CA
     });
 
+    it('should average country metrics per row and keep underscore keywords distinct', () => {
+      const data: SCDomainDataType = {
+        threeDays: [
+          { keyword: 'a b', uid: 'us:desktop:a_b', device: 'desktop', country: 'US', clicks: 1, impressions: 1, ctr: 10, position: 2, page: '/p' },
+          { keyword: 'a b', uid: 'us:mobile:a_b', device: 'mobile', country: 'US', clicks: 1, impressions: 1, ctr: 20, position: 4, page: '/p' },
+          { keyword: 'a_b', uid: 'us:desktop:a__b', device: 'desktop', country: 'US', clicks: 1, impressions: 1, ctr: 30, position: 6, page: '/p' },
+        ],
+        sevenDays: [],
+        thirtyDays: [],
+        lastFetched: '',
+        lastFetchError: '',
+        stats: [],
+      };
+
+      // 3 rows, 2 unique keywords: averages divide by rows (position 12/3, ctr 60/3)
+      const countryResult = getCountryInsight(data, 'clicks', 'threeDays');
+      expect(countryResult[0].position).toBe(4);
+      expect(countryResult[0].ctr).toBe(20);
+      expect(countryResult[0].keywords).toBe(2);
+
+      const keywordResult = getKeywordsInsight(data, 'clicks', 'threeDays');
+      expect(keywordResult).toHaveLength(2);
+      const spaced = keywordResult.find((item) => item.keyword === 'a b');
+      const underscored = keywordResult.find((item) => item.keyword === 'a_b');
+      expect(spaced?.clicks).toBe(2);
+      expect(spaced?.position).toBe(3);
+      expect(underscored?.clicks).toBe(1);
+      expect(underscored?.position).toBe(6);
+    });
+
     it('should handle null/undefined values in data', () => {
       const malformedData: SCDomainDataType = {
         threeDays: [

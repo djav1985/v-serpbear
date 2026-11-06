@@ -2,8 +2,6 @@ import { resolveCountryCode, getKeywordLocationParts } from "../../utils/scraper
 import { DEVICE_MOBILE } from "../../utils/constants";
 import { logger } from "../../utils/logger";
 
-let mobileWarningLogged = false;
-
 interface SerperResult {
   title: string;
   link: string;
@@ -31,10 +29,9 @@ const serper: ScraperSettings = {
       params.set("location", locationParts.join(","));
     }
     // Serper's /search endpoint has no device parameter (only q, location, gl, hl, page, num, tbs and similar),
-    // so mobile results cannot be requested. Warn once per run instead of silently returning desktop results.
-    if (keyword.device === DEVICE_MOBILE && !mobileWarningLogged) {
-      mobileWarningLogged = true;
-      logger.warn("Serper.dev does not support mobile results; mobile keywords are checked against desktop results");
+    // so mobile results cannot be requested. Warn for every mobile keyword instead of silently returning desktop results.
+    if (keyword.device === DEVICE_MOBILE) {
+      logger.warn(`Serper.dev does not support mobile results; keyword "${keyword.keyword}" is checked against desktop results`);
     }
     params.set("gl", gl);
     params.set("hl", lang);

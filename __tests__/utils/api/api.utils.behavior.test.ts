@@ -28,6 +28,13 @@ const createRequestWithHeaders = (
 };
 
 describe('isRequestSecure', () => {
+  const originalTrustProxy = process.env.TRUST_PROXY;
+  // The forwarded-header cases run behind one trusted proxy; the fallback case clears TRUST_PROXY
+  beforeEach(() => { process.env.TRUST_PROXY = '1'; });
+  afterEach(() => {
+    if (originalTrustProxy === undefined) { delete process.env.TRUST_PROXY; } else { process.env.TRUST_PROXY = originalTrustProxy; }
+  });
+
   it('detects https in x-forwarded-proto (exact, comma-delimited, array, case-insensitive)', () => {
     const cases: Array<[string | string[], boolean]> = [
       ['https', true],
@@ -50,6 +57,14 @@ describe('isRequestSecure', () => {
     expect(isRequestSecure(createRequestWithHeaders({ 'x-forwarded-protocol': 'https' }))).toBe(true);
     expect(isRequestSecure(createRequestWithHeaders({ 'x-forwarded-ssl': 'on' }))).toBe(true);
     expect(isRequestSecure(createRequestWithHeaders({ 'x-forwarded-ssl': 'ON' }))).toBe(true);
+  });
+
+  it('ignores forwarded protocol headers without TRUST_PROXY and uses only socket encryption', () => {
+    delete process.env.TRUST_PROXY;
+    expect(isRequestSecure(createRequestWithHeaders({ 'x-forwarded-proto': 'https' }))).toBe(false);
+    expect(isRequestSecure(createRequestWithHeaders({ 'x-forwarded-protocol': 'https' }))).toBe(false);
+    expect(isRequestSecure(createRequestWithHeaders({ 'x-forwarded-ssl': 'on' }))).toBe(false);
+    expect(isRequestSecure(createRequestWithHeaders({ 'x-forwarded-proto': 'https' }, true))).toBe(true);
   });
 
   it('falls back to socket encryption and reports insecure when no indicator is present', () => {

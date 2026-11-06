@@ -79,7 +79,7 @@ const IdeasKeywordsTable = ({
    const [showAddStep, setShowAddStep] = useState<boolean>(false);
    const { data: appSettingsData } = useFetchSettings();
    const allowsCity = scraperAllowsCity(appSettingsData?.settings);
-   const { mutate: addKeywords } = useAddKeywords(() => { if (domain && domain.slug) router.push(`/domain/${domain.slug}`); });
+   const { mutate: addKeywords, isLoading: isAddingKeywords } = useAddKeywords(() => { if (domain && domain.slug) router.push(`/domain/${domain.slug}`); });
    const { mutate: emailKeywordIdeas, isLoading: isEmailing } = useEmailKeywordIdeas(() => setSelectedKeywords([]));
    const { mutate: faveKeyword, isLoading: isFaving } = useMutateFavKeywordIdeas(router);
    const [isMobile] = useIsMobile();
@@ -194,6 +194,7 @@ const IdeasKeywordsTable = ({
    };
 
    const submitIdeasToTracker = ({ tags, location, country }: { tags: string[], location: string, country: string }) => {
+      if (isAddingKeywords) { return; }
       const targetDomain = isResearchPage ? addKeywordDomain : (domain?.domain || '');
       const selectedUntrackedKeywords = getSelectedUntrackedKeywords(finalKeywords, selectedKeywords);
       const { payloads, skipped } = splitAlreadyTracked(buildKeywordAddPayloads({
@@ -391,6 +392,7 @@ const IdeasKeywordsTable = ({
                existingTags={existingTags}
                existingLocations={existingLocations}
                allowsCity={allowsCity}
+               isAdding={isAddingKeywords}
                onConfirm={submitIdeasToTracker}
                closeModal={() => setShowAddStep(false)}
             />

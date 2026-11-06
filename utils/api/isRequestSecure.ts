@@ -1,6 +1,8 @@
 import type { NextApiRequest } from 'next';
+import { trustedProxyHops } from './clientIp';
 
-const isRequestSecure = (req: NextApiRequest): boolean => {
+/** True when a forwarded protocol header says the client used HTTPS. Only consulted when TRUST_PROXY is set. */
+const forwardedProtocolIsHttps = (req: NextApiRequest): boolean => {
    const protoHeader = req.headers['x-forwarded-proto'];
    if (Array.isArray(protoHeader)) {
       if (protoHeader.some((value) => value?.toLowerCase() === 'https')) {
@@ -24,6 +26,17 @@ const isRequestSecure = (req: NextApiRequest): boolean => {
       return true;
    }
 
+   return false;
+};
+
+/**
+ * Whether the client reached the app over HTTPS, used for the Secure cookie flag. Forwarded protocol headers are
+ * client-supplied, so they count only when TRUST_PROXY names our reverse proxies. Otherwise only the socket's TLS state counts.
+ */
+const isRequestSecure = (req: NextApiRequest): boolean => {
+   if (trustedProxyHops() > 0 && forwardedProtocolIsHttps(req)) {
+      return true;
+   }
    const socket = req.socket as { encrypted?: boolean } | undefined;
    return socket?.encrypted === true;
 };

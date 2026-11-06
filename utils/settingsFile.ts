@@ -84,3 +84,17 @@ export const readSettingsFile = async (settingsPath: string = settingsFilePath()
    }
    return parsed as Partial<SettingsType>;
 };
+
+/**
+ * Settings keys that were removed from the app. A save never keeps them in data/settings.json. Every writer of the
+ * file must strip them, not only the settings page. The migration 1781000000000-drop-removed-settings-keys keeps its
+ * own copy of this list, because migrations run under plain Node.
+ */
+export const REMOVED_SETTINGS_KEYS = ['search_console', 'white_label_enabled', 'white_label_logo_file', 'platform_name', 'notification_email'] as const;
+
+/** Returns a copy of settings without the removed keys. Use it before writing data/settings.json. */
+export const withoutRemovedSettingsKeys = <T extends object>(settings: T): Partial<T> => {
+   const result = { ...settings } as Record<string, unknown>;
+   REMOVED_SETTINGS_KEYS.forEach((key) => { delete result[key]; });
+   return result as Partial<T>;
+};

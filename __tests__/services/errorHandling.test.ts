@@ -198,7 +198,7 @@ describe('Improved Error Handling in Services', () => {
          headers: {
             get: jest.fn().mockReturnValue('application/json')
          },
-         json: jest.fn().mockResolvedValue({ error: { code: 'NOT_FOUND', message: 'No keywords found over the search volume minimum.' } })
+         json: jest.fn().mockResolvedValue({ error: { code: 'NOT_FOUND', message: 'No keyword ideas were returned for these keywords.' } })
       } as any);
 
       const { useMutateKeywordIdeas } = require('../../services/adwords');
@@ -206,9 +206,9 @@ describe('Improved Error Handling in Services', () => {
 
       const ideasMutation = useMutateKeywordIdeas(mockRouter as any, () => {});
 
-      await expect(ideasMutation.mutate({ keywords: ['test'] })).rejects.toThrow('No keywords found over the search volume minimum.');
+      await expect(ideasMutation.mutate({ keywords: ['test'] })).rejects.toThrow('No keyword ideas were returned for these keywords.');
 
-      expect((toast as unknown as jest.Mock)).toHaveBeenCalledWith('No keywords found over the search volume minimum.', { icon: '⚠️' });
+      expect((toast as unknown as jest.Mock)).toHaveBeenCalledWith('No keyword ideas were returned for these keywords.', { icon: '⚠️' });
    });
 
    it('redirects to login when keyword idea requests return 401', async () => {
@@ -258,7 +258,7 @@ describe('Improved Error Handling in Services', () => {
    });
 
    it('extracts message from structured error envelope ({ error: { code, message } })', async () => {
-      const structuredEnvelope = { error: { code: 'NOT_FOUND', message: 'No keywords found over the search volume minimum.' } };
+      const structuredEnvelope = { error: { code: 'NOT_FOUND', message: 'No keyword ideas were returned for these keywords.' } };
       mockFetch.mockResolvedValueOnce({
          status: 404,
          ok: false,
@@ -273,8 +273,8 @@ describe('Improved Error Handling in Services', () => {
 
       const ideasMutation = useMutateKeywordIdeas(mockRouter as any, () => {});
 
-      await expect(ideasMutation.mutate({ keywords: ['test'] })).rejects.toThrow('No keywords found over the search volume minimum.');
-      expect((toast as unknown as jest.Mock)).toHaveBeenCalledWith('No keywords found over the search volume minimum.', { icon: '⚠️' });
+      await expect(ideasMutation.mutate({ keywords: ['test'] })).rejects.toThrow('No keyword ideas were returned for these keywords.');
+      expect((toast as unknown as jest.Mock)).toHaveBeenCalledWith('No keyword ideas were returned for these keywords.', { icon: '⚠️' });
    });
 
    it('extracts message from structured envelope in useMutateFavKeywordIdeas', async () => {

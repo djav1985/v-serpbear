@@ -7,8 +7,6 @@ This document defines baseline expectations for all contributors to maintain cod
 
 ## Quick Reference
 
-```
-
 ---
 
 ## Final Touches Guidelines

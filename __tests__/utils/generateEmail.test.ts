@@ -72,6 +72,25 @@ describe('generateEmail', () => {
     expect(html).toContain('no country');
   });
 
+  it('uses the default logo instead of a relative URL when white-label is on and NEXT_PUBLIC_APP_URL is empty', async () => {
+    const originalEnv = process.env;
+    process.env = {
+      ...originalEnv,
+      NEXT_PUBLIC_WHITE_LABEL: 'true',
+      WHITE_LABEL_LOGO_FILE: 'custom-logo.png',
+      NEXT_PUBLIC_APP_URL: '',
+    };
+    try {
+      mockReadFile.mockResolvedValue('<html>{{logo}}</html>');
+      const html = await generateEmail({ domain: 'example.com', keywordsTracked: 0, avgPosition: 0 } as any, [], createSettings());
+
+      expect(html).not.toContain('src="/api/branding/logo"');
+      expect(html).toContain('src="https://serpbear.b-cdn.net/ikAdjQq.png"');
+    } finally {
+      process.env = originalEnv;
+    }
+  });
+
   it('separates icons from keyword text into dedicated column', async () => {
     mockReadFile.mockResolvedValue('<html>{{domainStats}}{{keywordsTable}}</html>');
 

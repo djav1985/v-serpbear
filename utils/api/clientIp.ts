@@ -7,7 +7,7 @@ import { isIP } from 'net';
  * A forwarded header is only trusted for the hops that are configured, because a client can put anything
  * in the part of the header that comes before the entries our own proxies added.
  */
-const trustedProxyHops = (): number => {
+export const trustedProxyHops = (): number => {
    const raw = (process.env.TRUST_PROXY || '').trim().toLowerCase();
    if (!raw || raw === 'false' || raw === '0') { return 0; }
    if (raw === 'true') { return 1; }

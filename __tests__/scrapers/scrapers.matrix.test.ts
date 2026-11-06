@@ -107,12 +107,12 @@ describe('provider URL details', () => {
     expect(url.searchParams.get('gl')).toBe('us');
   });
 
-  it('warns once that Serper cannot return mobile results', () => {
+  it('warns for every mobile keyword that Serper cannot return mobile results for', () => {
     const { logger } = require('../../utils/logger');
     const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
     serper.scrapeURL!(kw, { scraping_api: 'x' } as any, {} as any);
     serper.scrapeURL!(kw, { scraping_api: 'x' } as any, {} as any);
-    expect(warnSpy.mock.calls.filter(([msg]) => String(msg).includes('mobile'))).toHaveLength(1);
+    expect(warnSpy.mock.calls.filter(([msg]) => String(msg).includes('mobile'))).toHaveLength(2);
     warnSpy.mockRestore();
   });
 });

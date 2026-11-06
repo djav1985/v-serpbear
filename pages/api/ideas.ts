@@ -153,8 +153,8 @@ const updateKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => 
             return res.status(200).json({ keywords: keywordIdeas });
          }
          // Surface empty result sets as a not-found condition so the client can warn the user appropriately
-         logger.warn('No keywords found over the search volume minimum', { ideaOptions });
-         return res.status(404).json(errorResponse('NOT_FOUND', 'No keywords found over the search volume minimum.', requestId));
+         logger.warn('No keyword ideas returned by Google Ads', { ideaOptions });
+         return res.status(404).json(errorResponse('NOT_FOUND', 'No keyword ideas were returned for these keywords.', requestId));
       } catch (error: any) {
          logger.error('Error fetching keyword ideas from Google Ads', error instanceof Error ? error : new Error(String(error)), {
             message: error?.message,

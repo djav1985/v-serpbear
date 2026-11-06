@@ -31,12 +31,6 @@ const ScraperSettings = ({ settings, settingsError, updateSettings }:ScraperSett
       { label: '5 Seconds', value: '5000' },
       { label: '10 Seconds', value: '10000' },
       { label: '30 Seconds', value: '30000' },
-      { label: '1 Minute', value: '60000' },
-      { label: '2 Minutes', value: '120000' },
-      { label: '5 Minutes', value: '300000' },
-      { label: '10 Minutes', value: '600000' },
-      { label: '15 Minutes', value: '900000' },
-      { label: '30 Minutes', value: '1800000' },
    ];
    const allScrapers: SelectionOption[] = settings.available_scapers ? settings.available_scapers : [];
    const scraperOptions: SelectionOption[] = [{ label: 'None', value: 'none' }, ...allScrapers];

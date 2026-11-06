@@ -323,6 +323,23 @@ describe('fetchSearchConsoleData date window', () => {
       expect(span).toBe(days);
     }
   });
+
+  it('pages through results with startRow until a page is shorter than the 25000 row limit', async () => {
+    const fullPage = Array.from({ length: 25000 }, (_, i) => ({
+      keys: [`kw${i}`, 'DESKTOP', 'usa', 'https://example.com/'], clicks: 1, impressions: 1, ctr: 0, position: 1,
+    }));
+    mockSCQuery
+      .mockResolvedValueOnce({ data: { rows: fullPage } })
+      .mockResolvedValueOnce({ data: { rows: [{ keys: ['last', 'mobile', 'usa', 'https://example.com/'], clicks: 2, impressions: 2, ctr: 0, position: 2 }] } });
+
+    const res = await realFetchSearchConsoleData(mockDomainForSC, 3, undefined, mockApiForSC);
+
+    expect(mockSCQuery).toHaveBeenCalledTimes(2);
+    expect(mockSCQuery.mock.calls[0][0].requestBody.startRow).toBe(0);
+    expect(mockSCQuery.mock.calls[1][0].requestBody.startRow).toBe(25000);
+    expect(mockSCQuery.mock.calls[1][0].requestBody.rowLimit).toBe(25000);
+    expect(res).toHaveLength(25001);
+  });
 });
 
 describe('fetchSearchConsoleData error logging', () => {

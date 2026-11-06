@@ -17,7 +17,8 @@ const googleIcon = 'https://serpbear.b-cdn.net/Sx3u0X9.png';
 const resolveEmailBranding = () => {
    const brandingDetails = getBranding();
    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || '';
-   const logoUrl = buildLogoUrl(baseUrl);
+   // buildLogoUrl without an origin returns a relative path, which email clients cannot load; use the default logo instead
+   const logoUrl = baseUrl ? buildLogoUrl(baseUrl) : '';
 
    return {
       ...brandingDetails,

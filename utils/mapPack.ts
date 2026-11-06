@@ -11,6 +11,8 @@ export type LocalResultItem = {
 // punctuation such as commas, dashes or curly quotes do not make two names different.
 const normaliseName = (value: string | null | undefined): string => (value ?? '')
    .normalize('NFKC')
+   .normalize('NFD')
+   .replace(/[̀-ͯ]/g, '')
    .toLowerCase()
    .replace(/&/g, ' and ')
    .replace(/[^\p{L}\p{N}]+/gu, ' ')

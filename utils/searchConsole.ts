@@ -21,6 +21,10 @@ type SCAPISettings = { client_email: string, private_key: string }
 
 type fetchConsoleDataResponse = SearchAnalyticsItem[] | SearchAnalyticsStat[] | SCDomainFetchError;
 
+// Search Console API maximum rows per searchanalytics.query request, and a cap on pages fetched per window
+const SC_ROW_LIMIT = 25000;
+const SC_MAX_PAGES = 40;
+
 export const isSearchConsoleDataFreshForToday = (
    lastFetched?: string | null,
    timezoneSetting?: string,
@@ -72,7 +76,7 @@ export const fetchSearchConsoleData = async (domain:DomainType, days:number, typ
       startDate,
       endDate,
       type: 'web',
-      rowLimit: 1000,
+      rowLimit: SC_ROW_LIMIT,
       dataState: 'all',
       dimensions: ['query', 'device', 'country', 'page'],
    };
@@ -80,19 +84,30 @@ export const fetchSearchConsoleData = async (domain:DomainType, days:number, typ
       requestBody = {
          startDate,
          endDate,
+         rowLimit: SC_ROW_LIMIT,
          dataState: 'all',
          dimensions: ['date'],
       };
    }
 
       const siteUrl = domainSettings.property_type === 'url' && domainSettings.url ? domainSettings.url : `sc-domain:${domainName}`;
-      const res = client.searchanalytics.query({ siteUrl, requestBody });
-      const resData:any = (await res).data;
-      let finalRows = resData.rows ? resData.rows.map((item:SearchAnalyticsRawItem) => parseSearchConsoleItem(item, domainName)) : [];
+      // The API returns at most rowLimit rows per request, so page through with startRow until a short page
+      const rawRows:SearchAnalyticsRawItem[] = [];
+      for (let page = 0; page < SC_MAX_PAGES; page++) {
+         const res = client.searchanalytics.query({
+            siteUrl,
+            requestBody: { ...requestBody, startRow: page * SC_ROW_LIMIT },
+         });
+         const resData:any = (await res).data;
+         const pageRows:SearchAnalyticsRawItem[] = resData.rows || [];
+         rawRows.push(...pageRows);
+         if (pageRows.length < SC_ROW_LIMIT) break;
+      }
+      let finalRows:any[] = rawRows.map((item:SearchAnalyticsRawItem) => parseSearchConsoleItem(item, domainName));
 
-      if (type === 'stat' && resData.rows && resData.rows.length > 0) {
+      if (type === 'stat' && rawRows.length > 0) {
          finalRows = [];
-         resData.rows.forEach((row:SearchAnalyticsRawItem) => {
+         rawRows.forEach((row:SearchAnalyticsRawItem) => {
             finalRows.push({
                date: row.keys[0],
                clicks: row.clicks,

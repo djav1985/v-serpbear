@@ -298,7 +298,13 @@ const runAppCronJobs = () => {
       }
 
       if (emailCronTime) {
-         emailJob = scheduleJob('email notification', emailCronTime, () => {
+         emailJob = scheduleJob('email notification', emailCronTime, async () => {
+            // Same check as /api/notify: without an SMTP host the API answers 400, so skip quietly instead
+            const smtpSettings = await getAppSettings();
+            if (!normalizeValue(smtpSettings.smtp_server, '')) {
+               logger.debug('CRON: SMTP is not configured; skipping the notification email.');
+               return;
+            }
             logger.info('CRON: Sending Notification Email.');
             makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/notify', 'CRON: Email Notification Result');
          }, cronOptions);
@@ -348,9 +354,15 @@ const runAppCronJobs = () => {
    // Run Failed scraping CRON using configured failed queue schedule
    const failedCronTime = normalizeValue(CRON_FAILED_SCHEDULE, '0 0 */1 * * *');
    scheduleJob('failed scrape retry', failedCronTime, async () => {
-      logger.info('CRON: Retrying Failed Scrapes.');
-
       try {
+         // Auto Retry is opt-in: skip the whole run unless scrape_retry is enabled in settings
+         const settings = await getAppSettings();
+         if (!settings.scrape_retry) {
+            logger.debug('CRON: Auto Retry is disabled; skipping failed scrape retry.');
+            return;
+         }
+
+         logger.info('CRON: Retrying Failed Scrapes.');
          // Use retryQueueManager for concurrency-safe access
          const keywordsToRetry = await retryQueueManager.peekQueue();
 

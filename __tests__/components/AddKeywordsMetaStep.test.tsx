@@ -36,6 +36,27 @@ describe('AddKeywordsMetaStep', () => {
       expect(onConfirm).toHaveBeenCalledWith({ tags: ['seo', 'content'], location: '', country: '' });
    });
 
+   it('disables the Track button and ignores clicks while adding', () => {
+      const onConfirm = jest.fn();
+      render(
+         <AddKeywordsMetaStep
+            selectedCount={1}
+            existingTags={[]}
+            existingLocations={[]}
+            allowsCity={false}
+            isAdding={true}
+            onConfirm={onConfirm}
+            closeModal={jest.fn()}
+         />,
+      );
+
+      const button = screen.getByRole('button', { name: 'Adding...' });
+      expect(button).toBeDisabled();
+      fireEvent.click(button);
+
+      expect(onConfirm).not.toHaveBeenCalled();
+   });
+
    it('confirms a country-only choice with a blank location and the picked country', () => {
       const onConfirm = jest.fn();
       render(

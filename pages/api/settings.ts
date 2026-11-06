@@ -13,7 +13,7 @@ import { trimStringProperties } from '../../utils/security';
 import { getBranding } from '../../utils/branding';
 import packageJson from '../../package.json';
 import { atomicWriteFile } from '../../utils/atomicWrite';
-import { readSettingsFile, withSettingsLock } from '../../utils/settingsFile';
+import { readSettingsFile, withSettingsLock, withoutRemovedSettingsKeys } from '../../utils/settingsFile';
 import { retryQueueManager } from '../../utils/retryQueueManager';
 import { errorResponse } from '../../utils/api/response';
 import { normalizeLegacyGlobalScraperType } from '../../utils/removedScrapers';
@@ -71,19 +71,14 @@ const normalizeLegacySettings = (settings: Partial<SettingsType>): Partial<Setti
 export const DERIVED_SETTINGS_FIELDS = ['version', 'timezone', 'available_scapers', 'search_console_integrated', 'failed_queue'] as const;
 
 /**
- * Settings keys that were removed from the app. GET never returns them, a save never keeps them in data/settings.json,
- * and migration 1781000000000-drop-removed-settings-keys deletes them from an existing file (it keeps its own copy
- * of this list, because migrations run under plain Node). A PUT that still sends one is ignored, not rejected.
- * To retire another key, add it here and to that migration.
+ * Removed settings keys (REMOVED_SETTINGS_KEYS in utils/settingsFile) are never returned by GET, never kept by a save,
+ * and deleted from an existing file by migration 1781000000000-drop-removed-settings-keys. A PUT that still sends one is ignored, not rejected.
  */
-export const REMOVED_SETTINGS_KEYS = ['search_console', 'white_label_enabled', 'white_label_logo_file', 'platform_name', 'notification_email'] as const;
 
 /** Reads data/settings.json as stored (secrets still encrypted), upgrading legacy field names and dropping removed keys. */
-const readStoredSettingsFile = async (settingsPath: string): Promise<Partial<SettingsType>> => {
-   const settings = normalizeLegacySettings(await readSettingsFile(settingsPath));
-   REMOVED_SETTINGS_KEYS.forEach((key) => { delete (settings as Record<string, unknown>)[key]; });
-   return settings;
-};
+const readStoredSettingsFile = async (settingsPath: string): Promise<Partial<SettingsType>> => (
+   withoutRemovedSettingsKeys(normalizeLegacySettings(await readSettingsFile(settingsPath)))
+);
 
 /** Fields stored encrypted. A key present in a save is encrypted (an empty value clears it); an absent key keeps the stored value. */
 const SECRET_SETTINGS_FIELDS = [
@@ -268,9 +263,8 @@ const updateSettings = async (req: NextApiRequest, res: NextApiResponse) => {
                : ((existingSettings[key] as string | undefined) ?? '');
          });
          DERIVED_SETTINGS_FIELDS.forEach((field) => { delete merged[field]; });
-         REMOVED_SETTINGS_KEYS.forEach((key) => { delete merged[key]; });
 
-         await atomicWriteFile(`${process.cwd()}/data/settings.json`, JSON.stringify(merged), 'utf-8');
+         await atomicWriteFile(`${process.cwd()}/data/settings.json`, JSON.stringify(withoutRemovedSettingsKeys(merged)), 'utf-8');
       });
       return res.status(200).json({ settings: normalizedSettings });
    } catch (error) {

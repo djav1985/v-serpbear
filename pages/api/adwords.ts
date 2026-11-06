@@ -9,7 +9,7 @@ import { getAdwordsCredentials, getAdwordsKeywordIdeas } from '../../utils/adwor
 import { logger } from '../../utils/logger';
 import { withApiLogging } from '../../utils/apiLogging';
 import { atomicWriteFile } from '../../utils/atomicWrite';
-import { readSettingsFile, withSettingsLock } from '../../utils/settingsFile';
+import { readSettingsFile, withSettingsLock, withoutRemovedSettingsKeys } from '../../utils/settingsFile';
 import { errorResponse } from '../../utils/api/response';
 import normalizeOrigin from '../../utils/normalizeOrigin';
 import { serializeForScript } from '../../utils/api/scriptJson';
@@ -194,7 +194,7 @@ const getAdwordsRefreshToken = async (req: NextApiRequest, res: NextApiResponse)
                // Re-read under the lock so settings saved while Google was answering are kept
                await withSettingsLock(async () => {
                   const current = await readSettingsFile() as SettingsType;
-                  await atomicWriteFile(`${process.cwd()}/data/settings.json`, JSON.stringify({ ...current, adwords_refresh_token }), 'utf-8');
+                  await atomicWriteFile(`${process.cwd()}/data/settings.json`, JSON.stringify(withoutRemovedSettingsKeys({ ...current, adwords_refresh_token })), 'utf-8');
                });
                return respondWithIntegrationResult(req, res, { success: true, message: 'Integrated.' });
             }
@@ -280,7 +280,7 @@ const validateAdwordsIntegration = async (req: NextApiRequest, res: NextApiRespo
             adwords_developer_token: encryptedDeveloperToken,
             adwords_account_id: encryptedAccountId,
          };
-         await atomicWriteFile(`${process.cwd()}/data/settings.json`, JSON.stringify(securedSettings), 'utf-8');
+         await atomicWriteFile(`${process.cwd()}/data/settings.json`, JSON.stringify(withoutRemovedSettingsKeys(securedSettings)), 'utf-8');
       });
 
       return res.status(200).json({ valid: true });

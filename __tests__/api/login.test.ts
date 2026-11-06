@@ -161,6 +161,8 @@ describe('Authentication cookie handling', () => {
 
    it('sets secure cookies when requests are served over HTTPS', async () => {
       (process.env as MutableEnv).SESSION_DURATION = '1';
+      // Forwarded protocol headers are only trusted behind a configured reverse proxy
+      (process.env as MutableEnv).TRUST_PROXY = '1';
 
       const loginReq = {
          method: 'POST',

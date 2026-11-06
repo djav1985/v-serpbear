@@ -13,6 +13,12 @@ describe('markOwnLocalResults', () => {
       expect(out.map((entry) => entry.isOwn)).toEqual([false, true, false, false]);
    });
 
+   it('matches business names regardless of accents', () => {
+      const listed = [{ position: 1, title: 'Café Crème' }, { position: 2, title: 'Other' }];
+      expect(markOwnLocalResults(listed, 'Cafe Creme')[0].isOwn).toBe(true);
+      expect(markOwnLocalResults([{ position: 1, title: 'Cafe Creme' }], 'Café Crème')[0].isOwn).toBe(true);
+   });
+
    it('still matches when only spacing, punctuation or "&" differ', () => {
       const listed = [
          { position: 1, title: 'Smith &  Sons, Inc.' },

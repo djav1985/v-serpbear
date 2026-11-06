@@ -8,7 +8,7 @@ services:
     ports:
       - "3030:3000"
     # Values come from .env (optional) and from the shell. Anything set in .env or the shell wins over the
-    # defaults below. Empty SECRET or APIKEY is left for the app to reject at startup rather than hidden here.
+    # defaults below. SECRET and APIKEY have no defaults here; the operator must set each to a unique value.
     env_file:
       - path: ./.env
         required: false
@@ -16,8 +16,11 @@ services:
       - SECRET=${SECRET:-}
       - APIKEY=${APIKEY:-}
       - SESSION_DURATION=${SESSION_DURATION:-24}
+      # Number of reverse proxies in front of the app (see README). Unset means 0, the socket address is used.
+      - TRUST_PROXY=${TRUST_PROXY:-0}
       # Thum.io thumbnail capture; false disables those requests. Read at request time, no rebuild needed.
       # SCREENSHOTS is the preferred name and takes precedence over NEXT_PUBLIC_SCREENSHOTS.
+      - SCREENSHOTS=${SCREENSHOTS:-true}
       - NEXT_PUBLIC_SCREENSHOTS=${NEXT_PUBLIC_SCREENSHOTS:-true}
       - NEXT_PUBLIC_WHITE_LABEL=${NEXT_PUBLIC_WHITE_LABEL:-false}
       # File name (stored in /app/data) for the white-label logo. Recommended dimensions: 96x96 pixels.

@@ -98,7 +98,7 @@ const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleInt
       }
       return lookup;
    }, {}), [trackedKeywordsList]);
-   const { mutate: addKeywords } = useAddKeywords(() => { if (domain && domain.slug) router.push(`/domain/${domain.slug}`); });
+   const { mutate: addKeywords, isLoading: isAddingKeywords } = useAddKeywords(() => { if (domain && domain.slug) router.push(`/domain/${domain.slug}`); });
    const [isMobile] = useIsMobile();
    useWindowResize(() => setSCListHeight(window.innerHeight - (isMobile ? 200 : 400)));
 
@@ -169,6 +169,7 @@ const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleInt
    };
 
    const submitSCKeywordsToTracker = ({ tags, location, country }: { tags: string[], location: string, country: string }) => {
+      if (isAddingKeywords) { return; }
       const selectedItems = finalKeywords[device]
          .filter((kitem:SCKeywordType) => selectedKeywords.includes(kitem.uid))
          .map(({ keyword, country: itemCountry }) => ({ keyword, country: itemCountry }));
@@ -319,6 +320,7 @@ const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleInt
                existingTags={existingTags}
                existingLocations={existingLocations}
                allowsCity={allowsCity}
+               isAdding={isAddingKeywords}
                onConfirm={submitSCKeywordsToTracker}
                closeModal={() => setShowAddStep(false)}
             />

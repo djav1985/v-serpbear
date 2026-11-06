@@ -30,6 +30,15 @@ All notable changes to this project will be documented in this file. Releases no
 - The unused `tags` column on the `domain` table was dropped (keyword tags are unchanged). Migration `1790000000002-drop-domain-tags-column` drops it, skipped when the column is missing, with the database backed up first.
 - Dead code cleanup (no behaviour change): removed `SAFE_DOMAIN_SLUG`, the `redactSecrets`/`redactUrl` re-export in `utils/apiLogging.ts`, the unused `originOverride` argument of `buildLogoUrl`, unused props on `KeywordsTable`, `Settings`, `ToggleField` (`classNames`, `disabled`) and `PageLoader` (`label`), unused fields on the `KeywordIdeasUpdater` props type and `ValueSerpResult`, and the unused `website` field on every scraper definition.
 - Removed about 15 blocks of commented-out code, the unused `.chart_tooltip` and `.ff-sm`/`.ff-md`/`.ff-lg`/`.ff-xl`/`.ff-round` styles, `public/vercel.svg`, `public/fflags.png`, five unused Tailwind safelist entries, the `follow-redirects` override in `package.json`, `set -o pipefail` in `entrypoint.sh`, a stale `#image:` comment in `docker-compose.yml`, and unused patterns in `.gitignore` and `.dockerignore`.
+- Fixed Insight: the countries average now divides by the rows counted (it divided by unique keywords), and keywords containing underscores or spaces are no longer rewritten or merged.
+- Fixed the scrape delay setting: it now offers No Delay, 5, 10 and 30 seconds (the minute options were silently capped at 30 seconds). A saved value above 30 seconds still applies as 30 seconds.
+- Fixed the hourly failed-scrape retry job: it now does nothing unless Auto Retry is on. The daily notification job skips the digest when no SMTP server is set instead of failing with a 400 each run.
+- Fixed the add-keywords dialogs: the button shows "Adding..." and is disabled while the request runs, so a double click cannot submit twice.
+- Serper has no device option, so a warning is now logged for every mobile keyword (desktop results are used).
+- `docker-compose.yml` now passes `SCREENSHOTS` and `TRUST_PROXY` (default `0`), and its comment about `SECRET` and `APIKEY` is corrected (nothing checks them at startup). `zod` is now a declared dependency.
+- Emails without `NEXT_PUBLIC_APP_URL` use the default logo instead of a broken relative URL. Business-name matching ignores accents. Search Console data is read in pages of 25,000 rows instead of stopping at 1000. The ideas "no results" message no longer mentions a volume minimum.
+- Every writer of `settings.json` (including the Google Ads callback) now strips the removed keys.
+- **Behaviour change:** `x-forwarded-proto`, `x-forwarded-protocol` and `x-forwarded-ssl` now only mark a request as HTTPS when `TRUST_PROXY` is set. Behind a TLS-terminating proxy, set `TRUST_PROXY=1` or the login cookie will not get the `Secure` flag.
 
 ### Fixed
 - The Scraping Frequency, Keyword Scrape Delay and Notification Frequency settings no longer say they need a server or Docker restart: changes to the scrape and notification schedules are applied live by the cron worker, and the scrape delay is read on every refresh.

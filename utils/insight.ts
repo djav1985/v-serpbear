@@ -41,6 +41,7 @@ export const getCountryInsight = (SCData:SCDomainDataType, sortBy:string = 'clic
    }
 
    const keywordsCounts: { [key:string]: string[] } = {};
+   const rowCounts: { [key:string]: number } = {};
    const countryItems: { [key:string]: SCInsightItem } = {};
    const dateKey = queryDate as keyof SCDomainDataType;
    const scData = SCData[dateKey] && Array.isArray(SCData[dateKey]) ? SCData[dateKey] as SearchAnalyticsItem[] : [];
@@ -65,17 +66,19 @@ export const getCountryInsight = (SCData:SCDomainDataType, sortBy:string = 'clic
             if (keywordsCounts[itm.country] && itm.keyword && !keywordsCounts[itm.country].includes(itm.keyword)) {
                keywordsCounts[itm.country].push(itm.keyword);
             }
+            rowCounts[itm.country] = (rowCounts[itm.country] || 0) + 1;
          }
       });
       countryItems[countryKey] = itemData;
    });
 
    const countryInsight: SCInsightItem[] = Object.keys(countryItems).map((countryCode:string) => {
-      const keywordCount = keywordsCounts[countryCode]?.length || 1; // Ensure safe division
+      const keywordCount = keywordsCounts[countryCode]?.length || 1;
+      const rowCount = rowCounts[countryCode] || 1; // Position and CTR are summed per row, so average over rows
       return {
          ...countryItems[countryCode],
-         position: Math.round(countryItems[countryCode].position / keywordCount),
-         ctr: Number((countryItems[countryCode].ctr / keywordCount).toFixed(2)),
+         position: Math.round(countryItems[countryCode].position / rowCount),
+         ctr: Number((countryItems[countryCode].ctr / rowCount).toFixed(2)),
          keywords: keywordCount,
          country: countryCode,
       };
@@ -98,9 +101,10 @@ export const getKeywordsInsight = (SCData:SCDomainDataType, sortBy:string = 'cli
       return [];
    }
 
-   const keywordItems: { [key:string]: SCInsightItem } = {};
-   const keywordCounts: { [key:string]: number } = {};
-   const countriesCount: { [key:string]: string[] } = {};
+   // Maps are keyed by the exact keyword string, so keywords like "a b" and "a_b" stay distinct
+   const keywordItems = new Map<string, SCInsightItem>();
+   const keywordCounts = new Map<string, number>();
+   const countriesCount = new Map<string, string[]>();
    const dateKey = queryDate as keyof SCDomainDataType;
    const scData = SCData[dateKey] && Array.isArray(SCData[dateKey]) ? SCData[dateKey] as SearchAnalyticsItem[] : [];
 
@@ -112,33 +116,31 @@ export const getKeywordsInsight = (SCData:SCDomainDataType, sortBy:string = 'cli
 
    allKeywords.forEach((keyword:string) => {
       const itemData = { clicks: 0, impressions: 0, ctr: 0, position: 0 };
-      const keywordKey = keyword.replaceAll(' ', '_');
       scData.forEach((itm) => {
          if (itm && itm.keyword === keyword) {
             itemData.clicks += itm.clicks || 0;
             itemData.impressions += itm.impressions || 0;
             itemData.ctr += itm.ctr || 0;
             itemData.position += itm.position || 0;
-            if (!countriesCount[keywordKey]) {
-               countriesCount[keywordKey] = [];
+            const countries = countriesCount.get(keyword) || [];
+            if (itm.country && !countries.includes(itm.country)) {
+               countries.push(itm.country);
             }
-            if (countriesCount[keywordKey] && itm.country && !countriesCount[keywordKey].includes(itm.country)) {
-               countriesCount[keywordKey].push(itm.country);
-            }
-            keywordCounts[keywordKey] = keywordCounts[keywordKey] ? keywordCounts[keywordKey] + 1 : 1;
+            countriesCount.set(keyword, countries);
+            keywordCounts.set(keyword, (keywordCounts.get(keyword) || 0) + 1);
          }
       });
-      keywordItems[keywordKey] = itemData;
+      keywordItems.set(keyword, itemData);
    });
 
-   const keywordInsight: SCInsightItem[] = Object.keys(keywordItems).map((keyword:string) => {
-      const keywordCount = keywordCounts[keyword] || 1; // Ensure safe division
+   const keywordInsight: SCInsightItem[] = Array.from(keywordItems.entries()).map(([keyword, item]) => {
+      const keywordCount = keywordCounts.get(keyword) || 1; // Ensure safe division
       return {
-         ...keywordItems[keyword],
-         position: Math.round(keywordItems[keyword].position / keywordCount),
-         ctr: Number((keywordItems[keyword].ctr / keywordCount).toFixed(2)),
-         countries: countriesCount[keyword]?.length || 0,
-         keyword: keyword.replaceAll('_', ' '),
+         ...item,
+         position: Math.round(item.position / keywordCount),
+         ctr: Number((item.ctr / keywordCount).toFixed(2)),
+         countries: countriesCount.get(keyword)?.length || 0,
+         keyword,
       };
    });
 
