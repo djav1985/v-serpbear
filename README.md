@@ -1,14 +1,16 @@
 # SerpBear
 
+![Animated dashboard tour](https://serpbear.b-cdn.net/serpbear_readme_v2.gif "Animated dashboard tour")
+
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/7e7a0030c3f84c6fb56a3ce6273fbc1d)](https://app.codacy.com/gh/djav1985/v-serpbear/dashboard) ![License](https://img.shields.io/github/license/djav1985/v-serpbear) ![Version](https://img.shields.io/github/package-json/v/djav1985/v-serpbear) ![Docker pulls](https://img.shields.io/docker/pulls/vontainment/v-serpbear)
 
 SerpBear is a full-stack Next.js application that tracks where your pages rank on Google, adds Google Search Console and Google Ads data to those rankings, and sends scheduled email digests. It ships as a Docker image or a plain Node.js app, and offers a REST API and a read-only MCP server so scripts and AI assistants can read your rankings.
 
 > **Warning:** Not every scraper provider is validated on every release. Report problems with a specific provider in [GitHub Discussions](https://github.com/djav1985/v-serpbear/discussions).
 
-![Animated dashboard tour](https://serpbear.b-cdn.net/serpbear_readme_v2.gif "Animated dashboard tour")
+<br><br>
 
-![Dashboard screenshot](./screenshot.jpg "Dashboard screenshot")
+---
 
 ## Contents
 
@@ -27,13 +29,7 @@ SerpBear is a full-stack Next.js application that tracks where your pages rank o
 - [Credits](#credits)
 - [License](#license)
 
-## Quick links
-
-- 📘 **Documentation:** <https://docs.serpbear.com/>
-- 📜 **Changelog:** [`CHANGELOG.md`](./CHANGELOG.md)
-- 🐳 **Docker Hub image:** <https://hub.docker.com/r/vontainment/v-serpbear>
-- 🛟 **Community support:** [GitHub Discussions](https://github.com/djav1985/v-serpbear/discussions)
-- Made by [Vontainment](https://vontainment.com)
+<br><br>
 
 ---
 
@@ -44,6 +40,10 @@ SerpBear is a full-stack Next.js application that tracks where your pages rank o
 - **Smarter keyword adding.** Discover and Ideas share one add-to-tracker bar with a Desktop/Mobile toggle, tags and a location picker. Keywords that are already tracked are skipped, and the Tracking tab can change the location of many keywords at once.
 
 The full list of changes is in the [changelog](./CHANGELOG.md). See [Updating](#updating) before you upgrade.
+
+<br><br>
+
+---
 
 ## Features
 
@@ -56,6 +56,8 @@ The full list of changes is in the [changelog](./CHANGELOG.md). See [Updating](#
 - **White labelling.** Custom name and logo, applied without a rebuild.
 - **MCP server.** Read-only access to rankings, Search Console and ideas for AI assistants.
 - **Hardening and stability.** Current Node.js, encrypted stored keys, login and API-key throttling, layered retries, and keywords stuck in "updating" after a crash are reset on the next startup.
+
+<br><br>
 
 **Core capabilities**
 
@@ -70,6 +72,8 @@ The full list of changes is in the [changelog](./CHANGELOG.md). See [Updating](#
 | **Progressive web app** | Install the dashboard on iOS or Android. |
 | **REST API** | Manage and read data programmatically (see [API and MCP server](#api-and-mcp-server)). |
 
+<br><br>
+
 **Architecture**
 
 | Layer | Responsibility |
@@ -79,11 +83,13 @@ The full list of changes is in the [changelog](./CHANGELOG.md). See [Updating](#
 | **Background workers** | A Node cron runner schedules scrapes, retries, Search Console refreshes and digests from cron expressions and a timezone setting. |
 | **Settings** | Scraper, SMTP and Google Ads credentials live in the Settings UI and are stored in `data/settings.json` (secrets encrypted with `SECRET`). |
 
+<br><br>
+
 ---
 
 ## Getting started
 
-### Option 1 – Docker Compose
+### Setup SerpBear
 
 ```bash
 git clone https://github.com/djav1985/v-serpbear.git
@@ -95,9 +101,9 @@ docker compose up -d
 
 The app is served at <http://localhost:3030> (compose maps host port 3030 to container port 3000). Sign in with `USER` and `PASSWORD`, add a domain, then open **Settings → Scraper** to choose a provider and enter its API key.
 
-Compose stores data in a named volume (`data`) mounted at `/app/data`. The volume name is prefixed with the project name (for example `v-serpbear_data`); find it with `docker volume ls`. The volume holds the SQLite database, `settings.json`, Search Console exports (`SC_<domain>.json`), keyword ideas (`IDEAS_*.json`), `session.json`, `email-throttle.json`, `failed_queue.json` and any white-label logo.
+<br><br>
 
-To back up, stop the container so the SQLite files are not copied mid-write, copy the directory out, then start it again:
+### Update SerpBear
 
 ```bash
 docker compose stop
@@ -105,29 +111,11 @@ docker cp serpbear:/app/data ./serpbear-data-backup
 docker compose start
 ```
 
-### Option 2 – Node.js
-
-1. Install Node.js **24.22.1 or a later 24.x release** (pinned in [`.nvmrc`](./.nvmrc)). Node.js 20 and older are not supported because Node.js 20 is end-of-life.
-2. Run `npm install` (or `npm ci`).
-3. Copy `.env.example` to `.env.local` and replace every placeholder with a real value.
-4. Run `npm run db:migrate` to apply pending migrations. The tables themselves are created on first start (see [Database and migrations](#database-and-migrations)).
-5. Start with `npm run dev`, or `npm run build && npm run start` for production. The cron worker is a separate process: run `npm run cron`, or use `npm run start:all` to run both together.
-
-### Database and migrations
-
-- SQLite files live in `./data` for Node.js, or in the `/app/data` volume for Docker.
-- On first start the app creates any missing tables with `db.sync()` (`database/init.ts`, called from `instrumentation.ts`). Migrations in `database/migrations` then apply schema and data changes to existing databases.
-- Docker runs migrations from `entrypoint.sh` at every container start, before the web app and cron worker start.
-- For Node.js, run `npm run db:migrate`, and `npm run db:revert` to undo the latest migration.
-- Keyword history rows default to `{}`; the migrations backfill legacy `'[]'` values.
-
-### Updating
-
 Back up `data/` first. With Docker, run `docker compose pull && docker compose up -d` and migrations apply on start. With Node.js, pull, run `npm install`, `npm run db:migrate`, then rebuild. Read the *Upgrade notes* in the [changelog](./CHANGELOG.md) before upgrading.
 
----
+<br><br>
 
-## Supported SERP data providers
+### Supported SERP data providers
 
 | Provider | Pricing snapshot* | Geo targeting | Map pack | Mobile | Authentication |
 | --- | --- | --- | --- | --- | --- |
@@ -141,39 +129,14 @@ Back up `data/` first. With Docker, run `docker compose pull && docker compose u
 | PrismCrawl (`prismcrawl`) | 100 free credits, packages from $5 (about $0.21 per 1,000, valid 90 days) | City | Yes | Yes | Header `x-api-key` (POST JSON) |
 | DataForSEO (`dataforseo`) | Pay-as-you-go, $50 minimum top-up | City | Yes (`local_pack`) | Yes | HTTP Basic, `login:password` in the API key field |
 
-\*Pricing is indicative. Check each vendor before buying. The request formats are implemented in [`scrapers/services`](./scrapers/services).
-
+> \*Pricing is indicative. Check each vendor before buying. The request formats are implemented in [`scrapers/services`](./scrapers/services).
 Each page request asks for 10 results. The [scrape strategy](#scrape-strategy) sets how many pages are fetched.
 
-Serper has no mobile option. In a refresh, a mobile keyword that has a matching desktop keyword (same domain, keyword, country and location) in the same run is not scraped. It takes the desktop keyword's result, so no extra request is made. A mobile keyword with no matching desktop keyword is scraped with desktop results, and a warning is logged for it.
+<br><br>
 
-### Per-domain scraper overrides
+### Settings configured in `docker-compose.yml ENVs`
 
-A domain can use its own provider without changing the global default. Open **Domains**, click a domain, and switch to the **Scraper** tab. Pick a provider (or **System Scraper** to inherit the global one) and enter the API key. Stored keys are encrypted.
-
-Provider choice also affects speed: only SerpApi and SearchApi runs use the faster parallel path (see [Performance, integrations and logging](#performance-integrations-and-logging)).
-
-### Business name and map pack detection
-
-The optional **Business Name** field in the domain scraper tab turns on map pack detection. Matching uses the name only, never the link.
-
-1. Each provider builds a list of local results from its response, in the order Google shows them.
-2. If one of the first three titles matches your business name, the keyword counts as a map pack appearance.
-3. Names match ignoring case, punctuation, repeated spaces and `&` versus `and`, so `Smith & Sons, Inc.` matches `smith and sons inc`. Accents still matter.
-
-Only the first results page is checked. In the keyword details, **Local Search Results** shows your listing in green and every other business in yellow. Only a match among the first three local results is green. The matching organic result is highlighted green too. Local results saved before this flag existed show yellow until the keyword is refreshed.
-
-**Example:** for `vontainment.com`, enter "Vontainment" if that is your Google Business Profile name.
-
----
-
-## Configuration reference
-
-Behaviour is controlled by environment variables and by settings stored in `data/settings.json`. `.env.example` lists the defaults. The app does not reject placeholder values from `.env.example`, so replace every placeholder before the first start.
-
-**Env files.** Next.js reads `.env.local` for local development and Docker Compose reads `.env`. The standalone cron worker (`npm run cron`) loads `.env.local` first, then `.env`.
-
-### Authentication and session
+Behaviour is controlled by environment variables inside docker compose as well as in app settings.
 
 | Variable | Default | Required | Description |
 | --- | --- | --- | --- |
@@ -184,38 +147,27 @@ Behaviour is controlled by environment variables and by settings stored in `data
 | `APIKEY` | — | Yes | Key for REST and MCP clients, and for the cron worker's scheduled calls. When unset, scheduled jobs are skipped with a warning and MCP returns 500. Use `openssl rand -hex 32`. |
 | `SESSION_DURATION` | `24` | No | Session lifetime in hours. Empty, zero, negative or non-numeric values use 24. |
 | `TRUST_PROXY` | `0` | No | Number of reverse proxies in front of the app. `true` means 1, values above 10 are capped at 10, and invalid values mean 0. Login lockouts, API-key lockouts and the keyword-search and volume rate limits then use the `X-Forwarded-For` entry that many hops from the right. Without it, behind a proxy, every client shares the proxy's address. It also controls whether `X-Forwarded-Proto`, `X-Forwarded-Protocol` and `X-Forwarded-Ssl` set the `Secure` cookie flag; without it only the socket's TLS state does. |
-
-### Application runtime
-
-| Variable | Default | Required | Description |
-| --- | --- | --- | --- |
 | `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | No | Public URL of the deployment, used for the Google Ads OAuth return origin, email links and logo, and as the cron worker's fallback origin. Set it for real deployments. |
 | `APP_URL` | — | No | Server-side origin for the cron worker's own calls to the app. It takes precedence over `NEXT_PUBLIC_APP_URL` for those calls, which helps in Docker when the public URL is not reachable from inside the container. Google Ads uses it only when `NEXT_PUBLIC_APP_URL` is unset. Email links ignore it. |
 | `NEXT_PUBLIC_SCREENSHOTS` | `true` | No | Keyword thumbnails via thum.io. `false` shows favicons. `SCREENSHOTS` takes precedence when both are set. |
 | `NEXT_PUBLIC_WHITE_LABEL` | `false` | No | Enables white-label branding (name and logo). |
 | `WHITE_LABEL_LOGO_FILE` | `branding-logo.png` | No | File name only, stored in `/app/data`. Accepted extensions are `png`, `jpg`, `jpeg`, `gif`, `svg` and `webp`. Used only when `NEXT_PUBLIC_WHITE_LABEL=true`, and served without login at `/api/branding/logo` (404 if the file is missing). Recommended size is 96×96 px. |
 | `NEXT_PUBLIC_PLATFORM_NAME` | `SerpBear` | No | App and email name. Used only in white-label mode. |
-
-Branding changes need two different actions. Logo file changes apply on the next request, so refresh the browser. Environment value changes need a restart (`docker compose up -d` for Compose, or restart the Node.js process). Neither needs a rebuild.
-
-The Docker image sets `HOSTNAME=0.0.0.0`, and the entrypoint sets `TZ` from `CRON_TIMEZONE`. The health check reads `PORT` (default 3000).
-
-### Google integrations
-
-| Variable | Default | Required | Description |
-| --- | --- | --- | --- |
 | `SEARCH_CONSOLE_CLIENT_EMAIL` | — | No | Service account email with access to your Search Console properties. |
 | `SEARCH_CONSOLE_PRIVATE_KEY` | — | No | Matching private key; keep newlines escaped in `.env` files. |
+| `REFRESH_QUEUE_CONCURRENCY` | `3` | Refresh tasks running at once. A domain is never refreshed twice at once. |
+| `PARALLEL_REFRESH_CONCURRENCY` | `10` | Keywords scraped at once on the parallel path, which runs only when every keyword in the run uses SerpApi or SearchApi. Positive integer. |
+| `PARALLEL_SCRAPE_CONCURRENCY` | `3` | Keywords scraped at once per domain on the sequential path, which is used for every other provider. Positive integer. |
+| `SERPER_API_KEY` | empty | Free [Serper](https://serper.dev) key. When set, organic `google.com/goto` links are resolved to real URLs through Serper's `/resolve` endpoint, for every provider. Each SERP page makes one batched request with a 60 s timeout and no retries. Failures are logged as warnings and the Google link is kept. Without a key, those links stay as they are. |
+| `LOG_LEVEL` | `info` | `error`, `warn`, `info` or `debug`. `off`, `none`, `false` or `0` disables logging. Logs are JSON on stdout, so use `docker logs -f <container>`. |
+| `CRON_TIMEZONE` | `America/New_York` | IANA timezone for scheduled jobs, for "today" in results and emails, and for history date keys. An unknown name falls back to the default. Changing it later does not re-key existing history. |
+| `CRON_MAIN_SCHEDULE` | `0 0 0 * * *` | Time of the daily scrape (`scrape_interval` = `daily`) and of the Search Console refresh. |
+| `CRON_FAILED_SCHEDULE` | `0 0 */1 * * *` | Retry of failed scrapes. Also drives the `hourly` scrape option, which is not in the Settings UI. |
+| `CRON_EMAIL_SCHEDULE` | `0 0 6 * * *` | Time of day for digests. Weekly digests run on Mondays and monthly digests on the 1st, both at this time. |
 
-Search Console credentials are read in this order: the domain's own credentials (saved in the domain's settings), then the Settings page, then the two environment variables above. Google Ads credentials are configured only in Settings (stored encrypted); there are no Google Ads environment variables. Google Ads sign-in requires `NEXT_PUBLIC_APP_URL` or `APP_URL` to be set.
+<br><br>
 
-### Email notifications
-
-SMTP settings (server, port, username, password, sender, display name and TLS server name) are set in the Notification settings modal or via the settings API, and are not read from environment variables. The port is required: a blank port returns `400` with `SMTP has not been setup properly!`. The sender defaults to `no-reply@serpbear.com`, and the display name to the platform name.
-
-Recipients are set per domain, in the domain's settings. There is no global recipient address. The optional `smtp_tls_servername` is trimmed of whitespace and trailing dots before it reaches Nodemailer.
-
-### Settings stored in `data/settings.json`
+### Settings configured in `data/settings.json`
 
 Manage these in the Settings UI or at `/api/settings`.
 
@@ -235,38 +187,48 @@ Manage these in the Settings UI or at `/api/settings`.
 | `adwords_*` | Google Ads credentials for keyword ideas. |
 | `keywordsColumns` | Columns shown in the keyword table. |
 
-`GET /api/settings` is public. Without a session it returns only `scraper_type`, `available_scapers`, `search_console_integrated`, `version` and `timezone`. `PUT /api/settings` needs a login session, and an API key is not accepted. It merges the payload: keys left out keep their stored values, and a secret sent empty is cleared.
-
-### Cron scheduling
-
-| Variable | Default | Description |
-| --- | --- | --- |
-| `CRON_TIMEZONE` | `America/New_York` | IANA timezone for scheduled jobs, for "today" in results and emails, and for history date keys. An unknown name falls back to the default. Changing it later does not re-key existing history. |
-| `CRON_MAIN_SCHEDULE` | `00:00` | Time of day (`HH:MM`, 24 hour) of every scheduled scrape and of the Search Console refresh. `scrape_interval` picks the days. |
-| `CRON_FAILED_SCHEDULE` | `hourly` | How often failed scrapes are retried: `hourly`, `daily` (at the `CRON_MAIN_SCHEDULE` time) or `never`. |
-| `CRON_EMAIL_SCHEDULE` | `06:00` | Time of day (`HH:MM`, 24 hour) of every email digest. `notification_interval` picks the days. |
-
-How the settings map onto the schedule:
-
-- `scrape_interval`: runs at the `CRON_MAIN_SCHEDULE` time. `daily` runs every day, `other_day` on odd days of the month, `weekly` on Mondays and `monthly` on the 1st. `never` turns scheduled scraping off.
-- `notification_interval`: runs at the `CRON_EMAIL_SCHEDULE` time. `daily` runs every day, `weekly` on Mondays and `monthly` on the 1st. `never` turns digests off.
-- Settings changes apply without a restart. The worker watches `data/settings.json` and re-checks it every 30 minutes. `CRON_*` variables are read at startup, so they need a restart.
-
-Expressions are normalised at runtime (quotes and stray whitespace are stripped). An invalid expression is logged and its job is not scheduled.
-
-### Performance, integrations and logging
-
-| Variable | Default | Description |
-| --- | --- | --- |
-| `REFRESH_QUEUE_CONCURRENCY` | `3` | Refresh tasks running at once. A domain is never refreshed twice at once. |
-| `PARALLEL_REFRESH_CONCURRENCY` | `10` | Keywords scraped at once on the parallel path, which runs only when every keyword in the run uses SerpApi or SearchApi. Positive integer. |
-| `PARALLEL_SCRAPE_CONCURRENCY` | `3` | Keywords scraped at once per domain on the sequential path, which is used for every other provider. Positive integer. |
-| `SERPER_API_KEY` | empty | Free [Serper](https://serper.dev) key. When set, organic `google.com/goto` links are resolved to real URLs through Serper's `/resolve` endpoint, for every provider. Each SERP page makes one batched request with a 60 s timeout and no retries. Failures are logged as warnings and the Google link is kept. Without a key, those links stay as they are. |
-| `LOG_LEVEL` | `info` | `error`, `warn`, `info` or `debug`. `off`, `none`, `false` or `0` disables logging. Logs are JSON on stdout, so use `docker logs -f <container>`. |
+<br><br>
 
 ---
 
 ## Feature deep dive
+
+`GET /api/settings` is public. Without a session it returns only `scraper_type`, `available_scapers`, `search_console_integrated`, `version` and `timezone`. `PUT /api/settings` needs a login session, and an API key is not accepted. It merges the payload: keys left out keep their stored values, and a secret sent empty is cleared.
+How the settings map onto the schedule:
+
+- Search Console credentials are read in this order: the domain's own credentials (saved in the domain's settings), then the Settings page, then the two environment variables above. Google Ads credentials are configured only in Settings (stored encrypted); there are no Google Ads environment variables. Google Ads sign-in requires `NEXT_PUBLIC_APP_URL` or `APP_URL` to be set.
+
+- SMTP settings (server, port, username, password, sender, display name and TLS server name) are set in the Notification settings modal or via the settings API, and are not read from environment variables. The port is required: a blank port returns `400` with `SMTP has not been setup properly!`. The sender defaults to `no-reply@serpbear.com`, and the display name to the platform name. Recipients are set per domain, in the domain's settings. There is no global recipient address. The optional `smtp_tls_servername` is trimmed of whitespace and trailing dots before it reaches Nodemailer.
+
+
+- `scrape_interval`: `daily` uses `CRON_MAIN_SCHEDULE`. `other_day` runs at midnight on odd days of the month, `weekly` at midnight on Mondays, and `monthly` at midnight on the 1st. `never` turns scheduled scraping off.
+- `notification_interval`: `daily`, `weekly` and `monthly` use `CRON_EMAIL_SCHEDULE` as described above. `never` turns digests off.
+- Settings changes apply without a restart. The worker watches `data/settings.json` and re-checks it every 30 minutes. `CRON_*` variables are read at startup, so they need a restart.
+
+
+Compose stores data in a named volume (`data`) mounted at `/app/data`. The volume name is prefixed with the project name (for example `v-serpbear_data`); find it with `docker volume ls`. The volume holds the SQLite database, `settings.json`, Search Console exports (`SC_<domain>.json`), keyword ideas (`IDEAS_*.json`), `session.json`, `email-throttle.json`, `failed_queue.json` and any white-label logo.
+
+Branding changes need two different actions. Logo file changes apply on the next request, so refresh the browser. Environment value changes need a restart (`docker compose up -d` for Compose, or restart the Node.js process). Neither needs a rebuild.
+
+The Docker image sets `HOSTNAME=0.0.0.0`, and the entrypoint sets `TZ` from `CRON_TIMEZONE`. The health check reads `PORT` (default 3000).
+
+### Per-domain scraper overrides
+
+A domain can use its own provider without changing the global default. Open **Domains**, click a domain, and switch to the **Scraper** tab. Pick a provider (or **System Scraper** to inherit the global one) and enter the API key. Stored keys are encrypted.
+
+Provider choice also affects speed: only SerpApi and SearchApi runs use the faster parallel path (see [Performance, integrations and logging](#performance-integrations-and-logging)).
+
+### Business name and map pack detection
+
+The optional **Business Name** field in the domain scraper tab turns on map pack detection. Matching uses the name only, never the link.
+
+1. Each provider builds a list of local results from its response, in the order Google shows them.
+2. If one of the first three titles matches your business name, the keyword counts as a map pack appearance.
+3. Names match ignoring case, punctuation, repeated spaces and `&` versus `and`, so `Smith & Sons, Inc.` matches `smith and sons inc`. Accents still matter.
+
+Only the first results page is checked. In the keyword details, **Local Search Results** shows your listing in green and every other business in yellow. Only a match among the first three local results is green. The matching organic result is highlighted green too. Local results saved before this flag existed show yellow until the keyword is refreshed.
+
+**Example:** for `vontainment.com`, enter "Vontainment" if that is your Google Business Profile name.
 
 ### Keyword tracking workflow
 
@@ -350,11 +312,15 @@ Use **Export as csv** in the domain header. The file is named `<domain>-keywords
 
 The domains index shows a full-page loader on first load. Keyword, idea and insight tables show their own spinner, so the surrounding workspace stays visible while data refreshes.
 
+<br><br>
+
 ---
 
 ## API and MCP server
 
 Both use the same credential: the `APIKEY` environment variable, sent as `Authorization: Bearer <APIKEY>`. Domains are always real domain names such as `example.com`.
+
+<br><br>
 
 ### MCP server
 
@@ -373,6 +339,8 @@ A read-only [Model Context Protocol](https://modelcontextprotocol.io) server for
 | `get_keyword_ideas` | Saved ideas and favourites for a `domain`, or the research list when omitted |
 
 Tools that start scrapes, send email or spend Google Ads quota are not exposed; use the REST API for those.
+
+<br><br>
 
 ### External API
 
@@ -399,24 +367,9 @@ The example uses port 3000 (Node.js). Docker Compose serves the app on port 3030
 | GET | `/api/ideas` | Saved keyword ideas and favourites (`domain=` optional) |
 | POST | `/api/ideas` | Fetch new ideas from Google Ads: body `seedType` (`auto`, `custom`, `tracking` or `searchconsole`), `domain`, `keywords`, `country`, `language` |
 
+<br><br>
+
 ---
-
-## Development workflow
-
-- **Node.js:** run `nvm use` to adopt the version in `.nvmrc`, then `npm install`.
-- **Lint:** `npm run lint` runs ESLint. `npm run lint:css` runs Stylelint on `styles/*.css`; use `npx stylelint "**/*.{css,scss}"` for component styles. ESLint warns above 200 characters per line and function complexity above 60. Prefix unused arguments or errors with `_`.
-- **Typecheck:** `npx tsc --noEmit`. There is no npm script for it.
-- **Tests:** `npm test` runs Jest with the `@happy-dom/jest-environment` adapter. `npm run test:ci` runs `jest --ci`, and `npm run test:cv -- --runInBand` produces serialised coverage. Use the camelCase `mapPackTop3` field name in keyword objects and test data.
-- **Database:** `npm run db:migrate` and `npm run db:revert`.
-- **Repository setup:** `npm run setup:git` sets `main` as the default git branch.
-- **Build and run:** `npm run build`, then `npm run start`. `npm run start:all` runs the web server and cron worker together.
-- **UI patterns:** add icons through the `ICON_RENDERERS` map in `components/common/Icon.tsx`, and reuse the exported keyword filtering helpers for table views. `SelectField` respects its `minWidth` prop (default 180). Google Ads and Search Console settings show the latest `settingsError` above the form.
-
-## Continuous integration
-
-- **Docker image** (`.github/workflows/docker-image.yml`): runs only when started by hand (`workflow_dispatch`). It builds the image and pushes it to `vontainment/v-serpbear`, tagged `latest` for `main`, `dev` for the `dev` branch, and with the commit SHA.
-- **PR lint and auto-fix** (`.github/workflows/pr-auto-fix.yml`): runs on pull requests from branches in this repository (fork pull requests are skipped). It runs ESLint and Stylelint with `--fix` and commits any changes to the PR branch.
-- **Tests and typecheck are not run in CI.** Run `npm run lint`, `npm test` and `npx tsc --noEmit` locally before opening a pull request.
 
 ## Project structure
 
@@ -438,16 +391,9 @@ The example uses port 3000 (Node.js). Docker Compose serves the app on port 3030
 | `entrypoint.sh` | Docker entrypoint: runs migrations, then starts the web app and cron worker |
 | `data/` | Runtime files (SQLite, settings, Search Console exports, retry queue). Git-ignored except `.gitkeep`. |
 
+<br><br>
+
 ---
-
-## Contributing
-
-1. Fork and clone the repository.
-2. Make focused commits with descriptive messages.
-3. Add or update tests for any behavioural change.
-4. Run the local checks listed under [Continuous integration](#continuous-integration) before opening a pull request, and update `CHANGELOG.md`.
-
-See [`AGENTS.md`](./AGENTS.md) for repository-wide guidelines.
 
 ## Credits
 
