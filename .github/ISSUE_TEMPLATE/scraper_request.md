@@ -2,7 +2,7 @@
 name: Scraper request
 about: Ask for a new SERP data provider to be added as a scraper
 title: 'Scraper request: '
-labels: ''
+labels: scraper
 assignees: ''
 
 ---
