@@ -161,9 +161,9 @@ Behaviour is controlled by environment variables inside docker compose as well a
 | `SERPER_API_KEY` | empty | Free [Serper](https://serper.dev) key. When set, organic `google.com/goto` links are resolved to real URLs through Serper's `/resolve` endpoint, for every provider. Each SERP page makes one batched request with a 60 s timeout and no retries. Failures are logged as warnings and the Google link is kept. Without a key, those links stay as they are. |
 | `LOG_LEVEL` | `info` | `error`, `warn`, `info` or `debug`. `off`, `none`, `false` or `0` disables logging. Logs are JSON on stdout, so use `docker logs -f <container>`. |
 | `CRON_TIMEZONE` | `America/New_York` | IANA timezone for scheduled jobs, for "today" in results and emails, and for history date keys. An unknown name falls back to the default. Changing it later does not re-key existing history. |
-| `CRON_MAIN_SCHEDULE` | `0 0 0 * * *` | Time of the daily scrape (`scrape_interval` = `daily`) and of the Search Console refresh. |
-| `CRON_FAILED_SCHEDULE` | `0 0 */1 * * *` | Retry of failed scrapes. Also drives the `hourly` scrape option, which is not in the Settings UI. |
-| `CRON_EMAIL_SCHEDULE` | `0 0 6 * * *` | Time of day for digests. Weekly digests run on Mondays and monthly digests on the 1st, both at this time. |
+| `CRON_MAIN_SCHEDULE` | `00:00` | Time of day (`HH:MM`, 24 hour) of every scheduled scrape and of the Search Console refresh. `scrape_interval` picks the days. |
+| `CRON_FAILED_SCHEDULE` | `hourly` | How often failed scrapes are retried: `hourly`, `daily` (at the `CRON_MAIN_SCHEDULE` time) or `never`. |
+| `CRON_EMAIL_SCHEDULE` | `06:00` | Time of day (`HH:MM`, 24 hour) of every email digest. `notification_interval` picks the days. |
 
 <br><br>
 
@@ -201,8 +201,8 @@ How the settings map onto the schedule:
 - SMTP settings (server, port, username, password, sender, display name and TLS server name) are set in the Notification settings modal or via the settings API, and are not read from environment variables. The port is required: a blank port returns `400` with `SMTP has not been setup properly!`. The sender defaults to `no-reply@serpbear.com`, and the display name to the platform name. Recipients are set per domain, in the domain's settings. There is no global recipient address. The optional `smtp_tls_servername` is trimmed of whitespace and trailing dots before it reaches Nodemailer.
 
 
-- `scrape_interval`: `daily` uses `CRON_MAIN_SCHEDULE`. `other_day` runs at midnight on odd days of the month, `weekly` at midnight on Mondays, and `monthly` at midnight on the 1st. `never` turns scheduled scraping off.
-- `notification_interval`: `daily`, `weekly` and `monthly` use `CRON_EMAIL_SCHEDULE` as described above. `never` turns digests off.
+- `scrape_interval`: runs at the `CRON_MAIN_SCHEDULE` time. `daily` runs every day, `other_day` on odd days of the month, `weekly` on Mondays and `monthly` on the 1st. `never` turns scheduled scraping off.
+- `notification_interval`: runs at the `CRON_EMAIL_SCHEDULE` time. `daily` runs every day, `weekly` on Mondays and `monthly` on the 1st. `never` turns digests off.
 - Settings changes apply without a restart. The worker watches `data/settings.json` and re-checks it every 30 minutes. `CRON_*` variables are read at startup, so they need a restart.
 
 
