@@ -50,8 +50,13 @@ module.exports = {
             return;
          }
 
-         const keywordTableDefinition = await queryInterface.describeTable('keyword');
-         if (!keywordTableDefinition?.lastResult) {
+         // PRAGMA instead of describeTable: Sequelize's describeTable throws on the expression index
+         // keyword_tracking_target_idx (COALESCE columns have no name), which would abort the upgrade.
+         const columns = await queryInterface.sequelize.query('PRAGMA table_info(`keyword`)', {
+            transaction,
+            type: SequelizeLib.QueryTypes.SELECT,
+         });
+         if (!Array.isArray(columns) || !columns.some((column) => column.name === 'lastResult')) {
             logger.info('[MIGRATION] keyword.lastResult not found, skipping');
             return;
          }

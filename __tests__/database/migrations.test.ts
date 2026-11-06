@@ -332,6 +332,7 @@ describe('notification-email-copy.migration.test.ts', () => {
           const match = /name='(\w+)'/.exec(sql);
           return [existingTables.filter((table) => table === match?.[1]).map((name) => ({ name }))];
         }
+        if (sql.startsWith('PRAGMA table_info')) { return Object.keys(columns).map((name) => ({ name })); }
         if (sql.startsWith('SELECT ID, history') || sql.startsWith('SELECT ID, lastResult')) { return rows; }
         return [{ changes: 2 }];
       });
@@ -448,7 +449,9 @@ describe('notification-email-copy.migration.test.ts', () => {
           const backups = () => fs.readdirSync(dir).filter((name) => name.includes('.bak-')).length;
           (async () => {
             try {
-              await seq.query('CREATE TABLE keyword (ID INTEGER PRIMARY KEY AUTOINCREMENT, keyword VARCHAR(255), lastResult TEXT)');
+              await seq.query('CREATE TABLE keyword (ID INTEGER PRIMARY KEY AUTOINCREMENT, keyword VARCHAR(255), domain VARCHAR(255), device VARCHAR(255), location TEXT, lastResult TEXT)');
+              // Expression index like the real keyword_tracking_target_idx: describeTable throws on it
+              await seq.query("CREATE UNIQUE INDEX keyword_tracking_target_idx ON keyword (domain, keyword, device, COALESCE(location, ''))");
               for (const value of ${JSON.stringify(legacyRows.map((row) => row.lastResult))}) {
                 await seq.query('INSERT INTO keyword (keyword, lastResult) VALUES (:value, :lastResult)', { replacements: { value: 'k', lastResult: value } });
               }

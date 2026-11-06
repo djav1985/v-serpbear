@@ -77,6 +77,7 @@ All notable changes to this project will be documented in this file. Releases no
 - SearchApi no longer double-encodes `+` in `q` and `location`.
 - The keyword table and the Add Keywords form now decide whether to show city and state from the domain's own scraper when it overrides the global one, so a domain on a city-capable provider keeps its city and state visible while the global scraper is country-only.
 - The unranked penalty in the average position now follows the scraper's strategy rules: a domain set to "Use Global Setting" ignores a page limit left on the domain and uses the global one.
+- Migration `1790000000001-strip-skipped-lastresult-entries` checks the `keyword` columns with `PRAGMA table_info` instead of Sequelize's `describeTable`, which throws on the `keyword_tracking_target_idx` expression index and would have stopped the upgrade at startup. The migration test now runs against a database that has that index.
 
 ### Security
 - The MCP server at `/api/mcp` now accepts only `Authorization: Bearer <APIKEY>`. Cookies and login sessions are ignored there. Wrong keys still count towards the API-key lockout.
