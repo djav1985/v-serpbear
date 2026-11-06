@@ -21,6 +21,7 @@ import { toDbBool } from '../../utils/dbBooleans';
 import { refreshQueue } from '../../utils/refreshQueue';
 import { errorResponse } from '../../utils/api/response';
 import { retryQueueManager } from '../../utils/retryQueueManager';
+import { updateDomainStats } from '../../utils/updateDomainStats';
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
    const requestId = (req as ExtendedRequest).requestId;
@@ -85,6 +86,20 @@ const readKeywordIds = (req: NextApiRequest): number[] | null => {
    if (items.some((item) => !/^\d+$/.test(item))) { return null; }
    const ids = Array.from(new Set(items.map((item) => Number(item))));
    return ids.every((id) => Number.isSafeInteger(id) && id > 0) ? ids : null;
+};
+
+/**
+ * Recalculates the stored stats (keywordsTracked, avgPosition, mapPackKeywords) for each domain once.
+ * A failure is logged and never fails the request that already changed the keywords.
+ */
+const refreshDomainStats = async (domainNames: string[]): Promise<void> => {
+   for (const domainName of Array.from(new Set(domainNames))) {
+      try {
+         await updateDomainStats(domainName);
+      } catch (error) {
+         logger.error(`Failed to update domain stats for ${domainName}`, error instanceof Error ? error : new Error(String(error)));
+      }
+   }
 };
 
 const getKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
@@ -367,6 +382,7 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
       }
 
       const createdKeywords = await Keyword.bulkCreate(keywordsToAdd as any);
+      await refreshDomainStats(requestedDomains);
 
       // Reload exactly the rows this request inserted, by the IDs the insert returned. The "added" timestamp alone
       // could also match rows from another request created in the same millisecond. The fallback keeps the old query
@@ -463,6 +479,7 @@ const deleteKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
       try {
          const removeQuery = { where: { ID: { [Op.in]: keywordsToRemove } } };
          const removedKeywordCount: number = await Keyword.destroy(removeQuery);
+         await refreshDomainStats(affectedDomains);
          await retryQueueManager.removeBatch(new Set(keywordsToRemove));
          return res.status(200).json({ keywordsRemoved: removedKeywordCount });
       } finally {

@@ -264,11 +264,11 @@ describe('generateEmail', () => {
     const html = await generateEmail(domain, keywords, settings);
 
     expect(html).toMatch(/<span class="mini_stats__label">Keywords<\/span>\s*<span class="mini_stats__value">2<\/span>/);
-    expect(html).toMatch(/<span class="mini_stats__label">Avg position<\/span>\s*<span class="mini_stats__value">3.5<\/span>/);
+    expect(html).toMatch(/<span class="mini_stats__label">Avg position<\/span>\s*<span class="mini_stats__value">4<\/span>/);
     expect(html).toMatch(/<span class="mini_stats__label">Map Pack<\/span>\s*<span class="mini_stats__value">1<\/span>/);
   });
 
-  it('calculates tracker summary stats correctly excluding position 0 keywords when domain stats are missing', async () => {
+  it('calculates tracker summary stats excluding unranked and failed keywords from the average when domain stats are missing', async () => {
     mockReadFile.mockResolvedValue('<html>{{domainStats}}</html>');
 
     const keywords = [
@@ -329,6 +329,25 @@ describe('generateEmail', () => {
         lastUpdateError: false,
         mapPackTop3: 1,
       },
+      {
+        ID: 4,
+        keyword: 'failed scrape keyword',
+        device: 'desktop',
+        country: 'US',
+        domain: 'example.com',
+        lastUpdated: new Date().toISOString(),
+        added: new Date().toISOString(),
+        position: 30, // Kept from the last good scrape, but the latest scrape failed
+        volume: 0,
+        sticky: false,
+        history: {},
+        lastResult: [],
+        url: '',
+        tags: [],
+        updating: false,
+        lastUpdateError: { date: new Date().toJSON(), error: 'scrape failed' },
+        mapPackTop3: 0,
+      },
     ] as any;
 
     const domain = {
@@ -339,9 +358,9 @@ describe('generateEmail', () => {
 
     const html = await generateEmail(domain, keywords, settings);
 
-    expect(html).toMatch(/<span class="mini_stats__label">Keywords<\/span>\s*<span class="mini_stats__value">3<\/span>/);
-    // Should only average the ranked keywords: (5+10)/2 = 7.5
-    expect(html).toMatch(/<span class="mini_stats__label">Avg position<\/span>\s*<span class="mini_stats__value">7.5<\/span>/);
+    // The failed keyword is still tracked, but it is left out of the average: (5+10)/2 = 7.5, rounded to 8
+    expect(html).toMatch(/<span class="mini_stats__label">Keywords<\/span>\s*<span class="mini_stats__value">4<\/span>/);
+    expect(html).toMatch(/<span class="mini_stats__label">Avg position<\/span>\s*<span class="mini_stats__value">8<\/span>/);
     expect(html).toMatch(/<span class="mini_stats__label">Map Pack<\/span>\s*<span class="mini_stats__value">2<\/span>/);
   });
 
@@ -525,7 +544,7 @@ describe('generateEmail', () => {
     const domainWithInvalidPersistedStat = {
       domain: 'example.com',
       keywordsTracked: 2,
-      avgPosition: 7.5,
+      avgPosition: 8,
       mapPackKeywords: Number.NaN,
     } as any;
 
@@ -551,5 +570,51 @@ describe('generateEmail', () => {
     expect(html).toContain('{{domainName}} {{SCStatsTable}} secret');
     // The domain name is filled in only where the template asks for it
     expect(html.endsWith('|example.com</body></html>')).toBe(true);
+  });
+
+  it('shows the same average as updateDomainStats for the same keywords and scrape settings', async () => {
+    mockReadFile.mockResolvedValue('<html>{{domainStats}}</html>');
+    // Same rows as the updateDomainStats test "counts a keyword that ranked before and dropped out": a domain on custom
+    // scraping of 3 pages (penalty 30) overrides the global basic strategy, so (5 + 30) / 2 = 17.5 rounds to 18
+    const keywords = [
+      {
+        ID: 1, keyword: 'ranked', device: 'desktop', country: 'US', domain: 'example.com', location: '',
+        lastUpdated: new Date().toISOString(), added: new Date().toISOString(), position: 5, volume: 0, sticky: false,
+        history: { '2026-11-01': 5 }, lastResult: [], url: '', tags: [], updating: false, lastUpdateError: false, mapPackTop3: 0,
+      },
+      {
+        ID: 2, keyword: 'dropped out', device: 'desktop', country: 'US', domain: 'example.com', location: '',
+        lastUpdated: new Date().toISOString(), added: new Date().toISOString(), position: 0, volume: 0, sticky: false,
+        history: { '2026-11-01': 4, '2026-11-02': 0 }, lastResult: [], url: '', tags: [], updating: false, lastUpdateError: false, mapPackTop3: 0,
+      },
+    ] as any;
+    const domain = { domain: 'example.com', scrape_strategy: 'custom', scrape_pagination_limit: 3 } as any;
+
+    const html = await generateEmail(domain, keywords, createSettings({ scrape_strategy: 'basic' }));
+
+    expect(html).toMatch(/<span class="mini_stats__label">Avg position<\/span>\s*<span class="mini_stats__value">18<\/span>/);
+  });
+
+  it('counts a map pack keyword at its spot when its organic position is 0 (same rule as updateDomainStats)', async () => {
+    mockReadFile.mockResolvedValue('<html>{{domainStats}}</html>');
+    const keywords = [
+      {
+        ID: 1, keyword: 'map pack spot two', device: 'desktop', country: 'US', domain: 'example.com', location: '',
+        lastUpdated: new Date().toISOString(), added: new Date().toISOString(), position: 0, volume: 0, sticky: false,
+        history: { '2026-11-01': 7 }, lastResult: [], url: '', tags: [], updating: false, lastUpdateError: false, mapPackTop3: 1,
+        // Stored as the JSON string that updateDomainStats reads; parseKeywords hands it over as an array
+        localResults: JSON.stringify([{ position: 1, title: 'Rival', isOwn: false }, { position: 2, title: 'Mine', isOwn: true }]),
+      },
+      {
+        ID: 2, keyword: 'organic six', device: 'desktop', country: 'US', domain: 'example.com', location: '',
+        lastUpdated: new Date().toISOString(), added: new Date().toISOString(), position: 6, volume: 0, sticky: false,
+        history: {}, lastResult: [], url: '', tags: [], updating: false, lastUpdateError: false, mapPackTop3: 0,
+      },
+    ] as any;
+
+    const html = await generateEmail({ domain: 'example.com' } as any, keywords, createSettings());
+
+    // (2 + 6) / 2 = 4. Organic 0 is not penalized for a keyword with a map pack spot.
+    expect(html).toMatch(/<span class="mini_stats__label">Avg position<\/span>\s*<span class="mini_stats__value">4<\/span>/);
   });
 });

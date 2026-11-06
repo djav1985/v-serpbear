@@ -10,6 +10,7 @@ import { useUpdateDomainToggles } from '../../services/domains';
 import { TOGGLE_TRACK_CLASS_NAME } from '../common/toggleStyles';
 import { formatInZone } from '../../utils/timezone';
 import { getAppTimezone } from '../../utils/client/appTimezone';
+import { formatAveragePosition, roundAveragePosition } from '../../utils/averagePosition';
 
 const COMPACT_NUMBER_FORMATTER = new Intl.NumberFormat('en-US', {
    notation: 'compact',
@@ -81,6 +82,8 @@ const DomainItem = ({
    const { mutateAsync: updateDomainToggle, isLoading: isToggleUpdating } = useUpdateDomainToggles();
 
    const isDomainActive = Boolean(domain.scrapeEnabled);
+   // Same whole-number rule as the email (utils/averagePosition)
+   const avgPositionValue = roundAveragePosition(Number(avgPosition) || 0);
 
    const renderCompactMetric = (value: number) => {
       const { numeric, unit } = formatCompactNumber(value);
@@ -179,8 +182,12 @@ const DomainItem = ({
                      <TrendBadge current={keywordsTracked} previous={domain.prevKeywordsTracked} />
                   </div>
                   <div className="flex-1 relative">
-                     <span className='block text-xs lg:text-sm text-gray-500 mb-1'>Avg position</span>{avgPosition}
-                     <TrendBadge current={avgPosition} previous={domain.prevAvgPosition} lowerIsBetter />
+                     <span className='block text-xs lg:text-sm text-gray-500 mb-1'>Avg position</span>{formatAveragePosition(avgPositionValue)}
+                     <TrendBadge
+                        current={avgPositionValue}
+                        previous={typeof domain.prevAvgPosition === 'number' ? roundAveragePosition(domain.prevAvgPosition) : domain.prevAvgPosition}
+                        lowerIsBetter
+                     />
                   </div>
                   {showMapPackStat && (
                      <div className="flex-1 relative">

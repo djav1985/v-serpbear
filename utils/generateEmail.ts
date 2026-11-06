@@ -7,6 +7,7 @@ import { buildLogoUrl, getBranding } from './branding';
 import { normalizeToBoolean } from './dbBooleans';
 import { historyKeyToTime } from './historyDateKey';
 import { APP_TIMEZONE, dateKeyToTime, formatDateKey, todayKey } from './timezone';
+import { formatAveragePosition, getUnrankedPenalty, summarizeAveragePosition } from './averagePosition';
 
 const DEFAULT_BRAND_LOGO = 'https://serpbear.b-cdn.net/ikAdjQq.png';
 const mobileIcon = 'https://serpbear.b-cdn.net/SqXD9rd.png';
@@ -87,31 +88,6 @@ const resolveStatNumber = (value: number | undefined | null, fallback = 0): numb
    return fallback;
 };
 
-const formatAveragePosition = (value: number): string => {
-   if (!Number.isFinite(value)) {
-      return '0';
-   }
-   const fixed = value.toFixed(1);
-   return fixed.endsWith('.0') ? Math.round(value).toString() : fixed;
-};
-
-type KeywordSummary = {
-   mapPackKeywords: number,
-   totalPosition: number,
-   positionCount: number,
-};
-
-const calculateKeywordSummary = (items: KeywordType[]): KeywordSummary => items.reduce((stats, keyword) => {
-   if (normalizeToBoolean(keyword.mapPackTop3)) {
-      stats.mapPackKeywords += 1;
-   }
-   if (typeof keyword.position === 'number' && Number.isFinite(keyword.position) && keyword.position > 0) {
-      stats.totalPosition += keyword.position;
-      stats.positionCount += 1;
-   }
-   return stats;
-}, { mapPackKeywords: 0, totalPosition: 0, positionCount: 0 } as KeywordSummary);
-
 /**
  * Generate the Email HTML based on given domain name and its keywords
  * @param {string} domainName - Keywords to scrape
@@ -158,18 +134,13 @@ const generateEmail = async (domain:DomainType, keywords:KeywordType[], settings
    const improvedStat = improved > 0 ? `${improved} Improved` : '';
    const declinedStat = declined > 0 ? `${declined} Declined` : '';
    const stat = [improvedStat, declinedStat].filter(Boolean).join(', ');
-   const keywordSummary = calculateKeywordSummary(keywords);
-   const computedAvgPosition = keywordSummary.positionCount > 0
-      ? keywordSummary.totalPosition / keywordSummary.positionCount
-      : null;
-   const avgPositionFallback = typeof computedAvgPosition === 'number' && Number.isFinite(computedAvgPosition)
-      ? computedAvgPosition
-      : 0;
+   // Same rule as updateDomainStats (utils/averagePosition): the penalty uses the domain's scrape depth
+   const keywordSummary = summarizeAveragePosition(keywords, getUnrankedPenalty(settings, domain));
    const keywordsTrackedStat = resolveStatNumber(domain.keywordsTracked, keywordsCount);
    // Always calculate avgPosition from keywords to ensure accuracy for email
    // Map Pack count should prefer a persisted domain stat when it exists, but fall back to
    // keyword-derived numbers to support legacy domains without the persisted value.
-   const avgPositionStat = avgPositionFallback;
+   const avgPositionStat = keywordSummary.avgPosition;
    const mapPackKeywordsStat = resolveStatNumber(
       domain.mapPackKeywords,
       keywordSummary.mapPackKeywords,

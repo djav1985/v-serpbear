@@ -43,6 +43,15 @@ describe('DomainItem Component', () => {
       expect(mapPackStat.parentElement).toHaveTextContent('Map Pack3');
    });
 
+   it('shows the average as a whole number, rounded the same way as the email', () => {
+      const { unmount } = render(<DomainItem {...defaultProps} domain={{ ...dummyDomain, avgPosition: 4.7 }} />);
+      expect(screen.getByText('Avg position').parentElement).toHaveTextContent('Avg position5');
+      unmount();
+
+      render(<DomainItem {...defaultProps} domain={{ ...dummyDomain, avgPosition: 3.2 }} />);
+      expect(screen.getByText('Avg position').parentElement).toHaveTextContent('Avg position3');
+   });
+
    it('updates domain thumbnail when reload button is clicked', async () => {
       const { container } = render(<DomainItem {...defaultProps} />);
       const reloadThumbBtn = container.querySelector('.domain_thumb button');

@@ -7,6 +7,7 @@ import verifyUser from '../../utils/verifyUser';
 import { getAppSettings } from '../../pages/api/settings';
 import { getKeywordsVolume, updateKeywordsVolumeData } from '../../utils/adwords';
 import { refreshQueue } from '../../utils/refreshQueue';
+import { updateDomainStats } from '../../utils/updateDomainStats';
 import { createMockRequest, createMockResponse } from '../__helpers__';
 
 jest.mock('../../database/database', () => ({
@@ -82,6 +83,11 @@ jest.mock('../../utils/refreshQueue', () => ({
 jest.mock('../../utils/apiLogging', () => ({
   __esModule: true,
   withApiLogging: (handler: any) => handler,
+}));
+
+jest.mock('../../utils/updateDomainStats', () => ({
+  __esModule: true,
+  updateDomainStats: jest.fn().mockResolvedValue(undefined),
 }));
 
 const dbMock = db as unknown as { sync: jest.Mock };
@@ -818,6 +824,7 @@ describe('PUT /api/keywords location updates', () => {
 describe('DELETE /api/keywords retry queue cleanup', () => {
   it('removes deleted keyword IDs from the query or the JSON body from the retry queue, and rejects non-integer body IDs', async () => {
     const { retryQueueManager } = require('../../utils/retryQueueManager');
+    (updateDomainStats as jest.Mock).mockClear();
     verifyUserMock.mockReturnValue('authorized');
     keywordMock.findAll.mockResolvedValue([{ ID: 1, domain: 'example.com' }, { ID: 2, domain: 'example.com' }]);
     keywordMock.destroy.mockResolvedValue(2);
@@ -829,6 +836,9 @@ describe('DELETE /api/keywords retry queue cleanup', () => {
 
     expect(retryQueueManager.removeBatch).toHaveBeenCalledWith(new Set([1, 2]));
     expect(res.status).toHaveBeenCalledWith(200);
+    // Two keywords on one domain: the stats are recalculated once for that domain
+    expect(updateDomainStats).toHaveBeenCalledTimes(1);
+    expect(updateDomainStats).toHaveBeenCalledWith('example.com');
 
     keywordMock.findAll.mockResolvedValue([{ ID: 7, domain: 'example.com' }]);
     keywordMock.destroy.mockResolvedValue(1);
@@ -845,5 +855,36 @@ describe('DELETE /api/keywords retry queue cleanup', () => {
     await handler(badReq, badRes);
 
     expect(badRes.status).toHaveBeenCalledWith(400);
+  });
+
+  it('recalculates the stats once for each domain the deleted keywords belong to', async () => {
+    (updateDomainStats as jest.Mock).mockClear();
+    verifyUserMock.mockReturnValue('authorized');
+    keywordMock.findAll.mockResolvedValue([{ ID: 1, domain: 'a.com' }, { ID: 2, domain: 'b.com' }, { ID: 3, domain: 'a.com' }]);
+    keywordMock.destroy.mockResolvedValue(3);
+
+    const req = { method: 'DELETE', query: { id: '1,2,3' }, headers: {} } as unknown as NextApiRequest;
+    const res = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
+    await handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(updateDomainStats).toHaveBeenCalledTimes(2);
+    expect(updateDomainStats).toHaveBeenCalledWith('a.com');
+    expect(updateDomainStats).toHaveBeenCalledWith('b.com');
+  });
+
+  it('still answers 200 when the stats recalculation fails after the keywords are deleted', async () => {
+    (updateDomainStats as jest.Mock).mockClear();
+    (updateDomainStats as jest.Mock).mockRejectedValueOnce(new Error('stats failed'));
+    verifyUserMock.mockReturnValue('authorized');
+    keywordMock.findAll.mockResolvedValue([{ ID: 9, domain: 'example.com' }]);
+    keywordMock.destroy.mockResolvedValue(1);
+
+    const req = { method: 'DELETE', query: { id: '9' }, headers: {} } as unknown as NextApiRequest;
+    const res = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
+    await handler(req, res);
+
+    expect(keywordMock.destroy).toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(200);
   });
 });

@@ -85,14 +85,14 @@ describe('getdomainStats', () => {
       notification_emails: '',
       lastUpdated: '2023-01-01T00:00:00.000Z',
       added: '2023-01-01T00:00:00.000Z',
-      avgPosition: 7, // Persisted value
+      avgPosition: 5, // Persisted value, a whole number
       mapPackKeywords: 3, // Persisted value
     } as any;
 
     const result = await getdomainStats([domain]);
 
     expect(result[0].keywordsTracked).toBe(2);
-    expect(result[0].avgPosition).toBe(7); // Uses persisted value from domain
+    expect(result[0].avgPosition).toBe(5); // Uses persisted value from domain
     expect(result[0].mapPackKeywords).toBe(3); // Uses persisted value from domain
   });
 

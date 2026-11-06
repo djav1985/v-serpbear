@@ -8,6 +8,7 @@ import verifyUser from '../../utils/verifyUser';
 import { getAppSettings } from '../../pages/api/settings';
 import { getKeywordsVolume } from '../../utils/adwords';
 import { refreshQueue } from '../../utils/refreshQueue';
+import { updateDomainStats } from '../../utils/updateDomainStats';
 import { createMockRequest, createMockResponse } from '../__helpers__';
 
 jest.mock('../../database/database', () => ({
@@ -49,6 +50,7 @@ jest.mock('../../utils/retryQueueManager', () => ({
   retryQueueManager: { removeBatch: jest.fn().mockResolvedValue(undefined) },
 }));
 jest.mock('../../utils/apiLogging', () => ({ withApiLogging: (apiHandler: any) => apiHandler }));
+jest.mock('../../utils/updateDomainStats', () => ({ __esModule: true, updateDomainStats: jest.fn().mockResolvedValue(undefined) }));
 
 const KeywordMock = Keyword as unknown as { findAll: jest.Mock; bulkCreate: jest.Mock; update: jest.Mock };
 const DomainMock = Domain as unknown as { findAll: jest.Mock };
@@ -74,6 +76,19 @@ describe('/api/keywords data rules', () => {
   };
 
   const newKeyword = { keyword: 'alpha', device: 'desktop', country: 'US', domain: 'example.com' };
+
+  it('recalculates the domain stats after keywords are added', async () => {
+    (updateDomainStats as jest.Mock).mockClear();
+    KeywordMock.bulkCreate.mockResolvedValue([{ ID: 5, keyword: 'alpha' }]);
+    KeywordMock.findAll.mockResolvedValueOnce([]).mockResolvedValueOnce([storedRow({ ID: 5, keyword: 'alpha', domain: 'example.com', device: 'desktop', country: 'US' })]);
+
+    const res = await postKeywords([newKeyword]);
+
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(KeywordMock.bulkCreate).toHaveBeenCalledTimes(1);
+    expect(updateDomainStats).toHaveBeenCalledTimes(1);
+    expect(updateDomainStats).toHaveBeenCalledWith('example.com');
+  });
 
   it('rejects keywords for a domain that is not tracked', async () => {
     DomainMock.findAll.mockResolvedValue([]);

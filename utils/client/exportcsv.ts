@@ -1,6 +1,8 @@
 import countries from '../countries';
 import { formatInZone } from '../timezone';
 import { getAppTimezone } from './appTimezone';
+import { getMapPackSpot } from '../averagePosition';
+import { normalizeToBoolean } from '../dbBooleans';
 
 const getCountryLabel = (countryCode?: string) => {
    if (!countryCode) { return 'Unknown'; }
@@ -27,6 +29,15 @@ const escapeCsvValue = (value: unknown): string => {
 
 const buildCsvRow = (values: unknown[]): string => `${values.map(escapeCsvValue).join(',')}\r\n`;
 
+/**
+ * Map Pack column of a tracked keyword: 0 when it is not in the map pack top 3, otherwise its spot (1, 2 or 3).
+ * Empty when it is in the top 3 but no spot can be read from localResults (for example old rows).
+ */
+const getMapPackCell = (keywordData: KeywordType): number | string => {
+   if (!normalizeToBoolean(keywordData.mapPackTop3)) { return 0; }
+   return getMapPackSpot(keywordData.localResults) ?? '';
+};
+
 type CsvPayload = {
    header: string,
    body: string,
@@ -41,7 +52,7 @@ export const createKeywordCsvPayload = (
    if (!keywords || (Array.isArray(keywords) && keywords.length === 0)) { return null; }
 
    const isSCKeywords = !!(keywords && keywords[0] && (keywords[0] as SCKeywordType).uid);
-   let csvHeader = 'ID,Keyword,Position,URL,Country,Location,Device,Updated,Added,Tags\r\n';
+   let csvHeader = 'ID,Keyword,Map Pack,Position,URL,Country,Location,Device,Updated,Added,Tags\r\n';
    let csvBody = '';
    let fileName = `${domain}-keywords_serp.csv`;
 
@@ -62,6 +73,7 @@ export const createKeywordCsvPayload = (
       csvBody = (keywords as KeywordType[]).map((keywordData) => buildCsvRow([
          keywordData.ID,
          keywordData.keyword,
+         getMapPackCell(keywordData),
          keywordData.position === 0 ? '-' : keywordData.position,
          keywordData.url || '-',
          getCountryLabel(keywordData.country),

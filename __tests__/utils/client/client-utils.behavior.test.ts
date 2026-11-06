@@ -201,18 +201,31 @@ describe('CSV payload formatting', () => {
 
     const payload = createKeywordCsvPayload([keyword], 'example.com');
     expect(payload).not.toBeNull();
-    expect(payload!.header).toBe('ID,Keyword,Position,URL,Country,Location,Device,Updated,Added,Tags\r\n');
+    expect(payload!.header).toBe('ID,Keyword,Map Pack,Position,URL,Country,Location,Device,Updated,Added,Tags\r\n');
 
     const [row] = payload!.body.trim().split('\n');
     const parsedRow = parseCsvRow(row);
 
     expect(parsedRow[0]).toBe('1');
     expect(parsedRow[1]).toBe('hello, "world"');
-    expect(parsedRow[2]).toBe('-');
-    expect(parsedRow[3]).toBe('https://example.com/path,1');
-    expect(parsedRow[4]).toBe('United States');
-    expect(parsedRow[5]).toBe('Austin, Texas, United States');
-    expect(parsedRow[9]).toBe('tag,one,tag"two');
+    expect(parsedRow[2]).toBe('0');
+    expect(parsedRow[3]).toBe('-');
+    expect(parsedRow[4]).toBe('https://example.com/path,1');
+    expect(parsedRow[5]).toBe('United States');
+    expect(parsedRow[6]).toBe('Austin, Texas, United States');
+    expect(parsedRow[10]).toBe('tag,one,tag"two');
+
+    // Map Pack column: 0 outside the top 3, the spot (1..3) inside it, empty when the spot cannot be read
+    const ownResult = (spot: number) => [{ position: spot, isOwn: true }, { position: 4, isOwn: false }];
+    const mapPackRows = createKeywordCsvPayload([
+      { ...keyword, ID: 1, mapPackTop3: false, localResults: ownResult(1) },
+      { ...keyword, ID: 2, mapPackTop3: true, localResults: ownResult(1) },
+      { ...keyword, ID: 3, mapPackTop3: true, localResults: ownResult(2) },
+      { ...keyword, ID: 4, mapPackTop3: true, localResults: ownResult(3) },
+      { ...keyword, ID: 5, mapPackTop3: true, localResults: [] },
+    ] as unknown as KeywordType[], 'example.com');
+    const mapPackCells = mapPackRows!.body.trim().split('\n').map((line) => parseCsvRow(line)[2]);
+    expect(mapPackCells).toEqual(['0', '1', '2', '3', '']);
 
     // keyword idea export preserves quotes and commas as well
     const keywordIdeas: IdeaKeyword[] = [
