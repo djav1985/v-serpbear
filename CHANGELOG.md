@@ -13,6 +13,9 @@ All notable changes to this project will be documented in this file. Releases no
 - **Per-scraper request spacing.** A scraper can set a baseline minimum interval between requests (`minRequestIntervalMs`, 0 by default; TinyFish uses 2 seconds). The Keyword Scrape Delay setting is added on top of it, and the spacing applies across all keywords, domains, pages and retries for the same API key.
 - **Per-scraper Google link resolving.** A scraper can set `resolveGoogleUrl: false` to skip Serper's `/resolve` endpoint. It defaults to on, and TinyFish and Jina AI turn it off because they return real URLs.
 
+### Fixed
+- **Map pack removal date migration skipped on some databases.** The migration read the `keyword` columns with Sequelize's `describeTable`, which crashes on SQLite when the table has an expression index (`keyword_tracking_target_idx`). The crash was taken for "no table", so the migration was recorded as run without adding `mapPackRemovedAt`, and every keyword request then failed with `no such column: mapPackRemovedAt`. It now reads the columns with `PRAGMA table_info`, and a repair migration adds the column to databases that were hit.
+
 ### Changed
 - **Email map pack badge.** The badge in email digests now reads "MAP" in the same green outline as the dashboard, instead of the yellow "MP".
 - **Email digest layout.** The mobile icon is blue, the side padding is 10px (was 20px) and the Keyword column is wider (300px, was 240px).
