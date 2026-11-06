@@ -42,6 +42,7 @@ export const DomainPage: NextPage = () => {
             keywords={theKeywords}
             isConsoleIntegrated={!!(appSettings && appSettings.search_console_integrated) || domainHasScAPI }
             settings={appSettings}
+            domainScraperType={activeDomain?.scraper_settings?.scraper_type}
             />
          )}
       />

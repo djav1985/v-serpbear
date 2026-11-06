@@ -58,8 +58,12 @@ export const hasKeywordError = (lastUpdateError: unknown): boolean => {
  * @returns {number}
  */
 const getScrapedPageCount = (globalSettings?: PenaltySettings | null, domainSettings?: PenaltySettings | null): number => {
-   const strategy = domainSettings?.scrape_strategy || globalSettings?.scrape_strategy;
-   if (strategy !== 'custom') {
+   // Same rule as the scraper: a domain without its own strategy inherits the global strategy and limit,
+   // so a page limit left on the domain is ignored.
+   if (!domainSettings?.scrape_strategy) {
+      return globalSettings?.scrape_strategy === 'custom' ? (Number(globalSettings.scrape_pagination_limit) || 1) : 1;
+   }
+   if (domainSettings.scrape_strategy !== 'custom') {
       return 1;
    }
    return Number(domainSettings?.scrape_pagination_limit) || Number(globalSettings?.scrape_pagination_limit) || 1;

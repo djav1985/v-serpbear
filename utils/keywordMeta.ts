@@ -17,10 +17,12 @@ type BuildAddPayloadOptions = {
    country?: string,
 }
 
-// Whether the scraper selected in settings supports city-level locations
-export const scraperAllowsCity = (settings?: SettingsType): boolean => (
-   !!settings?.available_scapers?.find((scraper) => scraper.value === settings.scraper_type)?.allowsCity
-);
+// Whether the scraper in use supports city-level locations. A domain's own scraper (domainScraperType) wins over
+// the global one, the same way the scrape itself picks it.
+export const scraperAllowsCity = (settings?: SettingsType, domainScraperType?: string | null): boolean => {
+   const scraperType = domainScraperType || settings?.scraper_type;
+   return !!settings?.available_scapers?.find((scraper) => scraper.value === scraperType)?.allowsCity;
+};
 
 // Unique, non-empty tags across a domain's keywords
 export const getDomainTags = (keywords: KeywordType[] = []): string[] => {

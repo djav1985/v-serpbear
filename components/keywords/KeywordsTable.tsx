@@ -20,7 +20,9 @@ type KeywordsTableProps = {
    keywords: KeywordType[],
    isLoading: boolean,
    isConsoleIntegrated: boolean,
-   settings?: SettingsType
+   settings?: SettingsType,
+   /** The domain's own scraper, when it overrides the global one */
+   domainScraperType?: string | null,
 }
 
 type KeywordRowData = {
@@ -67,7 +69,7 @@ const KeywordRow = ({ data, index, style }: ListChildComponentProps<KeywordRowDa
 
 const KeywordsTable = (props: KeywordsTableProps) => {
    const titleColumnRef = useRef(null);
-   const { keywords = [], isLoading = true, isConsoleIntegrated = false, settings } = props;
+   const { keywords = [], isLoading = true, isConsoleIntegrated = false, settings, domainScraperType } = props;
    const showSCData = isConsoleIntegrated;
    const [device, setDevice] = useState<string>('desktop');
    const [selectedKeywords, setSelectedKeywords] = useState<number[]>([]);
@@ -78,7 +80,7 @@ const KeywordsTable = (props: KeywordsTableProps) => {
    const [showRemoveTags, setShowRemoveTags] = useState<boolean>(false);
    const [showChangeLocation, setShowChangeLocation] = useState<boolean>(false);
    const { data: appSettingsData } = useFetchSettings();
-   const allowsCity = scraperAllowsCity(appSettingsData?.settings);
+   const allowsCity = scraperAllowsCity(appSettingsData?.settings, domainScraperType);
    const [SCListHeight, setSCListHeight] = useState(500);
    const [filterParams, setFilterParams] = useState<KeywordFilters>({ countries: [], tags: [], search: '' });
    const [sortBy, setSortBy] = useState<string>('date_asc');

@@ -48,9 +48,10 @@ const DomainPageLayout = ({
    const settingsNodeRef = useRef<HTMLDivElement>(null);
    const addKeywordsNodeRef = useRef<HTMLDivElement>(null);
    const { scraper_type = '', available_scapers = [] } = appSettings;
+   const domainScraperType = activeDomain?.scraper_settings?.scraper_type;
    const activeScraper = useMemo(
-      () => available_scapers.find((scraper) => scraper.value === scraper_type),
-      [scraper_type, available_scapers],
+      () => available_scapers.find((scraper) => scraper.value === (domainScraperType || scraper_type)),
+      [domainScraperType, scraper_type, available_scapers],
    );
 
    return (

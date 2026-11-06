@@ -75,6 +75,8 @@ All notable changes to this project will be documented in this file. Releases no
 - A failed scrape page keeps the keyword's previous position, history and stored results instead of recording it as not ranked or wiping them.
 - Scraper response bodies are read with a 30-second limit, so a stalled body no longer hangs a refresh.
 - SearchApi no longer double-encodes `+` in `q` and `location`.
+- The keyword table and the Add Keywords form now decide whether to show city and state from the domain's own scraper when it overrides the global one, so a domain on a city-capable provider keeps its city and state visible while the global scraper is country-only.
+- The unranked penalty in the average position now follows the scraper's strategy rules: a domain set to "Use Global Setting" ignores a page limit left on the domain and uses the global one.
 
 ### Security
 - The MCP server at `/api/mcp` now accepts only `Authorization: Bearer <APIKEY>`. Cookies and login sessions are ignored there. Wrong keys still count towards the API-key lockout.
