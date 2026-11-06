@@ -109,7 +109,11 @@ cp .env.example .env
 docker compose up -d
 ```
 
-The image is published on [Docker Hub](https://hub.docker.com/r/vontainment/v-serpbear) as `vontainment/v-serpbear`: `latest` is the newest stable release, a version number such as `5.0.0` pins a release, and `beta` is the opt-in beta build.
+The image is published on [Docker Hub](https://hub.docker.com/r/vontainment/v-serpbear) as `vontainment/v-serpbear`:
+
+- `vontainment/v-serpbear:latest` is the latest full stable release, for production.
+- `vontainment/v-serpbear:beta` is the latest development release, with new features and improvements.
+- A version number such as `vontainment/v-serpbear:5.0.0` pins a specific stable release.
 
 The app is served at <http://localhost:3030> (compose maps host port 3030 to container port 3000). Sign in with `USER` and `PASSWORD`, add a domain, then open **Settings → Scraper** to choose a provider and enter its API key.
 
@@ -140,6 +144,8 @@ Back up `data/` first. With Docker, run `docker compose pull && docker compose u
 | CrazySERP (`crazyserp`) | Pay-as-you-go | City | Yes | Yes | Header `Authorization: Bearer` |
 | PrismCrawl (`prismcrawl`) | 100 free credits, packages from $5 (about $0.21 per 1,000, valid 90 days) | City | Yes | Yes | Header `x-api-key` (POST JSON) |
 | DataForSEO (`dataforseo`) | Pay-as-you-go, $50 minimum top-up | City | Yes | Yes | HTTP Basic, `login:password` in the API key field |
+| TinyFish (`tinyfish`) | Free up to 12,000 requests/day, then pay-as-you-go | Country | No | No | Header `X-API-Key` |
+| Jina AI (`jina`) | 10M free tokens with a new key (about 1,000 requests), then paid tokens | Country | No | No | Header `Authorization: Bearer` |
 
 > \*Pricing is indicative. Check each vendor before buying. The request formats are implemented in [`scrapers/services`](./scrapers/services).
 Each page request asks for 10 results. The [scrape strategy](#scrape-strategy) sets how many pages are fetched.
@@ -163,7 +169,8 @@ Behaviour is controlled by environment variables inside docker compose as well a
 | `APP_URL` | — | No | Server-side origin for the cron worker's own calls to the app. It takes precedence over `NEXT_PUBLIC_APP_URL` for those calls, which helps in Docker when the public URL is not reachable from inside the container. Google Ads uses it only when `NEXT_PUBLIC_APP_URL` is unset. Email links ignore it. |
 | `SCREENSHOTS` | `true` | No | Domain thumbnails via thum.io. `false` shows favicons. |
 | `NEXT_PUBLIC_WHITE_LABEL` | `false` | No | Enables white-label branding (name and logo). |
-| `WHITE_LABEL_LOGO_FILE` | `branding-logo.png` | No | File name only, stored in `/app/data`. Accepted extensions are `png`, `jpg`, `jpeg`, `gif`, `svg` and `webp`. Used only when `NEXT_PUBLIC_WHITE_LABEL=true`, and served without login at `/api/branding/logo` (404 if the file is missing). Recommended size is 96×96 px. |
+| `WHITE_LABEL_LOGO_FILE` | `branding-logo.png` | No | File name only, stored in `/app/data`. Accepted extensions are `png`, `jpg`, `jpeg`, `gif`, `svg` and `webp`. Used only when `NEXT_PUBLIC_WHITE_LABEL=true`, and served without login at `/api/branding/logo.<extension>`, for example `/api/branding/logo.png` (404 if the file is missing, and at any other address). Recommended size is 96×96 px. |
+| (tab icon) | | No | With `NEXT_PUBLIC_WHITE_LABEL=true`, a file named `favicon.ico` in `/app/data` is used as the browser tab icon. Without that file the default icon is used. Not read when white label is off. |
 | `NEXT_PUBLIC_PLATFORM_NAME` | `SerpBear` | No | App and email name. Used only in white-label mode. |
 | `SEARCH_CONSOLE_CLIENT_EMAIL` | — | No | Service account email with access to your Search Console properties. |
 | `SEARCH_CONSOLE_PRIVATE_KEY` | — | No | Matching private key; keep newlines escaped in `.env` files. |
@@ -234,6 +241,10 @@ A refresh uses the faster parallel path only when every keyword in the run uses 
 
 **Serper.** Serper has no mobile option. In a refresh, a mobile keyword with a matching desktop keyword (same domain, keyword, country and location) in the same run is not scraped. It takes the desktop keyword's result, so no extra request is made. A mobile keyword with no matching desktop keyword is scraped with desktop results, and a warning is logged for it.
 
+**TinyFish.** TinyFish has no mobile option, so it behaves like Serper above: mobile keywords reuse the matching desktop result or are scraped with desktop results. It targets by country only and has no map pack. Its results are real page links, so `SERPER_API_KEY` is not needed. Personal accounts are limited to 30 requests per minute, so requests are spaced at least 2 seconds apart across all keywords and domains, and the Keyword Scrape Delay is added on top of that. A rate-limited request is retried like any other failed request.
+
+**Jina AI.** Jina AI has no mobile option, so it behaves like Serper above. It targets by country only (`gl` and `hl`) and has no map pack. Its results are real page links, so `SERPER_API_KEY` is not needed. Each request costs at least 10,000 tokens. Jina documents 100 requests per minute for a key, which the default concurrency stays under, so there is no baseline spacing; the Keyword Scrape Delay still applies.
+
 ### Scheduling
 
 - `scrape_interval` runs at the `CRON_MAIN_SCHEDULE` time: `daily` every day, `other_day` on odd days of the month, `weekly` on Mondays, `monthly` on the 1st. `never` turns scheduled scraping off.
@@ -258,7 +269,7 @@ Only the first results page is checked. The keyword details panel shows **Local 
 Click a keyword row for the SERP snapshot, the rank-history chart and the local results.
 
 - **Not found.** The badge reads `Not in First N`, where N is the number of results actually scraped, or `No Results` when nothing was scraped.
-- **Map pack.** A "MAP" badge sits under the country flag in the dashboard and details, and "MP" in email digests. The domains overview shows a Map Pack counter.
+- **Map pack.** A "MAP" badge sits under the country flag in the dashboard, the details and email digests. It turns red while the keyword is out of the map pack after having been in it (for up to 30 days). The domains overview shows a Map Pack counter.
 
 ### How the average position is calculated
 

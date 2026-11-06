@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file. Releases no
 
 ## [Unreleased]
 
+### Added
+- **TinyFish scraper.** Adds the TinyFish Search API as a country-level provider (no map pack, no mobile option). It has a free allowance of 12,000 requests a day and needs no Serper key. Requests are spaced 2 seconds apart to stay under its 30 requests a minute limit.
+- **Jina AI scraper.** Adds Jina AI Search (`s.jina.ai`) as a country-level provider (no map pack, no mobile option). It returns real URLs, so it needs no Serper key.
+- **Map pack removal date.** Keywords store the day they dropped out of the map pack top three (`mapPackRemovedAt`). The date is cleared when the keyword returns or after 30 days. A migration adds the column.
+- **Email map pack badge.** The badge in email digests now reads "MAP" in the same green outline as the dashboard, instead of the yellow "MP".
+- **Red MAP badge.** A keyword that dropped out of the map pack (its removal date is set) shows a red MAP badge, in the dashboard, the keyword details and email digests.
+- **Email digest layout.** The mobile icon is blue, and the side padding is 10px (was 20px) and the Keyword column is wider (300px, was 240px).
+- **White-label logo address.** The logo is now served at `/api/branding/logo.<extension>` (for example `.png`), and the dashboard and email digests use that address, because some mail apps skip images without a file extension. The extension-less `/api/branding/logo` address is gone.
+- **Top bar.** The top bar is white on every screen size, with the same border and drop shadow as the domain cards.
+- **White-label tab icon.** With `NEXT_PUBLIC_WHITE_LABEL=true`, a `favicon.ico` file in `/app/data` is used as the browser tab icon (the default icon when the file is missing). It is served at `/api/branding/favicon.ico`.
+- **Per-scraper request spacing.** A scraper can set a baseline minimum interval between requests (`minRequestIntervalMs`, 0 by default). The Keyword Scrape Delay setting is added on top of it.
+- **Per-scraper Google link resolving.** A scraper can set `resolveGoogleUrl: false` to skip Serper's `/resolve` endpoint. It defaults to on, and TinyFish turns it off because it returns real URLs.
+
 ## [5.0.0] (2026-11-06)
 
 ### Upgrade notes

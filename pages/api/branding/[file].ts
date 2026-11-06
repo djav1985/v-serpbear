@@ -35,7 +35,14 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       return;
    }
 
-   const { whiteLabelEnabled, hasCustomLogo, logoFile, logoMimeType } = getBranding();
+   const { whiteLabelEnabled, hasCustomLogo, logoFile, logoMimeType, logoApiPath } = getBranding();
+
+   // Only the logo's own address answers, e.g. /api/branding/logo.png; /api/branding/logo and other names are not served
+   const requestedFile = typeof req.query.file === 'string' ? req.query.file : '';
+   if (`/api/branding/${requestedFile}` !== logoApiPath) {
+      respondNotFound(res);
+      return;
+   }
 
    if (!whiteLabelEnabled || !hasCustomLogo || !logoMimeType) {
       logger.debug('Custom logo not configured or not enabled');

@@ -10,6 +10,7 @@ import { formatInZone } from '../../utils/timezone';
 import { getAppTimezone } from '../../utils/client/appTimezone';
 import { closeOnBGClick } from '../../utils/client/closeOnBGClick';
 import { safeHttpUrl } from '../../utils/client/safeUrl';
+import MapPackBadge from './MapPackBadge';
 
 type KeywordDetailsProps = {
    keyword: KeywordType,
@@ -34,6 +35,7 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
       ? keywordLocalResultsRaw
       : fallbackLocalResults;
    const mapPackTop3 = Boolean(keywordData?.mapPackTop3 ?? keyword.mapPackTop3);
+   const mapPackRemovedAt = keywordData?.mapPackRemovedAt ?? keyword.mapPackRemovedAt ?? null;
    const dateOptions = [
       { label: 'Last 7 Days', value: '7' },
       { label: 'Last 30 Days', value: '30' },
@@ -71,9 +73,7 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
                            title={countries[keyword.country]?.[0] ?? keyword.country}
                            className={`fflag fflag-${keyword.country} w-[18px] h-[12px]`}
                         />
-                        {mapPackTop3 && (
-                           <span className="fflag fflag-map-pack w-[18px] h-[12px]" role="img" aria-label="Map pack top three" />
-                        )}
+                        <MapPackBadge inMapPack={mapPackTop3} removedAt={mapPackRemovedAt} />
                      </span>
                      <span>{keyword.keyword}</span>
                      <span

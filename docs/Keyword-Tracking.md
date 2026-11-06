@@ -19,7 +19,7 @@ If your scraper is country-only (Serper or Serply), the city and state fields ar
 Click a keyword row for the SERP snapshot, the rank-history chart and the local results.
 
 - **Not found:** the badge reads `Not in First N`, where N is the number of results actually scraped, or `No Results` when nothing was scraped.
-- **Map pack:** a "MAP" badge sits under the country flag in the dashboard and details, and "MP" in email digests. The domains overview shows a Map Pack counter. See [Average Position and Map Pack](Average-Position-and-Map-Pack).
+- **Map pack:** a "MAP" badge sits under the country flag in the dashboard, the details and email digests. It turns red while the keyword is out of the map pack after having been in it (for up to 30 days). The domains overview shows a Map Pack counter. See [Average Position and Map Pack](Average-Position-and-Map-Pack).
 
 ## CSV export
 

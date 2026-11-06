@@ -76,6 +76,10 @@ class Keyword extends Model {
 
    @Column({ type: DataType.STRING, allowNull: true, defaultValue: JSON.stringify([]) })
    declare localResults: string;
+
+   // Day (YYYY-MM-DD) the keyword dropped out of the map pack top three; cleared when it returns or after 30 days
+   @Column({ type: DataType.STRING, allowNull: true, defaultValue: null })
+   declare mapPackRemovedAt: string | null;
 }
 
 export default Keyword;

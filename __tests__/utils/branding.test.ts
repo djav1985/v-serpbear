@@ -30,7 +30,7 @@ describe('branding utils', () => {
          
          // When WHITE_LABEL_LOGO_FILE is empty, it defaults to 'branding-logo.png'
          const logoUrl = buildLogoUrl('https://example.com');
-         expect(logoUrl).toBe('https://example.com/api/branding/logo');
+         expect(logoUrl).toBe('https://example.com/api/branding/logo.png');
       });
 
       it('returns empty string when logo file has no valid extension', () => {
@@ -54,7 +54,7 @@ describe('branding utils', () => {
          };
          
          const logoUrl = buildLogoUrl('https://example.com');
-         expect(logoUrl).toBe('https://example.com/api/branding/logo');
+         expect(logoUrl).toBe('https://example.com/api/branding/logo.png');
       });
 
       it('strips trailing slashes from origin', () => {
@@ -66,7 +66,7 @@ describe('branding utils', () => {
          };
          
          const logoUrl = buildLogoUrl('https://example.com/');
-         expect(logoUrl).toBe('https://example.com/api/branding/logo');
+         expect(logoUrl).toBe('https://example.com/api/branding/logo.png');
       });
 
       it('works with empty origin parameter', () => {
@@ -78,7 +78,7 @@ describe('branding utils', () => {
          };
          
          const logoUrl = buildLogoUrl('');
-         expect(logoUrl).toBe('/api/branding/logo');
+         expect(logoUrl).toBe('/api/branding/logo.png');
       });
    });
 
@@ -104,7 +104,7 @@ describe('branding utils', () => {
          };
          
          const validLogoUrl = buildLogoUrl('https://example.com');
-         expect(validLogoUrl).toBe('https://example.com/api/branding/logo');
+         expect(validLogoUrl).toBe('https://example.com/api/branding/logo.png');
       });
 
       it('buildLogoUrl can be used directly without additional conditional checks', () => {
@@ -136,8 +136,8 @@ describe('branding utils', () => {
          const logoUrl2 = buildLogoUrl(baseUrl2);
          const emailLogo2 = logoUrl2 || DEFAULT_BRAND_LOGO;
          
-         expect(logoUrl2).toBe('https://example.com/api/branding/logo');
-         expect(emailLogo2).toBe('https://example.com/api/branding/logo');
+         expect(logoUrl2).toBe('https://example.com/api/branding/logo.svg');
+         expect(emailLogo2).toBe('https://example.com/api/branding/logo.svg');
       });
    });
 });

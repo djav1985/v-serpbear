@@ -32,12 +32,12 @@ const TopBar = ({ showSettings, showAddModal }:TopbarProps) => {
 
    return (
       <div
-         className='topbar desktop-container flex items-center justify-between bg-white lg:bg-transparent'
+         className='topbar desktop-container flex items-center justify-between bg-white'
       >
 
          <div className='flex items-center gap-2 h-16'>
             <h3
-               className='flex items-center gap-3 p-4 text-base font-bold text-blue-700 lg:pl-0'
+               className='flex items-center gap-3 p-4 text-base font-bold text-blue-700'
             >
                <BrandTitle
                   className="text-base font-bold text-blue-700"

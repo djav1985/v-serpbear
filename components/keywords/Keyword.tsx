@@ -11,6 +11,7 @@ import { historyKeyToTime } from '../../utils/historyDateKey';
 import { formatDateKey, formatInZone } from '../../utils/timezone';
 import { getAppTimezone } from '../../utils/client/appTimezone';
 import { safeHttpUrl } from '../../utils/client/safeUrl';
+import MapPackBadge from './MapPackBadge';
 
 // Tooltip timestamps are shown in the app timezone, not the browser's
 const formatUpdatedTooltip = (date?: string | number | Date | null): string => (date
@@ -71,6 +72,7 @@ const Keyword = (props: KeywordProps) => {
         volume,
         location,
         mapPackTop3 = false,
+        mapPackRemovedAt = null,
      } = keywordData;
 
    const [showOptions, setShowOptions] = useState(false);
@@ -148,9 +150,7 @@ const Keyword = (props: KeywordProps) => {
             >
                <span className="fflag-stack mr-2 flex-shrink-0">
                   <span className={`fflag fflag-${country} w-[18px] h-[12px]`} title={countries[country]?.[0] ?? country} />
-                  {mapPackTop3 && (
-                     <span className="fflag fflag-map-pack w-[18px] h-[12px]" role="img" aria-label="Map pack top three" />
-                  )}
+                  <MapPackBadge inMapPack={mapPackTop3} removedAt={mapPackRemovedAt} />
                </span>
                <span className="inline-block w-[calc(100%-50px)]">
                   <span className="block text-ellipsis overflow-hidden whitespace-nowrap">

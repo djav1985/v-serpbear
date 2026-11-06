@@ -187,6 +187,7 @@ export function useFetchSingleKeyword(keywordID:number) {
          searchResult: result.keyword?.lastResult || [],
          localResults: result.keyword?.localResults || [],
          mapPackTop3: normalizeToBoolean(result.keyword?.mapPackTop3),
+         mapPackRemovedAt: typeof result.keyword?.mapPackRemovedAt === 'string' ? result.keyword.mapPackRemovedAt : null,
       };
    }, {
       onError: (_error) => {

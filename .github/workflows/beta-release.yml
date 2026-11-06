@@ -34,7 +34,7 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=beta,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=beta
             type=sha,priority=100
 
       - name: Build and push Docker image

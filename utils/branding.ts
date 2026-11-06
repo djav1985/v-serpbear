@@ -32,7 +32,7 @@ export const DEFAULT_BRANDING: BrandingConfig = {
    logoFile: DEFAULT_LOGO_FILE,
    hasCustomLogo: false,
    logoMimeType: '',
-   logoApiPath: '/api/branding/logo',
+   logoApiPath: '/api/branding/logo.png',
 };
 
 export const getLogoMimeType = (fileName: string): string => {
@@ -51,6 +51,8 @@ export const getBranding = (): BrandingConfig => {
    const logoFileSetting = trimString(process.env.WHITE_LABEL_LOGO_FILE || DEFAULT_LOGO_FILE);
    const logoMimeType = getLogoMimeType(logoFileSetting);
    const hasCustomLogo = whiteLabelEnabled && !!logoMimeType && !!logoFileSetting;
+   // The logo address ends in the file's extension, because some mail apps and proxies skip images without one
+   const logoExtension = logoMimeType ? logoFileSetting.slice(logoFileSetting.lastIndexOf('.')).toLowerCase() : '.png';
 
    const platformName = whiteLabelEnabled && platformNameSetting
       ? platformNameSetting
@@ -63,7 +65,7 @@ export const getBranding = (): BrandingConfig => {
       logoFile: logoFileSetting,
       hasCustomLogo,
       logoMimeType,
-      logoApiPath: '/api/branding/logo',
+      logoApiPath: `/api/branding/logo${logoExtension}`,
    } as const;
 };
 

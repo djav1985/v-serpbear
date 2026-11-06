@@ -25,6 +25,12 @@ body {
    position: relative;
 }
 
+/* White bar with the same border and shadow as the domain cards */
+.topbar {
+   border-bottom: 1px solid #e9ebff;
+   box-shadow: 0 0 20px rgb(20 34 71 / 5%);
+}
+
 
 @media (max-width: 767px) {
    .topbar {
