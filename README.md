@@ -302,7 +302,7 @@ Each keyword is counted as follows:
 1. **Latest scrape failed:** left out.
 2. **In the map pack top three with a known spot (1–3):** counts at the better (lower) of its spot and its organic position. An organic position of 0 is ignored, so the spot is used.
 3. **Organic position above 0:** counts at that position.
-4. **Position 0, ranked before** (any saved history value above 0), **and not in the map pack top three:** counts at 10 × the pages scraped. Basic is 10. Custom is 10 × the page count, taken from the domain's setting first, then the global one (default 1).
+4. **Position 0, ranked before** (any saved history value above 0), **and not in the map pack top three:** counts at 10 × the pages scraped. Basic is 10. Custom is 10 × the page count, taken from the domain's setting first, then the global one (default 5).
 5. **Anything else** (a keyword that never ranked, or a map pack keyword at 0 with no known spot): left out.
 
 The Keywords and Map Pack counts include every keyword, whether or not it is in the average.
