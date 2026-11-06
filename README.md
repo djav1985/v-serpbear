@@ -181,6 +181,8 @@ Manage these in the Settings UI or at `/api/settings`.
 | `adwords_*` | Google Ads credentials for keyword ideas. |
 | `keywordsColumns` | Columns shown in the keyword table. |
 
+<br><br>
+
 ---
 
 ## Feature deep dive
@@ -304,11 +306,15 @@ Use **Export as csv** in the domain header. The file is named `<domain>-keywords
 
 The domains index shows a full-page loader on first load. Keyword, idea and insight tables show their own spinner, so the surrounding workspace stays visible while data refreshes.
 
+<br><br>
+
 ---
 
 ## API and MCP server
 
 Both use the same credential: the `APIKEY` environment variable, sent as `Authorization: Bearer <APIKEY>`. Domains are always real domain names such as `example.com`.
+
+<br><br>
 
 ### MCP server
 
@@ -353,24 +359,9 @@ The example uses port 3000 (Node.js). Docker Compose serves the app on port 3030
 | GET | `/api/ideas` | Saved keyword ideas and favourites (`domain=` optional) |
 | POST | `/api/ideas` | Fetch new ideas from Google Ads: body `seedType` (`auto`, `custom`, `tracking` or `searchconsole`), `domain`, `keywords`, `country`, `language` |
 
+<br><br>
+
 ---
-
-## Development workflow
-
-- **Node.js:** run `nvm use` to adopt the version in `.nvmrc`, then `npm install`.
-- **Lint:** `npm run lint` runs ESLint. `npm run lint:css` runs Stylelint on `styles/*.css`; use `npx stylelint "**/*.{css,scss}"` for component styles. ESLint warns above 200 characters per line and function complexity above 60. Prefix unused arguments or errors with `_`.
-- **Typecheck:** `npx tsc --noEmit`. There is no npm script for it.
-- **Tests:** `npm test` runs Jest with the `@happy-dom/jest-environment` adapter. `npm run test:ci` runs `jest --ci`, and `npm run test:cv -- --runInBand` produces serialised coverage. Use the camelCase `mapPackTop3` field name in keyword objects and test data.
-- **Database:** `npm run db:migrate` and `npm run db:revert`.
-- **Repository setup:** `npm run setup:git` sets `main` as the default git branch.
-- **Build and run:** `npm run build`, then `npm run start`. `npm run start:all` runs the web server and cron worker together.
-- **UI patterns:** add icons through the `ICON_RENDERERS` map in `components/common/Icon.tsx`, and reuse the exported keyword filtering helpers for table views. `SelectField` respects its `minWidth` prop (default 180). Google Ads and Search Console settings show the latest `settingsError` above the form.
-
-## Continuous integration
-
-- **Docker image** (`.github/workflows/docker-image.yml`): runs only when started by hand (`workflow_dispatch`). It builds the image and pushes it to `vontainment/v-serpbear`, tagged `latest` for `main`, `dev` for the `dev` branch, and with the commit SHA.
-- **PR lint and auto-fix** (`.github/workflows/pr-auto-fix.yml`): runs on pull requests from branches in this repository (fork pull requests are skipped). It runs ESLint and Stylelint with `--fix` and commits any changes to the PR branch.
-- **Tests and typecheck are not run in CI.** Run `npm run lint`, `npm test` and `npx tsc --noEmit` locally before opening a pull request.
 
 ## Project structure
 
@@ -392,16 +383,9 @@ The example uses port 3000 (Node.js). Docker Compose serves the app on port 3030
 | `entrypoint.sh` | Docker entrypoint: runs migrations, then starts the web app and cron worker |
 | `data/` | Runtime files (SQLite, settings, Search Console exports, retry queue). Git-ignored except `.gitkeep`. |
 
+<br><br>
+
 ---
-
-## Contributing
-
-1. Fork and clone the repository.
-2. Make focused commits with descriptive messages.
-3. Add or update tests for any behavioural change.
-4. Run the local checks listed under [Continuous integration](#continuous-integration) before opening a pull request, and update `CHANGELOG.md`.
-
-See [`AGENTS.md`](./AGENTS.md) for repository-wide guidelines.
 
 ## Credits
 
