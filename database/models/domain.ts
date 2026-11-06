@@ -24,9 +24,6 @@ class Domain extends Model {
    @Column({ type: DataType.STRING, allowNull: true })
    declare added: string;
 
-   @Column({ type: DataType.STRING, allowNull: true, defaultValue: JSON.stringify([]) })
-   declare tags: string;
-
    @Column({ type: DataType.INTEGER, allowNull: false, defaultValue: 1 })
    declare scrapeEnabled: number;
 

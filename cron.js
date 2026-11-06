@@ -117,7 +117,6 @@ const SETTINGS_SAFETY_CHECK_SCHEDULE = '0 */30 * * * *';
 const DEFAULT_APP_SETTINGS = {
    scraper_type: 'none',
    notification_interval: 'never',
-   notification_email: '',
    smtp_server: '',
    smtp_port: '',
    smtp_username: '',

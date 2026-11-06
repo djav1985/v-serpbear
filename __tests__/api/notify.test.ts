@@ -81,7 +81,6 @@ describe('/api/notify - authentication', () => {
       smtp_port: '587',
       smtp_username: '',
       smtp_password: '',
-      notification_email: 'notify@example.com',
       notification_email_from: '',
       notification_email_from_name: platformName,
     });
@@ -211,7 +210,6 @@ describe('/api/notify - authentication', () => {
       smtp_username: '',
       smtp_password: '',
       smtp_tls_servername: ' override.test. ',
-      notification_email: ' notify@example.com ',
       notification_email_from: ' ',
       notification_email_from_name: ` ${platformName} `,
     });
@@ -279,7 +277,6 @@ describe('/api/notify - authentication', () => {
       smtp_port: '',
       smtp_username: '',
       smtp_password: '',
-      notification_email: '',
       notification_email_from: '',
       notification_email_from_name: platformName,
     });
@@ -538,7 +535,7 @@ describe('/api/notify recipients and outcomes', () => {
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, sent: 1, skipped: 0 }));
 
     // Recipients are per domain, so a blank global address still sends to the domain address
-    (getAppSettings as jest.Mock).mockResolvedValue({ smtp_server: 'smtp.test', smtp_port: '587', notification_email: '' });
+    (getAppSettings as jest.Mock).mockResolvedValue({ smtp_server: 'smtp.test', smtp_port: '587' });
     const blankGlobalRes = { status: jest.fn().mockReturnThis(), json: jest.fn() };
     sendMailMock.mockClear();
 

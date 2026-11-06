@@ -52,3 +52,6 @@ SARIF test files
 # runtime state (settings, Search Console cache, retry queue, email throttle); keep the folder via .gitkeep
 data/*
 !data/.gitkeep
+
+# local Claude Code settings (personal, not part of the project)
+.claude/settings.local.json

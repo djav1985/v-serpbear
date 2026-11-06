@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(git checkout -- AGENTS.md)",
-      "Bash(npm install *)",
-      "Bash(node -p \"require\\('@modelcontextprotocol/sdk/package.json'\\).version\")"
-    ]
-  }
-}

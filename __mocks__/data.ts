@@ -11,7 +11,6 @@ export const dummyDomain = {
    mapPackKeywords: 3,
    lastUpdated: '2022-11-11T10:00:32.243',
    added: '2022-11-11T10:00:32.244',
-   tags: '',
    scrapeEnabled: true,
    notification_emails: '',
 };
@@ -92,7 +91,6 @@ export const dummySettings = {
    scraping_api: '',
    scraper_type: 'none',
    notification_interval: 'never',
-   notification_email: '',
    notification_email_from: '',
    notification_email_from_name: platformName,
    smtp_server: '',

@@ -29,6 +29,7 @@ import notificationEmailMigration from '../../database/migrations/1774000000000-
 import keywordUniqueMigration from '../../database/migrations/1775000000000-keyword-unique-tracking-target.js';
 import staleUpdatingFlagsMigration from '../../database/migrations/1776000000000-reset-stale-updating-flags.js';
 import dropDomainNotificationIntervalMigration from '../../database/migrations/1777000000000-drop-domain-notification-interval.js';
+import dropDomainTagsMigration from '../../database/migrations/1790000000002-drop-domain-tags-column.js';
 import { backupDatabaseFile } from '../../database/backupDatabase';
 
 // Identical in every describe that needs it, so it is shared once at file level
@@ -882,7 +883,7 @@ describe('drop-domain-notification-interval.migration.test.ts', () => {
       jest.clearAllMocks();
     });
 
-    it('drops the notification_interval column when present, does nothing when it is already gone, and skips without failing when the table is missing', async () => {
+    it('drops the notification_interval and domain.tags columns when present, does nothing when already gone, and skips without failing when the table is missing', async () => {
       const { queryInterface, calls } = makeQueryInterface();
 
       await dropDomainNotificationIntervalMigration.up({ context: queryInterface });
@@ -895,6 +896,40 @@ describe('drop-domain-notification-interval.migration.test.ts', () => {
       const missing = makeQueryInterface({ tables: [] });
       await expect(dropDomainNotificationIntervalMigration.up({ context: missing.queryInterface })).resolves.toBeUndefined();
       expect(missing.calls.some((sql) => sql.startsWith('ALTER TABLE'))).toBe(false);
+
+      // 1790000000002 drops domain.tags through describeTable and removeColumn; the table state is kept in memory
+      const makeTagsInterface = ({ hasTable = true, columns = ['ID', 'domain', 'tags'] } = {}) => {
+         const state = new Set(columns);
+         const removeColumn = jest.fn(async (_table: string, column: string) => { state.delete(column); });
+         const addColumn = jest.fn(async (_table: string, column: string) => { state.add(column); });
+         const describeTable = jest.fn(async () => {
+            if (!hasTable) { throw new Error('no such table: domain'); }
+            return Object.fromEntries([...state].map((name) => [name, {}]));
+         });
+         const queryInterface = {
+            describeTable,
+            removeColumn,
+            addColumn,
+            sequelize: {
+               options: {},
+               transaction: async (fn: (t: unknown) => Promise<unknown>) => fn({}),
+            },
+         };
+         return { queryInterface, removeColumn, state };
+      };
+
+      const tags = makeTagsInterface();
+      await dropDomainTagsMigration.up({ context: tags.queryInterface });
+      expect(tags.removeColumn).toHaveBeenCalledWith('domain', 'tags', expect.anything());
+      expect(tags.state.has('tags')).toBe(false);
+
+      // A second run finds the column gone and changes nothing
+      await dropDomainTagsMigration.up({ context: tags.queryInterface });
+      expect(tags.removeColumn).toHaveBeenCalledTimes(1);
+
+      const noTable = makeTagsInterface({ hasTable: false });
+      await expect(dropDomainTagsMigration.up({ context: noTable.queryInterface })).resolves.toBeUndefined();
+      expect(noTable.removeColumn).not.toHaveBeenCalled();
     });
   });
 });

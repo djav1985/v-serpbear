@@ -34,7 +34,6 @@ const buildBrandingState = (branding: BrandingConfig = DEFAULT_BRANDING) => ({
 const buildSettings = (overrides: Partial<SettingsType> = {}): SettingsType => ({
    scraper_type: 'none',
    notification_interval: 'daily',
-   notification_email: 'notify@example.com',
    notification_email_from: 'no-reply@example.com',
    notification_email_from_name: DEFAULT_BRANDING.platformName,
    smtp_server: 'smtp.example.com',

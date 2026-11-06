@@ -99,7 +99,6 @@ describe('/api/ideas/email', () => {
          smtp_port: '587',
          smtp_username: 'user',
          smtp_password: 'pass',
-         notification_email: 'default@example.com',
          notification_email_from: 'sender@example.com',
          notification_email_from_name: platformName,
          smtp_tls_servername: 'smtp.example.com',
@@ -141,7 +140,6 @@ describe('/api/ideas/email', () => {
       (getAppSettings as jest.Mock).mockResolvedValueOnce({
          smtp_server: '',
          smtp_port: '',
-         notification_email: '',
          notification_email_from: '',
          notification_email_from_name: '',
          smtp_tls_servername: '',

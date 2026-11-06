@@ -359,7 +359,6 @@ describe('KeywordIdeasUpdater Component', () => {
       slug: 'example-com',
       lastUpdated: '2023-01-01',
       added: '2023-01-01',
-      tags: '',
       notification_emails: '',
       search_console: '',
       keywordsTracked: 0,

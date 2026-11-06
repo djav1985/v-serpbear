@@ -29,7 +29,6 @@ const mockDomain: DomainType = {
    slug: 'example-com',
    lastUpdated: '2023-01-01',
    added: '2023-01-01',
-   tags: '',
    scrapeEnabled: true,
    notification_emails: 'test@example.com',
    keywordsTracked: 0,

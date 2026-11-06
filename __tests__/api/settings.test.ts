@@ -205,10 +205,9 @@ describe('validateSettingsPayload', () => {
       notification_interval: 'weekly',
       scrape_retry: true,
       smtp_port: '587',
-      notification_email: 'me@example.com',
       keywordsColumns: ['Best', 'Volume'],
     })).toEqual([]);
-    expect(validateSettingsPayload({ smtp_port: '', notification_email: '' })).toEqual([]);
+    expect(validateSettingsPayload({ smtp_port: '' })).toEqual([]);
   });
 
   it.each([
@@ -231,19 +230,6 @@ describe('validateSettingsPayload', () => {
     expect(validateSettingsPayload({ keywordsColumns: 'Best' })[0]).toMatch(/keywordsColumns/);
   });
 
-  it('rejects malformed notification emails', () => {
-    for (const email of ['not-an-email', 'user@localhost']) {
-      expect(validateSettingsPayload({ notification_email: email })[0]).toMatch(/notification_email/);
-    }
-  });
-
-  it('rejects a dotted domain with many repeated dots quickly', () => {
-    const hostile = `a@${'.'.repeat(5000)}`;
-    const started = Date.now();
-    const errors = validateSettingsPayload({ notification_email: hostile });
-    expect(Date.now() - started).toBeLessThan(200);
-    expect(errors[0]).toMatch(/notification_email/);
-  });
 });
 
 describe('GET /api/settings and configuration requirements', () => {
@@ -294,7 +280,6 @@ describe('GET /api/settings and configuration requirements', () => {
       scraper_type: 'none',
       scraping_api: '',
       notification_interval: 'never',
-      notification_email: '',
       notification_email_from: '',
       notification_email_from_name: platformName,
       smtp_server: '',
@@ -533,7 +518,7 @@ describe('PUT /api/settings keeps secrets that are left out of the payload', () 
   });
 
   it('does not persist the derived fields that GET adds, and drops a removed search_console key from the stored file', async () => {
-    const removedKeys = { search_console: true, white_label_enabled: true, white_label_logo_file: 'logo.png', platform_name: 'Acme' };
+    const removedKeys = { search_console: true, white_label_enabled: true, white_label_logo_file: 'logo.png', platform_name: 'Acme', notification_email: 'global@example.com' };
     mockStoredFile.current = JSON.stringify({ ...JSON.parse(mockStoredFile.current), ...removedKeys });
     const storedSettings = await getAppSettings();
     Object.keys(removedKeys).forEach((key) => expect(storedSettings).not.toHaveProperty(key));

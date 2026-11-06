@@ -1,13 +1,14 @@
 // Migration: drops settings that were removed from the app from data/settings.json. The global search_console setting
-// was removed (Search Console is controlled by credentials only), and the white_label_enabled, white_label_logo_file and
-// platform_name settings were removed (white-label is controlled only by environment variables). The list is kept here rather than imported from
+// was removed (Search Console is controlled by credentials only), the white_label_enabled, white_label_logo_file and
+// platform_name settings were removed (white-label is controlled only by environment variables), and the global
+// notification_email setting was removed (recipients come only from each domain's notification_emails). The list is kept here rather than imported from
 // pages/api/settings.ts because migrations run under plain Node. The file is rewritten only when a listed key is present.
 
 const fs = require('fs');
 const path = require('path');
 const { logger } = require('../migrationLogger');
 
-const REMOVED_SETTINGS_KEYS = ['search_console', 'white_label_enabled', 'white_label_logo_file', 'platform_name'];
+const REMOVED_SETTINGS_KEYS = ['search_console', 'white_label_enabled', 'white_label_logo_file', 'platform_name', 'notification_email'];
 
 const settingsPath = () => path.join(process.cwd(), 'data', 'settings.json');
 

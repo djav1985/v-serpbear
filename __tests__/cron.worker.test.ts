@@ -82,7 +82,6 @@ describe('getAppSettings', () => {
   const defaultSettings = {
     scraper_type: 'none',
     notification_interval: 'never',
-    notification_email: '',
     smtp_server: '',
     smtp_port: '',
     smtp_username: '',

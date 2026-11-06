@@ -117,7 +117,6 @@ const mockDomain: any = {
    domain: 'example.com',
    slug: 'example-com',
    notification_emails: '',
-   tags: '',
    added: '2024-01-01',
    lastUpdated: '2024-01-01',
    keywordCount: 2,

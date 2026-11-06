@@ -28,7 +28,6 @@ const createDefaultSettings = (platformName: string): SettingsType => ({
    scrape_delay: 'none',
    scrape_retry: false,
    notification_interval: 'daily',
-   notification_email: '',
    smtp_server: '',
    smtp_port: '',
    smtp_tls_servername: '',

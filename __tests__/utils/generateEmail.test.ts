@@ -562,7 +562,7 @@ describe('generateEmail', () => {
       lastUpdated: new Date().toISOString(), added: new Date().toISOString(), position: 3, volume: 0, sticky: false,
       history: {}, lastResult: [], url: '', tags: [], updating: false, lastUpdateError: false, location: '', mapPackTop3: 0,
     } as any;
-    const domain = { ID: 1, domain: 'example.com', slug: 'example-com', scrapeEnabled: true, tags: [] } as any;
+    const domain = { ID: 1, domain: 'example.com', slug: 'example-com', scrapeEnabled: true } as any;
 
     const html = await generateEmail(domain, [keyword], createSettings());
 

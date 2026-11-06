@@ -26,7 +26,6 @@ const buildSettingsDefaults = (): SettingsType => {
       scraper_type: 'none',
       scraping_api: '',
       notification_interval: 'never',
-      notification_email: '',
       notification_email_from: '',
       notification_email_from_name: platformName,
       smtp_server: '',
@@ -77,7 +76,7 @@ export const DERIVED_SETTINGS_FIELDS = ['version', 'timezone', 'available_scaper
  * of this list, because migrations run under plain Node). A PUT that still sends one is ignored, not rejected.
  * To retire another key, add it here and to that migration.
  */
-export const REMOVED_SETTINGS_KEYS = ['search_console', 'white_label_enabled', 'white_label_logo_file', 'platform_name'] as const;
+export const REMOVED_SETTINGS_KEYS = ['search_console', 'white_label_enabled', 'white_label_logo_file', 'platform_name', 'notification_email'] as const;
 
 /** Reads data/settings.json as stored (secrets still encrypted), upgrading legacy field names and dropping removed keys. */
 const readStoredSettingsFile = async (settingsPath: string): Promise<Partial<SettingsType>> => {
@@ -103,7 +102,6 @@ const SECRET_SETTINGS_FIELDS = [
 const PERSISTED_SETTINGS_FIELDS = [
    'scraper_type',
    'notification_interval',
-   'notification_email',
    'notification_email_from',
    'notification_email_from_name',
    'smtp_server',
@@ -122,7 +120,6 @@ const PERSISTED_SETTINGS_FIELDS = [
 const SCRAPE_STRATEGIES = ['basic', 'custom'];
 const MAX_PAGINATION_LIMIT = 10;
 const BOOLEAN_SETTINGS = ['scrape_retry'];
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
 
 /**
  * Checks only the fields present in the payload. Returns one message per invalid field
@@ -160,9 +157,6 @@ export const validateSettingsPayload = (settings: Record<string, unknown>): stri
       if (!Number.isInteger(port) || port < 1 || port > 65535) {
          errors.push('smtp_port must be a number from 1 to 65535.');
       }
-   }
-   if (has('notification_email') && settings.notification_email !== '' && !EMAIL_PATTERN.test(String(settings.notification_email))) {
-      errors.push('notification_email must be a valid email address.');
    }
    if (has('keywordsColumns') && (!Array.isArray(settings.keywordsColumns) || !settings.keywordsColumns.every((column) => typeof column === 'string'))) {
       errors.push('keywordsColumns must be a list of column names.');

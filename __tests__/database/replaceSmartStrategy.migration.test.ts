@@ -78,7 +78,7 @@ describe('replace-smart-scrape-strategy.migration', () => {
 
     // The removed-keys migration (1781000000000) copes with a missing file and is idempotent
     await expect(dropMigration.up()).resolves.toBeUndefined();
-    writeSettings({ scrape_strategy: 'custom', search_console: true, white_label_enabled: true, white_label_logo_file: 'logo.png', platform_name: 'Acme' });
+    writeSettings({ scrape_strategy: 'custom', search_console: true, white_label_enabled: true, white_label_logo_file: 'logo.png', platform_name: 'Acme', notification_email: 'global@example.com' });
     await dropMigration.up();
     expect(readSettings()).toEqual({ scrape_strategy: 'custom' });
     await dropMigration.up();
