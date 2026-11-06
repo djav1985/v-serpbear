@@ -235,7 +235,6 @@ type SCKeywordType = SearchAnalyticsItem;
 type DomainIdeasSettings = {
    seedSCKeywords: boolean,
    seedCurrentKeywords: boolean,
-   seedDomain: boolean,
    language: string,
    country?: string,
    countries: string[],

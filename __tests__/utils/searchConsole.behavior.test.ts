@@ -306,7 +306,7 @@ const mockDomainForSC = {
 const mockApiForSC = { client_email: 'test@example.com', private_key: 'test-key' };
 
 describe('fetchSearchConsoleData date window', () => {
-  const { default: realFetchSearchConsoleData } = jest.requireActual('../../utils/searchConsole');
+  const { fetchSearchConsoleData: realFetchSearchConsoleData } = jest.requireActual('../../utils/searchConsole');
 
   beforeEach(() => {
     jest.clearAllMocks();

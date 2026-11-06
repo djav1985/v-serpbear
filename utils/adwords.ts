@@ -675,7 +675,6 @@ export const getKeywordsVolume = async (keywords: KeywordType[]): Promise<{ erro
                            }
                         }
                      });
-                     // console.log('fetchedKeywords :', fetchedKeywords);
                   }
                }
             } catch (error) {

@@ -40,7 +40,7 @@ export const isSearchConsoleDataFreshForToday = (
  * @param {SCAPISettings} [api] - (optional) specifies the Search Console API Information.
  * @returns {Promise<fetchConsoleDataResponse>}
  */
-const fetchSearchConsoleData = async (domain:DomainType, days:number, type?:string, api?:SCAPISettings): Promise<fetchConsoleDataResponse> => {
+export const fetchSearchConsoleData = async (domain:DomainType, days:number, type?:string, api?:SCAPISettings): Promise<fetchConsoleDataResponse> => {
    if (!domain) return { error: true, errorMsg: 'Domain Not Provided!' };
    if (!api?.private_key || !api?.client_email) {
       return { error: true, errorMsg: 'Search Console API data is not available.' };
@@ -91,7 +91,6 @@ const fetchSearchConsoleData = async (domain:DomainType, days:number, type?:stri
       let finalRows = resData.rows ? resData.rows.map((item:SearchAnalyticsRawItem) => parseSearchConsoleItem(item, domainName)) : [];
 
       if (type === 'stat' && resData.rows && resData.rows.length > 0) {
-         // console.log(resData.rows);
          finalRows = [];
          resData.rows.forEach((row:SearchAnalyticsRawItem) => {
             finalRows.push({
@@ -109,7 +108,6 @@ const fetchSearchConsoleData = async (domain:DomainType, days:number, type?:stri
       const qType = type === 'stat' ? '(stats)' : `(${days}days)`;
       const errorMsg = err?.response?.status && `${err?.response?.statusText}. ${err?.response?.data?.error_description}`;
       logger.error(`Search Console API error for ${domainName} ${qType}`, new Error(errorMsg || err?.code || 'Unknown error'));
-      // console.log('SC ERROR :', err);
       return { error: true, errorMsg: errorMsg || err?.code };
    }
 };
@@ -434,5 +432,3 @@ export function getSafeSCDataFilePath(domain: string): string | null {
    }
    return filePath;
 }
-
-export default fetchSearchConsoleData;
