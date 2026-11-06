@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file. Releases no
 ### Changed
 
 - The scrape intervals (`daily`, `other_day`, `weekly`, `monthly`) all run at the `CRON_MAIN_SCHEDULE` time instead of a fixed midnight, and the digests run at the `CRON_EMAIL_SCHEDULE` time. Failed-scrape retries can run daily at the main time, or be turned off. Removed the hidden `hourly` scrape interval; a stored `hourly` value now runs daily.
+- Serper is now targeted by country only: it no longer sends the stored city location, and the State and City fields are not offered for it. Existing keywords with a city are checked at country level.
 
 ## [5.0.0] (2026-11-06)
 

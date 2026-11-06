@@ -43,7 +43,7 @@ describe('serper scraper', () => {
     CA: ['Canada', 'Ottawa', 'en', 2392],
   } as any;
 
-  it('appends the encoded location parameter when city and state are provided', () => {
+  it('targets the country only and does not send the stored city location', () => {
     const keyword: Partial<KeywordType> = {
       keyword: 'plumber near me',
       country: 'US',
@@ -62,9 +62,8 @@ describe('serper scraper', () => {
     expect(parsed.pathname).toBe('/search');
     expect(parsed.searchParams.get('gl')).toBe('us');
     expect(parsed.searchParams.get('hl')).toBe('en');
-    expect(parsed.searchParams.get('location')).toBe('Austin,TX,United States');
+    expect(parsed.searchParams.has('location')).toBe(false);
     expect(parsed.searchParams.get('apiKey')).toBe(settings.scraping_api);
-    expect(url).toContain('location=Austin%2CTX%2CUnited+States');
   });
 
 });
