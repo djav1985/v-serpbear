@@ -32,7 +32,7 @@ SerpBear is a full-stack Next.js application that tracks where your pages rank o
 
 ## What's new in 5.0.0
 
-- **Real links for Google redirects.** Results that come back as `google.com/goto` links are resolved to the real page URL, so your domain is matched correctly. It uses Serper's free `/resolve` endpoint: add a free [Serper](https://serper.dev) key as `SERPER_API_KEY` and it works for every scraper. See [the settings table](#settings-configured-in-docker-composeyml-envs).
+- **Real links for Google redirects.** Results that come back as `google.com/goto` links are resolved to the real page URL, so your domain is matched correctly. It uses Serper's free `/resolve` endpoint: add a free [Serper](https://serper.dev) key as `SERPER_API_KEY` and it works for every scraper that returns those links. See [the settings table](#settings-configured-in-docker-composeyml-envs).
 - **A clearer average position.** One whole number, the same on the dashboard card and in the email. Keywords that failed their last scrape are left out, a keyword that ranked before and fell out of the results counts at 10 × pages scraped, and map pack keywords count at their best spot. See [How the average position is calculated](#how-the-average-position-is-calculated).
 - **Smarter keyword adding.** Discover and Ideas share one add-to-tracker bar with a Desktop/Mobile toggle, tags and a location picker. Keywords that are already tracked are skipped, and the Tracking tab can change the location of many keywords at once.
 
@@ -74,7 +74,7 @@ The full list of changes is in the [changelog](./CHANGELOG.md). See [Update Serp
 | Capability | Details |
 | --- | --- |
 | **Unlimited domains and keywords** | Track as many keywords as you like across multiple sites, per country, city and device. |
-| **Managed SERP providers** | Nine providers with built-in retries (see [Supported SERP data providers](#supported-serp-data-providers)). |
+| **Managed SERP providers** | Eleven providers with built-in retries (see [Supported SERP data providers](#supported-serp-data-providers)). |
 | **Failed scrape controls** | Retry all failed scrapes immediately, or clear the retry queue from Settings. |
 | **Keyword research** | Search volumes and suggestions from a Google Ads account. |
 | **Search Console enrichment** | Impressions, clicks and CTR next to your rankings. |
@@ -104,8 +104,7 @@ The full list of changes is in the [changelog](./CHANGELOG.md). See [Update Serp
 ```bash
 git clone https://github.com/djav1985/v-serpbear.git
 cd v-serpbear
-cp .env.example .env
-# edit .env: replace every placeholder, and set USER, PASSWORD, SECRET, APIKEY and NEXT_PUBLIC_APP_URL
+# edit the environment: section of docker-compose.yml: replace every placeholder, and set USER_NAME, PASSWORD, SECRET, APIKEY and NEXT_PUBLIC_APP_URL
 docker compose up -d
 ```
 
@@ -115,7 +114,7 @@ The image is published on [Docker Hub](https://hub.docker.com/r/vontainment/v-se
 - `vontainment/v-serpbear:beta` is the latest development release, with new features and improvements.
 - A version number such as `vontainment/v-serpbear:5.0.0` pins a specific stable release.
 
-The app is served at <http://localhost:3030> (compose maps host port 3030 to container port 3000). Sign in with `USER` and `PASSWORD`, add a domain, then open **Settings → Scraper** to choose a provider and enter its API key.
+The app is served at <http://localhost:3030> (compose maps host port 3030 to container port 3000). Sign in with `USER_NAME` and `PASSWORD`, add a domain, then open **Settings → Scraper** to choose a provider and enter its API key.
 
 <br><br>
 
@@ -177,7 +176,7 @@ Behaviour is controlled by environment variables inside docker compose as well a
 | `REFRESH_QUEUE_CONCURRENCY` | `3` | No | Refresh tasks running at once. A domain is never refreshed twice at once. |
 | `PARALLEL_REFRESH_CONCURRENCY` | `10` | No | Keywords scraped at once on the parallel path, which runs only when every keyword in the run uses SerpApi or SearchApi. Positive integer. |
 | `PARALLEL_SCRAPE_CONCURRENCY` | `3` | No | Keywords scraped at once per domain on the sequential path, which is used for every other provider. Positive integer. |
-| `SERPER_API_KEY` | empty | No | Free [Serper](https://serper.dev) key. When set, organic `google.com/goto` links are resolved to real URLs through Serper's `/resolve` endpoint, for every provider. Each SERP page makes one batched request with a 30 s timeout. A failed or timed-out call is tried once more, and links still unresolved are sent once more after the `retryAfter` seconds Serper reports. Anything still unresolved keeps the Google link and is logged as a warning. Without a key, those links stay as they are. |
+| `SERPER_API_KEY` | empty | No | Free [Serper](https://serper.dev) key. When set, organic `google.com/goto` links are resolved to real URLs through Serper's `/resolve` endpoint, for every provider that returns them (TinyFish and Jina AI do not). Each SERP page makes one batched request with a 30 s timeout. A failed or timed-out call is tried once more, and links still unresolved are sent once more after the `retryAfter` seconds Serper reports. Anything still unresolved keeps the Google link and is logged as a warning. Without a key, those links stay as they are. |
 | `LOG_LEVEL` | `info` | No | `error`, `warn`, `info` or `debug`. `off`, `none`, `false` or `0` disables logging. Logs are JSON on stdout, so use `docker logs -f <container>`. |
 | `TZ` | `America/New_York` | No | IANA timezone (the standard container variable) for scheduled jobs, for "today" in results and emails, and for history date keys. An unknown name falls back to the default. Changing it later does not re-key existing history. |
 | `CRON_MAIN_SCHEDULE` | `00:00` | No | Time of day (`HH:MM`, 24 hour) of every scheduled scrape and of the Search Console refresh. `scrape_interval` picks the days. |
@@ -198,7 +197,7 @@ Manage these in the Settings UI or at `/api/settings`.
 | `scrape_strategy` | `basic` (default) or `custom`. See [Scrape strategy](#scrape-strategy). |
 | `scrape_pagination_limit` | Pages fetched per keyword with `custom`, from 1 to 10. Default 5. |
 | `scrape_retry` | `false` (default). Auto Retry for failed scrapes. Its retry controls appear only when it is on. |
-| `scrape_delay` | Milliseconds between requests to one domain. The server caps it at 30,000 (30 s). |
+| `scrape_delay` | Milliseconds between requests to one domain (Settings: Keyword Scrape Delay). The server caps it at 30,000 (30 s). For a scraper with its own base interval (TinyFish, 2 seconds) it is added on top of that base, and the spacing then applies across all domains. |
 | `notification_interval` | `never` (default), `daily`, `weekly` or `monthly`. |
 | `notification_email_from`, `notification_email_from_name` | Sender address (default `no-reply@serpbear.com`) and display name (default the platform name). |
 | `smtp_server`, `smtp_port`, `smtp_username`, `smtp_password`, `smtp_tls_servername` | SMTP connection. The port is required. |
@@ -243,7 +242,7 @@ A refresh uses the faster parallel path only when every keyword in the run uses 
 
 **TinyFish.** TinyFish has no mobile option, so it behaves like Serper above: mobile keywords reuse the matching desktop result or are scraped with desktop results. It targets by country only and has no map pack. Its results are real page links, so `SERPER_API_KEY` is not needed. Personal accounts are limited to 30 requests per minute, so requests are spaced at least 2 seconds apart across all keywords and domains, and the Keyword Scrape Delay is added on top of that. A rate-limited request is retried like any other failed request.
 
-**Jina AI.** Jina AI has no mobile option, so it behaves like Serper above. It targets by country only (`gl` and `hl`) and has no map pack. Its results are real page links, so `SERPER_API_KEY` is not needed. Each request costs at least 10,000 tokens. Jina documents 100 requests per minute for a key, which the default concurrency stays under, so there is no baseline spacing; the Keyword Scrape Delay still applies.
+**Jina AI.** Jina AI has no mobile option, so it behaves like Serper above. It targets by country only (`gl` and `hl`) and has no map pack. Its results are real page links, so `SERPER_API_KEY` is not needed. Each request costs at least 10,000 tokens. Jina documents 100 requests per minute for a key, which the default concurrency stays under, so there is no baseline spacing; the Keyword Scrape Delay still applies. Jina does not document paging, so extra pages are requested with a `page` parameter that has not been confirmed: use the Basic scrape strategy (page 1 only) unless you have checked it.
 
 ### Scheduling
 
@@ -319,7 +318,7 @@ The Keywords and Map Pack counts include every keyword, whether or not it is in 
 
 ### White labelling
 
-Set `NEXT_PUBLIC_WHITE_LABEL=true` for a custom name and logo. Logo file changes apply on the next request, so refresh the browser. Environment value changes need a restart (`docker compose up -d` or restarting the Node.js process). Neither needs a rebuild.
+Set `NEXT_PUBLIC_WHITE_LABEL=true` for a custom name and logo. The logo is served at `/api/branding/logo.<extension>` (the extension of `WHITE_LABEL_LOGO_FILE`, for example `/api/branding/logo.png`), which the dashboard and email digests both use. To change the browser tab icon too, put a `favicon.ico` file in `/app/data`; without it the default icon is used, and with white label off the file is ignored. Logo file changes apply on the next request, so refresh the browser. Environment value changes need a restart (`docker compose up -d` or restarting the Node.js process). Neither needs a rebuild.
 
 ### Settings and data
 

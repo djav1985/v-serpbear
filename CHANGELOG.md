@@ -6,16 +6,22 @@ All notable changes to this project will be documented in this file. Releases no
 
 ### Added
 - **TinyFish scraper.** Adds the TinyFish Search API as a country-level provider (no map pack, no mobile option). It has a free allowance of 12,000 requests a day and needs no Serper key. Requests are spaced 2 seconds apart to stay under its 30 requests a minute limit.
-- **Jina AI scraper.** Adds Jina AI Search (`s.jina.ai`) as a country-level provider (no map pack, no mobile option). It returns real URLs, so it needs no Serper key.
-- **Map pack removal date.** Keywords store the day they dropped out of the map pack top three (`mapPackRemovedAt`). The date is cleared when the keyword returns or after 30 days. A migration adds the column.
-- **Email map pack badge.** The badge in email digests now reads "MAP" in the same green outline as the dashboard, instead of the yellow "MP".
+- **Jina AI scraper.** Adds Jina AI Search (`s.jina.ai`) as a country-level provider (no map pack, no mobile option). It returns real URLs, so it needs no Serper key. Paging beyond page 1 is not documented by Jina, so use the Basic scrape strategy unless you have checked it.
+- **Map pack removal date.** Keywords store the day they dropped out of the map pack top three (`mapPackRemovedAt`). The date is set on the scrape that finds the keyword gone, cleared when the keyword returns, and cleared after 30 days. Failed scrapes and scrapers without map pack data change nothing. A migration adds the column. It does not change the average position.
 - **Red MAP badge.** A keyword that dropped out of the map pack (its removal date is set) shows a red MAP badge, in the dashboard, the keyword details and email digests.
-- **Email digest layout.** The mobile icon is blue, and the side padding is 10px (was 20px) and the Keyword column is wider (300px, was 240px).
+- **White-label tab icon.** With `NEXT_PUBLIC_WHITE_LABEL=true`, a `favicon.ico` file in `/app/data` is used as the browser tab icon (the default icon when the file is missing). It is served at `/api/branding/favicon.ico`.
+- **Per-scraper request spacing.** A scraper can set a baseline minimum interval between requests (`minRequestIntervalMs`, 0 by default; TinyFish uses 2 seconds). The Keyword Scrape Delay setting is added on top of it, and the spacing applies across all keywords, domains, pages and retries for the same API key.
+- **Per-scraper Google link resolving.** A scraper can set `resolveGoogleUrl: false` to skip Serper's `/resolve` endpoint. It defaults to on, and TinyFish and Jina AI turn it off because they return real URLs.
+
+### Changed
+- **Email map pack badge.** The badge in email digests now reads "MAP" in the same green outline as the dashboard, instead of the yellow "MP".
+- **Email digest layout.** The mobile icon is blue, the side padding is 10px (was 20px) and the Keyword column is wider (300px, was 240px).
 - **White-label logo address.** The logo is now served at `/api/branding/logo.<extension>` (for example `.png`), and the dashboard and email digests use that address, because some mail apps skip images without a file extension. The extension-less `/api/branding/logo` address is gone.
 - **Top bar.** The top bar is white on every screen size, with the same border and drop shadow as the domain cards.
-- **White-label tab icon.** With `NEXT_PUBLIC_WHITE_LABEL=true`, a `favicon.ico` file in `/app/data` is used as the browser tab icon (the default icon when the file is missing). It is served at `/api/branding/favicon.ico`.
-- **Per-scraper request spacing.** A scraper can set a baseline minimum interval between requests (`minRequestIntervalMs`, 0 by default). The Keyword Scrape Delay setting is added on top of it.
-- **Per-scraper Google link resolving.** A scraper can set `resolveGoogleUrl: false` to skip Serper's `/resolve` endpoint. It defaults to on, and TinyFish turns it off because it returns real URLs.
+- **Scraper definitions.** Every scraper now declares all its flags (`allowsCity`, `supportsMapPack`, `usesResultOffset`, `reusesDesktopForMobile`, `resolveGoogleUrl`, `minRequestIntervalMs` and `method`), even when the value is the default. No behaviour change.
+- **Beta image workflow.** The manual beta workflow tags the image `beta` from any branch (it was `main` only). It still never tags `latest`.
+- **Docker tags in the docs.** The README and wiki describe `latest` (stable, for production), `beta` (development) and version tags.
+- **Docs refresh.** The README setup steps no longer mention a `.env` file for Docker (edit `docker-compose.yml`), and the README and wiki now cover the new providers, the `scrape_delay` base interval, the white-label logo address and tab icon, and which providers need the Serper resolve key.
 
 ## [5.0.0] (2026-11-06)
 

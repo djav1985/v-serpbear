@@ -62,7 +62,7 @@ Some SERP providers return result links that are Google redirects, such as `http
 **How it works:**
 - After a provider returns a page of results, SerpBear collects the links that are `google.com/goto` (or `/url`) redirects. Links that are already real URLs are left alone and never sent.
 - All the redirect links from that page go to Serper's `/resolve` endpoint in one request. Serper follows each one and returns the real address, and SerpBear swaps it in before the position is saved.
-- It works for every provider, not only Serper.
+- It works for every provider that returns those links, not only Serper. TinyFish and Jina AI return real URLs and never need it.
 - A call can take up to about 30 seconds, so each request has a 30 second timeout. A call that fails or times out is tried once more. Links that come back unresolved are sent once more, after the number of seconds Serper asks for (`retryAfter`).
 - Anything still unresolved keeps the Google link and a warning is logged. Without a key, redirect links stay as they are.
 

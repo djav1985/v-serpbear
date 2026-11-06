@@ -24,7 +24,7 @@ Behaviour is controlled by environment variables in `docker-compose.yml` (under 
 | `REFRESH_QUEUE_CONCURRENCY` | `3` | No | Refresh tasks running at once. A domain is never refreshed twice at once. |
 | `PARALLEL_REFRESH_CONCURRENCY` | `10` | No | Keywords scraped at once on the parallel path, which runs only when every keyword in the run uses SerpApi or SearchApi. Positive integer. |
 | `PARALLEL_SCRAPE_CONCURRENCY` | `3` | No | Keywords scraped at once per domain on the sequential path, which is used for every other provider. Positive integer. |
-| `SERPER_API_KEY` | empty | No | Free [Serper](https://serper.dev) key. When set, organic `google.com/goto` links are resolved to real URLs through Serper's `/resolve` endpoint, for every provider. Each SERP page makes one batched request with a 30 s timeout. A failed or timed-out call is tried once more, and links still unresolved are sent once more after the `retryAfter` seconds Serper reports. Anything still unresolved keeps the Google link and is logged as a warning. Without a key, those links stay as they are. |
+| `SERPER_API_KEY` | empty | No | Free [Serper](https://serper.dev) key. When set, organic `google.com/goto` links are resolved to real URLs through Serper's `/resolve` endpoint, for every provider that returns them (TinyFish and Jina AI do not). Each SERP page makes one batched request with a 30 s timeout. A failed or timed-out call is tried once more, and links still unresolved are sent once more after the `retryAfter` seconds Serper reports. Anything still unresolved keeps the Google link and is logged as a warning. Without a key, those links stay as they are. |
 | `LOG_LEVEL` | `info` | No | `error`, `warn`, `info` or `debug`. `off`, `none`, `false` or `0` disables logging. Logs are JSON on stdout, so use `docker logs -f <container>`. |
 | `TZ` | `America/New_York` | No | IANA timezone (the standard container variable) for scheduled jobs, for "today" in results and emails, and for history date keys. An unknown name falls back to the default. Changing it later does not re-key existing history. |
 | `CRON_MAIN_SCHEDULE` | `00:00` | No | Time of day (`HH:MM`, 24 hour) of every scheduled scrape and of the Search Console refresh. `scrape_interval` picks the days. |
@@ -45,7 +45,7 @@ Manage these in the Settings UI or at `/api/settings`.
 | `scrape_strategy` | `basic` (default) or `custom`. See [Scrapers](Scrapers#scrape-strategy). |
 | `scrape_pagination_limit` | Pages fetched per keyword with `custom`, from 1 to 10. Default 5. |
 | `scrape_retry` | `false` (default). Auto Retry for failed scrapes. Its retry controls appear only when it is on. |
-| `scrape_delay` | Milliseconds between requests to one domain. The server caps it at 30,000 (30 s). |
+| `scrape_delay` | Milliseconds between requests to one domain (Settings: Keyword Scrape Delay). The server caps it at 30,000 (30 s). For a scraper with its own base interval (TinyFish, 2 seconds) it is added on top of that base, and the spacing then applies across all domains. |
 | `notification_interval` | `never` (default), `daily`, `weekly` or `monthly`. |
 | `notification_email_from`, `notification_email_from_name` | Sender address (default `no-reply@serpbear.com`) and display name (default the platform name). |
 | `smtp_server`, `smtp_port`, `smtp_username`, `smtp_password`, `smtp_tls_servername` | SMTP connection. The port is required. |
@@ -57,7 +57,7 @@ Manage these in the Settings UI or at `/api/settings`.
 
 ## White labelling
 
-Set `NEXT_PUBLIC_WHITE_LABEL=true` for a custom name and logo. Logo file changes apply on the next request, so refresh the browser. Environment value changes need a restart (`docker compose up -d`). Neither needs a rebuild.
+Set `NEXT_PUBLIC_WHITE_LABEL=true` for a custom name and logo. The logo is served at `/api/branding/logo.<extension>` (the extension of `WHITE_LABEL_LOGO_FILE`, for example `/api/branding/logo.png`), which the dashboard and email digests both use. To change the browser tab icon too, put a `favicon.ico` file in `/app/data`; without it the default icon is used, and with white label off the file is ignored. Logo file changes apply on the next request, so refresh the browser. Environment value changes need a restart (`docker compose up -d`). Neither needs a rebuild.
 
 ## YAML notes for docker-compose.yml
 

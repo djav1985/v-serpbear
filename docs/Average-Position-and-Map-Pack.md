@@ -32,4 +32,4 @@ Serper does not return map pack data. Check the map pack column in [Scrapers](Sc
 
 ## Dropped out of the map pack
 
-Each keyword stores the day it dropped out of the map pack top three (`mapPackRemovedAt`, a `YYYY-MM-DD` date in `TZ`). It is set on the scrape that finds a keyword gone that was in the top three last time, and it stays unchanged on later scrapes. It is cleared when the keyword is back in the top three, or once it is more than 30 days old. Failed scrapes change nothing, and neither do scrapers without map pack data.
+Each keyword stores the day it dropped out of the map pack top three (`mapPackRemovedAt`, a `YYYY-MM-DD` date in `TZ`). It is set on the scrape that finds a keyword gone that was in the top three last time, and it stays unchanged on later scrapes. It is cleared when the keyword is back in the top three, or once it is more than 30 days old. Failed scrapes change nothing, and neither do scrapers without map pack data. The date is only tracked and shown (as a red MAP badge); it does not change the average position.
