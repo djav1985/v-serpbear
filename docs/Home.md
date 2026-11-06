@@ -4,16 +4,15 @@ SerpBear tracks where your websites rank on Google. It checks keywords through a
 
 These pages live in the `docs/` folder of the [main repository](https://github.com/djav1985/v-serpbear) and are published to this wiki automatically. Edit them there, not here: the next sync overwrites changes made in the wiki.
 
-## Start here
+## Getting started
 
-- [Installation](Installation): run it with Docker, sign in, and update it
+- [Getting Started](Getting-Started): requirements, first login, first domain and keywords
+  - [Deploy with Docker](Deploy-with-Docker)
+  - [Deploy with Node.js](Deploy-with-Node.js)
+  - [Reverse Proxy and SSL](Reverse-Proxy-and-SSL)
+  - [Deploy to Coolify](Deploy-to-Coolify)
+  - [Deploy to Fly.io](Deploy-to-Fly.io)
 - [Configuration](Configuration): every environment variable and setting
-
-## Deployment
-
-- [Deployment overview](Deployment): which guide to follow
-- [Docker](Deploy-with-Docker), [Node.js](Deploy-with-Node.js), [Reverse Proxy and SSL](Reverse-Proxy-and-SSL)
-- [Coolify](Deploy-to-Coolify) and [Fly.io](Deploy-to-Fly.io)
 
 ## Using SerpBear
 
