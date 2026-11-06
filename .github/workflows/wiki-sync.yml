@@ -30,7 +30,7 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           git clone "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.wiki.git" wiki
-          rsync -a --delete --exclude '.git' docs/ wiki/
+          rsync -rlt --checksum --delete --exclude '.git' docs/ wiki/
           cd wiki
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
