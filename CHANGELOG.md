@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file. Releases no
 - API-key brute-force limit: 5 wrong `Authorization` keys from one client address lock that address out of the API for 15 minutes (`429` with `Retry-After`). It reuses the login throttle in `utils/loginThrottle.ts`.
 
 ### Changed
+- Domain average position is a whole number and follows one rule set: a failed latest scrape is left out; a map pack keyword with a known spot counts at the better of its spot and its organic position (organic 0 is ignored); a keyword that ranked before and is now at 0 (and not in the map pack) counts at 10 x pages scraped instead of being dropped; keywords that never ranked are left out. The stats are recalculated after every refresh that saves results and whenever keywords are added or deleted (not when the scrape strategy, page count or business name changes, until the next refresh). A failed stats save is retried once. Emails recalculate from the keywords at send time.
 - The keyword CSV export has a new `Map Pack` column right after `Keyword`: `0` when the keyword is not in the map pack top 3, otherwise its spot (1, 2 or 3). It is empty when the keyword is in the top 3 but its local results have no spot (rows saved before the local results were stored).
 - **API behaviour:** `/api/notify` returns 404 for an unknown domain; upstream failures from Google or a scraper now return 502 and write failures 500 (were 400); `/api/cron` may include a `skipped` list; `POST /api/volume` (domain mode, `domain=all`) and `POST /api/ideas/email` are rate limited; a corrupt `settings.json` fails saves with 500.
 - The Local Search Results panel now shows every business in a yellow box and only the tracked business (matched by business name in the top 3) in green. Local results saved before this change have no flag, so they show yellow until the keyword is refreshed.
@@ -42,7 +43,7 @@ All notable changes to this project will be documented in this file. Releases no
 
 ### Security
 - The MCP server at `/api/mcp` now accepts only `Authorization: Bearer <APIKEY>`. Cookies and login sessions are ignored there. Wrong keys still count towards the API-key lockout.
-- Upgraded the Node.js runtime from 20.18.1 (end-of-life) to 24.22.1 in `.nvmrc`, the Docker base image (`node:24.22.1-alpine3.24`), and CI to fix CVE-2026-111497, an out-of-bounds write in the bundled Brotli decoder reachable through `fetch()` responses with `Content-Encoding: br`.
+- Upgraded the Node.js runtime from 20.18.1 (end-of-life) to 24.22.1 in `.nvmrc`, the Docker base image (`node:24.22.1-alpine3.24`), and CI to fix an out-of-bounds write in the bundled Brotli decoder reachable through `fetch()` responses with `Content-Encoding: br`.
 - Logout now revokes the session everywhere: tokens carry a session version in `data/session.json`, and `GET /api/settings` and `/api/auth-check` reject revoked tokens.
 - Added `TRUST_PROXY` to read the real client IP from `X-Forwarded-For` behind a reverse proxy. The default is the socket address.
 - Login is limited to 5 failures per username and 20 per client address within 15 minutes, with a 15-minute lock. Lockout, throttle and rate-limit tables are bounded.
@@ -97,13 +98,17 @@ All notable changes to this project will be documented in this file. Releases no
 - The research page requires login. Google Ads OAuth returns to `/domains?ads=...`, and the result is handled there.
 - Table layouts no longer show blank lists at 640-767px. Sort labels match the real order, and the ideas alphabetical sort and Favorites tab work.
 - Settings keep unsaved edits when refetched. Search Console and console-page averages are weighted by impressions.
-- The CSV export includes a BOM, and large numbers keep all their digits.
+- The CSV export is UTF-8 with CRLF line endings and quoted values, and large numbers keep all their digits.
 
 ### Performance
 - Reduced per-request scrape retry attempts from 3 to 1 so failing keywords fall through to the hourly failed-queue retry faster instead of blocking on repeated in-request retries.
 
 ### Configuration
 - Increased the ValueSerp scraper timeout from 35 to 120 seconds to reduce aborted requests on slow API responses.
+
+### Documentation
+- README corrected against the code: install and migration steps, Docker volume backup, Node.js support, the environment variable reference, provider Mobile support and Serply and Serper limits, scrape strategy and parallel refresh behaviour, cron and digest schedules, the sign-in and API-key lockouts, error codes and session-only routes.
+- README adds sections on how the domain average position is calculated, the keyword CSV export, continuous integration, project structure and credits.
 
 # [4.0.0](https://github.com/djav1985/v-serpbear/compare/v3.0.0...v4.0.0) (2026-01-27)
 
