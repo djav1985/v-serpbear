@@ -13,6 +13,7 @@ SerpBear is a full-stack Next.js application that tracks where your pages rank o
 ## Contents
 
 - [Quick links](#quick-links)
+- [What's new in 5.0.0](#whats-new-in-500)
 - [Features](#features)
 - [Getting started](#getting-started)
 - [Supported SERP data providers](#supported-serp-data-providers)
@@ -36,6 +37,14 @@ SerpBear is a full-stack Next.js application that tracks where your pages rank o
 - Made by [Vontainment](https://vontainment.com)
 
 ---
+
+## What's new in 5.0.0
+
+- **Real links for Google redirects.** Results that come back as `google.com/goto` links are resolved to the real page URL, so your domain is matched correctly. It uses Serper's free `/resolve` endpoint: add a free [Serper](https://serper.dev) key as `SERPER_API_KEY` and it works for every scraper. See [Environment variables](#configuration-reference).
+- **A clearer average position.** One whole number, the same on the dashboard card and in the email. Keywords that failed their last scrape are left out, a keyword that ranked before and fell out of the results counts at 10 × pages scraped, and map pack keywords count at their best spot. See [How the average position is calculated](#how-the-average-position-is-calculated).
+- **Smarter keyword adding.** Discover and Ideas share one add-to-tracker bar with a Desktop/Mobile toggle, tags and a location picker. Keywords that are already tracked are skipped, and the Tracking tab can change the location of many keywords at once.
+
+Back up `data/` before upgrading. The full list of changes is in the [changelog](./CHANGELOG.md).
 
 ## Features
 

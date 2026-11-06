@@ -103,7 +103,7 @@ describe('Common layout components', () => {
     it('renders the default version with a Vontainment link', async () => {
       const Footer = (await import('../../components/common/Footer')).default;
       render(<Footer currentVersion='' />);
-      expect(screen.getByText(footerMatcher(DEFAULT_BRANDING.platformName, '4.0.0'))).toBeVisible();
+      expect(screen.getByText(footerMatcher(DEFAULT_BRANDING.platformName, '5.0.0'))).toBeVisible();
       const link = screen.getByRole('link', { name: 'Vontainment' });
       expect(link).toHaveAttribute('href', 'https://vontainment.com');
       expect(link).toHaveAttribute('target', '_blank');

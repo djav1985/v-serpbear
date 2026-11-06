@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file. Releases no
 
 ## [Unreleased]
 
+## [5.0.0] (2026-11-06)
+
 ### Upgrade notes
 1. **Timezone shift:** Dates now follow `CRON_TIMEZONE`. If the server previously ran in UTC, the day boundary shifts once on the changeover day. Old history keys are not re-keyed.
 2. **Runtime data files:** On `main`, `data/settings.json`, `data/failed_queue.json`, `data/session.json` and `data/SC_*.json` are tracked by git. This branch untracks them (`.gitignore` ignores `data/*` except `.gitkeep`), so pulling or merging it can delete your local copies. Back up `data/` before pulling. The database is also backed up to `<db>.bak-<date>` before duplicate keywords are removed.
@@ -16,6 +18,10 @@ All notable changes to this project will be documented in this file. Releases no
 - Added `usesResultOffset` for scrapers that page by result offset (`start`): each page now starts after the results already returned, so short pages no longer skip results (PrismCrawl, SerpApi, HasData, Serply).
 - Read-only MCP server at `POST /api/mcp` (Streamable HTTP, stateless) with six tools: `get_keyword`, `list_keywords`, `list_domains`, `get_searchconsole`, `get_insight` and `get_keyword_ideas`. It uses the same `Authorization: Bearer <APIKEY>` header as the REST API.
 - API-key brute-force limit: 5 wrong `Authorization` keys from one client address lock that address out of the API for 15 minutes (`429` with `Retry-After`). It reuses the login throttle in `utils/loginThrottle.ts`.
+- Discover and Ideas share an add-to-tracker bar with a Desktop/Mobile toggle, tags and a location picker. The Tracking tab has a bulk `Change Location` action, which `PUT /api/keywords` accepts.
+- The keyword tag filter has a `No Tags` option for keywords without tags. It is exclusive: picking it clears the other tags, and picking a tag clears it.
+- Domain stats show up and down triangles against the previous refresh for keywords tracked, Search Console visits, impressions and position. Position triangles are hidden when either value is unranked (0).
+- `PARALLEL_REFRESH_CONCURRENCY` (default `10`) caps how many keywords are scraped at once on the parallel refresh path.
 
 ### Changed
 - Domain average position is a whole number and follows one rule set: a failed latest scrape is left out; a map pack keyword with a known spot counts at the better of its spot and its organic position (organic 0 is ignored); a keyword that ranked before and is now at 0 (and not in the map pack) counts at 10 x pages scraped instead of being dropped; keywords that never ranked are left out. The stats are recalculated after every refresh that saves results and whenever keywords are added or deleted (not when the scrape strategy, page count or business name changes, until the next refresh). A failed stats save is retried once. Emails recalculate from the keywords at send time.
@@ -39,6 +45,11 @@ All notable changes to this project will be documented in this file. Releases no
 - Emails without `NEXT_PUBLIC_APP_URL` use the default logo instead of a broken relative URL. Business-name matching ignores accents. Search Console data is read in pages of 25,000 rows instead of stopping at 1000. The ideas "no results" message no longer mentions a volume minimum.
 - Every writer of `settings.json` (including the Google Ads callback) now strips the removed keys.
 - **Behaviour change:** `x-forwarded-proto`, `x-forwarded-protocol` and `x-forwarded-ssl` now only mark a request as HTTPS when `TRUST_PROXY` is set. Behind a TLS-terminating proxy, set `TRUST_PROXY=1` or the login cookie will not get the `Secure` flag.
+- Adding keywords and the bulk `Change Location` action skip keywords that are already tracked (same keyword, country and device) and report them in the toast, for example "Added 2 keywords. Skipped 1 already tracked: alpha (desktop)."
+- A location that names a country sets the keyword's country (for example `London,England,GB`), and a country name in a location is stored as its code, so `Austin,TX,United States` is saved as `Austin,TX,US`.
+- The keyword CSV export has one `Location` column after `Country`, instead of separate `State` and `City` columns.
+- The domain Active toggle moved to the Scraper tab of Domain Settings, and the Notification tab says that a blank address turns email off for that domain.
+- Deleting a domain while it is being refreshed returns `409` instead of hanging.
 
 ### Fixed
 - The Scraping Frequency, Keyword Scrape Delay and Notification Frequency settings no longer say they need a server or Docker restart: changes to the scrape and notification schedules are applied live by the cron worker, and the scrape delay is read on every refresh.
@@ -55,6 +66,10 @@ All notable changes to this project will be documented in this file. Releases no
 - Login: a correct password is no longer refused because strangers filled the user-wide failure cap. A non-Bearer `Authorization` header, or one sent with a valid session cookie, no longer counts as a wrong API key. `POST /api/cron` skips domains that are already being refreshed. A missing `session.json` now yields a fresh session version so logged-out tokens stay invalid. A corrupt `settings.json` fails a save with a 500 instead of blanking secrets.
 - API hardening: null or malformed bodies return 400, ids must be whole numbers, tag keys must be canonical ids, internal error text is logged and not returned, unknown settings keys are ignored, and domains are trimmed and lowercased consistently. Lowercase country codes work for keyword ideas, ideas saves are locked against the favourites toggle, and Search Console "Last 7 Days" covers 7 days.
 - UI: Discover country filter, location picker, tracked-keyword check by location, select-all pruning, sticky star, app-timezone tooltips, numpad Enter for tags, safe result links, domain settings and Ads callbacks no longer wipe unsaved input, research seeds are trimmed and capped at 20, a "Remove stored key" control for per-domain scraper keys, plus accessibility and dropdown fixes in several components.
+- First login no longer bounces back to `/login`.
+- A failed scrape page keeps the keyword's previous position, history and stored results instead of recording it as not ranked or wiping them.
+- Scraper response bodies are read with a 30-second limit, so a stalled body no longer hangs a refresh.
+- SearchApi no longer double-encodes `+` in `q` and `location`.
 
 ### Security
 - The MCP server at `/api/mcp` now accepts only `Authorization: Bearer <APIKEY>`. Cookies and login sessions are ignored there. Wrong keys still count towards the API-key lockout.
@@ -65,6 +80,8 @@ All notable changes to this project will be documented in this file. Releases no
 - Passwords, secrets, OAuth `code`/`state` values and other sensitive query values are redacted from logs, and raw usernames are no longer logged.
 - `/api/domain` masks saved Search Console credentials the same way `/api/domains` does.
 - `docker-compose.yml` and `.env.example` no longer contain committed secrets; `SECRET` and `APIKEY` must be set in `.env` or the shell.
+- CSV exports prefix keyword text that starts with `=`, `+`, `-` or `@` (after any leading spaces) with an apostrophe, so spreadsheets do not run it as a formula.
+- Dependabot advisories are patched: `next` is 16.4.4 and `undici` is 7.30.1, and `qs`, `fast-uri`, `zod` and `minimatch` are moved to patched versions.
 
 ### Changed
 - Removed the **Smart** scrape strategy and its Full Fallback option: it estimated pages from the last position, which drifts when the map pack takes organic slots. Existing Smart settings (per domain, and the global setting in `data/settings.json`) are migrated to **Basic** (page 1 only).
