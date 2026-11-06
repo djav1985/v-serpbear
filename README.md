@@ -14,18 +14,15 @@ SerpBear is a full-stack Next.js application that tracks where your pages rank o
 
 ## Contents
 
-- [Quick links](#quick-links)
 - [What's new in 5.0.0](#whats-new-in-500)
 - [Features](#features)
 - [Getting started](#getting-started)
 - [Supported SERP data providers](#supported-serp-data-providers)
-- [Configuration reference](#configuration-reference)
+- [Settings configured in `docker-compose.yml ENVs`](#settings-configured-in-docker-composeyml-envs)
+- [Settings configured in `data/settings.json`](#settings-configured-in-datasettingsjson)
 - [Feature deep dive](#feature-deep-dive)
 - [API and MCP server](#api-and-mcp-server)
-- [Development workflow](#development-workflow)
-- [Continuous integration](#continuous-integration)
 - [Project structure](#project-structure)
-- [Contributing](#contributing)
 - [Credits](#credits)
 - [License](#license)
 
@@ -35,11 +32,11 @@ SerpBear is a full-stack Next.js application that tracks where your pages rank o
 
 ## What's new in 5.0.0
 
-- **Real links for Google redirects.** Results that come back as `google.com/goto` links are resolved to the real page URL, so your domain is matched correctly. It uses Serper's free `/resolve` endpoint: add a free [Serper](https://serper.dev) key as `SERPER_API_KEY` and it works for every scraper. See [Environment variables](#configuration-reference).
+- **Real links for Google redirects.** Results that come back as `google.com/goto` links are resolved to the real page URL, so your domain is matched correctly. It uses Serper's free `/resolve` endpoint: add a free [Serper](https://serper.dev) key as `SERPER_API_KEY` and it works for every scraper. See [the settings table](#settings-configured-in-docker-composeyml-envs).
 - **A clearer average position.** One whole number, the same on the dashboard card and in the email. Keywords that failed their last scrape are left out, a keyword that ranked before and fell out of the results counts at 10 × pages scraped, and map pack keywords count at their best spot. See [How the average position is calculated](#how-the-average-position-is-calculated).
 - **Smarter keyword adding.** Discover and Ideas share one add-to-tracker bar with a Desktop/Mobile toggle, tags and a location picker. Keywords that are already tracked are skipped, and the Tracking tab can change the location of many keywords at once.
 
-The full list of changes is in the [changelog](./CHANGELOG.md). See [Updating](#updating) before you upgrade.
+The full list of changes is in the [changelog](./CHANGELOG.md). See [Update SerpBear](#update-serpbear) before you upgrade.
 
 <br><br>
 
@@ -155,15 +152,15 @@ Behaviour is controlled by environment variables inside docker compose as well a
 | `NEXT_PUBLIC_PLATFORM_NAME` | `SerpBear` | No | App and email name. Used only in white-label mode. |
 | `SEARCH_CONSOLE_CLIENT_EMAIL` | — | No | Service account email with access to your Search Console properties. |
 | `SEARCH_CONSOLE_PRIVATE_KEY` | — | No | Matching private key; keep newlines escaped in `.env` files. |
-| `REFRESH_QUEUE_CONCURRENCY` | `3` | Refresh tasks running at once. A domain is never refreshed twice at once. |
-| `PARALLEL_REFRESH_CONCURRENCY` | `10` | Keywords scraped at once on the parallel path, which runs only when every keyword in the run uses SerpApi or SearchApi. Positive integer. |
-| `PARALLEL_SCRAPE_CONCURRENCY` | `3` | Keywords scraped at once per domain on the sequential path, which is used for every other provider. Positive integer. |
-| `SERPER_API_KEY` | empty | Free [Serper](https://serper.dev) key. When set, organic `google.com/goto` links are resolved to real URLs through Serper's `/resolve` endpoint, for every provider. Each SERP page makes one batched request with a 60 s timeout and no retries. Failures are logged as warnings and the Google link is kept. Without a key, those links stay as they are. |
-| `LOG_LEVEL` | `info` | `error`, `warn`, `info` or `debug`. `off`, `none`, `false` or `0` disables logging. Logs are JSON on stdout, so use `docker logs -f <container>`. |
-| `CRON_TIMEZONE` | `America/New_York` | IANA timezone for scheduled jobs, for "today" in results and emails, and for history date keys. An unknown name falls back to the default. Changing it later does not re-key existing history. |
-| `CRON_MAIN_SCHEDULE` | `00:00` | Time of day (`HH:MM`, 24 hour) of every scheduled scrape and of the Search Console refresh. `scrape_interval` picks the days. |
-| `CRON_FAILED_SCHEDULE` | `hourly` | How often failed scrapes are retried: `hourly`, `daily` (at the `CRON_MAIN_SCHEDULE` time) or `never`. |
-| `CRON_EMAIL_SCHEDULE` | `06:00` | Time of day (`HH:MM`, 24 hour) of every email digest. `notification_interval` picks the days. |
+| `REFRESH_QUEUE_CONCURRENCY` | `3` | No | Refresh tasks running at once. A domain is never refreshed twice at once. |
+| `PARALLEL_REFRESH_CONCURRENCY` | `10` | No | Keywords scraped at once on the parallel path, which runs only when every keyword in the run uses SerpApi or SearchApi. Positive integer. |
+| `PARALLEL_SCRAPE_CONCURRENCY` | `3` | No | Keywords scraped at once per domain on the sequential path, which is used for every other provider. Positive integer. |
+| `SERPER_API_KEY` | empty | No | Free [Serper](https://serper.dev) key. When set, organic `google.com/goto` links are resolved to real URLs through Serper's `/resolve` endpoint, for every provider. Each SERP page makes one batched request with a 60 s timeout and no retries. Failures are logged as warnings and the Google link is kept. Without a key, those links stay as they are. |
+| `LOG_LEVEL` | `info` | No | `error`, `warn`, `info` or `debug`. `off`, `none`, `false` or `0` disables logging. Logs are JSON on stdout, so use `docker logs -f <container>`. |
+| `CRON_TIMEZONE` | `America/New_York` | No | IANA timezone for scheduled jobs, for "today" in results and emails, and for history date keys. An unknown name falls back to the default. Changing it later does not re-key existing history. |
+| `CRON_MAIN_SCHEDULE` | `00:00` | No | Time of day (`HH:MM`, 24 hour) of every scheduled scrape and of the Search Console refresh. `scrape_interval` picks the days. |
+| `CRON_FAILED_SCHEDULE` | `hourly` | No | How often failed scrapes are retried: `hourly`, `daily` (at the `CRON_MAIN_SCHEDULE` time) or `never`. |
+| `CRON_EMAIL_SCHEDULE` | `06:00` | No | Time of day (`HH:MM`, 24 hour) of every email digest. `notification_interval` picks the days. |
 
 <br><br>
 
@@ -175,7 +172,7 @@ Manage these in the Settings UI or at `/api/settings`.
 | --- | --- |
 | `scraper_type` | Global provider: `none` (default) or a provider ID from the [providers table](#supported-serp-data-providers). |
 | `scraping_api` | Global provider API key (encrypted). |
-| `scrape_interval` | `daily` when blank, `other_day`, `weekly`, `monthly` or `never`. See [Cron scheduling](#cron-scheduling). |
+| `scrape_interval` | `daily` when blank, `other_day`, `weekly`, `monthly` or `never`. See [Scheduling](#scheduling). |
 | `scrape_strategy` | `basic` (default) or `custom`. See [Scrape strategy](#scrape-strategy). |
 | `scrape_pagination_limit` | Pages fetched per keyword with `custom`, from 1 to 10. Default 5. |
 | `scrape_retry` | `false` (default). Auto Retry for failed scrapes. Its retry controls appear only when it is on. |
