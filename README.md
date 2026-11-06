@@ -8,6 +8,8 @@ SerpBear is a full-stack Next.js application that tracks where your pages rank o
 
 > **Warning:** Not every scraper provider is validated on every release. Report problems with a specific provider in [GitHub Discussions](https://github.com/djav1985/v-serpbear/discussions).
 
+<br><br>
+
 ---
 
 ## Contents
@@ -27,6 +29,8 @@ SerpBear is a full-stack Next.js application that tracks where your pages rank o
 - [Credits](#credits)
 - [License](#license)
 
+<br><br>
+
 ---
 
 ## What's new in 5.0.0
@@ -36,6 +40,8 @@ SerpBear is a full-stack Next.js application that tracks where your pages rank o
 - **Smarter keyword adding.** Discover and Ideas share one add-to-tracker bar with a Desktop/Mobile toggle, tags and a location picker. Keywords that are already tracked are skipped, and the Tracking tab can change the location of many keywords at once.
 
 The full list of changes is in the [changelog](./CHANGELOG.md). See [Updating](#updating) before you upgrade.
+
+<br><br>
 
 ---
 
@@ -89,6 +95,8 @@ docker compose up -d
 
 The app is served at <http://localhost:3030> (compose maps host port 3030 to container port 3000). Sign in with `USER` and `PASSWORD`, add a domain, then open **Settings → Scraper** to choose a provider and enter its API key.
 
+<br><br>
+
 ### Update SerpBear
 
 ```bash
@@ -99,6 +107,7 @@ docker compose start
 
 Back up `data/` first. With Docker, run `docker compose pull && docker compose up -d` and migrations apply on start. With Node.js, pull, run `npm install`, `npm run db:migrate`, then rebuild. Read the *Upgrade notes* in the [changelog](./CHANGELOG.md) before upgrading.
 
+<br><br>
 
 ### Supported SERP data providers
 
