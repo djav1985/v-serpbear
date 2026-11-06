@@ -198,6 +198,23 @@ describe('getAppSettings', () => {
       expect(gapDays).toBeLessThanOrEqual(2);
     }
     expect(runs.some((run) => run.getUTCDate() === 31)).toBe(true);
+
+    // Every interval runs at the CRON_MAIN_SCHEDULE time, the digests at the CRON_EMAIL_SCHEDULE time.
+    // A value that is not HH:MM falls back to the default.
+    const saved = { main: process.env.CRON_MAIN_SCHEDULE, email: process.env.CRON_EMAIL_SCHEDULE };
+    process.env.CRON_MAIN_SCHEDULE = '02:30';
+    process.env.CRON_EMAIL_SCHEDULE = '0 0 6 * * *';
+    jest.resetModules();
+    jest.spyOn(console, 'log').mockImplementation();
+    const timed = require('../cron.js');
+    expect(timed.CRON_INTERVAL_MAP).toMatchObject({
+      daily: '0 30 2 * * *', other_day: '0 30 2 1-31/2 * *', weekly: '0 30 2 * * 1', monthly: '0 30 2 1 * *',
+    });
+    expect(timed.NOTIFICATION_SCHEDULE_MAP).toMatchObject({ daily: '0 0 6 * * *', weekly: '0 0 6 * * 1', monthly: '0 0 6 1 * *' });
+    Object.entries(saved).forEach(([key, value]) => {
+      const name = key === 'main' ? 'CRON_MAIN_SCHEDULE' : 'CRON_EMAIL_SCHEDULE';
+      if (value === undefined) { delete process.env[name]; } else { process.env[name] = value; }
+    });
   });
 });
 

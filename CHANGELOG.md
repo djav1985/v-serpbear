@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file. Releases no
 
 ## [Unreleased]
 
+### Upgrade notes
+
+- `CRON_MAIN_SCHEDULE` and `CRON_EMAIL_SCHEDULE` are now times of day (`HH:MM`, 24 hour, defaults `00:00` and `06:00`) instead of cron expressions, and `CRON_FAILED_SCHEDULE` is now `hourly` (default), `daily` or `never`. An old cron expression is ignored with a warning and the default is used, so update your `.env` and compose file.
+
+### Changed
+
+- The scrape intervals (`daily`, `other_day`, `weekly`, `monthly`) all run at the `CRON_MAIN_SCHEDULE` time instead of a fixed midnight, and the digests run at the `CRON_EMAIL_SCHEDULE` time. Failed-scrape retries can run daily at the main time, or be turned off. Removed the hidden `hourly` scrape interval; a stored `hourly` value now runs daily.
+
 ## [5.0.0] (2026-11-06)
 
 ### Upgrade notes

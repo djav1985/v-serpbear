@@ -242,14 +242,14 @@ Manage these in the Settings UI or at `/api/settings`.
 | Variable | Default | Description |
 | --- | --- | --- |
 | `CRON_TIMEZONE` | `America/New_York` | IANA timezone for scheduled jobs, for "today" in results and emails, and for history date keys. An unknown name falls back to the default. Changing it later does not re-key existing history. |
-| `CRON_MAIN_SCHEDULE` | `0 0 0 * * *` | Time of the daily scrape (`scrape_interval` = `daily`) and of the Search Console refresh. |
-| `CRON_FAILED_SCHEDULE` | `0 0 */1 * * *` | Retry of failed scrapes. Also drives the `hourly` scrape option, which is not in the Settings UI. |
-| `CRON_EMAIL_SCHEDULE` | `0 0 6 * * *` | Time of day for digests. Weekly digests run on Mondays and monthly digests on the 1st, both at this time. |
+| `CRON_MAIN_SCHEDULE` | `00:00` | Time of day (`HH:MM`, 24 hour) of every scheduled scrape and of the Search Console refresh. `scrape_interval` picks the days. |
+| `CRON_FAILED_SCHEDULE` | `hourly` | How often failed scrapes are retried: `hourly`, `daily` (at the `CRON_MAIN_SCHEDULE` time) or `never`. |
+| `CRON_EMAIL_SCHEDULE` | `06:00` | Time of day (`HH:MM`, 24 hour) of every email digest. `notification_interval` picks the days. |
 
 How the settings map onto the schedule:
 
-- `scrape_interval`: `daily` uses `CRON_MAIN_SCHEDULE`. `other_day` runs at midnight on odd days of the month, `weekly` at midnight on Mondays, and `monthly` at midnight on the 1st. `never` turns scheduled scraping off.
-- `notification_interval`: `daily`, `weekly` and `monthly` use `CRON_EMAIL_SCHEDULE` as described above. `never` turns digests off.
+- `scrape_interval`: runs at the `CRON_MAIN_SCHEDULE` time. `daily` runs every day, `other_day` on odd days of the month, `weekly` on Mondays and `monthly` on the 1st. `never` turns scheduled scraping off.
+- `notification_interval`: runs at the `CRON_EMAIL_SCHEDULE` time. `daily` runs every day, `weekly` on Mondays and `monthly` on the 1st. `never` turns digests off.
 - Settings changes apply without a restart. The worker watches `data/settings.json` and re-checks it every 30 minutes. `CRON_*` variables are read at startup, so they need a restart.
 
 Expressions are normalised at runtime (quotes and stray whitespace are stripped). An invalid expression is logged and its job is not scheduled.

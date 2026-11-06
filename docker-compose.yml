@@ -35,9 +35,9 @@ services:
       - APP_URL=${APP_URL:-}
       - CRON_TIMEZONE=${CRON_TIMEZONE:-America/New_York}
       - TZ=${CRON_TIMEZONE:-America/New_York}
-      - CRON_MAIN_SCHEDULE=${CRON_MAIN_SCHEDULE:-0 0 0 * * *}
-      - CRON_FAILED_SCHEDULE=${CRON_FAILED_SCHEDULE:-0 0 */1 * * *}
-      - CRON_EMAIL_SCHEDULE=${CRON_EMAIL_SCHEDULE:-0 0 6 * * *}
+      - CRON_MAIN_SCHEDULE=${CRON_MAIN_SCHEDULE:-00:00}
+      - CRON_FAILED_SCHEDULE=${CRON_FAILED_SCHEDULE:-hourly}
+      - CRON_EMAIL_SCHEDULE=${CRON_EMAIL_SCHEDULE:-06:00}
       - REFRESH_QUEUE_CONCURRENCY=${REFRESH_QUEUE_CONCURRENCY:-3}
       - PARALLEL_SCRAPE_CONCURRENCY=${PARALLEL_SCRAPE_CONCURRENCY:-3}
       # Optional. Free Serper API key used to turn google.com/goto result links into real URLs (serper.dev).

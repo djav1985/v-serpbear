@@ -61,50 +61,57 @@ const isValidTimezone = (value) => {
 };
 const configuredTimezone = normalizeValue(process.env.CRON_TIMEZONE, DEFAULT_CRON_TIMEZONE);
 const CRON_TIMEZONE = isValidTimezone(configuredTimezone) ? configuredTimezone : DEFAULT_CRON_TIMEZONE;
-const CRON_MAIN_SCHEDULE = normalizeValue(process.env.CRON_MAIN_SCHEDULE, '0 0 0 * * *');
-const CRON_EMAIL_SCHEDULE = normalizeValue(process.env.CRON_EMAIL_SCHEDULE, '0 0 6 * * *');
-const CRON_FAILED_SCHEDULE = normalizeValue(process.env.CRON_FAILED_SCHEDULE, '0 0 */1 * * *');
+/**
+ * CRON_MAIN_SCHEDULE and CRON_EMAIL_SCHEDULE are times of day ("HH:MM", 24 hour, in CRON_TIMEZONE). The interval
+ * settings decide on which days a job runs at that time. A value that is not a valid time (for example an old
+ * cron expression) is logged and replaced by the default.
+ */
+const parseTimeOfDay = (name, value, fallback) => {
+   const normalized = normalizeValue(value, fallback);
+   const match = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(normalized);
+   if (!match) {
+      logger.warn(`CRON: ${name} must be a time like 06:30 (HH:MM, 24 hour); using ${fallback}.`, { value: normalized });
+      return parseTimeOfDay(name, fallback, fallback);
+   }
+   return { hour: Number(match[1]), minute: Number(match[2]) };
+};
+
+/** Builds a cron expression that fires at a time of day on the given days of the month and week */
+const cronAt = ({ hour, minute }, dayOfMonth = '*', dayOfWeek = '*') => `0 ${minute} ${hour} ${dayOfMonth} * ${dayOfWeek}`;
+
+const MAIN_TIME = parseTimeOfDay('CRON_MAIN_SCHEDULE', process.env.CRON_MAIN_SCHEDULE, '00:00');
+const EMAIL_TIME = parseTimeOfDay('CRON_EMAIL_SCHEDULE', process.env.CRON_EMAIL_SCHEDULE, '06:00');
+
+/** CRON_FAILED_SCHEDULE: how often failed scrapes are retried: hourly, daily (at CRON_MAIN_SCHEDULE) or never */
+const FAILED_MODES = ['hourly', 'daily', 'never'];
+const configuredFailedMode = normalizeValue(process.env.CRON_FAILED_SCHEDULE, 'hourly').toLowerCase();
+const FAILED_MODE = FAILED_MODES.includes(configuredFailedMode) ? configuredFailedMode : 'hourly';
+if (FAILED_MODE !== configuredFailedMode) {
+   logger.warn('CRON: CRON_FAILED_SCHEDULE must be hourly, daily or never; using hourly.', { value: configuredFailedMode });
+}
+
+const HOURLY_SCHEDULE = '0 0 * * * *';
 
 /**
- * Cron interval mapping - maps interval keys to cron expressions
+ * Scrape schedules, all at the CRON_MAIN_SCHEDULE time of day.
+ * other_day: odd days of the month (1, 3, ..., 31). Day 31 is included so month ends never leave a 3 day gap;
+ * the only irregularity is a back-to-back run on the 31st and the 1st (and 2 days after the 29th/30th).
  */
 const CRON_INTERVAL_MAP = {
-   hourly: CRON_FAILED_SCHEDULE,
-   daily: CRON_MAIN_SCHEDULE,
-   // Odd days of the month (1, 3, ..., 31). Day 31 is included so month ends never leave a 3 day gap;
-   // the only irregularity is a back-to-back run on the 31st and the 1st (and 2 days after the 29th/30th).
-   other_day: '0 0 0 1-31/2 * *',
-   daily_morning: CRON_EMAIL_SCHEDULE,
-   weekly: '0 0 0 * * 1',
-   monthly: '0 0 0 1 * *', // Run every first day of the month at 00:00 (midnight)
+   daily: cronAt(MAIN_TIME),
+   other_day: cronAt(MAIN_TIME, '1-31/2'),
+   weekly: cronAt(MAIN_TIME, '*', '1'),
+   monthly: cronAt(MAIN_TIME, '1', '*'),
 };
 
 /**
- * Replaces the day-of-month and day-of-week fields of a cron expression, keeping its time of day.
- * Accepts 5 or 6 field expressions (a 5 field one gets seconds = 0). Returns null if it cannot be parsed.
- */
-const withDayPattern = (expression, dayOfMonth, dayOfWeek) => {
-   const parts = expression.trim().split(/\s+/);
-   if (parts.length === 5) {
-      parts.unshift('0');
-   }
-   if (parts.length !== 6) {
-      return null;
-   }
-   parts[3] = dayOfMonth;
-   parts[5] = dayOfWeek;
-   return parts.join(' ');
-};
-
-/**
- * Email schedules. Daily emails use CRON_EMAIL_SCHEDULE. Weekly and monthly emails keep that same time of day
- * instead of midnight: the scrape runs at CRON_MAIN_SCHEDULE (midnight by default), so a report sent at the email
- * time sees that day's results, and it no longer starts at the same moment as the scrape.
+ * Email schedules, all at the CRON_EMAIL_SCHEDULE time of day. It is later than the scrape time so a report sent
+ * on a weekly or monthly day sees that day's results.
  */
 const NOTIFICATION_SCHEDULE_MAP = {
-   daily: CRON_EMAIL_SCHEDULE,
-   weekly: withDayPattern(CRON_EMAIL_SCHEDULE, '*', '1') || CRON_EMAIL_SCHEDULE,
-   monthly: withDayPattern(CRON_EMAIL_SCHEDULE, '1', '*') || CRON_EMAIL_SCHEDULE,
+   daily: cronAt(EMAIL_TIME),
+   weekly: cronAt(EMAIL_TIME, '*', '1'),
+   monthly: cronAt(EMAIL_TIME, '1', '*'),
 };
 
 /** Settings file the worker watches for schedule changes, and the debounce applied to its change events */
@@ -274,10 +281,10 @@ const runAppCronJobs = () => {
       const notifInterval = settings.notification_interval;
 
       const scrapeCronTime = scrapeInterval !== 'never'
-         ? normalizeValue(CRON_INTERVAL_MAP[scrapeInterval] || CRON_MAIN_SCHEDULE, CRON_MAIN_SCHEDULE)
+         ? CRON_INTERVAL_MAP[scrapeInterval] || CRON_INTERVAL_MAP.daily
          : null;
       const emailCronTime = notifInterval && notifInterval !== 'never'
-         ? normalizeValue(NOTIFICATION_SCHEDULE_MAP[notifInterval] || CRON_EMAIL_SCHEDULE, CRON_EMAIL_SCHEDULE)
+         ? NOTIFICATION_SCHEDULE_MAP[notifInterval] || NOTIFICATION_SCHEDULE_MAP.daily
          : null;
 
       const planKey = JSON.stringify([scrapeCronTime, emailCronTime]);
@@ -351,9 +358,9 @@ const runAppCronJobs = () => {
       logger.warn('CRON: Could not watch the settings directory; relying on the 30 minute safety check.', { error: error?.message || String(error) });
    }
 
-   // Run Failed scraping CRON using configured failed queue schedule
-   const failedCronTime = normalizeValue(CRON_FAILED_SCHEDULE, '0 0 */1 * * *');
-   scheduleJob('failed scrape retry', failedCronTime, async () => {
+   // Retry failed scrapes hourly or daily (CRON_FAILED_SCHEDULE); "never" schedules no retry job
+   const failedCronTime = FAILED_MODE === 'daily' ? CRON_INTERVAL_MAP.daily : HOURLY_SCHEDULE;
+   if (FAILED_MODE !== 'never') scheduleJob('failed scrape retry', failedCronTime, async () => {
       try {
          // Auto Retry is opt-in: skip the whole run unless scrape_retry is enabled in settings
          const settings = await getAppSettings();
@@ -384,7 +391,7 @@ const runAppCronJobs = () => {
 
    // Run Google Search Console Scraper on configured main schedule
    // Always run the CRON as the API endpoint will check for credentials per domain
-   const searchConsoleCRONTime = normalizeValue(CRON_MAIN_SCHEDULE, '0 0 0 * * *');
+   const searchConsoleCRONTime = CRON_INTERVAL_MAP.daily;
    scheduleJob('search console', searchConsoleCRONTime, () => {
       logger.info('CRON: Running Google Search Console Scraper.');
       makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/searchconsole', 'CRON: Search Console Scraper Result');
@@ -403,6 +410,7 @@ module.exports = {
    makeCronApiCall,
    getAppSettings,
    CRON_INTERVAL_MAP,
+   NOTIFICATION_SCHEDULE_MAP,
    normalizeValue,
    loadEnvFiles,
 };
