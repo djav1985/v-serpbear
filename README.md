@@ -47,12 +47,19 @@ The full list of changes is in the [changelog](./CHANGELOG.md). See [Update Serp
 **What this fork adds over [upstream SerpBear](https://github.com/towfiqi/serpbear)**
 
 - **Map pack tracking.** Flags keywords where your business is in Google's local top three. See [Business name and map pack detection](#business-name-and-map-pack-detection).
-- **Scrape strategy.** Choose how many result pages (1–10) are fetched per keyword, globally or per domain. This works around Google dropping `num=100`. See [Scrape strategy](#scrape-strategy).
-- **Per-domain scrapers.** Give each domain its own provider and API key, or use one global scraper.
-- **Scrape transparency.** The keyword details panel shows how many results were scraped, and `Not in First N` when a keyword is not found.
-- **White labelling.** Custom name and logo, applied without a rebuild.
+- **Per-domain scrapers.** Give each domain its own provider and API key, or use one global scraper. See [Per-domain scrapers](#per-domain-scrapers).
+- **Google redirect resolving.** `google.com/goto` result links become real URLs through Serper's free `/resolve` endpoint.
+- **More providers.** PrismCrawl and DataForSEO, on top of the ones upstream supports.
+- **Faster refreshes.** A parallel path for SerpApi and SearchApi, configurable concurrency limits and a per-domain refresh lock.
+- **Trend arrows.** Domain stats show up and down triangles against the previous refresh.
+- **Easier keyword adding.** One add-to-tracker bar for Discover and Ideas with a Desktop/Mobile toggle, tags and a location picker, plus a bulk Change Location action.
+- **Larger Search Console data.** Results are read in pages of up to 25,000 rows.
+- **Idea emails and digest throttling.** Email selected keyword ideas, with limits that keep digests and idea emails from flooding inboxes.
+- **Set the time of day.** Scrapes, retries and digests run at times you choose, in your own timezone.
 - **MCP server.** Read-only access to rankings, Search Console and ideas for AI assistants.
-- **Hardening and stability.** Current Node.js, encrypted stored keys, login and API-key throttling, layered retries, and keywords stuck in "updating" after a crash are reset on the next startup.
+- **White labelling.** Custom name and logo, applied without a rebuild.
+- **Security.** API-key and login lockouts, `TRUST_PROXY` support, encrypted stored keys and secrets redacted from logs.
+- **Database safety.** Migrations back up your database first, and a unique index on keywords merges duplicates.
 
 <br><br>
 
@@ -77,7 +84,7 @@ The full list of changes is in the [changelog](./CHANGELOG.md). See [Update Serp
 | --- | --- |
 | **Frontend and API** | Next.js 16 serving React pages, JSON endpoints and the MCP server from one codebase. |
 | **Database** | SQLite through a custom `better-sqlite3` dialect (`database/sqlite-dialect.js`), with Sequelize and Umzug for models and migrations. No other engine is supported. |
-| **Background workers** | A Node cron runner schedules scrapes, retries, Search Console refreshes and digests from cron expressions and a timezone setting. |
+| **Background workers** | A Node cron runner schedules scrapes, retries, Search Console refreshes and digests from the times of day and timezone you set. |
 | **Settings** | Scraper, SMTP and Google Ads credentials live in the Settings UI and are stored in `data/settings.json` (secrets encrypted with `SECRET`). |
 
 <br><br>
