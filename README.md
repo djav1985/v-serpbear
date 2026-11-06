@@ -109,6 +109,8 @@ cp .env.example .env
 docker compose up -d
 ```
 
+The image is published on [Docker Hub](https://hub.docker.com/r/vontainment/v-serpbear) as `vontainment/v-serpbear`: `latest` is the newest stable release, a version number such as `5.0.0` pins a release, and `beta` is the opt-in beta build.
+
 The app is served at <http://localhost:3030> (compose maps host port 3030 to container port 3000). Sign in with `USER` and `PASSWORD`, add a domain, then open **Settings → Scraper** to choose a provider and enter its API key.
 
 <br><br>

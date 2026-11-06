@@ -13,7 +13,7 @@ SerpBear checks where your domains rank on Google. Google blocks direct scraping
 
 Choose how to run it. Each guide has its own page:
 
-- [Deploy with Docker](Deploy-with-Docker): the simplest option, on your computer or a server.
+- [Deploy with Docker](Deploy-with-Docker): the simplest option, on your computer or a server. The image is on [Docker Hub](https://hub.docker.com/r/vontainment/v-serpbear).
 - [Deploy with Node.js](Deploy-with-Node.js): without Docker.
 - [Reverse Proxy and SSL](Reverse-Proxy-and-SSL): serve it on your own domain with HTTPS (Nginx or Traefik).
 - [Deploy to Coolify](Deploy-to-Coolify)

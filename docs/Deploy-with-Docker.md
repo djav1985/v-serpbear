@@ -1,6 +1,6 @@
 # Deploy with Docker
 
-This works the same on your own computer and on a server. It uses the image `vontainment/v-serpbear`.
+This works the same on your own computer and on a server. It uses the image [`vontainment/v-serpbear`](https://hub.docker.com/r/vontainment/v-serpbear) on Docker Hub, where you can also see the available tags: `latest` for the newest stable release, a version number such as `5.0.0` for a specific release, and `beta` for the opt-in beta build.
 
 ## Step 1: Install Docker
 
