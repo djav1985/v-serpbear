@@ -37,6 +37,8 @@ SerpBear is a full-stack Next.js application that tracks where your pages rank o
 
 The full list of changes is in the [changelog](./CHANGELOG.md). See [Updating](#updating) before you upgrade.
 
+---
+
 ## Features
 
 **What this fork adds over [upstream SerpBear](https://github.com/towfiqi/serpbear)**
