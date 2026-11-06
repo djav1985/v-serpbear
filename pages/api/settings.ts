@@ -39,7 +39,6 @@ const buildSettingsDefaults = (): SettingsType => {
       scrape_retry: false,
       scrape_strategy: 'basic' as ScrapeStrategy,
       scrape_pagination_limit: 5,
-      search_console: true,
       search_console_client_email: '',
       search_console_private_key: '',
       adwords_client_id: '',
@@ -72,10 +71,20 @@ const normalizeLegacySettings = (settings: Partial<SettingsType>): Partial<Setti
  */
 export const DERIVED_SETTINGS_FIELDS = ['version', 'timezone', 'available_scapers', 'search_console_integrated', 'failed_queue'] as const;
 
-/** Reads data/settings.json as stored (secrets still encrypted), upgrading legacy field names. */
-const readStoredSettingsFile = async (settingsPath: string): Promise<Partial<SettingsType>> => (
-   normalizeLegacySettings(await readSettingsFile(settingsPath))
-);
+/**
+ * Settings keys that were removed from the app. GET never returns them, a save never keeps them in data/settings.json,
+ * and migration 1781000000000-drop-removed-settings-keys deletes them from an existing file (it keeps its own copy
+ * of this list, because migrations run under plain Node). A PUT that still sends one is ignored, not rejected.
+ * To retire another key, add it here and to that migration.
+ */
+export const REMOVED_SETTINGS_KEYS = ['search_console', 'white_label_enabled', 'white_label_logo_file', 'platform_name'] as const;
+
+/** Reads data/settings.json as stored (secrets still encrypted), upgrading legacy field names and dropping removed keys. */
+const readStoredSettingsFile = async (settingsPath: string): Promise<Partial<SettingsType>> => {
+   const settings = normalizeLegacySettings(await readSettingsFile(settingsPath));
+   REMOVED_SETTINGS_KEYS.forEach((key) => { delete (settings as Record<string, unknown>)[key]; });
+   return settings;
+};
 
 /** Fields stored encrypted. A key present in a save is encrypted (an empty value clears it); an absent key keeps the stored value. */
 const SECRET_SETTINGS_FIELDS = [
@@ -106,17 +115,13 @@ const PERSISTED_SETTINGS_FIELDS = [
    'scrape_retry',
    'scrape_strategy',
    'scrape_pagination_limit',
-   'search_console',
    'keywordsColumns',
-   'white_label_enabled',
-   'white_label_logo_file',
-   'platform_name',
    ...SECRET_SETTINGS_FIELDS,
 ] as const;
 
 const SCRAPE_STRATEGIES = ['basic', 'custom'];
 const MAX_PAGINATION_LIMIT = 10;
-const BOOLEAN_SETTINGS = ['scrape_retry', 'search_console'];
+const BOOLEAN_SETTINGS = ['scrape_retry'];
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
 
 /**
@@ -269,6 +274,7 @@ const updateSettings = async (req: NextApiRequest, res: NextApiResponse) => {
                : ((existingSettings[key] as string | undefined) ?? '');
          });
          DERIVED_SETTINGS_FIELDS.forEach((field) => { delete merged[field]; });
+         REMOVED_SETTINGS_KEYS.forEach((key) => { delete merged[key]; });
 
          await atomicWriteFile(`${process.cwd()}/data/settings.json`, JSON.stringify(merged), 'utf-8');
       });

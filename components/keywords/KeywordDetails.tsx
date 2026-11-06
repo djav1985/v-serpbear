@@ -16,11 +16,6 @@ type KeywordDetailsProps = {
    closeDetails: () => void
 }
 
-// Providers return 10 organic results per page in this app; used only to label skipped position ranges as pages.
-const RESULTS_PER_PAGE = 10;
-
-type ResultSegment = { type: 'result', item: KeywordLastResult } | { type: 'skipped', from: number, to: number };
-
 const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
    const updatedDate = keyword.lastUpdated ? formatInZone(keyword.lastUpdated, { month: 'long', day: 'numeric', year: 'numeric' }, getAppTimezone()) : '';
    const [chartTime, setChartTime] = useState<string>('30');
@@ -51,38 +46,9 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
 
    const chartData = useMemo(() => generateTheChartData(keywordHistory, chartTime), [keywordHistory, chartTime]);
 
-   const { scrapedCount, skippedCount, resultSegments } = useMemo(() => {
-      const results = Array.isArray(keywordSearchResult) ? keywordSearchResult : [];
-      const scraped = results.filter((r) => !r.skipped).length;
-      const skipped = results.filter((r) => r.skipped).length;
-
-      const segs: ResultSegment[] = [];
-      let skippedStart: number | null = null;
-      let skippedEnd: number = 0;
-
-      for (let i = 0; i < results.length; i += 1) {
-         const item = results[i];
-         if (item.skipped) {
-            if (skippedStart === null) { skippedStart = item.position; }
-            skippedEnd = item.position;
-         } else {
-            if (skippedStart !== null) {
-               segs.push({ type: 'skipped', from: skippedStart, to: skippedEnd });
-               skippedStart = null;
-            }
-            segs.push({ type: 'result', item });
-         }
-      }
-      if (skippedStart !== null) {
-         segs.push({ type: 'skipped', from: skippedStart, to: skippedEnd });
-      }
-
-      return { scrapedCount: scraped, skippedCount: skipped, resultSegments: segs };
-   }, [keywordSearchResult]);
-
-   // With variable page sizes the max scraped position may be < 100.
-   // When scrapedCount > 0 we always show the actual count (covers both "no gaps" and "has gaps").
-   // The 'No Results' fallback only triggers when keywordSearchResult is empty (no data yet).
+   // Stored results are contiguous, so the count is the number of results checked.
+   // The 'No Results' fallback only triggers when there are no results yet.
+   const scrapedCount = Array.isArray(keywordSearchResult) ? keywordSearchResult.length : 0;
    const notFoundLabel = scrapedCount > 0 ? `Not in First ${scrapedCount}` : 'No Results';
 
    useLayoutEffect(() => {
@@ -93,7 +59,7 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
             inline: 'start',
          });
       }
-   }, [resultSegments, keyword.position]);
+   }, [keywordSearchResult, keyword.position]);
 
    return (
        <div className="keywordDetails fixed w-full h-dvh top-0 left-0 z-[99999]" onClick={(e) => closeOnBGClick(e, closeDetails)} data-testid="keywordDetails">
@@ -189,45 +155,24 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
                         <span className=' text-xs text-gray-500'>{updatedDate}</span>
                      </div>
                      <div className='keywordDetails__section__results styled-scrollbar overflow-y-auto' ref={searchResultContainer}>
-                        {skippedCount > 0 && (
-                           <div className='mb-4 p-3 rounded bg-blue-50 border border-blue-100 text-xs text-blue-600'>
-                              {scrapedCount} result{scrapedCount !== 1 ? 's' : ''} scraped
-                              {' • '}
-                              {skippedCount} position{skippedCount !== 1 ? 's' : ''} skipped
-                              {' (scrape strategy limits pages checked)'}
-                           </div>
-                        )}
-                        {resultSegments.length > 0 && resultSegments.map((seg) => {
-                           if (seg.type === 'skipped') {
-                              const pageFrom = Math.ceil(seg.from / RESULTS_PER_PAGE);
-                              const pageTo = Math.ceil(seg.to / RESULTS_PER_PAGE);
-                              const count = seg.to - seg.from + 1;
-                              const pagesLabel = pageFrom === pageTo ? `Page ${pageFrom}` : `Pages ${pageFrom}–${pageTo}`;
-                              return (
-                                 <div key={`skipped-${seg.from}`}
-                                 className={'leading-6 mb-4 mr-3 px-3 py-2 text-sm rounded '
-                                 + 'bg-gray-50 border border-dashed border-gray-200 text-gray-400 italic'}>
-                                    {pagesLabel}: {count} result{count !== 1 ? 's' : ''} skipped
-                                 </div>
-                              );
-                           }
+                        {scrapedCount > 0 && keywordSearchResult.map((item) => {
                            const { position } = keyword;
-                           const segUrl = safeHttpUrl(seg.item.url);
-                           const domainExist = position > 0 && seg.item.position === position;
+                           const segUrl = safeHttpUrl(item.url);
+                           const domainExist = position > 0 && item.position === position;
                            return (
                               <div
                               ref={domainExist ? searchResultFound : null}
-                              className={`leading-6 mb-4 mr-3 p-3 text-sm break-all pr-3 rounded 
+                              className={`leading-6 mb-4 mr-3 p-3 text-sm break-all pr-3 rounded
                               ${domainExist ? ' bg-green-50 border border-green-200' : ''}`}
-                              key={seg.item.url + seg.item.position}>
+                              key={item.url + item.position}>
                                  <h4 className='font-semibold text-blue-700'>
                                     {segUrl
-                                       ? <a href={segUrl} target="_blank" rel='noreferrer'>{`${seg.item.position}. ${seg.item.title}`}</a>
-                                       : `${seg.item.position}. ${seg.item.title}`}
+                                       ? <a href={segUrl} target="_blank" rel='noreferrer'>{`${item.position}. ${item.title}`}</a>
+                                       : `${item.position}. ${item.title}`}
                                  </h4>
                                  {segUrl
-                                    ? <a className=' text-green-900' href={segUrl} target="_blank" rel='noreferrer'>{seg.item.url}</a>
-                                    : <span className=' text-green-900'>{seg.item.url}</span>}
+                                    ? <a className=' text-green-900' href={segUrl} target="_blank" rel='noreferrer'>{item.url}</a>
+                                    : <span className=' text-green-900'>{item.url}</span>}
                               </div>
                            );
                         })}

@@ -10,6 +10,7 @@ import { readdirSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSyn
 import os from 'os';
 import path from 'path';
 import migration from '../../database/migrations/1779000000000-replace-smart-scrape-strategy.js';
+import dropMigration from '../../database/migrations/1781000000000-drop-removed-settings-keys.js';
 
 // better-sqlite3 is mocked under jest, so the SQL is checked through a recording query interface
 const makeQueryInterface = ({ tables = ['domain'], columns = ['ID', 'domain', 'scrape_strategy'], smartRows = 2 } = {}) => {
@@ -68,11 +69,19 @@ describe('replace-smart-scrape-strategy.migration', () => {
     expect(readdirSync(path.join(dir, 'data'))).toEqual(['settings.json']);
   });
 
-  it('leaves settings.json alone when the global strategy is not smart, and copes with a missing file', async () => {
+  it('leaves settings.json alone when nothing needs changing, copes with a missing file, and drops removed settings keys once', async () => {
     await expect(migration.up({ context: makeQueryInterface().queryInterface })).resolves.toBeUndefined();
 
     writeSettings({ scrape_strategy: 'custom' });
     await migration.up({ context: makeQueryInterface().queryInterface });
+    expect(readSettings()).toEqual({ scrape_strategy: 'custom' });
+
+    // The removed-keys migration (1781000000000) copes with a missing file and is idempotent
+    await expect(dropMigration.up()).resolves.toBeUndefined();
+    writeSettings({ scrape_strategy: 'custom', search_console: true, white_label_enabled: true, white_label_logo_file: 'logo.png', platform_name: 'Acme' });
+    await dropMigration.up();
+    expect(readSettings()).toEqual({ scrape_strategy: 'custom' });
+    await dropMigration.up();
     expect(readSettings()).toEqual({ scrape_strategy: 'custom' });
   });
 

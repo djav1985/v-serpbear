@@ -23,6 +23,7 @@ import { Sequelize } from 'sequelize';
 import { toDomainSlug } from '../../utils/domainSlug';
 import { toHistoryDateKey } from '../../utils/historyDateKey';
 import historyDateKeyMigration from '../../database/migrations/1773000000000-pad-history-date-keys.js';
+import skippedLastResultMigration from '../../database/migrations/1790000000001-strip-skipped-lastresult-entries.js';
 import ideasSlugMigration from '../../database/migrations/1715920000000-update-ideas-domain-slug.js';
 import notificationEmailMigration from '../../database/migrations/1774000000000-copy-global-notification-email-to-domains.js';
 import keywordUniqueMigration from '../../database/migrations/1775000000000-keyword-unique-tracking-target.js';
@@ -318,7 +319,11 @@ describe('notification-email-copy.migration.test.ts', () => {
     type QueryCall = { sql: string, options?: Record<string, any> };
 
     // A fake query interface that records the SQL it receives and answers the table-existence check
-    const makeQueryInterface = (existingTables: string[], rows: unknown[] = []) => {
+    const makeQueryInterface = (
+      existingTables: string[],
+      rows: unknown[] = [],
+      columns: Record<string, unknown> = { history: {}, history7d: {}, lastResult: {} },
+    ) => {
       const calls: QueryCall[] = [];
       const query = jest.fn(async (sql: string, options?: Record<string, any>) => {
         calls.push({ sql, options });
@@ -326,12 +331,12 @@ describe('notification-email-copy.migration.test.ts', () => {
           const match = /name='(\w+)'/.exec(sql);
           return [existingTables.filter((table) => table === match?.[1]).map((name) => ({ name }))];
         }
-        if (sql.startsWith('SELECT ID, history')) { return rows; }
+        if (sql.startsWith('SELECT ID, history') || sql.startsWith('SELECT ID, lastResult')) { return rows; }
         return [{ changes: 2 }];
       });
       const queryInterface = {
         sequelize: { query, transaction: async (fn: (t: unknown) => Promise<unknown>) => fn({}), constructor: { QueryTypes: { SELECT: 'SELECT' } } },
-        describeTable: jest.fn(async () => ({ history: {}, history7d: {} })),
+        describeTable: jest.fn(async () => columns),
       };
       return { queryInterface, calls };
     };
@@ -380,7 +385,7 @@ describe('notification-email-copy.migration.test.ts', () => {
       expect(updates(missingTable.calls)).toHaveLength(0);
     });
 
-    it('history padding migration checks the keyword table through sqlite_master and pads stored rows', async () => {
+    it('keyword JSON migrations check the keyword table through sqlite_master and rewrite only the rows that change', async () => {
       const missing = makeQueryInterface([]);
       await expect(historyDateKeyMigration.up({ context: missing.queryInterface })).resolves.toBeUndefined();
       expect(missing.queryInterface.describeTable).not.toHaveBeenCalled();
@@ -390,6 +395,91 @@ describe('notification-email-copy.migration.test.ts', () => {
       const update = present.calls.find((call) => call.sql.startsWith('UPDATE keyword'));
       expect(JSON.parse(update?.options?.replacements.history)).toEqual({ '2026-01-05': 3 });
       expect(update?.options?.replacements.id).toBe(7);
+
+      // Skipped lastResult placeholders: a missing table or missing column is skipped without reading rows
+      const noTable = makeQueryInterface([], [{ ID: 1, lastResult: '[{"skipped":true}]' }]);
+      await expect(skippedLastResultMigration.up({ context: noTable.queryInterface })).resolves.toBeUndefined();
+      expect(noTable.calls.some((call) => call.sql.startsWith('SELECT ID, lastResult'))).toBe(false);
+
+      const noColumn = makeQueryInterface(['keyword'], [{ ID: 1, lastResult: '[{"skipped":true}]' }], { history: {} });
+      await expect(skippedLastResultMigration.up({ context: noColumn.queryInterface })).resolves.toBeUndefined();
+      expect(noColumn.calls.some((call) => call.sql.startsWith('SELECT ID, lastResult'))).toBe(false);
+
+      // Removes skipped entries, keeps real ones, leaves invalid, empty, null and non-array values untouched
+      const realEntry = { position: 3, url: 'https://a.example/', title: 'A' };
+      const legacyRows = [
+        { ID: 1, lastResult: JSON.stringify([realEntry, { position: 0, url: '', title: '', skipped: true }]) },
+        { ID: 2, lastResult: JSON.stringify([{ position: 1, url: 'https://b.example/', title: 'B' }]) },
+        { ID: 3, lastResult: '[{"position":' },
+        { ID: 4, lastResult: '{"skipped":true}' },
+        { ID: 5, lastResult: '' },
+        { ID: 6, lastResult: null },
+        { ID: 7, lastResult: JSON.stringify([{ position: 0, url: '', title: '', skipped: true }]) },
+      ];
+      const legacy = makeQueryInterface(['keyword'], legacyRows);
+      await skippedLastResultMigration.up({ context: legacy.queryInterface });
+      const legacyUpdates = legacy.calls.filter((call) => call.sql.startsWith('UPDATE keyword'));
+      expect(legacyUpdates.map((call) => call.options?.replacements.id)).toEqual([1, 7]);
+      expect(legacyUpdates[0].options?.replacements.lastResult).toBe(JSON.stringify([realEntry]));
+      expect(legacyUpdates[1].options?.replacements.lastResult).toBe('[]');
+
+      // Second run over the cleaned rows changes nothing
+      const cleaned = makeQueryInterface(['keyword'], [
+        { ID: 1, lastResult: legacyUpdates[0].options?.replacements.lastResult },
+        { ID: 2, lastResult: legacyRows[1].lastResult },
+        { ID: 3, lastResult: legacyRows[2].lastResult },
+      ]);
+      await skippedLastResultMigration.up({ context: cleaned.queryInterface });
+      expect(cleaned.calls.filter((call) => call.sql.startsWith('UPDATE keyword'))).toHaveLength(0);
+
+      // Real SQLite file: the rows change, a backup is written once, and a second run leaves the file alone
+      const dbDir = mkdtempSync(path.join(os.tmpdir(), 'skipped-lastresult-'));
+      try {
+        const scriptResult = execFileSync(process.execPath, ['-e', `
+          const fs = require('fs');
+          const path = require('path');
+          const { Sequelize } = require(${JSON.stringify(path.resolve(__dirname, '../../node_modules/sequelize'))});
+          const sqliteDialect = require(${JSON.stringify(path.resolve(__dirname, '../../database/sqlite-dialect.js'))});
+          const mig = require(${JSON.stringify(path.resolve(__dirname, '../../database/migrations/1790000000001-strip-skipped-lastresult-entries.js'))});
+          const dir = ${JSON.stringify(dbDir)};
+          const seq = new Sequelize({ dialect: 'sqlite', dialectModule: sqliteDialect, storage: path.join(dir, 'test.sqlite'), logging: false });
+          const qi = seq.getQueryInterface();
+          const backups = () => fs.readdirSync(dir).filter((name) => name.includes('.bak-')).length;
+          (async () => {
+            try {
+              await seq.query('CREATE TABLE keyword (ID INTEGER PRIMARY KEY AUTOINCREMENT, keyword VARCHAR(255), lastResult TEXT)');
+              for (const value of ${JSON.stringify(legacyRows.map((row) => row.lastResult))}) {
+                await seq.query('INSERT INTO keyword (keyword, lastResult) VALUES (:value, :lastResult)', { replacements: { value: 'k', lastResult: value } });
+              }
+              await mig.up({ context: qi });
+              const afterFirst = await seq.query('SELECT ID, lastResult FROM keyword ORDER BY ID', { type: 'SELECT' });
+              const backupsAfterFirst = backups();
+              await mig.up({ context: qi });
+              const afterSecond = await seq.query('SELECT ID, lastResult FROM keyword ORDER BY ID', { type: 'SELECT' });
+              console.log('RESULT' + JSON.stringify({ afterFirst, afterSecond, backupsAfterFirst, backupsAfterSecond: backups() }));
+            } finally {
+              await seq.close();
+            }
+          })().catch((error) => { console.error(error); process.exit(1); });
+        `], { encoding: 'utf8' });
+        const line = scriptResult.split('\n').find((text) => text.startsWith('RESULT'));
+        const sqliteResult = JSON.parse(line!.slice('RESULT'.length));
+
+        expect(sqliteResult.afterFirst.map((row: { lastResult: string }) => row.lastResult)).toEqual([
+          JSON.stringify([realEntry]),
+          legacyRows[1].lastResult,
+          legacyRows[2].lastResult,
+          legacyRows[3].lastResult,
+          legacyRows[4].lastResult,
+          legacyRows[5].lastResult,
+          '[]',
+        ]);
+        expect(sqliteResult.afterSecond).toEqual(sqliteResult.afterFirst);
+        expect(sqliteResult.backupsAfterFirst).toBe(1);
+        expect(sqliteResult.backupsAfterSecond).toBe(1);
+      } finally {
+        rmSync(dbDir, { recursive: true, force: true });
+      }
     });
   });
 });

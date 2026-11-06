@@ -97,9 +97,6 @@
     "uuid": "^11.1.0",
     "ws": "^8.21.0"
   },
-  "optionalDependencies": {
-    "pg-hstore": "^2.3.4"
-  },
   "overrides": {
     "@istanbuljs/load-nyc-config": {
       "js-yaml": "^3.15.2"

@@ -304,7 +304,6 @@ describe('GET /api/settings and configuration requirements', () => {
       scrape_interval: '',
       scrape_delay: '',
       scrape_retry: false,
-      search_console: true,
       search_console_client_email: '',
       search_console_private_key: '',
       search_console_integrated: false,
@@ -463,6 +462,7 @@ describe('PUT /api/settings keeps secrets that are left out of the payload', () 
   const originalSecret = process.env.SECRET;
   const mockStoredFile = { current: '{}' };
   let handler: any;
+  let getAppSettings: any;
   let verifyUserInstance: jest.Mock;
   let writeMock: jest.Mock;
   let cryptr: any;
@@ -487,7 +487,9 @@ describe('PUT /api/settings keeps secrets that are left out of the payload', () 
     }));
     jest.doMock('../../utils/settingsFile', () => ({ ...jest.requireActual('../../utils/settingsFile'), withSettingsLock: (section: () => Promise<unknown>) => section() }));
     jest.isolateModules(() => {
-      handler = require('../../pages/api/settings').default;
+      const settingsModule = require('../../pages/api/settings');
+      handler = settingsModule.default;
+      getAppSettings = settingsModule.getAppSettings;
       verifyUserInstance = require('../../utils/verifyUser').default;
       writeMock = require('../../utils/atomicWrite').atomicWriteFile;
     });
@@ -530,8 +532,13 @@ describe('PUT /api/settings keeps secrets that are left out of the payload', () 
     expect(cryptr.decrypt(saved.adwords_refresh_token)).toBe('stored-refresh-token');
   });
 
-  it('does not persist the derived fields that GET adds to the settings', async () => {
-    const payload = { scraper_type: 'serper', version: '9.9.9', timezone: 'UTC', available_scapers: [{ id: 'x' }], search_console_integrated: true, failed_queue: [1] };
+  it('does not persist the derived fields that GET adds, and drops a removed search_console key from the stored file', async () => {
+    const removedKeys = { search_console: true, white_label_enabled: true, white_label_logo_file: 'logo.png', platform_name: 'Acme' };
+    mockStoredFile.current = JSON.stringify({ ...JSON.parse(mockStoredFile.current), ...removedKeys });
+    const storedSettings = await getAppSettings();
+    Object.keys(removedKeys).forEach((key) => expect(storedSettings).not.toHaveProperty(key));
+
+    const payload = { scraper_type: 'serper', ...removedKeys, version: '9.9.9', timezone: 'UTC', available_scapers: [{ id: 'x' }], search_console_integrated: true, failed_queue: [1] };
     const req = { method: 'PUT', body: { settings: payload }, headers: {} } as unknown as NextApiRequest;
     const res = createMockResponse();
 
@@ -540,6 +547,7 @@ describe('PUT /api/settings keeps secrets that are left out of the payload', () 
     expect(res.status).toHaveBeenCalledWith(200);
     const saved = JSON.parse(writeMock.mock.calls[0][1]);
     expect(saved.scraper_type).toBe('serper');
+    Object.keys(removedKeys).forEach((key) => expect(saved).not.toHaveProperty(key));
     ['version', 'timezone', 'available_scapers', 'search_console_integrated', 'failed_queue'].forEach((field) => {
       expect(saved).not.toHaveProperty(field);
     });

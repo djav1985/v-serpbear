@@ -42,13 +42,6 @@ const SearchConsoleSettings = ({ settings, settingsError, updateSettings }:Searc
             </div>
          )}
 
-         {/* <div className="settings__section__input mb-5">
-            <ToggleField
-            label='Enable Goolge Search Console'
-            value={settings?.scrape_retry ? 'true' : '' }
-            onChange={(val) => updateSettings('scrape_retry', val)}
-            />
-         </div> */}
          <div className="settings__section__input mb-4 flex justify-between items-center w-full">
             <InputField
             label='Search Console Client Email'

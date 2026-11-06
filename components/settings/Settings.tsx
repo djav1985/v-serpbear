@@ -36,7 +36,6 @@ const createDefaultSettings = (platformName: string): SettingsType => ({
    smtp_password: '',
    notification_email_from: '',
    notification_email_from_name: platformName,
-   search_console: true,
    search_console_client_email: '',
    search_console_private_key: '',
    keywordsColumns: ['Best', 'History', 'Volume', 'Search Console'],

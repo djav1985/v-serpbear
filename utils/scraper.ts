@@ -280,17 +280,10 @@ const scrapeSinglePage = async (
    return failure(lastError);
 };
 
-const buildFullResults = (scrapedResults: SearchResult[]): KeywordLastResult[] => {
-   if (scrapedResults.length === 0) { return []; }
-   const maxPosition = Math.max(...scrapedResults.map((r) => r.position));
-   const scrapedByPos = new Map(scrapedResults.map((r) => [r.position, r]));
-   const full: KeywordLastResult[] = [];
-   for (let i = 1; i <= maxPosition; i += 1) {
-      const found = scrapedByPos.get(i);
-      full.push(found ? { position: i, url: found.url, title: found.title } : { position: i, url: '', title: '', skipped: true });
-   }
-   return full;
-};
+// assemblePositions numbers the results 1..N with no gaps, so every entry is a real scraped result.
+const buildFullResults = (scrapedResults: SearchResult[]): KeywordLastResult[] => (
+   scrapedResults.map((r) => ({ position: r.position, url: r.url, title: r.title }))
+);
 
 const resolveStrategy = (
    settings: SettingsType,

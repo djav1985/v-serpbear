@@ -310,7 +310,7 @@ const getKeywordSearchResults = async (req: NextApiRequest, res: NextApiResponse
       const scrapeResult = await scrapeKeywordWithStrategy(dummyKeyword, settings);
       if (scrapeResult && !scrapeResult.error) {
          const searchResult = {
-            results: scrapeResult.result.filter((r) => !r.skipped),
+            results: scrapeResult.result,
             keyword: scrapeResult.keyword,
             position: scrapeResult.position,
             country: req.query.country as string,

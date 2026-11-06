@@ -73,7 +73,6 @@ type KeywordLastResult = {
    position: number,
    url: string,
    title: string,
-   skipped?: boolean,
 }
 
 type KeywordLocalResult = {
@@ -137,7 +136,6 @@ type SettingsType = {
    scrape_pagination_limit?: number,
    failed_queue?: number[]
    version?: string,
-   search_console: boolean,
    search_console_client_email: string,
    search_console_private_key: string,
    search_console_integrated?: boolean,
@@ -147,9 +145,6 @@ type SettingsType = {
    adwords_developer_token?: string,
    adwords_account_id?: string,
    keywordsColumns: string[]
-   white_label_enabled?: boolean,
-   white_label_logo_file?: string,
-   platform_name?: string,
 }
 
 type KeywordSCDataChild = {

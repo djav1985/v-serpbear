@@ -42,7 +42,6 @@ const buildSettings = (overrides: Partial<SettingsType> = {}): SettingsType => (
    smtp_tls_servername: '',
    smtp_username: 'smtp-user',
    smtp_password: 'smtp-pass',
-   search_console: true,
    search_console_client_email: '',
    search_console_private_key: '',
    keywordsColumns: ['Best', 'History', 'Volume', 'Search Console'],

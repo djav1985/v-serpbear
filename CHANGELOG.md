@@ -26,13 +26,16 @@ All notable changes to this project will be documented in this file. Releases no
 - README: the `API contract` section is now `External API` and lists the endpoints reachable with the API key.
 - `POST /api/domains` now strips a leading `www.` from hostnames, matching the Add Domain form. A new migration renames existing `www.` domains (skipped when the bare domain already exists).
 - Keywords and locations are sent to scrapers exactly as stored; the old `decodeURIComponent` step (which corrupted values such as `50%25 off`) is removed; the same migration decodes any percent-encoded values already stored.
+- The unused global `search_console`, `white_label_enabled`, `white_label_logo_file` and `platform_name` settings were removed; Search Console is controlled by credentials only, and white-label is controlled only by the `NEXT_PUBLIC_WHITE_LABEL`, `NEXT_PUBLIC_PLATFORM_NAME` and `WHITE_LABEL_LOGO_FILE` environment variables. Old `settings.json` files that still contain these keys are cleaned up: migration `1781000000000-drop-removed-settings-keys` deletes them, `GET /api/settings` never returns them, and a save drops them. A `PUT /api/settings` that sends them is accepted and the keys are ignored.
 
 ### Fixed
+- The Scraping Frequency, Keyword Scrape Delay and Notification Frequency settings no longer say they need a server or Docker restart: changes to the scrape and notification schedules are applied live by the cron worker, and the scrape delay is read on every refresh.
 - A domain scraper override without its own key no longer sends the global scraper's API key to a different provider.
 - Keywords whose domain override key cannot be decrypted now leave the retry queue instead of being retried every hour.
 - `scrape_delay` is now one per-domain spacing between requests on both the parallel and sequential paths (it was ignored on the parallel path and applied per worker, about 3x too fast, on the sequential one).
 - SerpApi sends `gl` in lowercase like the other providers. A `null` provider response now gives a clear error. Serper logs a warning that it has no mobile option. A corrupt stored `history` value is logged and no longer overwritten by the next refresh.
 - The retry queue file is created inside its lock, so two first refreshes can no longer drop a keyword.
+- Migration `1790000000001-strip-skipped-lastresult-entries` removes the legacy `skipped` placeholder entries from `keyword.lastResult`, so old rows no longer show blank result rows before the next refresh.
 - `keyword.volume` is now an INTEGER on upgraded installs (new migration `1780000000000`), so volume ordering is numeric. The same migration sets the `country` default to `US`, matching the model.
 - Indexes are created on fresh installs (the index migrations ran before the tables existed). A failing unique index at startup is logged instead of stopping the app. The `www.` domain migration no longer aborts on colliding rows, and the Smart-strategy migration writes `settings.json` atomically.
 - Cron: the worker honours `APP_URL` for its own calls (also passed through `docker-compose.yml`), keeps its schedule when `settings.json` is unreadable, no longer writes `settings.json`, logs a clear message when `SECRET` is unset, and "every other day" now runs on odd days of the month, including the 31st.
@@ -87,6 +90,9 @@ All notable changes to this project will be documented in this file. Releases no
 - The global Notification Emails setting. Per-domain notification emails are used instead (see Changed).
 - The per-domain `notification_interval` column (migration `1777000000000`); the global notification interval setting is used.
 - The `moment`, `eslint-config-next` and `@humanfs/node` dependencies.
+- The unused `scrape_smart_full_fallback` column on the `domain` table, left over from the Smart strategy. New migration `1790000000000-drop-domain-scrape-smart-full-fallback` drops it (skipped when the column is missing, and the database is backed up first).
+- The `skipped` placeholder entries in keyword results. Pages are fetched in order and positions are numbered without gaps, so stored results only hold scraped entries. The details panel no longer draws skipped blocks or the scraped/skipped banner; the "Not in First N" count is unchanged. Results stored by older versions may still show placeholder rows until the keyword is refreshed.
+- The unused `pg-hstore` optional dependency. The app runs on SQLite only.
 
 ### Bug Fixes
 - A corrupt retry queue file no longer takes the app down. It is renamed once to `failed_queue.json.corrupt-<time>` and the queue continues empty.
