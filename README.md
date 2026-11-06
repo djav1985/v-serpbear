@@ -19,8 +19,7 @@ SerpBear is a full-stack Next.js application that tracks where your pages rank o
 - [Supported SERP data providers](#supported-serp-data-providers)
 - [Configuration reference](#configuration-reference)
 - [Feature deep dive](#feature-deep-dive)
-- [External API](#external-api)
-- [MCP server](#mcp-server)
+- [API and MCP server](#api-and-mcp-server)
 - [Development workflow](#development-workflow)
 - [Continuous integration](#continuous-integration)
 - [Project structure](#project-structure)
@@ -44,7 +43,7 @@ SerpBear is a full-stack Next.js application that tracks where your pages rank o
 - **A clearer average position.** One whole number, the same on the dashboard card and in the email. Keywords that failed their last scrape are left out, a keyword that ranked before and fell out of the results counts at 10 × pages scraped, and map pack keywords count at their best spot. See [How the average position is calculated](#how-the-average-position-is-calculated).
 - **Smarter keyword adding.** Discover and Ideas share one add-to-tracker bar with a Desktop/Mobile toggle, tags and a location picker. Keywords that are already tracked are skipped, and the Tracking tab can change the location of many keywords at once.
 
-Back up `data/` before upgrading. The full list of changes is in the [changelog](./CHANGELOG.md).
+The full list of changes is in the [changelog](./CHANGELOG.md). See [Updating](#updating) before you upgrade.
 
 ## Features
 
@@ -54,8 +53,7 @@ Back up `data/` before upgrading. The full list of changes is in the [changelog]
 - **Scrape strategy.** Choose how many result pages (1–10) are fetched per keyword, globally or per domain. This works around Google dropping `num=100`. See [Scrape strategy](#scrape-strategy).
 - **Per-domain scrapers.** Give each domain its own provider and API key, or use one global scraper.
 - **Scrape transparency.** The keyword details panel shows how many results were scraped, and `Not in First N` when a keyword is not found.
-- **Google redirect resolving.** Optional [Serper](https://serper.dev) lookup turns `google.com/goto` result links into real URLs.
-- **White labelling.** Custom name and logo, applied without a rebuild. Environment changes need a restart.
+- **White labelling.** Custom name and logo, applied without a rebuild.
 - **MCP server.** Read-only access to rankings, Search Console and ideas for AI assistants.
 - **Hardening and stability.** Current Node.js, encrypted stored keys, login and API-key throttling, layered retries, and keywords stuck in "updating" after a crash are reset on the next startup.
 
@@ -69,9 +67,8 @@ Back up `data/` before upgrading. The full list of changes is in the [changelog]
 | **Keyword research** | Search volumes and suggestions from a Google Ads account. |
 | **Search Console enrichment** | Impressions, clicks and CTR next to your rankings. |
 | **Email digests** | Branded summaries of winners, losers and visits, opening with a tracker summary (tracked keywords, average position, map pack count). |
-| **Reliable domain stats** | Background jobs and keyword changes save domain averages and map pack totals. See [How the average position is calculated](#how-the-average-position-is-calculated). |
 | **Progressive web app** | Install the dashboard on iOS or Android. |
-| **API and MCP** | Manage and read data programmatically. |
+| **REST API** | Manage and read data programmatically (see [API and MCP server](#api-and-mcp-server)). |
 
 **Architecture**
 
@@ -80,7 +77,6 @@ Back up `data/` before upgrading. The full list of changes is in the [changelog]
 | **Frontend and API** | Next.js 16 serving React pages, JSON endpoints and the MCP server from one codebase. |
 | **Database** | SQLite through a custom `better-sqlite3` dialect (`database/sqlite-dialect.js`), with Sequelize and Umzug for models and migrations. No other engine is supported. |
 | **Background workers** | A Node cron runner schedules scrapes, retries, Search Console refreshes and digests from cron expressions and a timezone setting. |
-| **Refresh queue** | Per-domain locking prevents two refreshes of one domain at once, with configurable concurrency across domains. |
 | **Settings** | Scraper, SMTP and Google Ads credentials live in the Settings UI and are stored in `data/settings.json` (secrets encrypted with `SECRET`). |
 
 ---
@@ -155,7 +151,7 @@ Serper has no mobile option. In a refresh, a mobile keyword that has a matching 
 
 A domain can use its own provider without changing the global default. Open **Domains**, click a domain, and switch to the **Scraper** tab. Pick a provider (or **System Scraper** to inherit the global one) and enter the API key. Stored keys are encrypted.
 
-Provider choice also affects speed. A refresh uses the faster parallel path only when every keyword in the run uses SerpApi or SearchApi. One keyword on any other provider moves the whole run to the sequential path (see [Performance, integrations and logging](#performance-integrations-and-logging)).
+Provider choice also affects speed: only SerpApi and SearchApi runs use the faster parallel path (see [Performance, integrations and logging](#performance-integrations-and-logging)).
 
 ### Business name and map pack detection
 
@@ -255,7 +251,6 @@ How the settings map onto the schedule:
 - `scrape_interval`: `daily` uses `CRON_MAIN_SCHEDULE`. `other_day` runs at midnight on odd days of the month, `weekly` at midnight on Mondays, and `monthly` at midnight on the 1st. `never` turns scheduled scraping off.
 - `notification_interval`: `daily`, `weekly` and `monthly` use `CRON_EMAIL_SCHEDULE` as described above. `never` turns digests off.
 - Settings changes apply without a restart. The worker watches `data/settings.json` and re-checks it every 30 minutes. `CRON_*` variables are read at startup, so they need a restart.
-- The worker calls the app with `APIKEY` as a Bearer token. Without `APIKEY`, each scheduled call is skipped with a warning.
 
 Expressions are normalised at runtime (quotes and stray whitespace are stripped). An invalid expression is logged and its job is not scheduled.
 
@@ -285,7 +280,6 @@ Expressions are normalised at runtime (quotes and stray whitespace are stripped)
 
 Click a keyword row for the full SERP snapshot, the rank-history chart and the local results.
 
-- **Local Search Results.** Your business in green, others in yellow (see [Business name](#business-name-and-map-pack-detection)).
 - **Google Search Result.** Your result is highlighted green, matched by position value so non-contiguous result sets still work.
 - **Not found.** The badge reads `Not in First N`, where N is the number of results actually scraped. It reads `No Results` when nothing was scraped.
 - **Map pack badge.** A "MAP" badge under the country flag in the dashboard and details, and "MP" in email digests. The domains overview shows a Map Pack counter.
@@ -301,7 +295,6 @@ Google's removal of `num=100` limits SERP APIs to 10 results per request. The st
 
 - **Globally:** **Settings → Scraper → Scrape Strategy**. Choosing Custom shows a page-count selector.
 - **Per domain:** the domain's **Scraper** tab, **Scrape Strategy Override**. Any value other than **Use Global Setting** enables the domain controls.
-- **Storage:** only results from fetched pages are stored, and the details panel reports the scraped count.
 - **Failed pages:** if a page request fails and the domain was not found on the pages that loaded, the keyword is reported as an error with the provider's message. It keeps its previous position and history, rather than being recorded as "not ranked".
 
 ### How the average position is calculated
@@ -348,7 +341,7 @@ Use **Export as csv** in the domain header. The file is named `<domain>-keywords
 ### Notifications and reporting
 
 - Digests summarise gains and losses, top movers and, when available, Search Console traffic.
-- Frequency comes from `notification_interval` and the send time from `CRON_EMAIL_SCHEDULE`. Set `notification_interval` to `never` to stop digests. Clearing the SMTP settings makes each scheduled send fail with `400`.
+- Frequency and send time are set as in [Cron scheduling](#cron-scheduling). Clearing the SMTP settings makes each scheduled send fail with `400`.
 - Each domain gets at most one digest per hour and five per calendar day in `CRON_TIMEZONE` (`utils/emailThrottle.ts`).
 - **Send Notifications Now** in the Notification modal sends a digest for every domain with scraping enabled. Domains without a notification address, or held back by the throttle, are reported as skipped.
 - `/api/notify` answers `401` for authentication problems, `404` for an unknown domain, `400` when the SMTP host or port is missing, and `500` only when every eligible domain failed to send. Otherwise it answers `200` with `sent` and `skipped` counts.
@@ -359,121 +352,16 @@ The domains index shows a full-page loader on first load. Keyword, idea and insi
 
 ---
 
-## External API
+## API and MCP server
 
-Send the header `Authorization: Bearer <APIKEY>` (the `APIKEY` environment value). The same key is the only credential the [MCP server](#mcp-server) accepts. Routes not listed in the [endpoint table](#endpoints-available-with-the-api-key) need a logged-in session. Every `domain` field is a real domain name such as `example.com`, not a URL slug.
+Both use the same credential: the `APIKEY` environment variable, sent as `Authorization: Bearer <APIKEY>`. Domains are always real domain names such as `example.com`.
 
-### Sign-in and sessions
+### MCP server
 
-`POST /api/login` with a JSON `username` and `password` sets an httpOnly `token` cookie that lasts `SESSION_DURATION` hours. `POST /api/logout` revokes every session, not only the current one. Sign-in is locked for 15 minutes after 5 wrong passwords for one user from one address, 20 wrong attempts from one address, or 100 wrong attempts against the username overall. A locked attempt returns `429` with `TOO_MANY_ATTEMPTS`.
+A read-only [Model Context Protocol](https://modelcontextprotocol.io) server for AI assistants. Any MCP client that accepts a remote URL and a header can connect.
 
-### API key lockout
-
-Only a header of the exact form `Authorization: Bearer <APIKEY>` is treated as an API key. A valid key on a route outside the endpoint table returns `401` with the message `This Route cannot be accessed with API.`
-
-After 5 wrong Bearer keys from one address within 15 minutes, that address gets `429` with `Retry-After: 900` for 15 minutes, even with the right key. A request with a valid login cookie is never refused for this reason. A correct key clears the failure count for its address, which cannot happen while the address is locked. The count is kept in memory and resets on restart. The address is the socket address, or the `TRUST_PROXY` entry when that is set.
-
-### Endpoints available with the API key
-
-| Method | Endpoint | Fields | What it does |
-| --- | --- | --- | --- |
-| GET | `/api/keyword` | Query `id` (required) | One keyword with its stored data and position history. An unknown ID returns `200` with `keyword: null`. |
-| GET | `/api/keywords` | Query `domain` (required) | All tracked keywords of a domain. An unknown domain returns `200` with an empty list. |
-| GET | `/api/domains` | Query `withstats` (`true` adds keyword statistics) | All tracked domains. With `withstats=true`, `avgPosition` and `mapPackKeywords` are left out when they are 0 or not saved yet. |
-| POST | `/api/refresh` | Body `ids` (array of keyword IDs), or query `id` (comma-separated IDs, or `all` with query `domain`) | Starts a position refresh for the chosen keywords. |
-| POST | `/api/cron` | None | Starts the background refresh that the scheduled cron runs, for every domain with scraping enabled. Returns `400` when no scraper is set up. The response can include a `skipped` list. |
-| POST | `/api/notify` | Query `domain` (optional) | Sends the digest for one domain, or for all domains when omitted. See [Notifications and reporting](#notifications-and-reporting). |
-| GET | `/api/searchconsole` | Query `domain` (required) | Search Console data of a domain. Refetched when the stored copy is more than 24 hours old. |
-| POST | `/api/searchconsole` | None | Refreshes Search Console data for all domains. |
-| GET | `/api/insight` | Query `domain` (required) | Search Console insight: top pages, keywords, countries and stats. Same 24-hour rule. |
-| GET | `/api/ideas` | Query `domain` (optional; omit for the research page) | Saved keyword ideas and favourites. |
-| POST | `/api/ideas` | Body `seedType` (required: `auto`, `custom`, `tracking` or `searchconsole`), `domain` (required for `auto`), `keywords` (up to 1000 strings), `country` (two letters), `language` (Google Ads language ID), `seedSCKeywords`, `seedCurrentKeywords` | Fetches and saves new ideas from Google Ads. Seed types are explained in [Keyword research and Google Ads](#keyword-research-and-google-ads). |
-
-Set the key once, then call the API. The examples use port 3000 (Node.js). Docker Compose serves the app on port 3030.
-
-```bash
-export APIKEY=your-api-key
-curl -H "Authorization: Bearer $APIKEY" "http://localhost:3000/api/keywords?domain=example.com"
-curl -H "Authorization: Bearer $APIKEY" "http://localhost:3000/api/insight?domain=my-site.com"
-```
-
-A malformed domain returns `400` on `/api/insight`, `/api/searchconsole` and `/api/ideas`. An unknown domain returns `404` on `/api/insight`, `/api/searchconsole` and `/api/notify`.
-
-### Session-only routes
-
-These routes need a logged-in session and do not accept the API key.
-
-| Route | Purpose | Limit |
-| --- | --- | --- |
-| `POST`, `PUT`, `DELETE /api/domains` | Add, edit and delete domains | — |
-| `POST`, `PUT`, `DELETE /api/keywords` | Add, edit and delete keywords. Adding or deleting keywords recalculates the domain stats. | — |
-| `GET /api/domain` | One domain's settings | — |
-| `GET /api/refresh?keyword=…&country=…` | Live search for one keyword | 20 per minute per address |
-| `GET /api/refresh?status=retry&id=…` | Whether keywords are currently refreshing | — |
-| `POST /api/volume` | Google Ads search volume for keyword IDs or a domain | 6 domain lookups per hour per address; `domain=all` 2 per hour |
-| `PUT /api/clearfailed` | Clear the failed retry queue | — |
-| `PUT /api/settings` | Save settings | — |
-| `GET`, `POST /api/adwords` | Google Ads OAuth and credential check | — |
-| `PUT /api/ideas` | Save ideas and favourites | — |
-| `POST /api/ideas/email` | Email selected ideas | 10 per domain per hour |
-| `POST /api/login`, `POST /api/logout`, `GET /api/auth-check` | Sign in, sign out and check the session | Lockouts as above |
-| `GET /api/branding/config`, `GET /api/branding/logo` | Branding and logo (public) | — |
-
-### Responses
-
-Successful (2xx) responses return named keys such as `domains`, `keywords`, `keyword` or `settings`, or `data` for ideas, Search Console and insight. Every response includes an `X-Request-Id` header.
-
-```jsonc
-// GET /api/domains - 200 OK
-{
-  "domains": [ /* DomainType[] */ ]
-}
-```
-
-Errors (4xx/5xx) use one envelope:
-
-```json
-{
-  "error": {
-    "code": "NOT_FOUND",
-    "message": "Domain not found",
-    "details": "optional extra context"
-  },
-  "requestId": "1748901234567-abc123xyz"
-}
-```
-
-| Field | Type | Description |
-| --- | --- | --- |
-| `error.code` | `string` | One of the codes below |
-| `error.message` | `string` | Human-readable description |
-| `error.details` | `unknown` (optional) | Extra context, such as validation errors |
-| `requestId` | `string` (optional) | Matches the `X-Request-Id` header |
-
-| `error.code` | Status | Meaning |
-| --- | --- | --- |
-| `BAD_REQUEST` | 400 | Invalid or missing input |
-| `UNAUTHORIZED` | 401 | No valid session or API key |
-| `MISSING_CREDENTIALS` | 401 | Login sent without a username or password |
-| `INVALID_CREDENTIALS` | 401 | Wrong username or password |
-| `NOT_FOUND` | 404 | Unknown domain or ID |
-| `METHOD_NOT_ALLOWED` | 405 | HTTP method not supported by the route |
-| `CONFLICT` | 409 | Domain already tracked, or a delete while it is being refreshed |
-| `TOO_MANY_ATTEMPTS` | 429 | Login or API-key lockout |
-| `TOO_MANY_REQUESTS` | 429 | Rate limit (keyword search, volume, idea email) |
-| `BAD_GATEWAY` | 502 | Google or a scraper failed upstream |
-| `INTERNAL_SERVER_ERROR` | 500 | Server error. The details are logged, not returned. |
-
----
-
-## MCP server
-
-SerpBear serves a read-only [Model Context Protocol](https://modelcontextprotocol.io) server at `/api/mcp` (Streamable HTTP, stateless). Any MCP client that accepts a remote URL and a header can connect.
-
-- **URL:** `https://<your-host>/api/mcp`. Use HTTPS (for example behind a reverse proxy), because the key is sent on every request.
-- **Header:** `Authorization: Bearer <APIKEY>`. This is the only accepted credential: cookies and login sessions do not work here, and a wrong key counts towards the same lockout as the REST API.
-- **Errors:** a missing or wrong key returns HTTP `401` with the error code `UNAUTHORIZED`, in the REST error envelope, not as a JSON-RPC error.
-- **Methods:** `POST` only; others return 405.
+- **URL:** `https://<your-host>/api/mcp` (Streamable HTTP, `POST` only). Use HTTPS, because the key is sent on every request.
+- **Key:** header `Authorization: Bearer <APIKEY>`. Cookies and login sessions are not accepted.
 
 | Tool | Returns |
 | --- | --- |
@@ -484,9 +372,32 @@ SerpBear serves a read-only [Model Context Protocol](https://modelcontextprotoco
 | `get_insight` | Top pages, keywords and countries for a `domain` |
 | `get_keyword_ideas` | Saved ideas and favourites for a `domain`, or the research list when omitted |
 
-The tools call the app's own `/api` routes over loopback (`127.0.0.1`) with the same key, so every REST check still applies. Most tools only read stored data. `get_searchconsole` and `get_insight` can fetch from Google Search Console and store the result when the stored copy is more than 24 hours old.
+Tools that start scrapes, send email or spend Google Ads quota are not exposed; use the REST API for those.
 
-Tools that start scrapes, send email or spend Google Ads quota are not exposed; use the [External API](#external-api) for those.
+### External API
+
+A REST API for scripts and automation. Send `Authorization: Bearer <APIKEY>`. After 5 wrong keys from one address within 15 minutes, that address gets `429` for 15 minutes. Routes not listed below need a logged-in session.
+
+```bash
+export APIKEY=your-api-key
+curl -H "Authorization: Bearer $APIKEY" "http://localhost:3000/api/keywords?domain=example.com"
+```
+
+The example uses port 3000 (Node.js). Docker Compose serves the app on port 3030.
+
+| Method | Endpoint | What it does |
+| --- | --- | --- |
+| GET | `/api/keyword?id=` | One keyword with its position history |
+| GET | `/api/keywords?domain=` | All tracked keywords of a domain |
+| GET | `/api/domains` | All tracked domains (`withstats=true` adds keyword statistics) |
+| POST | `/api/refresh` | Refresh chosen keywords: body `ids`, or query `id` (comma-separated, or `all` with `domain`) |
+| POST | `/api/cron` | Run the scheduled refresh for every domain with scraping enabled |
+| POST | `/api/notify` | Send the email digest for one domain (`domain=`) or all |
+| GET | `/api/searchconsole?domain=` | Search Console data of a domain |
+| POST | `/api/searchconsole` | Refresh Search Console data for all domains |
+| GET | `/api/insight?domain=` | Search Console insight: top pages, keywords, countries and stats |
+| GET | `/api/ideas` | Saved keyword ideas and favourites (`domain=` optional) |
+| POST | `/api/ideas` | Fetch new ideas from Google Ads: body `seedType` (`auto`, `custom`, `tracking` or `searchconsole`), `domain`, `keywords`, `country`, `language` |
 
 ---
 
@@ -534,13 +445,13 @@ Tools that start scrapes, send email or spend Google Ads quota are not exposed; 
 1. Fork and clone the repository.
 2. Make focused commits with descriptive messages.
 3. Add or update tests for any behavioural change.
-4. Run `npm run lint` and `npm test` before opening a pull request, and update `CHANGELOG.md`.
+4. Run the local checks listed under [Continuous integration](#continuous-integration) before opening a pull request, and update `CHANGELOG.md`.
 
 See [`AGENTS.md`](./AGENTS.md) for repository-wide guidelines.
 
 ## Credits
 
-SerpBear was created by Amruth Pillai and is distributed under the MIT License (see [`LICENSE`](./LICENSE)). The upstream project is at <https://github.com/towfiqi/serpbear>. This fork is maintained at <https://github.com/djav1985/v-serpbear>.
+SerpBear was created by Amruth Pillai. The upstream project is at <https://github.com/towfiqi/serpbear>. This fork is maintained at <https://github.com/djav1985/v-serpbear>.
 
 ## License
 
