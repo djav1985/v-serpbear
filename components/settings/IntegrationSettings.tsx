@@ -12,7 +12,7 @@ type IntegrationSettingsProps = {
       msg: string
    },
    updateSettings: (key: string, value: string | number | boolean) => void,
-   performUpdate: () => void | Promise<void>,
+   performUpdate: () => void | boolean | Promise<void | boolean>,
    closeSettings: () => void
 }
 const IntegrationSettings = ({ settings, settingsError, updateSettings, performUpdate, closeSettings }:IntegrationSettingsProps) => {

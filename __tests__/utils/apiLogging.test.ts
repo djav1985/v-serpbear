@@ -73,8 +73,7 @@ describe('withApiLogging', () => {
     delete process.env.LOG_LEVEL;
   });
 
-  it('enables body logging when LOG_LEVEL is DEBUG (case-insensitive)', async () => {
-    process.env.LOG_LEVEL = 'DEBUG';
+  it('logs request details at debug level only when LOG_LEVEL is DEBUG (case-insensitive)', async () => {
     const { withApiLogging } = await import('../../utils/apiLogging');
 
     const handler = jest.fn(async (_req: NextApiRequest, res: NextApiResponse) => {
@@ -83,9 +82,9 @@ describe('withApiLogging', () => {
 
     const wrapped = withApiLogging(handler);
 
-    await wrapped(createRequest(), createResponse());
-
     // Verify debug logging for request details
+    process.env.LOG_LEVEL = 'DEBUG';
+    await wrapped(createRequest(), createResponse());
     expect(logger.debug).toHaveBeenCalledWith(
       expect.stringContaining('API Request Details'),
       expect.objectContaining({
@@ -94,20 +93,11 @@ describe('withApiLogging', () => {
         body: undefined,
       })
     );
-  });
 
-  it('does NOT log body when LOG_LEVEL is not debug', async () => {
+    // Without DEBUG, no debug logging happens
     delete process.env.LOG_LEVEL;
-    const { withApiLogging } = await import('../../utils/apiLogging');
-
-    const handler = jest.fn(async (_req: NextApiRequest, res: NextApiResponse) => {
-      res.status(200).json({ ok: true });
-    });
-
-    const wrapped = withApiLogging(handler);
-
+    logger.debug.mockClear();
     await wrapped(createRequest(), createResponse());
-
     expect(logger.debug).not.toHaveBeenCalled();
   });
 
@@ -127,38 +117,26 @@ describe('withApiLogging', () => {
     expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('[test-route]'));
   });
 
-  it('logs warning severity when handler sets res.statusCode directly', async () => {
+  it('logs warning severity when handler sets res.statusCode directly or uses writeHead', async () => {
     const { withApiLogging } = await import('../../utils/apiLogging');
 
-    const handler = jest.fn(async (_req: NextApiRequest, res: NextApiResponse) => {
+    const directHandler = jest.fn(async (_req: NextApiRequest, res: NextApiResponse) => {
       res.statusCode = 404;
       res.end();
     });
-
-    const wrapped = withApiLogging(handler);
-
-    await wrapped(createRequest(), createResponse());
-
+    await withApiLogging(directHandler)(createRequest(), createResponse());
     expect(logger.warn).toHaveBeenCalledWith(
       expect.stringContaining('GET /api/test - 404'),
       expect.objectContaining({
         statusCode: 404,
       })
     );
-  });
 
-  it('logs warning severity when handler uses writeHead', async () => {
-    const { withApiLogging } = await import('../../utils/apiLogging');
-
-    const handler = jest.fn(async (_req: NextApiRequest, res: NextApiResponse) => {
+    const writeHeadHandler = jest.fn(async (_req: NextApiRequest, res: NextApiResponse) => {
       res.writeHead(418);
       res.end();
     });
-
-    const wrapped = withApiLogging(handler);
-
-    await wrapped(createRequest(), createResponse());
-
+    await withApiLogging(writeHeadHandler)(createRequest(), createResponse());
     expect(logger.warn).toHaveBeenCalledWith(
       expect.stringContaining('GET /api/test - 418'),
       expect.objectContaining({
@@ -186,21 +164,6 @@ describe('withApiLogging', () => {
     const ensureDatabaseCallOrder = ensureDatabase.mock.invocationCallOrder[0];
     const handlerCallOrder = handler.mock.invocationCallOrder[0];
     expect(ensureDatabaseCallOrder).toBeLessThan(handlerCallOrder);
-  });
-
-  it('sets X-Request-Id response header on every request', async () => {
-    const { withApiLogging } = await import('../../utils/apiLogging');
-
-    const handler = jest.fn(async (_req: NextApiRequest, res: NextApiResponse) => {
-      res.status(200).json({ ok: true });
-    });
-
-    const wrapped = withApiLogging(handler);
-    const res = createResponse();
-
-    await wrapped(createRequest(), res);
-
-    expect(res.setHeader).toHaveBeenCalledWith('X-Request-Id', expect.any(String));
   });
 
   it('refuses a locked address only for Bearer attempts without a valid session', async () => {

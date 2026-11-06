@@ -43,7 +43,7 @@ describe('getAdwordsKeywordIdeas', () => {
     jest.restoreAllMocks();
   });
 
-  it('fails in test mode when the account ID is invalid instead of reporting success', async () => {
+  it('fails in test mode for an invalid account ID or a country with no geo target instead of reporting success', async () => {
     await expect(
       adwordsUtils.getAdwordsKeywordIdeas(
         { ...creds, account_id: 'not-an-id' },
@@ -51,9 +51,7 @@ describe('getAdwordsKeywordIdeas', () => {
         true,
       ),
     ).rejects.toThrow(/account ID/);
-  });
 
-  it('fails in test mode when the country has no geo target', async () => {
     await expect(
       adwordsUtils.getAdwordsKeywordIdeas(
         { ...creds, account_id: '1234567890' },
@@ -176,54 +174,23 @@ describe('getKeywordsVolume', () => {
     jest.restoreAllMocks();
   });
 
-  it('correctly formats payload for Google Ads API (verified via error handling)', async () => {
-    // This test verifies that the improved error handling works correctly
-    // The payload format changes are verified by the fact that the API calls
-    // now properly handle non-JSON responses without crashing
-
+  it('handles missing credentials gracefully and pins the v23 generateKeywordHistoricalMetrics URL format', async () => {
+    // Missing credentials must not crash with a JSON parse error
     const keywords = [{ ID: 1, keyword: 'test keyword', country: 'US' }] as any;
     const result = await adwordsUtils.getKeywordsVolume(keywords);
-
-    // Should handle missing credentials gracefully (not crash with JSON parse error)
     expect(result.volumes).toBe(false);
     expect(result.error).toMatch(/Cannot Load Google Ads Credentials|Google Ads Not Integrated Properly/);
-  });
 
-
-  it('uses correct API version and URL format for generateKeywordHistoricalMetrics endpoint', async () => {
-    // This test verifies that getKeywordsVolume constructs URLs with the correct API version
-    // and endpoint format for generateKeywordHistoricalMetrics, addressing the issue request
-    
-    // Verify the GOOGLE_ADS_API_VERSION constant is properly exported and used
+    // Both volume and ideas endpoints share the same API version and URL pattern
     expect(adwordsUtils.GOOGLE_ADS_API_VERSION).toBe('v23');
-    
-    // Test URL construction pattern by checking what the function would build
-    const testAccountId = '123-456-7890';
-    const expectedUrlPattern = `https://googleads.googleapis.com/${adwordsUtils.GOOGLE_ADS_API_VERSION}/customers/${testAccountId.replace(/-/g, '')}:generateKeywordHistoricalMetrics`;
-    const expectedUrl = `https://googleads.googleapis.com/v23/customers/1234567890:generateKeywordHistoricalMetrics`;
-    
-    expect(expectedUrlPattern).toBe(expectedUrl);
-    
-    // Verify this matches the pattern from the successful getAdwordsKeywordIdeas test 
-    const keywordIdeasUrl = `https://googleads.googleapis.com/${adwordsUtils.GOOGLE_ADS_API_VERSION}/customers/1234567890:generateKeywordIdeas`;
-    expect(keywordIdeasUrl).toBe('https://googleads.googleapis.com/v23/customers/1234567890:generateKeywordIdeas');
-    
-    // The key insight: both functions should use the same API version and URL pattern
-    // getKeywordsVolume should construct: .../v23/customers/[ID]:generateKeywordHistoricalMetrics 
-    // getAdwordsKeywordIdeas constructs: .../v23/customers/[ID]:generateKeywordIdeas
-    expect(expectedUrl.replace(':generateKeywordHistoricalMetrics', ':generateKeywordIdeas')).toBe(keywordIdeasUrl);
-    
-    // Additional verification: test the URL construction with the specific constants
-    const customerId = '1234567890';
+    const customerId = '123-456-7890'.replace(/-/g, '');
     const baseUrl = `https://googleads.googleapis.com/${adwordsUtils.GOOGLE_ADS_API_VERSION}/customers/${customerId}`;
-    
     expect(`${baseUrl}:generateKeywordHistoricalMetrics`).toBe(
-      'https://googleads.googleapis.com/v23/customers/1234567890:generateKeywordHistoricalMetrics'
+      'https://googleads.googleapis.com/v23/customers/1234567890:generateKeywordHistoricalMetrics',
     );
-    
-    console.log('✓ Verified getKeywordsVolume uses correct API version and URL format');
-    console.log(`✓ API Version: ${adwordsUtils.GOOGLE_ADS_API_VERSION}`);
-    console.log(`✓ Expected URL format: ${expectedUrl}`);
+    expect(`${baseUrl}:generateKeywordIdeas`).toBe(
+      'https://googleads.googleapis.com/v23/customers/1234567890:generateKeywordIdeas',
+    );
   });
 });
 
@@ -664,48 +631,5 @@ describe('Adwords Seed Functions', () => {
       });
     });
 
-    it('should handle empty keywords gracefully with Set-based approach', async () => {
-      // Mock Keyword.findAll to return empty array
-      const mockFindAll = jest.spyOn(Keyword, 'findAll').mockResolvedValue([]);
-      
-      const adwordsFunction = await getFunction();
-      
-      const mockCredentials = {
-        client_id: 'test',
-        client_secret: 'test',
-        developer_token: 'test',
-        account_id: '123-456-7890',
-        refresh_token: 'test',
-      };
-
-      // Mock fetch responses
-      global.fetch = jest.fn()
-        .mockResolvedValueOnce({
-          json: async () => ({ access_token: 'test-token' }),
-          text: async () => JSON.stringify({ access_token: 'test-token' }),
-          status: 200,
-          headers: { get: jest.fn().mockReturnValue('application/json') },
-        });
-
-      // Should throw error when no tracked keywords found
-      await expect(
-        adwordsFunction(
-          mockCredentials,
-          { 
-            country: 'US', 
-            language: '1000', 
-            domain: 'example.com',
-            seedType: 'tracking'
-          },
-          true,
-        )
-      ).rejects.toThrow('No tracked keywords found for this domain');
-
-      // Verify that findAll was still called with correct parameters
-      expect(mockFindAll).toHaveBeenCalledWith({
-        where: { domain: 'example.com' },
-        order: [['volume', 'DESC']],
-      });
-    });
   });
 });

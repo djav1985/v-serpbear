@@ -110,14 +110,12 @@ describe('errorResponse', () => {
     expect(result).toEqual({ error: { code: 'NOT_FOUND', message: 'Resource not found' } });
   });
 
-  it('includes requestId when provided', () => {
-    const result = errorResponse('BAD_REQUEST', 'Invalid input', 'req-abc');
-    expect(result.requestId).toBe('req-abc');
-  });
+  it('includes requestId and details when provided', () => {
+    const withRequestId = errorResponse('BAD_REQUEST', 'Invalid input', 'req-abc');
+    expect(withRequestId.requestId).toBe('req-abc');
 
-  it('includes details when provided', () => {
-    const result = errorResponse('BAD_REQUEST', 'Validation failed', undefined, ['field is required']);
-    expect(result.error.details).toEqual(['field is required']);
+    const withDetails = errorResponse('BAD_REQUEST', 'Validation failed', undefined, ['field is required']);
+    expect(withDetails.error.details).toEqual(['field is required']);
   });
 
   it('omits requestId and details when undefined', () => {
@@ -143,12 +141,9 @@ describe('normalizeOrigin', () => {
     }
   });
 
-  it('leaves a URL with no trailing slash and an empty string unchanged', () => {
+  it('leaves a URL with no trailing slash and an empty string unchanged, and returns empty for only slashes', () => {
     expect(normalizeOrigin('https://example.com')).toBe('https://example.com');
     expect(normalizeOrigin('')).toBe('');
-  });
-
-  it('returns empty string for a string consisting entirely of slashes', () => {
     expect(normalizeOrigin('///')).toBe('');
   });
 });

@@ -84,7 +84,7 @@ describe('/api/keywords data rules', () => {
     expect(KeywordMock.bulkCreate).not.toHaveBeenCalled();
   });
 
-  it('returns 409 when the same keyword is already tracked on the domain', async () => {
+  it('returns 409 when the same keyword is already tracked on the domain, or appears twice in one request', async () => {
     KeywordMock.findAll.mockResolvedValueOnce([storedRow({ keyword: 'alpha', domain: 'example.com', device: 'desktop', country: 'US' })]);
 
     const res = await postKeywords([newKeyword]);
@@ -92,12 +92,10 @@ describe('/api/keywords data rules', () => {
     expect(res.status).toHaveBeenCalledWith(409);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ message: expect.stringContaining('alpha (desktop)') }) }));
     expect(KeywordMock.bulkCreate).not.toHaveBeenCalled();
-  });
 
-  it('returns 409 when the same keyword appears twice in one request', async () => {
-    const res = await postKeywords([newKeyword, { ...newKeyword }]);
+    const repeated = await postKeywords([newKeyword, { ...newKeyword }]);
 
-    expect(res.status).toHaveBeenCalledWith(409);
+    expect(repeated.status).toHaveBeenCalledWith(409);
     expect(KeywordMock.bulkCreate).not.toHaveBeenCalled();
   });
 
@@ -112,22 +110,20 @@ describe('/api/keywords data rules', () => {
     expect(KeywordMock.findAll).not.toHaveBeenLastCalledWith(expect.objectContaining({ where: { added: expect.anything() } }));
   });
 
-  it('does not treat the same keyword on another device as a duplicate', async () => {
+  it('does not treat the same keyword on another device or in another city as a duplicate', async () => {
     KeywordMock.findAll.mockResolvedValueOnce([storedRow({ keyword: 'alpha', domain: 'example.com', device: 'mobile', country: 'US' })]);
 
-    const res = await postKeywords([newKeyword]);
+    const otherDevice = await postKeywords([newKeyword]);
 
-    expect(res.status).toHaveBeenCalledWith(201);
+    expect(otherDevice.status).toHaveBeenCalledWith(201);
     expect(KeywordMock.bulkCreate).toHaveBeenCalledTimes(1);
-  });
 
-  it('allows the same keyword, country and device in a different city', async () => {
     KeywordMock.findAll.mockResolvedValueOnce([storedRow({ keyword: 'alpha', domain: 'example.com', device: 'desktop', country: 'US', location: austin })]);
 
-    const res = await postKeywords([{ ...newKeyword, city: 'Denver', state: 'Colorado' }]);
+    const otherCity = await postKeywords([{ ...newKeyword, city: 'Denver', state: 'Colorado' }]);
 
-    expect(res.status).toHaveBeenCalledWith(201);
-    expect(KeywordMock.bulkCreate).toHaveBeenCalledTimes(1);
+    expect(otherCity.status).toHaveBeenCalledWith(201);
+    expect(KeywordMock.bulkCreate).toHaveBeenCalledTimes(2);
     expect(KeywordMock.findAll).toHaveBeenCalledWith(expect.objectContaining({ attributes: expect.arrayContaining(['location']) }));
   });
 
@@ -159,14 +155,16 @@ describe('/api/keywords data rules', () => {
     expect(refreshQueue.enqueue).not.toHaveBeenCalled();
   });
 
-  it.each(['abc,7', '12abc', '1.5', '1e3'])('rejects a legacy id query with a malformed item (%s)', async (id) => {
-    const req = createMockRequest({ method: 'PUT', query: { id }, body: { sticky: true } });
-    const res = createMockResponse();
+  it('rejects a legacy id query with a malformed item', async () => {
+    for (const id of ['abc,7', '12abc', '1.5', '1e3']) {
+      const req = createMockRequest({ method: 'PUT', query: { id }, body: { sticky: true } });
+      const res = createMockResponse();
 
-    await handler(req as unknown as NextApiRequest, res as unknown as NextApiResponse);
+      await handler(req as unknown as NextApiRequest, res as unknown as NextApiResponse);
 
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(KeywordMock.update).not.toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(KeywordMock.update).not.toHaveBeenCalled();
+    }
   });
 
   it('accepts a legacy id query made of plain positive integers', async () => {

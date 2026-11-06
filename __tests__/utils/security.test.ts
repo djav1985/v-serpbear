@@ -28,7 +28,7 @@ describe('Security Utilities', () => {
          expect(result.undefinedProp).toBe(undefined);
       });
 
-      it('should not modify the original object', () => {
+      it('should return a new copy without modifying the original, and equal copies for empty or non-string props', () => {
          const input = {
             stringProp: '  original  ',
             numberProp: 456
@@ -39,20 +39,18 @@ describe('Security Utilities', () => {
          expect(input.stringProp).toBe('  original  ');
          expect(result.stringProp).toBe('original');
          expect(input).not.toBe(result);
-      });
 
-      it('should return an equal copy for empty objects and non-string properties', () => {
          expect(trimStringProperties({})).toEqual({});
 
-         const input = {
+         const nonString = {
             numberProp: 123,
             booleanProp: false,
             arrayProp: [1, 2, 3]
          };
 
-         const result = trimStringProperties(input);
-         expect(result).toEqual(input);
-         expect(result).not.toBe(input); // Should still be a copy
+         const copy = trimStringProperties(nonString);
+         expect(copy).toEqual(nonString);
+         expect(copy).not.toBe(nonString); // Should still be a copy
       });
    });
 
@@ -76,21 +74,18 @@ describe('Security Utilities', () => {
          expect(hasTrimmedLength('\ttest\n')).toBe(true);
       });
 
-      it('should return false for empty or whitespace-only strings', () => {
+      it('should return false for empty, whitespace-only, null or undefined values', () => {
          expect(hasTrimmedLength('')).toBe(false);
          expect(hasTrimmedLength('   ')).toBe(false);
          expect(hasTrimmedLength('\t\n\r ')).toBe(false);
+         expect(hasTrimmedLength(null)).toBe(false);
+         expect(hasTrimmedLength(undefined)).toBe(false);
       });
 
       it('should treat numbers and booleans as present values', () => {
          for (const value of [587, 0, -1, true, false]) {
             expect(hasTrimmedLength(value)).toBe(true);
          }
-      });
-
-      it('should handle null and undefined values', () => {
-         expect(hasTrimmedLength(null)).toBe(false);
-         expect(hasTrimmedLength(undefined)).toBe(false);
       });
    });
 });
@@ -105,13 +100,10 @@ describe('sanitizeSmtpHost', () => {
       expect(sanitizeSmtpHost('smtp.example.com.')).toBe('smtp.example.com');
    });
 
-   it('accepts localhost and single-label Docker service names', () => {
+   it('accepts localhost, single-label Docker service names and IP addresses', () => {
       expect(sanitizeSmtpHost('localhost')).toBe('localhost');
       expect(sanitizeSmtpHost('mail')).toBe('mail');
       expect(sanitizeSmtpHost('  mailserver  ')).toBe('mailserver');
-   });
-
-   it('accepts IP addresses', () => {
       expect(sanitizeSmtpHost('192.168.1.1')).toBe('192.168.1.1');
       expect(sanitizeSmtpHost('10.0.0.1')).toBe('10.0.0.1');
    });

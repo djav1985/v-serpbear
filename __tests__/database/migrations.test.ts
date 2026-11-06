@@ -37,11 +37,8 @@ describe('history-date-keys.migration.test.ts', () => {
   describe('history date key padding', () => {
     const { padHistoryDateKeys } = historyDateKeyMigration as unknown as { padHistoryDateKeys: (history: Record<string, number>) => Record<string, number> };
 
-    it('pads single-digit month and day keys', () => {
+    it('pads single-digit month and day keys and leaves already padded keys unchanged', () => {
       expect(padHistoryDateKeys({ '2026-1-5': 3, '2026-11-12': 4 })).toEqual({ '2026-01-05': 3, '2026-11-12': 4 });
-    });
-
-    it('leaves already padded keys unchanged', () => {
       expect(padHistoryDateKeys({ '2026-01-05': 3 })).toEqual({ '2026-01-05': 3 });
     });
 
@@ -75,15 +72,17 @@ describe('ideas-slug.migration.test.ts', () => {
       rmSync(dir, { recursive: true, force: true });
     });
 
-    it.each(['example.com', 'my-site.com', 'sub.my-site.co.uk'])('writes the same domainSlug as the app for %s', async (domain) => {
-      const file = path.join(dir, 'data', `IDEAS_${domain}.json`);
-      writeFileSync(file, JSON.stringify({ keywords: [{ uid: 'k1' }], settings: {} }));
+    it('writes the same domainSlug as the app for each domain', async () => {
+      for (const domain of ['example.com', 'my-site.com', 'sub.my-site.co.uk']) {
+        const file = path.join(dir, 'data', `IDEAS_${domain}.json`);
+        writeFileSync(file, JSON.stringify({ keywords: [{ uid: 'k1' }], settings: {} }));
 
-      await ideasSlugMigration.up();
+        await ideasSlugMigration.up();
 
-      const saved = JSON.parse(readFileSync(file, 'utf-8'));
-      expect(saved.settings.domainSlug).toBe(toDomainSlug(domain));
-      expect(saved.keywords[0].domain).toBe(toDomainSlug(domain));
+        const saved = JSON.parse(readFileSync(file, 'utf-8'));
+        expect(saved.settings.domainSlug).toBe(toDomainSlug(domain));
+        expect(saved.keywords[0].domain).toBe(toDomainSlug(domain));
+      }
     });
 
     it('does nothing and does not fail when the data folder has no ideas files', async () => {
@@ -167,6 +166,21 @@ describe('map-pack-migration.test.ts', () => {
         },
         { transaction: { transaction: 'mock' } }
       );
+
+      // Rollback removes the column again
+      const rollbackInterface = {
+        sequelize: {
+          transaction: jest.fn(async (callback) => await callback({ transaction: 'mock' })),
+        },
+        describeTable: jest.fn().mockResolvedValue({
+          mapPackTop3: { type: 'BOOLEAN', allowNull: false, defaultValue: false }
+        }),
+        removeColumn: jest.fn().mockResolvedValue(undefined),
+      };
+      await expect(migration.down({ context: rollbackInterface })).resolves.not.toThrow();
+      expect(rollbackInterface.removeColumn).toHaveBeenCalledWith('keyword', 'mapPackTop3', {
+        transaction: { transaction: 'mock' },
+      });
     });
 
     test('migration is idempotent - does not run UPDATE when column exists', async () => {
@@ -195,29 +209,6 @@ describe('map-pack-migration.test.ts', () => {
       expect(mockQueryInterface.addColumn).not.toHaveBeenCalled();
       expect(mockQueryInterface.sequelize.query).not.toHaveBeenCalled();
       expect(mockQueryInterface.changeColumn).not.toHaveBeenCalled();
-    });
-
-    test('migration down removes mapPackTop3 column correctly', async () => {
-      const migration = require('../../database/migrations/1737307000000-add-keyword-map-pack-flag');
-
-      // Create a mock queryInterface for rollback
-      const mockQueryInterface = {
-        sequelize: {
-          transaction: jest.fn(async (callback) => await callback({ transaction: 'mock' })),
-        },
-        describeTable: jest.fn().mockResolvedValue({
-          mapPackTop3: { type: 'BOOLEAN', allowNull: false, defaultValue: false }
-        }),
-        removeColumn: jest.fn().mockResolvedValue(undefined),
-      };
-
-      // This should complete successfully
-      await expect(migration.down({ context: mockQueryInterface })).resolves.not.toThrow();
-
-      // Verify column is removed
-      expect(mockQueryInterface.removeColumn).toHaveBeenCalledWith('keyword', 'mapPackTop3', {
-        transaction: { transaction: 'mock' },
-      });
     });
 
     test('migration gracefully skips when table does not exist', async () => {
@@ -263,23 +254,37 @@ describe('migration-error-handling.test.ts', () => {
       }
     });
 
-    test('migration functions gracefully skip when table does not exist', async () => {
-      // Test that migration handles missing tables gracefully
+    test('migration up and down skip gracefully when the table does not exist, and a successful up does not throw', async () => {
       const migration = require('../../database/migrations/1710000000000-add-keyword-state-field');
+      const { DataTypes } = require('sequelize');
 
-      // Create a mock queryInterface that will fail to describe table
-      const mockQueryInterface = {
+      // Table missing: both directions complete and log a skip message
+      const missingTable = {
         sequelize: {
           transaction: jest.fn((callback) => callback({ transaction: 'mock' })),
         },
         describeTable: jest.fn().mockRejectedValue(new Error('Table does not exist')),
       };
 
-      // Migration should complete without throwing
-      await expect(migration.up({ context: mockQueryInterface })).resolves.not.toThrow();
-
-      // Verify skip message was logged via logger.info (not console.log)
+      await expect(migration.up({ context: missingTable })).resolves.not.toThrow();
       expect(logger.info).toHaveBeenCalledWith('[MIGRATION] Skipping migration - keyword table does not exist yet');
+
+      await expect(migration.down({ context: missingTable })).resolves.not.toThrow();
+      expect(logger.info).toHaveBeenCalledWith('[MIGRATION] Skipping rollback - keyword table does not exist');
+
+      // Table present without the field: up completes without throwing
+      const presentTable = {
+        sequelize: {
+          transaction: jest.fn(async (callback) => await callback({ transaction: 'mock' })),
+          constructor: { DataTypes },
+        },
+        describeTable: jest.fn().mockResolvedValue({
+          // Simulate table without the 'state' field
+        }),
+        addColumn: jest.fn().mockResolvedValue(undefined),
+      };
+
+      await expect(migration.up({ context: presentTable }, { DataTypes })).resolves.not.toThrow();
     });
 
     test('migration down function should also re-throw errors', async () => {
@@ -305,44 +310,6 @@ describe('migration-error-handling.test.ts', () => {
       }
     });
 
-    test('migration down function gracefully skips when table does not exist', async () => {
-      // Test that migration rollback handles missing tables gracefully
-      const migration = require('../../database/migrations/1710000000000-add-keyword-state-field');
-
-      // Create a mock queryInterface that will fail to describe table
-      const mockQueryInterface = {
-        sequelize: {
-          transaction: jest.fn((callback) => callback({ transaction: 'mock' })),
-        },
-        describeTable: jest.fn().mockRejectedValue(new Error('Table does not exist')),
-      };
-
-      // Migration rollback should complete without throwing
-      await expect(migration.down({ context: mockQueryInterface })).resolves.not.toThrow();
-
-      // Verify skip message was logged via logger.info (not console.log)
-      expect(logger.info).toHaveBeenCalledWith('[MIGRATION] Skipping rollback - keyword table does not exist');
-    });
-
-    test('successful migrations should not throw errors', async () => {
-      const migration = require('../../database/migrations/1710000000000-add-keyword-state-field');
-      const { DataTypes } = require('sequelize');
-
-      // Create a mock queryInterface that succeeds
-      const mockQueryInterface = {
-        sequelize: {
-          transaction: jest.fn(async (callback) => await callback({ transaction: 'mock' })),
-          constructor: { DataTypes },
-        },
-        describeTable: jest.fn().mockResolvedValue({
-          // Simulate table without the 'state' field
-        }),
-        addColumn: jest.fn().mockResolvedValue(undefined),
-      };
-
-      // This should complete successfully without throwing
-      await expect(migration.up({ context: mockQueryInterface }, { DataTypes })).resolves.not.toThrow();
-    });
   });
 });
 
@@ -397,7 +364,7 @@ describe('notification-email-copy.migration.test.ts', () => {
       expect(update.options?.replacements).toEqual({ email: 'team@example.com' });
     });
 
-    it('changes nothing without a global address or settings file', async () => {
+    it('changes nothing without a global address, and does not fail when the domain table does not exist', async () => {
       const first = makeQueryInterface(['domain']);
       await notificationEmailMigration.up({ context: first.queryInterface });
       expect(updates(first.calls)).toHaveLength(0);
@@ -406,14 +373,11 @@ describe('notification-email-copy.migration.test.ts', () => {
       const second = makeQueryInterface(['domain']);
       await notificationEmailMigration.up({ context: second.queryInterface });
       expect(updates(second.calls)).toHaveLength(0);
-    });
 
-    it('does not fail when the domain table does not exist', async () => {
       writeSettings({ notification_email: 'team@example.com' });
-      const { queryInterface, calls } = makeQueryInterface([]);
-
-      await expect(notificationEmailMigration.up({ context: queryInterface })).resolves.toBeUndefined();
-      expect(updates(calls)).toHaveLength(0);
+      const missingTable = makeQueryInterface([]);
+      await expect(notificationEmailMigration.up({ context: missingTable.queryInterface })).resolves.toBeUndefined();
+      expect(updates(missingTable.calls)).toHaveLength(0);
     });
 
     it('history padding migration checks the keyword table through sqlite_master and pads stored rows', async () => {
@@ -441,7 +405,7 @@ describe('remove-legacy-scraper-overrides.migration.test.ts', () => {
       jest.clearAllMocks();
     });
 
-    it('clears removed per-domain scraper overrides and preserves active ones', async () => {
+    it('clears removed per-domain scraper overrides, preserves active ones, and is idempotent once none remain', async () => {
       const query = jest.fn()
         .mockResolvedValueOnce([[
           { ID: 1, scraper_settings: JSON.stringify({ scraper_type: 'scrapingant', scraping_api: 'abc' }) },
@@ -473,24 +437,22 @@ describe('remove-legacy-scraper-overrides.migration.test.ts', () => {
         { replacements: { id: 3 }, transaction: { transaction: 'mock' } },
       );
       expect(query).toHaveBeenCalledTimes(3);
-    });
 
-    it('is idempotent when no removed overrides remain', async () => {
-      const query = jest.fn().mockResolvedValueOnce([[
+      // Running again once nothing removed remains only issues the SELECT
+      const rerunQuery = jest.fn().mockResolvedValueOnce([[
         { ID: 2, scraper_settings: JSON.stringify({ scraper_type: 'serpapi', scraping_api: 'keep' }) },
         { ID: 4, scraper_settings: null },
       ]]);
-
-      const mockQueryInterface = {
+      const rerunInterface = {
         sequelize: {
           transaction: jest.fn(async (callback) => callback({ transaction: 'mock' })),
-          query,
+          query: rerunQuery,
         },
         describeTable: jest.fn().mockResolvedValue({ scraper_settings: { type: 'TEXT' } }),
       };
 
-      await expect(migration.up({ context: mockQueryInterface })).resolves.not.toThrow();
-      expect(query).toHaveBeenCalledTimes(1);
+      await expect(migration.up({ context: rerunInterface })).resolves.not.toThrow();
+      expect(rerunQuery).toHaveBeenCalledTimes(1);
     });
 
     it('skips gracefully when the domain table does not exist', async () => {
@@ -555,7 +517,7 @@ describe('keyword-country-default.migration.test.ts', () => {
       return JSON.parse(line.slice('RESULT'.length));
     };
 
-    it('makes United States the country default and changes US locations to United States', () => {
+    it('makes United States the country default, changes US locations to United States, and keeps the existing indexes', () => {
       const result = runScenario(`
         await run();
         await mig.up({ context: qi });
@@ -563,6 +525,7 @@ describe('keyword-country-default.migration.test.ts', () => {
           countryDefault: await columnDefault('country'),
           locationDefault: await columnDefault('location'),
           rows: await q('SELECT keyword, location, country FROM keyword ORDER BY ID'),
+          indexes: await q("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='keyword'"),
         };
       `);
 
@@ -573,39 +536,22 @@ describe('keyword-country-default.migration.test.ts', () => {
           { keyword: 'alpha', location: 'United States', country: 'US' },
           { keyword: 'beta', location: 'Austin,TX,United States', country: 'US' },
         ],
+        indexes: expect.arrayContaining([{ name: 'keyword_domain_idx' }]),
       });
     });
 
-    it('keeps the ID counter so deleted IDs are not reused', () => {
+    it('keeps the ID counter so deleted IDs are not reused, and gives a new row without a country the new default', () => {
       const result = runScenario(`
         await run();
         await mig.up({ context: qi });
         await seq.query("INSERT INTO keyword (keyword, domain) VALUES ('delta', 'a.com')");
-        result = await q("SELECT ID FROM keyword WHERE keyword = 'delta'");
+        result = {
+          id: await q("SELECT ID FROM keyword WHERE keyword = 'delta'"),
+          defaults: await q("SELECT country, location FROM keyword WHERE keyword = 'delta'"),
+        };
       `);
 
-      expect(result).toEqual([{ ID: 4 }]);
-    });
-
-    it('gives a new row without a country the new default', () => {
-      const result = runScenario(`
-        await run();
-        await mig.up({ context: qi });
-        await seq.query("INSERT INTO keyword (keyword, domain) VALUES ('delta', 'a.com')");
-        result = await q("SELECT country, location FROM keyword WHERE keyword = 'delta'");
-      `);
-
-      expect(result).toEqual([{ country: 'United States', location: '' }]);
-    });
-
-    it('keeps the existing indexes', () => {
-      const result = runScenario(`
-        await run();
-        await mig.up({ context: qi });
-        result = await q("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='keyword'");
-      `);
-
-      expect(result).toEqual(expect.arrayContaining([{ name: 'keyword_domain_idx' }]));
+      expect(result).toEqual({ id: [{ ID: 4 }], defaults: [{ country: 'United States', location: '' }] });
     });
 
     it('restores the US default when reverted and keeps the rows', () => {
@@ -636,13 +582,11 @@ describe('location-normalize.migration.test.ts', () => {
     // The migration is plain JS and is run by sequelize-cli, so its transform is checked directly here
     const { normalizeLocation } = require('../../database/migrations/1770200000000-normalize-keyword-location-country.js');
 
-    it('writes a trailing country code as the full name', () => {
+    it('writes a trailing country code as the full name, keeps commas inside the city name, and canonicalizes a country typed in any case', () => {
       expect(normalizeLocation('Port Charlotte,Florida,US', 'US')).toBe('Port Charlotte,Florida,United States');
-    });
-
-    it('keeps commas inside the city name', () => {
       expect(normalizeLocation('Washington,D.C.,District of Columbia,US', 'US'))
         .toBe('Washington,D.C.,District of Columbia,United States');
+      expect(normalizeLocation('Port Charlotte,Florida,UNITED STATES', 'US')).toBe('Port Charlotte,Florida,United States');
     });
 
     it('keeps a city with commas when the country is already a name', () => {
@@ -650,18 +594,11 @@ describe('location-normalize.migration.test.ts', () => {
         .toBe('Washington,D.C.,District of Columbia,United States');
     });
 
-    it('clears country-only values', () => {
+    it('clears country-only values and returns blank when only a city is left', () => {
       expect(normalizeLocation('US', 'US')).toBe('');
       expect(normalizeLocation('UNITED STATES', 'US')).toBe('');
       expect(normalizeLocation('', 'US')).toBe('');
-    });
-
-    it('returns blank when only a city is left', () => {
       expect(normalizeLocation('Miami,US', 'US')).toBe('');
-    });
-
-    it('canonicalizes a country name typed in any case', () => {
-      expect(normalizeLocation('Port Charlotte,Florida,UNITED STATES', 'US')).toBe('Port Charlotte,Florida,United States');
     });
   });
 });
@@ -683,7 +620,7 @@ describe('keyword-unique-target.migration.test.ts', () => {
       ])).toEqual([]);
     });
 
-    it('keeps the row with the most history and merges tags and the star', () => {
+    it('keeps the row with the most history and merges tags and the star; on a history tie keeps the lowest ID and treats null and empty location as the same target', () => {
       const [plan] = planDuplicateRemovals([
         row({ ID: 1, history: '{"2026-01-01":3}', tags: '["a"]' }),
         row({ ID: 2, history: '{"2026-01-01":3,"2026-01-02":2}', tags: '["B","a"]' }),
@@ -696,14 +633,11 @@ describe('keyword-unique-target.migration.test.ts', () => {
       expect(plan.sticky).toBe(true);
       expect(plan.tagsChanged).toBe(true);
       expect(plan.stickyChanged).toBe(true);
-    });
 
-    it('keeps the lowest ID when history sizes tie, and treats a null and an empty location as the same target', () => {
-      const [plan] = planDuplicateRemovals([row({ ID: 9, location: null }), row({ ID: 4, location: '' })]);
-
-      expect(plan.keepID).toBe(4);
-      expect(plan.deleteIDs).toEqual([9]);
-      expect(plan.tagsChanged).toBe(false);
+      const [tie] = planDuplicateRemovals([row({ ID: 9, location: null }), row({ ID: 4, location: '' })]);
+      expect(tie.keepID).toBe(4);
+      expect(tie.deleteIDs).toEqual([9]);
+      expect(tie.tagsChanged).toBe(false);
     });
 
     it('ignores unreadable history and tags instead of failing', () => {
@@ -771,7 +705,7 @@ describe('stale-updating-flags.migration.test.ts', () => {
       jest.clearAllMocks();
     });
 
-    it('clears truthy updating flags and their start time, and does nothing when none are left', async () => {
+    it('clears truthy updating flags, does nothing when none are left, and skips without failing when the table is missing', async () => {
       const { queryInterface, calls } = makeQueryInterface({ staleCount: 2 });
 
       await staleUpdatingFlagsMigration.up({ context: queryInterface });
@@ -784,13 +718,10 @@ describe('stale-updating-flags.migration.test.ts', () => {
       jest.clearAllMocks();
       await staleUpdatingFlagsMigration.up({ context: makeQueryInterface({ staleCount: 0 }).queryInterface });
       expect(logger.info).not.toHaveBeenCalledWith(expect.stringContaining('Reset stale updating flag'));
-    });
 
-    it('skips without failing when the keyword table does not exist yet', async () => {
-      const { queryInterface, calls } = makeQueryInterface({ tables: [] });
-
-      await expect(staleUpdatingFlagsMigration.up({ context: queryInterface })).resolves.toBeUndefined();
-      expect(calls.some((sql) => sql.startsWith('UPDATE'))).toBe(false);
+      const missing = makeQueryInterface({ tables: [] });
+      await expect(staleUpdatingFlagsMigration.up({ context: missing.queryInterface })).resolves.toBeUndefined();
+      expect(missing.calls.some((sql) => sql.startsWith('UPDATE'))).toBe(false);
       expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('keyword table does not exist'));
     });
   });
@@ -861,7 +792,7 @@ describe('drop-domain-notification-interval.migration.test.ts', () => {
       jest.clearAllMocks();
     });
 
-    it('drops the notification_interval column when present, and does nothing when it is already gone', async () => {
+    it('drops the notification_interval column when present, does nothing when it is already gone, and skips without failing when the table is missing', async () => {
       const { queryInterface, calls } = makeQueryInterface();
 
       await dropDomainNotificationIntervalMigration.up({ context: queryInterface });
@@ -870,13 +801,10 @@ describe('drop-domain-notification-interval.migration.test.ts', () => {
       const second = makeQueryInterface({ columns: ['ID', 'domain', 'notification_emails'] });
       await dropDomainNotificationIntervalMigration.up({ context: second.queryInterface });
       expect(second.calls.some((sql) => sql.startsWith('ALTER TABLE'))).toBe(false);
-    });
 
-    it('skips without failing when the domain table does not exist yet', async () => {
-      const { queryInterface, calls } = makeQueryInterface({ tables: [] });
-
-      await expect(dropDomainNotificationIntervalMigration.up({ context: queryInterface })).resolves.toBeUndefined();
-      expect(calls.some((sql) => sql.startsWith('ALTER TABLE'))).toBe(false);
+      const missing = makeQueryInterface({ tables: [] });
+      await expect(dropDomainNotificationIntervalMigration.up({ context: missing.queryInterface })).resolves.toBeUndefined();
+      expect(missing.calls.some((sql) => sql.startsWith('ALTER TABLE'))).toBe(false);
     });
   });
 });

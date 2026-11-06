@@ -164,28 +164,33 @@ describe('PUT /api/keywords error handling', () => {
       const req = createMockRequest({ method: 'POST', body: { keywords: [{ keyword: 'alpha', device: 'desktop', country: 'US', domain: 'example.com', ...keyword }] } });
       const res = createMockResponse();
       await handler(req, res);
-      return keywordMock.bulkCreate.mock.calls[0][0][0];
+      const calls = keywordMock.bulkCreate.mock.calls;
+      return calls[calls.length - 1][0][0];
     };
 
-    it('stores city, state and the country name for a city-level keyword sent as one location', async () => {
-      const row = await postAdd({ location: 'Port Charlotte,Florida,United States' });
-      expect(row.location).toBe('Port Charlotte,Florida,United States');
-      expect(row.country).toBe('US');
+    it('stores a city-level location sent as one value, and builds City,State,Country Name from separate city and state fields', async () => {
+      const combined = await postAdd({ location: 'Port Charlotte,Florida,United States' });
+      expect(combined.location).toBe('Port Charlotte,Florida,United States');
+      expect(combined.country).toBe('US');
+
+      const split = await postAdd({ city: 'Austin', state: 'TX' });
+      expect(split.location).toBe('Austin,TX,United States');
+      expect(split.country).toBe('US');
     });
 
-    it('rejects a city without a state on add', async () => {
+    it('rejects a city without a state on add and on location update, so the stored location is never dropped', async () => {
       keywordMock.bulkCreate.mockClear();
       const req = createMockRequest({ method: 'POST', body: { keywords: [{ keyword: 'alpha', device: 'desktop', country: 'US', domain: 'example.com', city: 'Austin' }] } });
       const res = createMockResponse();
       await handler(req, res);
       expect(keywordMock.bulkCreate).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(400);
-    });
 
-    it('builds City,State,Country Name from separate city and state fields', async () => {
-      const row = await postAdd({ city: 'Austin', state: 'TX' });
-      expect(row.location).toBe('Austin,TX,United States');
-      expect(row.country).toBe('US');
+      const updateReq = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { location: 'Austin', country: 'US' } });
+      const updateRes = createMockResponse();
+      await handler(updateReq, updateRes);
+      expect(keywordMock.update).not.toHaveBeenCalled();
+      expect(updateRes.status).toHaveBeenCalledWith(400);
     });
 
     it('stores a blank location for a country-only keyword and keeps the country code', async () => {
@@ -707,16 +712,6 @@ describe('PUT /api/keywords location updates', () => {
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ updatedCount: 2, skipped: [] }));
   });
 
-  it('rejects a city without a state so the update cannot drop the stored location', async () => {
-    const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { location: 'Austin', country: 'US' } });
-    const res = createMockResponse();
-
-    await handler(req, res);
-
-    expect(keywordMock.update).not.toHaveBeenCalled();
-    expect(res.status).toHaveBeenCalledWith(400);
-  });
-
   it('saves a blank location for a country-only choice', async () => {
     keywordMock.update.mockResolvedValue([1]);
     mockLocationLookups([locationRow()]);
@@ -732,14 +727,16 @@ describe('PUT /api/keywords location updates', () => {
     expect(res.status).toHaveBeenCalledWith(200);
   });
 
-  it('returns 400 when the location is empty and no country is sent', async () => {
-    const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { location: '   ' } });
-    const res = createMockResponse();
+  it('returns 400 and changes nothing when no country can be determined from a blank location or from location alone', async () => {
+    for (const body of [{ location: '   ' }, { location: 'Austin,TX' }]) {
+      const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body });
+      const res = createMockResponse();
 
-    await handler(req, res);
+      await handler(req, res);
 
-    expect(keywordMock.update).not.toHaveBeenCalled();
-    expect(res.status).toHaveBeenCalledWith(400);
+      expect(keywordMock.update).not.toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(400);
+    }
   });
 
   it('returns 500 when the location update fails', async () => {
@@ -765,16 +762,6 @@ describe('PUT /api/keywords location updates', () => {
       { location: 'London,England,United Kingdom', country: 'GB' },
       { where: { ID: { [Op.in]: [1] } } },
     );
-  });
-
-  it('returns 400 when no country can be determined from the location or the request', async () => {
-    const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { location: 'Austin,TX' } });
-    const res = createMockResponse();
-
-    await handler(req, res);
-
-    expect(keywordMock.update).not.toHaveBeenCalled();
-    expect(res.status).toHaveBeenCalledWith(400);
   });
 
   it('skips a keyword whose new location is already tracked and updates the rest', async () => {
@@ -829,7 +816,7 @@ describe('PUT /api/keywords location updates', () => {
 });
 
 describe('DELETE /api/keywords retry queue cleanup', () => {
-  it('removes deleted keyword IDs from retry queue', async () => {
+  it('removes deleted keyword IDs from the query or the JSON body from the retry queue, and rejects non-integer body IDs', async () => {
     const { retryQueueManager } = require('../../utils/retryQueueManager');
     verifyUserMock.mockReturnValue('authorized');
     keywordMock.findAll.mockResolvedValue([{ ID: 1, domain: 'example.com' }, { ID: 2, domain: 'example.com' }]);
@@ -842,19 +829,16 @@ describe('DELETE /api/keywords retry queue cleanup', () => {
 
     expect(retryQueueManager.removeBatch).toHaveBeenCalledWith(new Set([1, 2]));
     expect(res.status).toHaveBeenCalledWith(200);
-  });
 
-  it('reads keyword IDs from the JSON body and rejects non-integer body IDs', async () => {
-    verifyUserMock.mockReturnValue('authorized');
     keywordMock.findAll.mockResolvedValue([{ ID: 7, domain: 'example.com' }]);
     keywordMock.destroy.mockResolvedValue(1);
 
-    const req = { method: 'DELETE', query: {}, body: { ids: [7] }, headers: {} } as unknown as NextApiRequest;
-    const res = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
-    await handler(req, res);
+    const bodyReq = { method: 'DELETE', query: {}, body: { ids: [7] }, headers: {} } as unknown as NextApiRequest;
+    const bodyRes = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
+    await handler(bodyReq, bodyRes);
 
     expect(keywordMock.destroy).toHaveBeenCalledWith({ where: { ID: { [Op.in]: [7] } } });
-    expect(res.status).toHaveBeenCalledWith(200);
+    expect(bodyRes.status).toHaveBeenCalledWith(200);
 
     const badReq = { method: 'DELETE', query: {}, body: { ids: [7, 'abc'] }, headers: {} } as unknown as NextApiRequest;
     const badRes = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;

@@ -13,7 +13,7 @@ type AdWordsSettingsProps = {
       msg: string
    },
    updateSettings: (key: string, value: string | number | boolean) => void,
-   performUpdate: () => void | Promise<void>,
+   performUpdate: () => void | boolean | Promise<void | boolean>,
    // Kept for IntegrationSettings' prop wiring. Not called: closing the drawer would unmount the
    // OAuth result handling in Settings before the callback arrives.
    closeSettings?: () => void
@@ -37,7 +37,9 @@ const AdWordsSettings = ({ settings, settingsError, updateSettings, performUpdat
    const updateAndAuthenticate = async () => {
       if (adwords_client_id && adwords_client_secret) {
          if (performUpdate) {
-            await performUpdate();
+            // A failed or rejected save must not start Google authentication with the old stored credentials
+            const saved = await performUpdate();
+            if (saved === false) { return; }
          }
          try {
             const response = await fetch('/api/adwords', { method: 'GET', credentials: 'same-origin' });

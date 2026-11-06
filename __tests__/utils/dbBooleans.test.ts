@@ -5,7 +5,7 @@ import parseKeywords from '../../utils/parseKeywords';
 import sqlite from '../../database/sqlite-dialect';
 
 describe('db boolean helpers', () => {
-  it('maps values to sqlite integer booleans', () => {
+  it('maps values to sqlite integer booleans and sqlite integers back to booleans', () => {
     expect(toDbBool(true)).toBe(1);
     expect(toDbBool(false)).toBe(0);
     expect(toDbBool(1)).toBe(1);
@@ -14,6 +14,11 @@ describe('db boolean helpers', () => {
     expect(toDbBool(undefined)).toBe(0);
     expect(toDbBool('false')).toBe(0);
     expect(toDbBool('yes')).toBe(1);
+
+    expect(fromDbBool(1)).toBe(true);
+    expect(fromDbBool(0)).toBe(false);
+    expect(fromDbBool(null)).toBe(false);
+    expect(fromDbBool(undefined)).toBe(false);
   });
 
   it('parses strict query values and env flags with one shared rule set', () => {
@@ -28,13 +33,6 @@ describe('db boolean helpers', () => {
     expect(parseEnvFlag(undefined, false)).toBe(false);
   });
 
-  it('maps sqlite integers back to booleans', () => {
-    expect(fromDbBool(1)).toBe(true);
-    expect(fromDbBool(0)).toBe(false);
-    expect(fromDbBool(null)).toBe(false);
-    expect(fromDbBool(undefined)).toBe(false);
-  });
-
   describe('normalizeToBoolean', () => {
     it('handles numeric values (DB integers)', () => {
       expect(normalizeToBoolean(1)).toBe(true);
@@ -43,20 +41,18 @@ describe('db boolean helpers', () => {
       expect(normalizeToBoolean(-1)).toBe(true);
     });
 
-    it('handles string values (API responses)', () => {
+    it('handles string values (API responses), including values with surrounding whitespace', () => {
       expect(normalizeToBoolean('true')).toBe(true);
       expect(normalizeToBoolean('True')).toBe(true);
       expect(normalizeToBoolean('TRUE')).toBe(true);
       expect(normalizeToBoolean('1')).toBe(true);
-      
+
       expect(normalizeToBoolean('false')).toBe(false);
       expect(normalizeToBoolean('False')).toBe(false);
       expect(normalizeToBoolean('FALSE')).toBe(false);
       expect(normalizeToBoolean('0')).toBe(false);
       expect(normalizeToBoolean('')).toBe(false);
-    });
 
-    it('handles string values with whitespace', () => {
       expect(normalizeToBoolean('  true  ')).toBe(true);
       expect(normalizeToBoolean('  TRUE  ')).toBe(true);
       expect(normalizeToBoolean('  1  ')).toBe(true);
@@ -66,12 +62,10 @@ describe('db boolean helpers', () => {
       expect(normalizeToBoolean('   ')).toBe(false);
     });
 
-    it('handles null and undefined', () => {
+    it('uses conservative approach for unrecognized values (returns false), including null and undefined', () => {
       expect(normalizeToBoolean(null)).toBe(false);
       expect(normalizeToBoolean(undefined)).toBe(false);
-    });
 
-    it('uses conservative approach for unrecognized values (returns false)', () => {
       // Unrecognized strings should be treated as false for safety
       expect(normalizeToBoolean('error')).toBe(false);
       expect(normalizeToBoolean('timeout')).toBe(false);

@@ -100,10 +100,13 @@ describe('scrapeKeywordWithStrategy – page selection', () => {
 
    // ── Basic ────────────────────────────────────────────────────────────────
 
-   it('basic: scrapes page 1 only regardless of last position', async () => {
-      const settings = { ...baseSettings, scrape_strategy: 'basic' as ScrapeStrategy };
-      await scrapeKeywordWithStrategy({ ...baseKeyword, position: 45 }, settings);
-      expect(capturedPages(fetchSpy)).toEqual([1]);
+   it('basic (and a leftover smart strategy, treated as basic): scrapes page 1 only regardless of last position', async () => {
+      for (const strategy of ['basic', 'smart'] as const) {
+         fetchSpy.mockClear();
+         const settings = { ...baseSettings, scrape_strategy: strategy as unknown as ScrapeStrategy };
+         await scrapeKeywordWithStrategy({ ...baseKeyword, position: 45 }, settings);
+         expect({ strategy, pages: capturedPages(fetchSpy) }).toEqual({ strategy, pages: [1] });
+      }
    });
 
    // ── Custom ───────────────────────────────────────────────────────────────
@@ -154,13 +157,6 @@ describe('scrapeKeywordWithStrategy – page selection', () => {
       expect(capturedPages(fetchSpy)[9]).toBe(10);
    });
 
-   // ── Removed smart strategy ───────────────────────────────────────────────
-
-   it('treats a leftover smart strategy as basic (page 1 only)', async () => {
-      const settings = { ...baseSettings, scrape_strategy: 'smart' as unknown as ScrapeStrategy };
-      await scrapeKeywordWithStrategy({ ...baseKeyword, position: 25 }, settings);
-      expect(capturedPages(fetchSpy)).toEqual([1]);
-   });
 });
 
 // ── Position accuracy with variable page sizes ───────────────────────────────

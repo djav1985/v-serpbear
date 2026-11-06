@@ -129,6 +129,22 @@ describe('Google Ads OAuth result handling in Settings', () => {
       expect(toastMock).toHaveBeenCalledWith(detail, { icon: '⚠️' });
    });
 
+   it('does not start Google authentication when saving the credentials fails', async () => {
+      const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({ ok: true, json: async () => ({ authUrl: 'https://accounts.google.com/x' }) } as unknown as Response);
+      mockUpdateSettingsAsync.mockRejectedValue(new Error('save failed'));
+      renderSettings();
+
+      fireEvent.click(screen.getByText('Integrations'));
+      fireEvent.click(screen.getByText('Google Ads'));
+      await act(async () => {
+         fireEvent.click(screen.getByText(/Authenticate Integration/));
+      });
+
+      expect(mockUpdateSettingsAsync).toHaveBeenCalled();
+      expect(fetchSpy).not.toHaveBeenCalledWith('/api/adwords', expect.anything());
+      fetchSpy.mockRestore();
+   });
+
    it('keeps unsaved edits when the settings are refetched', () => {
       mockFetchSettings.mockReturnValue({
          data: { settings: { ...baseSettings, notification_interval: 'daily', smtp_server: '' } },

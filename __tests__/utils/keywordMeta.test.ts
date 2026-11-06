@@ -132,11 +132,9 @@ describe('buildKeywordAddPayloads', () => {
 });
 
 describe('scraperAllowsCity', () => {
-   it('returns false when settings are missing', () => {
+   it('returns false when settings are missing, otherwise reads allowsCity from the selected scraper', () => {
       expect(scraperAllowsCity(undefined)).toBe(false);
-   });
 
-   it('reads allowsCity from the selected scraper', () => {
       const settings = {
          scraper_type: 'serpapi',
          available_scapers: [
@@ -155,9 +153,10 @@ describe('planLocationUpdate', () => {
       expect(planLocationUpdate([row(1, 'alpha'), row(2, 'beta')], [], 'GB', 'London')).toEqual({ acceptedIDs: [1, 2], skipped: [] });
    });
 
-   it('skips a keyword whose new location is already tracked by another row', () => {
+   it('skips a keyword whose destination is already tracked by another row, in the same or a new country', () => {
       const result = planLocationUpdate([row(1, 'alpha'), row(2, 'beta')], [row(9, 'alpha', 'GB', 'desktop', 'example.com', 'London')], 'GB', 'London');
       expect(result).toEqual({ acceptedIDs: [2], skipped: ['alpha'] });
+      expect(planLocationUpdate([row(1, 'plumber', 'US', 'desktop', 'example.com', 'Miami')], [row(2, 'plumber', 'US', 'desktop', 'example.com', 'Orlando')], 'US', 'Orlando')).toEqual({ acceptedIDs: [], skipped: ['plumber'] });
    });
 
    it('treats the same keyword on another device or domain as not a duplicate', () => {
@@ -174,9 +173,6 @@ describe('planLocationUpdate', () => {
       expect(planLocationUpdate([], [row(9, 'alpha')], 'GB', 'London')).toEqual({ acceptedIDs: [], skipped: [] });
    });
 
-   it('skips a same-country location change when that exact destination is already tracked', () => {
-      expect(planLocationUpdate([row(1, 'plumber', 'US', 'desktop', 'example.com', 'Miami')], [row(2, 'plumber', 'US', 'desktop', 'example.com', 'Orlando')], 'US', 'Orlando')).toEqual({ acceptedIDs: [], skipped: ['plumber'] });
-   });
 });
 
 describe('getLocationUpdateMessage', () => {

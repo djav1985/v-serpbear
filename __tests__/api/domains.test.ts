@@ -405,67 +405,67 @@ describe('PUT /api/domains', () => {
     expect(updatePayload.scraper_settings).toBeNull();
   });
 
-  it('can set business_name independently of scraper settings', async () => {
-    const req = {
+  it('sets business_name independently of scraper settings, alone and alongside them', async () => {
+    const alone = {
       method: 'PUT',
       query: { domain: domainState.domain },
       body: { business_name: 'Vontainment' },
       headers: {},
     } as unknown as NextApiRequest;
+    const aloneRes = createMockResponse();
 
-    const res = createMockResponse();
+    await handler(alone, aloneRes);
 
-    await handler(req, res);
+    expect(aloneRes.status).toHaveBeenCalledWith(200);
+    const aloneUpdate = domainInstance.set.mock.calls[domainInstance.set.mock.calls.length - 1][0];
+    expect(aloneUpdate.business_name).toBe('Vontainment');
+    expect(aloneUpdate.scraper_settings).toBeUndefined();
 
-    expect(res.status).toHaveBeenCalledWith(200);
-    const updatePayload = domainInstance.set.mock.calls[domainInstance.set.mock.calls.length - 1][0];
-    expect(updatePayload.business_name).toBe('Vontainment');
-    expect(updatePayload.scraper_settings).toBeUndefined();
-  });
-
-  it('can update both business_name and scraper_settings independently', async () => {
-    const req = {
+    const both = {
       method: 'PUT',
       query: { domain: domainState.domain },
-      body: { 
+      body: {
         business_name: 'My Business',
         scraper_settings: { scraper_type: 'serpapi', scraping_api: 'new-key' }
       },
       headers: {},
     } as unknown as NextApiRequest;
+    const bothRes = createMockResponse();
 
-    const res = createMockResponse();
+    await handler(both, bothRes);
 
-    await handler(req, res);
-
-    expect(res.status).toHaveBeenCalledWith(200);
-    const updatePayload = domainInstance.set.mock.calls[domainInstance.set.mock.calls.length - 1][0];
-    expect(updatePayload.business_name).toBe('My Business');
-    expect(updatePayload.scraper_settings).toEqual(expect.any(String));
+    expect(bothRes.status).toHaveBeenCalledWith(200);
+    const bothUpdate = domainInstance.set.mock.calls[domainInstance.set.mock.calls.length - 1][0];
+    expect(bothUpdate.business_name).toBe('My Business');
+    expect(bothUpdate.scraper_settings).toEqual(expect.any(String));
   });
 
-  it.each([
-    ['search_console credentials', { search_console: { client_email: 'test@example.com', private_key: 'test-key' } }],
-    ['scraper_settings', { scraper_settings: { scraper_type: 'serpapi', scraping_api: 'new-key' } }],
-  ])('returns 500 when SECRET is missing and %s are provided', async (_label, body) => {
-    delete process.env.SECRET;
+  it('returns 500 when SECRET is missing and search_console or scraper_settings are provided', async () => {
+    const bodies = [
+      { search_console: { client_email: 'test@example.com', private_key: 'test-key' } },
+      { scraper_settings: { scraper_type: 'serpapi', scraping_api: 'new-key' } },
+    ];
+    for (const body of bodies) {
+      delete process.env.SECRET;
+      domainInstance.save.mockClear();
 
-    const req = {
-      method: 'PUT',
-      query: { domain: domainState.domain },
-      body,
-      headers: {},
-    } as unknown as NextApiRequest;
+      const req = {
+        method: 'PUT',
+        query: { domain: domainState.domain },
+        body,
+        headers: {},
+      } as unknown as NextApiRequest;
 
-    const res = createMockResponse();
+      const res = createMockResponse();
 
-    await handler(req, res);
+      await handler(req, res);
 
-    expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-      error: expect.objectContaining({ message: 'Server configuration error: encryption key not available' }),
-    }));
-    expect(domainInstance.save).not.toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+        error: expect.objectContaining({ message: 'Server configuration error: encryption key not available' }),
+      }));
+      expect(domainInstance.save).not.toHaveBeenCalled();
+    }
   });
 
   it('allows updates that do not require encryption when SECRET is missing', async () => {
@@ -488,46 +488,50 @@ describe('PUT /api/domains', () => {
     expect(domainInstance.save).toHaveBeenCalled();
   });
 
-  it.each([
-    ['client_email', { client_email: 'test@example.com' }],
-    ['private_key', { private_key: 'test-key' }],
-  ])('rejects partial Search Console updates with only %s', async (_label, search_console) => {
-    const req = {
-      method: 'PUT',
-      query: { domain: domainState.domain },
-      body: { search_console },
-      headers: {},
-    } as unknown as NextApiRequest;
+  it('rejects partial Search Console updates with only one of client_email or private_key', async () => {
+    const partials = [{ client_email: 'test@example.com' }, { private_key: 'test-key' }];
+    for (const search_console of partials) {
+      domainInstance.save.mockClear();
 
-    const res = createMockResponse();
+      const req = {
+        method: 'PUT',
+        query: { domain: domainState.domain },
+        body: { search_console },
+        headers: {},
+      } as unknown as NextApiRequest;
 
-    await handler(req, res);
+      const res = createMockResponse();
 
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-      error: expect.objectContaining({ message: 'Both client_email and private_key must be provided together for Search Console integration' }),
-    }));
-    expect(domainInstance.save).not.toHaveBeenCalled();
+      await handler(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+        error: expect.objectContaining({ message: 'Both client_email and private_key must be provided together for Search Console integration' }),
+      }));
+      expect(domainInstance.save).not.toHaveBeenCalled();
+    }
   });
 
   // Empty and whitespace-only values count as absent: no validation or encryption, and the save proceeds
-  it.each([
-    ['empty', '', ''],
-    ['whitespace-only', '   ', '  \t\n  '],
-  ])('treats %s Search Console fields as absent and still saves', async (_label, clientEmail, privateKey) => {
-    const req = {
-      method: 'PUT',
-      query: { domain: domainState.domain },
-      body: { search_console: { client_email: clientEmail, private_key: privateKey } },
-      headers: {},
-    } as unknown as NextApiRequest;
+  it('treats empty or whitespace-only Search Console fields as absent and still saves', async () => {
+    const blanks = [['', ''], ['   ', '  \t\n  ']];
+    for (const [clientEmail, privateKey] of blanks) {
+      domainInstance.save.mockClear();
 
-    const res = createMockResponse();
+      const req = {
+        method: 'PUT',
+        query: { domain: domainState.domain },
+        body: { search_console: { client_email: clientEmail, private_key: privateKey } },
+        headers: {},
+      } as unknown as NextApiRequest;
 
-    await handler(req, res);
+      const res = createMockResponse();
 
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(domainInstance.save).toHaveBeenCalled();
+      await handler(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(domainInstance.save).toHaveBeenCalled();
+    }
   });
 
   afterEach(() => {
@@ -601,13 +605,16 @@ describe('DELETE /api/domains', () => {
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ domainRemoved: 1, keywordsRemoved: 2, cleanup: { complete: true, failed: [], retryPending: false } }));
   });
 
-  it.each([['keyword', 'keyword'], ['domain', 'domain']])('does not run auxiliary cleanup when %s deletion fails', async (_label, stage) => {
-    if (stage === 'keyword') KeywordMock.destroy.mockRejectedValueOnce(new Error('keyword failure'));
-    else DomainMock.destroy.mockRejectedValueOnce(new Error('domain failure'));
-    const res = createMockResponse(); await handler(request(), res);
-    expect(res.status).toHaveBeenCalledWith(500);
-    expect(removeBatchMock).not.toHaveBeenCalled();
-    expect(removeLocalSCDataMock).not.toHaveBeenCalled();
+  it('does not run auxiliary cleanup when keyword or domain deletion fails', async () => {
+    for (const stage of ['keyword', 'domain']) {
+      jest.clearAllMocks();
+      if (stage === 'keyword') KeywordMock.destroy.mockRejectedValueOnce(new Error('keyword failure'));
+      else DomainMock.destroy.mockRejectedValueOnce(new Error('domain failure'));
+      const res = createMockResponse(); await handler(request(), res);
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(removeBatchMock).not.toHaveBeenCalled();
+      expect(removeLocalSCDataMock).not.toHaveBeenCalled();
+    }
   });
 
   it('reports auxiliary failures and permits idempotent cleanup retry', async () => {

@@ -22,26 +22,27 @@ describe('parseKeywords', () => {
       ...overrides,
    });
 
-   it('returns false for falsy integer values', () => {
-      const [keyword] = parseKeywords([
+   it('converts integer flags to booleans and defaults a missing mapPackTop3 to false', () => {
+      const [falsy] = parseKeywords([
          buildKeyword({ updating: 0, sticky: 0, mapPackTop3: 0 }) as any,
       ]);
+      expect(falsy.updating).toBe(false);
+      expect(falsy.sticky).toBe(false);
+      expect(falsy.mapPackTop3).toBe(false);
+      expect(Object.prototype.hasOwnProperty.call(falsy, 'mapPackTop3')).toBe(true);
 
-      expect(keyword.updating).toBe(false);
-      expect(keyword.sticky).toBe(false);
-      expect(keyword.mapPackTop3).toBe(false);
-      expect(Object.prototype.hasOwnProperty.call(keyword, 'mapPackTop3')).toBe(true);
-   });
-
-   it('returns true for truthy integer values', () => {
-      const [keyword] = parseKeywords([
+      const [truthy] = parseKeywords([
          buildKeyword({ updating: 1, sticky: 1, mapPackTop3: 1 }) as any,
       ]);
+      expect(truthy.updating).toBe(true);
+      expect(truthy.sticky).toBe(true);
+      expect(truthy.mapPackTop3).toBe(true);
+      expect(Object.prototype.hasOwnProperty.call(truthy, 'mapPackTop3')).toBe(true);
 
-      expect(keyword.updating).toBe(true);
-      expect(keyword.sticky).toBe(true);
-      expect(keyword.mapPackTop3).toBe(true);
-      expect(Object.prototype.hasOwnProperty.call(keyword, 'mapPackTop3')).toBe(true);
+      const [missing] = parseKeywords([
+         buildKeyword({ mapPackTop3: undefined }) as any,
+      ]);
+      expect(missing.mapPackTop3).toBe(false);
    });
 
    it('keeps existing keyword structure intact', () => {
@@ -53,14 +54,6 @@ describe('parseKeywords', () => {
       expect(keyword.location).toBe('');
    });
 
-   it('returns false for missing mapPackTop3 flag', () => {
-      const [{ mapPackTop3 }] = parseKeywords([
-         buildKeyword({ mapPackTop3: undefined }) as any,
-      ]);
-
-      expect(mapPackTop3).toBe(false);
-   });
-
    it('parses a valid history7d JSON string into a KeywordHistory object', () => {
       const [keyword] = parseKeywords([
          buildKeyword({ history7d: JSON.stringify({ '2025-01-01': 3, '2025-01-02': 4 }) }) as any,
@@ -69,20 +62,16 @@ describe('parseKeywords', () => {
       expect(keyword.history7d).toEqual({ '2025-01-01': 3, '2025-01-02': 4 });
    });
 
-   it('leaves history7d as null on the result when the field is null (not backfilled)', () => {
-      const [keyword] = parseKeywords([
+   it('leaves a null history7d as null (not backfilled) and omits history7d when the field is missing', () => {
+      const [withNull] = parseKeywords([
          buildKeyword({ history7d: null }) as any,
       ]);
+      expect(withNull.history7d).toBeNull();
 
-      expect(keyword.history7d).toBeNull();
-   });
-
-   it('omits history7d from the result when the field is missing', () => {
       const base = buildKeyword() as any;
       delete base.history7d;
-      const [keyword] = parseKeywords([base]);
-
-      expect(Object.prototype.hasOwnProperty.call(keyword, 'history7d')).toBe(false);
+      const [withoutField] = parseKeywords([base]);
+      expect(Object.prototype.hasOwnProperty.call(withoutField, 'history7d')).toBe(false);
    });
 
    it('falls back to an empty KeywordHistory when history7d contains invalid JSON', () => {

@@ -76,21 +76,17 @@ describe('replace-smart-scrape-strategy.migration', () => {
     expect(readSettings()).toEqual({ scrape_strategy: 'custom' });
   });
 
-  it('still fixes settings.json and skips the update when the domain table does not exist', async () => {
+  it('still fixes settings.json and skips the update when the domain table is missing or has no scrape_strategy column', async () => {
     writeSettings({ scrape_strategy: 'smart' });
-    const { queryInterface, calls } = makeQueryInterface({ tables: [] });
+    const missingTable = makeQueryInterface({ tables: [] });
 
-    await migration.up({ context: queryInterface });
+    await migration.up({ context: missingTable.queryInterface });
 
-    expect(calls.some((sql) => sql.startsWith('UPDATE'))).toBe(false);
+    expect(missingTable.calls.some((sql) => sql.startsWith('UPDATE'))).toBe(false);
     expect(readSettings().scrape_strategy).toBe('basic');
-  });
 
-  it('skips the update when the domain table has no scrape_strategy column', async () => {
-    const { queryInterface, calls } = makeQueryInterface({ columns: ['ID', 'domain'] });
-
-    await migration.up({ context: queryInterface });
-
-    expect(calls.some((sql) => sql.startsWith('UPDATE'))).toBe(false);
+    const missingColumn = makeQueryInterface({ columns: ['ID', 'domain'] });
+    await migration.up({ context: missingColumn.queryInterface });
+    expect(missingColumn.calls.some((sql) => sql.startsWith('UPDATE'))).toBe(false);
   });
 });

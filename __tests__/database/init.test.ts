@@ -35,7 +35,7 @@ describe('Database Initialization', () => {
       (Keyword.update as jest.Mock).mockResolvedValue([0]);
    });
 
-   it('should initialize database on first call', async () => {
+   it('should initialize database on first call and create the keyword indexes after sync', async () => {
       (db.sync as jest.Mock).mockResolvedValue(undefined);
       (db.query as jest.Mock).mockResolvedValue([undefined, 0]);
 
@@ -46,13 +46,6 @@ describe('Database Initialization', () => {
          "CREATE UNIQUE INDEX IF NOT EXISTS keyword_tracking_target_idx ON keyword (domain, keyword, COALESCE(country, ''), COALESCE(location, ''), COALESCE(device, ''))",
       );
       expect(isDatabaseInitialized()).toBe(true);
-   });
-
-   it('creates the keyword hot-path indexes after sync for fresh installs', async () => {
-      (db.sync as jest.Mock).mockResolvedValue(undefined);
-      (db.query as jest.Mock).mockResolvedValue([undefined, 0]);
-
-      await initializeDatabase();
 
       const statements = (db.query as jest.Mock).mock.calls.map((call) => call[0] as string);
       ['keyword_unique_combination_idx', 'keyword_last_updated_idx', 'keyword_position_idx', 'keyword_updating_idx', 'keyword_domain_updating_idx']
@@ -143,19 +136,14 @@ describe('Database Initialization', () => {
       expect(db.sync).toHaveBeenCalledTimes(2);
    });
 
-   it('should ensure database is initialized when called', async () => {
+   it('should ensure database is initialized when called, and not re-initialize if already initialized', async () => {
       (db.sync as jest.Mock).mockResolvedValue(undefined);
 
       await ensureDatabase();
 
       expect(db.sync).toHaveBeenCalledTimes(1);
       expect(isDatabaseInitialized()).toBe(true);
-   });
 
-   it('should not re-initialize database if already initialized via ensureDatabase', async () => {
-      (db.sync as jest.Mock).mockResolvedValue(undefined);
-
-      await initializeDatabase();
       await ensureDatabase();
       await ensureDatabase();
 

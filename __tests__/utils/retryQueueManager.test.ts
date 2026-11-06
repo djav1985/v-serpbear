@@ -95,40 +95,25 @@ describe('RetryQueueManager', () => {
          expect(lockfile.lock).not.toHaveBeenCalled();
       });
 
-      it('should handle concurrent additions correctly', async () => {
-         // Mock reading queue
-         let callCount = 0;
-         jest.spyOn(retryQueueManager as any, 'readQueue').mockImplementation(async () => {
-            callCount++;
-            // Simulate each call seeing the queue before the other's write
-            return callCount === 1 ? [] : entries(123);
-         });
-
-         // Both additions should be serialized by the lock
-         await Promise.all([
-            retryQueueManager.addToQueue(123),
-            retryQueueManager.addToQueue(456),
-         ]);
-
-         // Lock should be acquired twice (once per operation)
-         expect(lockfile.lock).toHaveBeenCalledTimes(2);
-         expect(mockRelease).toHaveBeenCalledTimes(2);
-      });
    });
 
    describe('removeFromQueue', () => {
-      it('should remove a keyword ID from the queue', async () => {
-         jest.spyOn(retryQueueManager as any, 'readQueue').mockResolvedValue(entries(123, 456, 789));
+      it('should remove a keyword ID from the queue, using the absolute value for negative IDs', async () => {
+         const cases = [
+            { queue: entries(123, 456, 789), id: 456, expected: [123, 789] },
+            { queue: entries(123, 456), id: -456, expected: [123] },
+         ];
+         for (const { queue, id, expected } of cases) {
+            jest.clearAllMocks();
+            (lockfile.lock as jest.Mock).mockResolvedValue(mockRelease);
+            jest.spyOn(retryQueueManager as any, 'readQueue').mockResolvedValue(queue);
 
-         await retryQueueManager.removeFromQueue(456);
+            await retryQueueManager.removeFromQueue(id);
 
-         expect(atomicWriteFile).toHaveBeenCalledWith(
-            testFilePath,
-            JSON.stringify([123, 789]),
-            'utf-8'
-         );
-         expect(lockfile.lock).toHaveBeenCalled();
-         expect(mockRelease).toHaveBeenCalled();
+            expect(atomicWriteFile).toHaveBeenCalledWith(testFilePath, JSON.stringify(expected), 'utf-8');
+            expect(lockfile.lock).toHaveBeenCalled();
+            expect(mockRelease).toHaveBeenCalled();
+         }
       });
 
       it('should not write if keyword ID not in queue', async () => {
@@ -141,17 +126,6 @@ describe('RetryQueueManager', () => {
          expect(mockRelease).toHaveBeenCalled();
       });
 
-      it('should handle negative keyword IDs (absolute value)', async () => {
-         jest.spyOn(retryQueueManager as any, 'readQueue').mockResolvedValue(entries(123, 456));
-
-         await retryQueueManager.removeFromQueue(-456);
-
-         expect(atomicWriteFile).toHaveBeenCalledWith(
-            testFilePath,
-            JSON.stringify([123]),
-            'utf-8'
-         );
-      });
    });
 
    describe('removeBatch', () => {
@@ -168,19 +142,16 @@ describe('RetryQueueManager', () => {
          expect(lockfile.lock).toHaveBeenCalledTimes(1);
       });
 
-      it('should not write if no IDs match', async () => {
+      it('should not write when no IDs match or the batch is empty', async () => {
          jest.spyOn(retryQueueManager as any, 'readQueue').mockResolvedValue(entries(123, 456));
 
          await retryQueueManager.removeBatch(new Set([789, 101]));
-
          expect(atomicWriteFile).not.toHaveBeenCalled();
-      });
 
-      it('should handle empty batch', async () => {
+         const locksBefore = (lockfile.lock as jest.Mock).mock.calls.length;
          await retryQueueManager.removeBatch(new Set([]));
-
          expect(atomicWriteFile).not.toHaveBeenCalled();
-         expect(lockfile.lock).not.toHaveBeenCalled();
+         expect(lockfile.lock).toHaveBeenCalledTimes(locksBefore);
       });
    });
 

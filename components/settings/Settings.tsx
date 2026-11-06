@@ -179,6 +179,7 @@ const Settings = forwardRef<HTMLDivElement, SettingsProps>(({ closeSettings }:Se
             setSettingsError(null);
             errorTimeoutRef.current = null;
          }, 3000);
+         return false;
       } else {
          // Perform Update
          const previousScraperType = appSettings?.settings?.scraper_type;
@@ -190,7 +191,7 @@ const Settings = forwardRef<HTMLDivElement, SettingsProps>(({ closeSettings }:Se
             await updateMutateAsync(settingsToSave as SettingsType);
          } catch (_updateError) {
             // useUpdateSettings already shows an error toast; keep the local edits
-            return;
+            return false;
          }
          seedPendingRef.current = true;
          // If Scraper is updated, refresh the page when enabling from a disabled state.
@@ -198,6 +199,7 @@ const Settings = forwardRef<HTMLDivElement, SettingsProps>(({ closeSettings }:Se
             window.location.reload();
          }
       }
+      return true;
    };
 
    const tabStyle = `inline-block px-3 py-2 rounded-md  cursor-pointer text-xs lg:text-sm lg:mr-3 lg:px-4 select-none z-10

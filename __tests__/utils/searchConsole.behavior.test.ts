@@ -313,12 +313,15 @@ describe('fetchSearchConsoleData date window', () => {
     mockSCQuery.mockResolvedValue({ data: { rows: [] } });
   });
 
-  it.each([3, 7, 30])('covers exactly %i inclusive calendar days', async (days) => {
-    await realFetchSearchConsoleData(mockDomainForSC, days, undefined, mockApiForSC);
+  it('covers exactly 3, 7 and 30 inclusive calendar days', async () => {
+    for (const days of [3, 7, 30]) {
+      mockSCQuery.mockClear();
+      await realFetchSearchConsoleData(mockDomainForSC, days, undefined, mockApiForSC);
 
-    const { startDate, endDate } = mockSCQuery.mock.calls[0][0].requestBody;
-    const span = (Date.parse(`${endDate}T00:00:00Z`) - Date.parse(`${startDate}T00:00:00Z`)) / 86400000 + 1;
-    expect(span).toBe(days);
+      const { startDate, endDate } = mockSCQuery.mock.calls[0][0].requestBody;
+      const span = (Date.parse(`${endDate}T00:00:00Z`) - Date.parse(`${startDate}T00:00:00Z`)) / 86400000 + 1;
+      expect(span).toBe(days);
+    }
   });
 });
 
@@ -330,30 +333,14 @@ describe('fetchSearchConsoleData error logging', () => {
     mockSCQuery.mockRejectedValue(new Error('simulated API error'));
   });
 
-  it('logs with (stats) suffix when the stat fetch fails', async () => {
+  it('logs the (stats) suffix for the stat fetch and (<days>days) for others, never mixing them', async () => {
     await realFetchDomainSCData(mockDomainForSC, mockApiForSC);
 
     const errorMessages: string[] = (logger.error as jest.Mock).mock.calls.map(
       ([msg]: [string]) => msg,
     );
     expect(errorMessages.some((m) => m.includes('(stats)'))).toBe(true);
-  });
-
-  it('logs with (<days>days) suffix when a non-stat fetch fails', async () => {
-    await realFetchDomainSCData(mockDomainForSC, mockApiForSC);
-
-    const errorMessages: string[] = (logger.error as jest.Mock).mock.calls.map(
-      ([msg]: [string]) => msg,
-    );
     expect(errorMessages.some((m) => /\(\d+days\)/.test(m))).toBe(true);
-  });
-
-  it('never logs (stats) suffix for non-stat fetches', async () => {
-    await realFetchDomainSCData(mockDomainForSC, mockApiForSC);
-
-    const errorMessages: string[] = (logger.error as jest.Mock).mock.calls.map(
-      ([msg]: [string]) => msg,
-    );
     const daysCalls = errorMessages.filter((m) => /\(\d+days\)/.test(m));
     daysCalls.forEach((m) => {
       expect(m).not.toContain('(stats)');

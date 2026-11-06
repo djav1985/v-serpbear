@@ -30,12 +30,19 @@ describe('calculateChartBounds', () => {
 });
 
 describe('isValidEmail', () => {
-   it('accepts valid email addresses', () => {
+   it('accepts valid email addresses, including edge cases and surrounding whitespace', () => {
       expect(isValidEmail('user@example.com')).toBe(true);
       expect(isValidEmail('test.user@example.com')).toBe(true);
       expect(isValidEmail('user+tag@example.co.uk')).toBe(true);
       expect(isValidEmail('user_name@example.org')).toBe(true);
       expect(isValidEmail('user-name@sub.example.com')).toBe(true);
+      // TLD exactly 2 chars is valid, 1 char is not; short local/domain parts are valid
+      expect(isValidEmail('user@example.co')).toBe(true);
+      expect(isValidEmail('user@example.c')).toBe(false);
+      expect(isValidEmail('a@b.com')).toBe(true);
+      // whitespace is trimmed before validation
+      expect(isValidEmail('  user@example.com  ')).toBe(true);
+      expect(isValidEmail('\tuser@example.com\n')).toBe(true);
    });
 
    it('rejects invalid email addresses', () => {
@@ -47,17 +54,6 @@ describe('isValidEmail', () => {
       expect(isValidEmail('user@.com')).toBe(false);
       expect(isValidEmail('user@example')).toBe(false);
       expect(isValidEmail('user example@test.com')).toBe(false);
-   });
-
-   it('handles edge cases', () => {
-      expect(isValidEmail('user@example.c')).toBe(false); // TLD too short
-      expect(isValidEmail('user@example.co')).toBe(true); // TLD exactly 2 chars
-      expect(isValidEmail('a@b.com')).toBe(true); // Short but valid
-   });
-
-   it('trims whitespace before validation', () => {
-      expect(isValidEmail('  user@example.com  ')).toBe(true);
-      expect(isValidEmail('\tuser@example.com\n')).toBe(true);
    });
 
    it('rejects non-string inputs', () => {
@@ -85,28 +81,19 @@ describe('getSelectedUntrackedKeywords', () => {
       expect(result[1]).toMatchObject({ uid: '3', isTracked: false });
    });
 
-   it('returns empty array when no keywords are selected', () => {
+   it('returns empty array when no keywords are selected or when all selected keywords are tracked', () => {
       const keywords = [
          { uid: '1', keyword: 'keyword1', isTracked: false },
          { uid: '2', keyword: 'keyword2', isTracked: true },
       ];
 
-      const result = getSelectedUntrackedKeywords(keywords, []);
+      expect(getSelectedUntrackedKeywords(keywords, [])).toHaveLength(0);
 
-      expect(result).toHaveLength(0);
-   });
-
-   it('returns empty array when all selected keywords are tracked', () => {
-      const keywords = [
+      const trackedOnly = [
          { uid: '1', keyword: 'keyword1', isTracked: true },
          { uid: '2', keyword: 'keyword2', isTracked: true },
       ];
-
-      const selectedIds = ['1', '2'];
-
-      const result = getSelectedUntrackedKeywords(keywords, selectedIds);
-
-      expect(result).toHaveLength(0);
+      expect(getSelectedUntrackedKeywords(trackedOnly, ['1', '2'])).toHaveLength(0);
    });
 
    it('returns all selected keywords when none are tracked', () => {
@@ -191,7 +178,7 @@ const parseCsvRow = (row: string): string[] => {
 // ---------------------------------------------------------------------------
 
 describe('CSV payload formatting', () => {
-  it('escapes tracked keyword exports that contain commas or quotes', () => {
+  it('escapes commas and quotes in tracked keyword and keyword idea exports', () => {
     const keyword = {
       ID: 1,
       keyword: 'hello, "world"',
@@ -226,9 +213,8 @@ describe('CSV payload formatting', () => {
     expect(parsedRow[4]).toBe('United States');
     expect(parsedRow[5]).toBe('Austin, Texas, United States');
     expect(parsedRow[9]).toBe('tag,one,tag"two');
-  });
 
-  it('escapes keyword idea exports and preserves quotes and commas', () => {
+    // keyword idea export preserves quotes and commas as well
     const keywordIdeas: IdeaKeyword[] = [
       {
         uid: 'idea-1',
@@ -245,17 +231,17 @@ describe('CSV payload formatting', () => {
       },
     ];
 
-    const payload = createKeywordIdeasCsvPayload(keywordIdeas, 'example.com');
-    expect(payload).not.toBeNull();
+    const ideaPayload = createKeywordIdeasCsvPayload(keywordIdeas, 'example.com');
+    expect(ideaPayload).not.toBeNull();
 
-    const [row] = payload!.body.trim().split('\n');
-    const parsedRow = parseCsvRow(row);
+    const [ideaRow] = ideaPayload!.body.trim().split('\n');
+    const parsedIdeaRow = parseCsvRow(ideaRow);
 
-    expect(parsedRow[0]).toBe('alpha, "beta"');
-    expect(parsedRow[1]).toBe('500');
-    expect(parsedRow[2]).toBe('HIGH');
-    expect(parsedRow[3]).toBe('75');
-    expect(parsedRow[4]).toBe('AA');
+    expect(parsedIdeaRow[0]).toBe('alpha, "beta"');
+    expect(parsedIdeaRow[1]).toBe('500');
+    expect(parsedIdeaRow[2]).toBe('HIGH');
+    expect(parsedIdeaRow[3]).toBe('75');
+    expect(parsedIdeaRow[4]).toBe('AA');
   });
 });
 

@@ -184,45 +184,23 @@ describe('RefreshQueue concurrency configuration', () => {
     expect(q.getStatus().maxConcurrency).toBe(3);
   });
 
-  it('should read concurrency from environment variable', () => {
-    process.env.REFRESH_QUEUE_CONCURRENCY = '5';
+  it('reads valid positive integers from the env var', () => {
+    for (const [value, expected] of [['1', 1], ['5', 5], ['10', 10]] as const) {
+      jest.resetModules();
+      process.env.REFRESH_QUEUE_CONCURRENCY = value;
 
-    const { refreshQueue: q } = require('../../utils/refreshQueue');
-    expect(q.getStatus().maxConcurrency).toBe(5);
+      const { refreshQueue: q } = require('../../utils/refreshQueue');
+      expect(q.getStatus().maxConcurrency).toBe(expected);
+    }
   });
 
-  it('should use default when env var is invalid', () => {
-    process.env.REFRESH_QUEUE_CONCURRENCY = 'invalid';
+  it('falls back to the default of 3 when the env var is invalid, zero or negative', () => {
+    for (const value of ['invalid', '0', '-1']) {
+      jest.resetModules();
+      process.env.REFRESH_QUEUE_CONCURRENCY = value;
 
-    const { refreshQueue: q } = require('../../utils/refreshQueue');
-    expect(q.getStatus().maxConcurrency).toBe(3);
-  });
-
-  it('should use default when env var is 0', () => {
-    process.env.REFRESH_QUEUE_CONCURRENCY = '0';
-
-    const { refreshQueue: q } = require('../../utils/refreshQueue');
-    expect(q.getStatus().maxConcurrency).toBe(3);
-  });
-
-  it('should use default when env var is negative', () => {
-    process.env.REFRESH_QUEUE_CONCURRENCY = '-1';
-
-    const { refreshQueue: q } = require('../../utils/refreshQueue');
-    expect(q.getStatus().maxConcurrency).toBe(3);
-  });
-
-  it('should allow setting concurrency to 1', () => {
-    process.env.REFRESH_QUEUE_CONCURRENCY = '1';
-
-    const { refreshQueue: q } = require('../../utils/refreshQueue');
-    expect(q.getStatus().maxConcurrency).toBe(1);
-  });
-
-  it('should allow high concurrency values', () => {
-    process.env.REFRESH_QUEUE_CONCURRENCY = '10';
-
-    const { refreshQueue: q } = require('../../utils/refreshQueue');
-    expect(q.getStatus().maxConcurrency).toBe(10);
+      const { refreshQueue: q } = require('../../utils/refreshQueue');
+      expect(q.getStatus().maxConcurrency).toBe(3);
+    }
   });
 });

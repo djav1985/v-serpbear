@@ -302,6 +302,22 @@ describe('login lockout', () => {
     expect(await attempt('9.9.9.9', 'admin', 'right-password')).toBe(200);
   });
 
+  it('keeps counting the failures of each address while the user-wide cap is reached', async () => {
+    for (let i = 0; i < 25; i += 1) {
+      for (let j = 0; j < 4; j += 1) {
+        await attempt(`10.0.0.${i}`, 'admin', 'wrong');
+      }
+    }
+    // user-wide cap reached: a fresh address still locks after its own 5 wrong guesses
+    for (let i = 0; i < 5; i += 1) {
+      expect(await attempt('8.8.8.8', 'admin', 'wrong')).toBe(429);
+    }
+    // so even the right password is now refused from that address
+    expect(await attempt('8.8.8.8', 'admin', 'right-password')).toBe(429);
+    // other addresses can still log in
+    expect(await attempt('7.7.7.7', 'admin', 'right-password')).toBe(200);
+  });
+
   it('returns 400 for a missing or non-object body', async () => {
     for (const body of [null, undefined, 'text', ['admin']]) {
       const req = { method: 'POST', body, headers: {}, socket: { remoteAddress: '8.8.8.8' } } as unknown as NextApiRequest;

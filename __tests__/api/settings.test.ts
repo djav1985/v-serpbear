@@ -197,7 +197,7 @@ describe('PUT /api/settings validation and errors', () => {
 describe('validateSettingsPayload', () => {
   const { validateSettingsPayload } = settingsApi;
 
-  it('accepts a valid payload', () => {
+  it('accepts a valid payload and empty optional values', () => {
     expect(validateSettingsPayload({
       scraper_type: 'none',
       scrape_strategy: 'custom',
@@ -208,9 +208,6 @@ describe('validateSettingsPayload', () => {
       notification_email: 'me@example.com',
       keywordsColumns: ['Best', 'Volume'],
     })).toEqual([]);
-  });
-
-  it('accepts empty optional values', () => {
     expect(validateSettingsPayload({ smtp_port: '', notification_email: '' })).toEqual([]);
   });
 
@@ -222,20 +219,22 @@ describe('validateSettingsPayload', () => {
     expect(validateSettingsPayload({ [field]: value })[0]).toMatch(message);
   });
 
-  it.each([0, 11, 2.5, 'abc'])('rejects pagination limit %p', (limit) => {
-    expect(validateSettingsPayload({ scrape_pagination_limit: limit })[0]).toMatch(/scrape_pagination_limit/);
+  it('rejects pagination limits that are 0, above 10 or not whole numbers', () => {
+    for (const limit of [0, 11, 2.5, 'abc']) {
+      expect(validateSettingsPayload({ scrape_pagination_limit: limit })[0]).toMatch(/scrape_pagination_limit/);
+    }
   });
 
-  it('rejects non-boolean flags', () => {
+  it('rejects non-boolean flags, a port outside 1-65535 and keywordsColumns that are not a list of strings', () => {
     expect(validateSettingsPayload({ scrape_retry: 'yes' })[0]).toMatch(/scrape_retry must be true or false/);
-  });
-
-  it('rejects a port outside 1-65535', () => {
     expect(validateSettingsPayload({ smtp_port: '70000' })[0]).toMatch(/smtp_port/);
+    expect(validateSettingsPayload({ keywordsColumns: 'Best' })[0]).toMatch(/keywordsColumns/);
   });
 
-  it.each(['not-an-email', 'user@localhost'])('rejects malformed notification email %s', (email) => {
-    expect(validateSettingsPayload({ notification_email: email })[0]).toMatch(/notification_email/);
+  it('rejects malformed notification emails', () => {
+    for (const email of ['not-an-email', 'user@localhost']) {
+      expect(validateSettingsPayload({ notification_email: email })[0]).toMatch(/notification_email/);
+    }
   });
 
   it('rejects a dotted domain with many repeated dots quickly', () => {
@@ -244,10 +243,6 @@ describe('validateSettingsPayload', () => {
     const errors = validateSettingsPayload({ notification_email: hostile });
     expect(Date.now() - started).toBeLessThan(200);
     expect(errors[0]).toMatch(/notification_email/);
-  });
-
-  it('rejects keywordsColumns that are not a list of strings', () => {
-    expect(validateSettingsPayload({ keywordsColumns: 'Best' })[0]).toMatch(/keywordsColumns/);
   });
 });
 
@@ -338,26 +333,18 @@ describe('GET /api/settings and configuration requirements', () => {
     expect(settings).not.toHaveProperty('proxy');
   });
 
-  it('returns defaults without logging an error when settings.json is missing', async () => {
-    const missingSettingsError = Object.assign(new Error('missing settings'), { code: 'ENOENT' });
+  it('treats a missing, empty or whitespace-only settings.json as defaults without logging errors or rewriting the file', async () => {
     const { logger } = require('../../utils/logger');
-
-    readFileMock.mockRejectedValueOnce(missingSettingsError);
+    readFileMock.mockRejectedValueOnce(Object.assign(new Error('missing settings'), { code: 'ENOENT' }));
     writeFileMock.mockResolvedValue(undefined);
     renameMock.mockResolvedValue(undefined);
 
-    const settings = await settingsApi.getAppSettings();
-
-    expect(settings).toEqual(expect.objectContaining({
+    const missing = await settingsApi.getAppSettings();
+    expect(missing).toEqual(expect.objectContaining({
       scraper_type: 'none',
       available_scapers: expect.any(Array),
     }));
-    expect(logger.error).not.toHaveBeenCalled();
-    expect(writeFileMock).not.toHaveBeenCalled();
-  });
 
-  it('treats an empty or whitespace-only settings.json as no stored settings', async () => {
-    const { logger } = require('../../utils/logger');
     for (const contents of ['', ' \n\t ']) {
       readFileMock.mockResolvedValueOnce(contents);
 

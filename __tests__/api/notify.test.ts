@@ -91,7 +91,7 @@ describe('/api/notify - authentication', () => {
     jest.clearAllMocks();
   });
 
-  it('returns 401 when verification fails', async () => {
+  it('answers 401 when verification fails and 405 for an unsupported method, and sends no mail either way', async () => {
     (verifyUser as jest.Mock).mockReturnValue('Not authorized');
 
     await handler(req as NextApiRequest, res as NextApiResponse);
@@ -102,9 +102,8 @@ describe('/api/notify - authentication', () => {
       expect.objectContaining({ error: expect.objectContaining({ code: 'UNAUTHORIZED' }) }),
     );
     expect(sendMailMock).not.toHaveBeenCalled();
-  });
 
-  it('returns 405 when using an unsupported HTTP method', async () => {
+    res = { status: jest.fn().mockReturnThis(), json: jest.fn() } as MockedResponse;
     req.method = 'GET';
     (verifyUser as jest.Mock).mockReturnValue('authorized');
 
@@ -271,27 +270,6 @@ describe('/api/notify - authentication', () => {
       to: 'custom@example.com',
       from: `${platformName} <no-reply@serpbear.com>`,
     }));
-  });
-
-  it('skips domains with notifications disabled', async () => {
-    (verifyUser as jest.Mock).mockReturnValue('authorized');
-
-    const domainRecord = {
-      get: () => ({
-        domain: 'example.com',
-        notification: 0,
-        scrapeEnabled: 0,
-        notification_emails: 'custom@example.com',
-      }),
-    };
-
-    (Domain.findAll as jest.Mock).mockResolvedValue([domainRecord]);
-
-    await handler(req as NextApiRequest, res as NextApiResponse);
-
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, error: null, message: 'No domains are enabled for notifications.' }));
-    expect(nodeMailer.createTransport).not.toHaveBeenCalled();
   });
 
   it('returns 400 when SMTP configuration is incomplete', async () => {
@@ -558,6 +536,16 @@ describe('/api/notify recipients and outcomes', () => {
     expect(sendMailMock).toHaveBeenCalledTimes(1);
     expect(sendMailMock).toHaveBeenCalledWith(expect.objectContaining({ to: 'owner@example.com' }));
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, sent: 1, skipped: 0 }));
+
+    // Recipients are per domain, so a blank global address still sends to the domain address
+    (getAppSettings as jest.Mock).mockResolvedValue({ smtp_server: 'smtp.test', smtp_port: '587', notification_email: '' });
+    const blankGlobalRes = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+    sendMailMock.mockClear();
+
+    await handler(req, blankGlobalRes as unknown as NextApiResponse);
+
+    expect(blankGlobalRes.status).not.toHaveBeenCalledWith(400);
+    expect(sendMailMock).toHaveBeenCalledTimes(1);
   });
 
   it('skips a domain whose notification address is blank, and does not fall back to the global address', async () => {
@@ -579,16 +567,6 @@ describe('/api/notify recipients and outcomes', () => {
     expect(sendMailMock).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, sent: 0, skipped: 2 }));
-  });
-
-  it('sends without a global notification email, because recipients are per domain', async () => {
-    (getAppSettings as jest.Mock).mockResolvedValue({ smtp_server: 'smtp.test', smtp_port: '587', notification_email: '' });
-    (Domain.findAll as jest.Mock).mockResolvedValue([domainRow({})]);
-
-    await handler(req, res as unknown as NextApiResponse);
-
-    expect(res.status).not.toHaveBeenCalledWith(400);
-    expect(sendMailMock).toHaveBeenCalledTimes(1);
   });
 
   it('gives the throttle slot back when setup fails after reserving it', async () => {

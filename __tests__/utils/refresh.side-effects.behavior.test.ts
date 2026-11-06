@@ -548,146 +548,7 @@ describe('refreshAndUpdateKeywords - scraper override logging', () => {
     consoleSpy.mockRestore();
   });
 
-  it('should NOT log override when domain only has business_name (no scraper_type)', async () => {
-    (Domain.findAll as jest.Mock).mockResolvedValue([
-      {
-        get: () => ({
-          domain: 'vontainment.com',
-          scrapeEnabled: true,
-          business_name: 'Vontainment',
-          scraper_settings: null,
-        }),
-      },
-    ]);
-
-    const keywordPlain = {
-      ID: 3493,
-      keyword: 'port charlotte affordable website design',
-      domain: 'vontainment.com',
-      device: 'mobile',
-      country: 'US',
-      location: '',
-      position: 0,
-      volume: 0,
-      updating: true,
-      sticky: false,
-      history: '{}',
-      lastResult: '[]',
-      lastUpdateError: 'false',
-      lastUpdated: '2024-01-01T00:00:00.000Z',
-      added: '2024-01-01T00:00:00.000Z',
-      url: '',
-      tags: '[]',
-      mapPackTop3: false,
-    };
-
-    const keywordModel = {
-      ID: keywordPlain.ID,
-      keyword: keywordPlain.keyword,
-      domain: keywordPlain.domain,
-      get: jest.fn().mockReturnValue(keywordPlain),
-      set: jest.fn(),
-      update: jest.fn().mockResolvedValue(undefined),
-    } as unknown as Keyword;
-
-    (Keyword.update as jest.Mock).mockResolvedValue([1]);
-    (scrapeKeywordWithStrategy as jest.Mock).mockResolvedValueOnce({
-      ID: keywordPlain.ID,
-      position: 1,
-      url: 'https://vontainment.com/',
-      result: [],
-      mapPackTop3: false,
-      error: false,
-    } as unknown as RefreshResult);
-
-    await refreshAndUpdateKeywords([keywordModel], mockSettings);
-
-    const overrideCalls = consoleSpy.mock.calls.filter((call: unknown[]) =>
-      (call[0] as string | undefined)?.includes('Override for vontainment.com')
-    );
-    expect(overrideCalls).toHaveLength(0);
-
-    const allOverridesCalls = consoleSpy.mock.calls.filter((call: unknown[]) =>
-      (call[0] as string | undefined)?.includes('All requested domains use scraper overrides')
-    );
-    expect(allOverridesCalls).toHaveLength(0);
-  });
-
-  it('should log override when domain has scraper_type', async () => {
-    const cryptr = new Cryptr(process.env.SECRET as string);
-
-    (Domain.findAll as jest.Mock).mockResolvedValue([
-      {
-        get: () => ({
-          domain: 'vontainment.com',
-          scrapeEnabled: true,
-          business_name: 'Vontainment',
-          scraper_settings: JSON.stringify({
-            scraper_type: 'serpapi',
-            scraping_api: cryptr.encrypt('test-api-key'),
-          }),
-        }),
-      },
-    ]);
-
-    const keywordPlain = {
-      ID: 3493,
-      keyword: 'port charlotte affordable website design',
-      domain: 'vontainment.com',
-      device: 'mobile',
-      country: 'US',
-      location: '',
-      position: 0,
-      volume: 0,
-      updating: true,
-      sticky: false,
-      history: '{}',
-      lastResult: '[]',
-      lastUpdateError: 'false',
-      lastUpdated: '2024-01-01T00:00:00.000Z',
-      added: '2024-01-01T00:00:00.000Z',
-      url: '',
-      tags: '[]',
-      mapPackTop3: false,
-    };
-
-    const keywordModel = {
-      ID: keywordPlain.ID,
-      keyword: keywordPlain.keyword,
-      domain: keywordPlain.domain,
-      get: jest.fn().mockReturnValue(keywordPlain),
-      set: jest.fn(),
-      update: jest.fn().mockResolvedValue(undefined),
-    } as unknown as Keyword;
-
-    (Keyword.update as jest.Mock).mockResolvedValue([1]);
-    (scrapeKeywordWithStrategy as jest.Mock).mockResolvedValueOnce({
-      ID: keywordPlain.ID,
-      position: 1,
-      url: 'https://vontainment.com/',
-      result: [],
-      mapPackTop3: false,
-      error: false,
-    } as unknown as RefreshResult);
-
-    await refreshAndUpdateKeywords([keywordModel], mockSettings);
-
-    // If [REFRESH] logs are visible, they should show override (debug level may suppress)
-    const overrideLogPresent = consoleSpy.mock.calls.some((call: unknown[]) =>
-      (call[0] as string | undefined)?.includes('[REFRESH] Override for vontainment.com')
-    );
-    if (consoleSpy.mock.calls.some((call: unknown[]) => (call[0] as string | undefined)?.includes('[REFRESH]'))) {
-      expect(overrideLogPresent).toBe(true);
-    }
-
-    // Should NOT log "using global scraper fallback"
-    const fallbackCalls = consoleSpy.mock.calls.filter((call: unknown[]) =>
-      (call[0] as string | undefined)?.includes('Domain vontainment.com using global scraper fallback')
-    );
-    expect(fallbackCalls).toHaveLength(0);
-  });
-
-  it('should correctly handle mixed domains (some with overrides, some with only business_name)', async () => {
+  it('logs overrides only for domains with a scraper_type, and never claims all domains use overrides when one falls back', async () => {
     const cryptr = new Cryptr(process.env.SECRET as string);
 
     (Domain.findAll as jest.Mock).mockResolvedValue([
@@ -755,10 +616,20 @@ describe('refreshAndUpdateKeywords - scraper override logging', () => {
 
     await refreshAndUpdateKeywords([keywordModel1, keywordModel2], mockSettings);
 
-    // Should NOT log "All requested domains use scraper overrides" since one is a fallback
-    const allOverridesCalls = consoleSpy.mock.calls.filter((call: unknown[]) =>
-      (call[0] as string | undefined)?.includes('All requested domains use scraper overrides')
+    // The domain with a scraper_type override is logged; the business_name-only domain is not
+    const logged = (text: string) => consoleSpy.mock.calls.filter((call: unknown[]) =>
+      (call[0] as string | undefined)?.includes(text)
     );
-    expect(allOverridesCalls).toHaveLength(0);
+    const overrideLogPresent = consoleSpy.mock.calls.some((call: unknown[]) =>
+      (call[0] as string | undefined)?.includes('[REFRESH] Override for with-override.com')
+    );
+    if (consoleSpy.mock.calls.some((call: unknown[]) => (call[0] as string | undefined)?.includes('[REFRESH]'))) {
+      expect(overrideLogPresent).toBe(true);
+    }
+    expect(logged('Override for only-business-name.com')).toHaveLength(0);
+    expect(logged('Domain with-override.com using global scraper fallback')).toHaveLength(0);
+
+    // Should NOT log "All requested domains use scraper overrides" since one is a fallback
+    expect(logged('All requested domains use scraper overrides')).toHaveLength(0);
   });
 });

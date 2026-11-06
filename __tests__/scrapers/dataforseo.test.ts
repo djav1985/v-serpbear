@@ -70,13 +70,13 @@ describe('dataforseo scraper', () => {
     expect((body[0] as any).depth).toBe(100);
   });
 
-  it('uses city, state and country for location_name when given', () => {
-    const body = bodyOf(buildKeyword({ location: 'Port Charlotte,Florida,United States' }), settings, countryData);
+  it('uses city, state and country for location_name when given, and sends device mobile for mobile keywords', () => {
+    const body = bodyOf(
+      buildKeyword({ location: 'Port Charlotte,Florida,United States', device: 'mobile' as any }),
+      settings,
+      countryData,
+    );
     expect((body[0] as any).location_name).toBe('Port Charlotte,Florida,United States');
-  });
-
-  it('sends device mobile for mobile keywords', () => {
-    const body = bodyOf(buildKeyword({ device: 'mobile' as any }), settings, countryData);
     expect((body[0] as any).device).toBe('mobile');
   });
 

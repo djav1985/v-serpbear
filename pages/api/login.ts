@@ -173,8 +173,10 @@ const loginUser = async (req: NextApiRequest, res: NextApiResponse, startTime: n
       }
    }
 
-   // Wrong credentials while the user-wide cap is reached are refused without further counting
+   // Wrong credentials while the user-wide cap is reached are refused, but they still count against this
+   // address's own limits, so the global cap cannot give one address unlimited guesses
    if (isLoginLocked([userWideKey])) {
+      recordLoginFailure(addressKeys);
       logger.warn('Login blocked: too many failed attempts for this user', { duration: Date.now() - startTime });
       return res.status(429).json(errorResponse('TOO_MANY_ATTEMPTS', 'Too many failed login attempts. Try again in 15 minutes.', requestId));
    }

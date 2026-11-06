@@ -27,19 +27,17 @@ describe('prismcrawl scraper', () => {
     jest.restoreAllMocks();
   });
 
-  it('is a POST scraper hitting the Google search endpoint without query params', () => {
+  it('is a POST scraper on the Google search endpoint with no query params, sending the API key as x-api-key', () => {
     expect(prismcrawl.method).toBe('POST');
     const url = prismcrawl.scrapeURL!(buildKeyword(), settings, countryData);
     expect(url).toBe('https://api.prismcrawl.com/v1/google/search');
-  });
 
-  it('sends the API key as the x-api-key header', () => {
     const headers = prismcrawl.headers!(buildKeyword(), settings);
     expect(headers['x-api-key']).toBe('prism-test-key');
     expect(headers['Content-Type']).toBe('application/json');
   });
 
-  it('builds the JSON body with query, locale, domain and zero-based start offset', () => {
+  it('builds the JSON body with query, locale, domain and zero-based start offset, defaulting start to 0 without pagination', () => {
     const body = bodyOf(
       buildKeyword(),
       settings,
@@ -57,11 +55,8 @@ describe('prismcrawl scraper', () => {
     expect(body).not.toHaveProperty('location');
     expect(body).not.toHaveProperty('device');
     expect(body).not.toHaveProperty('apiKey');
-  });
 
-  it('defaults to the first page when no pagination is passed', () => {
-    const body = bodyOf(buildKeyword(), settings, countryData);
-    expect(body.start).toBe(0);
+    expect(bodyOf(buildKeyword(), settings, countryData).start).toBe(0);
   });
 
   it('sends keywords as stored without decoding them', () => {
@@ -73,21 +68,13 @@ describe('prismcrawl scraper', () => {
     expect(body.query).toBe('50%25 off');
   });
 
-  it('includes city, state and country in location when provided', () => {
+  it('includes city, state and country in location, and sets device to mobile for mobile keywords', () => {
     const body = bodyOf(
-      buildKeyword({ location: 'Port Charlotte,FL,United States' }),
+      buildKeyword({ location: 'Port Charlotte,FL,United States', device: 'mobile' as any }),
       settings,
       countryData,
     );
     expect(body.location).toBe('Port Charlotte,FL,United States');
-  });
-
-  it('sets device to mobile for mobile keywords', () => {
-    const body = bodyOf(
-      buildKeyword({ device: 'mobile' as any }),
-      settings,
-      countryData,
-    );
     expect(body.device).toBe('mobile');
   });
 
@@ -191,7 +178,7 @@ describe('prismcrawl scraper', () => {
 });
 
 describe('getScraperClient with a POST scraper', () => {
-  it('sends the JSON body and POST method', async () => {
+  it('sends a POST with the JSON body for POST scrapers, and GET with no body for scrapers without a method', async () => {
     const fetchMock = jest.fn().mockResolvedValue({ ok: true });
     global.fetch = fetchMock as any;
 
@@ -208,11 +195,6 @@ describe('getScraperClient with a POST scraper', () => {
       location: 'Port Charlotte,FL,United States',
       start: 10,
     });
-  });
-
-  it('keeps GET and no body for scrapers without a method', async () => {
-    const fetchMock = jest.fn().mockResolvedValue({ ok: true });
-    global.fetch = fetchMock as any;
 
     const getScraper = {
       id: 'get-test',
@@ -223,10 +205,11 @@ describe('getScraperClient with a POST scraper', () => {
       serpExtractor: () => ({ organic: [] }),
     } as ScraperSettings;
 
+    fetchMock.mockClear();
     await getScraperClient(buildKeyword(), settings as SettingsType, getScraper, 0);
 
-    const [, init] = fetchMock.mock.calls[0];
-    expect(init.method).toBe('GET');
-    expect(init.body).toBeUndefined();
+    const [, getInit] = fetchMock.mock.calls[0];
+    expect(getInit.method).toBe('GET');
+    expect(getInit.body).toBeUndefined();
   });
 });

@@ -51,44 +51,37 @@ describe('crazyserp scraper', () => {
          expect(parsed.searchParams.get('googleDomain')).toBe('google.co.uk');
       });
 
-      it('sends the stored keyword.location as-is', () => {
-         const keyword: Partial<KeywordType> = {
+      it('sends the stored keyword.location as-is, and omits location for a blank country-only keyword', () => {
+         const withLocation: Partial<KeywordType> = {
             keyword: 'plumber',
             country: 'US',
             location: 'Austin,TX,United States',
             device: 'desktop',
          };
-
-         const url = crazyserp.scrapeURL!(
-            keyword as KeywordType,
-            settings as SettingsType,
-            countryData
-         );
-         const parsed = new URL(url);
-
-         expect(parsed.searchParams.get('location')).toBe('Austin,TX,United States');
-      });
-
-      it('omits the location parameter when keyword.location is blank for a country-only keyword', () => {
-         const keyword: Partial<KeywordType> = {
+         const countryOnly: Partial<KeywordType> = {
             keyword: 'seo tools',
             country: 'DE',
             device: 'desktop',
          };
 
-         const url = crazyserp.scrapeURL!(
-            keyword as KeywordType,
+         const parsed = new URL(crazyserp.scrapeURL!(
+            withLocation as KeywordType,
             settings as SettingsType,
             countryData
-         );
-         const parsed = new URL(url);
+         ));
+         expect(parsed.searchParams.get('location')).toBe('Austin,TX,United States');
 
-         expect(parsed.searchParams.has('location')).toBe(false);
-         expect(parsed.searchParams.get('gl')).toBe('de');
-         expect(parsed.searchParams.get('hl')).toBe('de');
+         const countryParsed = new URL(crazyserp.scrapeURL!(
+            countryOnly as KeywordType,
+            settings as SettingsType,
+            countryData
+         ));
+         expect(countryParsed.searchParams.has('location')).toBe(false);
+         expect(countryParsed.searchParams.get('gl')).toBe('de');
+         expect(countryParsed.searchParams.get('hl')).toBe('de');
       });
 
-      it('maps the 0-based page index to pageOffset and always fetches one page', () => {
+      it('maps the 0-based page index to pageOffset, always fetches one page, and defaults to page=1/pageOffset=0 without pagination', () => {
          const keyword: Partial<KeywordType> = {
             keyword: 'coffee',
             country: 'US',
@@ -96,35 +89,23 @@ describe('crazyserp scraper', () => {
          };
          const pagination: ScraperPagination = { start: 20, num: 10, page: 3 };
 
-         const url = crazyserp.scrapeURL!(
+         const paged = new URL(crazyserp.scrapeURL!(
             keyword as KeywordType,
             settings as SettingsType,
             countryData,
             pagination
-         );
-         const parsed = new URL(url);
-
+         ));
          // page 3 of results is pageOffset 2 (0-based), and only that one page is requested
-         expect(parsed.searchParams.get('page')).toBe('1');
-         expect(parsed.searchParams.get('pageOffset')).toBe('2');
-      });
+         expect(paged.searchParams.get('page')).toBe('1');
+         expect(paged.searchParams.get('pageOffset')).toBe('2');
 
-      it('defaults to page=1 and pageOffset=0 when no pagination is provided', () => {
-         const keyword: Partial<KeywordType> = {
-            keyword: 'coffee',
-            country: 'US',
-            device: 'desktop',
-         };
-
-         const url = crazyserp.scrapeURL!(
+         const unpaged = new URL(crazyserp.scrapeURL!(
             keyword as KeywordType,
             settings as SettingsType,
             countryData
-         );
-         const parsed = new URL(url);
-
-         expect(parsed.searchParams.get('page')).toBe('1');
-         expect(parsed.searchParams.get('pageOffset')).toBe('0');
+         ));
+         expect(unpaged.searchParams.get('page')).toBe('1');
+         expect(unpaged.searchParams.get('pageOffset')).toBe('0');
       });
    });
 
@@ -206,64 +187,44 @@ describe('crazyserp scraper', () => {
          });
       });
 
-      it('extracts organic results from a JSON string response', () => {
+      it('extracts organic results from a JSON string or a pre-parsed array', () => {
          const results = [
             { title: 'Result 1', url: 'https://example.com', position: 1 },
             { title: 'Result 2', url: 'https://other.com', position: 2 },
          ];
 
-         const extraction = crazyserp.serpExtractor!({
+         const fromString = crazyserp.serpExtractor!({
             keyword: baseKeyword,
             response: {},
             result: JSON.stringify({ organic: results }),
          });
+         expect(fromString.organic).toHaveLength(2);
+         expect(fromString.organic[0]).toEqual({ title: 'Result 1', url: 'https://example.com', position: 1 });
+         expect(fromString.organic[1]).toEqual({ title: 'Result 2', url: 'https://other.com', position: 2 });
 
-         expect(extraction.organic).toHaveLength(2);
-         expect(extraction.organic[0]).toEqual({ title: 'Result 1', url: 'https://example.com', position: 1 });
-         expect(extraction.organic[1]).toEqual({ title: 'Result 2', url: 'https://other.com', position: 2 });
-      });
-
-      it('extracts results from a pre-parsed array', () => {
-         const results = [
-            { title: 'Result A', url: 'https://a.com', position: 1 },
-         ];
-
-         const extraction = crazyserp.serpExtractor!({
+         const fromArray = crazyserp.serpExtractor!({
             keyword: baseKeyword,
             response: {},
             result: results,
          });
-
-         expect(extraction.organic).toHaveLength(1);
-         expect(extraction.organic[0].url).toBe('https://a.com');
+         expect(fromArray.organic).toHaveLength(2);
+         expect(fromArray.organic[0].url).toBe('https://example.com');
       });
 
-      it('falls back to response.organic when result is not provided', () => {
-         const organicResults = [
-            { title: 'Fallback Result', url: 'https://fallback.com', position: 1 },
-         ];
-
-         const extraction = crazyserp.serpExtractor!({
+      it('falls back to response.organic, then response.parsed_data, when result is not provided', () => {
+         const fromOrganic = crazyserp.serpExtractor!({
             keyword: baseKeyword,
-            response: { organic: organicResults },
+            response: { organic: [{ title: 'Fallback Result', url: 'https://fallback.com', position: 1 }] },
          });
+         expect(fromOrganic.organic).toHaveLength(1);
+         expect(fromOrganic.organic[0].url).toBe('https://fallback.com');
 
-         expect(extraction.organic).toHaveLength(1);
-         expect(extraction.organic[0].url).toBe('https://fallback.com');
-      });
-
-      it('falls back to response.parsed_data when other sources are absent', () => {
-         const parsedData = [
-            { title: 'Parsed Result', url: 'https://parsed.com', position: 1 },
-         ];
-
-         const extraction = crazyserp.serpExtractor!({
+         const fromParsed = crazyserp.serpExtractor!({
             keyword: baseKeyword,
-            response: { parsed_data: parsedData },
+            response: { parsed_data: [{ title: 'Parsed Result', url: 'https://parsed.com', position: 1 }] },
          });
-
-         expect(extraction.organic).toHaveLength(1);
-         expect(extraction.organic[0].url).toBe('https://parsed.com');
+         expect(fromParsed.organic).toHaveLength(1);
+         expect(fromParsed.organic[0].url).toBe('https://parsed.com');
       });
 
       it('filters out items that are missing title or url', () => {
@@ -293,40 +254,30 @@ describe('crazyserp scraper', () => {
          }).toThrow('Invalid JSON response for CrazySERP');
       });
 
-      it('returns empty organic array when no results are present', () => {
-         const extraction = crazyserp.serpExtractor!({
+      it('returns no organic results and no map pack when the response has no results or locations', () => {
+         const empty = crazyserp.serpExtractor!({
             keyword: baseKeyword,
             response: {},
             result: [],
          });
+         expect(empty.organic).toHaveLength(0);
 
-         expect(extraction.organic).toHaveLength(0);
-      });
-
-      it('reports no map pack when the response has no locations', () => {
-         const extraction = crazyserp.serpExtractor!({
+         const noLocations = crazyserp.serpExtractor!({
             keyword: baseKeyword,
             response: {},
             result: [{ title: 'R', url: 'https://r.com', position: 1 }],
          });
-
-         expect(extraction.mapPackTop3).toBe(false);
-         expect(extraction.localResults).toEqual([]);
+         expect(noLocations.mapPackTop3).toBe(false);
+         expect(noLocations.localResults).toEqual([]);
       });
    });
 
    describe('configuration', () => {
-      it('has the correct id and metadata', () => {
+      it('has the correct id and metadata, with supportsMapPack and allowsCity enabled', () => {
          expect(crazyserp.id).toBe('crazyserp');
          expect(crazyserp.name).toBe('CrazySERP');
          expect(crazyserp.website).toBe('crazyserp.com');
-      });
-
-      it('has supportsMapPack set to true', () => {
          expect(crazyserp.supportsMapPack).toBe(true);
-      });
-
-      it('has allowsCity set to true', () => {
          expect(crazyserp.allowsCity).toBe(true);
       });
 

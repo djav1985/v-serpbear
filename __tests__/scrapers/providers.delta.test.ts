@@ -92,7 +92,7 @@ describe('serpapi scraper', () => {
     const keyword = { keyword: 'coffee', domain: 'acme.example', device: 'desktop' } as any;
     const localSettings = { scraping_api: 'key', business_name: 'Acme Coffee' } as any;
 
-    it('reads local_results.places with title and links.website', () => {
+    it('reads local_results.places with title and links.website, and leaves url undefined when a place has no website', () => {
       const response = {
         organic_results: [],
         local_results: {
@@ -108,15 +108,13 @@ describe('serpapi scraper', () => {
         { position: 2, title: 'Other Cafe', url: 'https://other.example' },
       ]);
       expect(out.mapPackTop3).toBe(true);
-    });
 
-    it('leaves url undefined when a place has no website', () => {
-      const response = {
+      const noWebsite = {
         organic_results: [],
         local_results: { places: [{ position: 1, title: 'Acme Coffee' }] },
       };
-      const out = serpapi.serpExtractor({ keyword, response, result: [], settings: localSettings } as any);
-      expect(out.localResults).toEqual([{ position: 1, title: 'Acme Coffee', url: undefined }]);
+      const outNoWebsite = serpapi.serpExtractor({ keyword, response: noWebsite, result: [], settings: localSettings } as any);
+      expect(outNoWebsite.localResults).toEqual([{ position: 1, title: 'Acme Coffee', url: undefined }]);
     });
   });
 });

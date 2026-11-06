@@ -11,10 +11,14 @@ describe('resolveCountryCode', () => {
     expect(resolveCountryCode('DE', [])).toBe('DE');
   });
 
-  it('returns fallback when country is empty or undefined', () => {
+  it('returns fallback when country is empty, undefined, or not in the allowed countries array', () => {
     expect(resolveCountryCode('')).toBe('US');
     expect(resolveCountryCode(undefined as any)).toBe('US');
     expect(resolveCountryCode('', ['CA', 'US'])).toBe('US');
+
+    const allowedCountries = ['US', 'CA', 'GB', 'DE'];
+    expect(resolveCountryCode('FR', allowedCountries)).toBe('US');
+    expect(resolveCountryCode('ZZ', allowedCountries)).toBe('US');
   });
 
   it('returns country when it exists in allowed countries array', () => {
@@ -24,25 +28,17 @@ describe('resolveCountryCode', () => {
     expect(resolveCountryCode('GB', allowedCountries)).toBe('GB');
   });
 
-  it('returns fallback when country is not in allowed countries array', () => {
-    const allowedCountries = ['US', 'CA', 'GB', 'DE'];
-    expect(resolveCountryCode('FR', allowedCountries)).toBe('US');
-    expect(resolveCountryCode('ZZ', allowedCountries)).toBe('US');
-  });
-
   it('supports custom fallback country', () => {
     const allowedCountries = ['CA', 'GB', 'DE'];
     expect(resolveCountryCode('FR', allowedCountries, 'CA')).toBe('CA');
     expect(resolveCountryCode('', allowedCountries, 'GB')).toBe('GB');
   });
 
-  it('returns uppercase for valid country codes', () => {
+  it('returns uppercase codes that work with the countries object lookup', () => {
     expect(resolveCountryCode('us')).toBe('US');
     expect(resolveCountryCode('US')).toBe('US');
     expect(resolveCountryCode('Ca')).toBe('CA');
-  });
 
-  it('returns uppercase that works with countries object lookup', () => {
     const country = resolveCountryCode('de');
     expect(country).toBe('DE');
     expect(countries[country]).toBeDefined();
@@ -111,12 +107,10 @@ describe('serializeError', () => {
     expect(serializeError('')).toBe('Unknown error');
   });
 
-  it('stringifies primitive values safely', () => {
+  it('stringifies primitive values safely and returns readable strings unchanged', () => {
     expect(serializeError(404)).toBe('404');
     expect(serializeError(true)).toBe('true');
-  });
 
-  it('returns the raw string for readable inputs', () => {
     const message = 'Simple error message';
     expect(serializeError(message)).toBe(message);
   });

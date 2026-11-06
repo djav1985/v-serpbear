@@ -24,18 +24,21 @@ const cases: Array<[string, any, any]> = [
   ['crazyserp', crazyserp, { organic: [] }],
 ];
 
-describe.each(cases)('%s map pack when the response has no local results', (_name, scraper, response) => {
-  it('returns no map pack and an empty local list without throwing, on desktop and mobile', () => {
-    for (const device of ['desktop', 'mobile']) {
-      const extraction = scraper.serpExtractor({
-        keyword: { keyword: 'coffee', domain: 'example.com', device },
-        response,
-        result: undefined,
-        settings: { scraping_api: 'key', business_name: 'Acme Coffee' },
-      } as any);
+describe('map pack when the response has no local results', () => {
+  it('returns no map pack and an empty local list without throwing, on desktop and mobile, for every provider', () => {
+    for (const [name, scraper, response] of cases) {
+      for (const device of ['desktop', 'mobile']) {
+        const extraction = scraper.serpExtractor({
+          keyword: { keyword: 'coffee', domain: 'example.com', device },
+          response,
+          result: undefined,
+          settings: { scraping_api: 'key', business_name: 'Acme Coffee' },
+        } as any);
 
-      expect(extraction.mapPackTop3).toBe(false);
-      expect(extraction.localResults ?? []).toEqual([]);
+        // Labelled objects so a failure reports which provider and device broke.
+        expect({ provider: name, device, mapPackTop3: extraction.mapPackTop3 }).toEqual({ provider: name, device, mapPackTop3: false });
+        expect({ provider: name, device, localResults: extraction.localResults ?? [] }).toEqual({ provider: name, device, localResults: [] });
+      }
     }
   });
 });
