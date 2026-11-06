@@ -1,1 +1,1 @@
-[Repository](https://github.com/djav1985/v-serpbear) · [Changelog](https://github.com/djav1985/v-serpbear/blob/main/CHANGELOG.md) · [Issues](https://github.com/djav1985/v-serpbear/issues) · MIT License
+[Repository](https://github.com/djav1985/v-serpbear) · [Changelog](https://github.com/djav1985/v-serpbear/blob/main/CHANGELOG.md) · [Issues](https://github.com/djav1985/v-serpbear/issues) · [MIT License](https://github.com/djav1985/v-serpbear/blob/main/LICENSE)
