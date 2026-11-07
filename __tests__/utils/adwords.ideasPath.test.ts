@@ -22,8 +22,10 @@ describe('ideas file access only accepts real domain names', () => {
     jest.clearAllMocks();
   });
 
-  it.each(['../settings', 'example/../../x', 'my_site-com.com', 'a b', '%2e%2e', ''])('refuses to read for %p without touching the file system', async (domain) => {
-    await expect(getLocalKeywordIdeas(domain)).resolves.toBe(false);
+  it('refuses to read an unsafe domain without touching the file system', async () => {
+    for (const domain of ['../settings', 'example/../../x', 'my_site-com.com', 'a b', '%2e%2e', '']) {
+      await expect(getLocalKeywordIdeas(domain)).resolves.toBe(false);
+    }
     expect(readMock).not.toHaveBeenCalled();
   });
 

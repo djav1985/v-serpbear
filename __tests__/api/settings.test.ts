@@ -210,12 +210,10 @@ describe('validateSettingsPayload', () => {
     expect(validateSettingsPayload({ smtp_port: '' })).toEqual([]);
   });
 
-  it.each([
-    ['scraper_type', 'made-up', /Unknown scraper type/],
-    ['scrape_strategy', 'everything', /scrape_strategy/],
-    ['notification_interval', 'hourly', /notification_interval/],
-  ])('rejects an unknown %s value', (field, value, message) => {
-    expect(validateSettingsPayload({ [field]: value })[0]).toMatch(message);
+  it('rejects an unknown scraper type, scrape strategy or notification interval', () => {
+    expect(validateSettingsPayload({ scraper_type: 'made-up' })[0]).toMatch(/Unknown scraper type/);
+    expect(validateSettingsPayload({ scrape_strategy: 'everything' })[0]).toMatch(/scrape_strategy/);
+    expect(validateSettingsPayload({ notification_interval: 'hourly' })[0]).toMatch(/notification_interval/);
   });
 
   it('rejects pagination limits that are 0, above 10 or not whole numbers', () => {

@@ -68,18 +68,21 @@ describe('POST /api/ideas input validation', () => {
     (getAdwordsKeywordIdeas as jest.Mock).mockResolvedValue([{ uid: 'us:shoes', keyword: 'shoes' }]);
   });
 
-  it.each([
-    ['a domain that could leave the data folder', { domain: '../../etc/passwd' }],
-    ['a domain that is not a string', { domain: ['a'] }],
-    ['a domain without a dot', { domain: 'localhost' }],
-    ['an auto seed without a domain', { seedType: 'auto', domain: undefined }],
-    ['a country that is not a two-letter code', { country: 'USA' }],
-    ['a language that is not a numeric ID', { language: 'english' }],
-    ['keywords that are not strings', { keywords: [{ a: 1 }] }],
-  ])('returns 400 for %s, before calling Google Ads', async (_label, override) => {
-    const res = await post({ ...valid, ...override });
+  it('returns 400 for an invalid request, before calling Google Ads', async () => {
+    const invalidOverrides = [
+      { domain: '../../etc/passwd' }, // could leave the data folder
+      { domain: ['a'] }, // not a string
+      { domain: 'localhost' }, // no dot
+      { seedType: 'auto', domain: undefined }, // auto seed without a domain
+      { country: 'USA' }, // not a two-letter code
+      { language: 'english' }, // not a numeric ID
+      { keywords: [{ a: 1 }] }, // not strings
+    ];
+    for (const override of invalidOverrides) {
+      const res = await post({ ...valid, ...override });
 
-    expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.status).toHaveBeenCalledWith(400);
+    }
     expect(getAdwordsKeywordIdeas).not.toHaveBeenCalled();
   });
 

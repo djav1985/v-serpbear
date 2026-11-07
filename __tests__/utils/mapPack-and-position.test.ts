@@ -1,5 +1,7 @@
 import { getUnrankedPenalty, summarizeAveragePosition, UNRANKED_PENALTY_PER_PAGE } from '../../utils/averagePosition';
+import { nextMapPackRemovedAt , computeMapPackTop3, markOwnLocalResults } from '../../utils/mapPack';
 
+describe('averagePosition', () => {
 describe('summarizeAveragePosition map pack rule', () => {
   // A keyword counted alone: avgPosition is its counted position, 0 when it is left out.
   const counted = (keyword: Record<string, unknown>) => summarizeAveragePosition([keyword], 30).avgPosition;
@@ -54,4 +56,79 @@ describe('getUnrankedPenalty', () => {
     // Empty domain strategy inherits the global custom strategy and its limit
     expect(getUnrankedPenalty({ scrape_strategy: 'custom', scrape_pagination_limit: 2 }, { scrape_strategy: '' })).toBe(20);
   });
+});
+});
+
+describe('mapPackRemoval', () => {
+const base = { wasInMapPack: false, isInMapPack: false, removedAt: null, todayKey: '2026-11-10', supportsMapPack: true };
+
+describe('nextMapPackRemovedAt', () => {
+  it('sets, keeps and clears the removal date by the rules', () => {
+    // in the map pack: cleared
+    expect(nextMapPackRemovedAt({ ...base, wasInMapPack: true, isInMapPack: true, removedAt: '2026-11-01' })).toBeNull();
+    expect(nextMapPackRemovedAt({ ...base, isInMapPack: true, removedAt: '2026-11-01' })).toBeNull();
+    // dropped out now: today
+    expect(nextMapPackRemovedAt({ ...base, wasInMapPack: true })).toBe('2026-11-10');
+    // already out: kept for 30 days, cleared after
+    expect(nextMapPackRemovedAt({ ...base, removedAt: '2026-11-01' })).toBe('2026-11-01');
+    expect(nextMapPackRemovedAt({ ...base, removedAt: '2026-10-11' })).toBe('2026-10-11');
+    expect(nextMapPackRemovedAt({ ...base, removedAt: '2026-10-10' })).toBeNull();
+    // unreadable date cleared, no date stays empty
+    expect(nextMapPackRemovedAt({ ...base, removedAt: 'nonsense' })).toBeNull();
+    expect(nextMapPackRemovedAt(base)).toBeNull();
+    // scrapers without map pack data change nothing
+    expect(nextMapPackRemovedAt({ ...base, supportsMapPack: false, wasInMapPack: true })).toBeNull();
+    expect(nextMapPackRemovedAt({ ...base, supportsMapPack: false, removedAt: '2026-01-01' })).toBe('2026-01-01');
+  });
+});
+});
+
+describe('mapPack.markOwn', () => {
+describe('markOwnLocalResults', () => {
+   const results = [
+      { position: 1, title: 'CeJay Websites' },
+      { position: 2, title: 'Vontainment' },
+      { position: 3, title: 'US Web Central' },
+      { position: 4, title: 'Vontainment' },
+   ];
+
+   it('marks only the top-3 entry whose title equals the business name, ignoring case and spaces', () => {
+      const out = markOwnLocalResults(results, '  vontainment ');
+      expect(out.map((entry) => entry.isOwn)).toEqual([false, true, false, false]);
+   });
+
+   it('matches business names regardless of accents', () => {
+      const listed = [{ position: 1, title: 'Café Crème' }, { position: 2, title: 'Other' }];
+      expect(markOwnLocalResults(listed, 'Cafe Creme')[0].isOwn).toBe(true);
+      expect(markOwnLocalResults([{ position: 1, title: 'Cafe Creme' }], 'Café Crème')[0].isOwn).toBe(true);
+   });
+
+   it('still matches when only spacing, punctuation or "&" differ', () => {
+      const listed = [
+         { position: 1, title: 'Smith &  Sons, Inc.' },
+         { position: 2, title: 'Other' },
+      ];
+      expect(markOwnLocalResults(listed, 'smith and sons inc')[0].isOwn).toBe(true);
+      expect(markOwnLocalResults(listed, "Smith & Sons Inc")[0].isOwn).toBe(true);
+      expect(computeMapPackTop3(listed, 'Smith and Sons, Inc')).toBe(true);
+      expect(markOwnLocalResults(listed, 'Smith Sons')[0].isOwn).toBe(false);
+   });
+
+   it('marks nothing without a business name, and copes with missing lists', () => {
+      expect(markOwnLocalResults(results, '').every((entry) => entry.isOwn === false)).toBe(true);
+      expect(markOwnLocalResults(results, null).every((entry) => entry.isOwn === false)).toBe(true);
+      expect(markOwnLocalResults(undefined, 'Vontainment')).toEqual([]);
+   });
+
+   it('agrees with computeMapPackTop3 on whether anything matches', () => {
+      for (const name of ['Vontainment', 'Other Co', '']) {
+         expect(markOwnLocalResults(results, name).some((entry) => entry.isOwn)).toBe(computeMapPackTop3(results, name));
+      }
+   });
+
+   it('does not change the original entries', () => {
+      markOwnLocalResults(results, 'Vontainment');
+      expect(results[1]).toEqual({ position: 2, title: 'Vontainment' });
+   });
+});
 });

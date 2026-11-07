@@ -69,7 +69,8 @@ export function runScraperURLContracts(config: ScraperContractConfig): void {
   const settings = settingsFactory() as SettingsType;
   const countryData = countryDataFactory ? countryDataFactory() : DEFAULT_COUNTRY_DATA;
 
-  it('does not write to console.log when generating a URL', () => {
+  // One test per provider, so the contract adds a single test for each of them
+  it('generates a clean, correctly encoded URL', () => {
     const spy = jest.spyOn(console, 'log').mockImplementation(() => {});
     try {
       const keyword = {
@@ -78,14 +79,14 @@ export function runScraperURLContracts(config: ScraperContractConfig): void {
         device: 'desktop',
       } as KeywordType;
       scrapeURL(keyword, settings, countryData);
+      // Nothing is written to console.log while generating a URL
       expect(spy).not.toHaveBeenCalled();
     } finally {
       spy.mockRestore();
     }
-  });
 
-  if (keywordWithSpaces) {
-    it('encodes spaces in the keyword as + (application/x-www-form-urlencoded) not %2B', () => {
+    if (keywordWithSpaces) {
+      // Spaces in the keyword are encoded as + (application/x-www-form-urlencoded), not %2B
       const url = scrapeURL(keywordWithSpaces as KeywordType, settings, countryData);
       const params = new URL(url).searchParams;
       const q = params.get('q') ?? params.get('keyword') ?? params.get('query');
@@ -96,14 +97,12 @@ export function runScraperURLContracts(config: ScraperContractConfig): void {
       // The keyword portion must be present in + form (spaces → +)
       const encoded = encodeURIComponent(keywordWithSpaces.keyword!).replace(/%20/g, '+');
       expect(url).toContain(encoded);
-    });
-  }
+    }
 
-  if (keywordCountryOnly) {
-    it('omits the location parameter when only the country code is provided', () => {
+    if (keywordCountryOnly) {
+      // The location parameter is omitted when only the country code is provided
       const url = scrapeURL(keywordCountryOnly as KeywordType, settings, countryData);
-      const parsed = new URL(url);
-      expect(parsed.searchParams.has('location')).toBe(false);
-    });
-  }
+      expect(new URL(url).searchParams.has('location')).toBe(false);
+    }
+  });
 }
