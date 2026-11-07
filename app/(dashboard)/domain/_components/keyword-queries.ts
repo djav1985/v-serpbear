@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { normalizeToBoolean } from 'utils/dbBooleans';
+import { normalizeKeyword } from './keyword-normalize';
 import { apiFetch, apiGet, apiPost, apiPut } from 'utils/client/apiClient';
 import { getAddKeywordsMessage, getLocationUpdateMessage } from 'utils/keywordMeta';
 
@@ -11,17 +12,6 @@ const POLL_WHILE_UPDATING_MS = 5000;
 
 export const keywordsKey = (domain: string) => ['keywords', domain] as const;
 export const settingsKey = ['settings'] as const;
-
-const normalizeKeyword = (keyword: unknown): KeywordType => {
-   if (typeof keyword !== 'object' || keyword === null) { throw new Error('Invalid keyword object'); }
-   const record = keyword as Record<string, unknown>;
-   return {
-      ...record,
-      updating: normalizeToBoolean(record.updating),
-      sticky: normalizeToBoolean(record.sticky),
-      mapPackTop3: normalizeToBoolean(record.mapPackTop3),
-   } as KeywordType;
-};
 
 /** Same shape the server page seeds, so server and browser reads agree. */
 export const fetchKeywords = async (domain: string): Promise<KeywordType[]> => {
@@ -149,5 +139,21 @@ export function useUpdateKeywordColumns() {
       mutationFn: (keywordsColumns: string[]) => apiPut('/api/settings', { settings: { keywordsColumns } }),
       onSuccess: () => { queryClient.invalidateQueries({ queryKey: settingsKey }); },
       onError: () => { toast.error('Error saving the column choice.'); },
+   });
+}
+
+/** The heavier per-keyword data (full history and stored search results), loaded when the details sheet opens. */
+export function useKeywordDetails(keywordID: number) {
+   return useQuery({
+      queryKey: ['keyword', keywordID] as const,
+      queryFn: async () => {
+         const result = await apiGet<{ keyword?: Record<string, unknown> }>(`/api/keyword?id=${keywordID}`);
+         return {
+            history: (result.keyword?.history || {}) as KeywordHistory,
+            searchResult: result.keyword?.lastResult,
+            localResults: result.keyword?.localResults,
+            mapPackTop3: normalizeToBoolean(result.keyword?.mapPackTop3),
+         };
+      },
    });
 }

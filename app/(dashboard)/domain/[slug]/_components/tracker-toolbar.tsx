@@ -11,7 +11,7 @@ import {
 } from 'components/ui/select';
 import { cn } from 'lib/utils';
 import { NO_TAGS_FILTER, resolveTagSelection } from 'utils/client/sortFilter';
-import { LOCKED_COLUMNS, OPTIONAL_COLUMNS, SORT_CHOICES, type TrackerDevice } from './tracker-state';
+import { LOCKED_COLUMNS, OPTIONAL_COLUMNS, SC_PERIODS, SORT_CHOICES, type TrackerDevice } from './tracker-state';
 
 type Option = { label: string; value: string; flag?: string };
 
@@ -73,6 +73,10 @@ type TrackerToolbarProps = {
    optionalColumns: string[];
    onToggleColumn: (column: string) => void;
    columnsDisabled: boolean;
+   /** The Search Console period picker. Shown only while the Search Console column is on screen. */
+   showScPeriod: boolean;
+   scPeriod: string;
+   onScPeriodChange: (value: string) => void;
 };
 
 const DEVICE_TABS: { value: TrackerDevice; label: string; icon: typeof Monitor }[] = [
@@ -83,6 +87,7 @@ const DEVICE_TABS: { value: TrackerDevice; label: string; icon: typeof Monitor }
 export function TrackerToolbar({
    device, deviceCounts, onDeviceChange, countries, countryOptions, onCountriesChange, tags, tagOptions, onTagsChange,
    search, onSearchChange, sortChoice, onSortChange, searchConsoleConnected, optionalColumns, onToggleColumn, columnsDisabled,
+   showScPeriod, scPeriod, onScPeriodChange,
 }: TrackerToolbarProps) {
    const sortChoices = SORT_CHOICES.filter((choice) => !choice.searchConsoleOnly || searchConsoleConnected);
 
@@ -147,6 +152,14 @@ export function TrackerToolbar({
                   {sortChoices.map((choice) => <SelectItem key={choice.value} value={choice.value}>{choice.label}</SelectItem>)}
                </SelectContent>
             </Select>
+            {showScPeriod && (
+               <Select value={scPeriod} onValueChange={onScPeriodChange}>
+                  <SelectTrigger size="sm" className="w-52" data-testid="sc_period" aria-label="Search Console period"><SelectValue /></SelectTrigger>
+                  <SelectContent align="end">
+                     {SC_PERIODS.map((period) => <SelectItem key={period.value} value={period.value}>{`Search Console: ${period.label}`}</SelectItem>)}
+                  </SelectContent>
+               </Select>
+            )}
             <DropdownMenu>
                <DropdownMenuTrigger asChild>
                   <Button
