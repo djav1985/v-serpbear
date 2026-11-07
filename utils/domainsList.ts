@@ -1,3 +1,6 @@
+// Connects the models to the database. Server components import these loaders directly, without an API route
+// that would otherwise have loaded it first.
+import '../database/database';
 import Domain from '../database/models/domain';
 import getdomainStats from './domains';
 import { maskSearchConsole } from './maskSearchConsole';
