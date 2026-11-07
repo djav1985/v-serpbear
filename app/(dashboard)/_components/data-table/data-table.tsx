@@ -91,16 +91,18 @@ export function DataTable<TData extends RowData>({
    const showEmpty = !isLoading && rows.length === 0;
 
    return (
-      <div ref={frameRef} className={className}>
-      <div
-         ref={scrollRef}
-         role="table"
-         aria-label={label}
-         aria-rowcount={rows.length}
-         aria-busy={isLoading}
-         className="relative h-full w-full overflow-auto"
-         style={snappedHeight ? { height: snappedHeight } : undefined}
-      >
+      <div className="relative">
+         {/* Invisible copy of the requested height, used only to measure how many whole rows fit. */}
+         <div ref={frameRef} aria-hidden className={cn('pointer-events-none invisible absolute inset-x-0 top-0', className)} />
+         <div
+            ref={scrollRef}
+            role="table"
+            aria-label={label}
+            aria-rowcount={rows.length}
+            aria-busy={isLoading}
+            className={cn('relative w-full overflow-auto', !snappedHeight && className)}
+            style={snappedHeight ? { height: snappedHeight } : undefined}
+         >
          {!stacked && (
             <div ref={headRef} role="rowgroup" className="bg-card sticky top-0 z-10 border-y" style={{ minWidth }}>
                {table.getHeaderGroups().map((headerGroup) => (
@@ -180,7 +182,7 @@ export function DataTable<TData extends RowData>({
                })}
             </div>
          )}
-      </div>
+         </div>
       </div>
    );
 }
