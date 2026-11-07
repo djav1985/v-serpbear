@@ -204,9 +204,7 @@ describe('_app.tsx server-side branding', () => {
             ...DEFAULT_BRANDING,
             whiteLabelEnabled: true,
             platformName: 'Acme SEO',
-            logoFile: 'custom-logo.svg',
             hasCustomLogo: true,
-            logoMimeType: 'image/svg+xml',
          },
       ];
 

@@ -29,8 +29,7 @@ services:
       # Thum.io thumbnail capture; false disables those requests. Read at request time, no rebuild needed.
       SCREENSHOTS: true
       NEXT_PUBLIC_WHITE_LABEL: false
-      # File name (stored in /app/data) for the white-label logo. Recommended dimensions: 96x96 pixels.
-      WHITE_LABEL_LOGO_FILE: branding-logo.png
+      # The white-label logo is always /app/data/logo.png (PNG, recommended 96x96 pixels).
       NEXT_PUBLIC_PLATFORM_NAME: SerpBear
 
       # --- Scheduling ---

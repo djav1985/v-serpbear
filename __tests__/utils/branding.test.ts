@@ -1,4 +1,4 @@
-import { buildLogoUrl } from '../../utils/branding';
+import { buildLogoUrl, getBranding, LOGO_FILE, LOGO_MIME_TYPE } from '../../utils/branding';
 
 const ORIGINAL_ENV = { ...process.env };
 
@@ -6,6 +6,23 @@ describe('branding utils', () => {
    afterEach(() => {
       process.env = { ...ORIGINAL_ENV };
       jest.resetModules();
+   });
+
+   describe('fixed logo file', () => {
+      it('always uses logo.png as a PNG, whatever the environment says', () => {
+         process.env = { ...ORIGINAL_ENV, NEXT_PUBLIC_WHITE_LABEL: 'true', WHITE_LABEL_LOGO_FILE: 'something-else.svg' };
+
+         expect(LOGO_FILE).toBe('logo.png');
+         expect(LOGO_MIME_TYPE).toBe('image/png');
+         expect(getBranding().hasCustomLogo).toBe(true);
+         expect(getBranding()).not.toHaveProperty('logoFile');
+      });
+
+      it('has no custom logo when white-label is off', () => {
+         process.env = { ...ORIGINAL_ENV, NEXT_PUBLIC_WHITE_LABEL: 'false' };
+
+         expect(getBranding().hasCustomLogo).toBe(false);
+      });
    });
 
    describe('buildLogoUrl', () => {
@@ -20,36 +37,20 @@ describe('branding utils', () => {
          expect(logoUrl).toBe('');
       });
 
-      it('returns logo URL even when logo file is empty (uses default branding-logo.png)', () => {
-         process.env = { 
-            ...ORIGINAL_ENV, 
+      it('returns the logo URL whenever white-label is enabled (the logo is always data/logo.png)', () => {
+         process.env = {
+            ...ORIGINAL_ENV,
             NEXT_PUBLIC_WHITE_LABEL: 'true',
-            WHITE_LABEL_LOGO_FILE: '',
-            NEXT_PUBLIC_APP_URL: 'https://example.com' 
+            NEXT_PUBLIC_APP_URL: 'https://example.com'
          };
-         
-         // When WHITE_LABEL_LOGO_FILE is empty, it defaults to 'branding-logo.png'
-         const logoUrl = buildLogoUrl('https://example.com');
-         expect(logoUrl).toBe('https://example.com/api/branding/logo');
-      });
 
-      it('returns empty string when logo file has no valid extension', () => {
-         process.env = { 
-            ...ORIGINAL_ENV, 
-            NEXT_PUBLIC_WHITE_LABEL: 'true',
-            WHITE_LABEL_LOGO_FILE: 'logo-no-extension',
-            NEXT_PUBLIC_APP_URL: 'https://example.com' 
-         };
-         
-         const logoUrl = buildLogoUrl('https://example.com');
-         expect(logoUrl).toBe('');
+         expect(buildLogoUrl('https://example.com')).toBe('https://example.com/api/branding/logo');
       });
 
       it('builds correct URL when white-label is enabled with valid logo file', () => {
          process.env = { 
             ...ORIGINAL_ENV, 
             NEXT_PUBLIC_WHITE_LABEL: 'true',
-            WHITE_LABEL_LOGO_FILE: 'custom-logo.png',
             NEXT_PUBLIC_APP_URL: 'https://example.com' 
          };
          
@@ -61,7 +62,6 @@ describe('branding utils', () => {
          process.env = { 
             ...ORIGINAL_ENV, 
             NEXT_PUBLIC_WHITE_LABEL: 'true',
-            WHITE_LABEL_LOGO_FILE: 'custom-logo.png',
             NEXT_PUBLIC_APP_URL: 'https://example.com' 
          };
          
@@ -73,7 +73,6 @@ describe('branding utils', () => {
          process.env = { 
             ...ORIGINAL_ENV, 
             NEXT_PUBLIC_WHITE_LABEL: 'true',
-            WHITE_LABEL_LOGO_FILE: 'custom-logo.png',
             NEXT_PUBLIC_APP_URL: 'https://example.com' 
          };
          
@@ -88,7 +87,6 @@ describe('branding utils', () => {
          process.env = { 
             ...ORIGINAL_ENV, 
             NEXT_PUBLIC_WHITE_LABEL: 'false',
-            WHITE_LABEL_LOGO_FILE: 'logo.png',
             NEXT_PUBLIC_APP_URL: 'https://example.com' 
          };
          
@@ -99,7 +97,6 @@ describe('branding utils', () => {
          process.env = { 
             ...ORIGINAL_ENV, 
             NEXT_PUBLIC_WHITE_LABEL: 'true',
-            WHITE_LABEL_LOGO_FILE: 'logo.png',
             NEXT_PUBLIC_APP_URL: 'https://example.com' 
          };
          
@@ -128,7 +125,6 @@ describe('branding utils', () => {
          process.env = { 
             ...ORIGINAL_ENV, 
             NEXT_PUBLIC_WHITE_LABEL: 'true',
-            WHITE_LABEL_LOGO_FILE: 'logo.svg',
             NEXT_PUBLIC_APP_URL: 'https://example.com' 
          };
          

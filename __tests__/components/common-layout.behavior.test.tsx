@@ -203,8 +203,6 @@ describe('Common layout components', () => {
         ...DEFAULT_BRANDING,
         whiteLabelEnabled: true,
         platformName: 'Acme Rankings',
-        logoFile: 'brand.svg',
-        logoMimeType: 'image/svg+xml',
         hasCustomLogo: true,
       };
       mockUseBranding.mockReturnValue(buildBrandingState(customBranding));

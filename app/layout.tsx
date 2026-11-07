@@ -1,15 +1,15 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
-import { getBranding } from '../utils/branding';
+import { getBranding, LOGO_MIME_TYPE } from '../utils/branding';
 import { Providers } from './_components/providers';
 import './globals.css';
 
 export const dynamic = 'force-dynamic';
 
 export function generateMetadata(): Metadata {
-   const { platformName, hasCustomLogo, logoApiPath, logoMimeType } = getBranding();
+   const { platformName, hasCustomLogo, logoApiPath } = getBranding();
    const icon = hasCustomLogo
-      ? { url: logoApiPath, type: logoMimeType }
+      ? { url: logoApiPath, type: LOGO_MIME_TYPE }
       : { url: '/favicon.ico' };
 
    return {

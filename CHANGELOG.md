@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file. Releases no
 
 ## [Unreleased]
 
+### Changed
+- **White-label logo file:** the logo is now always `data/logo.png` and `/api/branding/logo` serves only that file, as a PNG. The `WHITE_LABEL_LOGO_FILE` setting is removed and is ignored if still set. If you use white-label branding, rename your existing logo (by default `data/branding-logo.png`) to `data/logo.png`, and convert it to PNG if it was another format.
+
 ## [5.0.0] (2026-11-06)
 
 ### Upgrade notes
