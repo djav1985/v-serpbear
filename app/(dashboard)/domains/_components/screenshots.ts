@@ -19,7 +19,8 @@ const readCache = (): Record<string, ThumbEntry> => {
       }
       window.localStorage.removeItem(STORAGE_KEY);
    } catch (_error) {
-      // Corrupted or blocked storage: start from an empty cache.
+      // Unparseable or blocked storage: clear it and start from an empty cache.
+      try { window.localStorage.removeItem(STORAGE_KEY); } catch (_removeError) { /* storage blocked */ }
    }
    return {};
 };

@@ -24,7 +24,6 @@ type DomainsViewProps = {
    scraperConfigured: boolean;
    searchConsoleIntegrated: boolean;
    showMapPackStat: boolean;
-   screenshotsEnabled: boolean;
    timezone: string;
 };
 
@@ -34,7 +33,7 @@ const fetchDomainCards = async (): Promise<DomainCardData[]> => {
 };
 
 export function DomainsView({
-   initialDomains, scraperConfigured, searchConsoleIntegrated, showMapPackStat, screenshotsEnabled, timezone,
+   initialDomains, scraperConfigured, searchConsoleIntegrated, showMapPackStat, timezone,
 }: DomainsViewProps) {
    const router = useRouter();
    const pathname = usePathname() ?? '/domains';
@@ -93,9 +92,9 @@ export function DomainsView({
       router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
    }, [searchString, pathname, router]);
 
-   // Fetch missing website screenshots, a few at a time.
+   // Fetch website screenshots a few at a time. A domain without one keeps its favicon.
    useEffect(() => {
-      if (!screenshotsEnabled || !domains || domains.length === 0) { return undefined; }
+      if (!domains || domains.length === 0) { return undefined; }
       let cancelled = false;
       let next = 0;
       const worker = async () => {
@@ -108,7 +107,7 @@ export function DomainsView({
       };
       Array.from({ length: Math.min(SCREENSHOT_CONCURRENCY, domains.length) }, worker);
       return () => { cancelled = true; };
-   }, [domains, screenshotsEnabled]);
+   }, [domains]);
 
    const refreshThumb = async (domain: string) => {
       const thumb = await fetchDomainScreenshot(domain, true);
@@ -170,7 +169,6 @@ export function DomainsView({
                      domain={domain}
                      consoleIntegrated={searchConsoleIntegrated || domain.hasOwnSearchConsole}
                      thumb={thumbs[domain.domain]}
-                     screenshotsEnabled={screenshotsEnabled}
                      showMapPackStat={showMapPackStat}
                      timezone={timezone}
                      toggling={toggleActive.isPending && toggleActive.variables?.domain === domain.domain}

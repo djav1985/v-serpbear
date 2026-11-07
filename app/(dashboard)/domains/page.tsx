@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { getAppSettings } from 'pages/api/settings';
-import { parseEnvFlag } from 'utils/dbBooleans';
 import { loadDomains } from 'utils/domainsList';
 import { logger } from 'utils/logger';
 import { requireSession } from 'utils/serverSession';
@@ -33,7 +32,6 @@ export default async function DomainsPage() {
          scraperConfigured={scraper_type !== 'none'}
          searchConsoleIntegrated={!!settings.search_console_integrated}
          showMapPackStat={activeScraper?.supportsMapPack === true}
-         screenshotsEnabled={parseEnvFlag(process.env.SCREENSHOTS)}
          timezone={APP_TIMEZONE}
       />
    );

@@ -9,19 +9,6 @@ type UpdatePayload = {
    domain: DomainType
 };
 
-// The effective value comes from the runtime branding config (see setRuntimeScreenshotsEnabled) once loaded.
-let runtimeScreenshotsEnabled: boolean | undefined;
-
-/**
- * Stores the runtime screenshots flag served by /api/branding/config.
- * Pass undefined to go back to the default (enabled) until the config loads.
- */
-export const setRuntimeScreenshotsEnabled = (value: boolean | undefined) => {
-   runtimeScreenshotsEnabled = typeof value === 'boolean' ? value : undefined;
-};
-
-const isScreenshotsEnabled = () => runtimeScreenshotsEnabled ?? true;
-
 const normalizeDomainPatch = (
    patch: Partial<DomainSettings>,
    domain?: DomainType,
@@ -102,73 +89,6 @@ export async function fetchDomains(router: NextRouter, withStats:boolean): Promi
 export async function fetchDomain(router: NextRouter, domainName: string): Promise<{domain: DomainType}> {
    const encodedDomain = encodeURIComponent(domainName);
    return apiGet(`/api/domain?domain=${encodedDomain}`, router);
-}
-
-type DomainThumbEntry = { data: string; ts: number };
-const THUMB_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
-
-const isValidThumbEntry = (v: unknown): v is DomainThumbEntry =>
-   typeof v === 'object' && v !== null && !Array.isArray(v) &&
-   typeof (v as DomainThumbEntry).data === 'string' &&
-   typeof (v as DomainThumbEntry).ts === 'number';
-
-export async function fetchDomainScreenshot(domain: string, forceFetch = false): Promise<string | false> {
-   if (!isScreenshotsEnabled()) { return false; }
-   if (typeof window === 'undefined' || !window.localStorage) { return false; }
-
-   let domThumbs: Record<string, DomainThumbEntry> = {};
-   const domainThumbsRaw = window.localStorage.getItem('domainThumbs');
-
-   if (domainThumbsRaw) {
-      try {
-         const parsedThumbs = JSON.parse(domainThumbsRaw);
-         if (
-            parsedThumbs &&
-            typeof parsedThumbs === 'object' &&
-            !Array.isArray(parsedThumbs) &&
-            Object.values(parsedThumbs).every(isValidThumbEntry)
-         ) {
-            domThumbs = parsedThumbs;
-         } else if (parsedThumbs) {
-            throw new Error('Corrupted cache: invalid format or content');
-         }
-      } catch (_error) {
-         // Clear corrupted cache silently
-         window.localStorage.removeItem('domainThumbs');
-         domThumbs = {};
-      }
-   }
-
-   const existing = domThumbs[domain];
-   const isFresh = existing && !forceFetch && (Date.now() - existing.ts) < THUMB_TTL_MS;
-
-   if (!isFresh) {
-      try {
-         const screenshotURL = `https://image.thum.io/get/maxAge/96/width/200/https://${domain}`;
-         const domainImageRes = await fetch(screenshotURL);
-         const domainImageBlob = domainImageRes.status === 200 ? await domainImageRes.blob() : false;
-         if (domainImageBlob) {
-            const reader = new FileReader();
-            await new Promise((resolve, reject) => {
-               reader.onload = resolve;
-               reader.onerror = reject;
-               reader.readAsDataURL(domainImageBlob);
-            });
-            const imageBase: string = reader.result && typeof reader.result === 'string' ? reader.result : '';
-            // Update only the specific domain entry to avoid rewriting the entire object
-            domThumbs[domain] = { data: imageBase, ts: Date.now() };
-            window.localStorage.setItem('domainThumbs', JSON.stringify(domThumbs));
-            return imageBase;
-         }
-         return false;
-        } catch (_error) {
-           // Silently fail screenshot fetch
-           return false;
-        }
-   }
-
-   // isFresh is truthy, so existing is guaranteed to be a valid DomainThumbEntry
-   return existing ? existing.data : false;
 }
 
 export function useFetchDomains(router: NextRouter, withStats:boolean = false) {

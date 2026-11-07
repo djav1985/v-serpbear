@@ -67,7 +67,6 @@ type DomainCardProps = {
    domain: DomainCardData;
    consoleIntegrated: boolean;
    thumb?: string;
-   screenshotsEnabled: boolean;
    showMapPackStat: boolean;
    timezone: string;
    toggling: boolean;
@@ -76,7 +75,7 @@ type DomainCardProps = {
 };
 
 export function DomainCard({
-   domain, consoleIntegrated, thumb, screenshotsEnabled, showMapPackStat, timezone, toggling, onToggle, onRefreshThumb,
+   domain, consoleIntegrated, thumb, showMapPackStat, timezone, toggling, onToggle, onRefreshThumb,
 }: DomainCardProps) {
    const router = useRouter();
    const avgPosition = roundAveragePosition(domain.avgPosition);
@@ -93,20 +92,30 @@ export function DomainCard({
             router.push(href);
          }}
       >
+         <div className="flex justify-end px-5 pt-4">
+            <label className={cn('text-muted-foreground flex items-center gap-2 text-xs', toggling && 'cursor-not-allowed opacity-70')}>
+               <span className="text-foreground font-medium">{domain.scrapeEnabled ? 'Active' : 'Deactive'}</span>
+               <Switch
+                  size="sm"
+                  checked={domain.scrapeEnabled}
+                  disabled={toggling}
+                  aria-label="Toggle domain active status"
+                  onCheckedChange={onToggle}
+               />
+            </label>
+         </div>
          <div className="flex flex-col lg:flex-row">
-            <div className={cn('flex flex-1 gap-4 p-5', !consoleIntegrated && 'lg:basis-1/3')}>
+            <div className={cn('flex flex-1 gap-4 px-5 pt-2 pb-5', !consoleIntegrated && 'lg:basis-1/3')}>
                <div className="group bg-muted relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-md border">
-                  {screenshotsEnabled && (
-                     <button
-                        type="button"
-                        className="text-muted-foreground hover:text-foreground absolute top-0 right-1 z-10 p-1 opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
-                        title="Reload website screenshot"
-                        aria-label={`Reload ${domain.domain} screenshot`}
-                        onClick={onRefreshThumb}
-                     >
-                        <RefreshCw className="size-3" />
-                     </button>
-                  )}
+                  <button
+                     type="button"
+                     className="text-muted-foreground hover:text-foreground absolute top-0 right-1 z-10 p-1 opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
+                     title="Reload website screenshot"
+                     aria-label={`Reload ${domain.domain} screenshot`}
+                     onClick={onRefreshThumb}
+                  >
+                     <RefreshCw className="size-3" />
+                  </button>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                      className={cn(!thumb && 'max-w-[50px]')}
@@ -124,18 +133,8 @@ export function DomainCard({
                            Updated {dayjs(domain.keywordsUpdated).fromNow()}
                         </span>
                      ) : (
-                        <span>Status</span>
+                        <span>Not updated yet</span>
                      )}
-                     <label className={cn('flex items-center gap-2', toggling && 'cursor-not-allowed opacity-70')}>
-                        <span className="text-foreground font-medium">{domain.scrapeEnabled ? 'Active' : 'Deactive'}</span>
-                        <Switch
-                           size="sm"
-                           checked={domain.scrapeEnabled}
-                           disabled={toggling}
-                           aria-label="Toggle domain active status"
-                           onCheckedChange={onToggle}
-                        />
-                     </label>
                   </div>
                </div>
             </div>
