@@ -51,8 +51,9 @@ const getDomainSearchConsoleInsight = async (req: NextApiRequest, res: NextApiRe
    if (localSCData) {
       const oldFetchedDate = localSCData.lastFetched;
       const fetchTimeDiff = new Date().getTime() - (oldFetchedDate ? new Date(oldFetchedDate as string).getTime() : 0);
-      // A fetch within 24 hours is fresh, even when it found no rows (a site with no recent clicks)
-      if (oldFetchedDate && fetchTimeDiff <= 86400000) {
+      // A fetch within 24 hours is fresh, even when it found no rows (a site with no recent clicks).
+      // A fetch that recorded an error is not: it is retried instead of serving its empty windows as a success.
+      if (oldFetchedDate && !localSCData.lastFetchError && fetchTimeDiff <= 86400000) {
          const response = getInsightFromSCData(localSCData);
          return res.status(200).json({ data: response });
       }

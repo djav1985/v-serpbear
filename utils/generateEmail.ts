@@ -4,6 +4,7 @@ import { getKeywordsInsight, getPagesInsight } from './insight';
 import { fetchDomainSCData, getSearchConsoleApiInfo, isSearchConsoleDataFreshForToday, readLocalSCData } from './searchConsole';
 import { parseLocation } from './location';
 import { buildLogoUrl, getBranding } from './branding';
+import { ensureBrandingAssets } from './brandingAssets';
 import { normalizeToBoolean } from './dbBooleans';
 import { historyKeyToTime } from './historyDateKey';
 import { APP_TIMEZONE, dateKeyToTime, formatDateKey, todayKey } from './timezone';
@@ -16,6 +17,7 @@ const desktopIcon = 'https://serpbear.b-cdn.net/Dx3u0XD.png';
 const googleIcon = 'https://serpbear.b-cdn.net/Sx3u0X9.png';
 
 const resolveEmailBranding = () => {
+   ensureBrandingAssets();
    const brandingDetails = getBranding();
    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || '';
    // buildLogoUrl without an origin returns a relative path, which email clients cannot load; use the default logo instead

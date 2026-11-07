@@ -26,11 +26,9 @@ services:
       APP_URL: http://localhost:3000
 
       # --- Interface and branding ---
-      # Thum.io thumbnail capture; false disables those requests. Read at request time, no rebuild needed.
-      SCREENSHOTS: true
+      # White label: with true, logo.png and favicon.ico in /app/data replace the default logo and tab icon
+      # (a missing file keeps its default). Logo recommended size: 96x96 pixels. Files are looked for at start.
       NEXT_PUBLIC_WHITE_LABEL: false
-      # File name (stored in /app/data) for the white-label logo. Recommended dimensions: 96x96 pixels.
-      WHITE_LABEL_LOGO_FILE: branding-logo.png
       NEXT_PUBLIC_PLATFORM_NAME: SerpBear
 
       # --- Scheduling ---

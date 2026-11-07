@@ -15,5 +15,8 @@ export async function register() {
    if (process.env.NEXT_RUNTIME === 'nodejs') {
       const { initializeDatabase } = await import('./database/init');
       await initializeDatabase();
+      // Look for the white-label logo and tab icon once, so no request has to check the disk
+      const { ensureBrandingAssets } = await import('./utils/brandingAssets');
+      ensureBrandingAssets();
    }
 }

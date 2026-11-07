@@ -10,12 +10,12 @@ jest.mock('../../utils/client/origin', () => ({
 import { fetchDomain } from '../../services/domains';
 
 // ---------------------------------------------------------------------------
-// domains service environment toggle
+// domain screenshots
 // ---------------------------------------------------------------------------
 
 type FetchDomainScreenshot = (domain: string, forceFetch?: boolean) => Promise<string | false>;
 
-describe('domains service environment toggle', () => {
+describe('domain screenshots', () => {
    const originalEnv = process.env;
 
    afterEach(() => {
@@ -23,25 +23,46 @@ describe('domains service environment toggle', () => {
       jest.resetModules();
    });
 
-   it('disables screenshot fetching when the runtime screenshots flag is false', async () => {
+   it('keeps the favicon while thum.io is still generating the screenshot', async () => {
       let fetchDomainScreenshot: FetchDomainScreenshot | undefined;
       jest.isolateModules(() => {
-         const mod = require('../../services/domains');
-         mod.setRuntimeScreenshotsEnabled(false);
-         fetchDomainScreenshot = mod.fetchDomainScreenshot;
+         fetchDomainScreenshot = require('../../services/domains').fetchDomainScreenshot;
       });
 
       const originalFetch = global.fetch;
-      if (!originalFetch) {
-         (global as typeof globalThis & { fetch: jest.Mock }).fetch = jest.fn();
+      const blob = jest.fn();
+      // thum.io answers 200 with a no-store placeholder image until the real screenshot is ready
+      global.fetch = jest.fn().mockResolvedValue({
+         status: 200,
+         headers: { get: (name: string) => (name.toLowerCase() === 'cache-control' ? 'no-cache, no-store, must-revalidate' : null) },
+         blob,
+      }) as unknown as typeof fetch;
+      window.localStorage.removeItem('domainThumbs');
+      try {
+         const result = await (fetchDomainScreenshot as FetchDomainScreenshot)('example.com');
+         expect(result).toBe(false);
+         expect(blob).not.toHaveBeenCalled();
+         expect(window.localStorage.getItem('domainThumbs')).toBeNull();
+      } finally {
+         global.fetch = originalFetch;
       }
-      const fetchSpy = jest.spyOn(global, 'fetch');
-      const result = await (fetchDomainScreenshot as FetchDomainScreenshot)('example.com');
-      expect(result).toBe(false);
-      expect(fetchSpy).not.toHaveBeenCalled();
-      fetchSpy.mockRestore();
-      if (!originalFetch) {
-         delete (global as unknown as { fetch?: jest.Mock }).fetch;
+   });
+
+   it('returns false when the screenshot service does not answer with an image, so the favicon is shown', async () => {
+      let fetchDomainScreenshot: FetchDomainScreenshot | undefined;
+      jest.isolateModules(() => {
+         fetchDomainScreenshot = require('../../services/domains').fetchDomainScreenshot;
+      });
+
+      const originalFetch = global.fetch;
+      global.fetch = jest.fn().mockResolvedValue({ status: 404 }) as unknown as typeof fetch;
+      window.localStorage.removeItem('domainThumbs');
+      try {
+         const result = await (fetchDomainScreenshot as FetchDomainScreenshot)('example.com');
+         expect(result).toBe(false);
+         expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('image.thum.io'));
+      } finally {
+         global.fetch = originalFetch;
       }
    });
 });

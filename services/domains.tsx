@@ -9,19 +9,6 @@ type UpdatePayload = {
    domain: DomainType
 };
 
-// The effective value comes from the runtime branding config (see setRuntimeScreenshotsEnabled) once loaded.
-let runtimeScreenshotsEnabled: boolean | undefined;
-
-/**
- * Stores the runtime screenshots flag served by /api/branding/config.
- * Pass undefined to go back to the default (enabled) until the config loads.
- */
-export const setRuntimeScreenshotsEnabled = (value: boolean | undefined) => {
-   runtimeScreenshotsEnabled = typeof value === 'boolean' ? value : undefined;
-};
-
-const isScreenshotsEnabled = () => runtimeScreenshotsEnabled ?? true;
-
 const normalizeDomainPatch = (
    patch: Partial<DomainSettings>,
    domain?: DomainType,
@@ -113,7 +100,6 @@ const isValidThumbEntry = (v: unknown): v is DomainThumbEntry =>
    typeof (v as DomainThumbEntry).ts === 'number';
 
 export async function fetchDomainScreenshot(domain: string, forceFetch = false): Promise<string | false> {
-   if (!isScreenshotsEnabled()) { return false; }
    if (typeof window === 'undefined' || !window.localStorage) { return false; }
 
    let domThumbs: Record<string, DomainThumbEntry> = {};
@@ -146,7 +132,10 @@ export async function fetchDomainScreenshot(domain: string, forceFetch = false):
       try {
          const screenshotURL = `https://image.thum.io/get/maxAge/96/width/200/https://${domain}`;
          const domainImageRes = await fetch(screenshotURL);
-         const domainImageBlob = domainImageRes.status === 200 ? await domainImageRes.blob() : false;
+         // While thum.io is still generating a screenshot it answers 200 with a no-store placeholder. That is not the
+         // screenshot, so it is not kept and the favicon stays until the real one is available.
+         const stillGenerating = /no-store|no-cache/i.test(domainImageRes.headers?.get?.('cache-control') || '');
+         const domainImageBlob = domainImageRes.status === 200 && !stillGenerating ? await domainImageRes.blob() : false;
          if (domainImageBlob) {
             const reader = new FileReader();
             await new Promise((resolve, reject) => {

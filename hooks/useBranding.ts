@@ -1,16 +1,14 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useQuery } from 'react-query';
 import type { BrandingConfig } from '../utils/branding';
 import { DEFAULT_BRANDING, getBranding } from '../utils/branding';
 import { apiGet } from '../utils/client/apiClient';
-import { setRuntimeScreenshotsEnabled } from '../services/domains';
 
-// Runtime config from /api/branding/config. `screenshots` is read server-side at request time.
-export type RuntimeBrandingConfig = BrandingConfig & { screenshots?: boolean };
+// Runtime config from /api/branding/config, read on the server at request time
+export type RuntimeBrandingConfig = BrandingConfig;
 
 export type BrandingState = {
    branding: BrandingConfig;
-   screenshotsEnabled?: boolean;
    isLoading: boolean;
    isFetching: boolean;
    isError: boolean;
@@ -42,8 +40,8 @@ const getServerSideBranding = (): BrandingConfig | undefined => {
 export const useBranding = () => {
    const serverSideBranding = useMemo(() => getServerSideBranding(), []);
 
-   // No initialData: the server-injected branding has no `screenshots` flag, so the runtime
-   // config must always be fetched on the client. Display falls back to serverSideBranding meanwhile.
+   // No initialData: the runtime config must always be fetched on the client, because the browser cannot see the
+   // server's environment or data folder. Display falls back to serverSideBranding meanwhile.
    const queryResult = useQuery<RuntimeBrandingConfig>(BRANDING_QUERY_KEY, fetchBrandingConfig, {
       enabled: isClient,
       staleTime: Infinity,
@@ -55,21 +53,14 @@ export const useBranding = () => {
       placeholderData: serverSideBranding || DEFAULT_BRANDING,
    });
 
-   const runtimeScreenshots = queryResult.data?.screenshots;
-   useEffect(() => {
-      setRuntimeScreenshotsEnabled(runtimeScreenshots);
-   }, [runtimeScreenshots]);
-
    const brandingState = useMemo<BrandingState>(() => ({
       branding: queryResult.data ?? serverSideBranding ?? DEFAULT_BRANDING,
-      // Runtime flag from /api/branding/config; undefined until it loads (callers may fall back to the build-time default)
-      screenshotsEnabled: typeof runtimeScreenshots === 'boolean' ? runtimeScreenshots : undefined,
       // With placeholderData react-query reports status 'success', so loading is the placeholder still being shown while fetching
       isLoading: queryResult.isPlaceholderData && queryResult.isFetching,
       isFetching: queryResult.isFetching,
       isError: queryResult.isError,
       refetch: queryResult.refetch,
-   }), [queryResult.data, queryResult.isError, queryResult.isFetching, queryResult.isPlaceholderData, queryResult.refetch, runtimeScreenshots, serverSideBranding]);
+   }), [queryResult.data, queryResult.isError, queryResult.isFetching, queryResult.isPlaceholderData, queryResult.refetch, serverSideBranding]);
 
    return brandingState;
 };

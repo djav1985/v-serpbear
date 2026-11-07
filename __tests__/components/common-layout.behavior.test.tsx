@@ -203,8 +203,6 @@ describe('Common layout components', () => {
         ...DEFAULT_BRANDING,
         whiteLabelEnabled: true,
         platformName: 'Acme Rankings',
-        logoFile: 'brand.svg',
-        logoMimeType: 'image/svg+xml',
         hasCustomLogo: true,
       };
       mockUseBranding.mockReturnValue(buildBrandingState(customBranding));
@@ -214,7 +212,7 @@ describe('Common layout components', () => {
       const { getByAltText } = render(<BrandTitle />);
       const logo = getByAltText('Acme Rankings logo') as HTMLImageElement;
       expect(logo).toBeInTheDocument();
-      expect(logo.src).toContain('/api/branding/logo');
+      expect(logo.src).toContain('/api/branding/logo.png');
     });
   });
 });

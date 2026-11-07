@@ -166,10 +166,7 @@ Behaviour is controlled by environment variables inside docker compose as well a
 | `TRUST_PROXY` | `0` | No | Number of reverse proxies in front of the app. `true` means 1, values above 10 are capped at 10, and invalid values mean 0. Login lockouts, API-key lockouts and the keyword-search and volume rate limits then use the `X-Forwarded-For` entry that many hops from the right. Without it, behind a proxy, every client shares the proxy's address. It also controls whether `X-Forwarded-Proto`, `X-Forwarded-Protocol` and `X-Forwarded-Ssl` set the `Secure` cookie flag; without it only the socket's TLS state does. |
 | `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | No | Public URL of the deployment, used for the Google Ads OAuth return origin, email links and logo, and as the cron worker's fallback origin. Set it for real deployments. |
 | `APP_URL` | — | No | Server-side origin for the cron worker's own calls to the app. It takes precedence over `NEXT_PUBLIC_APP_URL` for those calls, which helps in Docker when the public URL is not reachable from inside the container. Google Ads uses it only when `NEXT_PUBLIC_APP_URL` is unset. Email links ignore it. |
-| `SCREENSHOTS` | `true` | No | Domain thumbnails via thum.io. `false` shows favicons. |
-| `NEXT_PUBLIC_WHITE_LABEL` | `false` | No | Enables white-label branding (name and logo). |
-| `WHITE_LABEL_LOGO_FILE` | `branding-logo.png` | No | File name only, stored in `/app/data`. Accepted extensions are `png`, `jpg`, `jpeg`, `gif`, `svg` and `webp`. Used only when `NEXT_PUBLIC_WHITE_LABEL=true`, and served without login at `/api/branding/logo.<extension>`, for example `/api/branding/logo.png` (404 if the file is missing, and at any other address). Recommended size is 96×96 px. |
-| (tab icon) | | No | With `NEXT_PUBLIC_WHITE_LABEL=true`, a file named `favicon.ico` in `/app/data` is used as the browser tab icon. Without that file the default icon is used. Not read when white label is off. |
+| `NEXT_PUBLIC_WHITE_LABEL` | `false` | No | Enables white-label branding: your name (`NEXT_PUBLIC_PLATFORM_NAME`), `logo.png` and `favicon.ico`. See [White labelling](#white-labelling). |
 | `NEXT_PUBLIC_PLATFORM_NAME` | `SerpBear` | No | App and email name. Used only in white-label mode. |
 | `SEARCH_CONSOLE_CLIENT_EMAIL` | — | No | Service account email with access to your Search Console properties. |
 | `SEARCH_CONSOLE_PRIVATE_KEY` | — | No | Matching private key; keep newlines escaped in `.env` files. |
@@ -219,6 +216,8 @@ Manage these in the Settings UI or at `/api/settings`.
 3. **Scrape.** The cron worker (or **Refresh**) asks your provider for results and stores positions, using the [scrape strategy](#scrape-strategy).
 4. **Analyse.** Charts and tables show history, average position and day-over-day change.
 5. **Share** through the API, the MCP server or email digests.
+
+The domain list shows a screenshot of each tracked website (from thum.io, requested by your browser, so the domain names are sent to that service). While a screenshot is still being generated, or if it fails to load, the site's favicon is shown instead; a pending screenshot is requested again a few times, 10 seconds apart, and replaces the favicon once it is ready. There is no setting to turn screenshots off.
 
 ### Scrape strategy
 
@@ -323,13 +322,13 @@ The Keywords and Map Pack counts include every keyword, whether or not it is in 
 
 ### White labelling
 
-Set `NEXT_PUBLIC_WHITE_LABEL=true` for a custom name and logo. The logo is served at `/api/branding/logo.<extension>` (the extension of `WHITE_LABEL_LOGO_FILE`, for example `/api/branding/logo.png`), which the dashboard and email digests both use. To change the browser tab icon too, put a `favicon.ico` file in `/app/data`; without it the default icon is used, and with white label off the file is ignored. Logo file changes apply on the next request, so refresh the browser. Environment value changes need a restart (`docker compose up -d` or restarting the Node.js process). Neither needs a rebuild.
+Set `NEXT_PUBLIC_WHITE_LABEL=true` for a custom name, logo and browser tab icon. Put the files in `/app/data` with these exact names: `logo.png` (recommended size 96x96 px) and `favicon.ico`. The logo is served at `/api/branding/logo.png`, which the dashboard and email digests both use. Each file falls back to the default on its own when it is missing, and with white label off both files are ignored. SerpBear looks for the two files once, when it starts, so after adding or replacing one (or changing an environment value) restart it (`docker compose up -d`, or restart the Node.js process), then refresh the browser. Neither needs a rebuild. If you used the old `WHITE_LABEL_LOGO_FILE` setting, rename your logo file to `logo.png`; the setting and the `jpg`, `svg`, `gif` and `webp` formats are no longer supported.
 
 ### Settings and data
 
 Settings are stored in `data/settings.json`, with secrets encrypted using `SECRET`. `GET /api/settings` is public and returns only `scraper_type`, `available_scapers`, `search_console_integrated`, `version` and `timezone` without a session. `PUT /api/settings` needs a login session (an API key is not accepted). It merges the payload: keys left out keep their stored values, and a secret sent empty is cleared. Once logged in, `GET /api/settings` shows saved credentials (scraper API key, SMTP password, Search Console private key, Google Ads client secret, refresh token and developer token) as a row of bullets instead of the real value, and saving with the bullets still in place keeps the stored secret. `scrape_interval` must be one of the values above, and `scrape_delay` must be blank, `none` or a whole number from 0 to 30,000; anything else is rejected with a 400.
 
-Docker Compose stores data in a named volume (`data`) mounted at `/app/data`, prefixed with the project name (for example `v-serpbear_data`; find it with `docker volume ls`). It holds the SQLite database, `settings.json`, Search Console exports (`SC_<domain>.json`), keyword ideas (`IDEAS_*.json`), `session.json`, `email-throttle.json`, `failed_queue.json` and any white-label logo.
+Docker Compose stores data in a named volume (`data`) mounted at `/app/data`, prefixed with the project name (for example `v-serpbear_data`; find it with `docker volume ls`). It holds the SQLite database, `settings.json`, Search Console exports (`SC_<domain>.json`), keyword ideas (`IDEAS_*.json`), `session.json`, `email-throttle.json`, `failed_queue.json` and the white-label `logo.png` and `favicon.ico`.
 
 <br><br>
 

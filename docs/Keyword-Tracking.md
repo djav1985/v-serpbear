@@ -8,6 +8,8 @@
 4. **Analyse.** Charts and tables show history, average position and day-over-day change.
 5. **Share** through the [API and MCP server](API-and-MCP) or [email digests](Email-Digests).
 
+The domain list shows a screenshot of each tracked website (from thum.io, requested by your browser, so the domain names are sent to that service). While a screenshot is still being generated, or if it fails to load, the site's favicon is shown instead; a pending screenshot is requested again a few times, 10 seconds apart, and replaces the favicon once it is ready. There is no setting to turn screenshots off.
+
 ## Adding keywords
 
 Discover and Ideas share one add-to-tracker bar with a Desktop/Mobile toggle, tags and a location picker. Keywords that are already tracked are skipped. The Tracking tab can change the location of many keywords at once.

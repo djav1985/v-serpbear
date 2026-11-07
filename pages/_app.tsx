@@ -7,12 +7,21 @@ import { QueryClient, QueryClientProvider } from 'react-query';
 import { ReactQueryDevtools } from 'react-query/devtools';
 import { Toaster } from 'react-hot-toast';
 import { getBranding, type BrandingConfig } from '../utils/branding';
+import { useBranding } from '../hooks/useBranding';
 
 type CustomAppProps = AppProps & {
    pageProps: {
       serverSideBranding?: BrandingConfig;
    };
 };
+
+// With white label on and data/favicon.ico present, the tab icon is that file; otherwise it is the default icon.
+// It reads the runtime branding config, because getInitialProps also runs in the browser on client-side navigation,
+// where the server's files and environment are not available.
+function TabIcon() {
+   const { branding } = useBranding();
+   return <Head><link rel="icon" href={branding.hasCustomFavicon ? branding.faviconApiPath : '/favicon.ico'} /></Head>;
+}
 
 function MyApp({ Component, pageProps }: CustomAppProps) {
    const [queryClient] = React.useState(() => new QueryClient({
@@ -22,12 +31,8 @@ function MyApp({ Component, pageProps }: CustomAppProps) {
         },
       },
     }));
-   // With white label on, the tab icon comes from data/favicon.ico (or the default icon when that file is missing)
-   const tabIcon = pageProps.serverSideBranding?.whiteLabelEnabled ? '/api/branding/favicon.ico' : '/favicon.ico';
    return <QueryClientProvider client={queryClient}>
-            <Head>
-               <link rel="icon" href={tabIcon} />
-            </Head>
+            <TabIcon />
             <Component {...pageProps} />
             <ReactQueryDevtools initialIsOpen={false} />
             <Toaster position="bottom-center" containerClassName="react_toaster" />

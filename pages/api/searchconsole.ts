@@ -40,7 +40,7 @@ const getDomainSearchConsoleData = async (req: NextApiRequest, res: NextApiRespo
    const localSCData = await readLocalSCData(domainname);
    // Fresh means fetched within the last 24 hours. Empty windows are valid (a site with no recent clicks),
    // so they must not force a new Google request on every page load.
-   const isFresh = !!localSCData && !!localSCData.lastFetched
+   const isFresh = !!localSCData && !!localSCData.lastFetched && !localSCData.lastFetchError
       && Array.isArray(localSCData.threeDays) && Array.isArray(localSCData.sevenDays) && Array.isArray(localSCData.thirtyDays)
       && (new Date().getTime() - new Date(localSCData.lastFetched).getTime() <= 86400000);
    if (isFresh) {

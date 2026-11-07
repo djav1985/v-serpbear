@@ -20,10 +20,8 @@ type thumbImages = { [domain:string] : string }
 
 const Domains: NextPage = () => {
    const router = useRouter();
-   const { branding, screenshotsEnabled } = useBranding();
+   const { branding } = useBranding();
    const { platformName } = branding;
-   // Runtime flag from /api/branding/config. Stays false until it loads, so no screenshots are fetched early.
-   const screenshotsOn = screenshotsEnabled === true;
    const adsResultHandledRef = useRef(false);
    const [showSettings, setShowSettings] = useState(false);
    const [showAddDomain, setShowAddDomain] = useState(false);
@@ -90,57 +88,65 @@ const Domains: NextPage = () => {
    }, [router, refetchSettings]);
 
    useEffect(() => {
-      if (!screenshotsOn) { return; }
-      if (domainsData?.domains && domainsData.domains.length > 0) {
-         const SCREENSHOT_CONCURRENCY = 3;
-         const fetchAllScreenshots = async () => {
-            const domains = domainsData.domains;
-            const results: Array<{ domain: string; thumb: string } | null> = new Array(domains.length).fill(null);
-            let nextIndex = 0;
+      const domains = domainsData?.domains;
+      if (!domains || domains.length === 0) { return undefined; }
+      const SCREENSHOT_CONCURRENCY = 3;
+      // A screenshot that is still being generated is not available yet, so the favicon stays and the domain is asked
+      // for again a few times, 10 seconds apart
+      const RETRY_DELAY_MS = 10000;
+      const MAX_ATTEMPTS = 4;
+      let cancelled = false;
+      let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
-            // Worker function: each worker picks up the next available domain
-            const worker = async (): Promise<void> => {
-               while (nextIndex < domains.length) {
-                  const idx = nextIndex;
-                  nextIndex += 1;
-                  try {
-                     const domainThumb = await fetchDomainScreenshot(domains[idx].domain);
-                     if (domainThumb) {
-                        results[idx] = { domain: domains[idx].domain, thumb: domainThumb };
-                     }
-                  } catch {
-                     // Individual failures are handled inside fetchDomainScreenshot
-                  }
+      // Fetches the screenshots of the given domains and returns the ones that are not available yet
+      const fetchScreenshots = async (names: string[]): Promise<string[]> => {
+         const found: Record<string, string> = {};
+         let nextIndex = 0;
+
+         // Worker function: each worker picks up the next available domain
+         const worker = async (): Promise<void> => {
+            while (nextIndex < names.length) {
+               const name = names[nextIndex];
+               nextIndex += 1;
+               try {
+                  const domainThumb = await fetchDomainScreenshot(name);
+                  if (domainThumb) { found[name] = domainThumb; }
+               } catch {
+                  // Individual failures are handled inside fetchDomainScreenshot
                }
-            };
-
-            // Start at most SCREENSHOT_CONCURRENCY workers in parallel
-            await Promise.all(
-               Array.from({ length: Math.min(SCREENSHOT_CONCURRENCY, domains.length) }, worker),
-            );
-
-            const validScreenshots = results.filter(
-               (r): r is { domain: string; thumb: string } => r !== null,
-            );
-            if (validScreenshots.length > 0) {
-               setDomainThumbs((currentThumbs) => {
-                  const newThumbs = { ...currentThumbs };
-                  validScreenshots.forEach(({ domain, thumb }) => {
-                     if (thumb) {
-                        newThumbs[domain] = thumb;
-                     }
-                  });
-                  return newThumbs;
-               });
             }
          };
 
-         fetchAllScreenshots();
-      }
-   }, [domainsData, screenshotsOn]);
+         // Start at most SCREENSHOT_CONCURRENCY workers in parallel
+         await Promise.all(
+            Array.from({ length: Math.min(SCREENSHOT_CONCURRENCY, names.length) }, worker),
+         );
+
+         if (!cancelled && Object.keys(found).length > 0) {
+            setDomainThumbs((currentThumbs) => ({ ...currentThumbs, ...found }));
+         }
+         return names.filter((name) => !found[name]);
+      };
+
+      const run = async () => {
+         let missing = domains.map((item) => item.domain);
+         for (let attempt = 0; attempt < MAX_ATTEMPTS && missing.length > 0 && !cancelled; attempt += 1) {
+            if (attempt > 0) {
+               await new Promise<void>((resolve) => { retryTimer = setTimeout(resolve, RETRY_DELAY_MS); });
+               if (cancelled) { return; }
+            }
+            missing = await fetchScreenshots(missing);
+         }
+      };
+
+      run();
+      return () => {
+         cancelled = true;
+         if (retryTimer) { clearTimeout(retryTimer); }
+      };
+   }, [domainsData]);
 
    const manuallyUpdateThumb = async (domain: string) => {
-      if (!screenshotsOn) { return; }
       const domainThumb = await fetchDomainScreenshot(domain, true);
       if (domainThumb) {
          toast(`${domain} Screenshot Updated Successfully!`, { icon: '✔️' });
@@ -191,7 +197,6 @@ const Domains: NextPage = () => {
                            isConsoleIntegrated={!!(appSettings && appSettings.search_console_integrated) || !!domainSCAPiObj[domain.ID] }
                            thumb={domainThumbs[domain.domain]}
                            updateThumb={manuallyUpdateThumb}
-                           screenshotsEnabled={screenshotsOn}
                            showMapPackStat={showMapPackStat}
                            />)}
                {!isDomainsLoading && domainsData && domainsData.domains && domainsData.domains.length === 0 && (

@@ -5,23 +5,20 @@ export type BrandingConfig = {
    defaultPlatformName: string;
    whiteLabelEnabled: boolean;
    platformName: string;
-   logoFile: string;
    hasCustomLogo: boolean;
-   logoMimeType: string;
+   hasCustomFavicon: boolean;
    logoApiPath: string;
+   faviconApiPath: string;
 };
 
 export const DEFAULT_PLATFORM_NAME = 'SerpBear';
-const DEFAULT_LOGO_FILE = 'branding-logo.png';
 
-const LOGO_MIME_TYPES: Record<string, string> = {
-   '.png': 'image/png',
-   '.jpg': 'image/jpeg',
-   '.jpeg': 'image/jpeg',
-   '.gif': 'image/gif',
-   '.svg': 'image/svg+xml',
-   '.webp': 'image/webp',
-};
+/** The two white-label files, looked for by these exact names in the data folder */
+export const BRANDING_LOGO_FILE = 'logo.png';
+export const BRANDING_FAVICON_FILE = 'favicon.ico';
+
+const LOGO_API_PATH = `/api/branding/${BRANDING_LOGO_FILE}`;
+const FAVICON_API_PATH = `/api/branding/${BRANDING_FAVICON_FILE}`;
 
 const stripTrailingSlash = (value: string): string => (value.endsWith('/') ? value.slice(0, -1) : value);
 
@@ -29,30 +26,33 @@ export const DEFAULT_BRANDING: BrandingConfig = {
    defaultPlatformName: DEFAULT_PLATFORM_NAME,
    whiteLabelEnabled: false,
    platformName: DEFAULT_PLATFORM_NAME,
-   logoFile: DEFAULT_LOGO_FILE,
    hasCustomLogo: false,
-   logoMimeType: '',
-   logoApiPath: '/api/branding/logo.png',
+   hasCustomFavicon: false,
+   logoApiPath: LOGO_API_PATH,
+   faviconApiPath: FAVICON_API_PATH,
 };
 
-export const getLogoMimeType = (fileName: string): string => {
-   const lastDot = fileName.lastIndexOf('.');
-   if (lastDot === -1) {
-      return '';
-   }
+/**
+ * Which of the two white-label files exist in the data folder. The server checks the folder once (see
+ * utils/brandingAssets.ts) and keeps the result here until the app restarts. It lives on globalThis because the
+ * instrumentation hook, the API routes and the pages are separate bundles. In the browser it is never set, so the
+ * browser learns about the files from /api/branding/config instead.
+ */
+export type BrandingAssets = { logo: boolean; favicon: boolean };
+const BRANDING_ASSETS_KEY = '__serpbearBrandingAssets';
 
-   const extension = fileName.slice(lastDot).toLowerCase();
-   return LOGO_MIME_TYPES[extension] || '';
+export const setBrandingAssets = (assets: BrandingAssets | undefined): void => {
+   (globalThis as Record<string, unknown>)[BRANDING_ASSETS_KEY] = assets;
 };
+
+export const getBrandingAssets = (): BrandingAssets | undefined => (
+   (globalThis as Record<string, unknown>)[BRANDING_ASSETS_KEY] as BrandingAssets | undefined
+);
 
 export const getBranding = (): BrandingConfig => {
    const whiteLabelEnabled = normalizeToBoolean(process.env.NEXT_PUBLIC_WHITE_LABEL);
    const platformNameSetting = trimString(process.env.NEXT_PUBLIC_PLATFORM_NAME);
-   const logoFileSetting = trimString(process.env.WHITE_LABEL_LOGO_FILE || DEFAULT_LOGO_FILE);
-   const logoMimeType = getLogoMimeType(logoFileSetting);
-   const hasCustomLogo = whiteLabelEnabled && !!logoMimeType && !!logoFileSetting;
-   // The logo address ends in the file's extension, because some mail apps and proxies skip images without one
-   const logoExtension = logoMimeType ? logoFileSetting.slice(logoFileSetting.lastIndexOf('.')).toLowerCase() : '.png';
+   const assets = getBrandingAssets();
 
    const platformName = whiteLabelEnabled && platformNameSetting
       ? platformNameSetting
@@ -62,10 +62,11 @@ export const getBranding = (): BrandingConfig => {
       defaultPlatformName: DEFAULT_PLATFORM_NAME,
       whiteLabelEnabled,
       platformName,
-      logoFile: logoFileSetting,
-      hasCustomLogo,
-      logoMimeType,
-      logoApiPath: `/api/branding/logo${logoExtension}`,
+      // Each file falls back to the default on its own when it is missing
+      hasCustomLogo: whiteLabelEnabled && !!assets?.logo,
+      hasCustomFavicon: whiteLabelEnabled && !!assets?.favicon,
+      logoApiPath: LOGO_API_PATH,
+      faviconApiPath: FAVICON_API_PATH,
    } as const;
 };
 
