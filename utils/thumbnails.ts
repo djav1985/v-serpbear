@@ -58,21 +58,24 @@ export const isThumbnailStale = (date: string, now: number = Date.now()): boolea
 
 const sleep = (ms: number) => new Promise<void>((resolve) => { setTimeout(resolve, ms); });
 
-/** Newest thumbnail of every domain that has one, from a single read of the thumbnails folder */
-export const listThumbnails = async (): Promise<Map<string, ThumbnailInfo>> => {
-   const newest = new Map<string, ThumbnailInfo>();
-   let names: string[] = [];
+/** The file names in the thumbnails folder. A missing folder or a read error gives an empty list. */
+const readFolder = async (): Promise<string[]> => {
    try {
       // The folder is data/thumbnails, never built from a request.
       // eslint-disable-next-line security/detect-non-literal-fs-filename
-      names = await readdir(getThumbnailDir());
+      return await readdir(getThumbnailDir());
    } catch (error) {
       if ((error as NodeJS.ErrnoException)?.code !== 'ENOENT') {
          logger.error('Could not read the thumbnails folder', error instanceof Error ? error : new Error(String(error)));
       }
-      return newest;
+      return [];
    }
-   for (const file of names) {
+};
+
+/** Newest thumbnail of every domain that has one, from a single read of the thumbnails folder */
+export const listThumbnails = async (): Promise<Map<string, ThumbnailInfo>> => {
+   const newest = new Map<string, ThumbnailInfo>();
+   for (const file of await readFolder()) {
       const match = FILE_PATTERN.exec(file);
       if (!match) { continue; }
       const [, domain, date] = match;
@@ -95,9 +98,28 @@ export const listThumbnails = async (): Promise<Map<string, ThumbnailInfo>> => {
    return newest;
 };
 
+/** The newest thumbnail of one domain. Only that domain's file is stat-ed, so an image request does not scan every domain. */
 export const getThumbnail = async (domain: string): Promise<ThumbnailInfo | undefined> => {
    if (!isSafeThumbnailDomain(domain)) { return undefined; }
-   return (await listThumbnails()).get(domain);
+   let newest: ThumbnailInfo | undefined;
+   for (const file of await readFolder()) {
+      const match = FILE_PATTERN.exec(file);
+      if (!match || match[1] !== domain) { continue; }
+      const date = match[2];
+      if (!newest || date > newest.date) {
+         newest = { domain, date, file, version: date };
+      }
+   }
+   if (!newest) { return undefined; }
+   try {
+      // The file name matched <safe domain>_<date>.jpg in the folder listing.
+      // eslint-disable-next-line security/detect-non-literal-fs-filename
+      const { mtimeMs } = await stat(insideThumbnailDir(newest.file));
+      newest.version = `${newest.date}-${Math.floor(mtimeMs)}`;
+   } catch {
+      // Keeps the date as the version
+   }
+   return newest;
 };
 
 export const readThumbnailFile = async (info: ThumbnailInfo): Promise<Buffer> => (
