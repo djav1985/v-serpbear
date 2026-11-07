@@ -379,6 +379,7 @@ The example uses port 3000 (Node.js). Docker Compose serves the app on port 3030
 | POST | `/api/refresh` | Refresh chosen keywords: body `ids`, or query `id` (comma-separated, or `all` with `domain`) |
 | POST | `/api/cron` | Run the scheduled refresh for every domain with scraping enabled |
 | POST | `/api/notify` | Send the email digest for one domain (`domain=`) or all |
+| POST | `/api/volume` | Update keyword search volumes from Google Ads: body `{ "domain": "all" }` for every domain, or one domain name |
 | GET | `/api/searchconsole?domain=` | Search Console data of a domain |
 | POST | `/api/searchconsole` | Refresh Search Console data for all domains |
 | GET | `/api/insight?domain=` | Search Console insight: top pages, keywords, countries and stats |

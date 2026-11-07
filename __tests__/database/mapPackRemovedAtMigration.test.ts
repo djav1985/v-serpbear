@@ -35,7 +35,7 @@ describe('keyword.mapPackRemovedAt migrations', () => {
               await add.up({ context: qi });
               await repair.up({ context: qi });
               result.addedOnce = (await columns()).filter((name) => name === 'mapPackRemovedAt').length;
-              await seq.query('ALTER TABLE keyword DROP COLUMN mapPackRemovedAt');
+              await add.down({ context: qi });
               result.removed = !(await columns()).includes('mapPackRemovedAt');
               await repair.up({ context: qi });
               result.repaired = (await columns()).includes('mapPackRemovedAt');

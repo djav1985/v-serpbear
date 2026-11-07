@@ -91,6 +91,7 @@ const verifyUser = (req: NextApiRequest, res: NextApiResponse): string => {
       'POST:/api/refresh',
       'POST:/api/cron',
       'POST:/api/notify',
+      'POST:/api/volume',
       'POST:/api/searchconsole',
       'GET:/api/searchconsole',
       'GET:/api/insight',

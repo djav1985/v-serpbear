@@ -57,7 +57,8 @@ module.exports = {
          try {
             const columns = await getKeywordColumns(queryInterface, transaction);
             if (columns.includes('mapPackRemovedAt')) {
-               await queryInterface.removeColumn('keyword', 'mapPackRemovedAt', { transaction });
+               // Raw SQL: Sequelize's removeColumn calls describeTable, which crashes on the expression index
+               await queryInterface.sequelize.query('ALTER TABLE `keyword` DROP COLUMN `mapPackRemovedAt`', { transaction });
             }
          } catch (error) {
             logger.error('Migration rollback error', error instanceof Error ? error : new Error(String(error)));
