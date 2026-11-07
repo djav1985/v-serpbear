@@ -28,6 +28,19 @@ export type ThumbnailInfo = { domain: string; date: string; file: string };
 
 export const getThumbnailDir = (): string => path.join(process.cwd(), 'data', 'thumbnails');
 
+/**
+ * The full path of a file inside the thumbnails folder. Only the file's own name is used, and a name that would
+ * resolve outside the folder is refused, so a domain can never reach another directory.
+ */
+const insideThumbnailDir = (fileName: string): string => {
+   const dir = path.resolve(getThumbnailDir());
+   const resolved = path.resolve(dir, path.basename(fileName));
+   if (!resolved.startsWith(dir + path.sep)) {
+      throw new Error('Thumbnail path is outside the thumbnails folder');
+   }
+   return resolved;
+};
+
 export const isSafeThumbnailDomain = (domain: unknown): domain is string => (
    typeof domain === 'string' && domain.length <= 253 && SAFE_DOMAIN.test(domain) && !domain.includes('..')
 );
@@ -75,7 +88,7 @@ export const getThumbnail = async (domain: string): Promise<ThumbnailInfo | unde
 export const readThumbnailFile = async (info: ThumbnailInfo): Promise<Buffer> => (
    // The file name comes from the folder listing and matched <safe domain>_<date>.jpg.
    // eslint-disable-next-line security/detect-non-literal-fs-filename
-   readFile(path.join(getThumbnailDir(), info.file))
+   readFile(insideThumbnailDir(info.file))
 );
 
 /** Deletes every thumbnail of a domain. Never throws: a leftover file is only logged. */
@@ -87,7 +100,7 @@ export const deleteThumbnails = async (domain: string): Promise<void> => {
       for (const file of names) {
          if (FILE_PATTERN.exec(file)?.[1] === domain) {
             // eslint-disable-next-line security/detect-non-literal-fs-filename
-            await unlink(path.join(getThumbnailDir(), file)).catch(() => undefined);
+            await unlink(insideThumbnailDir(file)).catch(() => undefined);
          }
       }
    } catch (error) {
@@ -145,19 +158,20 @@ const generate = async (domain: string): Promise<boolean> => {
       const finalName = `${domain}_${todayStamp()}.jpg`;
       // eslint-disable-next-line security/detect-non-literal-fs-filename
       await mkdir(dir, { recursive: true });
-      const tempPath = path.join(dir, `${finalName}.tmp.${randomBytes(8).toString('hex')}`);
+      const tempPath = insideThumbnailDir(`${finalName}.tmp.${randomBytes(8).toString('hex')}`);
+      const finalPath = insideThumbnailDir(finalName);
       // The paths are the data/thumbnails folder plus a validated domain and a date stamp.
       // eslint-disable-next-line security/detect-non-literal-fs-filename
       await writeFile(tempPath, image);
       // eslint-disable-next-line security/detect-non-literal-fs-filename
-      await rename(tempPath, path.join(dir, finalName));
+      await rename(tempPath, finalPath);
 
       // The new image is saved, so the old ones can go
       // eslint-disable-next-line security/detect-non-literal-fs-filename
       for (const file of await readdir(dir)) {
          if (file !== finalName && FILE_PATTERN.exec(file)?.[1] === domain) {
             // eslint-disable-next-line security/detect-non-literal-fs-filename
-            await unlink(path.join(dir, file)).catch(() => undefined);
+            await unlink(insideThumbnailDir(file)).catch(() => undefined);
          }
       }
       failedAt.delete(domain);

@@ -129,10 +129,11 @@ describe('thumbnails', () => {
       await settle();
       await generateThumbnail('stale.com');
 
-      const requested = (global.fetch as jest.Mock).mock.calls.map(([url]) => String(url));
-      expect(requested.some((url) => url.endsWith('https://fresh.com'))).toBe(false);
-      expect(requested.filter((url) => url.endsWith('https://missing.com'))).toHaveLength(1);
-      expect(requested.some((url) => url.endsWith('https://stale.com'))).toBe(true);
+      // thum.io is asked for https://image.thum.io/get/<options>/<website>; compare the website part exactly
+      const requested = (global.fetch as jest.Mock).mock.calls.map(([url]) => String(url).split('/width/200/')[1]);
+      expect(requested).not.toContain('https://fresh.com');
+      expect(requested.filter((target) => target === 'https://missing.com')).toHaveLength(1);
+      expect(requested).toContain('https://stale.com');
    });
 
    it('leaves a domain alone for a while after a failed generation', async () => {
