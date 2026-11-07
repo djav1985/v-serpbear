@@ -77,7 +77,8 @@ const SelectField = (props: SelectFieldProps) => {
    // A caller-supplied emptyMsg replaces the default "No options" row when there are no options at all.
    const showEmptyMsg = Boolean(emptyMsg) && options.length === 0;
 
-   const selectedLabels = useMemo(() => options.reduce((acc:string[], item:SelectionOption) :string[] => selected.includes(item.value) ? [...acc, item.label] : [...acc], []), [selected, options]);
+   const selectedSet = useMemo(() => new Set(selected), [selected]);
+   const selectedLabels = useMemo(() => options.filter((item) => selectedSet.has(item.value)).map((item) => item.label), [selectedSet, options]);
 
    const selectItem = (option:SelectionOption) => {
       let updatedSelect = [option.value];
@@ -135,7 +136,7 @@ const SelectField = (props: SelectFieldProps) => {
                      </li>
                   )}
                   {visibleOptions.map((opt) => {
-                     const itemActive = selected.includes(opt.value);
+                     const itemActive = selectedSet.has(opt.value);
                      return (
                         <li
                         key={opt.value}

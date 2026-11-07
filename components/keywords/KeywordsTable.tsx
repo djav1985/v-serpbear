@@ -14,6 +14,7 @@ import useIsMobile from '../../hooks/useIsMobile';
 import { useFetchSettings, useUpdateSettings } from '../../services/settings';
 import { getDomainLocations, getDomainTags, scraperAllowsCity } from '../../utils/keywordMeta';
 import ChangeLocationModal from './ChangeLocationModal';
+import WindowVirtualList from '../common/WindowVirtualList';
 
 type KeywordsTableProps = {
    keywords: KeywordType[],
@@ -27,6 +28,7 @@ type KeywordsTableProps = {
 type KeywordRowData = {
    items: KeywordType[],
    selectedKeywords: number[],
+   selectedKeywordSet: Set<number>,
    selectKeyword: (keywordID: number) => void,
    refreshKeyword: (keywordID: number) => void,
    favoriteKeyword: (data: { keywordID: number; sticky: boolean }) => void,
@@ -48,7 +50,7 @@ const KeywordRow = ({ data, index, style }: ListChildComponentProps<KeywordRowDa
       key={keyword.ID}
       style={style}
       index={index}
-      selected={data.selectedKeywords.includes(keyword.ID)}
+      selected={data.selectedKeywordSet.has(keyword.ID)}
       selectKeyword={data.selectKeyword}
       keywordData={keyword}
       refreshkeyword={() => data.refreshKeyword(keyword.ID)}
@@ -72,6 +74,7 @@ const KeywordsTable = (props: KeywordsTableProps) => {
    const showSCData = isConsoleIntegrated;
    const [device, setDevice] = useState<string>('desktop');
    const [selectedKeywords, setSelectedKeywords] = useState<number[]>([]);
+   const selectedKeywordSet = useMemo(() => new Set(selectedKeywords), [selectedKeywords]);
    const [showKeyDetails, setShowKeyDetails] = useState<KeywordType|null>(null);
    const [showRemoveModal, setShowRemoveModal] = useState<boolean>(false);
    // Keyword IDs whose tags are being managed: one from a row menu, or the selection from the bulk menu
@@ -136,7 +139,7 @@ const KeywordsTable = (props: KeywordsTableProps) => {
 
    const selectKeyword = (keywordID: number) => {
       let updatedSelected = [...selectedKeywords, keywordID];
-      if (selectedKeywords.includes(keywordID)) {
+      if (selectedKeywordSet.has(keywordID)) {
          updatedSelected = selectedKeywords.filter((keyID) => keyID !== keywordID);
       }
       setSelectedKeywords(updatedSelected);
@@ -157,6 +160,7 @@ const KeywordsTable = (props: KeywordsTableProps) => {
    const rowData: KeywordRowData = {
       items: processedKeywords[device],
       selectedKeywords,
+      selectedKeywordSet,
       selectKeyword,
       refreshKeyword: (keywordID: number) => refreshMutate({ ids: [keywordID] }),
       favoriteKeyword: favoriteMutate,
@@ -171,29 +175,30 @@ const KeywordsTable = (props: KeywordsTableProps) => {
    };
 
    const visibleKeywordIds = useMemo(() => (processedKeywords[device] || []).map((k: KeywordType) => k.ID), [processedKeywords, device]);
+   const visibleKeywordIdSet = useMemo(() => new Set(visibleKeywordIds), [visibleKeywordIds]);
 
    // Drop selected rows that are no longer visible (filtered out, removed or on another device tab)
    useEffect(() => {
       setSelectedKeywords((currentSelected) => {
-         const kept = currentSelected.filter((id) => visibleKeywordIds.includes(id));
+         const kept = currentSelected.filter((id) => visibleKeywordIdSet.has(id));
          return kept.length === currentSelected.length ? currentSelected : kept;
       });
-   }, [visibleKeywordIds]);
+   }, [visibleKeywordIdSet]);
 
    const selectedAllItems = visibleKeywordIds.length > 0
-      && visibleKeywordIds.every((id: number) => selectedKeywords.includes(id));
+      && visibleKeywordIds.every((id: number) => selectedKeywordSet.has(id));
 
    let keywordsContent: JSX.Element | null = null;
    if (processedKeywords[device] && processedKeywords[device].length > 0) {
       if (isMobile) {
          keywordsContent = (
             <div className='block md:hidden'>
-               {processedKeywords[device].map((keyword, index) => (
+               <WindowVirtualList items={processedKeywords[device]} estimateSize={146} getItemKey={(keyword) => keyword.ID}
+               renderItem={(keyword, index) => (
                   <Keyword
-                     key={keyword.ID}
                      style={{}}
                      index={index}
-                     selected={selectedKeywords.includes(keyword.ID)}
+                     selected={selectedKeywordSet.has(keyword.ID)}
                      selectKeyword={selectKeyword}
                      keywordData={keyword}
                      refreshkeyword={() => refreshMutate({ ids: [keyword.ID] })}
@@ -208,7 +213,7 @@ const KeywordsTable = (props: KeywordsTableProps) => {
                      tableColumns={tableColumns}
                      allowsCity={allowsCity}
                   />
-               ))}
+               )} />
             </div>
          );
       } else {
@@ -218,10 +223,11 @@ const KeywordsTable = (props: KeywordsTableProps) => {
                innerElementType="div"
                itemData={rowData}
                itemCount={processedKeywords[device].length}
-               itemSize={isMobile ? 146 : 57}
+               itemSize={57}
                height={SCListHeight}
                width={'100%'}
                className={'styled-scrollbar'}
+               itemKey={(index, data: KeywordRowData) => data.items[index].ID}
                >
                   {KeywordRow}
                </List>
@@ -403,7 +409,7 @@ const KeywordsTable = (props: KeywordsTableProps) => {
             <ChangeLocationModal
                existingLocations={existingLocations}
                allowsCity={allowsCity}
-               keywords={keywords.filter((k) => selectedKeywords.includes(k.ID))}
+               keywords={keywords.filter((k) => selectedKeywordSet.has(k.ID))}
                closeModal={() => setShowChangeLocation(false)}
                />
          )}

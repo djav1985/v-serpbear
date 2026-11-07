@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { sortInsightItems } from '../../utils/insight';
 import SelectField from '../common/SelectField';
 import InsightItem from './InsightItem';
 import InsightStats from './InsightStats';
 import SpinnerMessage from '../common/SpinnerMessage';
 import { formatDateKey } from '../../utils/timezone';
+import useIsMobile from '../../hooks/useIsMobile';
+import WindowVirtualList from '../common/WindowVirtualList';
 
 type SCInsightProps = {
    domain: DomainType | null,
@@ -15,8 +17,15 @@ type SCInsightProps = {
 
 const SCInsight = ({ insight, isLoading = true, isConsoleIntegrated = true, domain }: SCInsightProps) => {
    const [activeTab, setActiveTab] = useState<string>('stats');
+   const [isMobile] = useIsMobile();
 
    const insightItems = insight[activeTab as keyof InsightDataType];
+   const orderedItems = useMemo<SCInsightItem[]>(() => {
+      if (!Array.isArray(insightItems)) { return []; }
+      return activeTab === 'stats'
+         ? [...insightItems as SearchAnalyticsStat[]].reverse() as SCInsightItem[]
+         : sortInsightItems(insightItems as SCInsightItem[]);
+   }, [activeTab, insightItems]);
    const startDate = insight && insight.stats && insight.stats.length > 0 ? insight.stats[0].date : null;
    const endDate = insight && insight.stats && insight.stats.length > 0 ? insight.stats[insight.stats.length - 1].date : null;
 
@@ -102,15 +111,14 @@ const SCInsight = ({ insight, isLoading = true, isConsoleIntegrated = true, doma
                <div className=' lg:min-w-[800px]'>
                   {renderTableHeader()}
                   <div className='domKeywords_keywords border-gray-200 min-h-[55vh] relative'>
-                     {['keywords', 'pages', 'countries', 'stats'].includes(activeTab) && insight && insightItems
-                           && (activeTab === 'stats' ? [...insightItems].reverse() : sortInsightItems(insightItems)).map(
-                              (item:SCInsightItem, index: number) => {
-                              const insightItemCount = insight ? insightItems : [];
-                              const lastItem = !!(insightItemCount && (index === insightItemCount.length - 1));
-                              return <InsightItem key={index} item={item} type={activeTab} lastItem={lastItem} domain={domain?.domain || ''} />;
-                           },
-                        )
-                     }
+                     {['keywords', 'pages', 'countries', 'stats'].includes(activeTab) && orderedItems.length > 0 && (
+                        <WindowVirtualList
+                           items={orderedItems}
+                           estimateSize={isMobile ? 126 : 57}
+                           getItemKey={(item) => `${activeTab}:${item.date || item.keyword || item.page || item.country || JSON.stringify(item)}`}
+                           renderItem={(item, index) => <InsightItem item={item} type={activeTab} lastItem={index === orderedItems.length - 1} domain={domain?.domain || ''} />}
+                        />
+                     )}
                      {isConsoleIntegrated && isLoading && (
                         <SpinnerMessage className='p-9 pt-[10%] text-center' label='Loading insights' />
                      )}

@@ -319,6 +319,14 @@ describe('KeywordIdeasTable DRY Principle Implementation', () => {
       expect(firstRow).not.toHaveClass('keyword--selected');
    });
 
+   it('keeps the search volume chart visible on mobile rows', () => {
+      const { container } = renderTable();
+      const chartRows = container.querySelectorAll('.keyword_visits');
+
+      expect(chartRows.length).toBeGreaterThan(0);
+      chartRows.forEach((row) => expect(row.className).not.toContain('hidden'));
+   });
+
    it('derives the Favorites tab from the showFavorites prop', () => {
       const favorite: IdeaKeyword = { ...ideaKeywords[1], uid: 'fav-idea', keyword: 'favorite term' };
       const setShowFavorites = jest.fn();

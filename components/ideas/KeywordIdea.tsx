@@ -86,8 +86,8 @@ const KeywordIdea = (props: KeywordIdeaProps) => {
 
          <div
           onClick={() => showKeywordDetails()}
-         className={`keyword_visits text-center hidden mt-4 mr-5 ml-5 cursor-pointer
-         lg:flex-1 lg:m-0 lg:ml-10 max-w-[70px] lg:max-w-none lg:pr-5 lg:flex justify-center`}>
+         className={`keyword_visits text-center flex mt-4 mr-5 ml-5 cursor-pointer
+         flex-1 lg:m-0 lg:ml-10 max-w-[120px] lg:max-w-none lg:pr-5 justify-center`}>
             {chartData.labels.length > 0 && <ChartSlim labels={chartData.labels} series={chartData.series} noMaxLimit={true} reverse={false} />}
          </div>
 

@@ -17,6 +17,7 @@ import { isCountryOnlyLocation } from '../../utils/location';
 import { useFetchSettings } from '../../services/settings';
 import AddToTrackerBar from './AddToTrackerBar';
 import AddKeywordsMetaStep from './AddKeywordsMetaStep';
+import WindowVirtualList from '../common/WindowVirtualList';
 
 type SCKeywordsTableProps = {
    domain: DomainType | null,
@@ -33,7 +34,7 @@ type SCCountryDataType = {
 
 type SCRowData = {
    items: SCKeywordType[],
-   selectedKeywords: string[],
+   selectedKeywordSet: Set<string>,
    selectKeyword: (keywordID: string, isTrackedKeyword?: boolean) => void,
    trackedKeywordLookup: Record<string, boolean>,
 };
@@ -55,7 +56,7 @@ const SCKeywordRow = ({ data, index, style }: ListChildComponentProps<SCRowData>
       <SCKeyword
       key={keyword.uid}
       style={style}
-      selected={data.selectedKeywords.includes(keyword.uid)}
+      selected={data.selectedKeywordSet.has(keyword.uid)}
       selectKeyword={data.selectKeyword}
       keywordData={keyword}
       isTracked={!!data.trackedKeywordLookup[scTrackedKey(keyword.keyword, keyword.country, keyword.device)]}
@@ -68,6 +69,7 @@ const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleInt
    const router = useRouter();
    const [device, setDevice] = useState<string>('desktop');
    const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
+   const selectedKeywordSet = useMemo(() => new Set(selectedKeywords), [selectedKeywords]);
    const [filterParams, setFilterParams] = useState<KeywordFilters>({ countries: [], tags: [], search: '' });
    const [sortBy, setSortBy] = useState<string>('imp_desc');
    const [SCListHeight, setSCListHeight] = useState(500);
@@ -155,7 +157,7 @@ const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleInt
    const selectKeyword = (keywordID: string, isTrackedKeyword = false) => {
       if (isTrackedKeyword) { return; }
       let updatedSelected = [...selectedKeywords, keywordID];
-      if (selectedKeywords.includes(keywordID)) {
+      if (selectedKeywordSet.has(keywordID)) {
          updatedSelected = selectedKeywords.filter((keyID) => keyID !== keywordID);
       }
       setSelectedKeywords(updatedSelected);
@@ -171,7 +173,7 @@ const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleInt
    const submitSCKeywordsToTracker = ({ tags, location, country }: { tags: string[], location: string, country: string }) => {
       if (isAddingKeywords) { return; }
       const selectedItems = finalKeywords[device]
-         .filter((kitem:SCKeywordType) => selectedKeywords.includes(kitem.uid))
+         .filter((kitem:SCKeywordType) => selectedKeywordSet.has(kitem.uid))
          .map(({ keyword, country: itemCountry }) => ({ keyword, country: itemCountry }));
       const skipped: string[] = [];
       const payloads = buildKeywordAddPayloads({
@@ -199,19 +201,20 @@ const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleInt
          .filter((keyword) => !trackedKeywordLookup[scTrackedKey(keyword.keyword, keyword.country, keyword.device)])
          .map((keyword) => keyword.uid);
    }, [finalKeywords, device, trackedKeywordLookup]);
+   const selectableKeywordIdSet = useMemo(() => new Set(selectableKeywordIds), [selectableKeywordIds]);
 
    useEffect(() => {
       setSelectedKeywords((currentSelected) => {
-         const filteredSelection = currentSelected.filter((id) => selectableKeywordIds.includes(id));
+         const filteredSelection = currentSelected.filter((id) => selectableKeywordIdSet.has(id));
          return filteredSelection.length === currentSelected.length ? currentSelected : filteredSelection;
       });
-   }, [selectableKeywordIds]);
+   }, [selectableKeywordIdSet]);
 
    const selectedAllItems = selectableKeywordIds.length > 0 && selectedKeywords.length === selectableKeywordIds.length;
 
    const rowData: SCRowData = {
       items: finalKeywords[device] || [],
-      selectedKeywords,
+      selectedKeywordSet,
       selectKeyword,
       trackedKeywordLookup,
    };
@@ -267,14 +270,31 @@ const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleInt
                   </div>
                   <div className='domKeywords_keywords border-gray-200 min-h-[55vh] relative' data-domain={domain?.domain}>
                      {!isLoading && finalKeywords[device] && finalKeywords[device].length > 0 && (
-                        <List
+                        isMobile ? (
+                           <WindowVirtualList
+                              items={finalKeywords[device]}
+                              estimateSize={100}
+                              getItemKey={(keyword) => keyword.uid}
+                              renderItem={(keyword, index) => (
+                                 <SCKeyword
+                                    style={{}}
+                                    selected={selectedKeywordSet.has(keyword.uid)}
+                                    selectKeyword={selectKeyword}
+                                    keywordData={keyword}
+                                    isTracked={!!trackedKeywordLookup[scTrackedKey(keyword.keyword, keyword.country, keyword.device)]}
+                                    lastItem={index === finalKeywords[device].length - 1}
+                                 />
+                              )}
+                           />
+                        ) : <List
                         innerElementType="div"
                         itemData={rowData}
                         itemCount={finalKeywords[device].length}
-                        itemSize={isMobile ? 100 : 57}
+                        itemSize={57}
                         height={SCListHeight}
                         width={'100%'}
                         className={'styled-scrollbar'}
+                        itemKey={(index, data: SCRowData) => data.items[index].uid}
                         >
                            {SCKeywordRow}
                         </List>

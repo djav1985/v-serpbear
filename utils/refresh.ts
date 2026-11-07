@@ -787,16 +787,14 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
 
       // Trim history to last 30 days to optimize storage and read performance
       // This prevents history object from growing indefinitely
-      const historyEntries = Object.entries(history);
-      if (historyEntries.length >= 31) {
+      const sortedHistoryEntries = Object.entries(history)
+         .map(([key, value]) => ({ key, date: historyKeyToTime(key), value }))
+         .sort((a, b) => a.date - b.date);
+      if (sortedHistoryEntries.length >= 31) {
          // Once we have 31 entries (30 + today's new entry), trim to 30 most recent
-         const sortedEntries = historyEntries
-            .map(([key, value]) => ({ key, date: historyKeyToTime(key), value }))
-            .sort((a, b) => a.date - b.date)
-            .slice(-30); // Keep last 30 entries
-         
+         const recentEntries = sortedHistoryEntries.slice(-30);
          const trimmedHistory: Record<string, number> = {};
-         sortedEntries.forEach(({ key, value }) => {
+         recentEntries.forEach(({ key, value }) => {
             trimmedHistory[key] = value;
          });
          Object.keys(history).forEach(key => delete history[key]);
@@ -821,9 +819,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
 
       // Build single atomic update payload with ALL fields from API response + flags.
       // In the success path we perform a single update per keyword row to minimize DB writes and precompute derived fields such as history7d (last 7 entries from the already-trimmed history using timestamp sort).
-      const history7dObj = Object.entries(history)
-         .map(([key, value]) => ({ key, date: historyKeyToTime(key), value }))
-         .sort((a, b) => a.date - b.date)
+      const history7dObj = sortedHistoryEntries
          .slice(-7)
          .reduce<Record<string, number>>((acc, { key, value }) => { acc[key] = value; return acc; }, {});
 
