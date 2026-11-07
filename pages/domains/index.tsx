@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { NextPage } from 'next';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
@@ -8,15 +8,14 @@ import TopBar from '../../components/common/TopBar';
 import AddDomain from '../../components/domains/AddDomain';
 import Settings from '../../components/settings/Settings';
 import { useFetchSettings } from '../../services/settings';
-import { getDomainThumbnailUrl, regenerateDomainThumbnail, useFetchDomains, useFetchDomainThumbnails } from '../../services/domains';
+import { useFetchDomains } from '../../services/domains';
+import { fetchThumbnailBatch, readCachedThumbnail } from '../../services/thumbnails';
 import DomainItem from '../../components/domains/DomainItem';
 import Footer from '../../components/common/Footer';
 import { withAuth } from '../../hooks/useAuth';
 import PageLoader from '../../components/common/PageLoader';
 import { useBranding } from '../../hooks/useBranding';
 import { safeJsonParse } from '../../utils/safeJsonParse';
-
-type thumbDates = { [domain:string] : string }
 
 const Domains: NextPage = () => {
    const router = useRouter();
@@ -26,9 +25,15 @@ const Domains: NextPage = () => {
    const [showSettings, setShowSettings] = useState(false);
    const [showAddDomain, setShowAddDomain] = useState(false);
    const addDomainNodeRef = useRef<HTMLDivElement>(null);
-   // Thumbnails regenerated with the reload button, until the list is read again
-   const [regeneratedThumbs, setRegeneratedThumbs] = useState<thumbDates>({});
-   const { data: thumbnailDates } = useFetchDomainThumbnails();
+   const [thumbnailUrls, setThumbnailUrls] = useState<Record<number, string>>({});
+   const thumbnailNodesRef = useRef<Map<number, Element>>(new Map());
+   const thumbnailIdsByNodeRef = useRef<WeakMap<Element, number>>(new WeakMap());
+   const thumbnailObserverRef = useRef<IntersectionObserver | null>(null);
+   const cacheCheckingRef = useRef<Set<number>>(new Set());
+   const queuedRef = useRef<Set<number>>(new Set());
+   const inFlightRef = useRef<Set<number>>(new Set());
+   const objectUrlsRef = useRef<Map<number, string>>(new Map());
+   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
    const settingsNodeRef = useRef<HTMLDivElement>(null);
    const { data: appSettingsData, isLoading: isAppSettingsLoading, refetch: refetchSettings } = useFetchSettings();
    const { data: domainsData, isLoading: isDomainsLoading } = useFetchDomains(router, true);
@@ -89,20 +94,101 @@ const Domains: NextPage = () => {
       router.replace({ pathname: router.pathname, query: remainingQuery }, undefined, { shallow: true });
    }, [router, refetchSettings]);
 
-   const thumbUrlFor = (name: string): string | undefined => {
-      const version = regeneratedThumbs[name] || thumbnailDates?.[name];
-      return version ? getDomainThumbnailUrl(name, version) : undefined;
-   };
+   const showThumbnail = useCallback((id: number, blob: Blob) => {
+      if (!thumbnailNodesRef.current.has(id)) { return; }
+      const objectUrl = URL.createObjectURL(blob);
+      const oldUrl = objectUrlsRef.current.get(id);
+      if (oldUrl) { URL.revokeObjectURL(oldUrl); }
+      objectUrlsRef.current.set(id, objectUrl);
+      setThumbnailUrls((current) => ({ ...current, [id]: objectUrl }));
+   }, []);
 
-   const manuallyUpdateThumb = async (domain: string) => {
-      const version = await regenerateDomainThumbnail(domain);
-      if (version) {
-         toast(`${domain} Screenshot Updated Successfully!`, { icon: '✔️' });
-         setRegeneratedThumbs((current) => ({ ...current, [domain]: version }));
-      } else {
-         toast(`Failed to Fetch ${domain} Screenshot!`, { icon: '⚠️' });
+   const registerThumbnail = useCallback((id: number, element: HTMLDivElement | null) => {
+      if (element) {
+         thumbnailNodesRef.current.set(id, element);
+         thumbnailIdsByNodeRef.current.set(element, id);
+         thumbnailObserverRef.current?.observe(element);
+         return;
       }
-   };
+      const oldElement = thumbnailNodesRef.current.get(id);
+      if (oldElement) { thumbnailObserverRef.current?.unobserve(oldElement); }
+      thumbnailNodesRef.current.delete(id);
+      queuedRef.current.delete(id);
+      cacheCheckingRef.current.delete(id);
+      inFlightRef.current.delete(id);
+      const oldUrl = objectUrlsRef.current.get(id);
+      if (oldUrl) { URL.revokeObjectURL(oldUrl); objectUrlsRef.current.delete(id); }
+      setThumbnailUrls((current) => {
+         if (!(id in current)) { return current; }
+         const next = { ...current };
+         delete next[id];
+         return next;
+      });
+   }, []);
+
+   useEffect(() => {
+      if (typeof IntersectionObserver === 'undefined') { return undefined; }
+      const flushBatch = () => {
+         flushTimerRef.current = null;
+         const ids = Array.from(queuedRef.current).filter((id) => (
+            thumbnailNodesRef.current.has(id) && !inFlightRef.current.has(id)
+         ));
+         queuedRef.current.clear();
+         if (ids.length === 0) { return; }
+         ids.forEach((id) => inFlightRef.current.add(id));
+         fetchThumbnailBatch(ids, (part) => showThumbnail(part.id, part.blob))
+            .catch(() => undefined)
+            .finally(() => ids.forEach((id) => inFlightRef.current.delete(id)));
+      };
+      const scheduleBatch = () => {
+         if (flushTimerRef.current !== null) { return; }
+         flushTimerRef.current = setTimeout(flushBatch, 0);
+      };
+      const observer = new IntersectionObserver((entries) => {
+         const newlyVisible = new Set<number>();
+         entries.forEach((entry) => {
+            if (!entry.isIntersecting) { return; }
+            const id = thumbnailIdsByNodeRef.current.get(entry.target);
+            if (id === undefined) { return; }
+            observer.unobserve(entry.target);
+            if (objectUrlsRef.current.has(id) || cacheCheckingRef.current.has(id) || inFlightRef.current.has(id)) { return; }
+            cacheCheckingRef.current.add(id);
+            newlyVisible.add(id);
+         });
+         if (newlyVisible.size === 0) { return; }
+         Promise.all(Array.from(newlyVisible).map(async (id) => {
+            try {
+               const cached = await readCachedThumbnail(id);
+               if (cached && thumbnailNodesRef.current.has(id)) {
+                  showThumbnail(id, cached.blob);
+                  return;
+               }
+            } catch { /* Treat a cache read failure as a miss. */ }
+            if (thumbnailNodesRef.current.has(id) && !inFlightRef.current.has(id)) { queuedRef.current.add(id); }
+         })).catch(() => undefined).finally(() => {
+            newlyVisible.forEach((id) => cacheCheckingRef.current.delete(id));
+            scheduleBatch();
+         });
+      }, { rootMargin: '300px' });
+      thumbnailObserverRef.current = observer;
+      thumbnailNodesRef.current.forEach((node) => observer.observe(node));
+      const objectUrls = objectUrlsRef.current;
+      const thumbnailNodes = thumbnailNodesRef.current;
+      const cacheChecking = cacheCheckingRef.current;
+      const queued = queuedRef.current;
+      const inFlight = inFlightRef.current;
+      return () => {
+         observer.disconnect();
+         thumbnailObserverRef.current = null;
+         if (flushTimerRef.current !== null) { clearTimeout(flushTimerRef.current); }
+         objectUrls.forEach((url) => URL.revokeObjectURL(url));
+         objectUrls.clear();
+         thumbnailNodes.clear();
+         cacheChecking.clear();
+         queued.clear();
+         inFlight.clear();
+      };
+   }, [showThumbnail]);
 
    const isPageLoading = isAppSettingsLoading || isDomainsLoading || !router.isReady;
 
@@ -143,8 +229,8 @@ const Domains: NextPage = () => {
                            key={domain.ID}
                            domain={domain}
                            isConsoleIntegrated={!!(appSettings && appSettings.search_console_integrated) || !!domainSCAPiObj[domain.ID] }
-                           thumb={thumbUrlFor(domain.domain)}
-                           updateThumb={manuallyUpdateThumb}
+                           thumb={thumbnailUrls[domain.ID]}
+                           registerThumbnail={registerThumbnail}
                            showMapPackStat={showMapPackStat}
                            />)}
                {!isDomainsLoading && domainsData && domainsData.domains && domainsData.domains.length === 0 && (

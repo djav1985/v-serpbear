@@ -289,13 +289,13 @@ describe('weekly keyword volume job', () => {
   };
 
   // Starts the worker with croner mocked, and returns the calls that scheduled jobs: [expression, task, options]
-  const startWorker = () => {
+  const startWorker = async () => {
     const CronMock = jest.fn().mockImplementation(() => ({ stop: jest.fn() }));
     jest.resetModules();
     jest.doMock('croner', () => ({ Cron: CronMock }));
     jest.spyOn(console, 'log').mockImplementation();
     const cronModule = require('../cron.js');
-    cronModule.runAppCronJobs();
+    await cronModule.runAppCronJobs();
     return CronMock.mock.calls as Array<[string, () => void, { timezone: string }]>;
   };
 
@@ -309,20 +309,20 @@ describe('weekly keyword volume job', () => {
     jest.restoreAllMocks();
   });
 
-  it('schedules the volume refresh for Mondays at CRON_VOLUME_SCHEDULE', () => {
+  it('schedules the volume refresh for Mondays at CRON_VOLUME_SCHEDULE', async () => {
     process.env.CRON_VOLUME_SCHEDULE = '04:15';
 
-    const calls = startWorker();
+    const calls = await startWorker();
 
     expect(calls.map(([expression]) => expression)).toContain('0 15 4 * * 1');
   });
 
-  it('defaults to 03:00 when CRON_VOLUME_SCHEDULE is unset or is not a time', () => {
+  it('defaults to 03:00 when CRON_VOLUME_SCHEDULE is unset or is not a time', async () => {
     delete process.env.CRON_VOLUME_SCHEDULE;
-    expect(startWorker().map(([expression]) => expression)).toContain('0 0 3 * * 1');
+    expect((await startWorker()).map(([expression]) => expression)).toContain('0 0 3 * * 1');
 
     process.env.CRON_VOLUME_SCHEDULE = '0 0 6 * * *';
-    expect(startWorker().map(([expression]) => expression)).toContain('0 0 3 * * 1');
+    expect((await startWorker()).map(([expression]) => expression)).toContain('0 0 3 * * 1');
   });
 
   it('asks /api/volume to update all domains with the API key', async () => {
@@ -336,7 +336,7 @@ describe('weekly keyword volume job', () => {
       json: () => Promise.resolve({ started: true }),
     });
 
-    const volumeJob = startWorker().find(([expression]) => expression === '0 15 4 * * 1');
+    const volumeJob = (await startWorker()).find(([expression]) => expression === '0 15 4 * * 1');
     volumeJob?.[1]();
     await new Promise((resolve) => { setImmediate(resolve); });
 

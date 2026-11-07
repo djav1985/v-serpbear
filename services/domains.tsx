@@ -91,35 +91,6 @@ export async function fetchDomain(router: NextRouter, domainName: string): Promi
    return apiGet(`/api/domain?domain=${encodedDomain}`, router);
 }
 
-/** The version of each tracked domain's saved thumbnail, by domain. The server starts any missing or old ones in the background. */
-export async function fetchDomainThumbnails(): Promise<Record<string, string>> {
-   const data = await apiGet<{ thumbnails: Record<string, string> }>('/api/thumbnail');
-   return data?.thumbnails || {};
-}
-
-// No polling: the list is read when the page opens, so thumbnails generated meanwhile show on the next reload or navigation
-export function useFetchDomainThumbnails() {
-   return useQuery('domain-thumbnails', fetchDomainThumbnails, {
-      refetchOnWindowFocus: false,
-      retry: false,
-   });
-}
-
-/** The address of a domain's saved thumbnail. The version (date and write time) makes a new image a new address. */
-export const getDomainThumbnailUrl = (domain: string, version: string): string => (
-   `/api/thumbnail?domain=${encodeURIComponent(domain)}&v=${encodeURIComponent(version)}`
-);
-
-/** Regenerates one domain's thumbnail now (the reload button). Resolves to the new thumbnail's version, or false when it failed. */
-export async function regenerateDomainThumbnail(domain: string): Promise<string | false> {
-   try {
-      const data = await apiPost<{ thumbnail: string }>(`/api/thumbnail?domain=${encodeURIComponent(domain)}`, {});
-      return data?.thumbnail || false;
-   } catch {
-      return false;
-   }
-}
-
 export function useFetchDomains(router: NextRouter, withStats:boolean = false) {
    return useQuery(['domains', withStats], () => fetchDomains(router, withStats), {
       onError: (error) => showQueryErrorToast(error, 'Error Loading Domains.', 'domains-load-error'),

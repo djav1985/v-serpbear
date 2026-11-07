@@ -3,7 +3,7 @@ import DomainItem from '../../components/domains/DomainItem';
 import { dummyDomain } from '../../__mocks__/data';
 
 const toggleMutationMock = jest.fn();
-const updateThumbMock = jest.fn();
+const registerThumbnailMock = jest.fn();
 
 jest.mock('../../services/domains', () => ({
    useUpdateDomainToggles: jest.fn(() => ({
@@ -21,7 +21,7 @@ const defaultProps = {
    domain: dummyDomain,
    isConsoleIntegrated: false,
    thumb: '',
-   updateThumb: updateThumbMock,
+   registerThumbnail: registerThumbnailMock,
    showMapPackStat: true,
 };
 
@@ -51,14 +51,15 @@ describe('DomainItem Component', () => {
       expect(screen.getByText('Avg position').parentElement).toHaveTextContent('Avg position3');
    });
 
-   it('updates domain thumbnail when reload button is clicked', async () => {
-      const { container } = render(<DomainItem {...defaultProps} />);
-      const reloadThumbBtn = container.querySelector('.domain_thumb button');
-      expect(reloadThumbBtn).toBeInTheDocument();
-      if (reloadThumbBtn) {
-         fireEvent.click(reloadThumbBtn);
-      }
-      expect(updateThumbMock).toHaveBeenCalledWith(dummyDomain.domain);
+   it('registers its viewport node and keeps a local placeholder until an image arrives', () => {
+      const { container, unmount } = render(<DomainItem {...defaultProps} />);
+      expect(screen.getByRole('img', { name: `Website screenshot placeholder for ${dummyDomain.domain}` })).toBeInTheDocument();
+      expect(container.querySelector('img')).not.toBeInTheDocument();
+      expect(registerThumbnailMock).toHaveBeenCalledWith(dummyDomain.ID, expect.any(HTMLDivElement));
+      unmount();
+
+      render(<DomainItem {...defaultProps} thumb="blob:thumbnail" />);
+      expect(screen.getByAltText(dummyDomain.domain)).toHaveAttribute('src', 'blob:thumbnail');
    });
 
    it('does not show the map pack stat when disabled', () => {

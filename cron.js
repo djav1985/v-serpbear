@@ -336,7 +336,7 @@ const runAppCronJobs = () => {
       return applyChain;
    };
 
-   syncScheduleFromSettings();
+   const initialScheduleSync = syncScheduleFromSettings();
    scheduleJob('settings safety check', SETTINGS_SAFETY_CHECK_SCHEDULE, syncScheduleFromSettings, cronOptions);
 
    // Watches the data directory rather than the file: settings are saved via temp file + rename, which a
@@ -412,6 +412,7 @@ const runAppCronJobs = () => {
    }, cronOptions);
 
    logger.info('CRON: All cron jobs initialized successfully.');
+   return initialScheduleSync;
 };
 
 if (require.main === module) {

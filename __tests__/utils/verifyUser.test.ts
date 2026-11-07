@@ -221,12 +221,12 @@ describe('verifyUser', () => {
       it('should reject API key access to non-allowed routes', () => {
          process.env.APIKEY = 'test-api-key';
          req.headers = { authorization: 'Bearer test-api-key' };
-         req.url = '/api/settings';
-         req.method = 'PUT';
-
-         const result = verifyUser(req as NextApiRequest, res as NextApiResponse);
-
-         expect(result).toBe('This Route cannot be accessed with API.');
+         for (const [method, url] of [['PUT', '/api/settings'], ['POST', '/api/images/thumbnail']]) {
+            req.url = url;
+            req.method = method;
+            const result = verifyUser(req as NextApiRequest, res as NextApiResponse);
+            expect(result).toBe('This Route cannot be accessed with API.');
+         }
       });
    });
 });

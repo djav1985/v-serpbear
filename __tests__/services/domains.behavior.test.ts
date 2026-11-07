@@ -7,51 +7,7 @@ jest.mock('../../utils/client/origin', () => ({
    getClientOrigin: () => mockOrigin,
 }));
 
-import { fetchDomain, fetchDomainThumbnails, getDomainThumbnailUrl, regenerateDomainThumbnail } from '../../services/domains';
-
-// ---------------------------------------------------------------------------
-// domain thumbnails
-// ---------------------------------------------------------------------------
-
-describe('domain thumbnails', () => {
-   const originalFetch = global.fetch;
-
-   afterEach(() => {
-      global.fetch = originalFetch;
-   });
-
-   it('builds the thumbnail address from the domain and the file date', () => {
-      expect(getDomainThumbnailUrl('example.com', '2026-11-07')).toBe('/api/thumbnail?domain=example.com&v=2026-11-07');
-   });
-
-   it('reads the date of each saved thumbnail from the server', async () => {
-      global.fetch = jest.fn().mockResolvedValue({
-         status: 200,
-         headers: { get: jest.fn().mockReturnValue(null) },
-         json: jest.fn().mockResolvedValue({ thumbnails: { 'example.com': '2026-11-07' } }),
-      }) as unknown as typeof fetch;
-
-      await expect(fetchDomainThumbnails()).resolves.toEqual({ 'example.com': '2026-11-07' });
-      expect(global.fetch).toHaveBeenCalledWith(`${mockOrigin}/api/thumbnail`, expect.anything());
-   });
-
-   it('reports the new date after a regeneration, and false when it fails', async () => {
-      global.fetch = jest.fn()
-         .mockResolvedValueOnce({
-            status: 200,
-            headers: { get: jest.fn().mockReturnValue(null) },
-            json: jest.fn().mockResolvedValue({ thumbnail: '2026-11-07' }),
-         })
-         .mockResolvedValueOnce({
-            status: 502,
-            headers: { get: jest.fn().mockReturnValue(null) },
-            json: jest.fn().mockResolvedValue({ error: { code: 'BAD_GATEWAY', message: 'No screenshot' } }),
-         }) as unknown as typeof fetch;
-
-      await expect(regenerateDomainThumbnail('example.com')).resolves.toBe('2026-11-07');
-      await expect(regenerateDomainThumbnail('example.com')).resolves.toBe(false);
-   });
-});
+import { fetchDomain } from '../../services/domains';
 
 // ---------------------------------------------------------------------------
 // fetchDomain

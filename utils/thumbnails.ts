@@ -21,7 +21,7 @@ const FAILURE_COOLDOWN_MS = 60 * 60 * 1000;
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const FILE_PATTERN = /^(.+)_(\d{4}-\d{2}-\d{2})\.jpg$/;
+const FILE_PATTERN = /^(.+)_(\d{4}-\d{2}-\d{2})(?:_(\d{13}-[a-f0-9]{16}))?\.jpg$/;
 // Domains are validated as host names when they are added; this is a second check because the name becomes a file name
 const SAFE_DOMAIN = /^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/;
 
@@ -30,6 +30,7 @@ const SAFE_DOMAIN = /^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/;
  * written (it adds the file's modification time), so an image regenerated on the same day still gets a new address.
  */
 export type ThumbnailInfo = { domain: string; date: string; file: string; version: string };
+export type ThumbnailIndexEntry = { ID: number; domain: string; file: string; contentType: string; generatedAt: number };
 
 export const getThumbnailDir = (): string => path.join(process.cwd(), 'data', 'thumbnails');
 
@@ -52,10 +53,63 @@ export const isSafeThumbnailDomain = (domain: unknown): domain is string => (
 
 const todayStamp = (now: number = Date.now()): string => new Date(now).toISOString().slice(0, 10);
 
-export const isThumbnailStale = (date: string, now: number = Date.now()): boolean => {
-   const generated = Date.parse(`${date}T00:00:00Z`);
-   return !Number.isFinite(generated) || (now - generated) / DAY_MS > THUMBNAIL_MAX_AGE_DAYS;
+export const isThumbnailStale = (date: string | number, now: number = Date.now()): boolean => {
+   const generated = typeof date === 'number' ? date : Date.parse(`${date}T00:00:00Z`);
+   return !Number.isFinite(generated) || now >= generated + (THUMBNAIL_MAX_AGE_DAYS * DAY_MS);
 };
+
+const isValidImageContentType = (value: unknown): value is string => (
+   typeof value === 'string' && /^image\/[a-z0-9.+-]+$/i.test(value.split(';', 1)[0].trim())
+);
+
+const thumbnailIndex = new Map<number, ThumbnailIndexEntry>();
+
+/** Builds the ID index from saved files, restricting it to domains that are currently tracked. */
+export const initializeThumbnailIndex = async (domains: Array<{ ID: number; domain: string }>): Promise<void> => {
+   thumbnailIndex.clear();
+   const tracked = new Map(domains
+      .filter((item) => Number.isSafeInteger(item.ID) && item.ID > 0 && isSafeThumbnailDomain(item.domain))
+      .map((item) => [item.domain, item.ID]));
+   const newest = new Map<string, { ID: number; domain: string; date: string; suffix: string; file: string }>();
+   for (const file of await readFolder()) {
+      const match = FILE_PATTERN.exec(file);
+      if (!match) { continue; }
+      const [, domain, date, suffix = ''] = match;
+      const ID = tracked.get(domain);
+      if (!ID) { continue; }
+      const current = newest.get(domain);
+      if (!current || date > current.date || (date === current.date && suffix > current.suffix)) {
+         newest.set(domain, { ID, domain, date, suffix, file });
+      }
+   }
+   await Promise.all(Array.from(newest.values()).map(async ({ ID, domain, file }) => {
+      try {
+         // Candidate names matched FILE_PATTERN and belong to a tracked domain.
+         // eslint-disable-next-line security/detect-non-literal-fs-filename
+         const info = await stat(insideThumbnailDir(file));
+         if (!info.isFile() || info.size <= 0 || info.size > MAX_IMAGE_BYTES) { return; }
+         let contentType = 'image/jpeg';
+         let hasValidMetadata = false;
+         try {
+            // The sidecar is written after the image and stores the upstream-validated type.
+            // eslint-disable-next-line security/detect-non-literal-fs-filename
+            const metadata = JSON.parse(await readFile(insideThumbnailDir(`${file}.meta.json`), 'utf8')) as { contentType?: unknown };
+            if (isValidImageContentType(metadata.contentType)) {
+               contentType = metadata.contentType;
+               hasValidMetadata = true;
+            }
+         } catch {
+            // Immutable generated names require metadata; legacy canonical files default to JPEG.
+            if (FILE_PATTERN.exec(file)?.[3]) { return; }
+         }
+         if (!isValidImageContentType(contentType) || (FILE_PATTERN.exec(file)?.[3] && !hasValidMetadata)) { return; }
+         thumbnailIndex.set(ID, { ID, domain, file, contentType, generatedAt: info.mtimeMs });
+      } catch { /* A file removed during startup scanning is skipped. */ }
+   }));
+};
+
+/** The saved thumbnail for a tracked domain ID, without a filesystem freshness scan. */
+export const getThumbnailById = (id: number): ThumbnailIndexEntry | undefined => thumbnailIndex.get(id);
 
 const sleep = (ms: number) => new Promise<void>((resolve) => { setTimeout(resolve, ms); });
 
@@ -81,7 +135,7 @@ export const listThumbnails = async (): Promise<Map<string, ThumbnailInfo>> => {
       if (!match) { continue; }
       const [, domain, date] = match;
       const current = newest.get(domain);
-      if (!current || date > current.date) {
+      if (!current || date > current.date || (date === current.date && file > current.file)) {
          newest.set(domain, { domain, date, file, version: date });
       }
    }
@@ -107,7 +161,7 @@ export const getThumbnail = async (domain: string): Promise<ThumbnailInfo | unde
       const match = FILE_PATTERN.exec(file);
       if (!match || match[1] !== domain) { continue; }
       const date = match[2];
-      if (!newest || date > newest.date) {
+      if (!newest || date > newest.date || (date === newest.date && file > newest.file)) {
          newest = { domain, date, file, version: date };
       }
    }
@@ -123,7 +177,7 @@ export const getThumbnail = async (domain: string): Promise<ThumbnailInfo | unde
    return newest;
 };
 
-export const readThumbnailFile = async (info: ThumbnailInfo): Promise<Buffer> => (
+export const readThumbnailFile = async (info: { file: string }): Promise<Buffer> => (
    // The file name comes from the folder listing and matched <safe domain>_<date>.jpg.
    // eslint-disable-next-line security/detect-non-literal-fs-filename
    readFile(insideThumbnailDir(info.file))
@@ -132,6 +186,9 @@ export const readThumbnailFile = async (info: ThumbnailInfo): Promise<Buffer> =>
 /** Deletes every thumbnail of a domain. Never throws: a leftover file is only logged. */
 export const deleteThumbnails = async (domain: string): Promise<void> => {
    if (!isSafeThumbnailDomain(domain)) { return; }
+   for (const [id, entry] of thumbnailIndex) {
+      if (entry.domain === domain) { thumbnailIndex.delete(id); }
+   }
    try {
       // eslint-disable-next-line security/detect-non-literal-fs-filename
       const names = await readdir(getThumbnailDir());
@@ -139,6 +196,8 @@ export const deleteThumbnails = async (domain: string): Promise<void> => {
          if (FILE_PATTERN.exec(file)?.[1] === domain) {
             // eslint-disable-next-line security/detect-non-literal-fs-filename
             await unlink(insideThumbnailDir(file)).catch(() => undefined);
+            // eslint-disable-next-line security/detect-non-literal-fs-filename
+            await unlink(insideThumbnailDir(`${file}.meta.json`)).catch(() => undefined);
          }
       }
    } catch (error) {
@@ -149,14 +208,15 @@ export const deleteThumbnails = async (domain: string): Promise<void> => {
 };
 
 /** One request to thum.io. Returns the image, or null while it is not ready (or on any failure). */
-const requestScreenshot = async (domain: string): Promise<Buffer | null> => {
+const requestScreenshot = async (domain: string): Promise<{ image: Buffer; contentType: string } | null> => {
    const response = await fetch(`https://image.thum.io/get/maxAge/96/width/200/https://${domain}`, {
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
    });
    if (response.status !== 200) { return null; }
    // While thum.io is still generating a screenshot it answers 200 with a no-store placeholder
    if (/no-store|no-cache/i.test(response.headers.get('cache-control') || '')) { return null; }
-   if (!(response.headers.get('content-type') || '').toLowerCase().startsWith('image/')) { return null; }
+   const contentType = (response.headers.get('content-type') || '').split(';', 1)[0].trim().toLowerCase();
+   if (!isValidImageContentType(contentType)) { return null; }
    if (!response.body) { return null; }
 
    const reader = response.body.getReader();
@@ -179,10 +239,11 @@ const requestScreenshot = async (domain: string): Promise<Buffer | null> => {
       reader.releaseLock();
    }
 
-   return totalBytes > 0 ? Buffer.concat(chunks, totalBytes) : null;
+   return totalBytes > 0 ? { image: Buffer.concat(chunks, totalBytes), contentType } : null;
 };
 
-const inFlight = new Map<string, Promise<boolean>>();
+const inFlight = new Map<string, Promise<ThumbnailIndexEntry | undefined>>();
+const generationKey = (domain: string, domainID: number): string => `${domain}:${domainID}`;
 const failedAt = new Map<string, number>();
 const waiting: Array<() => void> = [];
 let running = 0;
@@ -196,64 +257,100 @@ const releaseSlot = () => {
    if (next) { next(); } else { running -= 1; }
 };
 
-const generate = async (domain: string, domainID?: number): Promise<boolean> => {
+const generate = async (domain: string, domainID: number): Promise<ThumbnailIndexEntry | undefined> => {
    await acquireSlot();
    try {
-      let image: Buffer | null = null;
-      for (let attempt = 0; attempt < GENERATION_ATTEMPTS && !image; attempt += 1) {
+      let screenshot: { image: Buffer; contentType: string } | null = null;
+      for (let attempt = 0; attempt < GENERATION_ATTEMPTS && !screenshot; attempt += 1) {
          if (attempt > 0) { await sleep(RETRY_DELAY_MS); }
          try {
-            image = await requestScreenshot(domain);
+            screenshot = await requestScreenshot(domain);
          } catch (error) {
             logger.debug('Thumbnail request failed', { domain, error: error instanceof Error ? error.message : String(error) });
          }
       }
-      if (!image) {
+      if (!screenshot) {
          failedAt.set(domain, Date.now());
-         return false;
+         return undefined;
       }
 
       return await withDomainLifecycleLock(domain, async () => {
-      if (Number.isFinite(domainID) && !await isCurrentDomainRecord(domain, domainID as number)) return false;
+      if (!await isCurrentDomainRecord(domain, domainID)) return undefined;
       const dir = getThumbnailDir();
-      const finalName = `${domain}_${todayStamp()}.jpg`;
+      const finalName = `${domain}_${todayStamp()}_${Date.now()}-${randomBytes(8).toString('hex')}.jpg`;
       // eslint-disable-next-line security/detect-non-literal-fs-filename
       await mkdir(dir, { recursive: true });
       const tempPath = insideThumbnailDir(`${finalName}.tmp.${randomBytes(8).toString('hex')}`);
       const finalPath = insideThumbnailDir(finalName);
       // The paths are the data/thumbnails folder plus a validated domain and a date stamp.
-      // eslint-disable-next-line security/detect-non-literal-fs-filename
-      await writeFile(tempPath, image);
-      // eslint-disable-next-line security/detect-non-literal-fs-filename
-      await rename(tempPath, finalPath);
+      try {
+         // eslint-disable-next-line security/detect-non-literal-fs-filename
+         await writeFile(tempPath, screenshot.image);
+         // eslint-disable-next-line security/detect-non-literal-fs-filename
+         await rename(tempPath, finalPath);
+      } catch (error) {
+         // eslint-disable-next-line security/detect-non-literal-fs-filename
+         await unlink(tempPath).catch(() => undefined);
+         throw error;
+      }
 
-      // The new image is saved, so the old ones can go
+      const metadataPath = insideThumbnailDir(`${finalName}.meta.json`);
+      const metadataTempPath = insideThumbnailDir(`${finalName}.meta.json.tmp.${randomBytes(8).toString('hex')}`);
+      try {
+         // Unique files require a complete metadata sidecar before they can be indexed or recovered after restart.
+         // eslint-disable-next-line security/detect-non-literal-fs-filename
+         await writeFile(metadataTempPath, JSON.stringify({ contentType: screenshot.contentType }));
+         // eslint-disable-next-line security/detect-non-literal-fs-filename
+         await rename(metadataTempPath, metadataPath);
+      } catch (error) {
+         // This image has no committed sidecar or index entry, so remove it for startup scans to ignore it.
+         // eslint-disable-next-line security/detect-non-literal-fs-filename
+         await unlink(finalPath).catch(() => undefined);
+         // eslint-disable-next-line security/detect-non-literal-fs-filename
+         await unlink(metadataTempPath).catch(() => undefined);
+         throw error;
+      }
       // eslint-disable-next-line security/detect-non-literal-fs-filename
-      for (const file of await readdir(dir)) {
-         if (file !== finalName && FILE_PATTERN.exec(file)?.[1] === domain) {
-            // eslint-disable-next-line security/detect-non-literal-fs-filename
-            await unlink(insideThumbnailDir(file)).catch(() => undefined);
+      const savedStat = await stat(finalPath);
+      const entry: ThumbnailIndexEntry = { ID: domainID, domain, file: finalName, contentType: screenshot.contentType, generatedAt: savedStat.mtimeMs };
+
+      // Publish the new immutable image and its metadata together before removing the predecessor.
+      thumbnailIndex.set(domainID, entry);
+      try {
+         // eslint-disable-next-line security/detect-non-literal-fs-filename
+         for (const file of await readdir(dir)) {
+            if (file !== finalName && FILE_PATTERN.exec(file)?.[1] === domain) {
+               // eslint-disable-next-line security/detect-non-literal-fs-filename
+               await unlink(insideThumbnailDir(file)).catch(() => undefined);
+               // eslint-disable-next-line security/detect-non-literal-fs-filename
+               await unlink(insideThumbnailDir(`${file}.meta.json`)).catch(() => undefined);
+            }
          }
+      } catch (error) {
+         logger.warn('Could not remove old thumbnail files after replacement', { domain, error: error instanceof Error ? error.message : String(error) });
       }
       failedAt.delete(domain);
-      return true;
+      return entry;
       });
    } catch (error) {
       failedAt.set(domain, Date.now());
       logger.error('Could not generate a thumbnail', error instanceof Error ? error : new Error(String(error)), { domain });
-      return false;
+      return undefined;
    } finally {
       releaseSlot();
    }
 };
 
 /** Generates a thumbnail now. Resolves to whether a new one was saved. A generation already running for the domain is joined. */
-export const generateThumbnail = (domain: string, domainID?: number): Promise<boolean> => {
-   if (!isSafeThumbnailDomain(domain)) { return Promise.resolve(false); }
-   const existingJob = inFlight.get(domain);
+export const generateThumbnail = (domain: string, domainID: number): Promise<ThumbnailIndexEntry | undefined> => {
+   if (!isSafeThumbnailDomain(domain) || !Number.isSafeInteger(domainID) || domainID <= 0) { return Promise.resolve(undefined); }
+   const failed = failedAt.get(domain);
+   if (failed && Date.now() - failed < FAILURE_COOLDOWN_MS) { return Promise.resolve(undefined); }
+   const key = generationKey(domain, domainID);
+   const existingJob = inFlight.get(key);
    if (existingJob) { return existingJob; }
-   const job = generate(domain, domainID).finally(() => { inFlight.delete(domain); });
-   inFlight.set(domain, job);
+   const job = generate(domain, domainID).finally(() => { inFlight.delete(key); });
+   inFlight.set(key, job);
    return job;
 };
 
@@ -261,14 +358,14 @@ export const generateThumbnail = (domain: string, domainID?: number): Promise<bo
  * Starts background generation for every given domain that has no thumbnail or only one older than 30 days.
  * It does not wait for the result: the old image (if any) keeps being served until the new one is saved.
  */
-export const ensureThumbnails = async (domains: Array<string | { domain: string; ID: number }>, now: number = Date.now()): Promise<void> => {
-   const existing = await listThumbnails();
+export const ensureThumbnails = async (domains: Array<{ domain: string; ID: number }>, now: number = Date.now()): Promise<void> => {
    for (const entry of domains) {
-      const domain = typeof entry === 'string' ? entry : entry.domain;
-      const domainID = typeof entry === 'string' ? undefined : entry.ID;
-      if (!isSafeThumbnailDomain(domain) || inFlight.has(domain)) { continue; }
-      const current = existing.get(domain);
-      if (current && !isThumbnailStale(current.date, now)) { continue; }
+      const domain = entry.domain;
+      const domainID = entry.ID;
+      const key = generationKey(domain, domainID);
+      if (!isSafeThumbnailDomain(domain) || inFlight.has(key)) { continue; }
+      const current = thumbnailIndex.get(domainID);
+      if (current && current.domain === domain && !isThumbnailStale(current.generatedAt, now)) { continue; }
       const failed = failedAt.get(domain);
       if (failed && now - failed < FAILURE_COOLDOWN_MS) { continue; }
       generateThumbnail(domain, domainID).catch(() => undefined);
@@ -279,6 +376,7 @@ export const ensureThumbnails = async (domains: Array<string | { domain: string;
 export const resetThumbnailState = (): void => {
    inFlight.clear();
    failedAt.clear();
+   thumbnailIndex.clear();
    waiting.length = 0;
    running = 0;
 };
