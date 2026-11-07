@@ -26,6 +26,8 @@ type DataTableProps<TData extends RowData> = {
    emptyMessage?: ReactNode;
    /** Classes for the scroll area. Give it a height, for example 'h-[65vh]'. */
    className?: string;
+   /** The narrowest the grid may get before the area scrolls sideways. Set it to what the columns need. */
+   minWidth?: string;
    onRowClick?: (row: Row<DataTableFeatures, TData>) => void;
 };
 
@@ -45,6 +47,7 @@ export function DataTable<TData extends RowData>({
    isLoading = false,
    emptyMessage = 'Nothing to show.',
    className,
+   minWidth = '56rem',
    onRowClick,
 }: DataTableProps<TData>) {
    const scrollRef = useRef<HTMLDivElement>(null);
@@ -77,7 +80,7 @@ export function DataTable<TData extends RowData>({
          className={cn('relative w-full overflow-auto', className)}
       >
          {!stacked && (
-            <div role="rowgroup" className="bg-muted/40 sticky top-0 z-10 min-w-[800px] border-y">
+            <div role="rowgroup" className="bg-muted/40 sticky top-0 z-10 border-y" style={{ minWidth }}>
                {table.getHeaderGroups().map((headerGroup) => (
                   <div key={headerGroup.id} role="row" className="grid items-center gap-3 px-4 py-3 text-xs font-semibold" style={gridStyle}>
                      {headerGroup.headers.map((header) => {
@@ -119,7 +122,7 @@ export function DataTable<TData extends RowData>({
          {showEmpty && <div className="text-muted-foreground p-10 text-center text-sm">{emptyMessage}</div>}
 
          {rows.length > 0 && (
-            <div role="rowgroup" className={cn('relative', !stacked && 'min-w-[800px]')} style={{ height: virtualizer.getTotalSize() }}>
+            <div role="rowgroup" className="relative" style={{ height: virtualizer.getTotalSize(), minWidth: stacked ? undefined : minWidth }}>
                {virtualizer.getVirtualItems().map((virtualRow) => {
                   const row = rows[virtualRow.index];
                   return (

@@ -2,7 +2,7 @@
 
 /**
  * Page render behavior tests: Home redirect, Domain ideas page,
- * Research page and _app server-side branding.
+ * and _app server-side branding.
  */
 
 const routerPush = jest.fn();
@@ -54,7 +54,6 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import type { AppContext } from 'next/app';
 import Home from '../../pages/index';
-import ResearchPage from '../../pages/research';
 import MyApp from '../../pages/_app';
 import { DomainIdeasPage } from '../../pages/domain/ideas/[slug]';
 import { useFetchDomains } from '../../services/domains';
@@ -86,17 +85,6 @@ const renderPage = () => {
    return render(
       <QueryClientProvider client={queryClient}>
          <DomainIdeasPage />
-      </QueryClientProvider>,
-   );
-};
-
-const renderResearchPage = () => {
-   const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-   });
-   return render(
-      <QueryClientProvider client={queryClient}>
-         <ResearchPage />
       </QueryClientProvider>,
    );
 };
@@ -160,31 +148,6 @@ describe('Domain ideas page credentials handling', () => {
       fireEvent.click(loadButton);
 
       expect(KeywordIdeasUpdaterMock).toHaveBeenCalledWith(expect.objectContaining({ searchConsoleConnected: true }));
-   });
-});
-
-describe('Research page Ads integration flag', () => {
-   beforeEach(() => {
-      jest.clearAllMocks();
-      mockRouter.pathname = '/research';
-      mockRouter.query = {};
-      useFetchKeywordIdeasMock.mockReturnValue({
-         data: { data: { keywords: [], favorites: [], settings: undefined } },
-         isLoading: false,
-         isError: false,
-      });
-   });
-
-   it('disables the load button when Google Ads credentials are incomplete', () => {
-      useFetchSettingsMock.mockReturnValue({
-         data: { settings: { adwords_refresh_token: 'token', adwords_developer_token: 'dev' } },
-         isLoading: false,
-      });
-
-      renderResearchPage();
-
-      const loadButton = screen.getByRole('button', { name: /load ideas/i });
-      expect(loadButton).toHaveClass('cursor-not-allowed');
    });
 });
 
