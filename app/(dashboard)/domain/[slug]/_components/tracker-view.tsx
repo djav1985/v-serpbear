@@ -81,7 +81,7 @@ export function TrackerView({
       onOpenDetails: (keyword) => setDetailsId(keyword.ID),
       onRefresh: (keyword) => refreshKeywords({ ids: [keyword.ID] }),
       onToggleFavorite: (keyword) => setFavorite({ keywordID: keyword.ID, sticky: !keyword.sticky }),
-      onManageTags: (keyword) => setDialog({ type: 'tagManager', id: keyword.ID }),
+      onManageTags: (keyword) => setDialog({ type: 'tags', ids: [keyword.ID] }),
       onRemove: (keyword) => setDialog({ type: 'remove', ids: [keyword.ID] }),
    }), [allowsCity, scPeriod, refreshKeywords, setFavorite]);
    const columns = useMemo(() => createTrackerColumns(columnConfig), [columnConfig]);
@@ -180,8 +180,7 @@ export function TrackerView({
                   <span className="text-muted-foreground mr-2 text-sm font-medium">{selectedIds.length} selected</span>
                   <Button variant="ghost" size="sm" onClick={() => { refreshKeywords({ ids: selectedIds }); clearSelection(); }}><RefreshCw />Refresh Keywords</Button>
                   <Button variant="ghost" size="sm" onClick={() => setDialog({ type: 'remove', ids: selectedIds })}><Trash2 />Remove Keywords</Button>
-                  <Button variant="ghost" size="sm" onClick={() => setDialog({ type: 'addTags', ids: selectedIds })}><Tags />Tag Keywords</Button>
-                  <Button variant="ghost" size="sm" onClick={() => setDialog({ type: 'removeTags', ids: selectedIds })}><Tags />Remove Tags</Button>
+                  <Button variant="ghost" size="sm" onClick={() => setDialog({ type: 'tags', ids: selectedIds })}><Tags />Add/Edit Tags</Button>
                   <Button variant="ghost" size="sm" onClick={() => setDialog({ type: 'location', ids: selectedIds })}><MapPin />Change Location</Button>
                   <Button variant="ghost" size="icon-sm" className="ml-auto" aria-label="Clear selection" onClick={clearSelection}><X /></Button>
                </div>

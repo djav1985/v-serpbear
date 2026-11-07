@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Tags, X } from 'lucide-react';
 import { Button } from 'components/ui/button';
 import {
@@ -15,9 +15,7 @@ import {
 /** Which dialog is open. It holds keyword IDs, not keywords, so a dialog always reads the freshest list. */
 export type TrackerDialog =
    | { type: 'remove'; ids: number[] }
-   | { type: 'addTags'; ids: number[] }
-   | { type: 'removeTags'; ids: number[] }
-   | { type: 'tagManager'; id: number }
+   | { type: 'tags'; ids: number[] }
    | { type: 'location'; ids: number[] }
    | null;
 
@@ -42,109 +40,97 @@ function RemoveKeywordsDialog({ count, onConfirm, onClose, isPending }: { count:
    );
 }
 
-// ── Add / remove tags ──────────────────────────────────────────────────────
-
-type TagsDialogProps = {
-   mode: 'add' | 'remove';
-   keywords: KeywordType[];
-   existingTags: string[];
-   onClose: () => void;
-   onApplied: () => void;
-};
+// ── Add / edit tags ────────────────────────────────────────────────────────
 
 const ERROR_VISIBLE_MS = 3000;
 
-function TagsDialog({ mode, keywords, existingTags, onClose, onApplied }: TagsDialogProps) {
+/**
+ * One dialog for tags, for a single keyword or a whole selection. It lists the tags on the keywords, removes a tag
+ * from every keyword that has it, and adds new tags to all of them. Matching ignores letter case.
+ */
+function TagsDialog({ keywords, allTags, onClose }: { keywords: KeywordType[]; allTags: string[]; onClose: () => void }) {
    const [tagInput, setTagInput] = useState('');
    const [inputError, setInputError] = useState('');
    const errorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-   const { mutate, isPending } = useUpdateKeywordTags(() => { setTagInput(''); onApplied(); });
+   const { mutate, isPending } = useUpdateKeywordTags(() => setTagInput(''));
 
    useEffect(() => () => { if (errorTimer.current) { clearTimeout(errorTimer.current); } }, []);
 
-   const apply = () => {
-      if (keywords.length === 0 || isPending) { return; }
+   const total = keywords.length;
+   // How many of the keywords carry each tag (one entry per tag, ignoring case).
+   const tagCounts = useMemo(() => {
+      const counts = new Map<string, { label: string; count: number }>();
+      keywords.forEach((keyword) => {
+         new Set(keyword.tags.map((tag) => tag.toLowerCase())).forEach((lower) => {
+            const label = keyword.tags.find((tag) => tag.toLowerCase() === lower) ?? lower;
+            counts.set(lower, { label, count: (counts.get(lower)?.count ?? 0) + 1 });
+         });
+      });
+      return [...counts.entries()].map(([lower, value]) => ({ lower, ...value }));
+   }, [keywords]);
+
+   if (total === 0) { return null; }
+
+   const removeTag = (lower: string) => {
+      const tags: Record<number, string[]> = {};
+      keywords.forEach((keyword) => {
+         if (keyword.tags.some((tag) => tag.toLowerCase() === lower)) { tags[keyword.ID] = keyword.tags.filter((tag) => tag.toLowerCase() !== lower); }
+      });
+      mutate({ tags });
+   };
+
+   const addTags = () => {
+      if (isPending) { return; }
       if (!tagInput.trim()) {
          if (errorTimer.current) { clearTimeout(errorTimer.current); }
-         setInputError(`Please insert ${mode === 'remove' ? 'a tag to remove' : 'a tag'}!`);
+         setInputError('Please insert a tag!');
          errorTimer.current = setTimeout(() => { setInputError(''); errorTimer.current = null; }, ERROR_VISIBLE_MS);
          return;
       }
       const typed = Array.from(new Set(tagInput.split(',').map((tag) => tag.trim()).filter((tag) => tag.length > 0)));
-      const typedLower = typed.map((tag) => tag.toLowerCase());
       const tags: Record<number, string[]> = {};
-      keywords.forEach((keyword) => {
-         tags[keyword.ID] = mode === 'remove'
-            ? keyword.tags.filter((tag) => !typedLower.includes(tag.toLowerCase()))
-            : Array.from(new Set([...keyword.tags, ...typed]));
-      });
+      keywords.forEach((keyword) => { tags[keyword.ID] = Array.from(new Set([...keyword.tags, ...typed])); });
       mutate({ tags });
    };
 
    return (
       <Dialog open onOpenChange={(open) => { if (!open) { onClose(); } }}>
-         <DialogContent>
+         <DialogContent data-testid="tags_dialog">
             <DialogHeader>
-               <DialogTitle>
-                  {mode === 'remove' ? 'Remove tags from' : 'Add tags to'} {plural(keywords.length, 'selected keyword')}
-               </DialogTitle>
-               <DialogDescription>Separate tags with commas.</DialogDescription>
+               <DialogTitle>{total === 1 ? <>Tags for &ldquo;{keywords[0].keyword}&rdquo;</> : `Tags for ${plural(total, 'selected keyword')}`}</DialogTitle>
+               <DialogDescription>
+                  {total === 1 ? 'Remove a tag with its X, or add new ones.' : 'Changes apply to every selected keyword. Remove a tag with its X, or add new ones.'}
+               </DialogDescription>
             </DialogHeader>
+
+            {tagCounts.length > 0 ? (
+               <ul className="flex flex-wrap items-center gap-2" aria-label="Current tags">
+                  {tagCounts.map(({ lower, label, count }) => (
+                     <li key={lower} className="bg-muted flex items-center gap-1 rounded-md border px-2 py-1 text-sm">
+                        <Tags className="text-muted-foreground size-3.5" />{label}
+                        {total > 1 && count < total && <span className="text-muted-foreground text-xs" title={`On ${count} of ${total} keywords`}>{count}/{total}</span>}
+                        <button type="button" className="hover:bg-destructive/10 hover:text-destructive rounded p-0.5" aria-label={`Remove tag ${label}`} disabled={isPending} onClick={() => removeTag(lower)}>
+                           <X className="size-3.5" />
+                        </button>
+                     </li>
+                  ))}
+               </ul>
+            ) : (
+               <p className="text-muted-foreground text-sm">{total === 1 ? 'No tags on this keyword yet.' : 'None of the selected keywords has a tag yet.'}</p>
+            )}
+
             <TagInput
                value={tagInput}
                onChange={setTagInput}
-               existingTags={existingTags}
-               placeholder={`${mode === 'remove' ? 'Remove tags' : 'Insert tags'}. e.g. tag1, tag2`}
-               onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); apply(); } }}
+               existingTags={allTags}
+               placeholder="Insert tags. e.g. tag1, tag2"
+               onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addTags(); } }}
             >
-               <Button type="button" size="sm" className="absolute top-1/2 right-1 -translate-y-1/2" disabled={isPending} onClick={apply}>Apply</Button>
+               <Button type="button" size="sm" className="absolute top-1/2 right-1 -translate-y-1/2" disabled={isPending} onClick={addTags}>Add</Button>
             </TagInput>
             {inputError && <p role="alert" className="text-destructive text-sm font-medium">{inputError}</p>}
          </DialogContent>
       </Dialog>
-   );
-}
-
-// ── Tags of one keyword ────────────────────────────────────────────────────
-
-function TagManagerDialog({ keyword, allTags, onClose }: { keyword: KeywordType | undefined; allTags: string[]; onClose: () => void }) {
-   const [adding, setAdding] = useState(false);
-   const { mutate } = useUpdateKeywordTags(() => {});
-
-   if (!keyword) { return null; }
-   const removeTag = (tag: string) => mutate({ tags: { [keyword.ID]: keyword.tags.filter((t) => t !== tag.trim()) } });
-
-   return (
-      <>
-         <Dialog open onOpenChange={(open) => { if (!open) { onClose(); } }}>
-            <DialogContent>
-               <DialogHeader>
-                  <DialogTitle>Tags for &ldquo;{keyword.keyword}&rdquo;</DialogTitle>
-                  <DialogDescription>Remove a tag with its X, or add a new one.</DialogDescription>
-               </DialogHeader>
-               {keyword.tags.length > 0 ? (
-                  <ul className="flex flex-wrap items-center gap-2">
-                     {keyword.tags.map((tag) => (
-                        <li key={tag} className="bg-muted flex items-center gap-1 rounded-md border px-2 py-1 text-sm">
-                           <Tags className="text-muted-foreground size-3.5" />{tag}
-                           <button type="button" className="hover:bg-destructive/10 hover:text-destructive rounded p-0.5" aria-label={`Remove tag ${tag}`} onClick={() => removeTag(tag)}>
-                              <X className="size-3.5" />
-                           </button>
-                        </li>
-                     ))}
-                     <li><Button size="sm" title="Add new tag" onClick={() => setAdding(true)}>+</Button></li>
-                  </ul>
-               ) : (
-                  <p className="text-muted-foreground text-center text-sm">
-                     No tags added to this keyword. <button type="button" className="text-primary" onClick={() => setAdding(true)}>+ Add tag</button>
-                  </p>
-               )}
-            </DialogContent>
-         </Dialog>
-         {adding && (
-            <TagsDialog mode="add" keywords={[keyword]} existingTags={allTags} onClose={() => setAdding(false)} onApplied={() => setAdding(false)} />
-         )}
-      </>
    );
 }
 
@@ -216,19 +202,8 @@ export function TrackerDialogs({ dialog, keywords, allTags, existingLocations, a
                onConfirm={() => removeMutation.mutate(dialog.ids, { onSuccess: () => { onDone(dialog.ids); onClose(); } })}
             />
          );
-      case 'addTags':
-      case 'removeTags':
-         return (
-            <TagsDialog
-               mode={dialog.type === 'addTags' ? 'add' : 'remove'}
-               keywords={byIds(dialog.ids)}
-               existingTags={dialog.type === 'addTags' ? allTags : [...new Set(byIds(dialog.ids).flatMap((k) => k.tags).filter((t) => t && t.trim() !== ''))]}
-               onClose={onClose}
-               onApplied={() => { onDone(dialog.ids); onClose(); }}
-            />
-         );
-      case 'tagManager':
-         return <TagManagerDialog keyword={keywords.find((k) => k.ID === dialog.id)} allTags={allTags} onClose={onClose} />;
+      case 'tags':
+         return <TagsDialog keywords={byIds(dialog.ids)} allTags={allTags} onClose={onClose} />;
       case 'location':
          return (
             <ChangeLocationDialog
