@@ -50,6 +50,9 @@ export function DomainsView({
       initialData: initialDomains ?? undefined,
    });
 
+   // The scraper decides whether map pack is tracked, but keywords already in the map pack are worth showing either way.
+   const showMapPack = showMapPackStat || !!domains?.some((d) => d.mapPackKeywords > 0);
+
    const toggleActive = useMutation({
       mutationFn: ({ domain, scrapeEnabled }: { domain: string; scrapeEnabled: boolean }) => (
          apiPut(`/api/domains?domain=${encodeURIComponent(domain)}`, { scrapeEnabled })
@@ -172,7 +175,7 @@ export function DomainsView({
                      domain={domain}
                      consoleIntegrated={searchConsoleIntegrated || domain.hasOwnSearchConsole}
                      thumb={thumbs[domain.domain]}
-                     showMapPackStat={showMapPackStat}
+                     showMapPackStat={showMapPack}
                      timezone={timezone}
                      toggling={toggleActive.isPending && toggleActive.variables?.domain === domain.domain}
                      onToggle={(scrapeEnabled) => toggleActive.mutate({ domain: domain.domain, scrapeEnabled })}
