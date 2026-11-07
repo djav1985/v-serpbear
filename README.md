@@ -182,6 +182,7 @@ Behaviour is controlled by environment variables inside docker compose as well a
 | `CRON_MAIN_SCHEDULE` | `00:00` | No | Time of day (`HH:MM`, 24 hour) of every scheduled scrape and of the Search Console refresh. `scrape_interval` picks the days. |
 | `CRON_FAILED_SCHEDULE` | `hourly` | No | How often failed scrapes are retried: `hourly`, `daily` (at the `CRON_MAIN_SCHEDULE` time) or `never`. |
 | `CRON_EMAIL_SCHEDULE` | `06:00` | No | Time of day (`HH:MM`, 24 hour) of every email digest. `notification_interval` picks the days. |
+| `CRON_VOLUME_SCHEDULE` | `03:00` | No | Time of day (`HH:MM`, 24 hour) of the weekly keyword volume refresh, which runs every Monday. |
 
 <br><br>
 
@@ -248,6 +249,7 @@ A refresh uses the faster parallel path only when every keyword in the run uses 
 
 - `scrape_interval` runs at the `CRON_MAIN_SCHEDULE` time: `daily` every day, `other_day` on odd days of the month, `weekly` on Mondays, `monthly` on the 1st. `never` turns scheduled scraping off.
 - `notification_interval` runs at the `CRON_EMAIL_SCHEDULE` time: `daily`, `weekly` (Mondays) or `monthly` (the 1st). `never` turns digests off.
+- Keyword search volumes are refreshed every Monday at the `CRON_VOLUME_SCHEDULE` time, exactly like the **Update Keyword Volume Data** button in Settings (all keywords, one country at a time). Google updates its volume numbers about once a month, so the weekly run gives several chances to catch every keyword. It needs Google Ads connected; without it the run is skipped with a log message.
 - Failed scrapes are retried at the `CRON_FAILED_SCHEDULE` rate, and only while **Auto Retry** (`scrape_retry`) is on.
 - Settings changes apply without a restart: the worker watches `data/settings.json` and re-checks it every 30 minutes. `CRON_*` variables are read at startup, so they need a restart.
 
@@ -308,7 +310,7 @@ The Keywords and Map Pack counts include every keyword, whether or not it is in 
 - Connect a Google Ads account in Settings (there are no Google Ads environment variables) to get suggestions and historical volumes. Sign-in needs `NEXT_PUBLIC_APP_URL` or `APP_URL` to be set.
 - The seed type decides where suggestions come from: `auto` uses the domain as a site seed, `custom` your keyword list, `tracking` the domain's tracked keywords, and `searchconsole` its top 100 Search Console queries by impressions over the last 30 days.
 - An idea is disabled only when it is tracked for every selected device, so a partly tracked idea can still be added for the missing device.
-- A domain-wide volume update across several countries runs in the background (you reload later to see the volumes), and is limited to 6 per hour per client (2 for all domains).
+- A domain-wide volume update across several countries runs in the background (you reload later to see the volumes), and updating all domains is limited to 2 times per hour per client.
 - Selected ideas can be emailed from the research table or a domain's ideas tab, limited to 10 per domain per hour.
 
 ### Email digests

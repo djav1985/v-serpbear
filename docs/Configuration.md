@@ -30,6 +30,7 @@ Behaviour is controlled by environment variables in `docker-compose.yml` (under 
 | `CRON_MAIN_SCHEDULE` | `00:00` | No | Time of day (`HH:MM`, 24 hour) of every scheduled scrape and of the Search Console refresh. `scrape_interval` picks the days. |
 | `CRON_FAILED_SCHEDULE` | `hourly` | No | How often failed scrapes are retried: `hourly`, `daily` (at the `CRON_MAIN_SCHEDULE` time) or `never`. |
 | `CRON_EMAIL_SCHEDULE` | `06:00` | No | Time of day (`HH:MM`, 24 hour) of every email digest. `notification_interval` picks the days. |
+| `CRON_VOLUME_SCHEDULE` | `03:00` | No | Time of day (`HH:MM`, 24 hour) of the weekly keyword volume refresh, which runs every Monday. |
 
 Quote time values in YAML (`"00:00"`), or YAML may read them as numbers. See [Scheduling and Retries](Scheduling-and-Retries).
 

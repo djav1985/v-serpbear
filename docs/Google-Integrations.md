@@ -130,7 +130,7 @@ Click **Test Google Ads Integration**. A success message means it is set up.
 
 ### Step 8: Load volumes for existing keywords
 
-Click **Update Keyword Volume Data** once to fill in search volumes for keywords you already track. From then on, volumes are fetched when you add keywords. A domain-wide update that spans several countries asks Google once per country, so it runs in the background: SerpBear confirms the credentials, shows a "started" message and you reload the page a few minutes later to see the volumes. Domain-wide lookups are limited to 6 per hour per client (2 per hour for all domains).
+Click **Update Keyword Volume Data** once to fill in search volumes for keywords you already track. From then on, volumes are fetched when you add keywords. A domain-wide update that spans several countries asks Google once per country, so it runs in the background: SerpBear confirms the credentials, shows a "started" message and you reload the page a few minutes later to see the volumes. Updating all domains is limited to 2 times per hour per client.
 
 ### Troubleshooting Google Ads
 

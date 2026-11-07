@@ -39,6 +39,8 @@ services:
       # Times of day (HH:MM, 24 hour) for the scrapes, and for the email digests
       CRON_MAIN_SCHEDULE: "00:00"
       CRON_EMAIL_SCHEDULE: "06:00"
+      # Time of day of the weekly keyword volume refresh (Mondays)
+      CRON_VOLUME_SCHEDULE: "03:00"
       # Failed scrape retries: hourly, daily or never
       CRON_FAILED_SCHEDULE: hourly
 
