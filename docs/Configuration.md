@@ -43,7 +43,7 @@ Manage these in the Settings UI or at `/api/settings`.
 | `scrape_strategy` | `basic` (default) or `custom`. See [Scrapers](Scrapers#scrape-strategy). |
 | `scrape_pagination_limit` | Pages fetched per keyword with `custom`, from 1 to 10. Default 5. |
 | `scrape_retry` | `false` (default). Auto Retry for failed scrapes. Its retry controls appear only when it is on. |
-| `scrape_delay` | Milliseconds between requests to one domain (Settings: Keyword Scrape Delay). The server caps it at 30,000 (30 s). For a scraper with its own base interval (TinyFish, 2 seconds) it is added on top of that base, and the spacing then applies across all domains. |
+| `scrape_delay` | Milliseconds between requests (Settings: Keyword Scrape Delay). The server caps it at 30,000 (30 s). The spacing applies across all domains for the same API key, for every scraper. For a scraper with its own base interval (TinyFish, 2 seconds) the delay is added on top of that base. |
 | `notification_interval` | `never` (default), `daily`, `weekly` or `monthly`. |
 | `notification_email_from`, `notification_email_from_name` | Sender address (default `no-reply@serpbear.com`) and display name (default the platform name). |
 | `smtp_server`, `smtp_port`, `smtp_username`, `smtp_password`, `smtp_tls_servername` | SMTP connection. The port is required. |

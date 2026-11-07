@@ -61,12 +61,12 @@ const nextScraperSlot = new Map<string, number>();
 /**
  * Waits until the scraper may receive its next request. Requests are spaced by the scraper's baseline
  * minRequestIntervalMs plus the Keyword Scrape Delay setting, across all keywords, domains, pages and retries.
- * Scrapers without a baseline are not gated here.
+ * A scraper with no baseline is spaced by the Keyword Scrape Delay alone; with neither, nothing is gated.
  */
 export const waitForScraperSlot = async (scraper: ScraperSettings, settings: SettingsType): Promise<void> => {
    const baseInterval = scraper.minRequestIntervalMs ?? 0;
-   if (baseInterval <= 0) { return; }
    const interval = baseInterval + getScrapeDelay(settings);
+   if (interval <= 0) { return; }
    const key = `${scraper.id}:${settings.scraping_api ?? ''}`;
    const now = Date.now();
    const slot = Math.max(now, nextScraperSlot.get(key) ?? 0);
