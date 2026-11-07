@@ -17,17 +17,42 @@ const NOW = Date.parse('2026-11-07T12:00:00Z');
 
 const headers = (values: Record<string, string>) => ({ get: (name: string) => values[name.toLowerCase()] ?? null });
 
+const streamBody = (chunks: Uint8Array[]) => ({
+   getReader: () => ({
+      read: (() => {
+         let index = 0;
+         return async () => (index < chunks.length
+            ? { done: false, value: chunks[index++] }
+            : { done: true, value: undefined });
+      })(),
+      cancel: async () => undefined,
+      releaseLock: () => undefined,
+   }),
+});
+
 const imageResponse = () => ({
    status: 200,
    headers: headers({ 'content-type': 'image/jpeg', 'cache-control': 'max-age=86400' }),
-   arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+   body: streamBody([new Uint8Array([1, 2, 3])]),
 });
 
 // What thum.io answers while it is still generating a screenshot
 const placeholderResponse = () => ({
    status: 200,
    headers: headers({ 'content-type': 'image/gif', 'cache-control': 'no-cache, no-store, must-revalidate' }),
-   arrayBuffer: async () => new Uint8Array([9, 9]).buffer,
+   body: streamBody([new Uint8Array([9, 9])]),
+});
+
+const oversizedImageResponse = (cancel: jest.Mock) => ({
+   status: 200,
+   headers: headers({ 'content-type': 'image/jpeg', 'cache-control': 'max-age=86400' }),
+   body: {
+      getReader: () => ({
+         read: async () => ({ done: false, value: new Uint8Array((2 * 1024 * 1024) + 1) }),
+         cancel,
+         releaseLock: () => undefined,
+      }),
+   },
 });
 
 describe('thumbnails', () => {
@@ -124,6 +149,20 @@ describe('thumbnails', () => {
       expect(names()).toEqual(['example.com_2026-01-01.jpg']);
       // 4 attempts, 10 seconds apart
       expect(global.fetch).toHaveBeenCalledTimes(4);
+   });
+
+   it('cancels an image response as soon as it exceeds the byte limit', async () => {
+      jest.useFakeTimers();
+      const cancel = jest.fn().mockResolvedValue(undefined);
+      global.fetch = jest.fn().mockImplementation(() => oversizedImageResponse(cancel)) as unknown as typeof fetch;
+
+      const job = generateThumbnail('large.com');
+      await jest.advanceTimersByTimeAsync(60_000);
+
+      await expect(job).resolves.toBe(false);
+      expect(global.fetch).toHaveBeenCalledTimes(4);
+      expect(cancel).toHaveBeenCalledTimes(4);
+      expect(names()).toEqual([]);
    });
 
    it('asks again while thum.io is still generating, then saves the real screenshot', async () => {

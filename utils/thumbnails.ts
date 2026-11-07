@@ -156,8 +156,29 @@ const requestScreenshot = async (domain: string): Promise<Buffer | null> => {
    // While thum.io is still generating a screenshot it answers 200 with a no-store placeholder
    if (/no-store|no-cache/i.test(response.headers.get('cache-control') || '')) { return null; }
    if (!(response.headers.get('content-type') || '').toLowerCase().startsWith('image/')) { return null; }
-   const image = Buffer.from(await response.arrayBuffer());
-   return image.length > 0 && image.length <= MAX_IMAGE_BYTES ? image : null;
+   if (!response.body) { return null; }
+
+   const reader = response.body.getReader();
+   const chunks: Uint8Array[] = [];
+   let totalBytes = 0;
+   try {
+      while (true) {
+         const { done, value } = await reader.read();
+         if (done) { break; }
+         if (!value) { continue; }
+
+         totalBytes += value.byteLength;
+         if (totalBytes > MAX_IMAGE_BYTES) {
+            await reader.cancel().catch(() => undefined);
+            return null;
+         }
+         chunks.push(value);
+      }
+   } finally {
+      reader.releaseLock();
+   }
+
+   return totalBytes > 0 ? Buffer.concat(chunks, totalBytes) : null;
 };
 
 const inFlight = new Map<string, Promise<boolean>>();
