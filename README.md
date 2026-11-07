@@ -409,6 +409,7 @@ The example uses port 3000 (Node.js). Docker Compose serves the app on port 3030
 | `instrumentation.ts` | Next.js startup hook that initialises the database |
 | `entrypoint.sh` | Docker entrypoint: runs migrations, then starts the web app and cron worker |
 | `data/` | Runtime files (SQLite, settings, Search Console exports, retry queue). Git-ignored except `.gitkeep`. |
+| `doca/` | Project documentation. |
 
 <br><br>
 

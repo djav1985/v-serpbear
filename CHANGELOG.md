@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file. Releases no
 - **Auth and update feedback.** An authentication API error no longer redirects users to login. Google Ads authentication opens its popup synchronously from the click and falls back to the current tab if popups are blocked. A completed synchronous volume update invalidates keyword data instead of reloading the page.
 
 ### Changed
+- **Project structure.** Added the `doca/` folder to the README directory list.
 - **Keyword additions during refresh.** Adding keywords remains available while a domain is refreshing; their initial scrape queues until the domain is free, and the success toast explains when that happens. The form now counts the generated keyword/device rows against the 100-row request limit and reports excess rows without silently dropping them. Duplicate detection uses structured target keys.
 - **Documentation.** Updated the keyword workflow and limits, Search Console cache behavior, Google Ads popup fallback, and JSON-body retry polling in the README and guides.
 
