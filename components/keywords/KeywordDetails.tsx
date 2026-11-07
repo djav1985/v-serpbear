@@ -1,10 +1,10 @@
-import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Icon from '../common/Icon';
 import countries from '../../utils/countries';
 import Chart from '../common/Chart';
 import SelectField from '../common/SelectField';
 import { useFetchSingleKeyword } from '../../services/keywords';
-import useOnKey from '../../hooks/useOnKey';
+import useDialogA11y from '../../hooks/useDialogA11y';
 import { generateTheChartData } from '../../utils/client/generateChartData';
 import { formatInZone } from '../../utils/timezone';
 import { getAppTimezone } from '../../utils/client/appTimezone';
@@ -18,6 +18,8 @@ type KeywordDetailsProps = {
 
 const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
    const updatedDate = keyword.lastUpdated ? formatInZone(keyword.lastUpdated, { month: 'long', day: 'numeric', year: 'numeric' }, getAppTimezone()) : '';
+   const dialogRef = useRef<HTMLDivElement>(null);
+   const titleId = useId();
    const [chartTime, setChartTime] = useState<string>('30');
    const searchResultContainer = useRef<HTMLDivElement>(null);
    const searchResultFound = useRef<HTMLDivElement>(null);
@@ -42,7 +44,7 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
       { label: 'All Time', value: 'all' },
    ];
 
-   useOnKey('Escape', closeDetails);
+   useDialogA11y(dialogRef, closeDetails);
 
    const chartData = useMemo(() => generateTheChartData(keywordHistory, chartTime), [keywordHistory, chartTime]);
 
@@ -63,9 +65,10 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
 
    return (
        <div className="keywordDetails fixed w-full h-dvh top-0 left-0 z-[99999]" onClick={(e) => closeOnBGClick(e, closeDetails)} data-testid="keywordDetails">
-            <div className="keywordDetails absolute w-full lg:w-5/12 bg-white customShadow top-0 right-0 h-dvh overflow-y-auto" >
+            <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}
+            className="keywordDetails absolute w-full lg:w-5/12 bg-white customShadow top-0 right-0 h-dvh overflow-y-auto" >
                <div className='keywordDetails__header p-6 border-b border-b-slate-200 text-slate-600'>
-                  <h3 className=' text-lg font-bold flex items-center'>
+                  <h3 id={titleId} className=' text-lg font-bold flex items-center'>
                      <span className="fflag-stack mr-2">
                         <span
                            title={countries[keyword.country]?.[0] ?? keyword.country}
@@ -82,6 +85,8 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
                      </span>
                   </h3>
                   <button
+                  type="button"
+                  aria-label="Close keyword details"
                   className='absolute top-2 right-2 p-2 px-3 text-gray-400 hover:text-gray-700 transition-all hover:rotate-90'
                   onClick={() => closeDetails()}>
                      <Icon type='close' size={24} />

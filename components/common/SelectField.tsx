@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import Icon from './Icon';
 
 export type SelectionOption = {
@@ -42,6 +42,12 @@ const SelectField = (props: SelectFieldProps) => {
    const [showOptions, setShowOptions] = useState<boolean>(false);
    const [filterInput, setFilterInput] = useState<string>('');
    const containerRef = useRef<HTMLDivElement>(null);
+   const controlRef = useRef<HTMLDivElement>(null);
+   const controlId = useId();
+   const optionListId = `${controlId}-options`;
+   const labelId = `${controlId}-label`;
+   const valueId = `${controlId}-value`;
+   const [activeIndex, setActiveIndex] = useState(0);
 
    // Close the dropdown on outside click or Escape. Listeners exist only while open.
    useEffect(() => {
@@ -57,7 +63,10 @@ const SelectField = (props: SelectFieldProps) => {
          }
       };
       const handleKeyDown = (event: KeyboardEvent) => {
-         if (event.key === 'Escape') { setShowOptions(false); }
+         if (event.key === 'Escape') {
+            setShowOptions(false);
+            controlRef.current?.focus();
+         }
       };
 
       document.addEventListener('mousedown', handleMouseDown);
@@ -89,23 +98,90 @@ const SelectField = (props: SelectFieldProps) => {
          }
       }
       updateField(updatedSelect);
-      if (!multiple) { setShowOptions(false); }
+      if (!multiple) {
+         setShowOptions(false);
+         controlRef.current?.focus();
+      }
+   };
+
+   const openOptions = () => {
+      const selectedIndex = options.findIndex((option) => selected.includes(option.value));
+      setActiveIndex(selectedIndex >= 0 ? selectedIndex : 0);
+      setShowOptions(true);
+   };
+
+   const moveActive = (offset: number) => {
+      if (visibleOptions.length === 0) { return; }
+      setActiveIndex((current) => (current + offset + visibleOptions.length) % visibleOptions.length);
+   };
+
+   const handleControlKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (event.key === 'Escape' && showOptions) {
+         event.preventDefault();
+         event.stopPropagation();
+         setShowOptions(false);
+         controlRef.current?.focus();
+      } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+         event.preventDefault();
+         if (!showOptions) {
+            openOptions();
+         } else {
+            moveActive(event.key === 'ArrowDown' ? 1 : -1);
+         }
+      } else if (event.key === 'Home' && showOptions && visibleOptions.length > 0) {
+         event.preventDefault();
+         setActiveIndex(0);
+      } else if (event.key === 'End' && showOptions && visibleOptions.length > 0) {
+         event.preventDefault();
+         setActiveIndex(visibleOptions.length - 1);
+      } else if ((event.key === 'Enter' || event.key === ' ') && !showOptions) {
+         event.preventDefault();
+         openOptions();
+      } else if ((event.key === 'Enter' || event.key === ' ') && showOptions) {
+         event.preventDefault();
+         if (visibleOptions[activeIndex]) { selectItem(visibleOptions[activeIndex]); }
+      }
+   };
+
+   const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+         event.preventDefault();
+         moveActive(event.key === 'ArrowDown' ? 1 : -1);
+         controlRef.current?.focus();
+      } else if (event.key === 'Escape') {
+         event.preventDefault();
+         event.stopPropagation();
+         setShowOptions(false);
+         controlRef.current?.focus();
+      }
    };
 
    const filterOptions = (event:React.FormEvent<HTMLInputElement>) => {
       setFilterInput(event.currentTarget.value);
+      setActiveIndex(0);
    };
 
    return (
       <div ref={containerRef} className={`select font-semibold text-gray-500 relative ${inline ? 'inline-block' : 'flex'} justify-between items-center`}>
-         {label && <label className='mb-2 font-semibold inline-block text-sm text-gray-700 capitalize'>{label}</label>}
+         {label && <span id={labelId} className='mb-2 font-semibold inline-block text-sm text-gray-700 capitalize'>{label}</span>}
          <div
+         ref={controlRef}
+         id={controlId}
+         role="combobox"
+         tabIndex={0}
+         aria-haspopup="listbox"
+         aria-expanded={showOptions}
+         aria-controls={optionListId}
+         aria-labelledby={label ? `${labelId} ${valueId}` : undefined}
+         aria-label={!label ? defaultLabel : undefined}
+         aria-activedescendant={showOptions && visibleOptions[activeIndex] ? `${optionListId}-option-${activeIndex}` : undefined}
+         onKeyDown={handleControlKeyDown}
          className={`selected flex border ${rounded} p-1.5 px-4 cursor-pointer select-none ${fullWidth ? 'w-full' : 'w-full sm:w-[210px]'}
          min-w-0 ${showOptions ? 'border-indigo-200' : ''}`}
          style={fullWidth ? undefined : { minWidth }}
-         onClick={() => setShowOptions(!showOptions)}>
+         onClick={() => { if (showOptions) { setShowOptions(false); } else { openOptions(); } }}>
             <span className={'w-full inline-block truncate mr-2 capitalize'}>
-               {selected.length > 0 ? (selectedLabels.slice(0, 2).join(', ')) : defaultLabel}
+               <span id={valueId}>{selected.length > 0 ? (selectedLabels.slice(0, 2).join(', ')) : defaultLabel}</span>
             </span>
             {multiple && selected.length > 2
             && <span className={`px-2 py-0 ${rounded} bg-[#eaecff] text-[0.7rem] font-bold`}>{(selected.length)}</span>}
@@ -121,26 +197,33 @@ const SelectField = (props: SelectFieldProps) => {
                      <input
                      className=' border-b-[1px] p-3 w-full focus:outline-0 focus:border-blue-100'
                      type="text"
+                     aria-label={`Search ${label || defaultLabel}`}
                      placeholder='Search..'
                      onChange={filterOptions}
+                     onKeyDown={handleSearchKeyDown}
                      value={filterInput}
                      />
                   </div>
                )}
                {showEmptyMsg && <p className='p-4'>{emptyMsg}</p>}
-               <ul>
+               <ul id={optionListId} role="listbox" aria-multiselectable={multiple || undefined}>
                   {visibleOptions.length === 0 && !showEmptyMsg && (
                      <li className='select-none px-3 py-2 text-gray-400 cursor-not-allowed'>
                         No options
                      </li>
                   )}
-                  {visibleOptions.map((opt) => {
+                  {visibleOptions.map((opt, index) => {
                      const itemActive = selected.includes(opt.value);
                      return (
                         <li
                         key={opt.value}
+                        id={`${optionListId}-option-${index}`}
+                        role="option"
+                        aria-selected={itemActive}
                         className={`select-none cursor-pointer px-3 py-2 hover:bg-[#FCFCFF] capitalize text-ellipsis overflow-hidden
-                        ${itemActive ? ' bg-indigo-50 text-indigo-600 hover:bg-indigo-50' : ''} `}
+                        ${itemActive ? ' bg-indigo-50 text-indigo-600 hover:bg-indigo-50' : ''} ${index === activeIndex ? 'outline outline-1 outline-indigo-300' : ''}`}
+                        onMouseEnter={() => setActiveIndex(index)}
+                        onMouseDown={(event) => event.preventDefault()}
                         onClick={() => selectItem(opt)}
                         >
                            {multiple && (

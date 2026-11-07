@@ -64,13 +64,13 @@ export function useAuthRequired(): AuthStatus {
   const authStatus = useAuth();
 
   useEffect(() => {
-    if (!authStatus.isLoading && !authStatus.isAuthenticated) {
+    if (!authStatus.isLoading && !authStatus.error && !authStatus.isAuthenticated) {
       // Only redirect if we're not already on the login page
       if (router.pathname !== '/login') {
         router.push('/login');
       }
     }
-  }, [authStatus.isAuthenticated, authStatus.isLoading, router]);
+  }, [authStatus.error, authStatus.isAuthenticated, authStatus.isLoading, router]);
 
   return authStatus;
 }

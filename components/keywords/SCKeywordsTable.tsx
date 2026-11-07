@@ -98,9 +98,13 @@ const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleInt
       }
       return lookup;
    }, {}), [trackedKeywordsList]);
-   const { mutate: addKeywords, isLoading: isAddingKeywords } = useAddKeywords(() => { if (domain && domain.slug) router.push(`/domain/${domain.slug}`); });
+   const { mutate: addKeywords, isLoading: isAddingKeywords } = useAddKeywords(() => {
+      setSelectedKeywords([]);
+      setShowAddStep(false);
+      if (domain && domain.slug) { router.push(`/domain/${domain.slug}`); }
+   });
    const [isMobile] = useIsMobile();
-   useWindowResize(() => setSCListHeight(window.innerHeight - (isMobile ? 200 : 400)));
+   useWindowResize(() => setSCListHeight(Math.max(160, window.innerHeight - (isMobile ? 200 : 400))));
 
    const finalKeywords: {[key:string] : SCKeywordType[] } = useMemo(() => {
       const procKeywords = keywords.filter((x) => x.device === device);
@@ -189,8 +193,6 @@ const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleInt
          return true;
       });
       addKeywords({ payloads, skipped });
-      setSelectedKeywords([]);
-      setShowAddStep(false);
    };
 
    const selectableKeywordIds = useMemo(() => {

@@ -1,6 +1,6 @@
 /// <reference path="../../types.d.ts" />
 
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 import { useQueryClient } from 'react-query';
 import InputField from '../common/InputField';
 import Icon from '../common/Icon';
@@ -17,6 +17,7 @@ type SearchConsoleSettingsProps = {
 
 const SearchConsoleSettings = ({ settings, settingsError, updateSettings }:SearchConsoleSettingsProps) => {
    const [refreshing, setRefreshing] = useState(false);
+   const privateKeyId = useId();
    const queryClient = useQueryClient();
 
    const handleRefresh = async () => {
@@ -51,8 +52,9 @@ const SearchConsoleSettings = ({ settings, settingsError, updateSettings }:Searc
             />
          </div>
          <div className="settings__section__input mb-4 flex flex-col justify-between items-center w-full">
-            <label className='mb-2 font-semibold block text-sm text-gray-700 capitalize w-full'>Search Console Private Key</label>
+            <label htmlFor={privateKeyId} className='mb-2 font-semibold block text-sm text-gray-700 capitalize w-full'>Search Console Private Key</label>
             <textarea
+               id={privateKeyId}
                className={`w-full p-2 border border-gray-200 rounded mb-3 text-xs
                focus:outline-none h-[100px] focus:border-blue-200`}
                value={settings.search_console_private_key}

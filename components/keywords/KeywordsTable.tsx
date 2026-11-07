@@ -93,7 +93,7 @@ const KeywordsTable = (props: KeywordsTableProps) => {
    const [isMobile] = useIsMobile();
 
    useWindowResize(() => {
-      setSCListHeight(window.innerHeight - (isMobile ? 200 : 400));
+      setSCListHeight(Math.max(160, window.innerHeight - (isMobile ? 200 : 400)));
       if (titleColumnRef.current) {
          setMaxTitleColumnWidth((titleColumnRef.current as HTMLElement).clientWidth);
       }
@@ -254,40 +254,40 @@ const KeywordsTable = (props: KeywordsTableProps) => {
                <div className='font-semibold text-sm py-4 px-8 text-gray-500 '>
                   <ul className=''>
                      <li className='inline-block mr-4'>
-                        <a
+                        <button type="button"
                         className='block px-2 py-2 cursor-pointer hover:text-indigo-600'
                         onClick={() => { refreshMutate({ ids: selectedKeywords }); setSelectedKeywords([]); }}
                         >
                            <span className=' bg-indigo-100 text-blue-700 px-1 rounded'><Icon type="reload" size={11} /></span> Refresh Keywords
-                        </a>
+                        </button>
                      </li>
                      <li className='inline-block mr-4'>
-                        <a
+                        <button type="button"
                         className='block px-2 py-2 cursor-pointer hover:text-indigo-600'
                         onClick={() => setShowRemoveModal(true)}
                         >
-                           <span className=' bg-red-100 text-red-600 px-1 rounded'><Icon type="trash" size={14} /></span> Remove Keywords</a>
+                           <span className=' bg-red-100 text-red-600 px-1 rounded'><Icon type="trash" size={14} /></span> Remove Keywords</button>
                      </li>
                      <li className='inline-block mr-4'>
-                        <a
+                        <button type="button"
                         className='block px-2 py-2 cursor-pointer hover:text-indigo-600'
                         onClick={() => setShowAddTags(true)}
                         >
-                           <span className=' bg-green-100 text-green-500  px-1 rounded'><Icon type="tags" size={14} /></span> Tag Keywords</a>
+                           <span className=' bg-green-100 text-green-500  px-1 rounded'><Icon type="tags" size={14} /></span> Tag Keywords</button>
                      </li>
                      <li className='inline-block mr-4'>
-                        <a
+                        <button type="button"
                         className='block px-2 py-2 cursor-pointer hover:text-indigo-600'
                         onClick={() => setShowRemoveTags(true)}
                         >
-                           <span className=' bg-orange-100 text-orange-500  px-1 rounded'><Icon type="tags" size={14} /></span> Remove Tags</a>
+                           <span className=' bg-orange-100 text-orange-500  px-1 rounded'><Icon type="tags" size={14} /></span> Remove Tags</button>
                      </li>
                      <li className='inline-block mr-4'>
-                        <a
+                        <button type="button"
                         className='block px-2 py-2 cursor-pointer hover:text-indigo-600'
                         onClick={() => setShowChangeLocation(true)}
                         >
-                           <span className=' bg-blue-100 text-blue-600 px-1 rounded'><Icon type="city" size={14} /></span> Change Location</a>
+                           <span className=' bg-blue-100 text-blue-600 px-1 rounded'><Icon type="city" size={14} /></span> Change Location</button>
                      </li>
                   </ul>
                </div>
@@ -340,22 +340,22 @@ const KeywordsTable = (props: KeywordsTableProps) => {
                         <div className='domKeywords_head_sc flex-1 min-w-[170px] lg:max-w-[170px] mr-7 text-center'>
                            {/* Search Console */}
                            <div>
-                              <div
-                              className=' w-48 select-none cursor-pointer absolute bg-white rounded-full
+                              <button type="button" aria-expanded={showScDataTypes} aria-haspopup="menu"
+                              className='w-48 select-none cursor-pointer absolute bg-white rounded-full
                               px-2 py-[2px] mt-[-22px] ml-3 border border-gray-200 z-40'
                               onClick={() => setShowScDataTypes(!showScDataTypes)}>
                                  <Icon type="google" size={13} /> {scDataObject[scDataType]}
                                  <Icon classes="ml-2" type={showScDataTypes ? 'caret-up' : 'caret-down'} size={10} />
-                              </div>
+                              </button>
                               {showScDataTypes && (
                                  <div className='absolute bg-white border border-gray-200 z-50 w-44 rounded mt-2 ml-5 text-gray-500'>
-                                    {Object.keys(scDataObject).map((itemKey) => <span
+                                    {Object.keys(scDataObject).map((itemKey) => <button type="button" aria-pressed={scDataType === itemKey}
                                                 className={`block p-2 cursor-pointer hover:bg-indigo-50 hover:text-indigo-600
                                                  ${scDataType === itemKey ? 'bg-indigo-100 text-indigo-600' : ''}`}
                                                 key={itemKey}
                                                 onClick={() => { setScDataType(itemKey); setShowScDataTypes(false); }}>
                                                    {scDataObject[itemKey]}
-                                                </span>)}
+                                                </button>)}
                                  </div>
                               )}
                            </div>

@@ -22,15 +22,17 @@ const IntegrationSettings = ({ settings, settingsError, updateSettings, performU
       <div className='settings__content styled-scrollbar p-6 text-sm'>
          <div className='mb-4 '>
             <ul>
-               <li
-               className={`${tabStyle} ${currentTab === 'searchconsole' ? ' bg-blue-50 text-blue-600' : ''}`}
+               <li>
+               <button type="button" aria-pressed={currentTab === 'searchconsole'} className={`${tabStyle} ${currentTab === 'searchconsole' ? ' bg-blue-50 text-blue-600' : ''}`}
                onClick={() => setCurrentTab('searchconsole')}>
                   <Icon type='google' size={14} /> Search Console
+               </button>
                </li>
-               <li
-               className={`${tabStyle} ${currentTab === 'adwords' ? ' bg-blue-50 text-blue-600' : ''}`}
+               <li>
+               <button type="button" aria-pressed={currentTab === 'adwords'} className={`${tabStyle} ${currentTab === 'adwords' ? ' bg-blue-50 text-blue-600' : ''}`}
                onClick={() => setCurrentTab('adwords')}>
                   <Icon type='adwords' size={14} /> Google Ads
+               </button>
                </li>
             </ul>
          </div>

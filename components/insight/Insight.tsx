@@ -10,10 +10,11 @@ type SCInsightProps = {
    domain: DomainType | null,
    insight: InsightDataType,
    isLoading: boolean,
+   isError?: boolean,
    isConsoleIntegrated: boolean,
 }
 
-const SCInsight = ({ insight, isLoading = true, isConsoleIntegrated = true, domain }: SCInsightProps) => {
+const SCInsight = ({ insight, isLoading = true, isError = false, isConsoleIntegrated = true, domain }: SCInsightProps) => {
    const [activeTab, setActiveTab] = useState<string>('stats');
 
    const insightItems = insight[activeTab as keyof InsightDataType];
@@ -58,8 +59,8 @@ const SCInsight = ({ insight, isLoading = true, isConsoleIntegrated = true, doma
                   <ul className='text-xs hidden lg:flex'>
                      {['stats', 'keywords', 'countries', 'pages'].map((tabItem) => {
                         const tabInsightItem = insight[tabItem as keyof InsightDataType];
-                        return <li
-                        key={`tab-${tabItem}`}
+                        return <li key={`tab-${tabItem}`}>
+                        <button type="button" aria-pressed={activeTab === tabItem}
                         className={`${deviceTabStyle} ${activeTab === tabItem ? ' bg-[#F8F9FF] text-gray-700' : ''}`}
                         onClick={() => switchTab(tabItem)}>
                               <i className='hidden not-italic lg:inline-block ml-1 capitalize'>{tabItem}</i>
@@ -68,6 +69,7 @@ const SCInsight = ({ insight, isLoading = true, isConsoleIntegrated = true, doma
                                     {tabInsightItem && tabInsightItem.length ? tabInsightItem.length : 0}
                                  </span>
                               )}
+                        </button>
                         </li>;
                      })}
                   </ul>
@@ -113,6 +115,12 @@ const SCInsight = ({ insight, isLoading = true, isConsoleIntegrated = true, doma
                      }
                      {isConsoleIntegrated && isLoading && (
                         <SpinnerMessage className='p-9 pt-[10%] text-center' label='Loading insights' />
+                     )}
+                     {isConsoleIntegrated && !isLoading && isError && (
+                        <p role="alert" className='p-9 pt-[10%] text-center text-red-600'>Unable to load Search Console insights. Please try again.</p>
+                     )}
+                     {isConsoleIntegrated && !isLoading && !isError && (!insightItems || insightItems.length === 0) && (
+                        <p className='p-9 pt-[10%] text-center text-gray-500'>No Search Console insight data is available for this view.</p>
                      )}
                      {!isConsoleIntegrated && (
                         <p className=' p-9 pt-[10%] text-center text-gray-500'>

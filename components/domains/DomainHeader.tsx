@@ -99,7 +99,7 @@ const DomainHeader = (
                <Icon type='dots' size={20} />
             </button>
             }
-            {isInsight && <button className={`${buttonStyle} lg:hidden invisible`}>x</button>}
+            {isInsight && <button type="button" aria-hidden="true" tabIndex={-1} className={`${buttonStyle} lg:hidden invisible`}>x</button>}
             <div
             className={`absolute top-full right-0 w-40 mt-2 bg-white border border-gray-100 rounded z-[70] ${
                showOptions ? 'block' : 'hidden'
@@ -107,7 +107,6 @@ const DomainHeader = (
                {!isInsight && (
                   <button
                   className={`domheader_action_button relative ${buttonStyle}`}
-                  aria-pressed="false"
                   onClick={() => { exportCsv(); setShowOptions(false); }}>
                      <Icon type='download' size={20} /><i className={`${buttonLabelStyle}`}>Export as csv</i>
                   </button>
@@ -115,7 +114,6 @@ const DomainHeader = (
                {!isConsole && !isInsight && !isIdeas && (
                   <button
                   className={`domheader_action_button relative ${buttonStyle} lg:ml-3`}
-                  aria-pressed="false"
                   onClick={() => { refreshMutate({ ids: [], domain: domain.domain }); setShowOptions(false); }}>
                      <Icon type='reload' size={14} /><i className={`${buttonLabelStyle}`}>Reload All Serps</i>
                   </button>
@@ -123,7 +121,6 @@ const DomainHeader = (
                <button
                data-testid="show_domain_settings"
                className={`domheader_action_button relative ${buttonStyle} lg:ml-3`}
-               aria-pressed="false"
                onClick={() => { showSettingsModal(true); setShowOptions(false); }}><Icon type='settings' size={20} />
                   <i className={`${buttonLabelStyle}`}>Domain Settings</i>
                </button>
@@ -140,9 +137,9 @@ const DomainHeader = (
             )}
             {isConsole && (
                <div className='text-xs whitespace-nowrap pl-4 ml-2 border-l border-gray-200 relative'>
-                  <span className='block cursor-pointer py-3' onClick={() => setShowSCDates(!ShowSCDates)}>
+                  <button type="button" aria-expanded={ShowSCDates} aria-haspopup="menu" className='block cursor-pointer py-3 w-full text-left' onClick={() => setShowSCDates(!ShowSCDates)}>
                      <Icon type='date' size={13} classes="mr-1" /> {daysName(scFilter)}
-                  </span>
+                  </button>
                   {ShowSCDates && (
                      <div className='absolute w-24 z-50 mt-0 right-0 bg-white border border-gray-200 rounded text-center'>
                         {['threeDays', 'sevenDays', 'thirtyDays'].map((itemKey) => <button

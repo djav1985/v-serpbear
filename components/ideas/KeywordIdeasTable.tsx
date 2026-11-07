@@ -3,7 +3,7 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
 import { useAddKeywords, useFetchKeywords } from '../../services/keywords';
 import { useEmailKeywordIdeas } from '../../services/ideas';
-import { buildKeywordAddPayloads, splitAlreadyTracked, getDomainLocations, getDomainTags, scraperAllowsCity, TrackerDevice } from '../../utils/keywordMeta';
+import { buildKeywordAddPayloads, splitAlreadyTracked, getDomainLocations, getDomainTags, getKeywordTargetKey, scraperAllowsCity, TrackerDevice } from '../../utils/keywordMeta';
 import { useFetchSettings } from '../../services/settings';
 import { getSelectedUntrackedKeywords } from '../../utils/client/helpers';
 import AddToTrackerBar from '../keywords/AddToTrackerBar';
@@ -79,7 +79,11 @@ const IdeasKeywordsTable = ({
    const [showAddStep, setShowAddStep] = useState<boolean>(false);
    const { data: appSettingsData } = useFetchSettings();
    const allowsCity = scraperAllowsCity(appSettingsData?.settings);
-   const { mutate: addKeywords, isLoading: isAddingKeywords } = useAddKeywords(() => { if (domain && domain.slug) router.push(`/domain/${domain.slug}`); });
+   const { mutate: addKeywords, isLoading: isAddingKeywords } = useAddKeywords(() => {
+      setSelectedKeywords([]);
+      setShowAddStep(false);
+      if (domain && domain.slug) { router.push(`/domain/${domain.slug}`); }
+   });
    const { mutate: emailKeywordIdeas, isLoading: isEmailing } = useEmailKeywordIdeas(() => setSelectedKeywords([]));
    const { mutate: faveKeyword, isLoading: isFaving } = useMutateFavKeywordIdeas(router);
    const [isMobile] = useIsMobile();
@@ -98,9 +102,9 @@ const IdeasKeywordsTable = ({
    const trackedKeywordLookup = useMemo(() => {
       const lookup:Record<string, boolean> = {};
       trackedKeywordsList.forEach((trackedKeyword) => {
-         const { keyword: trackedKeywordValue, country: trackedCountry, device: trackedDevice } = trackedKeyword;
+         const { keyword: trackedKeywordValue, country: trackedCountry, device: trackedDevice, location } = trackedKeyword;
          if (trackedKeywordValue && trackedCountry && trackedDevice) {
-            lookup[`${trackedKeywordValue}:${trackedCountry}:${trackedDevice}`] = true;
+            lookup[getKeywordTargetKey(trackedKeywordValue, trackedCountry, trackedDevice, location || '')] = true;
          }
       });
       return lookup;
@@ -114,12 +118,15 @@ const IdeasKeywordsTable = ({
    const existingLocations = useMemo(() => getDomainLocations(trackedKeywordsList), [trackedKeywordsList]);
 
    // Tracked only when every selected device already has it; a partly tracked idea can still add the missing device
-   const isIdeaTracked = useCallback((idea: IdeaKeyword) => trackedDevicesToCheck.every((device) => trackedKeywordLookup[`${idea.keyword}:${idea.country}:${device}`]), [trackedDevicesToCheck, trackedKeywordLookup]);
+   // Ideas default to country-wide tracking. City-specific targets remain selectable so users can track another location.
+   const isIdeaTracked = useCallback((idea: IdeaKeyword) => (
+      trackedDevicesToCheck.every((device) => trackedKeywordLookup[getKeywordTargetKey(idea.keyword, idea.country, device)])
+   ), [trackedDevicesToCheck, trackedKeywordLookup]);
 
    const { data: domainsData } = useFetchDomains(router, false);
    const theDomains: DomainType[] = (domainsData && domainsData.domains) || [];
 
-   useWindowResize(() => setListHeight(window.innerHeight - (isMobile ? 200 : 400)));
+   useWindowResize(() => setListHeight(Math.max(160, window.innerHeight - (isMobile ? 200 : 400))));
 
    const finalKeywords: IdeaKeywordWithTracking[] = useMemo(() => {
       const filteredKeywords = IdeasfilterKeywords(showFavorites ? favorites : keywords, filterParams);
@@ -206,8 +213,6 @@ const IdeasKeywordsTable = ({
          country,
       }), trackedKeywordLookup);
       addKeywords({ payloads, skipped });
-      setSelectedKeywords([]);
-      setShowAddStep(false);
    };
 
    const sendKeywordIdeasEmail = () => {

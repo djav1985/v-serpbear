@@ -1,4 +1,4 @@
-import { getLocationCountry } from './location';
+import { getLocationCountry, isCountryOnlyLocation } from './location';
 
 export type TrackerDevice = 'desktop' | 'mobile';
 
@@ -48,6 +48,12 @@ export const buildKeywordAddPayloads = ({ items, domain, devices, tags, location
       tags: tags.join(', '),
       location,
    })))
+);
+
+// A tracking target is unique by keyword, country, device, and city-level location.
+// Country-only location labels normalize to an empty stored location.
+export const getKeywordTargetKey = (keyword: string, country: string, device: string, location = ''): string => (
+   JSON.stringify([keyword, country, device, isCountryOnlyLocation(location) ? '' : location.trim()])
 );
 
 type LocationTarget = {
@@ -100,7 +106,7 @@ export const getLocationUpdateMessage = (updatedCount: number, skipped: string[]
    return updatedCount === 0 ? `No keywords changed. ${skippedText}` : `Updated ${updatedText}. Skipped ${skippedText}`;
 };
 
-// Drops payloads for keyword, country and device combinations that are already tracked.
+// Drops payloads for exact keyword, country, device and location targets that are already tracked.
 // Returns the rows to add and a readable list of what was skipped, e.g. "alpha (mobile)".
 export const splitAlreadyTracked = (
    payloads: KeywordAddPayload[],
@@ -109,7 +115,10 @@ export const splitAlreadyTracked = (
    const kept: KeywordAddPayload[] = [];
    const skipped = new Set<string>();
    payloads.forEach((payload) => {
-      if (trackedLookup[`${payload.keyword}:${payload.country}:${payload.device}`]) {
+      const location = payload.location || '';
+      const targetKey = getKeywordTargetKey(payload.keyword, payload.country, payload.device, location);
+      const legacyCountryOnlyKey = `${payload.keyword}:${payload.country}:${payload.device}`;
+      if (trackedLookup[targetKey] || (!location || isCountryOnlyLocation(location)) && trackedLookup[legacyCountryOnlyKey]) {
          skipped.add(`${payload.keyword} (${payload.device})`);
       } else {
          kept.push(payload);

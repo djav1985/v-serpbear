@@ -62,6 +62,7 @@ const KeywordIdea = (props: KeywordIdeaProps) => {
                      : 'text-transparent'
                }`}
                aria-label={selectionLabel}
+               aria-pressed={selected}
                aria-disabled={isTracked}
                disabled={isTracked}
                onClick={() => selectKeyword(uid, isTracked)}
@@ -84,12 +85,12 @@ const KeywordIdea = (props: KeywordIdeaProps) => {
             {formattedNum(avgMonthlySearches)}<span className='lg:hidden'>/month</span>
          </div>
 
-         <div
-          onClick={() => showKeywordDetails()}
+         <button type="button" aria-label={`View search trend for ${keyword}`}
+         onClick={() => showKeywordDetails()}
          className={`keyword_visits text-center hidden mt-4 mr-5 ml-5 cursor-pointer
          lg:flex-1 lg:m-0 lg:ml-10 max-w-[70px] lg:max-w-none lg:pr-5 lg:flex justify-center`}>
             {chartData.labels.length > 0 && <ChartSlim labels={chartData.labels} series={chartData.series} noMaxLimit={true} reverse={false} />}
-         </div>
+         </button>
 
          <div className='keyword_ctr text-center inline-block ml-4 lg:flex mt-4 relative lg:flex-1 lg:m-0 justify-center'>
             <div className={`idea_competiton idea_competiton--${competition} flex bg-slate-100 rounded w-28 text-xs font-semibold`}>

@@ -1,13 +1,13 @@
 /// <reference path="../../types.d.ts" />
 
-import React, { forwardRef, useCallback, useEffect, useState } from 'react';
+import React, { forwardRef, useCallback, useEffect, useId, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useFetchSettings, useUpdateSettings } from '../../services/settings';
 import { getClientOrigin } from '../../utils/client/origin';
 import Icon from '../common/Icon';
 import NotificationSettings from './NotificationSettings';
 import ScraperSettings from './ScraperSettings';
-import useOnKey from '../../hooks/useOnKey';
+import useDialogA11y from '../../hooks/useDialogA11y';
 import IntegrationSettings from './IntegrationSettings';
 import { DEFAULT_BRANDING } from '../../utils/branding';
 import { useBranding } from '../../hooks/useBranding';
@@ -47,6 +47,8 @@ const Settings = forwardRef<HTMLDivElement, SettingsProps>(({ closeSettings }:Se
    const [settings, setSettings] = useState<SettingsType>(defaultSettings);
    const [settingsError, setSettingsError] = useState<SettingsError|null>(null);
    const errorTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+   const dialogRef = useRef<HTMLDivElement>(null);
+   const titleId = useId();
    const { mutateAsync: updateMutateAsync, isLoading: isUpdating } = useUpdateSettings(() => {});
    const { data: appSettings, isLoading, refetch: refetchSettings } = useFetchSettings();
    
@@ -56,7 +58,7 @@ const Settings = forwardRef<HTMLDivElement, SettingsProps>(({ closeSettings }:Se
             clearTimeout(errorTimeoutRef.current);
          }
       }, []);
-   useOnKey('Escape', closeSettings);
+   useDialogA11y(dialogRef, closeSettings);
 
    // Local edits must survive background refetches, so the server copy is only seeded on the first
    // successful load and again after a successful save (see performUpdate).
@@ -205,12 +207,22 @@ const Settings = forwardRef<HTMLDivElement, SettingsProps>(({ closeSettings }:Se
 
    return (
        <div ref={ref} className="settings fixed w-full h-dvh top-0 left-0 z-[9999]" onClick={(e) => closeOnBGClick(e, closeSettings)}>
-            <div className="absolute w-full max-w-md bg-white customShadow top-0 right-0 h-dvh flex flex-col" data-loading={isLoading} >
+             <div
+                ref={dialogRef}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={titleId}
+                tabIndex={-1}
+                className="absolute w-full max-w-md bg-white customShadow top-0 right-0 h-dvh flex flex-col"
+                data-loading={isLoading}
+             >
                {isLoading && <div className='absolute flex content-center items-center h-full'><Icon type="loading" size={24} /></div>}
                <div className='flex-1 overflow-y-auto'>
                <div className='settings__header px-5 py-4 text-slate-500'>
-                  <h3 className=' text-black text-lg font-bold'>Settings</h3>
+                  <h3 id={titleId} className=' text-black text-lg font-bold'>Settings</h3>
                   <button
+                  type="button"
+                  aria-label="Close settings"
                   className=' absolute top-2 right-2 p-2 px- text-gray-400 hover:text-gray-700 transition-all hover:rotate-90'
                   onClick={() => closeSettings()}>
                      <Icon type='close' size={24} />
@@ -218,20 +230,23 @@ const Settings = forwardRef<HTMLDivElement, SettingsProps>(({ closeSettings }:Se
                </div>
                <div className='border border-slate-200 px-3 py-4 pb-0 border-l-0 border-r-0 bg-[#f8f9ff]'>
                   <ul>
-                     <li
-                     className={`${tabStyle} ${currentTab === 'scraper' ? tabStyleActive : 'border-transparent '}`}
+                     <li>
+                     <button type="button" aria-pressed={currentTab === 'scraper'} className={`${tabStyle} ${currentTab === 'scraper' ? tabStyleActive : 'border-transparent '}`}
                      onClick={() => setCurrentTab('scraper')}>
-                       <Icon type='scraper' /> Scraper
+                        <Icon type='scraper' /> Scraper
+                     </button>
                      </li>
-                     <li
-                     className={`${tabStyle} ${currentTab === 'notification' ? tabStyleActive : 'border-transparent'}`}
+                     <li>
+                     <button type="button" aria-pressed={currentTab === 'notification'} className={`${tabStyle} ${currentTab === 'notification' ? tabStyleActive : 'border-transparent'}`}
                      onClick={() => setCurrentTab('notification')}>
                         <Icon type='email' /> Notification
+                     </button>
                      </li>
-                     <li
-                     className={`${tabStyle} ${currentTab === 'integrations' ? tabStyleActive : 'border-transparent'}`}
+                     <li>
+                     <button type="button" aria-pressed={currentTab === 'integrations'} className={`${tabStyle} ${currentTab === 'integrations' ? tabStyleActive : 'border-transparent'}`}
                      onClick={() => setCurrentTab('integrations')}>
                        <Icon type='integration' size={14} /> Integrations
+                     </button>
                      </li>
                   </ul>
                </div>

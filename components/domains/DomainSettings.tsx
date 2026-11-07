@@ -356,20 +356,23 @@ const DomainSettings = forwardRef<HTMLDivElement, DomainSettingsProps>(
                <div className=' mt-3 mb-5 border  border-slate-200 px-2 py-4 pb-0
                relative left-[-20px] w-[calc(100%+40px)] border-l-0 border-r-0 bg-[#f8f9ff]'>
                   <ul className='flex gap-1'>
-                     <li
-                     className={getTabClassName('notification', currentTab, tabStyle)}
+                     <li>
+                     <button type="button" aria-pressed={currentTab === 'notification'} className={getTabClassName('notification', currentTab, tabStyle)}
                      onClick={() => setCurrentTab('notification')}>
-                       <Icon type='email' /> Notification
+                        <Icon type='email' /> Notification
+                     </button>
                      </li>
-                     <li
-                     className={getTabClassName('searchconsole', currentTab, tabStyle)}
+                     <li>
+                     <button type="button" aria-pressed={currentTab === 'searchconsole'} className={getTabClassName('searchconsole', currentTab, tabStyle)}
                      onClick={() => setCurrentTab('searchconsole')}>
                         <Icon type='google' /> Search Console
+                     </button>
                      </li>
-                     <li
-                     className={getTabClassName('scraper', currentTab, tabStyle)}
+                     <li>
+                     <button type="button" aria-pressed={currentTab === 'scraper'} className={getTabClassName('scraper', currentTab, tabStyle)}
                      onClick={() => setCurrentTab('scraper')}>
                         <Icon type='settings-alt' /> Scraper
+                     </button>
                      </li>
                   </ul>
                </div>

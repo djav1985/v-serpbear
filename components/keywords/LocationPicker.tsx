@@ -96,6 +96,7 @@ const LocationPicker = ({ existingLocations = [], value, onChange, allowsCity = 
          {sectionLabels && <p className='text-sm font-semibold text-gray-500 mt-2 mb-1'>New Location</p>}
          <div className='relative'>
             <input
+               aria-label="City"
                className={`w-full h-[42px] border rounded border-gray-200 py-2 px-4 pl-8 text-sm outline-none focus:border-indigo-300 ${!allowsCity ? ' cursor-not-allowed' : ''}`}
                disabled={!allowsCity}
                placeholder={allowsCity ? 'City (Optional)' : 'N/A'}
@@ -106,6 +107,7 @@ const LocationPicker = ({ existingLocations = [], value, onChange, allowsCity = 
          </div>
          <div className='relative'>
             <input
+               aria-label="State"
                className={`w-full h-[42px] border rounded border-gray-200 py-2 px-4 pl-8 text-sm outline-none focus:border-indigo-300 ${!allowsCity ? ' cursor-not-allowed' : ''}`}
                disabled={!allowsCity}
                placeholder={allowsCity ? 'State (Optional)' : 'N/A'}

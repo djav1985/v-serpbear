@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import Icon from './Icon';
 
 type SecretFieldProps = {
@@ -12,10 +12,11 @@ type SecretFieldProps = {
 
 const SecretField = ({ label = '', value = '', placeholder = '', onChange, hasError = false, disabled = false }: SecretFieldProps) => {
    const [showValue, setShowValue] = useState(false);
+   const inputId = useId();
    const labelStyle = 'mb-2 font-semibold inline-block text-sm text-gray-700 capitalize';
    return (
       <div className="settings__section__secret w-full relative flex justify-between items-center">
-         <label className={labelStyle}>{label}</label>
+         <label className={labelStyle} htmlFor={inputId}>{label}</label>
          <button
          type="button"
          aria-label={showValue ? 'Hide value' : 'Show value'}
@@ -24,6 +25,7 @@ const SecretField = ({ label = '', value = '', placeholder = '', onChange, hasEr
             <Icon type={showValue ? 'eye-closed' : 'eye'} size={18} />
          </button>
          <input
+            id={inputId}
             className={`w-[210px] p-2 border border-gray-200 rounded focus:outline-none
             focus:border-blue-200 ${hasError ? ' border-red-400 focus:border-red-400' : ''} ${disabled ? ' bg-gray-100 text-gray-500 cursor-not-allowed' : ''} `}
             type={showValue ? 'text' : 'password'}

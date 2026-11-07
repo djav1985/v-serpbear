@@ -20,7 +20,7 @@ export const DomainInsightPage: NextPage = () => {
    const domainHasScAPI = useDomainHasScAPI(activeDomain);
    const scConnected = !!appSettingsData.search_console_integrated;
    const domainsLoaded = !!(domainsData?.domains?.length);
-   const { data: insightData } = useFetchSCInsight(
+   const { data: insightData, isLoading: isInsightLoading, isError: isInsightError } = useFetchSCInsight(
       router,
       domainsLoaded && scConnected,
       domainsLoaded && domainHasScAPI,
@@ -43,7 +43,8 @@ export const DomainInsightPage: NextPage = () => {
          }}
          renderContent={() => (
             <SCInsight
-            isLoading={false}
+            isLoading={isInsightLoading}
+            isError={isInsightError}
             domain={activeDomain}
             insight={theInsight}
             isConsoleIntegrated={scConnected || domainHasScAPI}

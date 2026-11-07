@@ -1,10 +1,10 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useId, useMemo, useRef } from 'react';
 import { useQuery } from 'react-query';
 import { useRouter } from 'next/router';
 import Icon from '../common/Icon';
 import countries from '../../utils/countries';
 import Chart from '../common/Chart';
-import useOnKey from '../../hooks/useOnKey';
+import useDialogA11y from '../../hooks/useDialogA11y';
 import { formattedNum } from '../../utils/client/helpers';
 import { formatInZone } from '../../utils/timezone';
 import { getAppTimezone } from '../../utils/client/appTimezone';
@@ -22,6 +22,8 @@ const PLACEHOLDER_ROWS = [0, 1, 2, 3];
 
 const IdeaDetails = ({ keyword, closeDetails }:IdeaDetailsProps) => {
    const router = useRouter();
+   const dialogRef = useRef<HTMLDivElement>(null);
+   const titleId = useId();
    const updatedDate = keyword.updated ? formatInZone(keyword.updated, { month: 'long', day: 'numeric', year: 'numeric' }, getAppTimezone()) : '';
    const searchResultContainer = useRef<HTMLDivElement>(null);
    const searchResultFound = useRef<HTMLDivElement>(null);
@@ -33,7 +35,7 @@ const IdeaDetails = ({ keyword, closeDetails }:IdeaDetailsProps) => {
    );
    const { monthlySearchVolumes } = keyword;
 
-   useOnKey('Escape', closeDetails);
+   useDialogA11y(dialogRef, closeDetails);
 
    const chartData = useMemo(() => {
       const chartDataObj: { labels: string[], series: number[] } = { labels: [], series: [] };
@@ -51,9 +53,10 @@ const IdeaDetails = ({ keyword, closeDetails }:IdeaDetailsProps) => {
 
    return (
        <div className="IdeaDetails fixed w-full h-screen top-0 left-0 z-[99999]" onClick={(e) => closeOnBGClick(e, closeDetails)} data-testid="IdeaDetails">
-            <div className="IdeaDetails absolute w-full lg:w-5/12 bg-white customShadow top-0 right-0 h-screen" >
+            <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}
+            className="IdeaDetails absolute w-full lg:w-5/12 bg-white customShadow top-0 right-0 h-screen" >
                <div className='IdeaDetails__header p-6 border-b border-b-slate-200 text-slate-500'>
-                  <h3 className=' text-lg font-bold'>
+                  <h3 id={titleId} className=' text-lg font-bold'>
                      <span title={countries[keyword.country]?.[0] ?? keyword.country}
                      className={`fflag fflag-${keyword.country} w-[18px] h-[12px] mr-2`} /> {keyword.keyword}
                      <span className='py-1 px-2 ml-2 rounded bg-blue-50 text-blue-700 text-xs font-bold'>
@@ -61,6 +64,8 @@ const IdeaDetails = ({ keyword, closeDetails }:IdeaDetailsProps) => {
                      </span>
                   </h3>
                   <button
+                  type="button"
+                  aria-label="Close keyword idea details"
                   className='absolute top-2 right-2 p-2 px-3 text-gray-400 hover:text-gray-700 transition-all hover:rotate-90'
                   onClick={() => closeDetails()}>
                      <Icon type='close' size={24} />
