@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file. Releases no
 - **Map pack removal date migration skipped on some databases.** The migration read the `keyword` columns with Sequelize's `describeTable`, which crashes on SQLite when the table has an expression index (`keyword_tracking_target_idx`). The crash was taken for "no table", so the migration was recorded as run without adding `mapPackRemovedAt`, and every keyword request then failed with `no such column: mapPackRemovedAt`. It now reads the columns with `PRAGMA table_info`, and a repair migration adds the column to databases that were hit.
 
 ### Changed
+- **Search result boxes on mobile.** On screens under 768px wide, the Google Search Result and Local Search Results boxes in the keyword details grow to fit all their results, so they never scroll on their own (the panel scrolls instead). Desktop is unchanged.
 - **Bulk tags menu.** The Tag Keywords and Remove Tags items in the bulk menu are now one Add/Edit Tags item that opens the same tag window as the three-dots menu, for one or several selected keywords: remove a tag with its ×, add tags with +.
 - **Email map pack badge.** The badge in email digests now reads "MAP" in the same green outline as the dashboard, instead of the yellow "MP".
 - **Email digest layout.** The mobile icon is blue, the side padding is 10px (was 20px) and the Keyword column is wider (300px, was 240px).

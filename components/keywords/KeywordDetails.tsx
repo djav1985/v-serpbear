@@ -112,7 +112,7 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
                         <h3 className=' font-bold text-gray-700 lg:text-lg'>Local Search Results</h3>
                         <span className=' text-xs text-gray-500'>{updatedDate}</span>
                      </div>
-                     <div className='keywordDetails__section__results keywordDetails__section__results--local styled-scrollbar overflow-y-auto'>
+                     <div className='keywordDetails__section__results keywordDetails__section__results--local styled-scrollbar overflow-y-auto max-md:overflow-y-visible'>
                         {keywordLocalResults && Array.isArray(keywordLocalResults) && keywordLocalResults.length > 0 ? (
                            keywordLocalResults.map((item, index) => {
                               const position = item.position || index + 1;
@@ -154,7 +154,7 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
                         </h3>
                         <span className=' text-xs text-gray-500'>{updatedDate}</span>
                      </div>
-                     <div className='keywordDetails__section__results styled-scrollbar overflow-y-auto' ref={searchResultContainer}>
+                     <div className='keywordDetails__section__results styled-scrollbar overflow-y-auto max-md:overflow-y-visible' ref={searchResultContainer}>
                         {scrapedCount > 0 && keywordSearchResult.map((item) => {
                            const { position } = keyword;
                            const segUrl = safeHttpUrl(item.url);

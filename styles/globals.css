@@ -139,6 +139,15 @@ body {
    max-height: 325px;
 }
 
+/* Mobile: the Google Search Result and Local Search Results boxes grow to fit their results (no inner scrolling) */
+@media (max-width: 767px) {
+   .keywordDetails__section__results,
+   .keywordDetails__section__results--local {
+      height: auto;
+      max-height: none;
+   }
+}
+
 .settings__content {
    height: calc(100vh - 185px);
    overflow: auto;
