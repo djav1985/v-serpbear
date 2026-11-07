@@ -80,9 +80,9 @@ export function DataTable<TData extends RowData>({
          className={cn('relative w-full overflow-auto', className)}
       >
          {!stacked && (
-            <div role="rowgroup" className="bg-muted/40 sticky top-0 z-10 border-y" style={{ minWidth }}>
+            <div role="rowgroup" className="bg-card sticky top-0 z-10 border-y" style={{ minWidth }}>
                {table.getHeaderGroups().map((headerGroup) => (
-                  <div key={headerGroup.id} role="row" className="grid items-center gap-3 px-4 py-3 text-xs font-semibold" style={gridStyle}>
+                  <div key={headerGroup.id} role="row" className="bg-muted/40 grid items-center gap-3 px-4 py-3 text-xs font-semibold" style={gridStyle}>
                      {headerGroup.headers.map((header) => {
                         const canSort = header.column.getCanSort();
                         const sorted = header.column.getIsSorted();
