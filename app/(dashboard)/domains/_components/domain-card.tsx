@@ -128,9 +128,9 @@ export function DomainCard({
             </div>
 
             <div className="flex flex-1 flex-col p-4">
-               <div className="mb-2 flex items-center justify-between gap-3">
-                  <p className="text-primary text-xs font-medium">Tracker</p>
-                  <label className={cn('text-muted-foreground flex items-center gap-2 text-xs', toggling && 'cursor-not-allowed opacity-70')}>
+               <div className="mb-1 flex items-end justify-between gap-3">
+                  <p className="text-primary text-xs leading-none font-medium">Tracker</p>
+                  <label className={cn('text-muted-foreground flex items-center gap-2 text-xs leading-none', toggling && 'cursor-not-allowed opacity-70')}>
                      <span className="text-foreground font-medium">{domain.scrapeEnabled ? 'Active' : 'Deactive'}</span>
                      <Switch
                         size="sm"
