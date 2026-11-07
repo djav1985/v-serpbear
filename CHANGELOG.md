@@ -5,7 +5,20 @@ All notable changes to this project will be documented in this file. Releases no
 ## [Unreleased]
 
 ### Changed
+- **New front end:** the whole interface is rebuilt on the Next.js App Router (React 19, Tailwind CSS 4, shadcn/ui, TanStack Query, Table and Virtual, and Recharts). The URLs are the same: `/login`, `/domains`, `/domain/<slug>`, `/domain/console/<slug>` (Discover), `/domain/insight/<slug>`, `/domain/ideas/<slug>` and `/research`. `/` now redirects to `/domains`. The JSON API in `pages/api/` is unchanged.
+- **Layout:** a top bar with the logo on the left and the menu on the right replaces the sidebar. The domain list sits on the left only on the Domains page. Settings open in a side panel with the Scraper, Notification and Integrations tabs. Phones get a menu button, stacked rows and a compact filter bar.
+- **Tables:** Tracking, Discover, Insight and the keyword ideas tables share one virtualized table, so long keyword lists scroll smoothly. Row selection works on keyword IDs and ignores rows hidden by a filter. The column header stays solid while you scroll, and the table is sized to whole rows.
+- **Tracking tab:** a single `Add/Edit Tags` action replaces the separate add and remove tag buttons.
+- **Research** now lives inside the same page frame as every other screen.
+- **Charts:** Chart.js is replaced by Recharts. The Insight chart plots visits and impressions on two axes.
+- **Domain thumbnails:** always loaded from the screenshot service and cached in the browser, with the site's favicon as the fallback.
+- The Map Pack figure on a domain card now also shows when any domain has map pack keywords, even if the active scraper does not report them.
 - **White-label logo file:** the logo is now always `data/logo.png` and `/api/branding/logo` serves only that file, as a PNG. The `WHITE_LABEL_LOGO_FILE` setting is removed and is ignored if still set. If you use white-label branding, rename your existing logo (by default `data/branding-logo.png`) to `data/logo.png`, and convert it to PNG if it was another format.
+
+### Removed
+- The `SCREENSHOTS` environment variable (and the earlier `NEXT_PUBLIC_SCREENSHOTS`). See the screenshots upgrade note under 5.0.0.
+- The old Pages Router screens, their React components, hooks, client services and tests, along with `styles/` and `tailwind.config.js`.
+- The `chart.js`, `react-chartjs-2`, `react-query` (v3), `react-hot-toast`, `react-timeago`, `react-transition-group`, `react-window` and `next-router-mock` packages.
 
 ## [5.0.0] (2026-11-06)
 
@@ -14,7 +27,7 @@ All notable changes to this project will be documented in this file. Releases no
 2. **Runtime data files:** On `main`, `data/settings.json`, `data/failed_queue.json`, `data/session.json` and `data/SC_*.json` are tracked by git. This branch untracks them (`.gitignore` ignores `data/*` except `.gitkeep`), so pulling or merging it can delete your local copies. Back up `data/` before pulling. The database is also backed up to `<db>.bak-<date>` before duplicate keywords are removed.
 3. **Committed secrets:** Secrets that were committed in `data/settings.json` remain in git history. If this repository was ever shared or made public, rotate `SECRET`, `APIKEY`, login passwords, SMTP credentials, and Search Console and Google Ads keys.
 4. **Cron settings:** `CRON_MAIN_SCHEDULE` and `CRON_EMAIL_SCHEDULE` are now times of day (`HH:MM`, 24 hour, defaults `00:00` and `06:00`) instead of cron expressions, and `CRON_FAILED_SCHEDULE` is now `hourly` (default), `daily` or `never`. An old cron expression is ignored with a warning and the default is used, so update your `.env` and compose file.
-5. **Screenshots setting:** `NEXT_PUBLIC_SCREENSHOTS` is removed. Use `SCREENSHOTS` (default `true`; `false` shows favicons instead of thum.io thumbnails). If you set `NEXT_PUBLIC_SCREENSHOTS=false`, change it to `SCREENSHOTS=false`.
+5. **Screenshots setting:** `NEXT_PUBLIC_SCREENSHOTS` and `SCREENSHOTS` are both removed. Domain thumbnails always use the screenshot service and fall back to the site's favicon. You can delete either variable from your `.env` and compose file.
 6. **Timezone setting:** `CRON_TIMEZONE` is removed. The standard `TZ` variable now sets the timezone for the cron schedules, dates, history keys and the container clock (default `America/New_York`). If you set `CRON_TIMEZONE`, rename it to `TZ`.
 
 ### Added

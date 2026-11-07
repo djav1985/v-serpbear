@@ -97,7 +97,7 @@ Go to **APIs & Services → Library**, search for "google ads" and enable the **
    - `http://localhost:3000` gives `http://localhost:3000/api/adwords`
    - `https://serpbear.yourdomain.com` gives `https://serpbear.yourdomain.com/api/adwords`
 3. `NEXT_PUBLIC_APP_URL` must match that address without the `/api/adwords` part.
-4. In SerpBear, open **Settings → Google Ads**, paste the client ID and client secret, and click **Authenticate Integration**. A Google page opens in a new window. Grant the access it asks for.
+4. In SerpBear, open **Settings → Integrations → Google Ads**, paste the client ID and client secret, and click **Authenticate Integration**. A Google page opens in a new window. Grant the access it asks for.
 
 ### Step 4: Create a Manager account and get the developer token
 
