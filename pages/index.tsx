@@ -23,6 +23,7 @@ const Home: NextPage = () => {
       <Head>
         <title>{platformName}</title>
         <meta name="description" content={`${platformName} Google Keyword Position Tracking App`} />
+        <link rel="icon" href="/favicon.ico" />
       </Head>
 
       <main role={'main'} className='main flex items-center justify-center w-full min-h-screen'>

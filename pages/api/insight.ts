@@ -51,9 +51,11 @@ const getDomainSearchConsoleInsight = async (req: NextApiRequest, res: NextApiRe
    if (localSCData) {
       const oldFetchedDate = localSCData.lastFetched;
       const fetchTimeDiff = new Date().getTime() - (oldFetchedDate ? new Date(oldFetchedDate as string).getTime() : 0);
-      // A fetch within 24 hours is fresh, even when it found no rows (a site with no recent clicks).
-      // A fetch that recorded an error is not: it is retried instead of serving its empty windows as a success.
-      if (oldFetchedDate && !localSCData.lastFetchError && fetchTimeDiff <= 86400000) {
+      // Check if we have any data (not just stats) and it's within 24 hours
+      const hasData = (localSCData.threeDays && localSCData.threeDays.length > 0)
+                     || (localSCData.sevenDays && localSCData.sevenDays.length > 0)
+                     || (localSCData.thirtyDays && localSCData.thirtyDays.length > 0);
+      if (hasData && fetchTimeDiff <= 86400000) {
          const response = getInsightFromSCData(localSCData);
          return res.status(200).json({ data: response });
       }
@@ -69,7 +71,7 @@ const getDomainSearchConsoleInsight = async (req: NextApiRequest, res: NextApiRe
          return res.status(200).json({ data: null, error: 'Google Search Console is not Integrated.' });
       }
       const scData = await fetchDomainSCData(domainObj, scDomainAPI, scGlobalAPI);
-      if (scData && ((scData.thirtyDays && scData.thirtyDays.length) || !scData.lastFetchError)) {
+      if (scData && scData.thirtyDays && scData.thirtyDays.length) {
          const response = getInsightFromSCData(scData);
          return res.status(200).json({ data: response });
       }

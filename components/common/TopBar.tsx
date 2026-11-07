@@ -31,12 +31,13 @@ const TopBar = ({ showSettings, showAddModal }:TopbarProps) => {
    };
 
    return (
-      <div className='topbar bg-white'>
-      <div className='desktop-container flex items-center justify-between'>
+      <div
+         className='topbar desktop-container flex items-center justify-between bg-white lg:bg-transparent'
+      >
 
          <div className='flex items-center gap-2 h-16'>
             <h3
-               className='flex items-center gap-3 p-4 text-base font-bold text-blue-700'
+               className='flex items-center gap-3 p-4 text-base font-bold text-blue-700 lg:pl-0'
             >
                <BrandTitle
                   className="text-base font-bold text-blue-700"
@@ -61,7 +62,7 @@ const TopBar = ({ showSettings, showAddModal }:TopbarProps) => {
             </button>
             <ul
                className={`text-sm font-semibold text-gray-500 absolute mt-0 right-3 bg-white
-               border border-gray-200 lg:mt-0 lg:relative lg:flex lg:items-center lg:border-0 lg:bg-transparent ${showMobileMenu ? 'block z-50' : 'hidden'}`}
+               border border-gray-200 lg:mt-2 lg:relative lg:block lg:border-0 lg:bg-transparent ${showMobileMenu ? 'block z-50' : 'hidden'}`}
             >
                <li className={`block lg:inline-block lg:ml-5 ${router.asPath === '/domains' ? ' text-blue-700' : ''}`}>
                   <Link href={'/domains'} className='block px-3 py-2 cursor-pointer'>
@@ -90,8 +91,7 @@ const TopBar = ({ showSettings, showAddModal }:TopbarProps) => {
                </li>
             </ul>
          </div>
-      </div>
-      </div>
+       </div>
    );
  };
 

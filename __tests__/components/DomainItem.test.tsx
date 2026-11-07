@@ -22,6 +22,7 @@ const defaultProps = {
    isConsoleIntegrated: false,
    thumb: '',
    updateThumb: updateThumbMock,
+   screenshotsEnabled: true,
    showMapPackStat: true,
 };
 
@@ -59,6 +60,11 @@ describe('DomainItem Component', () => {
          fireEvent.click(reloadThumbBtn);
       }
       expect(updateThumbMock).toHaveBeenCalledWith(dummyDomain.domain);
+   });
+
+   it('hides screenshot reload button when screenshots are disabled', () => {
+      const { container } = render(<DomainItem {...defaultProps} screenshotsEnabled={false} />);
+      expect(container.querySelector('.domain_thumb button')).not.toBeInTheDocument();
    });
 
    it('does not show the map pack stat when disabled', () => {

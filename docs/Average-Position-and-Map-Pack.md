@@ -29,7 +29,3 @@ The optional **Business Name** field in the domain's scraper tab turns on map pa
 Only the first results page is checked. The keyword details panel shows **Local Search Results** with your listing in green (a match among the first three) and other businesses in yellow, and highlights your organic result in green. Results saved before this flag existed show yellow until the keyword is refreshed.
 
 Serper does not return map pack data. Check the map pack column in [Scrapers](Scrapers) before relying on it.
-
-## Dropped out of the map pack
-
-Each keyword stores the day it dropped out of the map pack top three (`mapPackRemovedAt`, a `YYYY-MM-DD` date in `TZ`). It is set on the scrape that finds a keyword gone that was in the top three last time, and it stays unchanged on later scrapes. It is cleared when the keyword is back in the top three, or once it is more than 30 days old. Failed scrapes change nothing, and neither do scrapers without map pack data. The date is only tracked and shown (as a red MAP badge); it does not change the average position.

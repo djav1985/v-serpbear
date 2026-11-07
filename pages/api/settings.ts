@@ -19,7 +19,6 @@ import { errorResponse } from '../../utils/api/response';
 import { normalizeLegacyGlobalScraperType } from '../../utils/removedScrapers';
 import { APP_TIMEZONE } from '../../utils/timezone';
 import { NOTIFICATION_INTERVALS } from '../../utils/constants';
-import { MASKED_SETTINGS_FIELDS, isSecretMask, maskSettingsSecrets } from '../../utils/settingsSecrets';
 
 const buildSettingsDefaults = (): SettingsType => {
    const { platformName } = getBranding();
@@ -115,9 +114,6 @@ const PERSISTED_SETTINGS_FIELDS = [
 
 const SCRAPE_STRATEGIES = ['basic', 'custom'];
 const MAX_PAGINATION_LIMIT = 10;
-// '' is the unset value; the others are the schedules the cron worker knows (see cron.js)
-const SCRAPE_INTERVALS = ['', 'daily', 'other_day', 'weekly', 'monthly', 'never'];
-const MAX_SCRAPE_DELAY_MS = 30000;
 const BOOLEAN_SETTINGS = ['scrape_retry'];
 
 /**
@@ -145,18 +141,6 @@ export const validateSettingsPayload = (settings: Record<string, unknown>): stri
    }
    if (has('notification_interval') && !NOTIFICATION_INTERVALS.includes(settings.notification_interval as string)) {
       errors.push('notification_interval must be daily, weekly, monthly or never.');
-   }
-   if (has('scrape_interval') && !SCRAPE_INTERVALS.includes(settings.scrape_interval as string)) {
-      errors.push('scrape_interval must be daily, other_day, weekly, monthly or never.');
-   }
-   if (has('scrape_delay')) {
-      // '' and 'none' mean no delay; otherwise it is a whole number of milliseconds up to the 30 second cap
-      const delay = settings.scrape_delay;
-      const isNoDelay = delay === '' || delay === 'none';
-      const delayMs = typeof delay === 'string' || typeof delay === 'number' ? Number(delay) : Number.NaN;
-      if (!isNoDelay && (!Number.isInteger(delayMs) || delayMs < 0 || delayMs > MAX_SCRAPE_DELAY_MS)) {
-         errors.push(`scrape_delay must be a whole number of milliseconds from 0 to ${MAX_SCRAPE_DELAY_MS}.`);
-      }
    }
    BOOLEAN_SETTINGS.forEach((key) => {
       if (has(key) && typeof settings[key] !== 'boolean') {
@@ -218,9 +202,8 @@ const getSettings = async (req: NextApiRequest, res: NextApiResponse) => {
       const version = packageJson.version;
       
       if (isAuthenticated) {
-         // Return full settings for authenticated users. Saved credentials are masked: the browser never
-         // needs the real values, and a save that sends the mask back keeps the stored ones.
-         return res.status(200).json({ settings: { ...maskSettingsSecrets(settings), version, timezone: APP_TIMEZONE } });
+         // Return full settings for authenticated users
+         return res.status(200).json({ settings: { ...settings, version, timezone: APP_TIMEZONE } });
       } else {
          // Return only safe, public settings for unauthenticated users
          const publicSettings = {
@@ -255,10 +238,6 @@ const updateSettings = async (req: NextApiRequest, res: NextApiResponse) => {
       PERSISTED_SETTINGS_FIELDS.forEach((field) => {
          if (Object.prototype.hasOwnProperty.call(settings, field)) { incomingSettings[field] = settings[field]; }
       });
-      // A credential sent back as the mask was not changed: leave it out so the stored value is kept
-      MASKED_SETTINGS_FIELDS.forEach((field) => {
-         if (isSecretMask(incomingSettings[field])) { delete incomingSettings[field]; }
-      });
       const normalizedSettings: SettingsType = trimStringProperties(normalizeLegacySettings(incomingSettings as Partial<SettingsType>)) as SettingsType;
 
       const validationErrors = validateSettingsPayload(normalizedSettings as unknown as Record<string, unknown>);
@@ -287,7 +266,7 @@ const updateSettings = async (req: NextApiRequest, res: NextApiResponse) => {
 
          await atomicWriteFile(`${process.cwd()}/data/settings.json`, JSON.stringify(withoutRemovedSettingsKeys(merged)), 'utf-8');
       });
-      return res.status(200).json({ settings: maskSettingsSecrets(normalizedSettings) });
+      return res.status(200).json({ settings: normalizedSettings });
    } catch (error) {
       logger.error('Error updating app settings', error instanceof Error ? error : new Error(String(error)));
       return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Failed to update settings.', requestId));

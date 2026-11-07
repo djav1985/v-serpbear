@@ -5,8 +5,9 @@ import Keyword from './models/keyword';
 
 const connection = new Sequelize({
    dialect: 'sqlite',
-   // SQLite is a local file with no login, so the app's login credentials are deliberately not passed here
    host: '0.0.0.0',
+   username: process.env.USER_NAME ? process.env.USER_NAME : process.env.USER,
+   password: process.env.PASSWORD,
    database: 'sequelize',
    dialectModule: sqliteDialect,
    pool: {

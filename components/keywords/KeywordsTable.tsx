@@ -9,6 +9,7 @@ import KeywordFilters from './KeywordFilter';
 import Modal from '../common/Modal';
 import { useDeleteKeywords, useFavKeywords, useRefreshKeywords } from '../../services/keywords';
 import KeywordTagManager from './KeywordTagManager';
+import AddTags from './AddTags';
 import useWindowResize from '../../hooks/useWindowResize';
 import useIsMobile from '../../hooks/useIsMobile';
 import { useFetchSettings, useUpdateSettings } from '../../services/settings';
@@ -74,8 +75,9 @@ const KeywordsTable = (props: KeywordsTableProps) => {
    const [selectedKeywords, setSelectedKeywords] = useState<number[]>([]);
    const [showKeyDetails, setShowKeyDetails] = useState<KeywordType|null>(null);
    const [showRemoveModal, setShowRemoveModal] = useState<boolean>(false);
-   // Keyword IDs whose tags are being managed: one from a row menu, or the selection from the bulk menu
-   const [tagManagerIDs, setTagManagerIDs] = useState<number[]>([]);
+   const [showTagManager, setShowTagManager] = useState<null|number>(null);
+   const [showAddTags, setShowAddTags] = useState<boolean>(false);
+   const [showRemoveTags, setShowRemoveTags] = useState<boolean>(false);
    const [showChangeLocation, setShowChangeLocation] = useState<boolean>(false);
    const { data: appSettingsData } = useFetchSettings();
    const allowsCity = scraperAllowsCity(appSettingsData?.settings, domainScraperType);
@@ -134,6 +136,14 @@ const KeywordsTable = (props: KeywordsTableProps) => {
       });
    }, [allDomainTags]);
 
+   const selectedKeywordsTags: string[] = useMemo(() => {
+      const selectedKeywordRows = keywords.filter((k) => selectedKeywords.includes(k.ID));
+      const selectedTags = selectedKeywordRows
+         .reduce((acc: string[], keyword) => [...acc, ...keyword.tags], [])
+         .filter((tag) => tag && tag.trim() !== '');
+      return [...new Set(selectedTags)];
+   }, [keywords, selectedKeywords]);
+
    const selectKeyword = (keywordID: number) => {
       let updatedSelected = [...selectedKeywords, keywordID];
       if (selectedKeywords.includes(keywordID)) {
@@ -160,7 +170,7 @@ const KeywordsTable = (props: KeywordsTableProps) => {
       selectKeyword,
       refreshKeyword: (keywordID: number) => refreshMutate({ ids: [keywordID] }),
       favoriteKeyword: favoriteMutate,
-      manageTags: (keywordID: number) => setTagManagerIDs([keywordID]),
+      manageTags: (keywordID: number) => setShowTagManager(keywordID),
       removeKeyword: (keywordID: number) => { setSelectedKeywords([keywordID]); setShowRemoveModal(true); },
       showKeywordDetails: (keyword: KeywordType) => setShowKeyDetails(keyword),
       showSCData,
@@ -198,7 +208,7 @@ const KeywordsTable = (props: KeywordsTableProps) => {
                      keywordData={keyword}
                      refreshkeyword={() => refreshMutate({ ids: [keyword.ID] })}
                      favoriteKeyword={favoriteMutate}
-                     manageTags={() => setTagManagerIDs([keyword.ID])}
+                     manageTags={() => setShowTagManager(keyword.ID)}
                      removeKeyword={() => { setSelectedKeywords([keyword.ID]); setShowRemoveModal(true); }}
                      showKeywordDetails={() => setShowKeyDetails(keyword)}
                      lastItem={index === (processedKeywords[device].length - 1)}
@@ -261,23 +271,16 @@ const KeywordsTable = (props: KeywordsTableProps) => {
                      <li className='inline-block mr-4'>
                         <a
                         className='block px-2 py-2 cursor-pointer hover:text-indigo-600'
-                        onClick={() => { favoriteMutate({ keywordID: selectedKeywords, sticky: true }); setSelectedKeywords([]); }}
+                        onClick={() => setShowAddTags(true)}
                         >
-                           <span className=' bg-yellow-300/30 text-yellow-500 px-1 rounded'><Icon type="star" size={14} /></span> Favorite Keywords</a>
+                           <span className=' bg-green-100 text-green-500  px-1 rounded'><Icon type="tags" size={14} /></span> Tag Keywords</a>
                      </li>
                      <li className='inline-block mr-4'>
                         <a
                         className='block px-2 py-2 cursor-pointer hover:text-indigo-600'
-                        onClick={() => { favoriteMutate({ keywordID: selectedKeywords, sticky: false }); setSelectedKeywords([]); }}
+                        onClick={() => setShowRemoveTags(true)}
                         >
-                           <span className=' bg-gray-200 text-gray-500 px-1 rounded'><Icon type="star" size={14} /></span> Unfavorite Keywords</a>
-                     </li>
-                     <li className='inline-block mr-4'>
-                        <a
-                        className='block px-2 py-2 cursor-pointer hover:text-indigo-600'
-                        onClick={() => setTagManagerIDs(selectedKeywords)}
-                        >
-                           <span className=' bg-green-100 text-green-500  px-1 rounded'><Icon type="tags" size={14} /></span> Add/Edit Tags</a>
+                           <span className=' bg-orange-100 text-orange-500  px-1 rounded'><Icon type="tags" size={14} /></span> Remove Tags</a>
                      </li>
                      <li className='inline-block mr-4'>
                         <a
@@ -392,11 +395,26 @@ const KeywordsTable = (props: KeywordsTableProps) => {
                   </div>
             </Modal>
          )}
-         {tagManagerIDs.length > 0 && (
+         {showTagManager && (
             <KeywordTagManager
                allTags={allDomainTags}
-               keywords={keywords.filter((k) => tagManagerIDs.includes(k.ID))}
-               closeModal={() => setTagManagerIDs([])}
+               keyword={keywords.find((k) => k.ID === showTagManager)}
+               closeModal={() => setShowTagManager(null)}
+               />
+         )}
+         {showAddTags && (
+            <AddTags
+               existingTags={allDomainTags}
+               keywords={keywords.filter((k) => selectedKeywords.includes(k.ID))}
+               closeModal={() => setShowAddTags(false)}
+               />
+         )}
+         {showRemoveTags && (
+            <AddTags
+               mode='remove'
+               existingTags={selectedKeywordsTags}
+               keywords={keywords.filter((k) => selectedKeywords.includes(k.ID))}
+               closeModal={() => setShowRemoveTags(false)}
                />
          )}
          {showChangeLocation && (

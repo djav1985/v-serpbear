@@ -22,14 +22,7 @@
    border: 1px solid #22c55e;
 }
 
-.fflag-map-pack-removed {
-   background-color: #fff;
-   background-image: none;
-   border: 1px solid #ef4444;
-}
-
-.fflag-map-pack::after,
-.fflag-map-pack-removed::after {
+.fflag-map-pack::after {
    content: 'MAP';
    position: absolute;
    inset: 0;
@@ -40,10 +33,6 @@
    font-weight: 700;
    letter-spacing: 0.4px;
    color: #22c55e;
-}
-
-.fflag-map-pack-removed::after {
-   color: #ef4444;
 }
 
 .fflag-CH,

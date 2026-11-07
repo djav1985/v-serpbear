@@ -29,7 +29,6 @@ import db from '../../database/database';
 import { atomicWriteFile } from '../../utils/atomicWrite';
 import { withFileLock } from '../../utils/fileLock';
 import { removeDomainIdeasFile } from '../../utils/domainIdeasFile';
-import { deleteThumbnails, ensureThumbnails } from '../../utils/thumbnails';
 
 // Sent in place of a saved Search Console credential: GET responses mask it, and a save that sends it back keeps the stored value
 const SC_CREDENTIAL_MARKER = 'true';
@@ -220,10 +219,6 @@ const addDomain = async (req: NextApiRequest, res: NextApiResponse) => {
 
          const newDomains:Domain[] = await Domain.bulkCreate(domainsToAdd);
          const formattedDomains = newDomains.map((el) => normalizeDomainBooleans(el.get({ plain: true }) as DomainType));
-         // Start the website thumbnails now so they are usually ready by the time the list is opened. Not awaited.
-         ensureThumbnails(formattedDomains.map((item) => item.domain)).catch((thumbError) => {
-            logger.warn('Could not start thumbnail generation', { error: thumbError instanceof Error ? thumbError.message : String(thumbError) });
-         });
          return res.status(201).json({ domains: formattedDomains });
       } catch (error) {
          // A concurrent request can add the same domain between the check above and the insert
@@ -301,8 +296,6 @@ export const deleteDomain = async (req: NextApiRequest, res: NextApiResponse) =>
 
                   // Never fails the delete: a leftover ideas file is only logged
                   await removeDomainIdeasFile(normalizedDomain);
-                  // Same for the saved website thumbnails
-                  await deleteThumbnails(normalizedDomain);
 
                   const cleanupFailures: string[] = [];
                   if (keywordIdsToRemove.size > 0) {
@@ -481,15 +474,10 @@ export const updateDomain = async (req: NextApiRequest, res: NextApiResponse) =>
       }
       applyScrapeOptionUpdates(payload, updates);
       if (Object.prototype.hasOwnProperty.call(payload, 'scraper_settings')) {
-         if (scraper_settings === null || scraper_settings === undefined) {
-            // An explicit null removes the override, the same way the form's "system scraper" choice does
-            updates.scraper_settings = null;
-         } else {
-            const existingScraperSettings = parseDomainScraperSettings(domainPlain?.scraper_settings);
-            const cryptr = new Cryptr(process.env.SECRET as string);
-            const persistedOverride = buildPersistedScraperSettings(scraper_settings, existingScraperSettings, cryptr);
-            updates.scraper_settings = persistedOverride ? JSON.stringify(persistedOverride) : null;
-         }
+         const existingScraperSettings = parseDomainScraperSettings(domainPlain?.scraper_settings);
+         const cryptr = new Cryptr(process.env.SECRET as string);
+         const persistedOverride = buildPersistedScraperSettings(scraper_settings ?? null, existingScraperSettings, cryptr);
+         updates.scraper_settings = persistedOverride ? JSON.stringify(persistedOverride) : null;
       }
       domainToUpdate.set(updates);
       await domainToUpdate.save();

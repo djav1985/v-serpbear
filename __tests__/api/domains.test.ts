@@ -12,12 +12,6 @@ import { atomicWriteFile } from '../../utils/atomicWrite';
 import { refreshQueue } from '../../utils/refreshQueue';
 import { createMockResponse } from '../__helpers__';
 
-jest.mock('../../utils/thumbnails', () => ({
-  __esModule: true,
-  ensureThumbnails: jest.fn().mockResolvedValue(undefined),
-  deleteThumbnails: jest.fn().mockResolvedValue(undefined),
-}));
-
 jest.mock('../../database/database', () => ({
   __esModule: true,
   default: { sync: jest.fn(), transaction: jest.fn() },

@@ -16,18 +16,9 @@ const sessionFilePath = (): string => path.join(process.cwd(), 'data', 'session.
 // current sessions are not signed out by a failed read.
 let lastKnownVersion: number | null = null;
 
-// Every authenticated request checks the version, so the file is read at most once per second instead of once per
-// check. Logout updates this process straight away (see revokeAllSessions); a change made to the file by something
-// else is picked up within the interval.
-const VERSION_CACHE_MS = 1000;
-let cachedVersion: number | null = null;
-let cachedAt = 0;
-
 /** Test helper: forget the cached version. */
 export const resetSessionVersionCache = (): void => {
    lastKnownVersion = null;
-   cachedVersion = null;
-   cachedAt = 0;
 };
 
 /**
@@ -56,17 +47,6 @@ const initialiseVersion = (): number => {
  * Any other read error (busy file) uses the last version seen by this process without touching the file.
  */
 export const getSessionVersion = (): number => {
-   const now = Date.now();
-   if (cachedVersion !== null && now - cachedAt < VERSION_CACHE_MS) {
-      return cachedVersion;
-   }
-   const version = readSessionVersion();
-   cachedVersion = version;
-   cachedAt = now;
-   return version;
-};
-
-const readSessionVersion = (): number => {
    try {
       // eslint-disable-next-line security/detect-non-literal-fs-filename
       const raw = readFileSync(sessionFilePath(), 'utf-8');
@@ -95,7 +75,5 @@ export const revokeAllSessions = async (): Promise<number> => {
    await mkdir(path.dirname(filePath), { recursive: true });
    await atomicWriteFile(filePath, JSON.stringify({ version: nextVersion }), 'utf-8');
    lastKnownVersion = nextVersion;
-   cachedVersion = nextVersion;
-   cachedAt = Date.now();
    return nextVersion;
 };

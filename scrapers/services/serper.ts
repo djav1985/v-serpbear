@@ -10,16 +10,9 @@ interface SerperResult {
 
 const serper: ScraperSettings = {
   id: "serper",
-  // Google redirect links in the results are resolved through Serper's /resolve (needs SERPER_API_KEY)
-  resolveGoogleUrl: true,
-  // No baseline spacing between requests
-  minRequestIntervalMs: 0,
-  method: "GET",
-  allowsCity: false,
-  usesResultOffset: false,
   name: "Serper.dev",
   // Serper is targeted by country only (gl and hl): a stored city location is intentionally not sent, and
-  // allowsCity is false so the UI does not offer it.
+  // allowsCity stays unset so the UI does not offer it.
   supportsMapPack: false,
   reusesDesktopForMobile: true,
   scrapeURL: (keyword, settings, countryData, pagination?: ScraperPagination) => {

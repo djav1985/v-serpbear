@@ -11,13 +11,6 @@ interface ValueSerpResult {
 
 const valueSerp: ScraperSettings = {
   id: "valueserp",
-  // Google redirect links in the results are resolved through Serper's /resolve (needs SERPER_API_KEY)
-  resolveGoogleUrl: true,
-  // No baseline spacing between requests
-  minRequestIntervalMs: 0,
-  method: "GET",
-  usesResultOffset: false,
-  reusesDesktopForMobile: false,
   name: "Value Serp",
   allowsCity: true,
   timeoutMs: 20000, // 20s — fail fast; long hangs are usually a broken connection, not a slow response

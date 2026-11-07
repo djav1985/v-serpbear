@@ -87,8 +87,7 @@ export function runScraperURLContracts(config: ScraperContractConfig): void {
   if (keywordWithSpaces) {
     it('encodes spaces in the keyword as + (application/x-www-form-urlencoded) not %2B', () => {
       const url = scrapeURL(keywordWithSpaces as KeywordType, settings, countryData);
-      const params = new URL(url).searchParams;
-      const q = params.get('q') ?? params.get('keyword') ?? params.get('query');
+      const q = new URL(url).searchParams.get('q') ?? new URL(url).searchParams.get('keyword');
       // URLSearchParams.get() decodes + back to spaces – confirm the decoded value round-trips
       expect(q).toBe(keywordWithSpaces.keyword);
       // The raw URL must not contain a literal %2B (double-encoding of +)

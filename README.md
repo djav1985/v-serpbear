@@ -32,7 +32,7 @@ SerpBear is a full-stack Next.js application that tracks where your pages rank o
 
 ## What's new in 5.0.0
 
-- **Real links for Google redirects.** Results that come back as `google.com/goto` links are resolved to the real page URL, so your domain is matched correctly. It uses Serper's free `/resolve` endpoint: add a free [Serper](https://serper.dev) key as `SERPER_API_KEY` and it works for every scraper that returns those links. See [the settings table](#settings-configured-in-docker-composeyml-envs).
+- **Real links for Google redirects.** Results that come back as `google.com/goto` links are resolved to the real page URL, so your domain is matched correctly. It uses Serper's free `/resolve` endpoint: add a free [Serper](https://serper.dev) key as `SERPER_API_KEY` and it works for every scraper. See [the settings table](#settings-configured-in-docker-composeyml-envs).
 - **A clearer average position.** One whole number, the same on the dashboard card and in the email. Keywords that failed their last scrape are left out, a keyword that ranked before and fell out of the results counts at 10 × pages scraped, and map pack keywords count at their best spot. See [How the average position is calculated](#how-the-average-position-is-calculated).
 - **Smarter keyword adding.** Discover and Ideas share one add-to-tracker bar with a Desktop/Mobile toggle, tags and a location picker. Keywords that are already tracked are skipped, and the Tracking tab can change the location of many keywords at once.
 
@@ -74,7 +74,7 @@ The full list of changes is in the [changelog](./CHANGELOG.md). See [Update Serp
 | Capability | Details |
 | --- | --- |
 | **Unlimited domains and keywords** | Track as many keywords as you like across multiple sites, per country, city and device. |
-| **Managed SERP providers** | Eleven providers with built-in retries (see [Supported SERP data providers](#supported-serp-data-providers)). |
+| **Managed SERP providers** | Nine providers with built-in retries (see [Supported SERP data providers](#supported-serp-data-providers)). |
 | **Failed scrape controls** | Retry all failed scrapes immediately, or clear the retry queue from Settings. |
 | **Keyword research** | Search volumes and suggestions from a Google Ads account. |
 | **Search Console enrichment** | Impressions, clicks and CTR next to your rankings. |
@@ -104,17 +104,14 @@ The full list of changes is in the [changelog](./CHANGELOG.md). See [Update Serp
 ```bash
 git clone https://github.com/djav1985/v-serpbear.git
 cd v-serpbear
-# edit the environment: section of docker-compose.yml: replace every placeholder, and set USER_NAME, PASSWORD, SECRET, APIKEY and NEXT_PUBLIC_APP_URL
+cp .env.example .env
+# edit .env: replace every placeholder, and set USER, PASSWORD, SECRET, APIKEY and NEXT_PUBLIC_APP_URL
 docker compose up -d
 ```
 
-The image is published on [Docker Hub](https://hub.docker.com/r/vontainment/v-serpbear) as `vontainment/v-serpbear`:
+The image is published on [Docker Hub](https://hub.docker.com/r/vontainment/v-serpbear) as `vontainment/v-serpbear`: `latest` is the newest stable release, a version number such as `5.0.0` pins a release, and `beta` is the opt-in beta build.
 
-- `vontainment/v-serpbear:latest` is the latest full stable release, for production.
-- `vontainment/v-serpbear:beta` is the latest development release, with new features and improvements.
-- A version number such as `vontainment/v-serpbear:5.0.0` pins a specific stable release.
-
-The app is served at <http://localhost:3030> (compose maps host port 3030 to container port 3000). Sign in with `USER_NAME` and `PASSWORD`, add a domain, then open **Settings → Scraper** to choose a provider and enter its API key.
+The app is served at <http://localhost:3030> (compose maps host port 3030 to container port 3000). Sign in with `USER` and `PASSWORD`, add a domain, then open **Settings → Scraper** to choose a provider and enter its API key.
 
 <br><br>
 
@@ -143,8 +140,6 @@ Back up `data/` first. With Docker, run `docker compose pull && docker compose u
 | CrazySERP (`crazyserp`) | Pay-as-you-go | City | Yes | Yes | Header `Authorization: Bearer` |
 | PrismCrawl (`prismcrawl`) | 100 free credits, packages from $5 (about $0.21 per 1,000, valid 90 days) | City | Yes | Yes | Header `x-api-key` (POST JSON) |
 | DataForSEO (`dataforseo`) | Pay-as-you-go, $50 minimum top-up | City | Yes | Yes | HTTP Basic, `login:password` in the API key field |
-| TinyFish (`tinyfish`) | Free up to 12,000 requests/day, then pay-as-you-go | Country | No | No | Header `X-API-Key` |
-| Jina AI (`jina`) | 10M free tokens with a new key (about 1,000 requests), then paid tokens | Country | No | No | Header `Authorization: Bearer` |
 
 > \*Pricing is indicative. Check each vendor before buying. The request formats are implemented in [`scrapers/services`](./scrapers/services).
 Each page request asks for 10 results. The [scrape strategy](#scrape-strategy) sets how many pages are fetched.
@@ -166,20 +161,21 @@ Behaviour is controlled by environment variables inside docker compose as well a
 | `TRUST_PROXY` | `0` | No | Number of reverse proxies in front of the app. `true` means 1, values above 10 are capped at 10, and invalid values mean 0. Login lockouts, API-key lockouts and the keyword-search and volume rate limits then use the `X-Forwarded-For` entry that many hops from the right. Without it, behind a proxy, every client shares the proxy's address. It also controls whether `X-Forwarded-Proto`, `X-Forwarded-Protocol` and `X-Forwarded-Ssl` set the `Secure` cookie flag; without it only the socket's TLS state does. |
 | `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | No | Public URL of the deployment, used for the Google Ads OAuth return origin, email links and logo, and as the cron worker's fallback origin. Set it for real deployments. |
 | `APP_URL` | — | No | Server-side origin for the cron worker's own calls to the app. It takes precedence over `NEXT_PUBLIC_APP_URL` for those calls, which helps in Docker when the public URL is not reachable from inside the container. Google Ads uses it only when `NEXT_PUBLIC_APP_URL` is unset. Email links ignore it. |
-| `NEXT_PUBLIC_WHITE_LABEL` | `false` | No | Enables white-label branding: your name (`NEXT_PUBLIC_PLATFORM_NAME`), `logo.png` and `favicon.ico`. See [White labelling](#white-labelling). |
+| `SCREENSHOTS` | `true` | No | Domain thumbnails via thum.io. `false` shows favicons. |
+| `NEXT_PUBLIC_WHITE_LABEL` | `false` | No | Enables white-label branding (name and logo). |
+| `WHITE_LABEL_LOGO_FILE` | `branding-logo.png` | No | File name only, stored in `/app/data`. Accepted extensions are `png`, `jpg`, `jpeg`, `gif`, `svg` and `webp`. Used only when `NEXT_PUBLIC_WHITE_LABEL=true`, and served without login at `/api/branding/logo` (404 if the file is missing). Recommended size is 96×96 px. |
 | `NEXT_PUBLIC_PLATFORM_NAME` | `SerpBear` | No | App and email name. Used only in white-label mode. |
 | `SEARCH_CONSOLE_CLIENT_EMAIL` | — | No | Service account email with access to your Search Console properties. |
 | `SEARCH_CONSOLE_PRIVATE_KEY` | — | No | Matching private key; keep newlines escaped in `.env` files. |
 | `REFRESH_QUEUE_CONCURRENCY` | `3` | No | Refresh tasks running at once. A domain is never refreshed twice at once. |
 | `PARALLEL_REFRESH_CONCURRENCY` | `10` | No | Keywords scraped at once on the parallel path, which runs only when every keyword in the run uses SerpApi or SearchApi. Positive integer. |
 | `PARALLEL_SCRAPE_CONCURRENCY` | `3` | No | Keywords scraped at once per domain on the sequential path, which is used for every other provider. Positive integer. |
-| `SERPER_API_KEY` | empty | No | Free [Serper](https://serper.dev) key. When set, organic `google.com/goto` links are resolved to real URLs through Serper's `/resolve` endpoint, for every provider that returns them (TinyFish and Jina AI do not). Each SERP page makes one batched request with a 30 s timeout. A failed or timed-out call is tried once more, and links still unresolved are sent once more after the `retryAfter` seconds Serper reports. Anything still unresolved keeps the Google link and is logged as a warning. Without a key, those links stay as they are. |
+| `SERPER_API_KEY` | empty | No | Free [Serper](https://serper.dev) key. When set, organic `google.com/goto` links are resolved to real URLs through Serper's `/resolve` endpoint, for every provider. Each SERP page makes one batched request with a 30 s timeout. A failed or timed-out call is tried once more, and links still unresolved are sent once more after the `retryAfter` seconds Serper reports. Anything still unresolved keeps the Google link and is logged as a warning. Without a key, those links stay as they are. |
 | `LOG_LEVEL` | `info` | No | `error`, `warn`, `info` or `debug`. `off`, `none`, `false` or `0` disables logging. Logs are JSON on stdout, so use `docker logs -f <container>`. |
 | `TZ` | `America/New_York` | No | IANA timezone (the standard container variable) for scheduled jobs, for "today" in results and emails, and for history date keys. An unknown name falls back to the default. Changing it later does not re-key existing history. |
 | `CRON_MAIN_SCHEDULE` | `00:00` | No | Time of day (`HH:MM`, 24 hour) of every scheduled scrape and of the Search Console refresh. `scrape_interval` picks the days. |
 | `CRON_FAILED_SCHEDULE` | `hourly` | No | How often failed scrapes are retried: `hourly`, `daily` (at the `CRON_MAIN_SCHEDULE` time) or `never`. |
 | `CRON_EMAIL_SCHEDULE` | `06:00` | No | Time of day (`HH:MM`, 24 hour) of every email digest. `notification_interval` picks the days. |
-| `CRON_VOLUME_SCHEDULE` | `03:00` | No | Time of day (`HH:MM`, 24 hour) of the weekly keyword volume refresh, which runs every Monday. |
 
 <br><br>
 
@@ -195,7 +191,7 @@ Manage these in the Settings UI or at `/api/settings`.
 | `scrape_strategy` | `basic` (default) or `custom`. See [Scrape strategy](#scrape-strategy). |
 | `scrape_pagination_limit` | Pages fetched per keyword with `custom`, from 1 to 10. Default 5. |
 | `scrape_retry` | `false` (default). Auto Retry for failed scrapes. Its retry controls appear only when it is on. |
-| `scrape_delay` | Milliseconds between requests to one domain (Settings: Keyword Scrape Delay). The server caps it at 30,000 (30 s). For a scraper with its own base interval (TinyFish, 2 seconds) it is added on top of that base, and the spacing then applies across all domains. |
+| `scrape_delay` | Milliseconds between requests to one domain. The server caps it at 30,000 (30 s). |
 | `notification_interval` | `never` (default), `daily`, `weekly` or `monthly`. |
 | `notification_email_from`, `notification_email_from_name` | Sender address (default `no-reply@serpbear.com`) and display name (default the platform name). |
 | `smtp_server`, `smtp_port`, `smtp_username`, `smtp_password`, `smtp_tls_servername` | SMTP connection. The port is required. |
@@ -216,8 +212,6 @@ Manage these in the Settings UI or at `/api/settings`.
 3. **Scrape.** The cron worker (or **Refresh**) asks your provider for results and stores positions, using the [scrape strategy](#scrape-strategy).
 4. **Analyse.** Charts and tables show history, average position and day-over-day change.
 5. **Share** through the API, the MCP server or email digests.
-
-The domain list shows a screenshot of each tracked website. The server fetches it from thum.io (so the domain names are sent to that service, not by your browser), saves it in `data/thumbnails` as `<domain>_<YYYY-MM-DD>.jpg` and serves the same image to every browser. A domain without a thumbnail starts generating when the list is opened or when the domain is added, and one older than 30 days is regenerated while the old image keeps showing, then deleted once the new one is saved. Until a thumbnail exists the site's favicon is shown, and the page does not poll: new thumbnails appear on the next reload or navigation. A site that cannot be captured is not retried for an hour. The reload button on a thumbnail regenerates it now. There is no setting to turn screenshots off.
 
 ### Scrape strategy
 
@@ -240,15 +234,10 @@ A refresh uses the faster parallel path only when every keyword in the run uses 
 
 **Serper.** Serper has no mobile option. In a refresh, a mobile keyword with a matching desktop keyword (same domain, keyword, country and location) in the same run is not scraped. It takes the desktop keyword's result, so no extra request is made. A mobile keyword with no matching desktop keyword is scraped with desktop results, and a warning is logged for it.
 
-**TinyFish.** TinyFish has no mobile option, so it behaves like Serper above: mobile keywords reuse the matching desktop result or are scraped with desktop results. It targets by country only and has no map pack. Its results are real page links, so `SERPER_API_KEY` is not needed. Personal accounts are limited to 30 requests per minute, so requests are spaced at least 2 seconds apart across all keywords and domains, and the Keyword Scrape Delay is added on top of that. A rate-limited request is retried like any other failed request.
-
-**Jina AI.** Jina AI has no mobile option, so it behaves like Serper above. It targets by country only (`gl` and `hl`) and has no map pack. Its results are real page links, so `SERPER_API_KEY` is not needed. Each request costs at least 10,000 tokens. Jina documents 100 requests per minute for a key, which the default concurrency stays under, so there is no baseline spacing; the Keyword Scrape Delay still applies. Jina does not document paging, so extra pages are requested with a `page` parameter that has not been confirmed: use the Basic scrape strategy (page 1 only) unless you have checked it.
-
 ### Scheduling
 
 - `scrape_interval` runs at the `CRON_MAIN_SCHEDULE` time: `daily` every day, `other_day` on odd days of the month, `weekly` on Mondays, `monthly` on the 1st. `never` turns scheduled scraping off.
 - `notification_interval` runs at the `CRON_EMAIL_SCHEDULE` time: `daily`, `weekly` (Mondays) or `monthly` (the 1st). `never` turns digests off.
-- Keyword search volumes are refreshed every Monday at the `CRON_VOLUME_SCHEDULE` time, exactly like the **Update Keyword Volume Data** button in Settings (all keywords, one country at a time). Google updates its volume numbers about once a month, so the weekly run gives several chances to catch every keyword. It needs Google Ads connected; without it the run is skipped with a log message.
 - Failed scrapes are retried at the `CRON_FAILED_SCHEDULE` rate, and only while **Auto Retry** (`scrape_retry`) is on.
 - Settings changes apply without a restart: the worker watches `data/settings.json` and re-checks it every 30 minutes. `CRON_*` variables are read at startup, so they need a restart.
 
@@ -269,7 +258,7 @@ Only the first results page is checked. The keyword details panel shows **Local 
 Click a keyword row for the SERP snapshot, the rank-history chart and the local results.
 
 - **Not found.** The badge reads `Not in First N`, where N is the number of results actually scraped, or `No Results` when nothing was scraped.
-- **Map pack.** A "MAP" badge sits under the country flag in the dashboard, the details and email digests. It turns red while the keyword is out of the map pack after having been in it (for up to 30 days). The domains overview shows a Map Pack counter.
+- **Map pack.** A "MAP" badge sits under the country flag in the dashboard and details, and "MP" in email digests. The domains overview shows a Map Pack counter.
 
 ### How the average position is calculated
 
@@ -299,8 +288,6 @@ The Keywords and Map Pack counts include every keyword, whether or not it is in 
 
 - Add a service account to show impressions, clicks and CTR next to each keyword. Credentials are read from the domain's own settings first, then the Settings page, then `SEARCH_CONSOLE_CLIENT_EMAIL` and `SEARCH_CONSOLE_PRIVATE_KEY`.
 - Cached data is refetched when a dashboard or API read finds it more than 24 hours old, and by the cron at the `CRON_MAIN_SCHEDULE` time. Search Console days follow Pacific Time (`America/Los_Angeles`) whatever `TZ` is.
-- If one of the 3, 7 or 30 day requests fails, only that window keeps its previous data and the error is recorded; a successful fetch with no rows is stored as an empty result instead of being treated as a failure. The 7 day comparison uses calendar dates, so missing days in the stored stats do not shift it.
-- Insight totals compute CTR as clicks divided by impressions, and the average position is weighted by impressions. The Pages table counts distinct keywords.
 - The Discover tab disables keywords that are already tracked, and "select all" skips them.
 - It is optional. Without credentials the dashboard card is hidden and the Insight tab shows a message.
 
@@ -309,7 +296,6 @@ The Keywords and Map Pack counts include every keyword, whether or not it is in 
 - Connect a Google Ads account in Settings (there are no Google Ads environment variables) to get suggestions and historical volumes. Sign-in needs `NEXT_PUBLIC_APP_URL` or `APP_URL` to be set.
 - The seed type decides where suggestions come from: `auto` uses the domain as a site seed, `custom` your keyword list, `tracking` the domain's tracked keywords, and `searchconsole` its top 100 Search Console queries by impressions over the last 30 days.
 - An idea is disabled only when it is tracked for every selected device, so a partly tracked idea can still be added for the missing device.
-- A domain-wide volume update across several countries runs in the background (you reload later to see the volumes), and updating all domains is limited to 2 times per hour per client.
 - Selected ideas can be emailed from the research table or a domain's ideas tab, limited to 10 per domain per hour.
 
 ### Email digests
@@ -322,13 +308,13 @@ The Keywords and Map Pack counts include every keyword, whether or not it is in 
 
 ### White labelling
 
-Set `NEXT_PUBLIC_WHITE_LABEL=true` for a custom name, logo and browser tab icon. Put the files in `/app/data` with these exact names: `logo.png` (recommended size 96x96 px) and `favicon.ico`. The logo is served at `/api/branding/logo.png`, which the dashboard and email digests both use. Each file falls back to the default on its own when it is missing, and with white label off both files are ignored. SerpBear looks for the two files once, when it starts, so after adding or replacing one (or changing an environment value) restart it (`docker compose up -d`, or restart the Node.js process), then refresh the browser. Neither needs a rebuild. If you used the old `WHITE_LABEL_LOGO_FILE` setting, rename your logo file to `logo.png`; the setting and the `jpg`, `svg`, `gif` and `webp` formats are no longer supported.
+Set `NEXT_PUBLIC_WHITE_LABEL=true` for a custom name and logo. Logo file changes apply on the next request, so refresh the browser. Environment value changes need a restart (`docker compose up -d` or restarting the Node.js process). Neither needs a rebuild.
 
 ### Settings and data
 
-Settings are stored in `data/settings.json`, with secrets encrypted using `SECRET`. `GET /api/settings` is public and returns only `scraper_type`, `available_scapers`, `search_console_integrated`, `version` and `timezone` without a session. `PUT /api/settings` needs a login session (an API key is not accepted). It merges the payload: keys left out keep their stored values, and a secret sent empty is cleared. Once logged in, `GET /api/settings` shows saved credentials (scraper API key, SMTP password, Search Console private key, Google Ads client secret, refresh token and developer token) as a row of bullets instead of the real value, and saving with the bullets still in place keeps the stored secret. `scrape_interval` must be one of the values above, and `scrape_delay` must be blank, `none` or a whole number from 0 to 30,000; anything else is rejected with a 400.
+Settings are stored in `data/settings.json`, with secrets encrypted using `SECRET`. `GET /api/settings` is public and returns only `scraper_type`, `available_scapers`, `search_console_integrated`, `version` and `timezone` without a session. `PUT /api/settings` needs a login session (an API key is not accepted). It merges the payload: keys left out keep their stored values, and a secret sent empty is cleared.
 
-Docker Compose stores data in a named volume (`data`) mounted at `/app/data`, prefixed with the project name (for example `v-serpbear_data`; find it with `docker volume ls`). It holds the SQLite database, `settings.json`, Search Console exports (`SC_<domain>.json`), keyword ideas (`IDEAS_*.json`), `session.json`, `email-throttle.json`, `failed_queue.json`, the website thumbnails in `thumbnails/` and the white-label `logo.png` and `favicon.ico`.
+Docker Compose stores data in a named volume (`data`) mounted at `/app/data`, prefixed with the project name (for example `v-serpbear_data`; find it with `docker volume ls`). It holds the SQLite database, `settings.json`, Search Console exports (`SC_<domain>.json`), keyword ideas (`IDEAS_*.json`), `session.json`, `email-throttle.json`, `failed_queue.json` and any white-label logo.
 
 <br><br>
 

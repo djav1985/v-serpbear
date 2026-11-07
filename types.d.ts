@@ -65,8 +65,6 @@ type KeywordType = {
    state?: string,
    city?: string,
    mapPackTop3?: boolean,
-   /** Day (YYYY-MM-DD) the keyword dropped out of the map pack top three, or null */
-   mapPackRemovedAt?: string | null,
    localResults?: KeywordLocalResult[],
 }
 
@@ -346,16 +344,6 @@ interface ScraperSettings {
     * Useful for scrapers that require longer response times (e.g., ValueSerp).
     */
    timeoutMs?: number,
-   /**
-    * Baseline minimum time in milliseconds between two requests to this scraper (same API key), across every
-    * keyword, domain, page and retry. The Keyword Scrape Delay setting is added on top. Defaults to 0 (no baseline).
-    */
-   minRequestIntervalMs?: number,
-   /**
-    * Whether result links that come back as google.com/goto redirects are resolved through Serper's /resolve
-    * endpoint (needs SERPER_API_KEY). Defaults to true. Set to false for providers that return real page URLs.
-    */
-   resolveGoogleUrl?: boolean,
 }
 
 // JWT Token Payload

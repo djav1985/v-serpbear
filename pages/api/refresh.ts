@@ -62,15 +62,13 @@ const getRetryStatus = async (req: NextApiRequest, res: NextApiResponse) => {
    try {
       const keywords = await Keyword.findAll({
          where: { ID: { [Op.in]: keywordIDs } },
-         attributes: ['ID', 'domain', 'updating', 'updatingStartedAt'],
+         attributes: ['ID', 'updating', 'updatingStartedAt'],
       });
       return res.status(200).json({
-         // A flag left behind by a crashed run is reported as not updating, matching what a refresh would do.
-         // A keyword whose domain is being refreshed right now stays updating, however long its batch runs.
+         // A flag left behind by a crashed run is reported as not updating, matching what a refresh would do
          keywords: keywords.map((keyword) => {
             const plainKeyword = keyword.get({ plain: true });
-            const domainHasLiveRun = !!plainKeyword.domain && refreshQueue.isDomainLocked(plainKeyword.domain);
-            return { ID: plainKeyword.ID, updating: isKeywordUpdating(plainKeyword, Date.now(), domainHasLiveRun) };
+            return { ID: plainKeyword.ID, updating: isKeywordUpdating(plainKeyword) };
          }),
       });
    } catch (error) {

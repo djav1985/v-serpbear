@@ -15,12 +15,10 @@ SerpBear asks a SERP data provider for Google results. Pick one globally in **Se
 | CrazySERP (`crazyserp`) | Pay-as-you-go | City | Yes | Yes | Header `Authorization: Bearer` |
 | PrismCrawl (`prismcrawl`) | 100 free credits, packages from $5 (about $0.21 per 1,000, valid 90 days) | City | Yes | Yes | Header `x-api-key` (POST JSON) |
 | DataForSEO (`dataforseo`) | Pay-as-you-go, $50 minimum top-up | City | Yes | Yes | HTTP Basic, `login:password` in the API key field |
-| TinyFish (`tinyfish`) | Free up to 12,000 requests/day, then pay-as-you-go | Country | No | No | Header `X-API-Key` |
-| Jina AI (`jina`) | 10M free tokens with a new key (about 1,000 requests), then paid tokens | Country | No | No | Header `Authorization: Bearer` |
 
 \*Pricing is indicative. Check each vendor before buying. The request formats are implemented in [`scrapers/services`](https://github.com/djav1985/v-serpbear/tree/main/scrapers/services).
 
-Each page request asks for 10 results, except TinyFish and Jina AI, which return their own number of results per page. The scrape strategy below sets how many pages are fetched. For country-only providers (Serper, Serply, TinyFish, Jina AI) the city and state fields are disabled and show `N/A`.
+Each page request asks for 10 results. The scrape strategy below sets how many pages are fetched. For country-only providers (Serper, Serply) the city and state fields are disabled and show `N/A`.
 
 ## Scrape strategy
 
@@ -43,10 +41,6 @@ A refresh uses the faster parallel path only when every keyword in the run uses 
 
 **Serper.** Serper has no mobile option. In a refresh, a mobile keyword with a matching desktop keyword (same domain, keyword, country and location) in the same run is not scraped. It takes the desktop keyword's result, so no extra request is made. A mobile keyword with no matching desktop keyword is scraped with desktop results, and a warning is logged for it.
 
-**TinyFish.** TinyFish has no mobile option, so it behaves like Serper above: mobile keywords reuse the matching desktop result or are scraped with desktop results. It targets by country only and has no map pack. Its results are real page links, so `SERPER_API_KEY` is not needed. Personal accounts are limited to 30 requests per minute, so requests are spaced at least 2 seconds apart across all keywords and domains, and the Keyword Scrape Delay is added on top of that. A rate-limited request is retried like any other failed request.
-
-**Jina AI.** Jina AI has no mobile option, so it behaves like Serper above. It targets by country only (`gl` and `hl`) and has no map pack. Its results are real page links, so `SERPER_API_KEY` is not needed. Each request costs at least 10,000 tokens. Jina documents 100 requests per minute for a key, which the default concurrency stays under, so there is no baseline spacing; the Keyword Scrape Delay still applies. Jina does not document paging, so extra pages are requested with a `page` parameter that has not been confirmed: use the Basic scrape strategy (page 1 only) unless you have checked it.
-
 ## Real links for Google redirects
 
-Some providers return `google.com/goto` links instead of the real page address, so your domain would not match. Set `SERPER_API_KEY` (a free [Serper](https://serper.dev) key) and these links are resolved through Serper's `/resolve` endpoint, for every provider that returns them (TinyFish and Jina AI do not). Details are in [Configuration](Configuration).
+Some providers return `google.com/goto` links instead of the real page address, so your domain would not match. Set `SERPER_API_KEY` (a free [Serper](https://serper.dev) key) and these links are resolved through Serper's `/resolve` endpoint, for every provider. Details are in [Configuration](Configuration).

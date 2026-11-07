@@ -7,8 +7,6 @@ import hasdata from './services/hasdata';
 import crazyserp from './services/crazyserp';
 import prismcrawl from './services/prismcrawl';
 import dataforseo from './services/dataforseo';
-import tinyfish from './services/tinyfish';
-import jina from './services/jina';
 
 export default [
    serpapi,
@@ -20,6 +18,4 @@ export default [
    crazyserp,
    prismcrawl,
    dataforseo,
-   tinyfish,
-   jina,
 ];

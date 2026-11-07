@@ -13,7 +13,6 @@ import { readSettingsFile, withSettingsLock, withoutRemovedSettingsKeys } from '
 import { errorResponse } from '../../utils/api/response';
 import normalizeOrigin from '../../utils/normalizeOrigin';
 import { serializeForScript } from '../../utils/api/scriptJson';
-import { isSecretMask } from '../../utils/settingsSecrets';
 
 
 type IntegrationResultOptions = {
@@ -247,17 +246,15 @@ const validateAdwordsIntegration = async (req: NextApiRequest, res: NextApiRespo
    }
    try {
       const cryptr = new Cryptr(process.env.SECRET as string);
+      const trimmedDeveloperToken = developer_token.trim();
+      const trimmedAccountId = account_id.trim();
+      const encryptedDeveloperToken = cryptr.encrypt(trimmedDeveloperToken);
+      const encryptedAccountId = cryptr.encrypt(trimmedAccountId);
 
       const adwordsCreds = await getAdwordsCredentials();
       if (!adwordsCreds || !adwordsCreds.client_id || !adwordsCreds.client_secret || !adwordsCreds.refresh_token) {
          throw new Error('Missing Google Ads OAuth credentials.');
       }
-
-      // The settings API sends the saved developer token as a mask, so the form returns the mask when it is unchanged
-      const trimmedDeveloperToken = isSecretMask(developer_token) ? adwordsCreds.developer_token : developer_token.trim();
-      const trimmedAccountId = account_id.trim();
-      const encryptedDeveloperToken = cryptr.encrypt(trimmedDeveloperToken);
-      const encryptedAccountId = cryptr.encrypt(trimmedAccountId);
 
       const testCredentials: AdwordsCredentials = {
          ...adwordsCreds,
