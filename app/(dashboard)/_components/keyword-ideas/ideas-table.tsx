@@ -231,7 +231,7 @@ export function IdeasTable({
                      );
                   })}
                </div>
-               <div className="flex flex-wrap items-center gap-2">
+               <div className="grid grid-cols-2 gap-2 lg:flex lg:flex-wrap lg:items-center">
                   {!showFavorites && (
                      <MultiSelect
                         label="Groups"
@@ -243,12 +243,12 @@ export function IdeasTable({
                         emptyMessage="No groups found"
                      />
                   )}
-                  <div className="relative">
+                  <div className="relative col-span-2 max-lg:order-first">
                      <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
-                     <Input data-testid="filter_input" className="h-8 w-44 pl-8" placeholder="Filter keywords..." value={filters.search} onChange={(event) => setFilters({ ...filters, search: event.target.value })} />
+                     <Input data-testid="filter_input" className="h-8 w-full pl-8 lg:w-44" placeholder="Filter keywords..." value={filters.search} onChange={(event) => setFilters({ ...filters, search: event.target.value })} />
                   </div>
                   <Select value={ideaChoiceFor(userSort) || undefined} onValueChange={(value) => setUserSort(ideaSortingFor(value))}>
-                     <SelectTrigger size="sm" className="w-48" data-testid="sort_button" aria-label="Sort keyword ideas"><SelectValue placeholder="Sorted by column" /></SelectTrigger>
+                     <SelectTrigger size="sm" className="w-full lg:w-48" data-testid="sort_button" aria-label="Sort keyword ideas"><SelectValue placeholder="Sorted by column" /></SelectTrigger>
                      <SelectContent align="end">{IDEA_SORT_CHOICES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
                   </Select>
                </div>

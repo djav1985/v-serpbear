@@ -22,7 +22,7 @@ export function MultiSelect({ label, allLabel, options, selected, onChange, empt
    return (
       <DropdownMenu>
          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" data-testid={testId} aria-label={label} className="max-w-44 justify-start">
+            <Button variant="outline" size="sm" data-testid={testId} aria-label={label} className="w-full justify-start lg:w-auto lg:max-w-44">
                <span className="truncate">{summary}</span>
             </Button>
          </DropdownMenuTrigger>

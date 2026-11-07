@@ -73,7 +73,7 @@ export function TrackerToolbar({
             ))}
          </div>
 
-         <div className="flex flex-wrap items-center gap-2">
+         <div className="grid grid-cols-2 gap-2 lg:flex lg:flex-wrap lg:items-center">
             <MultiSelect
                label="Countries"
                allLabel="All Countries"
@@ -93,32 +93,25 @@ export function TrackerToolbar({
                onChange={(next) => onTagsChange(resolveTagSelection(tags, next))}
                emptyMessage="No tags found for this domain"
             />
-            <div className="relative">
+            <div className="relative col-span-2 max-lg:order-first">
                <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
                <Input
                   data-testid="filter_input"
-                  className="h-8 w-44 pl-8"
+                  className="h-8 w-full pl-8 lg:w-44"
                   placeholder="Filter keywords..."
                   value={search}
                   onChange={(event) => onSearchChange(event.target.value)}
                />
             </div>
+            <div className="col-span-2 flex gap-2 lg:contents">
             <Select value={sortChoice || undefined} onValueChange={onSortChange}>
-               <SelectTrigger size="sm" className="w-48" data-testid="sort_button" aria-label="Sort keywords">
+               <SelectTrigger size="sm" className="w-full lg:w-48" data-testid="sort_button" aria-label="Sort keywords">
                   <SelectValue placeholder="Sorted by column" />
                </SelectTrigger>
                <SelectContent align="end">
                   {sortChoices.map((choice) => <SelectItem key={choice.value} value={choice.value}>{choice.label}</SelectItem>)}
                </SelectContent>
             </Select>
-            {showScPeriod && (
-               <Select value={scPeriod} onValueChange={onScPeriodChange}>
-                  <SelectTrigger size="sm" className="w-52" data-testid="sc_period" aria-label="Search Console period"><SelectValue /></SelectTrigger>
-                  <SelectContent align="end">
-                     {SC_PERIODS.map((period) => <SelectItem key={period.value} value={period.value}>{`Search Console: ${period.label}`}</SelectItem>)}
-                  </SelectContent>
-               </Select>
-            )}
             <DropdownMenu>
                <DropdownMenuTrigger asChild>
                   <Button
@@ -152,6 +145,15 @@ export function TrackerToolbar({
                   ))}
                </DropdownMenuContent>
             </DropdownMenu>
+            </div>
+            {showScPeriod && (
+               <Select value={scPeriod} onValueChange={onScPeriodChange}>
+                  <SelectTrigger size="sm" className="col-span-2 w-full lg:w-52" data-testid="sc_period" aria-label="Search Console period"><SelectValue /></SelectTrigger>
+                  <SelectContent align="end">
+                     {SC_PERIODS.map((period) => <SelectItem key={period.value} value={period.value}>{`Search Console: ${period.label}`}</SelectItem>)}
+                  </SelectContent>
+               </Select>
+            )}
          </div>
       </div>
    );

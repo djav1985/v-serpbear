@@ -219,7 +219,7 @@ export function DiscoverView({ domain, searchConsoleConnected, allowsCity, avail
                         </button>
                      ))}
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="grid grid-cols-2 gap-2 lg:flex lg:flex-wrap lg:items-center">
                      <MultiSelect
                         label="Countries"
                         allLabel="All Countries"
@@ -229,12 +229,12 @@ export function DiscoverView({ domain, searchConsoleConnected, allowsCity, avail
                         onChange={setPickedCountries}
                         emptyMessage="No countries found"
                      />
-                     <div className="relative">
+                     <div className="relative col-span-2 max-lg:order-first">
                         <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
-                        <Input data-testid="filter_input" className="h-8 w-44 pl-8" placeholder="Filter keywords..." value={search} onChange={(event) => setSearch(event.target.value)} />
+                        <Input data-testid="filter_input" className="h-8 w-full pl-8 lg:w-44" placeholder="Filter keywords..." value={search} onChange={(event) => setSearch(event.target.value)} />
                      </div>
                      <Select value={sortBy} onValueChange={setSortBy}>
-                        <SelectTrigger size="sm" className="w-48" data-testid="sort_button" aria-label="Sort keywords"><SelectValue /></SelectTrigger>
+                        <SelectTrigger size="sm" className="w-full lg:w-48" data-testid="sort_button" aria-label="Sort keywords"><SelectValue /></SelectTrigger>
                         <SelectContent align="end">{SC_SORT_CHOICES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
                      </Select>
                   </div>
