@@ -47,7 +47,7 @@ describe('tinyfish scraper', () => {
     beforeEach(() => jest.useFakeTimers());
     afterEach(() => jest.useRealTimers());
 
-    it('spaces requests by the baseline plus the scrape delay, and does not gate scrapers without a baseline', async () => {
+    it('spaces requests by the baseline plus the scrape delay, and skips spacing when neither applies', async () => {
       const s = { scraping_api: 'spacing-a', scrape_delay: '5000' } as any;
       await waitForScraperSlot(tinyfish, s); // the first request starts at once
       let secondStarted = false;
@@ -62,7 +62,17 @@ describe('tinyfish scraper', () => {
       let otherStarted = false;
       waitForScraperSlot(other, s).then(() => { otherStarted = true; });
       await jest.advanceTimersByTimeAsync(0);
+      expect(otherStarted).toBe(false);
+      await jest.advanceTimersByTimeAsync(5000);
       expect(otherStarted).toBe(true);
+
+      const noDelaySettings = { ...s, scrape_delay: '0' } as any;
+      const unthrottled = { id: 'unthrottled' } as any;
+      await waitForScraperSlot(unthrottled, noDelaySettings);
+      let unthrottledStarted = false;
+      waitForScraperSlot(unthrottled, noDelaySettings).then(() => { unthrottledStarted = true; });
+      await jest.advanceTimersByTimeAsync(0);
+      expect(unthrottledStarted).toBe(true);
     });
   });
 });
