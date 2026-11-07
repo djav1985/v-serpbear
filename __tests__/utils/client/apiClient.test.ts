@@ -49,14 +49,14 @@ describe('apiFetch', () => {
 
    it('returns parsed JSON body on successful response', async () => {
       mockFetch(200, { domains: [] }, { 'content-type': 'application/json' });
-      const result = await apiFetch('/api/domains');
+      const result = await apiFetch('/api/serp/domains');
       expect(result).toEqual({ domains: [] });
    });
 
    it('throws ApiError with structured message on failure envelope', async () => {
       mockFetch(404, { error: { code: 'NOT_FOUND', message: 'Domain not found' }, requestId: 'rid-1' }, { 'content-type': 'application/json' });
 
-      await expect(apiFetch('/api/domain?domain=missing')).rejects.toMatchObject({
+      await expect(apiFetch('/api/serp/domain?domain=missing')).rejects.toMatchObject({
          message: 'Domain not found',
          statusCode: 404,
          code: 'NOT_FOUND',

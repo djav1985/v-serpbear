@@ -21,7 +21,7 @@ export const DEFAULT_BRANDING: BrandingConfig = {
    whiteLabelEnabled: false,
    platformName: DEFAULT_PLATFORM_NAME,
    hasCustomLogo: false,
-   logoApiPath: '/api/branding/logo',
+   logoApiPath: '/api/images/logo.png',
 };
 
 export const getBranding = (): BrandingConfig => {
@@ -37,7 +37,7 @@ export const getBranding = (): BrandingConfig => {
       whiteLabelEnabled,
       platformName,
       hasCustomLogo: whiteLabelEnabled,
-      logoApiPath: '/api/branding/logo',
+      logoApiPath: '/api/images/logo.png',
    } as const;
 };
 

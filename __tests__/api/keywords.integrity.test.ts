@@ -1,7 +1,7 @@
 import { Op } from 'sequelize';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { buildStoredLocation } from '../../utils/location';
-import handler from '../../pages/api/keywords';
+import handler from '../../pages/api/serp/keywords';
 import Keyword from '../../database/models/keyword';
 import Domain from '../../database/models/domain';
 import verifyUser from '../../utils/verifyUser';
@@ -58,7 +58,7 @@ const DomainMock = Domain as unknown as { findAll: jest.Mock };
 const austin = buildStoredLocation({ city: 'Austin', state: 'Texas', countryCode: 'US' });
 const storedRow = (values: Record<string, unknown>) => ({ get: () => ({ ID: 1, history: '{}', tags: '[]', lastResult: '[]', lastUpdateError: 'false', ...values }) });
 
-describe('/api/keywords data rules', () => {
+describe('/api/serp/keywords data rules', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (verifyUser as jest.Mock).mockReturnValue('authorized');
@@ -214,7 +214,7 @@ describe('/api/keywords data rules', () => {
   });
 });
 
-describe('/api/keywords concurrent duplicate insert', () => {
+describe('/api/serp/keywords concurrent duplicate insert', () => {
   it('returns 409 when the unique index rejects an insert that passed the duplicate check', async () => {
     jest.clearAllMocks();
     (verifyUser as jest.Mock).mockReturnValue('authorized');

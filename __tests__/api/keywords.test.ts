@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Op } from 'sequelize';
-import handler from '../../pages/api/keywords';
+import handler from '../../pages/api/serp/keywords';
 import db from '../../database/database';
 import Keyword from '../../database/models/keyword';
 import verifyUser from '../../utils/verifyUser';
@@ -105,7 +105,7 @@ const getKeywordsVolumeMock = getKeywordsVolume as unknown as jest.Mock;
 const updateKeywordsVolumeDataMock = updateKeywordsVolumeData as unknown as jest.Mock;
 const refreshQueueMock = refreshQueue as unknown as { enqueue: jest.Mock; isDomainLocked: jest.Mock };
 
-describe('PUT /api/keywords error handling', () => {
+describe('PUT /api/serp/keywords error handling', () => {
   beforeEach(() => {
     jest.useFakeTimers().setSystemTime(new Date('2024-06-01T12:00:00.000Z'));
     jest.clearAllMocks();
@@ -365,7 +365,7 @@ describe('PUT /api/keywords error handling', () => {
   });
 });
 
-describe('GET /api/keywords history7d backfill', () => {
+describe('GET /api/serp/keywords history7d backfill', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     verifyUserMock.mockReturnValue('authorized');
@@ -420,7 +420,7 @@ describe('GET /api/keywords history7d backfill', () => {
   });
 });
 
-describe('PUT /api/keywords tags updates', () => {
+describe('PUT /api/serp/keywords tags updates', () => {
   beforeEach(() => {
     jest.useFakeTimers().setSystemTime(new Date('2024-06-01T12:00:00.000Z'));
     jest.clearAllMocks();
@@ -661,7 +661,7 @@ describe('PUT /api/keywords tags updates', () => {
 });
 
 
-describe('PUT /api/keywords location updates', () => {
+describe('PUT /api/serp/keywords location updates', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // Drop lookups queued by an earlier test that stopped before using them
@@ -821,7 +821,7 @@ describe('PUT /api/keywords location updates', () => {
   });
 });
 
-describe('DELETE /api/keywords retry queue cleanup', () => {
+describe('DELETE /api/serp/keywords retry queue cleanup', () => {
   it('removes deleted keyword IDs from the query or the JSON body from the retry queue, and rejects non-integer body IDs', async () => {
     const { retryQueueManager } = require('../../utils/retryQueueManager');
     (updateDomainStats as jest.Mock).mockClear();

@@ -1,9 +1,9 @@
 import { writeFile, readFile, rename, unlink } from 'fs/promises';
 import type { NextApiRequest, NextApiResponse } from 'next';
-import handler from '../../pages/api/settings';
-import * as settingsApi from '../../pages/api/settings';
+import handler from '../../pages/api/app/settings';
+import * as settingsApi from '../../pages/api/app/settings';
 import { getAppSettings } from '../../utils/appSettings';
-import clearFailedHandler from '../../pages/api/clearfailed';
+import clearFailedHandler from '../../pages/api/serp/clearfailed';
 import { getBranding } from '../../utils/branding';
 import { createMockResponse } from '../__helpers__';
 
@@ -34,7 +34,7 @@ jest.mock('../../utils/settingsFile', () => ({
   withSettingsLock: jest.fn(async (fn: () => Promise<unknown>) => fn()),
 }));
 
-// Mock retryQueueManager (clearQueue is used by the merged /api/clearfailed suite below)
+// Mock retryQueueManager (clearQueue is used by the merged /api/serp/clearfailed suite below)
 jest.mock('../../utils/retryQueueManager', () => ({
   retryQueueManager: {
     peekQueue: jest.fn().mockResolvedValue([]),
@@ -74,7 +74,7 @@ jest.mock('cryptr', () => ({
   })),
 }));
 
-describe('PUT /api/settings validation and errors', () => {
+describe('PUT /api/app/settings validation and errors', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env = { ...originalEnv, SECRET: 'secret' };
@@ -233,7 +233,7 @@ describe('validateSettingsPayload', () => {
 
 });
 
-describe('GET /api/settings and configuration requirements', () => {
+describe('GET /api/app/settings and configuration requirements', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env = { ...originalEnv, SECRET: 'secret' };
@@ -410,7 +410,7 @@ describe('GET /api/settings and configuration requirements', () => {
   });
 });
 
-describe('/api/clearfailed', () => {
+describe('/api/serp/clearfailed', () => {
    const req = { method: 'PUT', headers: {} } as unknown as NextApiRequest;
    let res: NextApiResponse;
 
@@ -444,7 +444,7 @@ describe('/api/clearfailed', () => {
 
 // Suites below need mocks that differ from the ones above (real Cryptr, atomicWrite/settingsFile, a
 // cookies-aware verifyUser), so they load the handler in an isolated module registry.
-describe('PUT /api/settings keeps secrets that are left out of the payload', () => {
+describe('PUT /api/app/settings keeps secrets that are left out of the payload', () => {
   const originalSecret = process.env.SECRET;
   const mockStoredFile = { current: '{}' };
   let handler: any;
@@ -473,7 +473,7 @@ describe('PUT /api/settings keeps secrets that are left out of the payload', () 
     }));
     jest.doMock('../../utils/settingsFile', () => ({ ...jest.requireActual('../../utils/settingsFile'), withSettingsLock: (section: () => Promise<unknown>) => section() }));
     jest.isolateModules(() => {
-      const settingsModule = require('../../pages/api/settings');
+      const settingsModule = require('../../pages/api/app/settings');
       handler = settingsModule.default;
       getAppSettings = require('../../utils/appSettings').getAppSettings;
       verifyUserInstance = require('../../utils/verifyUser').default;
@@ -551,7 +551,7 @@ describe('PUT /api/settings keeps secrets that are left out of the payload', () 
   });
 });
 
-describe('GET /api/settings session checks', () => {
+describe('GET /api/app/settings session checks', () => {
   const originalSecret = process.env.SECRET;
   let handler: any;
   let verifySessionMock: jest.Mock;
@@ -577,7 +577,7 @@ describe('GET /api/settings session checks', () => {
       retryQueueManager: { peekQueue: jest.fn().mockResolvedValue([]) },
     }));
     jest.isolateModules(() => {
-      handler = require('../../pages/api/settings').default;
+      handler = require('../../pages/api/app/settings').default;
       verifySessionMock = require('../../utils/verifyUser').verifySessionToken;
       readFileMock = require('fs/promises').readFile;
       CookiesMock = require('cookies');
@@ -613,6 +613,7 @@ describe('GET /api/settings session checks', () => {
       search_console_integrated: expect.any(Boolean),
       timezone: expect.any(String),
       version: expect.any(String),
+      branding: expect.objectContaining({ platformName: expect.any(String), logoApiPath: '/api/images/logo.png' }),
     });
     expect(settings.smtp_password).toBeUndefined();
   });
@@ -624,5 +625,6 @@ describe('GET /api/settings session checks', () => {
 
     expect(verifySessionMock).toHaveBeenCalledWith('copied-token');
     expect(settings.smtp_password).toBeDefined();
+    expect(settings.branding).toEqual(expect.objectContaining({ logoApiPath: '/api/images/logo.png' }));
   });
 });

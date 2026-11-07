@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import handler from '../../pages/api/volume';
+import handler from '../../pages/api/google/volume';
 import db from '../../database/database';
 import Keyword from '../../database/models/keyword';
 import verifyUser from '../../utils/verifyUser';
@@ -45,7 +45,7 @@ const parseKeywordsMock = parseKeywords as unknown as jest.Mock;
 const getKeywordsVolumeMock = getKeywordsVolume as unknown as jest.Mock;
 const updateKeywordsVolumeDataMock = updateKeywordsVolumeData as unknown as jest.Mock;
 
-describe('POST /api/volume', () => {
+describe('POST /api/google/volume', () => {
    beforeEach(() => {
       dbMock.sync.mockResolvedValue(undefined);
       verifyUserMock.mockReturnValue('authorized');

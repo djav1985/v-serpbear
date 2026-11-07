@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file. Releases no
 
 ## [Unreleased]
 
+### Upgrade notes (API routes)
+The API routes are regrouped. **There are no compatibility aliases: the old routes now return 404.** Update scripts, cron jobs, MCP clients and reverse-proxy rules that call them.
+
+| Old | New |
+| --- | --- |
+| `/api/settings` | `/api/app/settings` |
+| `/api/cron` | `/api/app/cron` |
+| `/api/notify` | `POST /api/app/email?type=digest` |
+| `/api/ideas/email` | `POST /api/app/email?type=ideas` |
+| `/api/login`, `/api/logout`, `/api/auth-check` | `/api/auth/login`, `/api/auth/logout`, `/api/auth/check` |
+| `/api/domains`, `/api/domain`, `/api/keywords`, `/api/keyword`, `/api/refresh`, `/api/clearfailed` | the same names under `/api/serp/` |
+| `/api/searchconsole`, `/api/insight`, `/api/ideas`, `/api/volume` | the same names under `/api/google/` |
+| `/api/branding/logo` | `/api/images/logo.png` |
+| `/api/branding/config` | removed (the name and logo are in `GET /api/app/settings` as `branding`) |
+
+`/api/adwords` and `/api/mcp` are unchanged. The Docker health check now calls `GET /api/app/settings`.
+
+### Added
+- `GET /api/app/settings` returns a read-only `branding` object (`platformName`, `whiteLabelEnabled`, `hasCustomLogo`, `logoApiPath`, `defaultPlatformName`) in both the public and the signed-in response. A settings save never writes it.
+- `POST /api/app/email` sends both kinds of email, chosen by `?type=`: `digest` accepts the API key or a login session, `ideas` needs a login session and answers `403` to an API key. A missing or unknown `type` is a `400`.
+- The web app manifest is generated at `/manifest.webmanifest`, so white-label installs use your name and logo. The apple touch icon follows the logo too.
+
+### Changed (API)
+- `/api/images/logo.png` always returns an image: your `data/logo.png` when white-label is on and the file exists, otherwise the built-in default. It used to answer 404 in those cases. Only that one URL exists, so other file names return 404.
+- Server pages and utilities read the settings through `utils/appSettings` instead of importing from an API route.
+
 ### Changed
 - **New front end:** the whole interface is rebuilt on the Next.js App Router (React 19, Tailwind CSS 4, shadcn/ui, TanStack Query, Table and Virtual, and Recharts). The URLs are the same: `/login`, `/domains`, `/domain/<slug>`, `/domain/console/<slug>` (Discover), `/domain/insight/<slug>`, `/domain/ideas/<slug>` and `/research`. `/` now redirects to `/domains`. The JSON API in `pages/api/` is unchanged.
 - **Layout:** a top bar with the logo on the left and the menu on the right replaces the sidebar. The domain list sits on the left only on the Domains page. Settings open in a side panel with the Scraper, Notification and Integrations tabs. Phones get a menu button, stacked rows and a compact filter bar.

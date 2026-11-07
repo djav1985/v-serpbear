@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import loginHandler from '../../pages/api/login';
-import logoutHandler from '../../pages/api/logout';
+import loginHandler from '../../pages/api/auth/login';
+import logoutHandler from '../../pages/api/auth/logout';
 import verifyUser from '../../utils/verifyUser';
 import Cookies from 'cookies';
 
@@ -248,7 +248,7 @@ describe('login lockout', () => {
     jest.resetModules();
     jest.doMock('../../utils/sessionStore', () => ({ getSessionVersion: jest.fn(() => 0) }));
     jest.isolateModules(() => {
-      isolatedLoginHandler = require('../../pages/api/login').default;
+      isolatedLoginHandler = require('../../pages/api/auth/login').default;
       resetLoginThrottle = require('../../utils/loginThrottle').resetLoginThrottle;
     });
   });

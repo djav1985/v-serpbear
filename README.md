@@ -162,7 +162,7 @@ Behaviour is controlled by environment variables inside docker compose as well a
 | `TRUST_PROXY` | `0` | No | Number of reverse proxies in front of the app. `true` means 1, values above 10 are capped at 10, and invalid values mean 0. Login lockouts, API-key lockouts and the keyword-search and volume rate limits then use the `X-Forwarded-For` entry that many hops from the right. Without it, behind a proxy, every client shares the proxy's address. It also controls whether `X-Forwarded-Proto`, `X-Forwarded-Protocol` and `X-Forwarded-Ssl` set the `Secure` cookie flag; without it only the socket's TLS state does. |
 | `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | No | Public URL of the deployment, used for the Google Ads OAuth return origin, email links and logo, and as the cron worker's fallback origin. Set it for real deployments. |
 | `APP_URL` | — | No | Server-side origin for the cron worker's own calls to the app. It takes precedence over `NEXT_PUBLIC_APP_URL` for those calls, which helps in Docker when the public URL is not reachable from inside the container. Google Ads uses it only when `NEXT_PUBLIC_APP_URL` is unset. Email links ignore it. |
-| `NEXT_PUBLIC_WHITE_LABEL` | `false` | No | Enables white-label branding (name and logo). The logo is always the file `logo.png` in `/app/data` (PNG, recommended size 96×96 px), served without login at `/api/branding/logo` (404 if the file is missing). |
+| `NEXT_PUBLIC_WHITE_LABEL` | `false` | No | Enables white-label branding (name and logo). The logo is always the file `logo.png` in `/app/data` (PNG, recommended size 96×96 px), served without login at `/api/images/logo.png`. When white-label is off or the file is missing, that URL serves the built-in default logo instead, so it always returns an image. |
 | `NEXT_PUBLIC_PLATFORM_NAME` | `SerpBear` | No | App and email name. Used only in white-label mode. |
 | `SEARCH_CONSOLE_CLIENT_EMAIL` | — | No | Service account email with access to your Search Console properties. |
 | `SEARCH_CONSOLE_PRIVATE_KEY` | — | No | Matching private key; keep newlines escaped in `.env` files. |
@@ -180,7 +180,7 @@ Behaviour is controlled by environment variables inside docker compose as well a
 
 ### Settings configured in `data/settings.json`
 
-Manage these in the Settings UI or at `/api/settings`.
+Manage these in the Settings UI or at `/api/app/settings`.
 
 | Key | Values and default |
 | --- | --- |
@@ -311,7 +311,7 @@ Set `NEXT_PUBLIC_WHITE_LABEL=true` for a custom name and logo. Logo file changes
 
 ### Settings and data
 
-Settings are stored in `data/settings.json`, with secrets encrypted using `SECRET`. `GET /api/settings` is public and returns only `scraper_type`, `available_scapers`, `search_console_integrated`, `version` and `timezone` without a session. `PUT /api/settings` needs a login session (an API key is not accepted). It merges the payload: keys left out keep their stored values, and a secret sent empty is cleared.
+Settings are stored in `data/settings.json`, with secrets encrypted using `SECRET`. `GET /api/app/settings` is public and returns only `scraper_type`, `available_scapers`, `search_console_integrated`, `version`, `timezone` and a read-only `branding` object (name and logo, which the login page uses) without a session. `PUT /api/app/settings` needs a login session (an API key is not accepted). It merges the payload: keys left out keep their stored values, and a secret sent empty is cleared.
 
 Docker Compose stores data in a named volume (`data`) mounted at `/app/data`, prefixed with the project name (for example `v-serpbear_data`; find it with `docker volume ls`). It holds the SQLite database, `settings.json`, Search Console exports (`SC_<domain>.json`), keyword ideas (`IDEAS_*.json`), `session.json`, `email-throttle.json`, `failed_queue.json` and any white-label logo.
 
@@ -358,17 +358,17 @@ The example uses port 3000 (Node.js). Docker Compose serves the app on port 3030
 
 | Method | Endpoint | What it does |
 | --- | --- | --- |
-| GET | `/api/keyword?id=` | One keyword with its position history |
-| GET | `/api/keywords?domain=` | All tracked keywords of a domain |
-| GET | `/api/domains` | All tracked domains (`withstats=true` adds keyword statistics) |
-| POST | `/api/refresh` | Refresh chosen keywords: body `ids`, or query `id` (comma-separated, or `all` with `domain`) |
-| POST | `/api/cron` | Run the scheduled refresh for every domain with scraping enabled |
-| POST | `/api/notify` | Send the email digest for one domain (`domain=`) or all |
-| GET | `/api/searchconsole?domain=` | Search Console data of a domain |
-| POST | `/api/searchconsole` | Refresh Search Console data for all domains |
-| GET | `/api/insight?domain=` | Search Console insight: top pages, keywords, countries and stats |
-| GET | `/api/ideas` | Saved keyword ideas and favourites (`domain=` optional) |
-| POST | `/api/ideas` | Fetch new ideas from Google Ads: body `seedType` (`auto`, `custom`, `tracking` or `searchconsole`), `domain`, `keywords`, `country`, `language` |
+| GET | `/api/serp/keyword?id=` | One keyword with its position history |
+| GET | `/api/serp/keywords?domain=` | All tracked keywords of a domain |
+| GET | `/api/serp/domains` | All tracked domains (`withstats=true` adds keyword statistics) |
+| POST | `/api/serp/refresh` | Refresh chosen keywords: body `ids`, or query `id` (comma-separated, or `all` with `domain`) |
+| POST | `/api/app/cron` | Run the scheduled refresh for every domain with scraping enabled |
+| POST | `/api/app/email?type=digest` | Send the email digest for one domain (`domain=`) or all |
+| GET | `/api/google/searchconsole?domain=` | Search Console data of a domain |
+| POST | `/api/google/searchconsole` | Refresh Search Console data for all domains |
+| GET | `/api/google/insight?domain=` | Search Console insight: top pages, keywords, countries and stats |
+| GET | `/api/google/ideas` | Saved keyword ideas and favourites (`domain=` optional) |
+| POST | `/api/google/ideas` | Fetch new ideas from Google Ads: body `seedType` (`auto`, `custom`, `tracking` or `searchconsole`), `domain`, `keywords`, `country`, `language` |
 
 <br><br>
 

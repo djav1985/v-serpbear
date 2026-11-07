@@ -3,34 +3,18 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import Domain from '../../database/models/domain';
 import Keyword from '../../database/models/keyword';
-import generateEmail from '../../utils/generateEmail';
-import parseKeywords from '../../utils/parseKeywords';
-import getdomainStats from '../../utils/domains';
-import verifyUser from '../../utils/verifyUser';
-import { reserveEmailSend } from '../../utils/emailThrottle';
-import { getAppSettings } from '../../utils/appSettings';
-import { trimStringProperties, trimString, sanitizeSmtpHost } from '../../utils/security';
-import { buildMailer } from '../../utils/mailer';
-import { logger } from '../../utils/logger';
-import { withApiLogging } from '../../utils/apiLogging';
-import normalizeDomainBooleans from '../../utils/normalizeDomain';
-import { errorResponse } from '../../utils/api/response';
+import generateEmail from '../generateEmail';
+import parseKeywords from '../parseKeywords';
+import getdomainStats from '../domains';
+import { reserveEmailSend } from '../emailThrottle';
+import { getAppSettings } from '../appSettings';
+import { trimStringProperties, trimString, sanitizeSmtpHost } from '../security';
+import { buildMailer } from '../mailer';
+import { logger } from '../logger';
+import normalizeDomainBooleans from '../normalizeDomain';
+import { errorResponse } from './response';
 
-async function handler(req: NextApiRequest, res: NextApiResponse) {
-   const requestId = (req as ExtendedRequest).requestId;
-   const authorized = verifyUser(req, res);
-   if (authorized !== 'authorized') {
-      return res.status(401).json(errorResponse('UNAUTHORIZED', authorized, requestId));
-   }
-   if (req.method === 'POST') {
-      return notify(req, res);
-   }
-   return res.status(405).json(errorResponse('METHOD_NOT_ALLOWED', 'Method not allowed', requestId));
-}
-
-export default withApiLogging(handler, { name: 'notify' });
-
-const notify = async (req: NextApiRequest, res: NextApiResponse) => {
+export const sendDigestEmails = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
    const rawDomain = req?.query?.domain;
    if (rawDomain !== undefined && typeof rawDomain !== 'string') {
@@ -125,7 +109,7 @@ const sendNotificationEmail = async (domain: DomainType, settings: SettingsType)
       return 'skipped';
    }
 
-   // The SMTP host was validated by notify() before any domain is processed, so a bad setup never reaches the
+   // The SMTP host was validated by sendDigestEmails() before any domain is processed, so a bad setup never reaches the
    // throttle and never uses up a domain's daily allowance.
 
    // Check the throttle and reserve the send in one step, so overlapping runs cannot both send

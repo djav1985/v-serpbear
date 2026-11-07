@@ -50,7 +50,7 @@ export function LoginForm({ branding }: { branding: BrandingConfig }) {
 
       setIsSubmitting(true);
       try {
-         await apiPost<{ success: boolean }>('/api/login', { username, password });
+         await apiPost<{ success: boolean }>('/api/auth/login', { username, password });
          // Drop cached auth state from before login so the next protected page does not bounce back here.
          queryClient.clear();
          router.push('/');

@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import handler from '../../pages/api/cron';
+import handler from '../../pages/api/app/cron';
 import db from '../../database/database';
 import Domain from '../../database/models/domain';
 import Keyword from '../../database/models/keyword';
@@ -66,7 +66,7 @@ type MockedResponse = Partial<NextApiResponse> & {
   json: jest.Mock;
 };
 
-describe('/api/cron', () => {
+describe('/api/app/cron', () => {
   const req = { method: 'POST', headers: {} } as unknown as NextApiRequest;
   let res: MockedResponse;
 

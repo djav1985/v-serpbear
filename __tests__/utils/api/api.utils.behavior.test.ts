@@ -11,7 +11,7 @@
 
 import type { NextApiRequest } from 'next';
 import isRequestSecure from '../../../utils/api/isRequestSecure';
-import { parseStrictBooleanQueryParam } from '../../../pages/api/domains';
+import { parseStrictBooleanQueryParam } from '../../../pages/api/serp/domains';
 import { errorResponse } from '../../../utils/api/response';
 import normalizeOrigin from '../../../utils/normalizeOrigin';
 

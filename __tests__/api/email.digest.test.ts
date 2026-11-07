@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import nodeMailer from 'nodemailer';
-import handler from '../../pages/api/notify';
+import handler from '../../pages/api/app/email';
 import db from '../../database/database';
 import Domain from '../../database/models/domain';
 import Keyword from '../../database/models/keyword';
@@ -54,7 +54,7 @@ type MockedResponse = Partial<NextApiResponse> & {
   json: jest.Mock;
 };
 
-describe('/api/notify - authentication', () => {
+describe('/api/app/email (type=digest) - authentication', () => {
   let req: Partial<NextApiRequest>;
   let res: MockedResponse;
   let sendMailMock: jest.Mock;
@@ -62,7 +62,7 @@ describe('/api/notify - authentication', () => {
   beforeEach(() => {
     req = {
       method: 'POST',
-      query: {},
+      query: { type: 'digest' },
       headers: {},
     };
 
@@ -118,7 +118,7 @@ describe('/api/notify - authentication', () => {
   it('returns 404 for a domain that does not exist', async () => {
     (verifyUser as jest.Mock).mockReturnValue('authorized');
     (Domain.findOne as jest.Mock).mockResolvedValue(null);
-    req.query = { domain: 'Missing.com ' };
+    req.query = { type: 'digest', domain: 'Missing.com ' };
 
     await handler(req as NextApiRequest, res as NextApiResponse);
 
@@ -129,7 +129,7 @@ describe('/api/notify - authentication', () => {
 
   it('returns 400 when the domain query is repeated', async () => {
     (verifyUser as jest.Mock).mockReturnValue('authorized');
-    req.query = { domain: ['a.com', 'b.com'] };
+    req.query = { type: 'digest', domain: ['a.com', 'b.com'] };
 
     await handler(req as NextApiRequest, res as NextApiResponse);
 
@@ -348,7 +348,7 @@ describe('/api/notify - authentication', () => {
   it('returns 500 when single domain notification fails', async () => {
     (verifyUser as jest.Mock).mockReturnValue('authorized');
 
-    req.query = { domain: 'example.com' };
+    req.query = { type: 'digest', domain: 'example.com' };
 
     const domainRecord = {
       get: () => ({
@@ -500,10 +500,10 @@ const domainRow = (overrides: Record<string, unknown>) => ({
   }),
 });
 
-describe('/api/notify recipients and outcomes', () => {
+describe('/api/app/email (type=digest) recipients and outcomes', () => {
   let res: { status: jest.Mock; json: jest.Mock };
   let sendMailMock: jest.Mock;
-  const req = { method: 'POST', query: {}, headers: {} } as unknown as NextApiRequest;
+  const req = { method: 'POST', query: { type: 'digest' }, headers: {} } as unknown as NextApiRequest;
 
   beforeEach(() => {
     jest.clearAllMocks();

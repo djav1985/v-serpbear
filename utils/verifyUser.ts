@@ -85,17 +85,17 @@ const verifyUser = (req: NextApiRequest, res: NextApiResponse): string => {
    const token = cookies && cookies.get('token');
 
    const allowedApiRoutes = [
-      'GET:/api/keyword',
-      'GET:/api/keywords',
-      'GET:/api/domains',
-      'POST:/api/refresh',
-      'POST:/api/cron',
-      'POST:/api/notify',
-      'POST:/api/searchconsole',
-      'GET:/api/searchconsole',
-      'GET:/api/insight',
-      'GET:/api/ideas',
-      'POST:/api/ideas',
+      'GET:/api/serp/keyword',
+      'GET:/api/serp/keywords',
+      'GET:/api/serp/domains',
+      'POST:/api/serp/refresh',
+      'POST:/api/app/cron',
+      'POST:/api/app/email',
+      'POST:/api/google/searchconsole',
+      'GET:/api/google/searchconsole',
+      'GET:/api/google/insight',
+      'GET:/api/google/ideas',
+      'POST:/api/google/ideas',
    ];
    
    // Wrong keys are not counted when the request also carries a valid login cookie

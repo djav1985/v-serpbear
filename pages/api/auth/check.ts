@@ -1,12 +1,12 @@
-/// <reference path="../../types.d.ts" />
+/// <reference path="../../../types.d.ts" />
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import Cookies from 'cookies';
-import { withApiLogging } from '../../utils/apiLogging';
-import verifyUser, { verifySessionToken } from '../../utils/verifyUser';
-import { logger } from '../../utils/logger';
-import { errorResponse } from '../../utils/api/response';
-import { APP_TIMEZONE } from '../../utils/timezone';
+import { withApiLogging } from '../../../utils/apiLogging';
+import verifyUser, { verifySessionToken } from '../../../utils/verifyUser';
+import { logger } from '../../../utils/logger';
+import { errorResponse } from '../../../utils/api/response';
+import { APP_TIMEZONE } from '../../../utils/timezone';
 
 type AuthCheckResponse = {
   authenticated: boolean;

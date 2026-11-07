@@ -1,13 +1,13 @@
-/// <reference path="../../types.d.ts" />
+/// <reference path="../../../types.d.ts" />
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import Domain from '../../database/models/domain';
-import { logger } from '../../utils/logger';
-import { fetchDomainSCData, getSearchConsoleApiInfo, readLocalSCData } from '../../utils/searchConsole';
-import { SAFE_DOMAIN_NAME } from '../../utils/domainSlug';
-import verifyUser from '../../utils/verifyUser';
-import { withApiLogging } from '../../utils/apiLogging';
-import { errorResponse } from '../../utils/api/response';
+import Domain from '../../../database/models/domain';
+import { logger } from '../../../utils/logger';
+import { fetchDomainSCData, getSearchConsoleApiInfo, readLocalSCData } from '../../../utils/searchConsole';
+import { SAFE_DOMAIN_NAME } from '../../../utils/domainSlug';
+import verifyUser from '../../../utils/verifyUser';
+import { withApiLogging } from '../../../utils/apiLogging';
+import { errorResponse } from '../../../utils/api/response';
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
    const requestId = (req as ExtendedRequest).requestId;

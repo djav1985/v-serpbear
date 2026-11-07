@@ -1,3 +1,6 @@
+// Connects the models to the database. Server components import these loaders directly, without an API route
+// that would otherwise have loaded it first.
+import '../database/database';
 import Domain from '../database/models/domain';
 import getdomainStats from './domains';
 import { maskSearchConsole } from './maskSearchConsole';
@@ -5,7 +8,7 @@ import { maskDomainScraperSettings, parseDomainScraperSettings } from './domainS
 import normalizeDomainBooleans from './normalizeDomain';
 
 /**
- * Reads every domain with credentials masked, the same shape `GET /api/domains` returns.
+ * Reads every domain with credentials masked, the same shape `GET /api/serp/domains` returns.
  * Shared by the API handler and by server components so both see identical data.
  * Pass `withStats` to attach keyword counts and Search Console totals.
  */

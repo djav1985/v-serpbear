@@ -1,7 +1,7 @@
 import type { NextApiRequest } from 'next';
 import Cryptr from 'cryptr';
 import { readFile, unlink } from 'fs/promises';
-import handler from '../../pages/api/domains';
+import handler from '../../pages/api/serp/domains';
 import db from '../../database/database';
 import Domain from '../../database/models/domain';
 import Keyword from '../../database/models/keyword';
@@ -70,7 +70,7 @@ const unlinkMock = unlink as unknown as jest.Mock;
 const atomicWriteFileMock = atomicWriteFile as jest.Mock;
 const refreshQueueMock = refreshQueue as unknown as { enqueue: jest.Mock; isDomainLocked: jest.Mock };
 
-describe('GET /api/domains', () => {
+describe('GET /api/serp/domains', () => {
    beforeEach(() => {
     jest.clearAllMocks();
     verifyUserMock.mockReturnValue('authorized');
@@ -126,7 +126,7 @@ describe('GET /api/domains', () => {
    });
 });
 
-describe('POST /api/domains', () => {
+describe('POST /api/serp/domains', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     verifyUserMock.mockReturnValue('authorized');
@@ -193,7 +193,7 @@ describe('POST /api/domains', () => {
   });
 });
 
-describe('PUT /api/domains', () => {
+describe('PUT /api/serp/domains', () => {
   let domainState: {
     domain: string;
     slug: string;
@@ -540,7 +540,7 @@ describe('PUT /api/domains', () => {
   });
 });
 
-describe('DELETE /api/domains', () => {
+describe('DELETE /api/serp/domains', () => {
   const request = (domain = 'example.com') => ({ method: 'DELETE', query: { domain }, headers: {} } as unknown as NextApiRequest);
   let cleanupState = '{}';
   beforeEach(() => {

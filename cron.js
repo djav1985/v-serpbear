@@ -300,20 +300,20 @@ const runAppCronJobs = () => {
       if (scrapeCronTime) {
          scrapeJob = scheduleJob('keyword scraping', scrapeCronTime, () => {
             logger.info('CRON: Running Keyword Position Cron Job.');
-            makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/cron', 'CRON: Keyword Scraping Result');
+            makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/app/cron', 'CRON: Keyword Scraping Result');
          }, cronOptions);
       }
 
       if (emailCronTime) {
          emailJob = scheduleJob('email notification', emailCronTime, async () => {
-            // Same check as /api/notify: without an SMTP host the API answers 400, so skip quietly instead
+            // Same check as the digest email route: without an SMTP host the API answers 400, so skip quietly instead
             const smtpSettings = await getAppSettings();
             if (!normalizeValue(smtpSettings.smtp_server, '')) {
                logger.debug('CRON: SMTP is not configured; skipping the notification email.');
                return;
             }
             logger.info('CRON: Sending Notification Email.');
-            makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/notify', 'CRON: Email Notification Result');
+            makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/app/email?type=digest', 'CRON: Email Notification Result');
          }, cronOptions);
       }
 
@@ -379,7 +379,7 @@ const runAppCronJobs = () => {
             for (let i = 0; i < keywordsToRetry.length; i += RETRY_BATCH_SIZE) {
                const batch = keywordsToRetry.slice(i, i + RETRY_BATCH_SIZE);
                const params = new URLSearchParams({ id: batch.join(',') });
-               await makeCronApiCall(process.env.APIKEY, internalApiUrl, `/api/refresh?${params.toString()}`, 'CRON: Failed Scrapes Retry Result');
+               await makeCronApiCall(process.env.APIKEY, internalApiUrl, `/api/serp/refresh?${params.toString()}`, 'CRON: Failed Scrapes Retry Result');
             }
          } else {
             logger.debug('CRON: No failed scrapes to retry.');
@@ -394,7 +394,7 @@ const runAppCronJobs = () => {
    const searchConsoleCRONTime = CRON_INTERVAL_MAP.daily;
    scheduleJob('search console', searchConsoleCRONTime, () => {
       logger.info('CRON: Running Google Search Console Scraper.');
-      makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/searchconsole', 'CRON: Search Console Scraper Result');
+      makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/google/searchconsole', 'CRON: Search Console Scraper Result');
    }, cronOptions);
    
    logger.info('CRON: All cron jobs initialized successfully.');

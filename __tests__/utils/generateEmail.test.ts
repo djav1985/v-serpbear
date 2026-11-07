@@ -83,7 +83,7 @@ describe('generateEmail', () => {
       mockReadFile.mockResolvedValue('<html>{{logo}}</html>');
       const html = await generateEmail({ domain: 'example.com', keywordsTracked: 0, avgPosition: 0 } as any, [], createSettings());
 
-      expect(html).not.toContain('src="/api/branding/logo"');
+      expect(html).not.toContain('src="/api/images/logo.png"');
       expect(html).toContain('src="https://serpbear.b-cdn.net/ikAdjQq.png"');
     } finally {
       process.env = originalEnv;

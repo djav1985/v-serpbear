@@ -1,14 +1,14 @@
-/// <reference path="../../types.d.ts" />
+/// <reference path="../../../types.d.ts" />
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import Cookies from 'cookies';
-import verifyUser from '../../utils/verifyUser';
-import { withApiLogging } from '../../utils/apiLogging';
-import { logger } from '../../utils/logger';
-import { getClientIp } from '../../utils/api/clientIp';
-import isRequestSecure from '../../utils/api/isRequestSecure';
-import { errorResponse } from '../../utils/api/response';
-import { revokeAllSessions } from '../../utils/sessionStore';
+import verifyUser from '../../../utils/verifyUser';
+import { withApiLogging } from '../../../utils/apiLogging';
+import { logger } from '../../../utils/logger';
+import { getClientIp } from '../../../utils/api/clientIp';
+import isRequestSecure from '../../../utils/api/isRequestSecure';
+import { errorResponse } from '../../../utils/api/response';
+import { revokeAllSessions } from '../../../utils/sessionStore';
 
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;

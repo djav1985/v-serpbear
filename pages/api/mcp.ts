@@ -49,32 +49,32 @@ const buildServer = (call: ApiCall): McpServer => {
    server.registerTool('get_keyword', {
       description: 'Get one tracked keyword by its ID, with its position history.',
       inputSchema: { id: z.string().describe('Keyword ID') },
-   }, async ({ id }) => reply(await call('GET', '/api/keyword', { id })));
+   }, async ({ id }) => reply(await call('GET', '/api/serp/keyword', { id })));
 
    server.registerTool('list_keywords', {
       description: 'List all tracked keywords of a domain.',
       inputSchema: { domain: domainField },
-   }, async ({ domain }) => reply(await call('GET', '/api/keywords', { domain })));
+   }, async ({ domain }) => reply(await call('GET', '/api/serp/keywords', { domain })));
 
    server.registerTool('list_domains', {
       description: 'List all tracked domains. Set withstats to include keyword statistics.',
       inputSchema: { withstats: z.boolean().optional() },
-   }, async ({ withstats }) => reply(await call('GET', '/api/domains', withstats ? { withstats: 'true' } : {})));
+   }, async ({ withstats }) => reply(await call('GET', '/api/serp/domains', withstats ? { withstats: 'true' } : {})));
 
    server.registerTool('get_searchconsole', {
       description: 'Get the raw Google Search Console data for a domain: per-keyword rows for the last 3, 7 and 30 days, plus stats. Fetched again from Google if the stored copy is older than 24 hours.',
       inputSchema: { domain: domainField },
-   }, async ({ domain }) => reply(await call('GET', '/api/searchconsole', { domain })));
+   }, async ({ domain }) => reply(await call('GET', '/api/google/searchconsole', { domain })));
 
    server.registerTool('get_insight', {
       description: 'Get a summary of a domain\'s Google Search Console data: the top pages, top keywords and top countries, with stats. Use this for an overview; use get_searchconsole for the full per-keyword rows.',
       inputSchema: { domain: domainField },
-   }, async ({ domain }) => reply(await call('GET', '/api/insight', { domain })));
+   }, async ({ domain }) => reply(await call('GET', '/api/google/insight', { domain })));
 
    server.registerTool('get_keyword_ideas', {
       description: 'Get the saved keyword ideas and favourites of a domain. Leave domain out for the research list.',
       inputSchema: { domain: domainField.optional() },
-   }, async ({ domain }) => reply(await call('GET', '/api/ideas', domain ? { domain } : {})));
+   }, async ({ domain }) => reply(await call('GET', '/api/google/ideas', domain ? { domain } : {})));
 
    return server;
 };

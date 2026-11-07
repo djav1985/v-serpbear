@@ -31,7 +31,7 @@ describe('verifyUser', () => {
       
       req = {
          method: 'GET',
-         url: '/api/domains',
+         url: '/api/serp/domains',
          headers: {},
          cookies: {},
       };
@@ -50,7 +50,7 @@ describe('verifyUser', () => {
       it('should reject authorization header without Bearer prefix', () => {
          process.env.APIKEY = 'test-api-key';
          req.headers = { authorization: 'test-api-key' };
-         req.url = '/api/domains';
+         req.url = '/api/serp/domains';
          req.method = 'GET';
 
          const result = verifyUser(req as NextApiRequest, res as NextApiResponse);
@@ -61,7 +61,7 @@ describe('verifyUser', () => {
       it('should accept valid Bearer token with correct API key', () => {
          process.env.APIKEY = 'test-api-key';
          req.headers = { authorization: 'Bearer test-api-key' };
-         req.url = '/api/domains';
+         req.url = '/api/serp/domains';
          req.method = 'GET';
 
          const result = verifyUser(req as NextApiRequest, res as NextApiResponse);
@@ -72,7 +72,7 @@ describe('verifyUser', () => {
       it('should reject Bearer token with incorrect API key', () => {
          process.env.APIKEY = 'test-api-key';
          req.headers = { authorization: 'Bearer wrong-key' };
-         req.url = '/api/domains';
+         req.url = '/api/serp/domains';
          req.method = 'GET';
 
          const result = verifyUser(req as NextApiRequest, res as NextApiResponse);
@@ -134,7 +134,7 @@ describe('verifyUser', () => {
       it('should reject Bearer token without space', () => {
          process.env.APIKEY = 'test-api-key';
          req.headers = { authorization: 'Bearertest-api-key' };
-         req.url = '/api/domains';
+         req.url = '/api/serp/domains';
          req.method = 'GET';
 
          const result = verifyUser(req as NextApiRequest, res as NextApiResponse);
@@ -184,7 +184,7 @@ describe('verifyUser', () => {
       it('should allow API key access to allowed routes', () => {
          process.env.APIKEY = 'test-api-key';
          req.headers = { authorization: 'Bearer test-api-key' };
-         req.url = '/api/cron';
+         req.url = '/api/app/cron';
          req.method = 'POST';
 
          const result = verifyUser(req as NextApiRequest, res as NextApiResponse);
@@ -196,7 +196,7 @@ describe('verifyUser', () => {
       it('should allow API key access to ideas GET route', () => {
          process.env.APIKEY = 'test-api-key';
          req.headers = { authorization: 'Bearer test-api-key' };
-         req.url = '/api/ideas';
+         req.url = '/api/google/ideas';
          req.method = 'GET';
 
          const result = verifyUser(req as NextApiRequest, res as NextApiResponse);
@@ -207,7 +207,7 @@ describe('verifyUser', () => {
       it('should allow API key access to ideas POST route', () => {
          process.env.APIKEY = 'test-api-key';
          req.headers = { authorization: 'Bearer test-api-key' };
-         req.url = '/api/ideas';
+         req.url = '/api/google/ideas';
          req.method = 'POST';
 
          const result = verifyUser(req as NextApiRequest, res as NextApiResponse);
@@ -218,7 +218,7 @@ describe('verifyUser', () => {
       it('should reject API key access to non-allowed routes', () => {
          process.env.APIKEY = 'test-api-key';
          req.headers = { authorization: 'Bearer test-api-key' };
-         req.url = '/api/settings';
+         req.url = '/api/app/settings';
          req.method = 'PUT';
 
          const result = verifyUser(req as NextApiRequest, res as NextApiResponse);
@@ -230,7 +230,7 @@ describe('verifyUser', () => {
 
 describe('verifyUser session revocation', () => {
   const originalSecret = process.env.SECRET;
-  const req = { method: 'GET', url: '/api/keywords?domain=example.com', headers: {} } as unknown as NextApiRequest;
+  const req = { method: 'GET', url: '/api/serp/keywords?domain=example.com', headers: {} } as unknown as NextApiRequest;
   const res = {} as NextApiResponse;
   const versionMock = getSessionVersion as unknown as jest.Mock;
   const jwtVerifyMock = jwt.verify as unknown as jest.Mock;

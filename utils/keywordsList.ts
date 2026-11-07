@@ -1,3 +1,6 @@
+// Connects the models to the database. Server components import these loaders directly, without an API route
+// that would otherwise have loaded it first.
+import '../database/database';
 import Keyword from '../database/models/keyword';
 import { getAppSettings } from './appSettings';
 import { historyKeyToTime } from './historyDateKey';
@@ -6,7 +9,7 @@ import parseKeywords from './parseKeywords';
 import { integrateKeywordSCData, readLocalSCData } from './searchConsole';
 
 /**
- * Reads a domain's keywords the way `GET /api/keywords` returns them: seven days of history, the stored search
+ * Reads a domain's keywords the way `GET /api/serp/keywords` returns them: seven days of history, the stored search
  * results left out, and Search Console data merged in. Shared by the API handler and by server components.
  *
  * Rows saved before the 7-day history existed need a backfill. It is returned as `backfill` instead of being done here,

@@ -1,15 +1,15 @@
-/// <reference path="../../types.d.ts" />
+/// <reference path="../../../types.d.ts" />
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import verifyUser from '../../utils/verifyUser';
+import verifyUser from '../../../utils/verifyUser';
 import {
    getAdwordsCredentials, getAdwordsKeywordIdeas, getLocalKeywordIdeas, updateLocalKeywordIdeas, withIdeasLock,
-} from '../../utils/adwords';
-import { withApiLogging } from '../../utils/apiLogging';
-import { logger } from '../../utils/logger';
-import { errorResponse } from '../../utils/api/response';
-import { SAFE_DOMAIN_NAME } from '../../utils/domainSlug';
-import { RESEARCH_IDEAS_KEY } from '../../utils/domainIdeasFile';
+} from '../../../utils/adwords';
+import { withApiLogging } from '../../../utils/apiLogging';
+import { logger } from '../../../utils/logger';
+import { errorResponse } from '../../../utils/api/response';
+import { SAFE_DOMAIN_NAME } from '../../../utils/domainSlug';
+import { RESEARCH_IDEAS_KEY } from '../../../utils/domainIdeasFile';
 
 /**
  * Reads the optional `domain` field. Missing or empty means the research page (no domain). A given value must be a

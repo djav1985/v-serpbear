@@ -1,14 +1,14 @@
-/// <reference path="../../types.d.ts" />
+/// <reference path="../../../types.d.ts" />
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import Domain from '../../database/models/domain';
-import verifyUser from '../../utils/verifyUser';
-import { maskDomainScraperSettings, parseDomainScraperSettings } from '../../utils/domainScraperSettings';
-import { logger } from '../../utils/logger';
-import { withApiLogging } from '../../utils/apiLogging';
-import { maskSearchConsole } from '../../utils/maskSearchConsole';
-import normalizeDomainBooleans from '../../utils/normalizeDomain';
-import { errorResponse } from '../../utils/api/response';
+import Domain from '../../../database/models/domain';
+import verifyUser from '../../../utils/verifyUser';
+import { maskDomainScraperSettings, parseDomainScraperSettings } from '../../../utils/domainScraperSettings';
+import { logger } from '../../../utils/logger';
+import { withApiLogging } from '../../../utils/apiLogging';
+import { maskSearchConsole } from '../../../utils/maskSearchConsole';
+import normalizeDomainBooleans from '../../../utils/normalizeDomain';
+import { errorResponse } from '../../../utils/api/response';
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
    const requestId = (req as ExtendedRequest).requestId;

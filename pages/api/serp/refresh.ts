@@ -1,21 +1,21 @@
-/// <reference path="../../types.d.ts" />
+/// <reference path="../../../types.d.ts" />
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import crypto from 'crypto';
 import { Op } from 'sequelize';
-import Keyword from '../../database/models/keyword';
-import refreshAndUpdateKeywords, { clearKeywordUpdatingFlags, markKeywordsAsUpdating, partitionKeywordsByDomainStatus } from '../../utils/refresh';
-import { getAppSettings } from '../../utils/appSettings';
-import verifyUser from '../../utils/verifyUser';
-import { scrapeKeywordWithStrategy } from '../../utils/scraper';
-import { serializeError } from '../../utils/errorSerialization';
-import { logger } from '../../utils/logger';
-import { withApiLogging } from '../../utils/apiLogging';
-import { refreshQueue } from '../../utils/refreshQueue';
-import { errorResponse } from '../../utils/api/response';
-import { takeRateLimitToken } from '../../utils/rateLimit';
-import { getClientIp } from '../../utils/api/clientIp';
-import { isKeywordUpdating } from '../../utils/keywordUpdating';
+import Keyword from '../../../database/models/keyword';
+import refreshAndUpdateKeywords, { clearKeywordUpdatingFlags, markKeywordsAsUpdating, partitionKeywordsByDomainStatus } from '../../../utils/refresh';
+import { getAppSettings } from '../../../utils/appSettings';
+import verifyUser from '../../../utils/verifyUser';
+import { scrapeKeywordWithStrategy } from '../../../utils/scraper';
+import { serializeError } from '../../../utils/errorSerialization';
+import { logger } from '../../../utils/logger';
+import { withApiLogging } from '../../../utils/apiLogging';
+import { refreshQueue } from '../../../utils/refreshQueue';
+import { errorResponse } from '../../../utils/api/response';
+import { takeRateLimitToken } from '../../../utils/rateLimit';
+import { getClientIp } from '../../../utils/api/clientIp';
+import { isKeywordUpdating } from '../../../utils/keywordUpdating';
 
 /**
  * Parses a comma separated list of keyword IDs. Returns null when any item is not a positive integer,
@@ -152,7 +152,7 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse) => 
          // Remove missing domain keywords from retry queue
          const missingKeywordIds = new Set(missingDomainKeywords.map((kw) => kw.ID));
          if (missingKeywordIds.size > 0) {
-            const { retryQueueManager } = await import('../../utils/retryQueueManager');
+            const { retryQueueManager } = await import('../../../utils/retryQueueManager');
             await retryQueueManager.removeBatch(missingKeywordIds).catch((error) => {
                logger.error('Failed to remove missing domain keywords from retry queue', error instanceof Error ? error : new Error(String(error)));
             });

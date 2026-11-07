@@ -1,26 +1,27 @@
-/// <reference path="../../types.d.ts" />
+/// <reference path="../../../types.d.ts" />
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import Cryptr from 'cryptr';
-import { logger } from '../../utils/logger';
+import { logger } from '../../../utils/logger';
 import Cookies from 'cookies';
-import verifyUser, { verifySessionToken } from '../../utils/verifyUser';
-import allScrapers from '../../scrapers/index';
-import { withApiLogging } from '../../utils/apiLogging';
-import { trimStringProperties } from '../../utils/security';
-import { getAppSettings, normalizeLegacySettings, readStoredSettingsFile } from '../../utils/appSettings';
-import packageJson from '../../package.json';
-import { atomicWriteFile } from '../../utils/atomicWrite';
-import { withSettingsLock, withoutRemovedSettingsKeys } from '../../utils/settingsFile';
-import { errorResponse } from '../../utils/api/response';
-import { APP_TIMEZONE } from '../../utils/timezone';
-import { NOTIFICATION_INTERVALS } from '../../utils/constants';
+import verifyUser, { verifySessionToken } from '../../../utils/verifyUser';
+import allScrapers from '../../../scrapers/index';
+import { withApiLogging } from '../../../utils/apiLogging';
+import { trimStringProperties } from '../../../utils/security';
+import { getBranding } from '../../../utils/branding';
+import { getAppSettings, normalizeLegacySettings, readStoredSettingsFile } from '../../../utils/appSettings';
+import packageJson from '../../../package.json';
+import { atomicWriteFile } from '../../../utils/atomicWrite';
+import { withSettingsLock, withoutRemovedSettingsKeys } from '../../../utils/settingsFile';
+import { errorResponse } from '../../../utils/api/response';
+import { APP_TIMEZONE } from '../../../utils/timezone';
+import { NOTIFICATION_INTERVALS } from '../../../utils/constants';
 
 /**
  * Fields that GET adds on top of the stored settings (the app version and timezone, and values computed or read
  * from other stores). A save never writes them, so a client that echoes a GET response cannot store them.
  */
-export const DERIVED_SETTINGS_FIELDS = ['version', 'timezone', 'available_scapers', 'search_console_integrated', 'failed_queue'] as const;
+export const DERIVED_SETTINGS_FIELDS = ['version', 'timezone', 'branding', 'available_scapers', 'search_console_integrated', 'failed_queue'] as const;
 
 /**
  * Removed settings keys (REMOVED_SETTINGS_KEYS in utils/settingsFile) are never returned by GET, never kept by a save,
@@ -147,10 +148,12 @@ const getSettings = async (req: NextApiRequest, res: NextApiResponse) => {
       }
       
       const version = packageJson.version;
+      // Read-only and public: the name and logo are shown on the login page before anyone signs in.
+      const branding = getBranding();
       
       if (isAuthenticated) {
          // Return full settings for authenticated users
-         return res.status(200).json({ settings: { ...settings, version, timezone: APP_TIMEZONE } });
+         return res.status(200).json({ settings: { ...settings, version, timezone: APP_TIMEZONE, branding } });
       } else {
          // Return only safe, public settings for unauthenticated users
          const publicSettings = {
@@ -159,6 +162,7 @@ const getSettings = async (req: NextApiRequest, res: NextApiResponse) => {
             search_console_integrated: settings.search_console_integrated || false,
             version,
             timezone: APP_TIMEZONE,
+            branding,
          };
          return res.status(200).json({ settings: publicSettings });
       }

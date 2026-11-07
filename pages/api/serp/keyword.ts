@@ -1,12 +1,12 @@
-/// <reference path="../../types.d.ts" />
+/// <reference path="../../../types.d.ts" />
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import Keyword from '../../database/models/keyword';
-import parseKeywords from '../../utils/parseKeywords';
-import verifyUser from '../../utils/verifyUser';
-import { logger } from '../../utils/logger';
-import { withApiLogging } from '../../utils/apiLogging';
-import { errorResponse } from '../../utils/api/response';
+import Keyword from '../../../database/models/keyword';
+import parseKeywords from '../../../utils/parseKeywords';
+import verifyUser from '../../../utils/verifyUser';
+import { logger } from '../../../utils/logger';
+import { withApiLogging } from '../../../utils/apiLogging';
+import { errorResponse } from '../../../utils/api/response';
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
    const requestId = (req as ExtendedRequest).requestId;

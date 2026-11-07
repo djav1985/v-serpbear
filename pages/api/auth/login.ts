@@ -1,16 +1,16 @@
-/// <reference path="../../types.d.ts" />
+/// <reference path="../../../types.d.ts" />
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import jwt from 'jsonwebtoken';
 import Cookies from 'cookies';
 import { timingSafeEqual } from 'crypto';
-import { logger } from '../../utils/logger';
-import isRequestSecure from '../../utils/api/isRequestSecure';
-import { withApiLogging } from '../../utils/apiLogging';
-import { errorResponse } from '../../utils/api/response';
-import { AttemptKey, clearLoginFailures, isLoginLocked, recordLoginFailure } from '../../utils/loginThrottle';
-import { getSessionVersion } from '../../utils/sessionStore';
-import { getClientIp } from '../../utils/api/clientIp';
+import { logger } from '../../../utils/logger';
+import isRequestSecure from '../../../utils/api/isRequestSecure';
+import { withApiLogging } from '../../../utils/apiLogging';
+import { errorResponse } from '../../../utils/api/response';
+import { AttemptKey, clearLoginFailures, isLoginLocked, recordLoginFailure } from '../../../utils/loginThrottle';
+import { getSessionVersion } from '../../../utils/sessionStore';
+import { getClientIp } from '../../../utils/api/clientIp';
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
    const requestId = (req as ExtendedRequest).requestId;

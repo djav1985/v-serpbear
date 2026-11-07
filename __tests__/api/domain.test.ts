@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import Cryptr from 'cryptr';
-import handler from '../../pages/api/domain';
+import handler from '../../pages/api/serp/domain';
 import Domain from '../../database/models/domain';
 import verifyUser from '../../utils/verifyUser';
 import { createMockResponse } from '../__helpers__';
@@ -44,7 +44,7 @@ jest.mock('../../utils/normalizeDomain', () => ({
 const verifyUserMock = verifyUser as unknown as jest.Mock;
 const DomainMock = Domain as unknown as { findOne: jest.Mock };
 
-describe('/api/domain handler', () => {
+describe('/api/serp/domain handler', () => {
   let res: NextApiResponse;
 
   beforeEach(() => {
@@ -173,8 +173,8 @@ describe('Search Console credentials stay on the server', () => {
     jest.doMock('../../utils/domainScraperSettings', () => jest.requireActual('../../utils/domainScraperSettings'));
     jest.doMock('../../utils/normalizeDomain', () => jest.requireActual('../../utils/normalizeDomain'));
     jest.isolateModules(() => {
-      isoDomainHandler = require('../../pages/api/domain').default;
-      isoUpdateDomain = require('../../pages/api/domains').updateDomain;
+      isoDomainHandler = require('../../pages/api/serp/domain').default;
+      isoUpdateDomain = require('../../pages/api/serp/domains').updateDomain;
       isoDomainModel = require('../../database/models/domain').default;
       isoVerifyUser = require('../../utils/verifyUser').default;
       isoCheckMock = require('../../utils/searchConsole').checkSearchConsoleIntegration;
@@ -198,7 +198,7 @@ describe('Search Console credentials stay on the server', () => {
     }
   });
 
-  describe('GET /api/domain', () => {
+  describe('GET /api/serp/domain', () => {
     it('masks saved credentials instead of returning the decrypted key', async () => {
       const stored = {
         domain: 'example.com',
@@ -226,7 +226,7 @@ describe('Search Console credentials stay on the server', () => {
     });
   });
 
-  describe('PUT /api/domains (updateDomain)', () => {
+  describe('PUT /api/serp/domains (updateDomain)', () => {
     const buildInstance = () => {
       const current: Record<string, any> = {
         domain: 'example.com',

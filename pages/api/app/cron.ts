@@ -1,19 +1,19 @@
-/// <reference path="../../types.d.ts" />
+/// <reference path="../../../types.d.ts" />
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import crypto from 'crypto';
-import Keyword from '../../database/models/keyword';
-import Domain from '../../database/models/domain';
-import { getAppSettings } from '../../utils/appSettings';
-import verifyUser from '../../utils/verifyUser';
+import Keyword from '../../../database/models/keyword';
+import Domain from '../../../database/models/domain';
+import { getAppSettings } from '../../../utils/appSettings';
+import verifyUser from '../../../utils/verifyUser';
 
-import refreshAndUpdateKeywords, { clearKeywordUpdatingFlags, DOMAIN_REFRESH_ATTRIBUTES, markKeywordsAsUpdating, partitionKeywordsByDomainStatus } from '../../utils/refresh';
-import { logger } from '../../utils/logger';
-import { withApiLogging } from '../../utils/apiLogging';
-import { fromDbBool } from '../../utils/dbBooleans';
-import { refreshQueue } from '../../utils/refreshQueue';
-import { errorResponse } from '../../utils/api/response';
-import { isKeywordUpdating } from '../../utils/keywordUpdating';
+import refreshAndUpdateKeywords, { clearKeywordUpdatingFlags, DOMAIN_REFRESH_ATTRIBUTES, markKeywordsAsUpdating, partitionKeywordsByDomainStatus } from '../../../utils/refresh';
+import { logger } from '../../../utils/logger';
+import { withApiLogging } from '../../../utils/apiLogging';
+import { fromDbBool } from '../../../utils/dbBooleans';
+import { refreshQueue } from '../../../utils/refreshQueue';
+import { errorResponse } from '../../../utils/api/response';
+import { isKeywordUpdating } from '../../../utils/keywordUpdating';
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
    const requestId = (req as ExtendedRequest).requestId;

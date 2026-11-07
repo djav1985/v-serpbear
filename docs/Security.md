@@ -20,7 +20,7 @@ The client IP drives the login and API-key lockouts and the keyword-search and v
 
 ## Stored secrets
 
-Provider API keys, SMTP passwords and other secrets in `data/settings.json` are encrypted with `SECRET`. Secrets are redacted from logs. `GET /api/settings` is public but returns only a few non-secret fields; `PUT /api/settings` needs a login session.
+Provider API keys, SMTP passwords and other secrets in `data/settings.json` are encrypted with `SECRET`. Secrets are redacted from logs. `GET /api/app/settings` is public but returns only a few non-secret fields; `PUT /api/app/settings` needs a login session.
 
 ## Data you should back up
 

@@ -12,7 +12,7 @@
  * - debug: Logs full diagnostic output, including API requests, responses, and internal processing details
  * 
  * Example log output:
- * {"timestamp":"2026-01-21T06:00:00.000Z","level":"INFO","message":"GET /api/domains - 200 (150ms)"}
+ * {"timestamp":"2026-01-21T06:00:00.000Z","level":"INFO","message":"GET /api/serp/domains - 200 (150ms)"}
  */
 
 export enum LogLevel {

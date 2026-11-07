@@ -1,20 +1,18 @@
-/// <reference path="../../../types.d.ts" />
+/// <reference path="../../types.d.ts" />
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import Domain from '../../../database/models/domain';
-import verifyUser from '../../../utils/verifyUser';
-import { getAppSettings } from '../../../utils/appSettings';
-import { trimStringProperties, trimString, sanitizeSmtpHost } from '../../../utils/security';
-import { buildMailer } from '../../../utils/mailer';
-import normalizeDomainBooleans from '../../../utils/normalizeDomain';
-import generateKeywordIdeasEmail, { KeywordIdeasEmailKeyword } from '../../../utils/generateKeywordIdeasEmail';
-import { getBranding } from '../../../utils/branding';
-import { logger } from '../../../utils/logger';
-import { withApiLogging } from '../../../utils/apiLogging';
-import { errorResponse } from '../../../utils/api/response';
-import { takeRateLimitToken } from '../../../utils/rateLimit';
+import Domain from '../../database/models/domain';
+import { getAppSettings } from '../appSettings';
+import { trimStringProperties, trimString, sanitizeSmtpHost } from '../security';
+import { buildMailer } from '../mailer';
+import normalizeDomainBooleans from '../normalizeDomain';
+import generateKeywordIdeasEmail, { KeywordIdeasEmailKeyword } from '../generateKeywordIdeasEmail';
+import { getBranding } from '../branding';
+import { logger } from '../logger';
+import { errorResponse } from './response';
+import { takeRateLimitToken } from '../rateLimit';
 
-// Same cap as the ideas list (pages/api/ideas.ts)
+// Same cap as the ideas list (pages/api/google/ideas.ts)
 const MAX_EMAIL_KEYWORDS = 1000;
 // Idea emails stay off the digest throttle (utils/emailThrottle) but are bounded on their own, per domain
 const IDEAS_EMAILS_PER_HOUR = 10;
@@ -52,23 +50,7 @@ const normalizeKeywords = (keywords: KeywordIdeasEmailKeyword[] = []): KeywordId
    };
 });
 
-async function handler(req: NextApiRequest, res: NextApiResponse) {
-   const requestId = (req as ExtendedRequest).requestId;
-   const authorized = verifyUser(req, res);
-   if (authorized !== 'authorized') {
-      return res.status(401).json(errorResponse('UNAUTHORIZED', authorized, requestId));
-   }
-
-   if (req.method !== 'POST') {
-      return res.status(405).json(errorResponse('METHOD_NOT_ALLOWED', 'Method not allowed', requestId));
-   }
-
-   return emailKeywordIdeas(req, res);
-}
-
-export default withApiLogging(handler, { name: 'ideas/email' });
-
-const emailKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => {
+export const sendIdeasEmail = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
    if (req.body !== undefined && req.body !== null && (typeof req.body !== 'object' || Array.isArray(req.body))) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Request body must be a JSON object.', requestId));

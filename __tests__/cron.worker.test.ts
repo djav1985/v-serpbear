@@ -30,7 +30,7 @@ describe('cron worker helpers', () => {
   it('skips API calls when the API key is missing', async () => {
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
-    await makeCronApiCall(undefined, 'http://localhost:3000', '/api/cron', 'ignored');
+    await makeCronApiCall(undefined, 'http://localhost:3000', '/api/app/cron', 'ignored');
 
     expect(global.fetch).not.toHaveBeenCalled();
     // logger.warn emits a JSON log entry via console.log
@@ -41,7 +41,7 @@ describe('cron worker helpers', () => {
       expect.stringContaining('Skipping API call')
     );
     expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining('"/api/cron"')
+      expect.stringContaining('"/api/app/cron"')
     );
   });
 
@@ -56,9 +56,9 @@ describe('cron worker helpers', () => {
       json: () => Promise.resolve({ ok: true }),
     });
 
-    await makeCronApiCall('secret', 'http://localhost:3000', '/api/cron', 'CRON: Keyword Scraping Result');
+    await makeCronApiCall('secret', 'http://localhost:3000', '/api/app/cron', 'CRON: Keyword Scraping Result');
 
-    expect(global.fetch).toHaveBeenCalledWith('http://localhost:3000/api/cron', {
+    expect(global.fetch).toHaveBeenCalledWith('http://localhost:3000/api/app/cron', {
       method: 'POST',
       headers: { Authorization: 'Bearer secret' },
     });

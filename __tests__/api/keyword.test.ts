@@ -1,5 +1,5 @@
 import type { NextApiRequest } from 'next';
-import handler from '../../pages/api/keyword';
+import handler from '../../pages/api/serp/keyword';
 import Keyword from '../../database/models/keyword';
 import verifyUser from '../../utils/verifyUser';
 import { createMockResponse } from '../__helpers__';
@@ -27,7 +27,7 @@ jest.mock('../../utils/apiLogging', () => ({
 const verifyUserMock = verifyUser as unknown as jest.Mock;
 const KeywordMock = Keyword as unknown as { findOne: jest.Mock };
 
-describe('GET /api/keyword', () => {
+describe('GET /api/serp/keyword', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     verifyUserMock.mockReturnValue('authorized');

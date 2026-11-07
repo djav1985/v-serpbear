@@ -1,9 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import nodeMailer from 'nodemailer';
-import handler from '../../pages/api/ideas/email';
+import handler from '../../pages/api/app/email';
 import db from '../../database/database';
 import Domain from '../../database/models/domain';
-import verifyUser from '../../utils/verifyUser';
+import verifyUser, { hasValidSessionCookie } from '../../utils/verifyUser';
 import { getAppSettings } from '../../utils/appSettings';
 import generateKeywordIdeasEmail from '../../utils/generateKeywordIdeasEmail';
 import { getBranding } from '../../utils/branding';
@@ -53,7 +53,7 @@ jest.mock('../../database/init', () => ({
    ensureDatabase: jest.fn().mockResolvedValue(undefined),
 }));
 
-describe('/api/ideas/email', () => {
+describe('/api/app/email (type=ideas)', () => {
    let req: Partial<NextApiRequest>;
    let res: MockedResponse;
    let sendMailMock: jest.Mock;
@@ -70,6 +70,7 @@ describe('/api/ideas/email', () => {
    beforeEach(() => {
       req = {
          method: 'POST',
+         query: { type: 'ideas' },
          body: { domain: 'example.com', keywords: [keywordPayload] },
          headers: {},
       } as Partial<NextApiRequest>;
@@ -94,6 +95,7 @@ describe('/api/ideas/email', () => {
       (nodeMailer.createTransport as jest.Mock).mockReturnValue({ sendMail: sendMailMock });
       (db.sync as jest.Mock).mockResolvedValue(undefined);
       (verifyUser as jest.Mock).mockReturnValue('authorized');
+      (hasValidSessionCookie as jest.Mock).mockReturnValue(true);
       (getAppSettings as jest.Mock).mockResolvedValue({
          smtp_server: 'smtp.example.com',
          smtp_port: '587',

@@ -1,11 +1,11 @@
-/// <reference path="../../types.d.ts" />
+/// <reference path="../../../types.d.ts" />
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import verifyUser from '../../utils/verifyUser';
-import { logger } from '../../utils/logger';
-import { withApiLogging } from '../../utils/apiLogging';
-import { retryQueueManager } from '../../utils/retryQueueManager';
-import { errorResponse } from '../../utils/api/response';
+import verifyUser from '../../../utils/verifyUser';
+import { logger } from '../../../utils/logger';
+import { withApiLogging } from '../../../utils/apiLogging';
+import { retryQueueManager } from '../../../utils/retryQueueManager';
+import { errorResponse } from '../../../utils/api/response';
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
    const requestId = (req as ExtendedRequest).requestId;

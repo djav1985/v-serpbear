@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import handler from '../../pages/api/refresh';
+import handler from '../../pages/api/serp/refresh';
 import db from '../../database/database';
 import Keyword from '../../database/models/keyword';
 import Domain from '../../database/models/domain';
@@ -76,7 +76,7 @@ jest.mock('../../utils/refreshQueue', () => ({
   },
 }));
 
-describe('/api/refresh', () => {
+describe('/api/serp/refresh', () => {
   const req = { method: 'POST', query: {}, headers: {} } as unknown as NextApiRequest;
   let res: NextApiResponse;
   const errorPayload = (reason: string) => JSON.stringify({

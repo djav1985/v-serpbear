@@ -1,16 +1,16 @@
-/// <reference path="../../types.d.ts" />
+/// <reference path="../../../types.d.ts" />
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Op } from 'sequelize';
-import Keyword from '../../database/models/keyword';
-import { logger } from '../../utils/logger';
-import verifyUser from '../../utils/verifyUser';
-import parseKeywords from '../../utils/parseKeywords';
-import { getKeywordsVolume, updateKeywordsVolumeData } from '../../utils/adwords';
-import { withApiLogging } from '../../utils/apiLogging';
-import { errorResponse } from '../../utils/api/response';
-import { takeRateLimitToken } from '../../utils/rateLimit';
-import { getClientIp } from '../../utils/api/clientIp';
+import Keyword from '../../../database/models/keyword';
+import { logger } from '../../../utils/logger';
+import verifyUser from '../../../utils/verifyUser';
+import parseKeywords from '../../../utils/parseKeywords';
+import { getKeywordsVolume, updateKeywordsVolumeData } from '../../../utils/adwords';
+import { withApiLogging } from '../../../utils/apiLogging';
+import { errorResponse } from '../../../utils/api/response';
+import { takeRateLimitToken } from '../../../utils/rateLimit';
+import { getClientIp } from '../../../utils/api/clientIp';
 
 // Looking up a whole domain (or every domain) is a paid Google Ads request per country, so it is limited per client.
 // Lookups by keyword IDs are not limited here.

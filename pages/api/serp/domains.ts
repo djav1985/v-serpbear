@@ -1,34 +1,34 @@
-/// <reference path="../../types.d.ts" />
+/// <reference path="../../../types.d.ts" />
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import Cryptr from 'cryptr';
 import { mkdir, readFile } from 'fs/promises';
 import { dirname } from 'path';
-import Domain from '../../database/models/domain';
-import Keyword from '../../database/models/keyword';
-import { loadDomains } from '../../utils/domainsList';
-import verifyUser from '../../utils/verifyUser';
-import { checkSearchConsoleIntegration, removeLocalSCData } from '../../utils/searchConsole';
-import { withApiLogging } from '../../utils/apiLogging';
-import { validateHostname } from '../../utils/validators/hostname';
-import { toDomainSlug } from '../../utils/domainSlug';
-import { logger } from '../../utils/logger';
-import { refreshQueue } from '../../utils/refreshQueue';
+import Domain from '../../../database/models/domain';
+import Keyword from '../../../database/models/keyword';
+import { loadDomains } from '../../../utils/domainsList';
+import verifyUser from '../../../utils/verifyUser';
+import { checkSearchConsoleIntegration, removeLocalSCData } from '../../../utils/searchConsole';
+import { withApiLogging } from '../../../utils/apiLogging';
+import { validateHostname } from '../../../utils/validators/hostname';
+import { toDomainSlug } from '../../../utils/domainSlug';
+import { logger } from '../../../utils/logger';
+import { refreshQueue } from '../../../utils/refreshQueue';
 import {
    buildPersistedScraperSettings,
    maskDomainScraperSettings,
    parseDomainScraperSettings,
-} from '../../utils/domainScraperSettings';
-import { parseBooleanStrict, toDbBool } from '../../utils/dbBooleans';
-import { safeJsonParse } from '../../utils/safeJsonParse';
-import { maskSearchConsole } from '../../utils/maskSearchConsole';
-import normalizeDomainBooleans from '../../utils/normalizeDomain';
-import { errorResponse } from '../../utils/api/response';
-import { retryQueueManager } from '../../utils/retryQueueManager';
-import db from '../../database/database';
-import { atomicWriteFile } from '../../utils/atomicWrite';
-import { withFileLock } from '../../utils/fileLock';
-import { removeDomainIdeasFile } from '../../utils/domainIdeasFile';
+} from '../../../utils/domainScraperSettings';
+import { parseBooleanStrict, toDbBool } from '../../../utils/dbBooleans';
+import { safeJsonParse } from '../../../utils/safeJsonParse';
+import { maskSearchConsole } from '../../../utils/maskSearchConsole';
+import normalizeDomainBooleans from '../../../utils/normalizeDomain';
+import { errorResponse } from '../../../utils/api/response';
+import { retryQueueManager } from '../../../utils/retryQueueManager';
+import db from '../../../database/database';
+import { atomicWriteFile } from '../../../utils/atomicWrite';
+import { withFileLock } from '../../../utils/fileLock';
+import { removeDomainIdeasFile } from '../../../utils/domainIdeasFile';
 
 // Sent in place of a saved Search Console credential: GET responses mask it, and a save that sends it back keeps the stored value
 const SC_CREDENTIAL_MARKER = 'true';

@@ -33,14 +33,14 @@ The example uses port 3030, which Docker Compose maps to the app.
 
 | Method | Endpoint | What it does |
 | --- | --- | --- |
-| GET | `/api/keyword?id=` | One keyword with its position history |
-| GET | `/api/keywords?domain=` | All tracked keywords of a domain |
-| GET | `/api/domains` | All tracked domains (`withstats=true` adds keyword statistics) |
-| POST | `/api/refresh` | Refresh chosen keywords: body `ids`, or query `id` (comma-separated, or `all` with `domain`) |
-| POST | `/api/cron` | Run the scheduled refresh for every domain with scraping enabled |
-| POST | `/api/notify` | Send the email digest for one domain (`domain=`) or all |
-| GET | `/api/searchconsole?domain=` | Search Console data of a domain |
-| POST | `/api/searchconsole` | Refresh Search Console data for all domains |
-| GET | `/api/insight?domain=` | Search Console insight: top pages, keywords, countries and stats |
-| GET | `/api/ideas` | Saved keyword ideas and favourites (`domain=` optional) |
-| POST | `/api/ideas` | Fetch new ideas from Google Ads: body `seedType` (`auto`, `custom`, `tracking` or `searchconsole`), `domain`, `keywords`, `country`, `language` |
+| GET | `/api/serp/keyword?id=` | One keyword with its position history |
+| GET | `/api/serp/keywords?domain=` | All tracked keywords of a domain |
+| GET | `/api/serp/domains` | All tracked domains (`withstats=true` adds keyword statistics) |
+| POST | `/api/serp/refresh` | Refresh chosen keywords: body `ids`, or query `id` (comma-separated, or `all` with `domain`) |
+| POST | `/api/app/cron` | Run the scheduled refresh for every domain with scraping enabled |
+| POST | `/api/app/email?type=digest` | Send the email digest for one domain (`domain=`) or all |
+| GET | `/api/google/searchconsole?domain=` | Search Console data of a domain |
+| POST | `/api/google/searchconsole` | Refresh Search Console data for all domains |
+| GET | `/api/google/insight?domain=` | Search Console insight: top pages, keywords, countries and stats |
+| GET | `/api/google/ideas` | Saved keyword ideas and favourites (`domain=` optional) |
+| POST | `/api/google/ideas` | Fetch new ideas from Google Ads: body `seedType` (`auto`, `custom`, `tracking` or `searchconsole`), `domain`, `keywords`, `country`, `language` |

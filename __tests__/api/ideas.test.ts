@@ -3,7 +3,7 @@ export {};
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { readFile, writeFile } from 'fs/promises';
 import db from '../../database/database';
-import handler from '../../pages/api/ideas';
+import handler from '../../pages/api/google/ideas';
 import verifyUser from '../../utils/verifyUser';
 import { getAdwordsCredentials, getAdwordsKeywordIdeas } from '../../utils/adwords';
 import type { KeywordIdeasDatabase } from '../../utils/adwords';
@@ -60,7 +60,7 @@ const post = async (body: Record<string, unknown>) => {
   return res;
 };
 
-describe('POST /api/ideas input validation', () => {
+describe('POST /api/google/ideas input validation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (verifyUser as jest.Mock).mockReturnValue('authorized');
@@ -122,7 +122,7 @@ describe('POST /api/ideas input validation', () => {
   });
 });
 
-describe('PUT /api/ideas favorites persistence', () => {
+describe('PUT /api/google/ideas favorites persistence', () => {
    beforeEach(() => {
       jest.clearAllMocks();
       (db.sync as jest.Mock).mockResolvedValue(undefined);

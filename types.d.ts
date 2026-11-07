@@ -117,6 +117,8 @@ type DomainSettings = {
 type SettingsType = {
    scraper_type: string,
    timezone?: string,
+   /** Read-only, added by GET /api/app/settings. Never stored and never accepted on save. */
+   branding?: { defaultPlatformName: string, whiteLabelEnabled: boolean, platformName: string, hasCustomLogo: boolean, logoApiPath: string },
    scraping_api?: string,
    notification_interval: string,
    notification_email_from: string,

@@ -57,9 +57,9 @@ RUN mkdir -p /app/data && \
 USER nextjs
 EXPOSE 3000
 
-# Alpine ships busybox wget. /api/branding/config is an unauthenticated GET route that returns 200 when the app is up.
+# Alpine ships busybox wget. /api/app/settings is an unauthenticated GET route that returns 200 when the app is up.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD wget -q -O /dev/null "http://127.0.0.1:${PORT:-3000}/api/branding/config" || exit 1
+    CMD wget -q -O /dev/null "http://127.0.0.1:${PORT:-3000}/api/app/settings" || exit 1
 
 ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["node", "server.js"]

@@ -32,7 +32,7 @@ export function TopBar({ branding }: { branding: BrandingConfig }) {
 
    const logout = async () => {
       try {
-         await apiPost('/api/logout', {});
+         await apiPost('/api/auth/logout', {});
          // Drop all cached server state so nothing from the previous session survives.
          queryClient.clear();
          router.push('/login');

@@ -97,7 +97,7 @@ export function InsightView({ domain, searchConsoleConnected, availableScrapers,
 
    const { data, isLoading, isError } = useQuery({
       queryKey: ['sc-insight', domain.domain],
-      queryFn: async () => (await apiGet<{ data: InsightDataType }>(`/api/insight?domain=${encodeURIComponent(domain.domain)}`)).data,
+      queryFn: async () => (await apiGet<{ data: InsightDataType }>(`/api/google/insight?domain=${encodeURIComponent(domain.domain)}`)).data,
       enabled: searchConsoleConnected,
       retry: false,
    });

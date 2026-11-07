@@ -1,26 +1,26 @@
-/// <reference path="../../types.d.ts" />
+/// <reference path="../../../types.d.ts" />
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Op } from 'sequelize';
 import crypto from 'crypto';
-import Keyword from '../../database/models/keyword';
-import Domain from '../../database/models/domain';
-import { getAppSettings } from '../../utils/appSettings';
-import { loadDomainKeywords } from '../../utils/keywordsList';
-import verifyUser from '../../utils/verifyUser';
-import parseKeywords from '../../utils/parseKeywords';
-import refreshAndUpdateKeywords from '../../utils/refresh';
-import { getKeywordsVolume, updateKeywordsVolumeData } from '../../utils/adwords';
-import { buildStoredLocation, getLocationCountry, hasValidCityStatePair, isCountryOnlyLocation, parseCityState } from '../../utils/location';
-import { planLocationUpdate } from '../../utils/keywordMeta';
-import { isValidHostname } from '../../utils/validators/hostname';
-import { logger } from '../../utils/logger';
-import { withApiLogging } from '../../utils/apiLogging';
-import { toDbBool } from '../../utils/dbBooleans';
-import { refreshQueue } from '../../utils/refreshQueue';
-import { errorResponse } from '../../utils/api/response';
-import { retryQueueManager } from '../../utils/retryQueueManager';
-import { updateDomainStats } from '../../utils/updateDomainStats';
+import Keyword from '../../../database/models/keyword';
+import Domain from '../../../database/models/domain';
+import { getAppSettings } from '../../../utils/appSettings';
+import { loadDomainKeywords } from '../../../utils/keywordsList';
+import verifyUser from '../../../utils/verifyUser';
+import parseKeywords from '../../../utils/parseKeywords';
+import refreshAndUpdateKeywords from '../../../utils/refresh';
+import { getKeywordsVolume, updateKeywordsVolumeData } from '../../../utils/adwords';
+import { buildStoredLocation, getLocationCountry, hasValidCityStatePair, isCountryOnlyLocation, parseCityState } from '../../../utils/location';
+import { planLocationUpdate } from '../../../utils/keywordMeta';
+import { isValidHostname } from '../../../utils/validators/hostname';
+import { logger } from '../../../utils/logger';
+import { withApiLogging } from '../../../utils/apiLogging';
+import { toDbBool } from '../../../utils/dbBooleans';
+import { refreshQueue } from '../../../utils/refreshQueue';
+import { errorResponse } from '../../../utils/api/response';
+import { retryQueueManager } from '../../../utils/retryQueueManager';
+import { updateDomainStats } from '../../../utils/updateDomainStats';
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
    const requestId = (req as ExtendedRequest).requestId;

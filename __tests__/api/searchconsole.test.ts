@@ -4,8 +4,8 @@
  */
 
 import { NextApiRequest, NextApiResponse } from 'next';
-import handler from '../../pages/api/searchconsole';
-import insightHandler from '../../pages/api/insight';
+import handler from '../../pages/api/google/searchconsole';
+import insightHandler from '../../pages/api/google/insight';
 import { fetchDomainSCData, getSearchConsoleApiInfo, readLocalSCData } from '../../utils/searchConsole';
 import Domain from '../../database/models/domain';
 import verifyUser from '../../utils/verifyUser';
@@ -47,7 +47,7 @@ type MockedResponse = Partial<NextApiResponse> & {
   json: jest.Mock;
 };
 
-describe('/api/searchconsole - CRON functionality', () => {
+describe('/api/google/searchconsole - CRON functionality', () => {
   let req: Partial<NextApiRequest>;
   let res: MockedResponse;
 
@@ -230,7 +230,7 @@ describe('/api/searchconsole - CRON functionality', () => {
   });
 });
 
-describe('/api/searchconsole - CRON failure reporting', () => {
+describe('/api/google/searchconsole - CRON failure reporting', () => {
   it('answers 502 when every domain fails to update', async () => {
     mockDomainFindAll.mockResolvedValue([
       { get: () => ({ domain: 'a.com', search_console: JSON.stringify({ client_email: 'a@x.com', private_key: 'k' }) }) },
@@ -247,7 +247,7 @@ describe('/api/searchconsole - CRON failure reporting', () => {
   });
 });
 
-describe('GET /api/searchconsole', () => {
+describe('GET /api/google/searchconsole', () => {
   let req: Partial<NextApiRequest>;
   let res: Partial<NextApiResponse>;
 
@@ -291,7 +291,7 @@ describe('GET /api/searchconsole', () => {
   });
 });
 
-describe('GET /api/insight', () => {
+describe('GET /api/google/insight', () => {
   let req: Partial<NextApiRequest>;
   let res: Partial<NextApiResponse>;
 

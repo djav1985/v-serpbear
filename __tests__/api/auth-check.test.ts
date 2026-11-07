@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import handler from '../../pages/api/auth-check';
+import handler from '../../pages/api/auth/check';
 import verifyUser, { verifySessionToken } from '../../utils/verifyUser';
 
 jest.mock('../../utils/logger', () => ({
@@ -36,7 +36,7 @@ const createRes = () => ({
   json: jest.fn(),
 } as unknown as NextApiResponse);
 
-describe('GET /api/auth-check', () => {
+describe('GET /api/auth/check', () => {
   const originalSecret = process.env.SECRET;
 
   beforeEach(() => {

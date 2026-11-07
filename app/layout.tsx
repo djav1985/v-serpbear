@@ -14,8 +14,7 @@ export function generateMetadata(): Metadata {
 
    return {
       title: { default: platformName, template: `%s - ${platformName}` },
-      manifest: '/manifest.json',
-      icons: { icon: [icon], apple: '/icon.png' },
+      icons: { icon: [icon], apple: hasCustomLogo ? { url: logoApiPath, type: LOGO_MIME_TYPE } : '/icon.png' },
    };
 }
 
