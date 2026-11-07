@@ -4,7 +4,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import crypto from 'crypto';
 import Keyword from '../../database/models/keyword';
 import Domain from '../../database/models/domain';
-import { getAppSettings } from './settings';
+import { getAppSettings } from '../../utils/appSettings';
 import verifyUser from '../../utils/verifyUser';
 
 import refreshAndUpdateKeywords, { clearKeywordUpdatingFlags, DOMAIN_REFRESH_ATTRIBUTES, markKeywordsAsUpdating, partitionKeywordsByDomainStatus } from '../../utils/refresh';

@@ -1,5 +1,5 @@
 import Keyword from '../database/models/keyword';
-import { getAppSettings } from '../pages/api/settings';
+import { getAppSettings } from './appSettings';
 import { historyKeyToTime } from './historyDateKey';
 import { logger } from './logger';
 import parseKeywords from './parseKeywords';

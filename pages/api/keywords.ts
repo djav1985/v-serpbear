@@ -5,7 +5,7 @@ import { Op } from 'sequelize';
 import crypto from 'crypto';
 import Keyword from '../../database/models/keyword';
 import Domain from '../../database/models/domain';
-import { getAppSettings } from './settings';
+import { getAppSettings } from '../../utils/appSettings';
 import { loadDomainKeywords } from '../../utils/keywordsList';
 import verifyUser from '../../utils/verifyUser';
 import parseKeywords from '../../utils/parseKeywords';

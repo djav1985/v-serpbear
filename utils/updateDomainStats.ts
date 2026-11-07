@@ -1,7 +1,7 @@
 import Keyword from '../database/models/keyword';
 import Domain from '../database/models/domain';
 import { logger } from './logger';
-import { getAppSettings } from '../pages/api/settings';
+import { getAppSettings } from './appSettings';
 import { AveragePositionKeyword, getUnrankedPenalty, roundAveragePosition, summarizeAveragePosition } from './averagePosition';
 
 /**

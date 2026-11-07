@@ -2,6 +2,7 @@ import { writeFile, readFile, rename, unlink } from 'fs/promises';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import handler from '../../pages/api/settings';
 import * as settingsApi from '../../pages/api/settings';
+import { getAppSettings } from '../../utils/appSettings';
 import clearFailedHandler from '../../pages/api/clearfailed';
 import { getBranding } from '../../utils/branding';
 import { createMockResponse } from '../__helpers__';
@@ -274,7 +275,7 @@ describe('GET /api/settings and configuration requirements', () => {
   it('returns settings successfully', async () => {
     readFileMock.mockResolvedValueOnce(JSON.stringify({})).mockResolvedValueOnce(JSON.stringify([]));
 
-    const settings = await settingsApi.getAppSettings();
+    const settings = await getAppSettings();
 
     expect(settings).toMatchObject({
       scraper_type: 'none',
@@ -310,7 +311,7 @@ describe('GET /api/settings and configuration requirements', () => {
       notification_interval: 'weekly',
     }));
 
-    const settings = await settingsApi.getAppSettings();
+    const settings = await getAppSettings();
 
     expect(settings.scraper_type).toBe('none');
     expect(settings.notification_interval).toBe('weekly');
@@ -323,7 +324,7 @@ describe('GET /api/settings and configuration requirements', () => {
     writeFileMock.mockResolvedValue(undefined);
     renameMock.mockResolvedValue(undefined);
 
-    const missing = await settingsApi.getAppSettings();
+    const missing = await getAppSettings();
     expect(missing).toEqual(expect.objectContaining({
       scraper_type: 'none',
       available_scapers: expect.any(Array),
@@ -332,7 +333,7 @@ describe('GET /api/settings and configuration requirements', () => {
     for (const contents of ['', ' \n\t ']) {
       readFileMock.mockResolvedValueOnce(contents);
 
-      const settings = await settingsApi.getAppSettings();
+      const settings = await getAppSettings();
 
       expect(settings.scraper_type).toBe('none');
       expect(settings.keywordsColumns).toEqual(['Best', 'History', 'Volume', 'Search Console']);
@@ -348,7 +349,7 @@ describe('GET /api/settings and configuration requirements', () => {
       .mockResolvedValueOnce(JSON.stringify([]));
     writeFileMock.mockResolvedValue(undefined);
 
-    const settings = await settingsApi.getAppSettings();
+    const settings = await getAppSettings();
 
     expect(settings.scraper_type).toBe('none');
     expect(writeFileMock).not.toHaveBeenCalled();
@@ -363,7 +364,7 @@ describe('GET /api/settings and configuration requirements', () => {
     const { retryQueueManager } = require('../../utils/retryQueueManager');
     retryQueueManager.peekQueue.mockResolvedValueOnce(mockQueue);
 
-    const settings = await settingsApi.getAppSettings();
+    const settings = await getAppSettings();
 
     expect(settings.scraper_type).toBe('serpapi');
     expect(settings.failed_queue).toEqual(mockQueue);
@@ -393,7 +394,7 @@ describe('GET /api/settings and configuration requirements', () => {
       decrypt: () => { throw new Error('invalid ciphertext'); },
     }));
 
-    const settings = await settingsApi.getAppSettings();
+    const settings = await getAppSettings();
 
     expect(settings.scraping_api).toBe('');
     expect(settings.smtp_password).toBe('');
@@ -474,7 +475,7 @@ describe('PUT /api/settings keeps secrets that are left out of the payload', () 
     jest.isolateModules(() => {
       const settingsModule = require('../../pages/api/settings');
       handler = settingsModule.default;
-      getAppSettings = settingsModule.getAppSettings;
+      getAppSettings = require('../../utils/appSettings').getAppSettings;
       verifyUserInstance = require('../../utils/verifyUser').default;
       writeMock = require('../../utils/atomicWrite').atomicWriteFile;
     });

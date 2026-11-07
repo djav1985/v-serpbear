@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { getAppSettings } from 'pages/api/settings';
+import { getAppSettings } from 'utils/appSettings';
 import { scraperAllowsCity } from 'utils/keywordMeta';
 import { requireSession } from 'utils/serverSession';
 import { ResearchView } from './_components/research-view';

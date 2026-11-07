@@ -4,7 +4,7 @@ import handler from '../../pages/api/ideas/email';
 import db from '../../database/database';
 import Domain from '../../database/models/domain';
 import verifyUser from '../../utils/verifyUser';
-import { getAppSettings } from '../../pages/api/settings';
+import { getAppSettings } from '../../utils/appSettings';
 import generateKeywordIdeasEmail from '../../utils/generateKeywordIdeasEmail';
 import { getBranding } from '../../utils/branding';
 
@@ -31,7 +31,7 @@ jest.mock('../../database/models/domain', () => ({
 
 jest.mock('../../utils/verifyUser');
 
-jest.mock('../../pages/api/settings', () => ({
+jest.mock('../../utils/appSettings', () => ({
    __esModule: true,
    getAppSettings: jest.fn(),
 }));

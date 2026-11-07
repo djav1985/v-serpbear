@@ -5,7 +5,7 @@ import handler from '../../pages/api/keywords';
 import Keyword from '../../database/models/keyword';
 import Domain from '../../database/models/domain';
 import verifyUser from '../../utils/verifyUser';
-import { getAppSettings } from '../../pages/api/settings';
+import { getAppSettings } from '../../utils/appSettings';
 import { getKeywordsVolume } from '../../utils/adwords';
 import { refreshQueue } from '../../utils/refreshQueue';
 import { updateDomainStats } from '../../utils/updateDomainStats';
@@ -28,7 +28,7 @@ jest.mock('../../database/models/domain', () => ({
 
 jest.mock('../../utils/verifyUser', () => ({ __esModule: true, default: jest.fn() }));
 jest.mock('../../utils/refresh', () => ({ __esModule: true, default: jest.fn().mockResolvedValue([]) }));
-jest.mock('../../pages/api/settings', () => ({ __esModule: true, getAppSettings: jest.fn() }));
+jest.mock('../../utils/appSettings', () => ({ __esModule: true, getAppSettings: jest.fn() }));
 jest.mock('../../utils/adwords', () => ({
   __esModule: true,
   getKeywordsVolume: jest.fn(),

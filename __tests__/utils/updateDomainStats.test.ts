@@ -1,14 +1,14 @@
 import { updateDomainStats } from '../../utils/updateDomainStats';
 import Keyword from '../../database/models/keyword';
 import Domain from '../../database/models/domain';
-import { getAppSettings } from '../../pages/api/settings';
+import { getAppSettings } from '../../utils/appSettings';
 
 // Mock the database models
 jest.mock('../../database/models/keyword');
 jest.mock('../../database/models/domain');
 
 // Mock the app settings getter (global scrape settings, with defaults applied, as generateEmail gets them)
-jest.mock('../../pages/api/settings', () => ({
+jest.mock('../../utils/appSettings', () => ({
   __esModule: true,
   getAppSettings: jest.fn(),
 }));

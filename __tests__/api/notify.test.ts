@@ -7,7 +7,7 @@ import Keyword from '../../database/models/keyword';
 import verifyUser from '../../utils/verifyUser';
 import parseKeywords from '../../utils/parseKeywords';
 import generateEmail from '../../utils/generateEmail';
-import { getAppSettings } from '../../pages/api/settings';
+import { getAppSettings } from '../../utils/appSettings';
 import { getBranding } from '../../utils/branding';
 import { reserveEmailSend } from '../../utils/emailThrottle';
 
@@ -40,7 +40,7 @@ jest.mock('nodemailer', () => ({
   default: { createTransport: jest.fn() },
 }));
 
-jest.mock('../../pages/api/settings', () => ({
+jest.mock('../../utils/appSettings', () => ({
   __esModule: true,
   getAppSettings: jest.fn(),
 }));

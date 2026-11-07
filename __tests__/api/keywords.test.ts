@@ -4,7 +4,7 @@ import handler from '../../pages/api/keywords';
 import db from '../../database/database';
 import Keyword from '../../database/models/keyword';
 import verifyUser from '../../utils/verifyUser';
-import { getAppSettings } from '../../pages/api/settings';
+import { getAppSettings } from '../../utils/appSettings';
 import { getKeywordsVolume, updateKeywordsVolumeData } from '../../utils/adwords';
 import { refreshQueue } from '../../utils/refreshQueue';
 import { updateDomainStats } from '../../utils/updateDomainStats';
@@ -47,7 +47,7 @@ jest.mock('../../utils/refresh', () => ({
   default: jest.fn(),
 }));
 
-jest.mock('../../pages/api/settings', () => ({
+jest.mock('../../utils/appSettings', () => ({
   __esModule: true,
   getAppSettings: jest.fn(),
 }));

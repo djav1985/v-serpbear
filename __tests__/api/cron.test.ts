@@ -5,7 +5,7 @@ import Domain from '../../database/models/domain';
 import Keyword from '../../database/models/keyword';
 import verifyUser from '../../utils/verifyUser';
 import refreshAndUpdateKeywords from '../../utils/refresh';
-import { getAppSettings } from '../../pages/api/settings';
+import { getAppSettings } from '../../utils/appSettings';
 import { refreshQueue } from '../../utils/refreshQueue';
 
 jest.mock('../../database/database', () => ({
@@ -25,7 +25,7 @@ jest.mock('../../database/models/keyword', () => ({
 
 jest.mock('../../utils/verifyUser');
 
-jest.mock('../../pages/api/settings', () => ({
+jest.mock('../../utils/appSettings', () => ({
   __esModule: true,
   getAppSettings: jest.fn(),
 }));

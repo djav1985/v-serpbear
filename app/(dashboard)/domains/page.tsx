@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { getAppSettings } from 'pages/api/settings';
+import { getAppSettings } from 'utils/appSettings';
 import { loadDomains } from 'utils/domainsList';
 import { logger } from 'utils/logger';
 import { requireSession } from 'utils/serverSession';

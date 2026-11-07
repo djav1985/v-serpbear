@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { getAppSettings } from 'pages/api/settings';
+import { getAppSettings } from 'utils/appSettings';
 import { loadDomains } from 'utils/domainsList';
 import { loadDomainKeywords } from 'utils/keywordsList';
 import { scraperAllowsCity } from 'utils/keywordMeta';
