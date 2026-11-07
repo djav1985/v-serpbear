@@ -29,11 +29,13 @@ type ShellProviderProps = {
    domainsFailed: boolean;
    /** The app's time zone (TZ on the server). Browsers cannot read it, so the server hands it down. */
    timezone: string;
+   /** The product name, used as the default sender name for notification emails. */
+   platformName: string;
    children: ReactNode;
 };
 
 /** Owns the global dialogs (Add Domain, Settings) so the sidebar, header and pages can all open them. */
-export function ShellProvider({ domains, domainsFailed, timezone, children }: ShellProviderProps) {
+export function ShellProvider({ domains, domainsFailed, timezone, platformName, children }: ShellProviderProps) {
    // Set during render so every date helper below already sees it on the first paint.
    setAppTimezone(timezone);
 
@@ -51,7 +53,7 @@ export function ShellProvider({ domains, domainsFailed, timezone, children }: Sh
       <ShellContext.Provider value={value}>
          {children}
          <AddDomainDialog open={addDomainOpen} onOpenChange={setAddDomainOpen} existingDomains={domains} />
-         <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+         <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} platformName={platformName} />
       </ShellContext.Provider>
    );
 }

@@ -186,7 +186,7 @@ export function DiscoverView({ domain, searchConsoleConnected, allowsCity, avail
             onExport={() => exportCSV(grouped, domain.domain, period)}
          >
             <Select value={period} onValueChange={setPeriod}>
-               <SelectTrigger size="sm" className="w-28" aria-label="Search Console period" data-testid="sc_period"><CalendarDays className="size-4" /><SelectValue /></SelectTrigger>
+               <SelectTrigger size="sm" className="w-32" aria-label="Search Console period" data-testid="sc_period"><CalendarDays className="size-4" /><SelectValue /></SelectTrigger>
                <SelectContent>{SC_PERIODS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
             </Select>
          </DomainHeader>

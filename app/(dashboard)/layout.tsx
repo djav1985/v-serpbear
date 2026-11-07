@@ -28,7 +28,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
    const branding = getBranding();
 
    return (
-      <ShellProvider domains={domains} domainsFailed={failed} timezone={APP_TIMEZONE}>
+      <ShellProvider domains={domains} domainsFailed={failed} timezone={APP_TIMEZONE} platformName={branding.platformName}>
          <div className="flex min-h-screen flex-col">
             <TopBar branding={branding} />
             <main className="mx-auto w-full max-w-screen-2xl min-w-0 flex-1 p-4 md:p-6">{children}</main>
