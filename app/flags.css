@@ -20,6 +20,8 @@
    background-color: #fff;
    background-image: none;
    border: 1px solid #22c55e;
+   /* The flag sprite is content-box; the badge counts its border inside, so both are exactly the same size. */
+   box-sizing: border-box;
 }
 
 .fflag-map-pack::after {
@@ -29,9 +31,9 @@
    display: flex;
    align-items: center;
    justify-content: center;
-   font-size: 8px;
+   font-size: 7px;
    font-weight: 700;
-   letter-spacing: 0.4px;
+   letter-spacing: 0.2px;
    color: #22c55e;
 }
 

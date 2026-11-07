@@ -10,6 +10,7 @@ import { Skeleton } from 'components/ui/skeleton';
 import { apiGet, apiPut } from 'utils/client/apiClient';
 import { useShell } from '../../_components/shell-context';
 import { DomainCard } from './domain-card';
+import { DomainsSidebar } from './domains-sidebar';
 import { toDomainCardData, type DomainCardData } from './domain-card-data';
 import { fetchDomainScreenshot } from './screenshots';
 
@@ -122,7 +123,9 @@ export function DomainsView({
    const totalKeywords = (domains ?? []).reduce((sum, d) => sum + d.keywordsTracked, 0);
 
    return (
-      <div className="flex flex-col gap-4" data-testid="domains">
+      <div className="grid gap-6 lg:grid-cols-[14rem_minmax(0,1fr)]">
+         <DomainsSidebar />
+      <div className="flex min-w-0 flex-col gap-4" data-testid="domains">
          {!scraperConfigured && (
             <div role="alert" className="bg-destructive text-destructive-foreground flex flex-wrap items-center justify-center gap-2 rounded-md p-3 text-sm">
                A scraper has not been set up yet. Open Settings to configure it and start using the app.
@@ -178,6 +181,7 @@ export function DomainsView({
                ))}
             </div>
          )}
+      </div>
       </div>
    );
 }
