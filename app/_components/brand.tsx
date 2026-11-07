@@ -1,7 +1,7 @@
 import Image from 'next/image';
-import Icon from 'components/common/Icon';
 import { buildLogoUrl, type BrandingConfig } from 'utils/branding';
 import { cn } from 'lib/utils';
+import { Logo } from './logo';
 
 type BrandProps = {
    branding: BrandingConfig;
@@ -26,7 +26,7 @@ export function Brand({ branding, className, markSize = 24 }: BrandProps) {
                className="inline-block align-middle"
             />
          ) : (
-            <Icon type="logo" size={markSize} color="currentColor" classes="text-primary" />
+            <Logo size={markSize} className="text-primary" />
          )}
          <span>{platformName}</span>
       </span>
