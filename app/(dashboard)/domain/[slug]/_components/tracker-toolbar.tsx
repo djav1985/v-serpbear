@@ -51,7 +51,7 @@ export function TrackerToolbar({
    const sortChoices = SORT_CHOICES.filter((choice) => !choice.searchConsoleOnly || searchConsoleConnected);
 
    return (
-      <div className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-wrap items-center gap-2 p-4 lg:flex-row lg:justify-between lg:gap-3">
          <div className="flex items-center gap-1" role="tablist" aria-label="Device">
             {DEVICE_TABS.map(({ value, label, icon: Icon }) => (
                <button
@@ -73,11 +73,12 @@ export function TrackerToolbar({
             ))}
          </div>
 
-         <div className="grid grid-cols-2 gap-2 lg:flex lg:flex-wrap lg:items-center">
+         <div className="max-lg:contents lg:flex lg:flex-wrap lg:items-center lg:gap-2">
             <MultiSelect
                label="Countries"
                allLabel="All Countries"
                testId="country_filter"
+               className="max-lg:order-2 max-lg:min-w-0 max-lg:flex-1 max-lg:basis-[calc(50%-0.25rem)]"
                options={countryOptions}
                selected={countries}
                onChange={onCountriesChange}
@@ -87,13 +88,14 @@ export function TrackerToolbar({
                label="Tags"
                allLabel="All Tags"
                testId="tags_filter"
+               className="max-lg:order-2 max-lg:min-w-0 max-lg:flex-1 max-lg:basis-[calc(50%-0.25rem)]"
                options={[{ label: 'No Tags', value: NO_TAGS_FILTER }, ...tagOptions.map((tag) => ({ label: tag, value: tag }))]}
                selected={tags}
                // "No Tags" cannot be combined with specific tags (see resolveTagSelection).
                onChange={(next) => onTagsChange(resolveTagSelection(tags, next))}
                emptyMessage="No tags found for this domain"
             />
-            <div className="relative col-span-2 max-lg:order-first">
+            <div className="relative max-lg:order-1 max-lg:min-w-28 max-lg:flex-1 max-lg:basis-28">
                <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
                <Input
                   data-testid="filter_input"
@@ -103,7 +105,7 @@ export function TrackerToolbar({
                   onChange={(event) => onSearchChange(event.target.value)}
                />
             </div>
-            <div className="col-span-2 flex gap-2 lg:contents">
+            <div className="flex w-full gap-2 max-lg:order-3 lg:contents">
             <Select value={sortChoice || undefined} onValueChange={onSortChange}>
                <SelectTrigger size="sm" className="w-full lg:w-48" data-testid="sort_button" aria-label="Sort keywords">
                   <SelectValue placeholder="Sorted by column" />
@@ -148,7 +150,7 @@ export function TrackerToolbar({
             </div>
             {showScPeriod && (
                <Select value={scPeriod} onValueChange={onScPeriodChange}>
-                  <SelectTrigger size="sm" className="col-span-2 w-full lg:w-52" data-testid="sc_period" aria-label="Search Console period"><SelectValue /></SelectTrigger>
+                  <SelectTrigger size="sm" className="w-full max-lg:order-4 lg:w-52" data-testid="sc_period" aria-label="Search Console period"><SelectValue /></SelectTrigger>
                   <SelectContent align="end">
                      {SC_PERIODS.map((period) => <SelectItem key={period.value} value={period.value}>{`Search Console: ${period.label}`}</SelectItem>)}
                   </SelectContent>

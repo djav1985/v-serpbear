@@ -211,7 +211,7 @@ export function IdeasTable({
                )}
             </AddToTrackerBar>
          ) : (
-            <div className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-wrap items-center gap-2 p-4 lg:flex-row lg:justify-between lg:gap-3">
                <div className="flex items-center gap-1" role="tablist" aria-label="Keyword ideas">
                   {([['all', 'All Keywords', Tags, ideas.length], ['favorites', 'Favorites', Star, favorites.length]] as const).map(([value, label, Icon, count]) => {
                      const active = (value === 'favorites') === showFavorites;
@@ -231,24 +231,25 @@ export function IdeasTable({
                      );
                   })}
                </div>
-               <div className="grid grid-cols-2 gap-2 lg:flex lg:flex-wrap lg:items-center">
+               <div className="max-lg:contents lg:flex lg:flex-wrap lg:items-center lg:gap-2">
                   {!showFavorites && (
                      <MultiSelect
                         label="Groups"
                         allLabel={`All Groups (${groups.length})`}
                         testId="tags_filter"
+                        className="max-lg:order-2 max-lg:min-w-0 max-lg:flex-1 max-lg:basis-[calc(50%-0.25rem)]"
                         options={groups.map((group) => ({ label: group, value: group }))}
                         selected={filters.groups}
                         onChange={(next) => setFilters({ ...filters, groups: next })}
                         emptyMessage="No groups found"
                      />
                   )}
-                  <div className="relative col-span-2 max-lg:order-first">
+                  <div className="relative max-lg:order-1 max-lg:min-w-28 max-lg:flex-1 max-lg:basis-28">
                      <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
                      <Input data-testid="filter_input" className="h-8 w-full pl-8 lg:w-44" placeholder="Filter keywords..." value={filters.search} onChange={(event) => setFilters({ ...filters, search: event.target.value })} />
                   </div>
                   <Select value={ideaChoiceFor(userSort) || undefined} onValueChange={(value) => setUserSort(ideaSortingFor(value))}>
-                     <SelectTrigger size="sm" className="w-full lg:w-48" data-testid="sort_button" aria-label="Sort keyword ideas"><SelectValue placeholder="Sorted by column" /></SelectTrigger>
+                     <SelectTrigger size="sm" className="w-full max-lg:order-2 max-lg:min-w-0 max-lg:flex-1 max-lg:basis-[calc(50%-0.25rem)] lg:w-48" data-testid="sort_button" aria-label="Sort keyword ideas"><SelectValue placeholder="Sorted by column" /></SelectTrigger>
                      <SelectContent align="end">{IDEA_SORT_CHOICES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
                   </Select>
                </div>

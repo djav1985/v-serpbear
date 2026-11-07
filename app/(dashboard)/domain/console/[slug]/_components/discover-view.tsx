@@ -202,7 +202,7 @@ export function DiscoverView({ domain, searchConsoleConnected, allowsCity, avail
                   onClear={() => setRowSelection({})}
                />
             ) : (
-               <div className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
+               <div className="flex flex-wrap items-center gap-2 p-4 lg:flex-row lg:justify-between lg:gap-3">
                   <div className="flex items-center gap-1" role="tablist" aria-label="Device">
                      {(['desktop', 'mobile'] as const).map((value) => (
                         <button
@@ -219,22 +219,23 @@ export function DiscoverView({ domain, searchConsoleConnected, allowsCity, avail
                         </button>
                      ))}
                   </div>
-                  <div className="grid grid-cols-2 gap-2 lg:flex lg:flex-wrap lg:items-center">
+                  <div className="max-lg:contents lg:flex lg:flex-wrap lg:items-center lg:gap-2">
                      <MultiSelect
                         label="Countries"
                         allLabel="All Countries"
                         testId="countries_filter"
+                        className="max-lg:order-2 max-lg:min-w-0 max-lg:flex-1 max-lg:basis-[calc(50%-0.25rem)]"
                         options={countryOptions}
                         selected={pickedCountries}
                         onChange={setPickedCountries}
                         emptyMessage="No countries found"
                      />
-                     <div className="relative col-span-2 max-lg:order-first">
+                     <div className="relative max-lg:order-1 max-lg:min-w-28 max-lg:flex-1 max-lg:basis-28">
                         <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
                         <Input data-testid="filter_input" className="h-8 w-full pl-8 lg:w-44" placeholder="Filter keywords..." value={search} onChange={(event) => setSearch(event.target.value)} />
                      </div>
                      <Select value={sortBy} onValueChange={setSortBy}>
-                        <SelectTrigger size="sm" className="w-full lg:w-48" data-testid="sort_button" aria-label="Sort keywords"><SelectValue /></SelectTrigger>
+                        <SelectTrigger size="sm" className="w-full max-lg:order-2 max-lg:min-w-0 max-lg:flex-1 max-lg:basis-[calc(50%-0.25rem)] lg:w-48" data-testid="sort_button" aria-label="Sort keywords"><SelectValue /></SelectTrigger>
                         <SelectContent align="end">{SC_SORT_CHOICES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
                      </Select>
                   </div>

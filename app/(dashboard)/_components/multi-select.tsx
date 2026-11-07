@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from 'components/ui/button';
+import { cn } from 'lib/utils';
 import {
    DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from 'components/ui/dropdown-menu';
@@ -15,14 +16,15 @@ type MultiSelectProps = {
    onChange: (next: string[]) => void;
    emptyMessage: string;
    testId: string;
+   className?: string;
 };
 
-export function MultiSelect({ label, allLabel, options, selected, onChange, emptyMessage, testId }: MultiSelectProps) {
+export function MultiSelect({ label, allLabel, options, selected, onChange, emptyMessage, testId, className }: MultiSelectProps) {
    const summary = selected.length === 0 ? allLabel : selected.length === 1 ? (options.find((o) => o.value === selected[0])?.label ?? selected[0]) : `${selected.length} selected`;
    return (
       <DropdownMenu>
          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" data-testid={testId} aria-label={label} className="w-full justify-start lg:w-auto lg:max-w-44">
+            <Button variant="outline" size="sm" data-testid={testId} aria-label={label} className={cn('justify-start lg:max-w-44', className)}>
                <span className="truncate">{summary}</span>
             </Button>
          </DropdownMenuTrigger>
