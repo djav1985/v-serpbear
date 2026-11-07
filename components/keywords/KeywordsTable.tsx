@@ -193,7 +193,7 @@ const KeywordsTable = (props: KeywordsTableProps) => {
    const selectedAllItems = visibleKeywordIds.length > 0
       && visibleKeywordIds.every((id: number) => selectedKeywords.includes(id));
 
-   let keywordsContent: JSX.Element | null = null;
+   let keywordsContent: React.JSX.Element | null = null;
    if (processedKeywords[device] && processedKeywords[device].length > 0) {
       if (isMobile) {
          keywordsContent = (

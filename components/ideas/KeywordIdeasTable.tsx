@@ -251,7 +251,7 @@ const IdeasKeywordsTable = ({
       showKeywordDetails: (keyword) => setShowKeyDetails(keyword),
    };
 
-   let keywordsContent: JSX.Element | null = null;
+   let keywordsContent: React.JSX.Element | null = null;
    if (!isLoading && finalKeywords && finalKeywords.length > 0) {
       // Layout is driven only by isMobile (<768px), matching the breakpoint of the header below (md:).
       if (isMobile) {

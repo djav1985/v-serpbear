@@ -1,8 +1,12 @@
-@import url("./fflag.css");
+@import "./fflag.css";
+@import "tailwindcss";
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Legacy Pages Router stylesheet. Remove once the last Pages UI route is gone. */
+@theme {
+   --container-desktop: 90vw;
+}
+
+@source inline("w-[150px] w-[340px]");
 
 @layer components {
    .desktop-container {

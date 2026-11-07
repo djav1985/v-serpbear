@@ -15,7 +15,7 @@ type IconRendererProps = {
    xmlnsProps: React.SVGProps<SVGSVGElement>;
 };
 
-type IconRenderer = (props: IconRendererProps) => JSX.Element;
+type IconRenderer = (props: IconRendererProps) => React.JSX.Element;
 
 const ICON_RENDERERS: Record<string, IconRenderer> = {
    'logo': ({ color, size, title, xmlnsProps }) => (

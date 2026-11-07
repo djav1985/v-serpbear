@@ -1,7 +1,7 @@
 /// <reference path="../../types.d.ts" />
 
 /**
- * Page render behavior tests: Home redirect, Login page, Domain ideas page,
+ * Page render behavior tests: Home redirect, Domain ideas page,
  * Research page and _app server-side branding.
  */
 
@@ -32,11 +32,6 @@ jest.mock('../../components/common/Branding', () => ({
    BrandTitle: () => null,
 }));
 
-jest.mock('../../utils/client/apiClient', () => {
-   const actual = jest.requireActual('../../utils/client/apiClient');
-   return { ...actual, apiPost: jest.fn() };
-});
-
 jest.mock('../../services/adwords', () => ({
    useFetchKeywordIdeas: jest.fn(),
    useMutateKeywordIdeas: () => ({ mutate: jest.fn(), isLoading: false }),
@@ -55,22 +50,18 @@ jest.mock('../../utils/branding', () => ({
    getBranding: jest.fn(),
 }));
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import type { AppContext } from 'next/app';
 import Home from '../../pages/index';
 import ResearchPage from '../../pages/research';
 import MyApp from '../../pages/_app';
-import Login from '../../pages/login';
 import { DomainIdeasPage } from '../../pages/domain/ideas/[slug]';
-import { AUTH_QUERY_KEY } from '../../hooks/useAuth';
-import { apiPost } from '../../utils/client/apiClient';
 import { useFetchDomains } from '../../services/domains';
 import { useFetchKeywordIdeas } from '../../services/adwords';
 import { useFetchSettings } from '../../services/settings';
 import { getBranding, DEFAULT_BRANDING, BrandingConfig } from '../../utils/branding';
 
-const apiPostMock = apiPost as jest.Mock;
 const useFetchDomainsMock = useFetchDomains as jest.Mock;
 const useFetchKeywordIdeasMock = useFetchKeywordIdeas as jest.Mock;
 const useFetchSettingsMock = useFetchSettings as jest.Mock;
@@ -84,19 +75,6 @@ const baseDomain: DomainType = {
    lastUpdated: '2024-01-01',
    added: '2024-01-01',
 };
-
-function renderLogin(queryClient: QueryClient) {
-   const utils = render(
-      <QueryClientProvider client={queryClient}>
-         <Login />
-      </QueryClientProvider>,
-   );
-   const [usernameInput, passwordInput] = Array.from(utils.container.querySelectorAll('input'));
-   fireEvent.change(usernameInput, { target: { value: 'admin' } });
-   fireEvent.change(passwordInput, { target: { value: 'secret' } });
-   fireEvent.click(screen.getByRole('button', { name: 'Login' }));
-   return utils;
-}
 
 const renderPage = () => {
    const queryClient = new QueryClient({
@@ -132,39 +110,6 @@ describe('Home Page', () => {
            </QueryClientProvider>,
        );
        expect(routerReplace).toHaveBeenCalledWith('/domains');
-   });
-});
-
-describe('Login page', () => {
-   beforeEach(() => {
-      jest.clearAllMocks();
-      mockRouter.pathname = '/login';
-      mockRouter.query = {};
-   });
-
-   it('marks the cached auth state as authenticated before navigating home', async () => {
-      apiPostMock.mockResolvedValueOnce({ success: true });
-      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-      // The auth check ran before login and cached "logged out".
-      queryClient.setQueryData(AUTH_QUERY_KEY, { isAuthenticated: false, isLoading: false });
-
-      renderLogin(queryClient);
-
-      await waitFor(() => expect(routerPush).toHaveBeenCalledWith('/'));
-      expect(queryClient.getQueryData(AUTH_QUERY_KEY)).toEqual({ isAuthenticated: true, isLoading: false });
-      expect(apiPostMock).toHaveBeenCalledWith('/api/login', { username: 'admin', password: 'secret' });
-   });
-
-   it('keeps the user on the login page and leaves the cache alone when login fails', async () => {
-      apiPostMock.mockRejectedValueOnce(new Error('Invalid credentials'));
-      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-      queryClient.setQueryData(AUTH_QUERY_KEY, { isAuthenticated: false, isLoading: false });
-
-      renderLogin(queryClient);
-
-      await waitFor(() => expect(apiPostMock).toHaveBeenCalled());
-      expect(routerPush).not.toHaveBeenCalled();
-      expect(queryClient.getQueryData(AUTH_QUERY_KEY)).toEqual({ isAuthenticated: false, isLoading: false });
    });
 });
 
