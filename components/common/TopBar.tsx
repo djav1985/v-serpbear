@@ -32,7 +32,7 @@ const TopBar = ({ showSettings, showAddModal }:TopbarProps) => {
 
    return (
       <div
-         className='topbar desktop-container flex items-center justify-between bg-white lg:bg-transparent'
+         className='topbar desktop-container flex items-center justify-between md:max-lg:rounded-b-lg md:max-lg:px-2 bg-white lg:bg-transparent'
       >
 
          <div className='flex items-center gap-2 h-16'>

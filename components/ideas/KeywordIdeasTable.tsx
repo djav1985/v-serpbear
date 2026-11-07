@@ -1,3 +1,4 @@
+import useTableScrollbar from '../../hooks/useTableScrollbar';
 import { useRouter } from 'next/router';
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
@@ -83,6 +84,7 @@ const IdeasKeywordsTable = ({
    const { mutate: emailKeywordIdeas, isLoading: isEmailing } = useEmailKeywordIdeas(() => setSelectedKeywords([]));
    const { mutate: faveKeyword, isLoading: isFaving } = useMutateFavKeywordIdeas(router);
    const [isMobile] = useIsMobile();
+   const { table, listInnerRef } = useTableScrollbar();
    const isResearchPage = router.pathname === '/research';
 
    const trackedDomain = isResearchPage ? addKeywordDomain : (domain?.domain || '');
@@ -119,7 +121,7 @@ const IdeasKeywordsTable = ({
    const { data: domainsData } = useFetchDomains(router, false);
    const theDomains: DomainType[] = (domainsData && domainsData.domains) || [];
 
-   useWindowResize(() => setListHeight(window.innerHeight - (isMobile ? 200 : 400)));
+   useWindowResize(() => setListHeight(Math.max(200, window.innerHeight - (isMobile ? 200 : 400))));
 
    const finalKeywords: IdeaKeywordWithTracking[] = useMemo(() => {
       const filteredKeywords = IdeasfilterKeywords(showFavorites ? favorites : keywords, filterParams);
@@ -253,10 +255,9 @@ const IdeasKeywordsTable = ({
 
    let keywordsContent: JSX.Element | null = null;
    if (!isLoading && finalKeywords && finalKeywords.length > 0) {
-      // Layout is driven only by isMobile (<768px), matching the breakpoint of the header below (md:).
       if (isMobile) {
          keywordsContent = (
-            <div>
+            <div className="lg:hidden">
                {finalKeywords.map((keyword, index) => (
                   <KeywordIdea
                      key={keyword.uid}
@@ -275,9 +276,10 @@ const IdeasKeywordsTable = ({
          );
       } else {
          keywordsContent = (
-            <div>
+            <div className="hidden lg:block">
                <List
                innerElementType="div"
+               innerRef={listInnerRef}
                itemData={rowData}
                itemCount={finalKeywords.length}
                itemSize={57}
@@ -358,10 +360,10 @@ const IdeasKeywordsTable = ({
                />
             )}
             <div className='domkeywordsTable domkeywordsTable--sckeywords styled-scrollbar w-full overflow-auto min-h-[60vh]'>
-               <div className=' lg:min-w-[800px]'>
-                  <div className={`domKeywords_head domKeywords_head--${sortBy} hidden md:flex p-3 px-6 bg-[#FCFCFF]
+               <div ref={table} className='lg:min-w-[800px]'>
+                  <div className={`domKeywords_head domKeywords_head--${sortBy} ideas-columns hidden lg:grid p-3 px-6 bg-[#FCFCFF]
                    text-gray-600 justify-between items-center font-semibold border-y`}>
-                     <span className='domKeywords_head_keyword flex-1 basis-20 w-auto '>
+                     <span className='domKeywords_head_keyword w-auto '>
                      {finalKeywords.length > 0 && (
                         <button
                            className={`p-0 mr-2 leading-[0px] inline-block rounded-sm pt-0 px-[1px] pb-[3px]  border border-slate-300 
@@ -373,9 +375,9 @@ const IdeasKeywordsTable = ({
                      )}
                         Keyword
                      </span>
-                     <span className='domKeywords_head_vol flex-1 text-center'>Monthly Search</span>
-                     <span className='domKeywords_head_trend flex-1 text-center'>Search Trend</span>
-                     <span className='domKeywords_head_competition flex-1 text-center'>Competition</span>
+                     <span className='domKeywords_head_vol text-center'>Monthly Search</span>
+                     <span className='domKeywords_head_trend text-center'>Search Trend</span>
+                     <span className='domKeywords_head_competition text-center'>Competition</span>
                   </div>
                   <div className='domKeywords_keywords border-gray-200 min-h-[55vh] relative' data-domain={domain?.domain}>
                      {keywordsContent}

@@ -199,7 +199,7 @@ const Settings = forwardRef<HTMLDivElement, SettingsProps>(({ closeSettings }:Se
       return true;
    };
 
-   const tabStyle = `inline-block px-3 py-2 rounded-md  cursor-pointer text-xs lg:text-sm lg:mr-3 lg:px-4 select-none z-10
+   const tabStyle = `inline-block px-3 py-2 rounded-md  cursor-pointer text-xs md:text-sm lg:mr-3 lg:px-4 select-none z-10
    text-gray-600 border border-b-0 relative top-[1px] rounded-b-none`;
    const tabStyleActive = 'bg-white text-blue-600 border-slate-200';
 

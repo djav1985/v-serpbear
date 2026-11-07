@@ -1,13 +1,10 @@
 import React, { ComponentProps, ReactNode, useMemo, useRef, useState } from 'react';
 import Head from 'next/head';
 import { CSSTransition } from 'react-transition-group';
+import AppPageShell from './AppPageShell';
 import Sidebar from './Sidebar';
-import TopBar from './TopBar';
-import Footer from './Footer';
 import DomainHeader from '../domains/DomainHeader';
-import AddDomain from '../domains/AddDomain';
 import DomainSettings from '../domains/DomainSettings';
-import Settings from '../settings/Settings';
 import AddKeywords from '../keywords/AddKeywords';
 import { useBranding } from '../../hooks/useBranding';
 
@@ -39,13 +36,9 @@ const DomainPageLayout = ({
 }: DomainPageLayoutProps) => {
    const { branding } = useBranding();
    const { platformName } = branding;
-   const [showAddDomain, setShowAddDomain] = useState(false);
    const [showDomainSettings, setShowDomainSettings] = useState(false);
-   const [showSettings, setShowSettings] = useState(false);
    const [showAddKeywords, setShowAddKeywords] = useState(false);
-   const addDomainNodeRef = useRef<HTMLDivElement>(null);
    const domainSettingsNodeRef = useRef<HTMLDivElement>(null);
-   const settingsNodeRef = useRef<HTMLDivElement>(null);
    const addKeywordsNodeRef = useRef<HTMLDivElement>(null);
    const { scraper_type = '', available_scapers = [] } = appSettings;
    const domainScraperType = activeDomain?.scraper_settings?.scraper_type;
@@ -55,35 +48,19 @@ const DomainPageLayout = ({
    );
 
    return (
-      <div className="Domain">
-         {topBanner}
+      <AppPageShell
+         className="Domain"
+         domains={domains}
+         version={appSettings?.version}
+         beforeNavigation={<>{topBanner}
          {activeDomain && activeDomain.domain
          && <Head>
                <title>{`${activeDomain.domain} - ${titleSuffix || platformName}` } </title>
             </Head>
          }
-         <TopBar showSettings={() => setShowSettings(true)} showAddModal={() => setShowAddDomain(true)} />
-         <div className="flex desktop-container gap-6 lg:gap-10">
-            <Sidebar domains={domains} showAddModal={() => setShowAddDomain(true)} />
-            <div className="domain_kewywords w-full pt-10 lg:pt-8">
-               {activeDomain && activeDomain.domain
-               ? <DomainHeader
-                  {...headerProps}
-                  domain={activeDomain}
-                  domains={domains}
-                  showAddModal={setShowAddKeywords}
-                  showSettingsModal={setShowDomainSettings}
-                  />
-                  : <div className='w-full lg:h-[100px]'></div>
-               }
-               {renderContent({ showAddKeywords, setShowAddKeywords })}
-            </div>
-         </div>
-
-         <CSSTransition in={showAddDomain} timeout={300} classNames="modal_anim" unmountOnExit mountOnEnter nodeRef={addDomainNodeRef}>
-            <AddDomain ref={addDomainNodeRef} closeModal={() => setShowAddDomain(false)} domains={domains || []} />
-         </CSSTransition>
-
+         </>}
+         renderSidebar={(openAddDomain) => <Sidebar domains={domains} showAddModal={openAddDomain} />}
+         beforeSettings={(
          <CSSTransition in={showDomainSettings} timeout={300} classNames="modal_anim" unmountOnExit mountOnEnter nodeRef={domainSettingsNodeRef}>
             <DomainSettings
             ref={domainSettingsNodeRef}
@@ -93,9 +70,8 @@ const DomainPageLayout = ({
             systemScraperType={scraper_type}
             />
          </CSSTransition>
-         <CSSTransition in={showSettings} timeout={300} classNames="settings_anim" unmountOnExit mountOnEnter nodeRef={settingsNodeRef}>
-             <Settings ref={settingsNodeRef} closeSettings={() => setShowSettings(false)} />
-         </CSSTransition>
+         )}
+         afterSettings={<>
          {extraModals}
          <CSSTransition in={showAddKeywords} timeout={300} classNames="modal_anim" unmountOnExit mountOnEnter nodeRef={addKeywordsNodeRef}>
             <AddKeywords
@@ -108,8 +84,22 @@ const DomainPageLayout = ({
                closeModal={() => setShowAddKeywords(false)}
                />
          </CSSTransition>
-         <Footer currentVersion={appSettings?.version ? appSettings.version : ''} />
-      </div>
+         </>}
+      >
+         <div className="pt-10 md:max-lg:pt-6 lg:pt-8">
+               {activeDomain && activeDomain.domain
+               ? <DomainHeader
+                  {...headerProps}
+                  domain={activeDomain}
+                  domains={domains}
+                  showAddModal={setShowAddKeywords}
+                  showSettingsModal={setShowDomainSettings}
+                  />
+                  : <div className='w-full lg:h-[100px]'></div>
+               }
+               {renderContent({ showAddKeywords, setShowAddKeywords })}
+         </div>
+      </AppPageShell>
    );
 };
 

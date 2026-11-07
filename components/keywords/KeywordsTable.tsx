@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import useTableScrollbar from '../../hooks/useTableScrollbar';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
 import { filterKeywords, keywordsByDevice, NO_TAGS_FILTER, sortKeywords } from '../../utils/client/sortFilter';
 import Icon from '../common/Icon';
@@ -91,9 +92,10 @@ const KeywordsTable = (props: KeywordsTableProps) => {
    const { mutate: favoriteMutate } = useFavKeywords(() => {});
    const { mutate: refreshMutate } = useRefreshKeywords(() => {});
    const [isMobile] = useIsMobile();
+   const { table, listInnerRef } = useTableScrollbar();
 
    useWindowResize(() => {
-      setSCListHeight(window.innerHeight - (isMobile ? 200 : 400));
+      setSCListHeight(Math.max(200, window.innerHeight - (isMobile ? 200 : 400)));
       if (titleColumnRef.current) {
          setMaxTitleColumnWidth((titleColumnRef.current as HTMLElement).clientWidth);
       }
@@ -162,7 +164,7 @@ const KeywordsTable = (props: KeywordsTableProps) => {
       updateMutate({ keywordsColumns: newColumns });
    };
 
-   const shouldHideColumn = useCallback((col:string) => settings?.keywordsColumns && !settings?.keywordsColumns.includes(col) ? 'lg:hidden' : '', [settings?.keywordsColumns]);
+   const shouldHideColumn = (col: string) => tableColumns.includes(col) ? '' : 'lg:hidden';
 
    const rowData: KeywordRowData = {
       items: processedKeywords[device],
@@ -197,7 +199,7 @@ const KeywordsTable = (props: KeywordsTableProps) => {
    if (processedKeywords[device] && processedKeywords[device].length > 0) {
       if (isMobile) {
          keywordsContent = (
-            <div className='block md:hidden'>
+            <div className='block lg:hidden'>
                {processedKeywords[device].map((keyword, index) => (
                   <Keyword
                      key={keyword.ID}
@@ -223,12 +225,13 @@ const KeywordsTable = (props: KeywordsTableProps) => {
          );
       } else {
          keywordsContent = (
-            <div className='hidden md:block'>
+            <div className='hidden lg:block'>
                <List
                innerElementType="div"
+               innerRef={listInnerRef}
                itemData={rowData}
                itemCount={processedKeywords[device].length}
-               itemSize={isMobile ? 146 : 57}
+               itemSize={57}
                height={SCListHeight}
                width={'100%'}
                className={'styled-scrollbar'}
@@ -308,14 +311,24 @@ const KeywordsTable = (props: KeywordsTableProps) => {
                   integratedConsole={isConsoleIntegrated}
                />
             )}
-            <div className={`domkeywordsTable domkeywordsTable--keywords 
-            ${showSCData && tableColumns.includes('Search Console') ? 'domkeywordsTable--hasSC' : ''} 
-               styled-scrollbar w-full overflow-auto min-h-[60vh]`}>
-               <div className=' lg:min-w-[800px]'>
-                  <div className={`domKeywords_head domKeywords_head--${sortBy} hidden md:flex p-3 px-6 bg-[#FCFCFF]
+            <div className='domkeywordsTable domkeywordsTable--keywords styled-scrollbar w-full overflow-auto min-h-[60vh]'>
+               <div
+                  ref={table}
+                  className='lg:min-w-[800px]'
+                  style={{ '--tracker-columns': [
+                     'minmax(0, 2fr)', '6rem',
+                     tableColumns.includes('Best') && '4rem',
+                     tableColumns.includes('History') && '5rem',
+                     tableColumns.includes('Volume') && '6rem',
+                     'minmax(0, 1fr)', 'minmax(0, 1fr)',
+                     showSCData && tableColumns.includes('Search Console') && '170px',
+                     '2rem',
+                  ].filter(Boolean).join(' ') } as React.CSSProperties}
+               >
+                  <div className={`domKeywords_head domKeywords_head--${sortBy} tracker-columns hidden lg:grid p-3 px-6 bg-[#FCFCFF]
                    text-gray-600 justify-between items-center font-semibold border-y`}>
-                     <span ref={titleColumnRef} className={`domKeywords_head_keyword flex-1 basis-[6rem] w-auto lg:flex-1 
-                        ${showSCData && tableColumns.includes('Search Console') ? 'lg:basis-24' : 'lg:basis-12'} lg:w-auto lg:flex lg:items-center `}>
+                     <span ref={titleColumnRef} className={`domKeywords_head_keyword w-auto
+                        lg:w-auto lg:flex lg:items-center `}>
                      {processedKeywords[device].length > 0 && (
                         <button
                            className={`p-0 mr-2 leading-[0px] inline-block rounded-sm pt-0 px-[1px] pb-[3px]  border border-slate-300 
@@ -330,14 +343,14 @@ const KeywordsTable = (props: KeywordsTableProps) => {
                            Keyword
                         </span>
                      </span>
-                     <span className='domKeywords_head_position flex-1 basis-24 grow-0 text-center'>Position</span>
-                     <span className={`domKeywords_head_best flex-1 basis-16 grow-0 text-center  ${shouldHideColumn('Best')}`}>Best</span>
-                     <span className={`domKeywords_head_history flex-1 basis-20 grow-0  ${shouldHideColumn('History')}`}>History (7d)</span>
-                     <span className={`domKeywords_head_volume flex-1 basis-24 grow-0 text-center ${shouldHideColumn('Volume')}`}>Volume</span>
-                     <span className='domKeywords_head_url flex-1 basis-32'>URL</span>
-                     <span className='domKeywords_head_updated flex-1 relative left-3 max-w-[150px]'>Updated</span>
+                     <span className='domKeywords_head_position text-center'>Position</span>
+                     <span className={`domKeywords_head_best text-center  ${shouldHideColumn('Best')}`}>Best</span>
+                     <span className={`domKeywords_head_history  ${shouldHideColumn('History')}`}>History (7d)</span>
+                     <span className={`domKeywords_head_volume text-center ${shouldHideColumn('Volume')}`}>Volume</span>
+                     <span className='domKeywords_head_url'>URL</span>
+                     <span className='domKeywords_head_updated '>Updated</span>
                      {showSCData && tableColumns.includes('Search Console') && (
-                        <div className='domKeywords_head_sc flex-1 min-w-[170px] lg:max-w-[170px] mr-7 text-center'>
+                        <div className='domKeywords_head_sc min-w-[170px] lg:max-w-[170px] text-center'>
                            {/* Search Console */}
                            <div>
                               <div

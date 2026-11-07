@@ -39,12 +39,9 @@ body {
       right: 100px;
       left: auto;
    }
-}
 
-@media (min-width: 1024px) {
-   .topbar__back {
-      left: var(--layout-inline);
-      right: auto;
+   .keyword_best::before {
+      content: "Best: ";
    }
 }
 
@@ -245,6 +242,11 @@ body {
 }
 
 @media (min-width: 1024px) {
+   .topbar__back {
+      left: var(--layout-inline);
+      right: auto;
+   }
+
    /* Domain Header Button Tooltips */
    .domheader_action_button:hover i {
       visibility: visible;
@@ -280,14 +282,29 @@ body {
       margin: 0 auto;
    }
 
-   .domkeywordsTable--keywords.domkeywordsTable--hasSC .domKeywords_keywords::before {
-      content: "";
-      position: absolute;
-      width: 1px;
-      height: 100%;
-      background: #eff0f1;
-      top: 0;
-      right: 240px;
+   .domKeywords_head:is(.tracker-columns, .ideas-columns, .discover-columns) {
+      padding-inline-end: calc(1.5rem + var(--table-scrollbar, 0px));
+   }
+
+   .tracker-columns {
+      grid-template-columns: var(--tracker-columns);
+   }
+
+   .ideas-columns {
+      grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr));
+   }
+
+   .discover-columns {
+      grid-template-columns: minmax(0, 2fr) 10rem repeat(3, minmax(0, 1fr));
+   }
+
+   .insight-columns {
+      grid-template-columns: minmax(0, 2fr) repeat(var(--insight-metrics), minmax(0, 1fr));
+   }
+
+   :is(.tracker-columns, .ideas-columns, .discover-columns, .insight-columns) > :first-child {
+      min-width: 0;
+      overflow-wrap: anywhere;
    }
 }
 
@@ -308,12 +325,6 @@ body {
 .idea_competiton--HIGH span:last-child {
    color: #ae513c;
    background-color: #f9ded7;
-}
-
-@media screen and (max-width: 767px) {
-   .keyword_best::before {
-      content: "Best: ";
-   }
 }
 
 /* Disable LastPass Icon for Secret Field */

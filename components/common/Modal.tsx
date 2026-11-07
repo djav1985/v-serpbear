@@ -35,7 +35,7 @@ const Modal = React.forwardRef<HTMLDivElement, ModalProps>(({
       <div ref={ref} className='modal fixed top-0 left-0 bg-white/[.7] w-full h-dvh z-50 overflow-y-auto' onClick={(e) => closeOnBGClick(e, closeModal)}>
          <div
          className={`modal__content max-w-[340px] absolute left-0 right-0 ml-auto mr-auto ${MODAL_WIDTH_CLASSES[width]}
-         lg:max-w-md bg-white shadow-md rounded-md p-5 border-t-[1px] border-gray-100 text-base
+         md:max-w-md bg-white shadow-md rounded-md p-5 border-t-[1px] border-gray-100 text-base
          ${verticalCenter ? ' top-1/2 translate-y-[-50%]' : 'top-1/4'}`}>
             {title && <h3 className=' font-semibold mb-3'>{title}</h3>}
             <button

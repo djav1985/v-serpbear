@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file. Releases no
 
 ## [Unreleased]
 
+- Improved tablet layouts and synchronized desktop table transitions at 1024px. Research now uses the shared page shell and opens Add Domain from the top bar.
+
 ## [5.0.0] (2026-11-06)
 
 ### Upgrade notes

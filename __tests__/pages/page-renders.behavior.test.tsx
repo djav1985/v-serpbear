@@ -65,7 +65,7 @@ import Login from '../../pages/login';
 import { DomainIdeasPage } from '../../pages/domain/ideas/[slug]';
 import { AUTH_QUERY_KEY } from '../../hooks/useAuth';
 import { apiPost } from '../../utils/client/apiClient';
-import { useFetchDomains } from '../../services/domains';
+import { useAddDomain, useFetchDomains } from '../../services/domains';
 import { useFetchKeywordIdeas } from '../../services/adwords';
 import { useFetchSettings } from '../../services/settings';
 import { getBranding, DEFAULT_BRANDING, BrandingConfig } from '../../utils/branding';
@@ -113,6 +113,7 @@ const renderPage = () => {
 };
 
 const renderResearchPage = () => {
+   useFetchDomainsMock.mockReturnValue({ data: { domains: [baseDomain] } });
    const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
    });
@@ -219,6 +220,15 @@ describe('Domain ideas page credentials handling', () => {
 });
 
 describe('Research page Ads integration flag', () => {
+   it('opens the shared Add Domain modal from the top bar', () => {
+      (useAddDomain as jest.Mock).mockReturnValue({ mutate: jest.fn(), isLoading: false });
+      renderResearchPage();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Add Domain' }));
+
+      expect(screen.getByTestId('adddomain_modal')).toBeInTheDocument();
+   });
+
    beforeEach(() => {
       jest.clearAllMocks();
       mockRouter.pathname = '/research';

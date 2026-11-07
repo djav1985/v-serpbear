@@ -8,16 +8,17 @@ const useIsMobile = () => {
       // Mark that we're now on the client side
       setIsClient(true);
 
-      // Check if we're on mobile
+      const mediaQuery = window.matchMedia('(min-width: 1024px)');
+
+      // Match Tailwind's desktop boundary.
       const checkIsMobile = () => {
-         setIsMobile(!!(window.matchMedia('only screen and (max-width: 767px)').matches));
+         setIsMobile(!mediaQuery.matches);
       };
 
       // Initial check
       checkIsMobile();
 
       // Add listener for resize events
-      const mediaQuery = window.matchMedia('only screen and (max-width: 767px)');
       mediaQuery.addEventListener('change', checkIsMobile);
 
       // Cleanup

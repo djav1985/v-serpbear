@@ -1,18 +1,16 @@
 import type { NextPage } from 'next';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { CSSTransition } from 'react-transition-group';
+import { useEffect, useMemo, useState } from 'react';
 import Icon from '../../components/common/Icon';
-import TopBar from '../../components/common/TopBar';
+import AppPageShell from '../../components/common/AppPageShell';
+import { useFetchDomains } from '../../services/domains';
 import KeywordIdeasTable from '../../components/ideas/KeywordIdeasTable';
 import { exportKeywordIdeas } from '../../utils/client/exportcsv';
 import { useFetchKeywordIdeas, useMutateKeywordIdeas } from '../../services/adwords';
 import { useFetchSettings } from '../../services/settings';
-import Settings from '../../components/settings/Settings';
 import SelectField from '../../components/common/SelectField';
 import allCountries, { adwordsLanguages } from '../../utils/countries';
-import Footer from '../../components/common/Footer';
 import { BrandTitle } from '../../components/common/Branding';
 import { useBranding } from '../../hooks/useBranding';
 import { withAuth } from '../../hooks/useAuth';
@@ -22,14 +20,13 @@ const MAX_SEED_KEYWORDS = 20;
 
 const Research: NextPage = () => {
    const router = useRouter();
+   const { data: domainsData } = useFetchDomains(router, false);
    const { branding } = useBranding();
    const { platformName } = branding;
-   const [showSettings, setShowSettings] = useState(false);
    const [showFavorites, setShowFavorites] = useState(false);
    const [language, setLanguage] = useState('1000');
    const [country, setCountry] = useState('US');
    const [seedKeywords, setSeedKeywords] = useState('');
-   const settingsNodeRef = useRef<HTMLDivElement>(null);
 
    const { data: appSettings } = useFetchSettings();
    const adwordsConnected = Boolean(
@@ -71,19 +68,19 @@ const Research: NextPage = () => {
    const labelStyle = 'mb-2 font-semibold inline-block text-sm text-gray-700 capitalize w-full';
 
    return (
-      <div className='Research'>
-         <Head>
-            <title>Research Keywords - {platformName}</title>
-         </Head>
-         <TopBar showSettings={() => setShowSettings(true)} showAddModal={() => null } />
-         <div className="flex flex-col desktop-container gap-6 lg:flex-row lg:gap-10">
+      <AppPageShell
+         className="Research"
+         domains={domainsData?.domains || []}
+         version={appSettings?.settings?.version}
+         beforeNavigation={<Head><title>{`Research Keywords - ${platformName}`}</title></Head>}
+         renderSidebar={() => (
             <div className="sidebar w-full p-6 lg:pt-44 lg:w-1/5 lg:block lg:pr-0" data-testid="sidebar">
                <h3 className="hidden py-7 text-base font-bold text-blue-700 lg:block">
                   <BrandTitle />
                </h3>
-               <div className={`sidebar_menu domKeywords max-h-96 overflow-auto styled-scrollbar p-4
+               <div className={`sidebar_menu domKeywords md:max-lg:grid md:max-lg:grid-cols-2 md:max-lg:gap-x-4 max-h-96 overflow-auto styled-scrollbar p-4
                 bg-white border border-gray-200 rounded lg:rounded-none lg:rounded-s lg:border-r-0`}>
-                  <div className={'mb-3'}>
+                  <div className='mb-3 min-w-0 md:max-lg:col-span-2'>
                      <label className={labelStyle}>Generate Ideas from given Keywords (Max 20)</label>
                      <textarea
                      className='w-full border border-solid border-gray-300 focus:border-blue-100 p-3 rounded outline-none text-sm'
@@ -92,7 +89,7 @@ const Research: NextPage = () => {
                      placeholder="keyword1, keyword2.."
                      />
                   </div>
-                  <div className={'mb-3'}>
+                  <div className='mb-3 min-w-0'>
                      <label className={labelStyle}>Country</label>
                      <SelectField
                         selected={[country]}
@@ -106,7 +103,7 @@ const Research: NextPage = () => {
                         rounded='rounded'
                      />
                   </div>
-                  <div className={'mb-3'}>
+                  <div className='mb-3 min-w-0'>
                      <label className={labelStyle}>Language</label>
                      <SelectField
                         selected={[language]}
@@ -120,7 +117,7 @@ const Research: NextPage = () => {
                      />
                   </div>
                   <button
-                  className={`w-full py-2 px-5 mt-2 rounded bg-blue-700 text-white 
+                  className={`w-full md:max-lg:col-span-2 py-2 px-5 mt-2 rounded bg-blue-700 text-white
                   font-semibold ${!adwordsConnected ? ' cursor-not-allowed opacity-40' : 'cursor-pointer'}`}
                   title={!adwordsConnected ? 'Please Connect Google Ads account to generate Keyword Ideas..' : ''}
                   onClick={() => !isUpdatingIdeas && adwordsConnected && reloadKeywordIdeas()}>
@@ -128,9 +125,11 @@ const Research: NextPage = () => {
                   </button>
                </div>
             </div>
-            <div className="domain_kewywords w-full lg:pt-8">
+         )}
+      >
+            <div className="w-full lg:pt-8">
                <div className='domain_kewywords_head w-full '>
-                  <div className=' flex mt-12 mb-0 justify-between'>
+                  <div className=' flex mt-12 md:max-lg:mt-0 mb-0 justify-between'>
                      <h1 className=" font-bold mb-0 mt-0 pt-2 lg:text-xl lg:mb-6" data-testid="domain-header">Research Keywords</h1>
                      <button
                      className={`domheader_action_button relative mb-3 
@@ -152,12 +151,7 @@ const Research: NextPage = () => {
                setShowFavorites={setShowFavorites}
                />
             </div>
-         </div>
-         <CSSTransition in={showSettings} timeout={300} classNames="settings_anim" unmountOnExit mountOnEnter nodeRef={settingsNodeRef}>
-             <Settings ref={settingsNodeRef} closeSettings={() => setShowSettings(false)} />
-         </CSSTransition>
-         <Footer currentVersion={appSettings?.settings?.version ? appSettings.settings.version : ''} />
-      </div>
+      </AppPageShell>
    );
 };
 

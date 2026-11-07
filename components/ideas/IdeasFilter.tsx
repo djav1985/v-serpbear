@@ -40,10 +40,10 @@ const IdeasFilters = (props: IdeasFilterProps) => {
 
    const deviceTabStyle = 'flex items-center select-none cursor-pointer px-3 py-2 rounded-3xl mr-2';
    const deviceTabCountStyle = 'px-2 py-0 rounded-3xl bg-[#DEE1FC] text-[0.7rem] font-bold ml-1';
-   const mobileFilterOptionsStyle = 'visible mt-8 border absolute min-w-[0] rounded-lg max-h-96 bg-white z-50 w-52 right-2 p-4';
+   const mobileFilterOptionsStyle = 'max-md:visible max-md:mt-8 max-md:border max-md:absolute max-md:rounded-lg max-md:max-h-96 max-md:bg-white max-md:z-50 max-md:w-52 max-md:right-2 max-md:p-4';
 
    return (
-      <div className='domKeywords_filters py-4 px-6 flex justify-between text-sm text-gray-500 font-semibold border-b-[1px] lg:border-0 items-center'>
+      <div className='domKeywords_filters py-4 px-6 flex justify-between text-sm text-gray-500 font-semibold border-b-[1px] md:max-lg:flex-col md:max-lg:gap-3 md:max-lg:!items-start lg:border-0 items-center'>
          <div>
             <ul className='flex items-center text-xs'>
                <li
@@ -51,7 +51,7 @@ const IdeasFilters = (props: IdeasFilterProps) => {
                className={`${deviceTabStyle} ${keywordType === 'all' ? ' bg-[#F8F9FF] text-gray-700' : ''}`}
                onClick={() => setShowFavorites(false)}>
                      <Icon type='keywords' classes='top-[3px]' size={15} />
-                     <i className='hidden not-italic lg:inline-block ml-1'>All Keywords</i>
+                     <i className='hidden not-italic md:inline-block ml-1'>All Keywords</i>
                      <span className={`${deviceTabCountStyle}`}>{keywords.length}</span>
                </li>
                <li
@@ -59,7 +59,7 @@ const IdeasFilters = (props: IdeasFilterProps) => {
                className={`${deviceTabStyle} ${keywordType === 'favorites' ? ' bg-[#F8F9FF] text-gray-700' : ''}`}
                onClick={() => setShowFavorites(true)}>
                      <Icon type='star' classes='top-[4px]' />
-                     <i className='hidden not-italic lg:inline-block ml-1'>Favorites</i>
+                     <i className='hidden not-italic md:inline-block ml-1'>Favorites</i>
                      <span className={`${deviceTabCountStyle}`}>{favorites.length}</span>
                </li>
             </ul>
@@ -67,7 +67,7 @@ const IdeasFilters = (props: IdeasFilterProps) => {
 
             <div className='flex gap-5'>
 
-               <div className=' lg:hidden'>
+               <div className=' md:hidden'>
                   <button
                   data-testid="filter_button"
                   className={`px-2 py-1 rounded ${filterOptions ? ' bg-indigo-100 text-blue-700' : ''}`}
@@ -76,7 +76,7 @@ const IdeasFilters = (props: IdeasFilterProps) => {
                      <Icon type="filter" size={18} />
                   </button>
                </div>
-               <div className={`lg:flex gap-5 lg:visible ${filterOptions ? mobileFilterOptionsStyle : 'hidden'}`}>
+               <div className={`md:flex md:flex-wrap gap-5 md:visible ${filterOptions ? mobileFilterOptionsStyle : 'hidden'}`}>
                   {keywordType === 'all' && (
                      <div className={'tags_filter mb-2 lg:mb-0'}>
                         <SelectField

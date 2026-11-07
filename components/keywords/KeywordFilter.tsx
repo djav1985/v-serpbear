@@ -121,10 +121,10 @@ const KeywordFilters = (props: KeywordFilterProps) => {
    const sortItemStyle = (sortType:string) => `cursor-pointer py-2 px-3 hover:bg-[#FCFCFF] ${sortBy === sortType ? 'bg-indigo-50 text-indigo-600 hover:bg-indigo-50' : ''}`;
    const deviceTabStyle = 'flex items-center select-none cursor-pointer px-3 py-2 rounded-3xl mr-2';
    const deviceTabCountStyle = 'px-2 py-0 rounded-3xl bg-[#DEE1FC] text-[0.7rem] font-bold ml-1';
-   const mobileFilterOptionsStyle = 'visible mt-8 border absolute min-w-[0] rounded-lg max-h-96 bg-white z-50 w-52 right-2 p-4';
+   const mobileFilterOptionsStyle = 'max-md:visible max-md:mt-8 max-md:border max-md:absolute max-md:rounded-lg max-md:max-h-96 max-md:bg-white max-md:z-50 max-md:w-52 max-md:right-2 max-md:p-4';
 
    return (
-      <div className='domKeywords_filters py-4 px-6 flex justify-between items-center text-sm text-gray-500 font-semibold border-b-[1px] lg:border-0'>
+      <div className='domKeywords_filters py-4 px-6 flex justify-between items-center text-sm text-gray-500 font-semibold border-b-[1px] md:max-lg:flex-col md:max-lg:gap-3 md:max-lg:!items-start lg:border-0'>
          <div>
             <ul className='flex items-center text-xs'>
                <li
@@ -132,7 +132,7 @@ const KeywordFilters = (props: KeywordFilterProps) => {
                className={`${deviceTabStyle} ${device === 'desktop' ? ' bg-[#F8F9FF] text-gray-700' : ''}`}
                onClick={() => setDevice('desktop')}>
                      <Icon type='desktop' classes='top-[3px]' size={15} />
-                     <i className='hidden not-italic lg:inline-block ml-1'>Desktop</i>
+                     <i className='hidden not-italic md:inline-block ml-1'>Desktop</i>
                      <span className={`${deviceTabCountStyle}`}>{keywordCounts.desktop}</span>
                </li>
                <li
@@ -140,13 +140,13 @@ const KeywordFilters = (props: KeywordFilterProps) => {
                className={`${deviceTabStyle} ${device === 'mobile' ? ' bg-[#F8F9FF] text-gray-700' : ''}`}
                onClick={() => setDevice('mobile')}>
                      <Icon type='mobile' />
-                     <i className='hidden not-italic lg:inline-block ml-1'>Mobile</i>
+                     <i className='hidden not-italic md:inline-block ml-1'>Mobile</i>
                      <span className={`${deviceTabCountStyle}`}>{keywordCounts.mobile}</span>
                </li>
             </ul>
          </div>
          <div className='flex gap-5'>
-            <div className=' lg:hidden'>
+            <div className=' md:hidden'>
                <button
                data-testid="filter_button"
                className={`px-2 py-1 rounded ${filterOptions ? ' bg-indigo-100 text-blue-700' : ''}`}
@@ -155,7 +155,7 @@ const KeywordFilters = (props: KeywordFilterProps) => {
                   <Icon type="filter" size={18} />
                </button>
             </div>
-            <div className={`lg:flex gap-5 lg:visible ${filterOptions ? mobileFilterOptionsStyle : 'hidden'}`}>
+            <div className={`md:flex md:flex-wrap gap-5 md:visible ${filterOptions ? mobileFilterOptionsStyle : 'hidden'}`}>
                <div className={'country_filter mb-2 lg:mb-0'}>
                   <SelectField
                      selected={filterParams.countries}

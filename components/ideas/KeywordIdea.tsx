@@ -47,10 +47,10 @@ const KeywordIdea = (props: KeywordIdeaProps) => {
       <div
       key={uid}
       style={style}
-      className={`keyword relative py-5 px-4 text-gray-600 border-b-[1px] border-gray-200 lg:py-4 lg:px-6 lg:border-0
-      lg:flex lg:justify-between lg:items-center ${selected ? ' bg-indigo-50 keyword--selected' : ''} ${lastItem ? 'border-b-0' : ''}`}>
+      className={`keyword relative py-5 px-4 md:max-lg:px-6 text-gray-600 border-b-[1px] border-gray-200 lg:py-2 lg:px-6 lg:border-0
+      lg:grid lg:items-center ideas-columns ${selected ? ' bg-indigo-50 keyword--selected' : ''} ${lastItem ? 'border-b-0' : ''}`}>
 
-         <div className=' w-3/4 lg:flex-1 lg:basis-20 lg:w-auto font-semibold cursor-pointer'>
+         <div className=' w-3/4 lg:w-auto font-semibold cursor-pointer'>
             <button
                type="button"
                className={`p-0 mr-2 leading-[0px] inline-block rounded-sm pt-0 px-[1px] pb-[3px] border
@@ -80,18 +80,18 @@ const KeywordIdea = (props: KeywordIdeaProps) => {
             </button>
          </div>
 
-         <div className='keyword_imp text-center inline-block ml-6 lg:ml-0 lg:flex-1 '>
+         <div className='keyword_imp text-center inline-block ml-6 lg:ml-0 '>
             {formattedNum(avgMonthlySearches)}<span className='lg:hidden'>/month</span>
          </div>
 
          <div
           onClick={() => showKeywordDetails()}
          className={`keyword_visits text-center hidden mt-4 mr-5 ml-5 cursor-pointer
-         lg:flex-1 lg:m-0 lg:ml-10 max-w-[70px] lg:max-w-none lg:pr-5 lg:flex justify-center`}>
+         lg:m-0 max-w-[70px] lg:max-w-none lg:flex justify-center`}>
             {chartData.labels.length > 0 && <ChartSlim labels={chartData.labels} series={chartData.series} noMaxLimit={true} reverse={false} />}
          </div>
 
-         <div className='keyword_ctr text-center inline-block ml-4 lg:flex mt-4 relative lg:flex-1 lg:m-0 justify-center'>
+         <div className='keyword_ctr text-center inline-block ml-4 lg:flex mt-4 relative lg:m-0 justify-center'>
             <div className={`idea_competiton idea_competiton--${competition} flex bg-slate-100 rounded w-28 text-xs font-semibold`}>
                <span className=' inline-block p-1 flex-1'>{competitionIndex}/100</span>
                <span className=' inline-block p-1 flex-1 rounded-e text-white'>{competition}</span>

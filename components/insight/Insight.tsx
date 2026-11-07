@@ -33,15 +33,15 @@ const SCInsight = ({ insight, isLoading = true, isConsoleIntegrated = true, doma
       };
 
       return (
-         <div className={`domKeywords_head hidden lg:flex p-3 px-6 bg-[#FCFCFF]
+         <div className={`domKeywords_head insight-columns hidden lg:grid p-3 px-6 bg-[#FCFCFF]
             text-gray-600 justify-between items-center font-semibold border-y`}>
-            <span className='domKeywords_head_keyword flex-1 basis-20 w-auto '>{headerNames[activeTab][0]}</span>
-            <span className='domKeywords_head_position flex-1 basis-40 grow-0 text-center'>{headerNames[activeTab][1]}</span>
-            <span className='domKeywords_head_imp flex-1 text-center'>{headerNames[activeTab][2]}</span>
-            <span className='domKeywords_head_visits flex-1 text-center'>{headerNames[activeTab][3]}</span>
-            <span className='domKeywords_head_ctr flex-1 text-center'>{headerNames[activeTab][4]}</span>
-            {headerNames[activeTab][5] && <span className='domKeywords_head_ctr flex-1 text-center'>{headerNames[activeTab][5]}</span>}
-            {headerNames[activeTab][6] && <span className='domKeywords_head_ctr flex-1 text-center'>{headerNames[activeTab][6]}</span>}
+            <span className='domKeywords_head_keyword w-auto '>{headerNames[activeTab][0]}</span>
+            <span className='domKeywords_head_position text-center'>{headerNames[activeTab][1]}</span>
+            <span className='domKeywords_head_imp text-center'>{headerNames[activeTab][2]}</span>
+            <span className='domKeywords_head_visits text-center'>{headerNames[activeTab][3]}</span>
+            <span className='domKeywords_head_ctr text-center'>{headerNames[activeTab][4]}</span>
+            {headerNames[activeTab][5] && <span className='domKeywords_head_ctr text-center'>{headerNames[activeTab][5]}</span>}
+            {headerNames[activeTab][6] && <span className='domKeywords_head_ctr text-center'>{headerNames[activeTab][6]}</span>}
          </div>
       );
    };
@@ -52,7 +52,7 @@ const SCInsight = ({ insight, isLoading = true, isConsoleIntegrated = true, doma
    return (
       <div>
          <div className='domKeywords flex flex-col bg-[white] rounded-md text-sm border mb-5'>
-            <div className='domKeywords_filters py-4 px-6 flex flex-col justify-between
+            <div className='domKeywords_filters py-4 px-6 flex flex-col md:max-lg:flex-row md:max-lg:items-center md:max-lg:gap-4 justify-between
             text-sm text-gray-500 font-semibold border-b-[1px] lg:border-0 lg:flex-row'>
                <div>
                   <ul className='text-xs hidden lg:flex'>
@@ -99,7 +99,7 @@ const SCInsight = ({ insight, isLoading = true, isConsoleIntegrated = true, doma
             )}
 
             <div className='domkeywordsTable domkeywordsTable--sckeywords styled-scrollbar w-full overflow-auto min-h-[60vh]'>
-               <div className=' lg:min-w-[800px]'>
+               <div className='lg:min-w-[800px]' style={{ '--insight-metrics': activeTab === 'pages' ? 6 : activeTab === 'stats' ? 4 : 5 } as React.CSSProperties}>
                   {renderTableHeader()}
                   <div className='domKeywords_keywords border-gray-200 min-h-[55vh] relative'>
                      {['keywords', 'pages', 'countries', 'stats'].includes(activeTab) && insight && insightItems

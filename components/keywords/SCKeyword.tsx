@@ -27,13 +27,13 @@ const SCKeyword = (props: SCKeywordProps) => {
       <div
       key={keyword}
       style={style}
-      className={`keyword relative py-5 px-4 text-gray-600 border-b-[1px] border-gray-200 lg:py-4 lg:px-6 lg:border-0 
-      lg:flex lg:justify-between lg:items-center ${selected ? ' bg-indigo-50 keyword--selected' : ''} ${lastItem ? 'border-b-0' : ''}`}>
+      className={`keyword relative py-5 px-4 md:max-lg:px-6 text-gray-600 border-b-[1px] border-gray-200 lg:py-2 lg:px-6 lg:border-0
+      lg:grid lg:items-center discover-columns ${selected ? ' bg-indigo-50 keyword--selected' : ''} ${lastItem ? 'border-b-0' : ''}`}>
 
-         <div className=' w-3/4 lg:flex-1 lg:basis-20 lg:w-auto font-semibold cursor-pointer'>
+         <div className=' w-3/4 lg:w-auto font-semibold cursor-pointer'>
             <button
                type="button"
-               className={`p-0 mr-2 leading-[0px] inline-block rounded-sm pt-0 px-[1px] pb-[3px] border 
+               className={`p-0 mr-2 leading-[0px] inline-block rounded-sm pt-0 px-[1px] pb-[3px] border
                ${
                  isTracked
                    ? 'bg-gray-400 border-gray-400 text-white cursor-not-allowed opacity-80'
@@ -54,26 +54,26 @@ const SCKeyword = (props: SCKeywordProps) => {
          </div>
 
          <div className={`keyword_position absolute bg-[#f8f9ff] w-fit min-w-[50px] h-15 p-2 text-base mt-[-20px] rounded right-5 lg:relative
-          lg:bg-transparent lg:w-auto lg:h-auto lg:mt-0 lg:p-0 lg:text-sm lg:flex-1 lg:basis-40 lg:grow-0 lg:right-0 text-center font-semibold`}>
+          lg:bg-transparent lg:w-auto lg:h-auto lg:mt-0 lg:p-0 lg:text-sm lg:right-0 text-center font-semibold`}>
             <KeywordPosition position={position} />
             <span className='block text-xs text-gray-500 lg:hidden'>Position</span>
          </div>
 
-         <div className='keyword_imp text-center inline-block lg:flex-1 '>
+         <div className='keyword_imp text-center inline-block '>
             <span className='mr-3 lg:hidden'>
                <Icon type="eye" size={14} color="#999" />
             </span>
             {formattedNum(impressions)}
          </div>
 
-         <div className={'keyword_visits text-center inline-block mt-4 mr-5 ml-5 lg:flex-1 lg:m-0 max-w-[70px] lg:max-w-none lg:pr-5'}>
+         <div className={'keyword_visits text-center inline-block mt-4 mr-5 ml-5 lg:m-0 max-w-[70px] lg:max-w-none '}>
             <span className='mr-3 lg:hidden'>
                <Icon type="cursor" size={14} color="#999" />
             </span>
             {formattedNum(clicks)}
          </div>
 
-         <div className='keyword_ctr text-center inline-block mt-4 relative lg:flex-1 lg:m-0 '>
+         <div className='keyword_ctr text-center inline-block mt-4 relative lg:m-0 '>
             <span className='mr-3 lg:hidden'>
                <Icon type="target" size={14} color="#999" />
             </span>

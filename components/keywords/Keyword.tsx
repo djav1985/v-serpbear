@@ -129,12 +129,12 @@ const Keyword = (props: KeywordProps) => {
       <div
       key={keyword + ID}
       style={style}
-      className={`keyword relative py-5 px-4 text-gray-600 border-b-[1px] border-gray-200 lg:py-4 lg:px-6 lg:border-0 
-      lg:flex lg:justify-between lg:items-center ${selected ? ' bg-indigo-50 keyword--selected' : ''} ${lastItem ? 'border-b-0' : ''}`}>
+      className={`keyword relative py-5 px-4 md:max-lg:px-6 text-gray-600 border-b-[1px] border-gray-200 lg:py-2 lg:px-6 lg:border-0
+      lg:grid lg:items-center tracker-columns ${selected ? ' bg-indigo-50 keyword--selected' : ''} ${lastItem ? 'border-b-0' : ''}`}>
 
-         <div className=' w-3/4 font-semibold cursor-pointer lg:flex-1 lg:shrink-0 lg:basis-32 lg:w-auto lg:flex lg:items-center'>
+         <div className=' w-3/4 font-semibold cursor-pointer lg:w-auto lg:flex lg:items-center'>
             <button
-               className={`p-0 mr-2 leading-[0px] inline-block rounded-sm pt-0 px-[1px] pb-[3px] border 
+               className={`p-0 mr-2 leading-[0px] inline-block rounded-sm pt-0 px-[1px] pb-[3px] border
                ${selected ? ' bg-blue-700 border-blue-700 text-white' : 'text-transparent'}`}
                onClick={() => selectKeyword(ID)}
                >
@@ -173,7 +173,7 @@ const Keyword = (props: KeywordProps) => {
 
          <div
          className={`keyword_position absolute bg-[#f8f9ff] w-fit min-w-[50px] h-12 p-2 text-base mt-[-20px] rounded right-5 lg:relative
-          lg:bg-transparent lg:w-auto lg:h-auto lg:mt-0 lg:p-0 lg:text-sm lg:flex-1 lg:basis-24 lg:grow-0 lg:right-0 text-center font-semibold`}>
+          lg:bg-transparent lg:w-auto lg:h-auto lg:mt-0 lg:p-0 lg:text-sm lg:right-0 text-center font-semibold`}>
             <KeywordPosition position={position} updating={updating} />
             {!updating && positionChange > 0 && <i className=' not-italic ml-1 text-xs text-[#5ed7c3]'>▲ {positionChange}</i>}
             {!updating && positionChange < 0 && <i className=' not-italic ml-1 text-xs text-red-300'>▼ {positionChange}</i>}
@@ -183,33 +183,33 @@ const Keyword = (props: KeywordProps) => {
          title={bestPosition && bestPosition.date
             ? formatDateKey(String(bestPosition.date), { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' }) : ''
          }
-         className={`keyword_best mr-1 bg-[#f8f9ff] float-right mt-8 w-14 rounded right-5 lg:relative lg:block
-          lg:bg-transparent lg:w-auto lg:h-auto lg:mt-0 lg:mr-0 lg:p-0 lg:text-sm lg:flex-1 lg:basis-16 lg:grow-0 lg:right-0 text-center font-semibold
+         className={`keyword_best mr-1 bg-[#f8f9ff] float-right mt-8 w-14 rounded right-5 lg:relative
+          lg:bg-transparent lg:w-auto lg:h-auto lg:mt-0 lg:mr-0 lg:p-0 lg:text-sm lg:right-0 text-center font-semibold
           ${!tableColumns.includes('Best') ? 'lg:hidden' : ''}
           `}>
             {bestPosition ? bestPosition.position || '-' : (position || '-')}
          </div>
 
-         {chartData.labels.length > 0 && (
+         {tableColumns.includes('History') && (
             <div
-               data-testid="keyword-history-chart"
-               className={`hidden cursor-pointer lg:block lg:basis-20 lg:grow-0 lg:min-w-[80px] lg:w-full lg:h-[30px] ${!tableColumns.includes('History') ? 'lg:hidden' : ''}`}
-               onClick={() => showKeywordDetails()}>
-               <ChartSlim labels={chartData.labels} series={chartData.series} fillContainer={true} mapSentinel={true} />
+               data-testid={chartData.labels.length > 0 ? 'keyword-history-chart' : undefined}
+               className='hidden lg:block cursor-pointer lg:w-full lg:h-[30px]'
+               onClick={chartData.labels.length > 0 ? showKeywordDetails : undefined}>
+               {chartData.labels.length > 0 && <ChartSlim labels={chartData.labels} series={chartData.series} fillContainer={true} mapSentinel={true} />}
             </div>
          )}
 
          <div
-         className={`hidden bg-[#f8f9ff] w-fit min-w-[50px] h-12 p-2 text-base mt-[-20px] rounded right-5 lg:relative lg:block
-          lg:bg-transparent lg:w-auto lg:h-auto lg:mt-0 lg:p-0 lg:text-sm lg:flex-1 lg:basis-24 lg:grow-0 lg:right-0 text-center
-          ${!tableColumns.includes('Volume') ? 'lg:hidden' : ''}
+         className={`hidden bg-[#f8f9ff] w-fit min-w-[50px] h-12 p-2 text-base mt-[-20px] rounded right-5 lg:relative
+          lg:bg-transparent lg:w-auto lg:h-auto lg:mt-0 lg:p-0 lg:text-sm lg:right-0 text-center
+          ${tableColumns.includes('Volume') ? 'lg:block' : ''}
           `}>
             {formattedNum(volume)}
          </div>
 
          <div
-         className={`keyword_url inline-block mt-4 mr-5 ml-5 lg:flex-1 lg:basis-32 text-gray-400 lg:m-0 max-w-[70px] 
-         overflow-hidden text-ellipsis whitespace-nowrap lg:max-w-none lg:pr-5 lg:pl-3`}>
+         className={`keyword_url inline-block mt-4 mr-5 ml-5 text-gray-400 lg:m-0 max-w-[70px]
+         overflow-hidden text-ellipsis whitespace-nowrap lg:max-w-none`}>
             {safeResultUrl ? (
                <a href={safeResultUrl} target="_blank" rel="noreferrer"><span className='mr-3 lg:hidden'>
                   <Icon type="link-alt" size={14} color="#999" /></span>{turncatedURL || '-'}
@@ -220,14 +220,14 @@ const Keyword = (props: KeywordProps) => {
          </div>
 
          <div
-         className='inline-block mt-[4] top-[-5px] relative lg:flex-1 lg:m-0 lg:top-0 max-w-[150px]'>
+         className='inline-block mt-[4] top-[-5px] relative lg:m-0 lg:top-0 max-w-[150px]'>
             <span className='mr-2 lg:hidden'><Icon type="clock" size={14} color="#999" /></span>
             <TimeAgo title={formatUpdatedTooltip(lastUpdated)} date={lastUpdated} />
          </div>
 
          {showSCData && tableColumns.includes('Search Console') && (
             <div className='keyword_sc_data min-w-[170px] lg:max-w-[170px] text-xs mt-4 pt-2 border-t border-gray-100 top-[6px]
-            relative flex justify-between text-center lg:flex-1 lg:text-sm lg:m-0 lg:mt-0 lg:border-t-0 lg:pt-0 lg:top-0'>
+            relative flex justify-between text-center lg:text-sm lg:m-0 lg:mt-0 lg:border-t-0 lg:pt-0 lg:top-0'>
                <span className='min-w-[40px]'>
                   <span className='lg:hidden'>SC Position: </span>
                   <KeywordPosition
@@ -244,7 +244,7 @@ const Keyword = (props: KeywordProps) => {
             </div>
          )}
 
-         <div className='absolute right-4 mt-[-10px] top-2 lg:flex-1 lg:basis-5 lg:grow-0 lg:shrink-0 lg:relative lg:right-[-10px]'>
+         <div className='absolute right-4 mt-[-10px] top-2 lg:relative lg:right-0 lg:top-0 lg:mt-0'>
             <button
             className={`keyword_dots rounded px-1 text-indigo-300 hover:bg-indigo-50 ${showOptions ? 'bg-indigo-50 text-indigo-600 ' : ''}`}
             onClick={() => setShowOptions(!showOptions)}>
@@ -275,7 +275,7 @@ const Keyword = (props: KeywordProps) => {
          </div>
 
          {lastUpdateError && lastUpdateError.date && showPositionError && (
-            <div className={`absolute p-2 bg-white z-30 border border-red-200 rounded w-[220px] left-4 shadow-sm text-xs 
+            <div className={`absolute p-2 bg-white z-30 border border-red-200 rounded w-[220px] left-4 shadow-sm text-xs
             ${index > 2 ? 'lg:bottom-12 mt-[-70px]' : ' top-12'}`}>
                Error Updating Keyword position (Tried <TimeAgo
                                                          title={formatUpdatedTooltip(lastUpdateError.date)}

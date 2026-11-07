@@ -1,3 +1,4 @@
+import useTableScrollbar from '../../hooks/useTableScrollbar';
 /// <reference path="../../types.d.ts" />
 
 import { useRouter } from 'next/router';
@@ -100,7 +101,8 @@ const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleInt
    }, {}), [trackedKeywordsList]);
    const { mutate: addKeywords, isLoading: isAddingKeywords } = useAddKeywords(() => { if (domain && domain.slug) router.push(`/domain/${domain.slug}`); });
    const [isMobile] = useIsMobile();
-   useWindowResize(() => setSCListHeight(window.innerHeight - (isMobile ? 200 : 400)));
+   const { table, listInnerRef } = useTableScrollbar();
+   useWindowResize(() => setSCListHeight(Math.max(200, window.innerHeight - (isMobile ? 200 : 400))));
 
    const finalKeywords: {[key:string] : SCKeywordType[] } = useMemo(() => {
       const procKeywords = keywords.filter((x) => x.device === device);
@@ -245,10 +247,10 @@ const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleInt
                />
             )}
             <div className='domkeywordsTable domkeywordsTable--sckeywords styled-scrollbar w-full overflow-auto min-h-[60vh]'>
-               <div className=' lg:min-w-[800px]'>
-                  <div className={`domKeywords_head domKeywords_head--${sortBy} hidden lg:flex p-3 px-6 bg-[#FCFCFF]
+               <div ref={table} className='lg:min-w-[800px]'>
+                  <div className={`domKeywords_head domKeywords_head--${sortBy} discover-columns hidden lg:grid p-3 px-6 bg-[#FCFCFF]
                    text-gray-600 justify-between items-center font-semibold border-y`}>
-                     <span className='domKeywords_head_keyword flex-1 basis-20 w-auto '>
+                     <span className='domKeywords_head_keyword w-auto '>
                      {finalKeywords[device].length > 0 && (
                         <button
                            className={`p-0 mr-2 leading-[0px] inline-block rounded-sm pt-0 px-[1px] pb-[3px]  border border-slate-300 
@@ -260,15 +262,16 @@ const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleInt
                      )}
                         Keyword
                      </span>
-                     <span className='domKeywords_head_position flex-1 basis-40 grow-0 text-center'>Position</span>
-                     <span className='domKeywords_head_imp flex-1 text-center'>Impressions</span>
-                     <span className='domKeywords_head_visits flex-1 text-center'>Visits</span>
-                     <span className='domKeywords_head_ctr flex-1 text-center'>CTR</span>
+                     <span className='domKeywords_head_position text-center'>Position</span>
+                     <span className='domKeywords_head_imp text-center'>Impressions</span>
+                     <span className='domKeywords_head_visits text-center'>Visits</span>
+                     <span className='domKeywords_head_ctr text-center'>CTR</span>
                   </div>
                   <div className='domKeywords_keywords border-gray-200 min-h-[55vh] relative' data-domain={domain?.domain}>
                      {!isLoading && finalKeywords[device] && finalKeywords[device].length > 0 && (
                         <List
                         innerElementType="div"
+                        innerRef={listInnerRef}
                         itemData={rowData}
                         itemCount={finalKeywords[device].length}
                         itemSize={isMobile ? 100 : 57}
@@ -280,19 +283,19 @@ const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleInt
                         </List>
                      )}
                      {!isLoading && finalKeywords[device] && (
-                        <div className={`domKeywords_head hidden lg:flex p-3 px-6 bg-[#FCFCFF]
+                        <div className={`domKeywords_head discover-columns hidden lg:grid p-3 px-6 bg-[#FCFCFF]
                            text-gray-600 justify-between items-center font-semibold border-y`}>
-                              <span className='domKeywords_head_keyword flex-1 basis-20 w-auto font-semibold'>
+                              <span className='domKeywords_head_keyword w-auto font-semibold'>
                                  {finalKeywords[device].length} {device} Keywords
                               </span>
-                              <span className='domKeywords_head_position flex-1 basis-40 grow-0 text-center'>{viewSummary.position}</span>
-                              <span className='domKeywords_head_imp flex-1 text-center'>
+                              <span className='domKeywords_head_position text-center'>{viewSummary.position}</span>
+                              <span className='domKeywords_head_imp text-center'>
                                  {formattedNum(viewSummary.impressions)}
                               </span>
-                              <span className='domKeywords_head_visits flex-1 text-center'>
+                              <span className='domKeywords_head_visits text-center'>
                                  {formattedNum(viewSummary.visits)}
                               </span>
-                              <span className='domKeywords_head_ctr flex-1 text-center'>
+                              <span className='domKeywords_head_ctr text-center'>
                                  {new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(viewSummary.ctr)}%
                               </span>
                         </div>

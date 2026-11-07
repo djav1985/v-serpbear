@@ -108,14 +108,14 @@ const DomainItem = ({
          {/* A div with a click handler instead of a wrapping anchor, so the checkbox and buttons are not nested inside a link.
              The domain name below is a real link for keyboard and new-tab use. */}
          <div
-            className='flex flex-col lg:flex-row cursor-pointer'
+            className='flex flex-col md:max-lg:flex-row md:max-lg:flex-wrap lg:flex-row cursor-pointer'
             onClick={(event) => {
                const target = event.target as HTMLElement;
                if (target.closest('a, button, label, input')) { return; }
                Router.push(`/domain/${slug}`);
             }}
          >
-            <div className={`flex-1 p-6 flex ${!isConsoleIntegrated ? 'basis-1/3' : ''}`}>
+            <div className={`flex-1 p-6 flex md:max-lg:basis-full ${!isConsoleIntegrated ? 'basis-1/3' : ''}`}>
                <div className="group domain_thumb w-20 h-20 mr-6 bg-slate-100 rounded
                   border border-gray-200 overflow-hidden flex justify-center relative">
                   {screenshotsEnabled && (
