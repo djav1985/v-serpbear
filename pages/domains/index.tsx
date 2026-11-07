@@ -215,6 +215,8 @@ const Domains: NextPage = () => {
                </div>
                <div>
                   <button
+                  type="button"
+                  aria-label="Add domain"
                   data-testid="addDomainButton"
                   className={'ml-2 inline-block py-2 text-blue-700 font-bold text-sm'}
                   onClick={() => setShowAddDomain(true)}>

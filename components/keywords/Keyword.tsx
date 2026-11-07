@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useId, useRef } from 'react';
 import TimeAgo from 'react-timeago';
 import Icon from '../common/Icon';
 import countries from '../../utils/countries';
@@ -77,6 +77,8 @@ const Keyword = (props: KeywordProps) => {
 
    const [showOptions, setShowOptions] = useState(false);
    const [showPositionError, setPositionError] = useState(false);
+   const optionsButtonRef = useRef<HTMLButtonElement>(null);
+   const optionsId = useId();
 
    const turncatedURL = useMemo(() => url.replace(`https://${domain}`, '').replace(`https://www.${domain}`, '').replace(`http://${domain}`, ''), [url, domain]);
 
@@ -127,6 +129,24 @@ const Keyword = (props: KeywordProps) => {
 
    const optionsButtonStyle = 'block px-2 py-2 cursor-pointer hover:bg-indigo-50 hover:text-blue-700';
 
+   useEffect(() => {
+      if (!showOptions) { return undefined; }
+      const closeOnEscape = (event: KeyboardEvent) => {
+         if (event.key === 'Escape') {
+            setShowOptions(false);
+            optionsButtonRef.current?.focus();
+         }
+      };
+      document.addEventListener('keydown', closeOnEscape);
+      return () => document.removeEventListener('keydown', closeOnEscape);
+   }, [showOptions]);
+
+   const runOption = (action: () => void) => {
+      setShowOptions(false);
+      optionsButtonRef.current?.focus();
+      action();
+   };
+
    return (
       <div
       key={keyword + ID}
@@ -136,15 +156,19 @@ const Keyword = (props: KeywordProps) => {
 
          <div className=' w-3/4 font-semibold cursor-pointer lg:flex-1 lg:shrink-0 lg:basis-32 lg:w-auto lg:flex lg:items-center'>
             <button
+               type="button"
+               aria-label={`${selected ? 'Deselect' : 'Select'} keyword ${keyword}`}
+               aria-pressed={selected}
                className={`p-0 mr-2 leading-[0px] inline-block rounded-sm pt-0 px-[1px] pb-[3px] border 
                ${selected ? ' bg-blue-700 border-blue-700 text-white' : 'text-transparent'}`}
                onClick={() => selectKeyword(ID)}
                >
                   <Icon type="check" size={10} />
             </button>
-            <a
+            <button
+            type="button"
             style={{ maxWidth: `${maxTitleColumnWidth - 35}px` }}
-            className={'py-2 hover:text-blue-600 lg:flex lg:items-center w-full flex items-center'}
+            className={'py-2 hover:text-blue-600 lg:flex lg:items-center w-full flex items-center text-left'}
             onClick={() => showKeywordDetails()}
             title={keyword}
             >
@@ -162,10 +186,10 @@ const Keyword = (props: KeywordProps) => {
                      </span>
                   )}
                </span>
-            </a>
+            </button>
             {sticky && <button type='button' className='ml-2 relative top-[2px]' title='Unfavorite Keyword' aria-label='Unfavorite Keyword' onClick={() => favoriteKeyword({ keywordID: ID, sticky: false })}><Icon type="star-filled" size={16} color="#fbd346" /></button>}
             {lastUpdateError && lastUpdateError.date
-               && <button className='ml-2 relative top-[2px]' onClick={() => setPositionError(true)}>
+               && <button type="button" aria-label={`Show update error for ${keyword}`} className='ml-2 relative top-[2px]' onClick={() => setPositionError(true)}>
                   <Icon type="error" size={18} color="#FF3672" />
                </button>
             }
@@ -191,12 +215,14 @@ const Keyword = (props: KeywordProps) => {
          </div>
 
          {chartData.labels.length > 0 && (
-            <div
+            <button
+               type="button"
+               aria-label={`Open details for ${keyword}`}
                data-testid="keyword-history-chart"
                className={`hidden cursor-pointer lg:block lg:basis-20 lg:grow-0 lg:min-w-[80px] lg:w-full lg:h-[30px] ${!tableColumns.includes('History') ? 'lg:hidden' : ''}`}
                onClick={() => showKeywordDetails()}>
                <ChartSlim labels={chartData.labels} series={chartData.series} fillContainer={true} mapSentinel={true} />
-            </div>
+            </button>
          )}
 
          <div
@@ -246,29 +272,35 @@ const Keyword = (props: KeywordProps) => {
 
          <div className='absolute right-4 mt-[-10px] top-2 lg:flex-1 lg:basis-5 lg:grow-0 lg:shrink-0 lg:relative lg:right-[-10px]'>
             <button
+            ref={optionsButtonRef}
+            type="button"
+            aria-label={`Actions for ${keyword}`}
+            aria-expanded={showOptions}
+            aria-controls={optionsId}
             className={`keyword_dots rounded px-1 text-indigo-300 hover:bg-indigo-50 ${showOptions ? 'bg-indigo-50 text-indigo-600 ' : ''}`}
             onClick={() => setShowOptions(!showOptions)}>
                <Icon type="dots" size={20} />
             </button>
             {showOptions && (
-               <ul className='keyword_options customShadow absolute w-[180px] right-0 bg-white rounded border z-20'>
+               <ul id={optionsId} role="group" aria-label={`Actions for ${keyword}`} className='keyword_options customShadow absolute w-[180px] right-0 bg-white rounded border z-20'>
                   <li>
-                     <a className={optionsButtonStyle} onClick={() => { refreshkeyword([ID]); setShowOptions(false); }}>
-                     <span className=' bg-indigo-100 text-blue-700 px-1 rounded'><Icon type="reload" size={11} /></span> Refresh Keyword</a>
+                     <button type="button" className={optionsButtonStyle} onClick={() => runOption(() => refreshkeyword([ID]))}>
+                     <span className=' bg-indigo-100 text-blue-700 px-1 rounded'><Icon type="reload" size={11} /></span> Refresh Keyword
+                     </button>
                   </li>
                   <li>
-                     <a className={optionsButtonStyle}
-                     onClick={() => { favoriteKeyword({ keywordID: ID, sticky: !sticky }); setShowOptions(false); }}>
+                     <button type="button" className={optionsButtonStyle}
+                     onClick={() => runOption(() => favoriteKeyword({ keywordID: ID, sticky: !sticky }))}>
                         <span className=' bg-yellow-300/30 text-yellow-500 px-1 rounded'>
                            <Icon type="star" size={14} />
                         </span> { sticky ? 'Unfavorite Keyword' : 'Favorite Keyword'}
-                     </a>
+                     </button>
                   </li>
-                  <li><a className={optionsButtonStyle} onClick={() => { manageTags(); setShowOptions(false); }}>
-                     <span className=' bg-green-100 text-green-500 px-1 rounded'><Icon type="tags" size={14} /></span> Add/Edit Tags</a>
+                  <li><button type="button" className={optionsButtonStyle} onClick={() => runOption(manageTags)}>
+                     <span className=' bg-green-100 text-green-500 px-1 rounded'><Icon type="tags" size={14} /></span> Add/Edit Tags</button>
                   </li>
-                  <li><a className={optionsButtonStyle} onClick={() => { removeKeyword([ID]); setShowOptions(false); }}>
-                     <span className=' bg-red-100 text-red-600 px-1 rounded'><Icon type="trash" size={14} /></span> Remove Keyword</a>
+                  <li><button type="button" className={optionsButtonStyle} onClick={() => runOption(() => removeKeyword([ID]))}>
+                     <span className=' bg-red-100 text-red-600 px-1 rounded'><Icon type="trash" size={14} /></span> Remove Keyword</button>
                   </li>
                </ul>
             )}
@@ -280,9 +312,9 @@ const Keyword = (props: KeywordProps) => {
                Error Updating Keyword position (Tried <TimeAgo
                                                          title={formatUpdatedTooltip(lastUpdateError.date)}
                                                          date={lastUpdateError.date} />)
-               <i className='absolute top-0 right-0 ml-2 p-2 font-semibold not-italic cursor-pointer' onClick={() => setPositionError(false)}>
+               <button type="button" aria-label="Close update error" className='absolute top-0 right-0 ml-2 p-2 font-semibold' onClick={() => setPositionError(false)}>
                   <Icon type="close" size={16} color="#999" />
-               </i>
+               </button>
                <div className=' border-t-[1px] border-red-100 mt-2 pt-1'>
                   {lastUpdateError.scraper && <strong className='capitalize'>{lastUpdateError.scraper}: </strong>}{lastUpdateError.error}
                </div>

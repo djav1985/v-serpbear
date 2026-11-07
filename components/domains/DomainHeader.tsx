@@ -95,11 +95,11 @@ const DomainHeader = (
             </li>
          </ul>
          <div className='relative flex items-center shrink-0 mb-0 lg:mb-1'>
-            {!isInsight && <button className={`${buttonStyle} lg:hidden`} onClick={() => setShowOptions(!showOptions)}>
+            {!isInsight && <button type="button" aria-label="Domain actions" aria-expanded={showOptions} className={`${buttonStyle} lg:hidden`} onClick={() => setShowOptions(!showOptions)}>
                <Icon type='dots' size={20} />
             </button>
             }
-            {isInsight && <button className={`${buttonStyle} lg:hidden invisible`}>x</button>}
+            {isInsight && <span aria-hidden="true" className={`${buttonStyle} lg:hidden invisible`}>x</span>}
             <div
             className={`absolute top-full right-0 w-40 mt-2 bg-white border border-gray-100 rounded z-[70] ${
                showOptions ? 'block' : 'hidden'
@@ -107,7 +107,8 @@ const DomainHeader = (
                {!isInsight && (
                   <button
                   className={`domheader_action_button relative ${buttonStyle}`}
-                  aria-pressed="false"
+                  type="button"
+                  aria-label="Export as CSV"
                   onClick={() => { exportCsv(); setShowOptions(false); }}>
                      <Icon type='download' size={20} /><i className={`${buttonLabelStyle}`}>Export as csv</i>
                   </button>
@@ -115,7 +116,8 @@ const DomainHeader = (
                {!isConsole && !isInsight && !isIdeas && (
                   <button
                   className={`domheader_action_button relative ${buttonStyle} lg:ml-3`}
-                  aria-pressed="false"
+                  type="button"
+                  aria-label="Reload all search results"
                   onClick={() => { refreshMutate({ ids: [], domain: domain.domain }); setShowOptions(false); }}>
                      <Icon type='reload' size={14} /><i className={`${buttonLabelStyle}`}>Reload All Serps</i>
                   </button>
@@ -123,7 +125,8 @@ const DomainHeader = (
                <button
                data-testid="show_domain_settings"
                className={`domheader_action_button relative ${buttonStyle} lg:ml-3`}
-               aria-pressed="false"
+               type="button"
+               aria-label="Domain Settings"
                onClick={() => { showSettingsModal(true); setShowOptions(false); }}><Icon type='settings' size={20} />
                   <i className={`${buttonLabelStyle}`}>Domain Settings</i>
                </button>
@@ -131,6 +134,8 @@ const DomainHeader = (
             {canShowAddKeywordButton && (
                <button
                data-testid="add_keyword"
+               type="button"
+               aria-label="Add keyword"
                className={'ml-2 inline-block text-blue-700 font-bold text-sm lg:px-4 lg:py-2'}
                onClick={() => showAddModal(true)}>
                   <span
@@ -140,13 +145,15 @@ const DomainHeader = (
             )}
             {isConsole && (
                <div className='text-xs whitespace-nowrap pl-4 ml-2 border-l border-gray-200 relative'>
-                  <span className='block cursor-pointer py-3' onClick={() => setShowSCDates(!ShowSCDates)}>
+                  <button type="button" aria-label={`Search Console date range: ${daysName(scFilter)}`} aria-expanded={ShowSCDates} className='block py-3' onClick={() => setShowSCDates(!ShowSCDates)}>
                      <Icon type='date' size={13} classes="mr-1" /> {daysName(scFilter)}
-                  </span>
+                  </button>
                   {ShowSCDates && (
                      <div className='absolute w-24 z-50 mt-0 right-0 bg-white border border-gray-200 rounded text-center'>
                         {['threeDays', 'sevenDays', 'thirtyDays'].map((itemKey) => <button
                                     key={itemKey}
+                                    type="button"
+                                    aria-pressed={scFilter === itemKey}
                                     className={`${scDataFilterStyle} ${scFilter === itemKey ? ' bg-indigo-100 text-indigo-600' : ''}`}
                                     onClick={() => { setShowSCDates(false); if (setScFilter) setScFilter(itemKey); }}
                                     >Last {daysName(itemKey)}

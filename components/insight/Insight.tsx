@@ -67,17 +67,15 @@ const SCInsight = ({ insight, isLoading = true, isConsoleIntegrated = true, doma
                   <ul className='text-xs hidden lg:flex'>
                      {['stats', 'keywords', 'countries', 'pages'].map((tabItem) => {
                         const tabInsightItem = insight[tabItem as keyof InsightDataType];
-                        return <li
-                        key={`tab-${tabItem}`}
-                        className={`${deviceTabStyle} ${activeTab === tabItem ? ' bg-[#F8F9FF] text-gray-700' : ''}`}
-                        onClick={() => switchTab(tabItem)}>
+                        return <li key={`tab-${tabItem}`}>
+                        <button type="button" aria-pressed={activeTab === tabItem} className={`${deviceTabStyle} ${activeTab === tabItem ? ' bg-[#F8F9FF] text-gray-700' : ''}`} onClick={() => switchTab(tabItem)}>
                               <i className='hidden not-italic lg:inline-block ml-1 capitalize'>{tabItem}</i>
                               {tabItem !== 'stats' && (
                                  <span className={`${deviceTabCountStyle}`}>
                                     {tabInsightItem && tabInsightItem.length ? tabInsightItem.length : 0}
                                  </span>
                               )}
-                        </li>;
+                        </button></li>;
                      })}
                   </ul>
                   <div className='insight_selector lg:hidden'>

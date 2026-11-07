@@ -226,18 +226,14 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
                   />
                   </div>
                   <ul className='flex text-xs font-semibold text-gray-500'>
-                     <li
-                        className={`${deviceTabStyle} mr-2 ${newKeywordsData.device.includes('desktop') ? '  bg-indigo-50 text-indigo-700' : ''}`}
-                        onClick={() => setDeviceType('desktop')}>
+                     <li><button type="button" aria-pressed={newKeywordsData.device.includes('desktop')} className={`${deviceTabStyle} mr-2 ${newKeywordsData.device.includes('desktop') ? '  bg-indigo-50 text-indigo-700' : ''}`} onClick={() => setDeviceType('desktop')}>
                            <Icon type='desktop' classes={'top-[3px]'} size={15} /> <i className='not-italic hidden lg:inline-block'>Desktop</i>
                            <Icon type='check' classes={'pl-1'} size={12} color={newKeywordsData.device.includes('desktop') ? '#4338ca' : '#bbb'} />
-                        </li>
-                     <li
-                        className={`${deviceTabStyle} ${newKeywordsData.device.includes('mobile') ? '  bg-indigo-50 text-indigo-700' : ''}`}
-                        onClick={() => setDeviceType('mobile')}>
+                        </button></li>
+                     <li><button type="button" aria-pressed={newKeywordsData.device.includes('mobile')} className={`${deviceTabStyle} ${newKeywordsData.device.includes('mobile') ? '  bg-indigo-50 text-indigo-700' : ''}`} onClick={() => setDeviceType('mobile')}>
                            <Icon type='mobile' /> <i className='not-italic hidden lg:inline-block'>Mobile</i>
                            <Icon type='check' classes={'pl-1'} size={12} color={newKeywordsData.device.includes('mobile') ? '#4338ca' : '#bbb'} />
-                        </li>
+                        </button></li>
                   </ul>
                </div>
                <TagInput

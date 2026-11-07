@@ -65,9 +65,9 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
 
    return (
        <div className="keywordDetails fixed w-full h-dvh top-0 left-0 z-[99999]" onClick={(e) => closeOnBGClick(e, closeDetails)} data-testid="keywordDetails">
-            <div className="keywordDetails absolute w-full lg:w-5/12 bg-white customShadow top-0 right-0 h-dvh overflow-y-auto" >
+            <div role="dialog" aria-modal="true" aria-labelledby="keyword-details-title" className="keywordDetails absolute w-full lg:w-5/12 bg-white customShadow top-0 right-0 h-dvh overflow-y-auto" >
                <div className='keywordDetails__header p-6 border-b border-b-slate-200 text-slate-600'>
-                  <h3 className=' text-lg font-bold flex items-center'>
+                  <h3 id="keyword-details-title" className=' text-lg font-bold flex items-center'>
                      <span className="fflag-stack mr-2">
                         <span
                            title={countries[keyword.country]?.[0] ?? keyword.country}
@@ -82,6 +82,8 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
                      </span>
                   </h3>
                   <button
+                  type="button"
+                  aria-label="Close keyword details"
                   className='absolute top-2 right-2 p-2 px-3 text-gray-400 hover:text-gray-700 transition-all hover:rotate-90'
                   onClick={() => closeDetails()}>
                      <Icon type='close' size={24} />

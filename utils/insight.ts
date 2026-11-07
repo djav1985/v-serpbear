@@ -5,6 +5,7 @@
  * @returns {SCInsightItem[]}
  */
 import { logger } from './logger';
+import { averageSearchConsolePositionFromTotals } from './searchConsolePosition';
 
 export const sortInsightItems = (items:SCInsightItem[], sortBy: string = 'clicks'): SCInsightItem[] => {
    const sortKey = sortBy as keyof SCInsightItem;
@@ -56,9 +57,12 @@ const summarizeTotals = (totals: InsightTotals): { clicks: number, impressions: 
    clicks: totals.clicks,
    impressions: totals.impressions,
    ctr: totals.impressions > 0 ? Number(((totals.clicks / totals.impressions) * 100).toFixed(2)) : 0,
-   position: Math.round(
-      totals.impressions > 0 ? totals.weightedPosition / totals.impressions : totals.positionSum / Math.max(totals.rows, 1),
-   ),
+   position: averageSearchConsolePositionFromTotals({
+      impressions: totals.impressions,
+      weightedPosition: totals.weightedPosition,
+      positionTotal: totals.positionSum,
+      count: totals.rows,
+   }),
 });
 
 const readRows = (SCData: SCDomainDataType, queryDate: string): SearchAnalyticsItem[] => {

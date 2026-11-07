@@ -12,6 +12,7 @@ import SCKeyword from './SCKeyword';
 import useWindowResize from '../../hooks/useWindowResize';
 import useIsMobile from '../../hooks/useIsMobile';
 import { formattedNum } from '../../utils/client/helpers';
+import { averageSearchConsolePosition } from '../../utils/searchConsolePosition';
 import { buildKeywordAddPayloads, getDomainLocations, getDomainTags, scraperAllowsCity, TrackerDevice } from '../../utils/keywordMeta';
 import { isCountryOnlyLocation } from '../../utils/location';
 import { useFetchSettings } from '../../services/settings';
@@ -136,18 +137,13 @@ const SCKeywordsTable = ({ domain, keywords = [], isLoading = true, isConsoleInt
       // With no impressions at all, position falls back to a plain average and CTR to 0.
       let totalImpressions = 0;
       let totalVisits = 0;
-      let impressionWeightedPosition = 0;
-      let positionSum = 0;
       keywordsForDevice.forEach((keyword) => {
          const impressions = keyword.impressions ?? 0;
-         const position = keyword.position ?? 0;
          totalImpressions += impressions;
          totalVisits += keyword.clicks ?? 0;
-         impressionWeightedPosition += position * impressions;
-         positionSum += position;
       });
       return {
-         position: Math.round(totalImpressions > 0 ? impressionWeightedPosition / totalImpressions : positionSum / keyCount),
+         position: averageSearchConsolePosition(keywordsForDevice),
          impressions: totalImpressions,
          visits: totalVisits,
          ctr: totalImpressions > 0 ? (totalVisits / totalImpressions) * 100 : 0,

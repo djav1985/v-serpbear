@@ -34,28 +34,36 @@ const TagInput = ({
 
    return (
       <div className='relative'>
-         <span className='absolute text-gray-400 top-3 left-2 cursor-pointer' onClick={() => setShowSuggestions(!showSuggestions)}>
+         <button
+            type="button"
+            aria-label={`${showSuggestions ? 'Hide' : 'Show'} existing tags`}
+            aria-expanded={showSuggestions}
+            className='absolute text-gray-400 top-3 left-2'
+            onClick={() => setShowSuggestions(!showSuggestions)}>
             <Icon type="tags" size={16} color={showSuggestions ? '#777' : '#aaa'} />
             <Icon type={showSuggestions ? 'caret-up' : 'caret-down'} size={14} color={showSuggestions ? '#666' : '#aaa'} />
-         </span>
+         </button>
          <input
             ref={inputRef}
             className={inputClassName}
             placeholder={placeholder}
+            aria-label={placeholder}
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            onKeyDown={onKeyDown}
+            onKeyDown={(event) => {
+               if (event.key === 'Escape') { setShowSuggestions(false); }
+               onKeyDown?.(event);
+            }}
          />
          {showSuggestions && (
             <ul className={`absolute z-50
             bg-white border border-t-0 border-gray-200 rounded rounded-t-none w-full`}>
                {existingTags.length > 0 && existingTags.map((tag, index) => (
                   value.split(',').map((t) => t.trim()).includes(tag) === false && (
-                     <li
-                        className=' p-2 cursor-pointer hover:text-indigo-600 hover:bg-indigo-50 transition'
-                        key={index}
-                        onClick={() => insertTag(tag)}>
+                     <li className='hover:text-indigo-600 hover:bg-indigo-50 transition' key={index}>
+                        <button type="button" className='w-full p-2 text-left' onClick={() => insertTag(tag)}>
                         <Icon type='tags' size={14} color='#bbb' /> {tag}
+                        </button>
                      </li>
                   )
                ))}

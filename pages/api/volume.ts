@@ -16,6 +16,13 @@ import { getClientIp } from '../../utils/api/clientIp';
 // Lookups by keyword IDs or for a single domain are not limited here.
 const ALL_DOMAIN_LOOKUPS_PER_HOUR = 2;
 
+const googleAdsFailureResponse = (message: string, requestId?: string) => {
+   const isConfigurationError = message === 'Cannot Load Google Ads Credentials' || message === 'Google Ads Not Integrated Properly';
+   return isConfigurationError
+      ? { status: 400, body: errorResponse('BAD_REQUEST', message, requestId) }
+      : { status: 502, body: errorResponse('BAD_GATEWAY', message, requestId) };
+};
+
 async function handler(req: NextApiRequest, res: NextApiResponse) {
    const requestId = (req as ExtendedRequest).requestId;
    const authorized = verifyUser(req, res);
@@ -78,7 +85,8 @@ const updatekeywordVolume = async (req: NextApiRequest, res: NextApiResponse) =>
       if (update && keywords.length === 0 && countryCount > 1) {
          const preflight = await getKeywordsVolume([]);
          if (preflight.error || preflight.volumes === false) {
-            return res.status(400).json(errorResponse('BAD_REQUEST', preflight.error || 'Error Fetching Keywords Volume Data from Google Ads', requestId));
+            const failure = googleAdsFailureResponse(preflight.error || 'Error Fetching Keywords Volume Data from Google Ads', requestId);
+            return res.status(failure.status).json(failure.body);
          }
          getKeywordsVolume(keywordsToSend)
             .then((backgroundVolumes) => {
@@ -96,11 +104,13 @@ const updatekeywordVolume = async (req: NextApiRequest, res: NextApiResponse) =>
 
       const keywordsVolumeData = await getKeywordsVolume(keywordsToSend);
       if (keywordsVolumeData.error) {
-         return res.status(400).json(errorResponse('BAD_REQUEST', keywordsVolumeData.error, requestId));
+         const failure = googleAdsFailureResponse(keywordsVolumeData.error, requestId);
+         return res.status(failure.status).json(failure.body);
       }
 
       if (keywordsVolumeData.volumes === false) {
-         return res.status(400).json(errorResponse('BAD_REQUEST', 'Error Fetching Keywords Volume Data from Google Ads', requestId));
+         const failure = googleAdsFailureResponse('Error Fetching Keywords Volume Data from Google Ads', requestId);
+         return res.status(failure.status).json(failure.body);
       }
 
       const volumesMap = keywordsVolumeData.volumes as Record<number, number>;

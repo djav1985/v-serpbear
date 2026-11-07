@@ -2,7 +2,6 @@
 import { useEffect, useRef } from 'react';
 import TimeAgo from 'react-timeago';
 import Link from 'next/link';
-import Router from 'next/router';
 import toast from 'react-hot-toast';
 import Icon from '../common/Icon';
 import { useUpdateDomainToggles } from '../../services/domains';
@@ -112,16 +111,7 @@ const DomainItem = ({
    };
    return (
       <div className='domItem bg-white border rounded w-full text-sm mb-10 hover:border-indigo-200'>
-         {/* A div with a click handler instead of a wrapping anchor, so the checkbox and buttons are not nested inside a link.
-             The domain name below is a real link for keyboard and new-tab use. */}
-         <div
-            className='flex flex-col lg:flex-row cursor-pointer'
-            onClick={(event) => {
-               const target = event.target as HTMLElement;
-               if (target.closest('a, button, label, input')) { return; }
-               Router.push(`/domain/${slug}`);
-            }}
-         >
+         <div className='flex flex-col lg:flex-row'>
             <div className={`flex-1 p-6 flex ${!isConsoleIntegrated ? 'basis-1/3' : ''}`}>
                <div ref={thumbnailNodeRef} className="domain_thumb w-20 h-20 mr-6 bg-slate-100 rounded
                   border border-gray-200 overflow-hidden flex justify-center relative">

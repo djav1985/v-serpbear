@@ -250,47 +250,29 @@ const KeywordsTable = (props: KeywordsTableProps) => {
                <div className='font-semibold text-sm py-4 px-8 text-gray-500 '>
                   <ul className=''>
                      <li className='inline-block mr-4'>
-                        <a
-                        className='block px-2 py-2 cursor-pointer hover:text-indigo-600'
-                        onClick={() => { refreshMutate({ ids: selectedKeywords }); setSelectedKeywords([]); }}
-                        >
+                        <button type="button" className='block px-2 py-2 hover:text-indigo-600' onClick={() => { refreshMutate({ ids: selectedKeywords }); setSelectedKeywords([]); }}>
                            <span className=' bg-indigo-100 text-blue-700 px-1 rounded'><Icon type="reload" size={11} /></span> Refresh Keywords
-                        </a>
+                        </button>
                      </li>
                      <li className='inline-block mr-4'>
-                        <a
-                        className='block px-2 py-2 cursor-pointer hover:text-indigo-600'
-                        onClick={() => setShowRemoveModal(true)}
-                        >
-                           <span className=' bg-red-100 text-red-600 px-1 rounded'><Icon type="trash" size={14} /></span> Remove Keywords</a>
+                        <button type="button" className='block px-2 py-2 hover:text-indigo-600' onClick={() => setShowRemoveModal(true)}>
+                           <span className=' bg-red-100 text-red-600 px-1 rounded'><Icon type="trash" size={14} /></span> Remove Keywords</button>
                      </li>
                      <li className='inline-block mr-4'>
-                        <a
-                        className='block px-2 py-2 cursor-pointer hover:text-indigo-600'
-                        onClick={() => { favoriteMutate({ keywordID: selectedKeywords, sticky: true }); setSelectedKeywords([]); }}
-                        >
-                           <span className=' bg-yellow-300/30 text-yellow-500 px-1 rounded'><Icon type="star" size={14} /></span> Favorite Keywords</a>
+                        <button type="button" className='block px-2 py-2 hover:text-indigo-600' onClick={() => { favoriteMutate({ keywordID: selectedKeywords, sticky: true }); setSelectedKeywords([]); }}>
+                           <span className=' bg-yellow-300/30 text-yellow-500 px-1 rounded'><Icon type="star" size={14} /></span> Favorite Keywords</button>
                      </li>
                      <li className='inline-block mr-4'>
-                        <a
-                        className='block px-2 py-2 cursor-pointer hover:text-indigo-600'
-                        onClick={() => { favoriteMutate({ keywordID: selectedKeywords, sticky: false }); setSelectedKeywords([]); }}
-                        >
-                           <span className=' bg-gray-200 text-gray-500 px-1 rounded'><Icon type="star" size={14} /></span> Unfavorite Keywords</a>
+                        <button type="button" className='block px-2 py-2 hover:text-indigo-600' onClick={() => { favoriteMutate({ keywordID: selectedKeywords, sticky: false }); setSelectedKeywords([]); }}>
+                           <span className=' bg-gray-200 text-gray-500 px-1 rounded'><Icon type="star" size={14} /></span> Unfavorite Keywords</button>
                      </li>
                      <li className='inline-block mr-4'>
-                        <a
-                        className='block px-2 py-2 cursor-pointer hover:text-indigo-600'
-                        onClick={() => setTagManagerIDs(selectedKeywords)}
-                        >
-                           <span className=' bg-green-100 text-green-500  px-1 rounded'><Icon type="tags" size={14} /></span> Add/Edit Tags</a>
+                        <button type="button" className='block px-2 py-2 hover:text-indigo-600' onClick={() => setTagManagerIDs(selectedKeywords)}>
+                           <span className=' bg-green-100 text-green-500  px-1 rounded'><Icon type="tags" size={14} /></span> Add/Edit Tags</button>
                      </li>
                      <li className='inline-block mr-4'>
-                        <a
-                        className='block px-2 py-2 cursor-pointer hover:text-indigo-600'
-                        onClick={() => setShowChangeLocation(true)}
-                        >
-                           <span className=' bg-blue-100 text-blue-600 px-1 rounded'><Icon type="city" size={14} /></span> Change Location</a>
+                        <button type="button" className='block px-2 py-2 hover:text-indigo-600' onClick={() => setShowChangeLocation(true)}>
+                           <span className=' bg-blue-100 text-blue-600 px-1 rounded'><Icon type="city" size={14} /></span> Change Location</button>
                      </li>
                   </ul>
                </div>
@@ -321,6 +303,9 @@ const KeywordsTable = (props: KeywordsTableProps) => {
                         ${showSCData && tableColumns.includes('Search Console') ? 'lg:basis-24' : 'lg:basis-12'} lg:w-auto lg:flex lg:items-center `}>
                      {processedKeywords[device].length > 0 && (
                         <button
+                           type="button"
+                           aria-label={selectedAllItems ? 'Deselect all visible keywords' : 'Select all visible keywords'}
+                           aria-pressed={selectedAllItems}
                            className={`p-0 mr-2 leading-[0px] inline-block rounded-sm pt-0 px-[1px] pb-[3px]  border border-slate-300 
                            ${selectedAllItems ? ' bg-blue-700 border-blue-700 text-white' : 'text-transparent'}`}
                            onClick={() => setSelectedKeywords(selectedAllItems ? [] : processedKeywords[device].map((k: KeywordType) => k.ID))}
@@ -343,22 +328,22 @@ const KeywordsTable = (props: KeywordsTableProps) => {
                         <div className='domKeywords_head_sc flex-1 min-w-[170px] lg:max-w-[170px] mr-7 text-center'>
                            {/* Search Console */}
                            <div>
-                              <div
-                              className=' w-48 select-none cursor-pointer absolute bg-white rounded-full
+                              <button type="button" aria-label={`Search Console period: ${scDataObject[scDataType]}`} aria-expanded={showScDataTypes}
+                              className=' w-48 select-none absolute bg-white rounded-full
                               px-2 py-[2px] mt-[-22px] ml-3 border border-gray-200 z-40'
                               onClick={() => setShowScDataTypes(!showScDataTypes)}>
                                  <Icon type="google" size={13} /> {scDataObject[scDataType]}
                                  <Icon classes="ml-2" type={showScDataTypes ? 'caret-up' : 'caret-down'} size={10} />
-                              </div>
+                              </button>
                               {showScDataTypes && (
                                  <div className='absolute bg-white border border-gray-200 z-50 w-44 rounded mt-2 ml-5 text-gray-500'>
-                                    {Object.keys(scDataObject).map((itemKey) => <span
-                                                className={`block p-2 cursor-pointer hover:bg-indigo-50 hover:text-indigo-600
-                                                 ${scDataType === itemKey ? 'bg-indigo-100 text-indigo-600' : ''}`}
-                                                key={itemKey}
-                                                onClick={() => { setScDataType(itemKey); setShowScDataTypes(false); }}>
-                                                   {scDataObject[itemKey]}
-                                                </span>)}
+                                    {Object.keys(scDataObject).map((itemKey) => <button type="button" aria-pressed={scDataType === itemKey}
+                                       className={`block w-full p-2 text-left hover:bg-indigo-50 hover:text-indigo-600
+                                       ${scDataType === itemKey ? 'bg-indigo-100 text-indigo-600' : ''}`}
+                                       key={itemKey}
+                                       onClick={() => { setScDataType(itemKey); setShowScDataTypes(false); }}>
+                                          {scDataObject[itemKey]}
+                                    </button>)}
                                  </div>
                               )}
                            </div>
@@ -385,11 +370,13 @@ const KeywordsTable = (props: KeywordsTableProps) => {
                      <p>Are you sure you want to remove {selectedKeywords.length > 1 ? 'these' : 'this'} Keyword?</p>
                      <div className='mt-6 text-right font-semibold'>
                         <button
+                        type="button"
                         className=' py-1 px-5 rounded cursor-pointer bg-indigo-50 text-slate-500 mr-3'
                         onClick={() => { setSelectedKeywords([]); setShowRemoveModal(false); }}>
                            Cancel
                         </button>
                         <button
+                        type="button"
                         className=' py-1 px-5 rounded cursor-pointer bg-red-400 text-white'
                         onClick={() => { deleteMutate(selectedKeywords); setShowRemoveModal(false); setSelectedKeywords([]); }}>
                            Remove

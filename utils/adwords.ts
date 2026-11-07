@@ -18,6 +18,32 @@ import { isCurrentDomainRecord, withDomainLifecycleLock } from './domainLifecycl
 
 export const GOOGLE_ADS_API_VERSION = 'v23';
 
+const fetchGoogleAdsVolume = async (url: string, init: RequestInit, country: string, keywordCount: number): Promise<Response> => {
+   const maxAttempts = 3;
+   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+         return await fetch(url, { ...init, signal: AbortSignal.timeout(30000) });
+      } catch (error) {
+         const isNetworkFailure = error instanceof TypeError;
+         const cause = error instanceof Error ? (error as Error & { cause?: unknown }).cause : undefined;
+         const causeInfo = cause instanceof Error
+            ? { name: cause.name, message: cause.message, code: (cause as NodeJS.ErrnoException).code }
+            : cause;
+         logger.warn('Google Ads volume request failed before receiving a response', {
+            country,
+            keywordCount,
+            attempt,
+            maxAttempts,
+            error: error instanceof Error ? { name: error.name, message: error.message } : String(error),
+            cause: causeInfo,
+         });
+         if (!isNetworkFailure || attempt === maxAttempts) { throw error; }
+         await sleep(attempt * 1000);
+      }
+   }
+   throw new Error('Google Ads volume request failed before receiving a response');
+};
+
 const memoryCache = new TTLCache({ max: 10000 });
 
 /**
@@ -639,7 +665,8 @@ export const getKeywordsVolume = async (keywords: KeywordType[]): Promise<{ erro
                // Pause only between country requests, never before the first or after the last
                if (volumeRequestSent) await sleep(7000);
                volumeRequestSent = true;
-               const resp = await fetch(`https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}/customers/${customerID}:generateKeywordHistoricalMetrics`, {
+               const requestUrl = `https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}/customers/${customerID}:generateKeywordHistoricalMetrics`;
+               const resp = await fetchGoogleAdsVolume(requestUrl, {
                   method: 'POST',
                   headers: {
                      'Content-Type': 'application/json',
@@ -648,7 +675,7 @@ export const getKeywordsVolume = async (keywords: KeywordType[]): Promise<{ erro
                      'login-customer-id': customerID,
                   },
                   body: JSON.stringify(reqPayload),
-               });
+               }, country, reqPayload.keywords.length);
 
                let ideaData;
                try {
@@ -707,7 +734,15 @@ export const getKeywordsVolume = async (keywords: KeywordType[]): Promise<{ erro
                   }
                }
             } catch (error) {
-               logger.error('Error fetching keyword volume from Google Ads', error instanceof Error ? error : new Error(String(error)));
+               const requestError = error instanceof Error ? error : new Error(String(error));
+               const cause = (requestError as Error & { cause?: unknown }).cause;
+               logger.error('Error fetching keyword volume from Google Ads', requestError, {
+                  country,
+                  keywordCount: keywordRequests[country].length,
+                  cause: cause instanceof Error
+                     ? { name: cause.name, message: cause.message, code: (cause as NodeJS.ErrnoException).code }
+                     : cause,
+               });
                lastRequestError = error instanceof Error && error.message ? error.message : 'Google Ads request failed';
             }
          }

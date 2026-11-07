@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import Icon from './Icon';
 
 export type SelectionOption = {
@@ -42,6 +42,8 @@ const SelectField = (props: SelectFieldProps) => {
    const [showOptions, setShowOptions] = useState<boolean>(false);
    const [filterInput, setFilterInput] = useState<string>('');
    const containerRef = useRef<HTMLDivElement>(null);
+   const triggerRef = useRef<HTMLButtonElement>(null);
+   const controlId = useId();
 
    // Close the dropdown on outside click or Escape. Listeners exist only while open.
    useEffect(() => {
@@ -57,7 +59,10 @@ const SelectField = (props: SelectFieldProps) => {
          }
       };
       const handleKeyDown = (event: KeyboardEvent) => {
-         if (event.key === 'Escape') { setShowOptions(false); }
+         if (event.key === 'Escape') {
+            setShowOptions(false);
+            triggerRef.current?.focus();
+         }
       };
 
       document.addEventListener('mousedown', handleMouseDown);
@@ -90,7 +95,10 @@ const SelectField = (props: SelectFieldProps) => {
          }
       }
       updateField(updatedSelect);
-      if (!multiple) { setShowOptions(false); }
+      if (!multiple) {
+         setShowOptions(false);
+         triggerRef.current?.focus();
+      }
    };
 
    const filterOptions = (event:React.FormEvent<HTMLInputElement>) => {
@@ -99,21 +107,30 @@ const SelectField = (props: SelectFieldProps) => {
 
    return (
       <div ref={containerRef} className={`select font-semibold text-gray-500 relative ${inline ? 'inline-block' : 'flex'} justify-between items-center`}>
-         {label && <label className='mb-2 font-semibold inline-block text-sm text-gray-700 capitalize'>{label}</label>}
-         <div
-         className={`selected flex border ${rounded} p-1.5 px-4 cursor-pointer select-none ${fullWidth ? 'w-full' : 'w-full sm:w-[210px]'}
-         min-w-0 ${showOptions ? 'border-indigo-200' : ''}`}
+         {label && <span id={`${controlId}-label`} className='mb-2 font-semibold inline-block text-sm text-gray-700 capitalize'>{label}</span>}
+         <button
+         ref={triggerRef}
+         type="button"
+         id={`${controlId}-trigger`}
+         aria-labelledby={label ? `${controlId}-label ${controlId}-value` : undefined}
+         aria-expanded={showOptions}
+         aria-controls={`${controlId}-options`}
+         className={`selected flex border ${rounded} p-1.5 px-4 cursor-pointer select-none text-left ${fullWidth ? 'w-full' : 'w-full sm:w-[210px]'}
+         min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${showOptions ? 'border-indigo-200' : ''}`}
          style={fullWidth ? undefined : { minWidth }}
          onClick={() => setShowOptions(!showOptions)}>
-            <span className={'w-full inline-block truncate mr-2 capitalize'}>
+            <span id={label ? `${controlId}-value` : undefined} className={'w-full inline-block truncate mr-2 capitalize'}>
                {selected.length > 0 ? (selectedLabels.slice(0, 2).join(', ')) : defaultLabel}
             </span>
             {multiple && selected.length > 2
             && <span className={`px-2 py-0 ${rounded} bg-[#eaecff] text-[0.7rem] font-bold`}>{(selected.length)}</span>}
             <span className='ml-2'><Icon type={showOptions ? 'caret-up' : 'caret-down'} size={9} /></span>
-         </div>
+         </button>
          {showOptions && (
             <div
+            id={`${controlId}-options`}
+            role="group"
+            aria-label={label || defaultLabel}
             className={`select_list mt-1 border absolute min-w-0 top-[30px] right-0 ${fullWidth ? 'w-full' : 'w-full sm:w-[210px]'}
             ${rounded === 'rounded-3xl' ? 'rounded-lg' : rounded} bg-white z-50 overflow-y-auto styled-scrollbar`}
             style={{ ...(fullWidth ? {} : { minWidth }), maxHeight: listMaxHeight }}>
@@ -122,6 +139,7 @@ const SelectField = (props: SelectFieldProps) => {
                      <input
                      className=' border-b-[1px] p-3 w-full focus:outline-0 focus:border-blue-100'
                      type="text"
+                     aria-label={`Search ${label || defaultLabel}`}
                      placeholder='Search..'
                      onChange={filterOptions}
                      value={filterInput}
@@ -131,7 +149,7 @@ const SelectField = (props: SelectFieldProps) => {
                {showEmptyMsg && <p className='p-4'>{emptyMsg}</p>}
                <ul>
                   {visibleOptions.length === 0 && !showEmptyMsg && (
-                     <li className='select-none px-3 py-2 text-gray-400 cursor-not-allowed'>
+                     <li className='select-none px-3 py-2 text-gray-400' aria-live="polite">
                         No options
                      </li>
                   )}
@@ -140,19 +158,25 @@ const SelectField = (props: SelectFieldProps) => {
                      return (
                         <li
                         key={opt.value}
-                        className={`select-none cursor-pointer px-3 py-2 hover:bg-[#FCFCFF] capitalize text-ellipsis overflow-hidden
+                        className={`select-none hover:bg-[#FCFCFF] capitalize text-ellipsis overflow-hidden
                         ${itemActive ? ' bg-indigo-50 text-indigo-600 hover:bg-indigo-50' : ''} `}
-                        onClick={() => selectItem(opt)}
                         >
-                           {multiple && (
-                              <span
-                                 className={`p-0 mr-2 leading-[0px] inline-block rounded-sm pt-0 px-[1px] pb-[3px] border
-                                 ${itemActive ? ' bg-indigo-600 border-indigo-600 text-white' : 'text-transparent'}`} >
-                                 <Icon type="check" size={10} />
-                              </span>
-                           )}
-                           {flags && <span className={`fflag fflag-${opt.value} w-[15px] h-[10px] mr-1`} />}
-                           {opt.label}
+                           <button
+                              type="button"
+                              aria-pressed={itemActive}
+                              className="w-full text-left px-3 py-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                              onClick={() => selectItem(opt)}>
+                              {multiple && (
+                                 <span
+                                    aria-hidden="true"
+                                    className={`p-0 mr-2 leading-[0px] inline-block rounded-sm pt-0 px-[1px] pb-[3px] border
+                                    ${itemActive ? ' bg-indigo-600 border-indigo-600 text-white' : 'text-transparent'}`} >
+                                    <Icon type="check" size={10} />
+                                 </span>
+                              )}
+                              {flags && <span aria-hidden="true" className={`fflag fflag-${opt.value} w-[15px] h-[10px] mr-1`} />}
+                              {opt.label}
+                           </button>
                         </li>
                      );
                   })}

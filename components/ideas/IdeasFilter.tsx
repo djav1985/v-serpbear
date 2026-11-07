@@ -46,21 +46,25 @@ const IdeasFilters = (props: IdeasFilterProps) => {
       <div className='domKeywords_filters py-4 px-6 flex justify-between text-sm text-gray-500 font-semibold border-b-[1px] lg:border-0 items-center'>
          <div>
             <ul className='flex items-center text-xs'>
-               <li
+               <li>
+                  <button type="button" aria-pressed={keywordType === 'all'}
                 data-testid="desktop_tab"
                className={`${deviceTabStyle} ${keywordType === 'all' ? ' bg-[#F8F9FF] text-gray-700' : ''}`}
                onClick={() => setShowFavorites(false)}>
                      <Icon type='keywords' classes='top-[3px]' size={15} />
                      <i className='hidden not-italic lg:inline-block ml-1'>All Keywords</i>
                      <span className={`${deviceTabCountStyle}`}>{keywords.length}</span>
+                  </button>
                </li>
-               <li
+               <li>
+                  <button type="button" aria-pressed={keywordType === 'favorites'}
                data-testid="mobile_tab"
                className={`${deviceTabStyle} ${keywordType === 'favorites' ? ' bg-[#F8F9FF] text-gray-700' : ''}`}
                onClick={() => setShowFavorites(true)}>
                      <Icon type='star' classes='top-[4px]' />
                      <i className='hidden not-italic lg:inline-block ml-1'>Favorites</i>
                      <span className={`${deviceTabCountStyle}`}>{favorites.length}</span>
+                  </button>
                </li>
             </ul>
          </div>
@@ -70,6 +74,9 @@ const IdeasFilters = (props: IdeasFilterProps) => {
                <div className=' lg:hidden'>
                   <button
                   data-testid="filter_button"
+               type="button"
+               aria-label="Filter keyword ideas"
+               aria-expanded={filterOptions}
                   className={`px-2 py-1 rounded ${filterOptions ? ' bg-indigo-100 text-blue-700' : ''}`}
                   title='Filter'
                   onClick={() => showFilterOptions(!filterOptions)}>
@@ -104,6 +111,9 @@ const IdeasFilters = (props: IdeasFilterProps) => {
                <div className='relative'>
                   <button
                   data-testid="sort_button"
+                  type="button"
+                  aria-label="Sort keyword ideas"
+                  aria-expanded={sortOptions}
                   className={`px-2 py-1 rounded ${sortOptions ? ' bg-indigo-100 text-blue-700' : ''}`}
                   title='Sort'
                   onClick={() => showSortOptions(!sortOptions)}>
@@ -114,12 +124,11 @@ const IdeasFilters = (props: IdeasFilterProps) => {
                      data-testid="sort_options"
                      className='sort_options mt-2 border absolute min-w-[0] right-0 rounded-lg
                      max-h-96 bg-white z-[9999] w-44 overflow-y-auto styled-scrollbar'>
-                        {sortOptionChoices.map((sortOption) => <li
-                                    key={sortOption.value}
-                                    className={sortItemStyle(sortOption.value)}
-                                    onClick={() => { updateSort(sortOption.value); showSortOptions(false); }}>
-                                       {sortOption.label}
-                                    </li>)}
+                        {sortOptionChoices.map((sortOption) => <li key={sortOption.value}>
+                           <button type="button" className={sortItemStyle(sortOption.value)} onClick={() => { updateSort(sortOption.value); showSortOptions(false); }}>
+                              {sortOption.label}
+                           </button>
+                        </li>)}
                      </ul>
                   )}
                </div>

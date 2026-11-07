@@ -40,6 +40,8 @@ const KeywordTagManager = ({ keywords = [], allTags = [], closeModal }: keywordT
                   {tags.map((tag:string) => <li key={tag} className={'inline-block bg-slate-50 py-1 px-3 border rounded mr-4 mb-3 text-slate-500'}>
                                  <Icon type="tags" size={14} classes="mr-2" />{tag}
                                  <button
+                                 type="button"
+                                 aria-label={`Remove ${tag} tag`}
                                  className="ml-1 cursor-pointer rounded px-1 hover:bg-red-200 hover:text-red-700"
                                  onClick={() => removeTag(tag)}>
                                     <Icon type="close" size={14} />
@@ -47,6 +49,7 @@ const KeywordTagManager = ({ keywords = [], allTags = [], closeModal }: keywordT
                            </li>)}
                   <li className='inline-block py-1 px-1'>
                      <button
+                     type="button"
                      title='Add New Tag'
                      className="cursor-pointer rounded p-1 px-3 bg-indigo-600 text-white font-semibold text-sm"
                      onClick={() => setShowAddTag(true)}>+</button>
@@ -55,7 +58,7 @@ const KeywordTagManager = ({ keywords = [], allTags = [], closeModal }: keywordT
             )}
             {tags.length === 0 && (
                <div className="text-center w-full text-gray-500">
-                  No Tags Added to {isSingle ? 'this Keyword' : 'these Keywords'}. <button className=' text-indigo-600' onClick={() => setShowAddTag(true)}>+ Add Tag</button>
+                  No Tags Added to {isSingle ? 'this Keyword' : 'these Keywords'}. <button type="button" className=' text-indigo-600' onClick={() => setShowAddTag(true)}>+ Add Tag</button>
                </div>
             )}
          </div>
