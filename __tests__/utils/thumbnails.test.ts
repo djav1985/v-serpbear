@@ -325,4 +325,21 @@ describe('thumbnails', () => {
       expect(getThumbnailById(31)?.domain).toBe('startup.com');
       expect(global.fetch).toHaveBeenCalledTimes(1);
    });
+
+   it('shares the initialized thumbnail index across independently loaded server bundles', async () => {
+      const file = 'example.com_2026-11-07_1794052800000-0123456789abcdef.jpg';
+      writeFileSync(path.join(thumbDir, file), 'image bytes');
+      writeFileSync(path.join(thumbDir, `${file}.meta.json`), JSON.stringify({ contentType: 'image/jpeg' }));
+      await initializeThumbnailIndex([{ ID: 1, domain: 'example.com' }]);
+
+      jest.resetModules();
+      const secondBundle = await import('../../utils/thumbnails');
+
+      expect(secondBundle.getThumbnailById(1)).toMatchObject({
+         ID: 1,
+         domain: 'example.com',
+         file,
+      });
+      secondBundle.resetThumbnailState();
+   });
 });

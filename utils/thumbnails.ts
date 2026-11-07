@@ -62,7 +62,24 @@ const isValidImageContentType = (value: unknown): value is string => (
    typeof value === 'string' && /^image\/[a-z0-9.+-]+$/i.test(value.split(';', 1)[0].trim())
 );
 
-const thumbnailIndex = new Map<number, ThumbnailIndexEntry>();
+type ThumbnailRuntimeState = {
+   thumbnailIndex: Map<number, ThumbnailIndexEntry>;
+   inFlight: Map<string, Promise<ThumbnailIndexEntry | undefined>>;
+   failedAt: Map<string, number>;
+   waiting: Array<() => void>;
+   running: number;
+};
+
+const globalForThumbnails = globalThis as typeof globalThis & { __serpbearThumbnailState?: ThumbnailRuntimeState };
+globalForThumbnails.__serpbearThumbnailState ??= {
+   thumbnailIndex: new Map(),
+   inFlight: new Map(),
+   failedAt: new Map(),
+   waiting: [],
+   running: 0,
+};
+const thumbnailState = globalForThumbnails.__serpbearThumbnailState;
+const thumbnailIndex = thumbnailState.thumbnailIndex;
 
 /** Builds the ID index from saved files, restricting it to domains that are currently tracked. */
 export const initializeThumbnailIndex = async (domains: Array<{ ID: number; domain: string }>): Promise<void> => {
@@ -242,19 +259,16 @@ const requestScreenshot = async (domain: string): Promise<{ image: Buffer; conte
    return totalBytes > 0 ? { image: Buffer.concat(chunks, totalBytes), contentType } : null;
 };
 
-const inFlight = new Map<string, Promise<ThumbnailIndexEntry | undefined>>();
 const generationKey = (domain: string, domainID: number): string => `${domain}:${domainID}`;
-const failedAt = new Map<string, number>();
-const waiting: Array<() => void> = [];
-let running = 0;
+const { inFlight, failedAt, waiting } = thumbnailState;
 
 const acquireSlot = async (): Promise<void> => {
-   if (running < MAX_CONCURRENT_GENERATIONS) { running += 1; return; }
+   if (thumbnailState.running < MAX_CONCURRENT_GENERATIONS) { thumbnailState.running += 1; return; }
    await new Promise<void>((resolve) => { waiting.push(resolve); });
 };
 const releaseSlot = () => {
    const next = waiting.shift();
-   if (next) { next(); } else { running -= 1; }
+   if (next) { next(); } else { thumbnailState.running -= 1; }
 };
 
 const generate = async (domain: string, domainID: number): Promise<ThumbnailIndexEntry | undefined> => {
@@ -378,5 +392,5 @@ export const resetThumbnailState = (): void => {
    failedAt.clear();
    thumbnailIndex.clear();
    waiting.length = 0;
-   running = 0;
+   thumbnailState.running = 0;
 };
