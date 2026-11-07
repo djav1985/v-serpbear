@@ -88,14 +88,27 @@ const getParallelRefreshConcurrency = (): number => {
 const mapWithConcurrency = async <T, R>(items: T[], limit: number, task: (item: T) => Promise<R>): Promise<R[]> => {
    const results = new Array<R>(items.length);
    let nextIndex = 0;
+   let failed = false;
+   let firstError: unknown;
    const worker = async () => {
-      while (nextIndex < items.length) {
+      while (!failed && nextIndex < items.length) {
          const index = nextIndex;
          nextIndex += 1;
-         results[index] = await task(items[index]);
+         try {
+            results[index] = await task(items[index]);
+         } catch (error) {
+            // Stop handing out new items, but let the tasks already running finish before the error is reported,
+            // so the caller's cleanup never races with a scrape that is still writing to the database.
+            if (!failed) {
+               failed = true;
+               firstError = error;
+            }
+            return;
+         }
       }
    };
    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+   if (failed) { throw firstError; }
    return results;
 };
 

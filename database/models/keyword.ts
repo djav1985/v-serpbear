@@ -50,7 +50,8 @@ class Keyword extends Model {
    @Column({ type: DataType.INTEGER, allowNull: false, defaultValue: 0 })
    declare volume: number;
 
-   @Column({ type: DataType.STRING, allowNull: true, defaultValue: JSON.stringify([]) })
+   // The ranking URL; blank until a scrape finds the domain in the results
+   @Column({ type: DataType.STRING, allowNull: true, defaultValue: '' })
    declare url: string;
 
    @Column({ type: DataType.STRING, allowNull: true, defaultValue: JSON.stringify([]) })
@@ -59,7 +60,8 @@ class Keyword extends Model {
    @Column({ type: DataType.STRING, allowNull: true, defaultValue: JSON.stringify([]) })
    declare lastResult: string;
 
-   @Column({ type: DataType.INTEGER, allowNull: true, defaultValue: 1 })
+   // 1 when the keyword is starred (a favourite); new keywords are not
+   @Column({ type: DataType.INTEGER, allowNull: true, defaultValue: 0 })
    declare sticky: number;
 
    @Column({ type: DataType.INTEGER, allowNull: true, defaultValue: 0 })

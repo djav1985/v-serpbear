@@ -474,10 +474,15 @@ export const updateDomain = async (req: NextApiRequest, res: NextApiResponse) =>
       }
       applyScrapeOptionUpdates(payload, updates);
       if (Object.prototype.hasOwnProperty.call(payload, 'scraper_settings')) {
-         const existingScraperSettings = parseDomainScraperSettings(domainPlain?.scraper_settings);
-         const cryptr = new Cryptr(process.env.SECRET as string);
-         const persistedOverride = buildPersistedScraperSettings(scraper_settings ?? null, existingScraperSettings, cryptr);
-         updates.scraper_settings = persistedOverride ? JSON.stringify(persistedOverride) : null;
+         if (scraper_settings === null || scraper_settings === undefined) {
+            // An explicit null removes the override, the same way the form's "system scraper" choice does
+            updates.scraper_settings = null;
+         } else {
+            const existingScraperSettings = parseDomainScraperSettings(domainPlain?.scraper_settings);
+            const cryptr = new Cryptr(process.env.SECRET as string);
+            const persistedOverride = buildPersistedScraperSettings(scraper_settings, existingScraperSettings, cryptr);
+            updates.scraper_settings = persistedOverride ? JSON.stringify(persistedOverride) : null;
+         }
       }
       domainToUpdate.set(updates);
       await domainToUpdate.save();

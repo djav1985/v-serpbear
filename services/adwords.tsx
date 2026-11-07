@@ -83,13 +83,18 @@ export function useMutateFavKeywordIdeas(router:NextRouter, onSuccess?: (show?: 
 
 export function useMutateKeywordsVolume(onSuccess?: (show?: boolean) => void) {
    return useMutation(async (data:Record<string, any>) => (
-      apiPost('/api/volume', { ...data })
+      apiPost<{ started?: boolean }>('/api/volume', { ...data })
    ), {
-      onSuccess: async (_data) => {
-         toast('Keyword Volume Data Loaded Successfully! Reloading Page...', { icon: '✔️' });
+      onSuccess: async (data) => {
          if (onSuccess) {
             onSuccess(false);
          }
+         if (data?.started) {
+            // A multi-country update runs on the server and takes a while, so there is nothing to reload yet
+            toast('Keyword volume update started. It runs in the background and can take a few minutes. Reload the page later to see the new volumes.', { icon: '🔄' });
+            return;
+         }
+         toast('Keyword Volume Data Loaded Successfully! Reloading Page...', { icon: '✔️' });
          setTimeout(() => {
             window.location.reload();
          }, 3000);

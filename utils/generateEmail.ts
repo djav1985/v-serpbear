@@ -36,6 +36,9 @@ type SCStatsObject = {
    },
 }
 
+/** Rank used for a keyword that is not in the results (position 0) when working out its position change. */
+const UNRANKED_FALLBACK_POSITION = 100;
+
 /**
  * Returns a Keyword's position change value by comparing the current position with previous position.
  * @param {KeywordHistory} history - Keywords to scrape
@@ -52,10 +55,9 @@ const getPositionChange = (history:KeywordHistory, position:number) : number => 
             }));
       const historySorted = historyArray.sort((a, b) => a.date - b.date);
       const previousPos = historySorted[historySorted.length - 2].position;
-      status = previousPos === 0 ? position : previousPos - position;
-      if (position === 0 && previousPos > 0) {
-         status = previousPos - 100;
-      }
+      // An unranked keyword (0) counts as the same fallback rank on both sides, so a move in one direction is
+      // reported with the same size as the move back (0 -> 15 is +85, 15 -> 0 is -85).
+      status = (previousPos || UNRANKED_FALLBACK_POSITION) - (position || UNRANKED_FALLBACK_POSITION);
    }
    return status;
 };

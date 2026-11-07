@@ -74,6 +74,29 @@ const updatekeywordVolume = async (req: NextApiRequest, res: NextApiResponse) =>
          return res.status(400).json(errorResponse('BAD_REQUEST', 'Error Updating Keywords Volume data', requestId));
       }
 
+      // Google Ads is asked once per country with a pause between countries, so a domain-wide update that spans
+      // several countries can take minutes. It runs in the background instead of holding this request open
+      // until a proxy times it out. Credentials are checked first, so a setup problem is still reported here.
+      const countryCount = new Set(keywordsToSend.map((keywordItem) => keywordItem.country)).size;
+      if (update && keywords.length === 0 && countryCount > 1) {
+         const preflight = await getKeywordsVolume([]);
+         if (preflight.error || preflight.volumes === false) {
+            return res.status(400).json(errorResponse('BAD_REQUEST', preflight.error || 'Error Fetching Keywords Volume Data from Google Ads', requestId));
+         }
+         getKeywordsVolume(keywordsToSend)
+            .then((backgroundVolumes) => {
+               if (backgroundVolumes.volumes === false) {
+                  logger.error('Background keyword volume update failed', new Error(backgroundVolumes.error || 'Google Ads volume lookup failed'));
+                  return undefined;
+               }
+               return updateKeywordsVolumeData(backgroundVolumes.volumes);
+            })
+            .catch((backgroundError) => {
+               logger.error('Background keyword volume update failed', backgroundError instanceof Error ? backgroundError : new Error(String(backgroundError)));
+            });
+         return res.status(202).json({ started: true, keywordCount: keywordsToSend.length, countries: countryCount });
+      }
+
       const keywordsVolumeData = await getKeywordsVolume(keywordsToSend);
       if (keywordsVolumeData.error) {
          return res.status(400).json(errorResponse('BAD_REQUEST', keywordsVolumeData.error, requestId));

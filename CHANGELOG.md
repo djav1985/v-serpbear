@@ -104,6 +104,17 @@ All notable changes to this project will be documented in this file. Releases no
 - The keyword table and the Add Keywords form now decide whether to show city and state from the domain's own scraper when it overrides the global one, so a domain on a city-capable provider keeps its city and state visible while the global scraper is country-only.
 - The unranked penalty in the average position now follows the scraper's strategy rules: a domain set to "Use Global Setting" ignores a page limit left on the domain and uses the global one.
 - Migration `1790000000001-strip-skipped-lastresult-entries` checks the `keyword` columns with `PRAGMA table_info` instead of Sequelize's `describeTable`, which throws on the `keyword_tracking_target_idx` expression index and would have stopped the upgrade at startup. The migration test now runs against a database that has that index.
+- Search Console: a site with no recent clicks is now a valid empty result (no more 502 or a refetch on every page load), and only a window whose request failed keeps its old data. The "Avg" columns no longer divide CTR and position by the number of days. Insight CTR is clicks / impressions, position is weighted by impressions, and the Pages `keywords` count is distinct keywords.
+- Google Ads volume lookups now report a failed sign-in or a Google Ads error instead of answering success with no updates.
+- The notification email reports the same size of position change for a keyword that drops out of the results as for one that enters them.
+- The retry status endpoint keeps keywords marked as updating while their domain is being refreshed, even when a large refresh runs past the 30-minute stale limit.
+- `GET /api/settings` no longer returns saved credentials (scraper key, SMTP password, Search Console private key, Google Ads client secret, developer token and refresh token). It returns a mask, and a save that sends the mask back keeps the stored value.
+- The app logs a one-time warning when requests carry `X-Forwarded-For` but `TRUST_PROXY` is not set.
+- The Search Console "last 7 days" totals and their comparison with the 7 days before are picked by date, so days without impressions no longer stretch the window.
+- `PUT /api/keywords` rejects a request that mixes `sticky`, `tags` and `location`. `PUT /api/domains` with `scraper_settings: null` removes the override. A Search Console failure without an HTTP response now shows a reason. `scrape_interval` and `scrape_delay` are validated on save.
+- New keywords are no longer starred by default when created without an explicit value, and the SQLite connection no longer receives the login credentials.
+- The rate limiter prunes each entry by its own window. The Google Ads access token cache follows the saved credentials. A keyword-ideas request with an unusable Google Ads account ID or country returns a 400 that says why.
+- A domain-wide volume update that spans several countries runs in the background (202) instead of holding the request open. The session version is read from disk at most once per second. A refresh task that throws before returning a promise releases its domains, and a failed scrape no longer lets the cleanup run while other scrapes are still writing.
 
 ### Security
 - The MCP server at `/api/mcp` now accepts only `Authorization: Bearer <APIKEY>`. Cookies and login sessions are ignored there. Wrong keys still count towards the API-key lockout.

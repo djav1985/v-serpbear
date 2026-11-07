@@ -131,6 +131,16 @@ describe('PUT /api/keywords error handling', () => {
     expect(keywordMock.update).not.toHaveBeenCalled();
   });
 
+  it('rejects a request that mixes sticky, tags or location, instead of ignoring part of it', async () => {
+    const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { sticky: true, tags: { 1: ['a'] } } });
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(keywordMock.update).not.toHaveBeenCalled();
+  });
+
   it('returns 500 when keyword update fails', async () => {
     const failure = new Error('update failed');
     keywordMock.update.mockRejectedValueOnce(failure);

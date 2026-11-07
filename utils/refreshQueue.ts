@@ -114,8 +114,17 @@ class RefreshQueue {
       // with respect to selection of the next task.
       domains.forEach((domain) => this.activeDomains.add(domain));
 
+      // A task that throws before it returns a promise must still go through the cleanup below, or its
+      // domains would stay locked forever
+      let execution: Promise<void>;
+      try {
+         execution = Promise.resolve(task.execute());
+      } catch (error) {
+         execution = Promise.reject(error);
+      }
+
       // Create and track the promise
-      const taskPromise = task.execute()
+      const taskPromise = execution
          .then(() => {
             const duration = Date.now() - startTime;
             logger.info(`Completed refresh task: ${task.id} (${duration}ms)`, { domains });
