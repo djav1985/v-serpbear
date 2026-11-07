@@ -110,9 +110,9 @@ export function useDeleteKeywords(onSuccess: () => void) {
 
 export function useFavKeywords(onSuccess: () => void) {
    const queryClient = useQueryClient();
-   // keywordID is one ID (row menu) or a list (bulk menu); the API takes a comma separated list
+   // Send IDs in the body so bulk favorites cannot exceed URL length limits.
    return useMutation(async ({ keywordID, sticky }:{keywordID:number | number[], sticky:boolean}) => (
-      apiPut<{ keywords: KeywordType[] }>(`/api/keywords?id=${[keywordID].flat().join(',')}`, { sticky })
+      apiPut<{ keywords: KeywordType[] }>('/api/keywords', { ids: [keywordID].flat(), sticky })
    ), {
       onSuccess: async (data) => {
          onSuccess();
