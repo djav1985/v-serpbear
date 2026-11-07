@@ -18,6 +18,8 @@ Once connected you can:
 
 Without credentials the dashboard card is hidden and the Insight tab shows a message.
 
+If one of the 3, 7 or 30 day requests fails, only that window keeps its previous data and the error is recorded; a successful fetch with no rows is stored as an empty result. The 7 day comparison uses calendar dates, so missing days in the stored stats do not shift it. Insight totals compute CTR as clicks divided by impressions, the average position is weighted by impressions, and the Pages table counts distinct keywords.
+
 ### Step 1: Create a Google Cloud project
 
 Create a new project in your [Google Cloud](https://console.cloud.google.com) account.
@@ -128,7 +130,7 @@ Click **Test Google Ads Integration**. A success message means it is set up.
 
 ### Step 8: Load volumes for existing keywords
 
-Click **Update Keyword Volume Data** once to fill in search volumes for keywords you already track. From then on, volumes are fetched when you add keywords.
+Click **Update Keyword Volume Data** once to fill in search volumes for keywords you already track. From then on, volumes are fetched when you add keywords. A domain-wide update that spans several countries asks Google once per country, so it runs in the background: SerpBear confirms the credentials, shows a "started" message and you reload the page a few minutes later to see the volumes. Domain-wide lookups are limited to 6 per hour per client (2 per hour for all domains).
 
 ### Troubleshooting Google Ads
 

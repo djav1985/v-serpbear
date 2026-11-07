@@ -298,6 +298,8 @@ The Keywords and Map Pack counts include every keyword, whether or not it is in 
 
 - Add a service account to show impressions, clicks and CTR next to each keyword. Credentials are read from the domain's own settings first, then the Settings page, then `SEARCH_CONSOLE_CLIENT_EMAIL` and `SEARCH_CONSOLE_PRIVATE_KEY`.
 - Cached data is refetched when a dashboard or API read finds it more than 24 hours old, and by the cron at the `CRON_MAIN_SCHEDULE` time. Search Console days follow Pacific Time (`America/Los_Angeles`) whatever `TZ` is.
+- If one of the 3, 7 or 30 day requests fails, only that window keeps its previous data and the error is recorded; a successful fetch with no rows is stored as an empty result instead of being treated as a failure. The 7 day comparison uses calendar dates, so missing days in the stored stats do not shift it.
+- Insight totals compute CTR as clicks divided by impressions, and the average position is weighted by impressions. The Pages table counts distinct keywords.
 - The Discover tab disables keywords that are already tracked, and "select all" skips them.
 - It is optional. Without credentials the dashboard card is hidden and the Insight tab shows a message.
 
@@ -306,6 +308,7 @@ The Keywords and Map Pack counts include every keyword, whether or not it is in 
 - Connect a Google Ads account in Settings (there are no Google Ads environment variables) to get suggestions and historical volumes. Sign-in needs `NEXT_PUBLIC_APP_URL` or `APP_URL` to be set.
 - The seed type decides where suggestions come from: `auto` uses the domain as a site seed, `custom` your keyword list, `tracking` the domain's tracked keywords, and `searchconsole` its top 100 Search Console queries by impressions over the last 30 days.
 - An idea is disabled only when it is tracked for every selected device, so a partly tracked idea can still be added for the missing device.
+- A domain-wide volume update across several countries runs in the background (you reload later to see the volumes), and is limited to 6 per hour per client (2 for all domains).
 - Selected ideas can be emailed from the research table or a domain's ideas tab, limited to 10 per domain per hour.
 
 ### Email digests
@@ -322,7 +325,7 @@ Set `NEXT_PUBLIC_WHITE_LABEL=true` for a custom name and logo. The logo is serve
 
 ### Settings and data
 
-Settings are stored in `data/settings.json`, with secrets encrypted using `SECRET`. `GET /api/settings` is public and returns only `scraper_type`, `available_scapers`, `search_console_integrated`, `version` and `timezone` without a session. `PUT /api/settings` needs a login session (an API key is not accepted). It merges the payload: keys left out keep their stored values, and a secret sent empty is cleared.
+Settings are stored in `data/settings.json`, with secrets encrypted using `SECRET`. `GET /api/settings` is public and returns only `scraper_type`, `available_scapers`, `search_console_integrated`, `version` and `timezone` without a session. `PUT /api/settings` needs a login session (an API key is not accepted). It merges the payload: keys left out keep their stored values, and a secret sent empty is cleared. Once logged in, `GET /api/settings` shows saved credentials (scraper API key, SMTP password, Search Console private key, Google Ads client secret, refresh token and developer token) as a row of bullets instead of the real value, and saving with the bullets still in place keeps the stored secret. `scrape_interval` must be one of the values above, and `scrape_delay` must be blank, `none` or a whole number from 0 to 30,000; anything else is rejected with a 400.
 
 Docker Compose stores data in a named volume (`data`) mounted at `/app/data`, prefixed with the project name (for example `v-serpbear_data`; find it with `docker volume ls`). It holds the SQLite database, `settings.json`, Search Console exports (`SC_<domain>.json`), keyword ideas (`IDEAS_*.json`), `session.json`, `email-throttle.json`, `failed_queue.json` and any white-label logo.
 

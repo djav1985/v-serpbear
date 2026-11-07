@@ -53,7 +53,7 @@ Manage these in the Settings UI or at `/api/settings`.
 | `adwords_*` | Google Ads credentials for keyword ideas. |
 | `keywordsColumns` | Columns shown in the keyword table. |
 
-`GET /api/settings` is public and returns only `scraper_type`, `available_scapers`, `search_console_integrated`, `version` and `timezone` without a session. `PUT /api/settings` needs a login session (an API key is not accepted). It merges the payload: keys left out keep their stored values, and a secret sent empty is cleared.
+`GET /api/settings` is public and returns only `scraper_type`, `available_scapers`, `search_console_integrated`, `version` and `timezone` without a session. `PUT /api/settings` needs a login session (an API key is not accepted). It merges the payload: keys left out keep their stored values, and a secret sent empty is cleared. Once logged in, `GET /api/settings` shows saved credentials (scraper API key, SMTP password, Search Console private key, Google Ads client secret, refresh token and developer token) as a row of bullets instead of the real value, and saving with the bullets still in place keeps the stored secret. `scrape_interval` must be one of the values above, and `scrape_delay` must be blank, `none` or a whole number from 0 to 30,000; anything else is rejected with a 400.
 
 ## White labelling
 
