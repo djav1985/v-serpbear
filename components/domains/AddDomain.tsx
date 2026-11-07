@@ -70,8 +70,8 @@ const AddDomain = forwardRef<HTMLDivElement, AddDomainProps>(({ closeModal, doma
             </textarea>
             {newDomainError && <div><span className=' ml-2 block float-right text-red-500 text-xs font-semibold'>{newDomainError}</span></div>}
             <div className='mt-6 text-right text-sm font-semibold'>
-               <button className='py-2 px-5 rounded cursor-pointer bg-indigo-50 text-slate-500 mr-3' onClick={() => closeModal(false)}>Cancel</button>
-               <button className='py-2 px-5 rounded cursor-pointer bg-blue-700 text-white' onClick={() => !isAdding && addDomain() }>
+               <button type="button" className='py-2 px-5 rounded cursor-pointer bg-indigo-50 text-slate-500 mr-3' onClick={() => closeModal(false)}>Cancel</button>
+               <button type="button" className='py-2 px-5 rounded cursor-pointer bg-blue-700 text-white' onClick={() => !isAdding && addDomain() }>
                    {isAdding ? 'Adding....' : 'Add Domain'}
                </button>
             </div>

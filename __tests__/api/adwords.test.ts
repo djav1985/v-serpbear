@@ -82,10 +82,12 @@ describe('Google Ads OAuth state flow', () => {
     expect(res.status).toHaveBeenCalledWith(500);
   });
 
-  it.each([['missing', undefined], ['unknown', 'never-issued']])('rejects %s state without token exchange or persistence', async (_label, state) => {
-    await startFlow();
-    const res = response(); await handler(callback(state), res);
-    expect(res.status).toHaveBeenCalledWith(400);
+  it('rejects a missing or unknown state without token exchange or persistence', async () => {
+    for (const state of [undefined, 'never-issued']) {
+      await startFlow();
+      const res = response(); await handler(callback(state), res);
+      expect(res.status).toHaveBeenCalledWith(400);
+    }
     expect(getTokenMock).not.toHaveBeenCalled();
     expect(atomicWriteFile).not.toHaveBeenCalled();
   });

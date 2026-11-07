@@ -13,7 +13,7 @@ jest.mock('react-query', () => ({
    useQueryClient: jest.fn(),
 }));
 
-import { fetchKeywords, useDeleteKeywords } from '../../services/keywords';
+import { fetchKeywords, useDeleteKeywords, useFavKeywords } from '../../services/keywords';
 
 // ---------------------------------------------------------------------------
 // useFetchKeywordIdeas
@@ -207,5 +207,44 @@ describe('useDeleteKeywords request shape', () => {
       } finally {
          global.fetch = originalFetch;
       }
+   });
+});
+
+describe('useFavKeywords request shape', () => {
+   // Not async: the hook has to be called synchronously
+   const useFavRequest = (variables: { keywordID: number | number[]; sticky: boolean }) => {
+      const fetchMock = jest.fn().mockResolvedValue({
+         status: 200,
+         headers: { get: jest.fn().mockReturnValue('application/json') },
+         json: jest.fn().mockResolvedValue({ keywords: [] }),
+      });
+      const originalFetch = global.fetch;
+      global.fetch = fetchMock as unknown as typeof global.fetch;
+      (useMutation as unknown as jest.Mock).mockClear();
+
+      useFavKeywords(() => {});
+      const mutationFn = (useMutation as unknown as jest.Mock).mock.calls[0][0];
+      return Promise.resolve(mutationFn(variables))
+         .then(() => fetchMock)
+         .finally(() => { global.fetch = originalFetch; });
+   };
+
+   it('sends the IDs of a bulk selection in the JSON body, not the URL', async () => {
+      const ids = Array.from({ length: 4000 }, (_, index) => index + 1);
+
+      const fetchMock = await useFavRequest({ keywordID: ids, sticky: true });
+
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toBe(`${mockOrigin}/api/keywords`);
+      expect(init.method).toBe('PUT');
+      expect(JSON.parse(init.body)).toEqual({ ids, sticky: true });
+   });
+
+   it('sends a single keyword from the row menu as a one item list', async () => {
+      const fetchMock = await useFavRequest({ keywordID: 7, sticky: false });
+
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toBe(`${mockOrigin}/api/keywords`);
+      expect(JSON.parse(init.body)).toEqual({ ids: [7], sticky: false });
    });
 });

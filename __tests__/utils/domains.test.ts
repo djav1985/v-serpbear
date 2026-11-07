@@ -15,6 +15,9 @@ jest.mock('../../utils/searchConsole', () => ({
 const mockFindAll = (Keyword as any).findAll as jest.Mock;
 const mockReadLocalSCData = readLocalSCData as jest.Mock;
 
+// Consecutive day keys starting at 2024-01-01, so Search Console stat rows carry real dates
+const dateKeyOffset = (offset: number): string => new Date(Date.UTC(2024, 0, 1 + offset)).toISOString().slice(0, 10);
+
 describe('getdomainStats', () => {
   beforeEach(() => {
     mockFindAll.mockReset();
@@ -139,11 +142,11 @@ describe('getdomainStats', () => {
 
   it('compares the last 7 Search Console days with the 7 days before them', async () => {
     mockFindAll.mockResolvedValue([]);
-    const dayStat = (clicks: number, impressions: number, position: number) => ({ clicks, impressions, ctr: 0, position });
+    const dayStat = (clicks: number, impressions: number, position: number, offset: number) => ({ date: dateKeyOffset(offset), clicks, impressions, ctr: 0, position });
     mockReadLocalSCData.mockResolvedValue({
       stats: [
-        ...Array.from({ length: 7 }, () => dayStat(1, 10, 20)), // previous 7 days
-        ...Array.from({ length: 7 }, () => dayStat(2, 30, 10)), // current 7 days
+        ...Array.from({ length: 7 }, (_, i) => dayStat(1, 10, 20, i)), // previous 7 days
+        ...Array.from({ length: 7 }, (_, i) => dayStat(2, 30, 10, 7 + i)), // current 7 days
       ],
     });
 
@@ -164,8 +167,9 @@ describe('getdomainStats', () => {
 
   it('omits the Search Console previous values when fewer than 14 days are stored', async () => {
     mockFindAll.mockResolvedValue([]);
-    const dayStat = { clicks: 1, impressions: 5, ctr: 0, position: 8 };
-    mockReadLocalSCData.mockResolvedValue({ stats: Array.from({ length: 10 }, () => dayStat) });
+    mockReadLocalSCData.mockResolvedValue({
+      stats: Array.from({ length: 10 }, (_, i) => ({ date: dateKeyOffset(i), clicks: 1, impressions: 5, ctr: 0, position: 8 })),
+    });
 
     const domain = {
       ID: 1, domain: 'short.com', slug: 'short-com', notification: false, notification_emails: '',
@@ -178,6 +182,24 @@ describe('getdomainStats', () => {
     expect(result[0].scVisitsPrev).toBeUndefined();
     expect(result[0].scImpressionsPrev).toBeUndefined();
     expect(result[0].scPositionPrev).toBeUndefined();
+  });
+
+  it('picks the Search Console windows by date when days without impressions are missing', async () => {
+    mockFindAll.mockResolvedValue([]);
+    // Days 1-5 and 12-14 only: a row count of 7 would reach back to day 4 instead of day 8
+    const rows = [1, 2, 3, 4, 5, 12, 13, 14].map((day) => ({ date: dateKeyOffset(day - 1), clicks: day, impressions: 10, ctr: 0, position: 5 }));
+    mockReadLocalSCData.mockResolvedValue({ stats: rows });
+
+    const domain = {
+      ID: 1, domain: 'gaps.com', slug: 'gaps-com', notification: false, notification_emails: '',
+      lastUpdated: '2023-01-01T00:00:00.000Z', added: '2023-01-01T00:00:00.000Z',
+    } as any;
+
+    const result = await getdomainStats([domain]);
+
+    // Current window = days 8-14 (only 12, 13, 14 have rows); previous window = days 1-7 (rows 1-5)
+    expect(result[0].scVisits).toBe(12 + 13 + 14);
+    expect(result[0].scVisitsPrev).toBe(1 + 2 + 3 + 4 + 5);
   });
 
   it('falls back to domain.lastUpdated when there are no keywords', async () => {

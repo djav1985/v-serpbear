@@ -4,6 +4,61 @@ All notable changes to this project will be documented in this file. Releases no
 
 ## [Unreleased]
 
+### Fixed
+- **Refresh-time keyword edits.** Location changes now reserve every selected domain and return a clear conflict if any is actively refreshing or queued, preventing partial changes during scrape runs. Keyword and domain deletion conflicts display the server's explanation in a toast.
+- **Domain sidecar cleanup races.** Search Console, keyword-ideas and thumbnail writes now share a per-domain lifecycle lock with deletion and verify the domain row ID before saving. A slow background request can no longer restore a deleted domain's files or write into a newly created row with the same name.
+- **Overlapping statistics and Search Console fetches.** Domain-stat recalculations are serialized per domain. Concurrent Search Console refreshes for one domain share one fetch/write, and email stats now use their own freshness and error fields so a recent report-window fetch does not incorrectly mark stale email stats as fresh. Existing cache files without the stats timestamp are refreshed once.
+- **Retry queue reads and polling.** Lock-free queue peeks no longer move a corrupt queue file; quarantine happens during a locked write. Retry status polling now sends keyword IDs in a JSON `POST /api/refresh` body, with the legacy GET form retained.
+- **Auth and update feedback.** An authentication API error no longer redirects users to login. Google Ads authentication opens its popup synchronously from the click and falls back to the current tab if popups are blocked. A completed synchronous volume update invalidates keyword data instead of reloading the page.
+
+### Changed
+- **Domain thumbnail delivery.** Domain cards request screenshots near the viewport, check browser Cache Storage before batching misses, and display completed images progressively. Expiry is based on screenshot generation time; unavailable images keep a local placeholder.
+- **Project structure.** Added the `doca/` folder to the README directory list.
+- **Keyword additions during refresh.** Adding keywords remains available while a domain is refreshing; their initial scrape queues until the domain is free, and the success toast explains when that happens. The form now counts the generated keyword/device rows against the 100-row request limit and reports excess rows without silently dropping them. Duplicate detection uses structured target keys.
+- **Documentation.** Updated the keyword workflow and limits, Search Console cache behavior, Google Ads popup fallback, and JSON-body retry polling in the README and guides.
+
+### Cleaned
+- Removed unused default React imports and marked HasData's unused URL-builder settings argument as intentionally unused.
+
+### Added
+- **TinyFish scraper.** Adds the TinyFish Search API as a country-level provider (no map pack, no mobile option). It has a free allowance of 12,000 requests a day and needs no Serper key. Requests are spaced 2 seconds apart to stay under its 30 requests a minute limit.
+- **Jina AI scraper.** Adds Jina AI Search (`s.jina.ai`) as a country-level provider (no map pack, no mobile option). It returns real URLs, so it needs no Serper key. Paging beyond page 1 is not documented by Jina, so use the Basic scrape strategy unless you have checked it.
+- **Map pack removal date.** Keywords store the day they dropped out of the map pack top three (`mapPackRemovedAt`). The date is set on the scrape that finds the keyword gone, cleared when the keyword returns, and cleared after 30 days. Failed scrapes and scrapers without map pack data change nothing. A migration adds the column. It does not change the average position.
+- **Red MAP badge.** A keyword that dropped out of the map pack (its removal date is set) shows a red MAP badge, in the dashboard, the keyword details and email digests.
+- **Per-scraper request spacing.** A scraper can set a baseline minimum interval between requests (`minRequestIntervalMs`, 0 by default; TinyFish uses 2 seconds). The Keyword Scrape Delay setting is added on top of it, and the spacing applies across all keywords, domains, pages and retries for the same API key. Scrapers with no base interval are spaced by the Keyword Scrape Delay alone, so the delay is also enforced across domains for them.
+- **Bulk favorite.** With keywords selected, the bulk menu now has Favorite Keywords and Unfavorite Keywords next to Refresh, Remove, Tags and Change Location.
+- **Per-scraper Google link resolving.** A scraper can set `resolveGoogleUrl: false` to skip Serper's `/resolve` endpoint. It defaults to on, and TinyFish and Jina AI turn it off because they return real URLs.
+- **Weekly keyword volume refresh.** The cron now refreshes keyword search volumes every Monday at the new `CRON_VOLUME_SCHEDULE` time (`HH:MM`, default `03:00`), the same way the Update Keyword Volume Data button does: all keywords, one country at a time across all domains. Google updates volumes about once a month, so the weekly run gives several chances to catch every keyword. The API key may now call `POST /api/volume`, which the worker needs.
+
+### Fixed
+- **Map pack removal date migration skipped on some databases.** The migration read the `keyword` columns with Sequelize's `describeTable`, which crashes on SQLite when the table has an expression index (`keyword_tracking_target_idx`). The crash was taken for "no table", so the migration was recorded as run without adding `mapPackRemovedAt`, and every keyword request then failed with `no such column: mapPackRemovedAt`. It now reads the columns with `PRAGMA table_info`, and a repair migration adds the column to databases that were hit.
+- Search Console data whose last fetch recorded an error is no longer served from the 24 hour cache by the Insight and dashboard routes. It is fetched again, so a partly failed fetch does not show empty results for a day.
+- Search Console: a site with no recent clicks is now a valid empty result (no more 502 or a refetch on every page load), and only a window whose request failed keeps its old data. The "Avg" columns no longer divide CTR and position by the number of days. Insight CTR is clicks / impressions, position is weighted by impressions, and the Pages `keywords` count is distinct keywords.
+- Google Ads volume lookups now report a failed sign-in or a Google Ads error instead of answering success with no updates.
+- The notification email reports the same size of position change for a keyword that drops out of the results as for one that enters them.
+- The retry status endpoint keeps keywords marked as updating while their domain is being refreshed, even when a large refresh runs past the 30-minute stale limit.
+- `GET /api/settings` no longer returns saved credentials (scraper key, SMTP password, Search Console private key, Google Ads client secret, developer token and refresh token). It returns a mask, and a save that sends the mask back keeps the stored value.
+- The app logs a one-time warning when requests carry `X-Forwarded-For` but `TRUST_PROXY` is not set.
+- The Search Console "last 7 days" totals and their comparison with the 7 days before are picked by date, so days without impressions no longer stretch the window.
+- `PUT /api/keywords` rejects a request that mixes `sticky`, `tags` and `location`. `PUT /api/domains` with `scraper_settings: null` removes the override. A Search Console failure without an HTTP response now shows a reason. `scrape_interval` and `scrape_delay` are validated on save.
+- New keywords are no longer starred by default when created without an explicit value, and the SQLite connection no longer receives the login credentials.
+- The rate limiter prunes each entry by its own window. The Google Ads access token cache follows the saved credentials. A keyword-ideas request with an unusable Google Ads account ID or country returns a 400 that says why.
+- A domain-wide volume update that spans several countries runs in the background (202) instead of holding the request open. The session version is read from disk at most once per second. A refresh task that throws before returning a promise releases its domains, and a failed scrape no longer lets the cleanup run while other scrapes are still writing.
+
+### Changed
+- **Search result boxes on mobile.** On screens under 768px wide, the Google Search Result and Local Search Results boxes in the keyword details grow to fit all their results, so they never scroll on their own (the panel scrolls instead). Desktop is unchanged.
+- **Bulk tags menu.** The Tag Keywords and Remove Tags items in the bulk menu are now one Add/Edit Tags item that opens the same tag window as the three-dots menu, for one or several selected keywords: remove a tag with its ×, add tags with +.
+- **Email map pack badge.** The badge in email digests now reads "MAP" in the same green outline as the dashboard, instead of the yellow "MP".
+- **Email digest layout.** The mobile icon is blue, the side padding is 10px (was 20px) and the Keyword column is wider (300px, was 240px).
+- **Top bar.** The top bar is white on every screen size, with the same border and drop shadow as the domain cards.
+- **Scraper definitions.** Every scraper now declares all its flags (`allowsCity`, `supportsMapPack`, `usesResultOffset`, `reusesDesktopForMobile`, `resolveGoogleUrl`, `minRequestIntervalMs` and `method`), even when the value is the default. No behaviour change.
+- **Beta image workflow.** The manual beta workflow tags the image `beta` from any branch (it was `main` only). It still never tags `latest`.
+- **Docker tags in the docs.** The README and wiki describe `latest` (stable, for production), `beta` (development) and version tags.
+- **Docs refresh.** The README setup steps no longer mention a `.env` file for Docker (edit `docker-compose.yml`), and the README and wiki now cover the new providers, the `scrape_delay` base interval, the white-label logo address and tab icon, and which providers need the Serper resolve key.
+- **Volume update limit.** The per-domain limit of 6 volume updates an hour is removed; only updating all domains at once is still limited, to 2 an hour per client, with a clearer message. A failed save of the volumes now reads "Error saving keywords volume data".
+- **White label files.** With `NEXT_PUBLIC_WHITE_LABEL=true`, the logo and the browser tab icon are the files `logo.png` and `favicon.ico` in `/app/data` (exact names). The app looks for them once, when it starts, and a missing file falls back to its default on its own, so restart after adding or replacing one. `WHITE_LABEL_LOGO_FILE` is removed: rename your logo to `logo.png` (only PNG is supported). The logo is served at `/api/branding/logo.png`, which the dashboard and email digests use (some mail apps skip images without a file extension), and the icon at `/api/branding/favicon.ico`. The tab icon now follows the runtime configuration, so it no longer reverts after moving between pages.
+- **Domain thumbnails.** The `SCREENSHOTS` setting is removed. The server now makes the website thumbnails of the domain list: it fetches a screenshot from thum.io, saves it in `data/thumbnails` as `<domain>_<YYYY-MM-DD>.jpg` and serves it to the browser, which keeps each image for 30 days (a new image has a new address, so it is fetched at once). A domain without a thumbnail starts generating when the list is opened or when the domain is added, and one older than 30 days is regenerated while the old image keeps showing, then deleted once the new one is saved. The site's favicon shows until a thumbnail exists, and the page does not poll: new thumbnails appear on the next reload or navigation. A site that cannot be captured is not retried for an hour. The reload-screenshot button always regenerates (a thumbnail regenerated on the same day still shows its new image after a reload), and deleting a domain deletes its thumbnails.
+
 ## [5.0.0] (2026-11-06)
 
 ### Upgrade notes

@@ -1,6 +1,7 @@
 /// <reference path="../../types.d.ts" />
 
 import type { NextApiRequest, NextApiResponse } from 'next';
+import Domain from '../../database/models/domain';
 import verifyUser from '../../utils/verifyUser';
 import {
    getAdwordsCredentials, getAdwordsKeywordIdeas, getLocalKeywordIdeas, updateLocalKeywordIdeas, withIdeasLock,
@@ -135,7 +136,8 @@ const updateKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => 
          logger.error('Google Ads credentials not configured', undefined, { adwordsCreds: !!adwordsCreds });
          return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Google Ads credentials not configured', requestId));
       }
-      const ideaOptions = { country, language, keywords, domain, seedSCKeywords, seedCurrentKeywords, seedType };
+      const domainRow = domain ? await Domain.findOne({ where: { domain }, attributes: ['ID'], raw: true }) as unknown as { ID: number } | null : null;
+      const ideaOptions = { country, language, keywords, domain, domainID: domain ? (domainRow?.ID ?? -1) : undefined, seedSCKeywords, seedCurrentKeywords, seedType };
       
       logger.debug('Calling getAdwordsKeywordIdeas', { ideaOptions });
       
@@ -162,7 +164,8 @@ const updateKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => 
          });
          // Only the "no seed keywords" messages are about the request; everything else stays in the log
          const seedMessage = typeof error?.message === 'string' && /^No (tracked|search console) keywords found for this domain$/.test(error.message);
-         if (seedMessage) {
+         // A Google Ads account ID or country that cannot be used says what to fix, instead of looking like an empty result
+         if (seedMessage || error?.name === 'IdeasRequestError') {
             return res.status(400).json(errorResponse('BAD_REQUEST', error.message, requestId));
          }
          return res.status(502).json(errorResponse('BAD_GATEWAY', errMsg, requestId));

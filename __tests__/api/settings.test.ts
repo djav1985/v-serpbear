@@ -1,4 +1,4 @@
-import { writeFile, readFile, rename, unlink } from 'fs/promises';
+import { writeFile, readFile, rename } from 'fs/promises';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import handler from '../../pages/api/settings';
 import * as settingsApi from '../../pages/api/settings';
@@ -63,7 +63,6 @@ const readFileMock = readFile as unknown as jest.Mock;
 const verifyUserMock = verifyUser as unknown as jest.Mock;
 const writeFileMock = writeFile as unknown as jest.Mock;
 const renameMock = rename as unknown as jest.Mock;
-const _unlinkMock = unlink as unknown as jest.Mock;
 const originalEnv = process.env;
 
 jest.mock('cryptr', () => ({
@@ -210,12 +209,10 @@ describe('validateSettingsPayload', () => {
     expect(validateSettingsPayload({ smtp_port: '' })).toEqual([]);
   });
 
-  it.each([
-    ['scraper_type', 'made-up', /Unknown scraper type/],
-    ['scrape_strategy', 'everything', /scrape_strategy/],
-    ['notification_interval', 'hourly', /notification_interval/],
-  ])('rejects an unknown %s value', (field, value, message) => {
-    expect(validateSettingsPayload({ [field]: value })[0]).toMatch(message);
+  it('rejects an unknown scraper type, scrape strategy or notification interval', () => {
+    expect(validateSettingsPayload({ scraper_type: 'made-up' })[0]).toMatch(/Unknown scraper type/);
+    expect(validateSettingsPayload({ scrape_strategy: 'everything' })[0]).toMatch(/scrape_strategy/);
+    expect(validateSettingsPayload({ notification_interval: 'hourly' })[0]).toMatch(/notification_interval/);
   });
 
   it('rejects pagination limits that are 0, above 10 or not whole numbers', () => {
@@ -538,6 +535,35 @@ describe('PUT /api/settings keeps secrets that are left out of the payload', () 
     });
   });
 
+  it('keeps the stored secrets when the form sends the mask back, and does not echo a new secret in the response', async () => {
+    const mask = '•'.repeat(8);
+    const req = { method: 'PUT', body: { settings: { scraper_type: 'serper', scraping_api: mask, smtp_password: 'brand-new-password' } }, headers: {} } as unknown as NextApiRequest;
+    const res = createMockResponse();
+
+    await handler(req, res as unknown as NextApiResponse);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    const saved = JSON.parse(writeMock.mock.calls[0][1]);
+    expect(saved.scraping_api).toBe(storedApiKey);
+    expect(cryptr.decrypt(saved.smtp_password)).toBe('brand-new-password');
+    const responseBody = JSON.stringify((res.json as jest.Mock).mock.calls[0][0]);
+    expect(responseBody).not.toContain('brand-new-password');
+  });
+
+  it('rejects an unknown scrape_interval and an out-of-range scrape_delay', async () => {
+    const run = async (settings: Record<string, unknown>) => {
+      const res = createMockResponse();
+      await handler({ method: 'PUT', body: { settings }, headers: {} } as unknown as NextApiRequest, res as unknown as NextApiResponse);
+      return res;
+    };
+
+    expect((await run({ scrape_interval: 'hourly' })).status).toHaveBeenCalledWith(400);
+    expect((await run({ scrape_delay: '-5' })).status).toHaveBeenCalledWith(400);
+    expect((await run({ scrape_delay: '60000' })).status).toHaveBeenCalledWith(400);
+    expect((await run({ scrape_interval: 'other_day', scrape_delay: '5000' })).status).toHaveBeenCalledWith(200);
+    expect((await run({ scrape_delay: 'none' })).status).toHaveBeenCalledWith(200);
+  });
+
   it('replaces a secret when the payload sends a new value, and clears it when the value is empty', async () => {
     const req = { method: 'PUT', body: { settings: { scraper_type: 'serper', scraping_api: 'new-key', smtp_password: '' } }, headers: {} } as unknown as NextApiRequest;
     const res = createMockResponse();
@@ -623,5 +649,33 @@ describe('GET /api/settings session checks', () => {
 
     expect(verifySessionMock).toHaveBeenCalledWith('copied-token');
     expect(settings.smtp_password).toBeDefined();
+    expect(settings.smtp_password).not.toBe('hunter2');
+  });
+
+  it('never returns a saved credential, only the mask', async () => {
+    const Cryptr = jest.requireActual('cryptr');
+    const cryptr = new Cryptr('secret');
+    readFileMock.mockResolvedValue(JSON.stringify({
+      scraper_type: 'serper',
+      scraping_api: cryptr.encrypt('real-scraper-key'),
+      smtp_password: cryptr.encrypt('real-smtp-password'),
+      search_console_private_key: cryptr.encrypt('real-private-key'),
+      search_console_client_email: cryptr.encrypt('sc@example.com'),
+      adwords_client_secret: cryptr.encrypt('real-client-secret'),
+      adwords_developer_token: cryptr.encrypt('real-dev-token'),
+      adwords_refresh_token: cryptr.encrypt('real-refresh-token'),
+    }));
+    verifySessionMock.mockReturnValue({ user: 'admin' });
+
+    const settings = await run();
+
+    const mask = '•'.repeat(8);
+    ['scraping_api', 'smtp_password', 'search_console_private_key', 'adwords_client_secret', 'adwords_developer_token', 'adwords_refresh_token']
+      .forEach((field) => expect(settings[field]).toBe(mask));
+    // Identifiers the forms need to show are still returned
+    expect(settings.search_console_client_email).toBe('sc@example.com');
+    // A credential that is not saved stays blank, so the form can tell it is missing
+    expect(settings.adwords_account_id).toBe('');
+    expect(JSON.stringify(settings)).not.toMatch(/real-/);
   });
 });

@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
+import { useEffect, useRef } from 'react';
 import TimeAgo from 'react-timeago';
 import Link from 'next/link';
-import Router from 'next/router';
 import toast from 'react-hot-toast';
 import Icon from '../common/Icon';
 import { useUpdateDomainToggles } from '../../services/domains';
@@ -53,9 +53,8 @@ const TrendBadge = ({ current, previous, lowerIsBetter = false }: TrendBadgeProp
 type DomainItemProps = {
    domain: DomainType,
    isConsoleIntegrated: boolean,
-   thumb: string,
-   updateThumb: (domain: string) => void,
-   screenshotsEnabled?: boolean,
+   thumb?: string,
+   registerThumbnail?: (id: number, element: HTMLDivElement | null) => void,
    showMapPackStat?: boolean,
 }
 
@@ -63,8 +62,7 @@ const DomainItem = ({
    domain,
    isConsoleIntegrated = false,
    thumb,
-   updateThumb,
-   screenshotsEnabled = true,
+   registerThumbnail,
    showMapPackStat = false,
 }: DomainItemProps) => {
    const {
@@ -77,7 +75,15 @@ const DomainItem = ({
       scPosition = 0,
       mapPackKeywords = 0,
    } = domain;
+   const thumbnailNodeRef = useRef<HTMLDivElement>(null);
    const { mutateAsync: updateDomainToggle, isLoading: isToggleUpdating } = useUpdateDomainToggles();
+
+   useEffect(() => {
+      const node = thumbnailNodeRef.current;
+      if (!node || !registerThumbnail) { return undefined; }
+      registerThumbnail(domain.ID, node);
+      return () => registerThumbnail(domain.ID, null);
+   }, [domain.ID, registerThumbnail]);
 
    const isDomainActive = Boolean(domain.scrapeEnabled);
    // Same whole-number rule as the email (utils/averagePosition)
@@ -105,33 +111,17 @@ const DomainItem = ({
    };
    return (
       <div className='domItem bg-white border rounded w-full text-sm mb-10 hover:border-indigo-200'>
-         {/* A div with a click handler instead of a wrapping anchor, so the checkbox and buttons are not nested inside a link.
-             The domain name below is a real link for keyboard and new-tab use. */}
-         <div
-            className='flex flex-col lg:flex-row cursor-pointer'
-            onClick={(event) => {
-               const target = event.target as HTMLElement;
-               if (target.closest('a, button, label, input')) { return; }
-               Router.push(`/domain/${slug}`);
-            }}
-         >
+         <div className='flex flex-col lg:flex-row'>
             <div className={`flex-1 p-6 flex ${!isConsoleIntegrated ? 'basis-1/3' : ''}`}>
-               <div className="group domain_thumb w-20 h-20 mr-6 bg-slate-100 rounded
+               <div ref={thumbnailNodeRef} className="domain_thumb w-20 h-20 mr-6 bg-slate-100 rounded
                   border border-gray-200 overflow-hidden flex justify-center relative">
-                  {screenshotsEnabled && (
-                     <button
-                        className=' absolute right-1 top-0 text-gray-400 p-1 transition-all
-                        invisible opacity-0 group-hover:visible group-hover:opacity-100 hover:text-gray-600 z-10'
-                        title='Reload Website Screenshot'
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); updateThumb(domain.domain); }}
-                     >
-                        <Icon type="reload" size={12} />
-                     </button>
+                  {thumb ? (
+                     <img className="self-center w-full h-full object-cover" src={thumb} alt={domain.domain} />
+                  ) : (
+                     <div className="w-full h-full flex items-center justify-center text-2xl text-slate-400" role="img" aria-label={`Website screenshot placeholder for ${domain.domain}`}>
+                        <span aria-hidden="true">🌐</span>
+                     </div>
                   )}
-                  <img
-                  className={`self-center ${!thumb ? 'max-w-[50px]' : ''}`}
-                  src={thumb || `https://www.google.com/s2/favicons?domain=${domain.domain}&sz=128`} alt={domain.domain}
-                  />
                </div>
                <div className="domain_details flex-1">
                   <h3 className='font-semibold text-base mb-2 max-w-[200px] text-ellipsis overflow-hidden' title={domain.domain}>

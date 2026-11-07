@@ -57,8 +57,7 @@ const RETRY_POLL_INTERVAL_MS = 1000;
 export function useRetryFailedQueue() {
    const queryClient = useQueryClient();
    return useMutation(async (keywordIDs: number[]) => {
-      const ids = keywordIDs.join(',');
-      await apiPost(`/api/refresh?id=${ids}`, {});
+      await apiPost('/api/refresh', { ids: keywordIDs });
 
       const startedAt = Date.now();
       let pendingKeywordIDs = keywordIDs;
@@ -66,8 +65,8 @@ export function useRetryFailedQueue() {
          if (Date.now() - startedAt > RETRY_POLL_MAX_DURATION_MS) {
             throw new Error('Keyword retries are still running. Check the keywords later.');
          }
-         const status = await apiGet<{ keywords?: Array<{ ID: number; updating: boolean }> }>(
-            `/api/refresh?status=retry&id=${pendingKeywordIDs.join(',')}`,
+         const status = await apiPost<{ keywords?: Array<{ ID: number; updating: boolean }> }>(
+            '/api/refresh', { status: 'retry', ids: pendingKeywordIDs },
          );
          pendingKeywordIDs = (status?.keywords ?? []).filter((keyword) => keyword.updating).map((keyword) => keyword.ID);
          if (pendingKeywordIDs.length > 0) {

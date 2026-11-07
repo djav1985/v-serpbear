@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen, act, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import KeywordsTable from '../../components/keywords/KeywordsTable';

@@ -110,7 +110,8 @@ describe('Search Console caching helpers', () => {
     const staleIso = now.subtract(1, 'day').add(2, 'hour').toDate().toISOString();
 
     mockReadLocalSCData.mockResolvedValue({
-      lastFetched: staleIso,
+      lastFetched: now.toDate().toISOString(),
+      statsLastFetched: staleIso,
       stats: [
         { date: '2023-12-09', clicks: 5, impressions: 9, ctr: 1.2, position: 3 },
       ],
@@ -120,6 +121,7 @@ describe('Search Console caching helpers', () => {
       .mockResolvedValueOnce({ client_email: '', private_key: '' });
     mockFetchDomainSCData.mockResolvedValue({
       lastFetched: now.toDate().toISOString(),
+      statsLastFetched: now.toDate().toISOString(),
       stats: [
         { date: '2023-12-10', clicks: 7, impressions: 13, ctr: 1.4, position: 2 },
       ],
@@ -136,7 +138,8 @@ describe('Search Console caching helpers', () => {
     const sameDayIso = now.startOf('day').add(1, 'hour').toDate().toISOString();
 
     mockReadLocalSCData.mockResolvedValue({
-      lastFetched: sameDayIso,
+      lastFetched: now.subtract(1, 'day').toDate().toISOString(),
+      statsLastFetched: sameDayIso,
       stats: [
         { date: '2023-12-10', clicks: 7, impressions: 14, ctr: 1.4, position: 2 },
       ],
@@ -270,6 +273,18 @@ describe('integrateKeywordSCData field mapping', () => {
     expect(result.scData!.impressions.avgSevenDays).toBe(10);
   });
 
+  it('keeps CTR and position as they are in the Avg views, since they are already averages', () => {
+    const uid = 'us:desktop:test_keyword';
+    const scData = buildSCData({
+      sevenDays: [makeItem(uid, 14, 70, 14, 7)],
+    });
+
+    const result = integrateKeywordSCData(baseKeyword, scData);
+
+    expect(result.scData!.position.avgSevenDays).toBe(7);
+    expect(result.scData!.ctr.avgSevenDays).toBe(14);
+  });
+
   it('computes averages correctly for thirtyDays data', () => {
     const uid = 'us:desktop:test_keyword';
     const scData = buildSCData({
@@ -362,6 +377,16 @@ describe('fetchSearchConsoleData error logging', () => {
     daysCalls.forEach((m) => {
       expect(m).not.toContain('(stats)');
     });
+  });
+
+  it('coalesces overlapping full refreshes for the same domain', async () => {
+    const [first, second] = await Promise.all([
+      realFetchDomainSCData(mockDomainForSC, mockApiForSC),
+      realFetchDomainSCData(mockDomainForSC, mockApiForSC),
+    ]);
+
+    expect(first).toBe(second);
+    expect(mockSCQuery).toHaveBeenCalledTimes(4); // one request for each window and the stats window
   });
 });
 

@@ -6,6 +6,7 @@ import { logger } from './logger';
 import { retryQueueManager } from './retryQueueManager';
 import { markOwnLocalResults } from './mapPack';
 import { resolveGoogleRedirects } from './resolveGoogleLinks';
+import { getScrapeDelay } from './scraperHelpers';
 
 type SearchResult = {
    title: string,
@@ -52,6 +53,28 @@ const maskSecrets = (value: string): string => value.replace(SECRET_PARAM, '$1**
 const maskHeaders = (headers: Record<string, string>): Record<string, string> => Object.fromEntries(
    Object.entries(headers).map(([name, value]) => [name, /authorization|api-?key|token/i.test(name) ? '***' : value]),
 );
+
+// When the next request to a scraper (per API key) may start. The key is the scraper id plus its API key, because
+// provider rate limits belong to the account.
+const nextScraperSlot = new Map<string, number>();
+
+/**
+ * Waits until the scraper may receive its next request. Requests are spaced by the scraper's baseline
+ * minRequestIntervalMs plus the Keyword Scrape Delay setting, across all keywords, domains, pages and retries.
+ * A scraper with no baseline is spaced by the Keyword Scrape Delay alone; with neither, nothing is gated.
+ */
+export const waitForScraperSlot = async (scraper: ScraperSettings, settings: SettingsType): Promise<void> => {
+   const baseInterval = scraper.minRequestIntervalMs ?? 0;
+   const interval = baseInterval + getScrapeDelay(settings);
+   if (interval <= 0) { return; }
+   const key = `${scraper.id}:${settings.scraping_api ?? ''}`;
+   const now = Date.now();
+   const slot = Math.max(now, nextScraperSlot.get(key) ?? 0);
+   nextScraperSlot.set(key, slot + interval);
+   if (slot > now) {
+      await new Promise((resolve) => setTimeout(resolve, slot - now));
+   }
+};
 
 /**
  * Creates a SERP Scraper client promise with enhanced error handling and retries
@@ -227,6 +250,7 @@ const scrapeSinglePage = async (
 
    let lastError = 'No valid scrape result returned';
    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      await waitForScraperSlot(scraperObj, settings);
       const scraperClient = getScraperClient(keyword, settings, scraperObj, attempt, pagination);
       if (!scraperClient) { return failure('Failed to create scraper client'); }
       try {
@@ -253,7 +277,8 @@ const scrapeSinglePage = async (
          if (res && scrapeResult) {
             const extraction = scraperObj.serpExtractor({ keyword, response: res, result: scrapeResult, settings, pagination });
             // Google redirect links (google.com/goto) are resolved through Serper when SERPER_API_KEY is set
-            const organic = await resolveGoogleRedirects(extraction.organic);
+            // A scraper that sets resolveGoogleUrl to false never gets its links sent to Serper
+            const organic = scraperObj.resolveGoogleUrl === false ? extraction.organic : await resolveGoogleRedirects(extraction.organic);
             const mapPackTop3 = extraction.mapPackTop3 ?? false;
             const localResults = markOwnLocalResults(extraction.localResults ?? [], (settings as ExtendedSettings)?.business_name);
             return {

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import * as ReactQuery from 'react-query';
 import { dummyDomain } from '../../__mocks__/data';
@@ -7,6 +7,13 @@ import router from 'next-router-mock';
 import toast from 'react-hot-toast';
 import { DEFAULT_BRANDING } from '../../utils/branding';
 import { useBranding } from '../../hooks/useBranding';
+
+const mockReadCachedThumbnail = jest.fn();
+const mockFetchThumbnailBatch = jest.fn();
+jest.mock('../../services/thumbnails', () => ({
+   readCachedThumbnail: (...args: unknown[]) => mockReadCachedThumbnail(...args),
+   fetchThumbnailBatch: (...args: unknown[]) => mockFetchThumbnailBatch(...args),
+}));
 
 jest.mock('../../hooks/useBranding');
 jest.mock('react-hot-toast', () => ({
@@ -63,6 +70,9 @@ type QueryOverrides = {
 };
 
 const useQuerySpy = jest.spyOn(ReactQuery, 'useQuery');
+let intersectionCallback: IntersectionObserverCallback | undefined;
+let observedElements: Element[] = [];
+let intersectionOptions: IntersectionObserverInit | undefined;
 
 const buildUseQueryImplementation = (overrides?: QueryOverrides) => {
    const defaultSettings = {
@@ -101,6 +111,28 @@ afterAll(() => {
 });
 
 beforeEach(() => {
+   observedElements = [];
+   intersectionCallback = undefined;
+   intersectionOptions = undefined;
+   mockReadCachedThumbnail.mockReset();
+   mockFetchThumbnailBatch.mockReset();
+   Object.defineProperty(globalThis, 'IntersectionObserver', {
+      configurable: true,
+      value: class {
+         observe: (element: Element) => void;
+         unobserve: (element: Element) => void;
+         disconnect: () => void;
+         constructor(callback: IntersectionObserverCallback, options: IntersectionObserverInit) {
+            intersectionCallback = callback;
+            intersectionOptions = options;
+            this.observe = (element) => { observedElements.push(element); };
+            this.unobserve = (element) => { observedElements = observedElements.filter((item) => item !== element); };
+            this.disconnect = () => { observedElements = []; };
+         }
+      },
+   });
+   Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: jest.fn((blob: Blob) => `blob:thumb-${blob.size}-${Math.random()}`) });
+   Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: jest.fn() });
    router.isReady = true;
    mockUseBranding.mockReturnValue({
       branding: DEFAULT_BRANDING,
@@ -176,6 +208,52 @@ describe('Domains Page', () => {
       render(<QueryClientProvider client={queryClient}><Domains /></QueryClientProvider>);
       expect(screen.getByText(footerTextMatcher('4.0.0'))).toBeVisible();
       expect(screen.queryByText(/Update to Version/i)).not.toBeInTheDocument();
+   });
+
+   it('observes nearby cards, skips fresh cache hits, and displays streamed batch parts progressively', async () => {
+      const domains = [
+         { ...dummyDomain, ID: 1, domain: 'cached.example', slug: 'cached-example' },
+         { ...dummyDomain, ID: 2, domain: 'first.example', slug: 'first-example' },
+         { ...dummyDomain, ID: 3, domain: 'second.example', slug: 'second-example' },
+         { ...dummyDomain, ID: 4, domain: 'failed.example', slug: 'failed-example' },
+      ];
+      useQuerySpy.mockImplementation(buildUseQueryImplementation({
+         domains: { data: { domains }, isLoading: false, isSuccess: true },
+      }) as Parameters<typeof useQuerySpy.mockImplementation>[0]);
+      mockReadCachedThumbnail.mockImplementation(async (id: number) => id === 1
+         ? { id, blob: new Blob(['cached']), contentType: 'image/jpeg', generatedAt: Date.now() }
+         : undefined);
+      let emitSecondPart: (() => void) | undefined;
+      mockFetchThumbnailBatch.mockImplementation(async (ids: number[], onPart: (part: { id: number; blob: Blob }) => void) => {
+         onPart({ id: ids[0], blob: new Blob(['first']) });
+         await new Promise<void>((resolve) => {
+            emitSecondPart = () => { onPart({ id: ids[1], blob: new Blob(['second']) }); resolve(); };
+         });
+      });
+
+      render(<QueryClientProvider client={new QueryClient()}><Domains /></QueryClientProvider>);
+      expect(intersectionOptions?.rootMargin).toBe('300px');
+      const targets = Array.from(new Set(observedElements)).filter((element) => element.classList.contains('domain_thumb'));
+      expect(targets).toHaveLength(4);
+      const entries = targets.map((target) => ({ target, isIntersecting: true } as IntersectionObserverEntry));
+
+      act(() => {
+         intersectionCallback?.(entries, {} as IntersectionObserver);
+         intersectionCallback?.([entries[1]], {} as IntersectionObserver);
+      });
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 1)); });
+      expect(await screen.findByAltText('first.example')).toBeInTheDocument();
+      expect(screen.getByRole('img', { name: 'Website screenshot placeholder for second.example' })).toBeInTheDocument();
+      await act(async () => { emitSecondPart?.(); });
+
+      expect(mockReadCachedThumbnail).toHaveBeenCalledTimes(4);
+      expect(mockFetchThumbnailBatch).toHaveBeenCalledTimes(1);
+      expect(mockFetchThumbnailBatch.mock.calls[0][0]).toEqual([2, 3, 4]);
+      expect(screen.getByAltText('cached.example')).toHaveAttribute('src', expect.stringContaining('blob:thumb-'));
+      expect(screen.getByAltText('first.example')).toBeInTheDocument();
+      expect(screen.getByAltText('second.example')).toBeInTheDocument();
+      expect(screen.getByRole('img', { name: 'Website screenshot placeholder for failed.example' })).toBeInTheDocument();
+      expect(mockFetchThumbnailBatch.mock.calls[0][0]).not.toContain(1);
    });
 });
 

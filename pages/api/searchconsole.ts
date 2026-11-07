@@ -40,7 +40,7 @@ const getDomainSearchConsoleData = async (req: NextApiRequest, res: NextApiRespo
    const localSCData = await readLocalSCData(domainname);
    // Fresh means fetched within the last 24 hours. Empty windows are valid (a site with no recent clicks),
    // so they must not force a new Google request on every page load.
-   const isFresh = !!localSCData && !!localSCData.lastFetched
+   const isFresh = !!localSCData && !!localSCData.lastFetched && !localSCData.lastFetchError
       && Array.isArray(localSCData.threeDays) && Array.isArray(localSCData.sevenDays) && Array.isArray(localSCData.thirtyDays)
       && (new Date().getTime() - new Date(localSCData.lastFetched).getTime() <= 86400000);
    if (isFresh) {
@@ -55,7 +55,8 @@ const getDomainSearchConsoleData = async (req: NextApiRequest, res: NextApiRespo
          return res.status(200).json({ data: null, error: 'Google Search Console is not Integrated.' });
       }
       const scData = await fetchDomainSCData(domainObj, scDomainAPI, scGlobalAPI);
-      if (scData && scData.thirtyDays && scData.thirtyDays.length) {
+      // A site with no recent clicks is a valid, empty result; only a recorded fetch error is an upstream failure
+      if (scData && ((scData.thirtyDays && scData.thirtyDays.length) || !scData.lastFetchError)) {
          return res.status(200).json({ data: scData });
       }
       // The request was valid; Google returned nothing usable, so this is an upstream failure
@@ -79,7 +80,7 @@ const cronRefreshSearchConsoleData = async (_req: NextApiRequest, res: NextApiRe
             const scGlobalAPI = await getSearchConsoleApiInfo({} as DomainType);
             if (scDomainAPI.client_email || scGlobalAPI.client_email) {
                const scData = await fetchDomainSCData(domain, scDomainAPI, scGlobalAPI);
-               if (scData && scData.thirtyDays && scData.thirtyDays.length) {
+               if (scData && !scData.lastFetchError) {
                   logger.info(`Updated Search Console data for domain: ${domain.domain}`);
                } else {
                   logger.error(`Failed to update Search Console data for domain: ${domain.domain}`);

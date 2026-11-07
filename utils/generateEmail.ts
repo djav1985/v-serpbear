@@ -4,17 +4,20 @@ import { getKeywordsInsight, getPagesInsight } from './insight';
 import { fetchDomainSCData, getSearchConsoleApiInfo, isSearchConsoleDataFreshForToday, readLocalSCData } from './searchConsole';
 import { parseLocation } from './location';
 import { buildLogoUrl, getBranding } from './branding';
+import { ensureBrandingAssets } from './brandingAssets';
 import { normalizeToBoolean } from './dbBooleans';
 import { historyKeyToTime } from './historyDateKey';
 import { APP_TIMEZONE, dateKeyToTime, formatDateKey, todayKey } from './timezone';
 import { formatAveragePosition, getUnrankedPenalty, summarizeAveragePosition } from './averagePosition';
 
 const DEFAULT_BRAND_LOGO = 'https://serpbear.b-cdn.net/ikAdjQq.png';
-const mobileIcon = 'https://serpbear.b-cdn.net/SqXD9rd.png';
+// Blue phone icon (blue-700, the app's position badge blue), served from this repository
+const mobileIcon = 'https://raw.githubusercontent.com/djav1985/v-serpbear/main/public/email/mobile.png';
 const desktopIcon = 'https://serpbear.b-cdn.net/Dx3u0XD.png';
 const googleIcon = 'https://serpbear.b-cdn.net/Sx3u0X9.png';
 
 const resolveEmailBranding = () => {
+   ensureBrandingAssets();
    const brandingDetails = getBranding();
    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || '';
    // buildLogoUrl without an origin returns a relative path, which email clients cannot load; use the default logo instead
@@ -35,6 +38,9 @@ type SCStatsObject = {
    },
 }
 
+/** Rank used for a keyword that is not in the results (position 0) when working out its position change. */
+const UNRANKED_FALLBACK_POSITION = 100;
+
 /**
  * Returns a Keyword's position change value by comparing the current position with previous position.
  * @param {KeywordHistory} history - Keywords to scrape
@@ -51,10 +57,9 @@ const getPositionChange = (history:KeywordHistory, position:number) : number => 
             }));
       const historySorted = historyArray.sort((a, b) => a.date - b.date);
       const previousPos = historySorted[historySorted.length - 2].position;
-      status = previousPos === 0 ? position : previousPos - position;
-      if (position === 0 && previousPos > 0) {
-         status = previousPos - 100;
-      }
+      // An unranked keyword (0) counts as the same fallback rank on both sides, so a move in one direction is
+      // reported with the same size as the move back (0 -> 15 is +85, 15 -> 0 is -85).
+      status = (previousPos || UNRANKED_FALLBACK_POSITION) - (position || UNRANKED_FALLBACK_POSITION);
    }
    return status;
 };
@@ -111,9 +116,15 @@ const generateEmail = async (domain:DomainType, keywords:KeywordType[], settings
       const deviceIconImg = keyword.device === 'desktop' ? desktopIcon : mobileIcon;
       const countryFlag = `<img class="flag" src="https://flagcdn.com/w20/${escapeHtml(String(keyword.country ?? '').toLowerCase())}.png" alt="${escapeHtml(keyword.country)}" title="${escapeHtml(keyword.country)}" />`;
       const deviceIcon = `<img class="device" src="${deviceIconImg}" alt="${escapeHtml(keyword.device)}" title="${escapeHtml(keyword.device)}" width="18" height="18" />`;
-      const mapPackFlag = normalizeToBoolean(keyword.mapPackTop3)
-         ? `<span class="map-pack-flag" role="img" aria-label="Map pack top three">MP</span>`
-         : '';
+      const removedAt = typeof keyword.mapPackRemovedAt === 'string' ? keyword.mapPackRemovedAt : '';
+      let mapPackFlag = '';
+      if (normalizeToBoolean(keyword.mapPackTop3)) {
+         mapPackFlag = `<span class="map-pack-flag" role="img" aria-label="Map pack top three">MAP</span>`;
+      } else if (removedAt) {
+         // Red badge: it was in the map pack and dropped out on this day
+         const label = escapeHtml(`Dropped out of the map pack on ${removedAt}`);
+         mapPackFlag = `<span class="map-pack-flag map-pack-flag--removed" role="img" aria-label="${label}" title="${label}">MAP</span>`;
+      }
       const flagStack = `<span class="flag-stack">${countryFlag}${mapPackFlag}</span>`;
 
       if (positionChange > 0) { positionChangeIcon = '<span style="color:#5ed7c3;">▲</span>'; improved += 1; }
@@ -225,7 +236,7 @@ export const generateGoogleConsoleStats = async (domain:DomainType): Promise<str
       const initialSCData = await readLocalSCData(domain.domain);
       let localSCData:SCDomainDataType | null = initialSCData === false ? null : initialSCData;
       const hasStats = !!(localSCData?.stats && localSCData.stats.length);
-      const lastFetched = localSCData?.lastFetched;
+      const lastFetched = localSCData?.statsLastFetched;
       const isFresh = hasStats && isSearchConsoleDataFreshForToday(lastFetched);
       if (!isFresh) {
          const scDomainAPI = domain.search_console ? await getSearchConsoleApiInfo(domain) : { client_email: '', private_key: '' };

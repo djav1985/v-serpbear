@@ -43,6 +43,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return getKeywordSearchResults(req, res);
    }
    if (req.method === 'POST') {
+      if (req.body?.status === 'retry') {
+         return getRetryStatus(req, res);
+      }
+      if (req.body?.status !== undefined) {
+         return res.status(400).json(errorResponse('BAD_REQUEST', 'Invalid refresh status request.', requestId));
+      }
       return refreshTheKeywords(req, res);
    }
    return res.status(405).json(errorResponse('METHOD_NOT_ALLOWED', 'Method not allowed', requestId));
@@ -50,25 +56,26 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
 const getRetryStatus = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
-   if (!req.query.id || typeof req.query.id !== 'string') {
+   const bodyIDs = req.body?.ids;
+   const keywordIDs = Array.isArray(bodyIDs) && bodyIDs.every((id: unknown) => Number.isSafeInteger(id) && (id as number) > 0)
+      ? Array.from(new Set(bodyIDs as number[]))
+      : (typeof req.query.id === 'string' ? parseKeywordIds(req.query.id) : null);
+   if (!keywordIDs || keywordIDs.length === 0) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'keyword ID is Required!', requestId));
-   }
-
-   const keywordIDs = parseKeywordIds(req.query.id);
-   if (!keywordIDs) {
-      return res.status(400).json(errorResponse('BAD_REQUEST', 'No valid keyword IDs provided', requestId));
    }
 
    try {
       const keywords = await Keyword.findAll({
          where: { ID: { [Op.in]: keywordIDs } },
-         attributes: ['ID', 'updating', 'updatingStartedAt'],
+         attributes: ['ID', 'domain', 'updating', 'updatingStartedAt'],
       });
       return res.status(200).json({
-         // A flag left behind by a crashed run is reported as not updating, matching what a refresh would do
+         // A flag left behind by a crashed run is reported as not updating, matching what a refresh would do.
+         // A keyword whose domain is being refreshed right now stays updating, however long its batch runs.
          keywords: keywords.map((keyword) => {
             const plainKeyword = keyword.get({ plain: true });
-            return { ID: plainKeyword.ID, updating: isKeywordUpdating(plainKeyword) };
+            const domainHasLiveRun = !!plainKeyword.domain && refreshQueue.isDomainLocked(plainKeyword.domain);
+            return { ID: plainKeyword.ID, updating: isKeywordUpdating(plainKeyword, Date.now(), domainHasLiveRun) };
          }),
       });
    } catch (error) {

@@ -37,7 +37,7 @@ Open **Settings → Scraper**, choose a provider, paste its API key and save, th
 
 ## Step 5: Add your first keywords
 
-Click **Add Keyword**, enter the keywords, choose the country and device (and a city, if your provider supports it), and add them. SerpBear fetches the results straight away and fills in the positions. See [Keyword Tracking](Keyword-Tracking).
+Click **Add Keyword**, enter the keywords, choose the country and device (and a city, if your provider supports it), and add them. SerpBear queues a refresh and fills in the positions when it runs. If that domain is already refreshing, the new keywords wait for the current refresh to finish. Each add request can contain up to 100 keyword and device combinations. See [Keyword Tracking](Keyword-Tracking).
 
 ## Step 6: Get email digests (optional)
 
@@ -62,7 +62,7 @@ Some SERP providers return result links that are Google redirects, such as `http
 **How it works:**
 - After a provider returns a page of results, SerpBear collects the links that are `google.com/goto` (or `/url`) redirects. Links that are already real URLs are left alone and never sent.
 - All the redirect links from that page go to Serper's `/resolve` endpoint in one request. Serper follows each one and returns the real address, and SerpBear swaps it in before the position is saved.
-- It works for every provider, not only Serper.
+- It works for every provider that returns those links, not only Serper. TinyFish and Jina AI return real URLs and never need it.
 - A call can take up to about 30 seconds, so each request has a 30 second timeout. A call that fails or times out is tried once more. Links that come back unresolved are sent once more, after the number of seconds Serper asks for (`retryAfter`).
 - Anything still unresolved keeps the Google link and a warning is logged. Without a key, redirect links stay as they are.
 
@@ -80,4 +80,4 @@ docker compose start
 
 Each deployment page has its own update steps. Migrations run automatically on start, and the database is backed up before any migration that changes data.
 
-Docker Compose stores data in a named volume (`data`) mounted at `/app/data`, prefixed with the project name (for example `v-serpbear_data`; find it with `docker volume ls`). It holds the SQLite database, `settings.json`, Search Console exports (`SC_<domain>.json`), keyword ideas (`IDEAS_*.json`), `session.json`, `email-throttle.json`, `failed_queue.json` and any white-label logo. Secrets in `settings.json` are encrypted with `SECRET`.
+Docker Compose stores data in a named volume (`data`) mounted at `/app/data`, prefixed with the project name (for example `v-serpbear_data`; find it with `docker volume ls`). It holds the SQLite database, `settings.json`, Search Console exports (`SC_<domain>.json`), keyword ideas (`IDEAS_*.json`), `session.json`, `email-throttle.json`, `failed_queue.json`, the website thumbnails in `thumbnails/` and the white-label `logo.png` and `favicon.ico`. Secrets in `settings.json` are encrypted with `SECRET`.

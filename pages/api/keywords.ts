@@ -399,6 +399,7 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
       const settings = await getAppSettings();
       const domainName = keywordsParsed[0]?.domain;
       const taskDomains = Array.from(new Set(keywordsParsed.map((keyword) => keyword.domain?.trim().toLowerCase()).filter(Boolean)));
+      const queuedForRefresh = taskDomains.some((domain) => refreshQueue.isDomainLocked(domain));
       if (domainName) {
          // Generate unique task ID using crypto to prevent collisions in concurrent scenarios
          const uniqueId = crypto.randomUUID();
@@ -433,7 +434,7 @@ const addKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
             });
       }
 
-      return res.status(201).json({ keywords: keywordsParsed });
+      return res.status(201).json({ keywords: keywordsParsed, queuedForRefresh });
    } catch (error) {
       // Two overlapping requests can both pass the duplicate check; the unique index then rejects the second insert
       if (error instanceof Error && error.name === 'SequelizeUniqueConstraintError') {
@@ -499,6 +500,10 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
    const body = readBody(req);
    if (body.sticky === undefined && body.tags === undefined && body.location === undefined) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Keyword update payload is required.', requestId));
+   }
+   // Only one kind of change per request: handling the first and silently ignoring the others would hide part of it
+   if ([body.sticky, body.tags, body.location].filter((value) => value !== undefined).length > 1) {
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Send only one of sticky, tags or location per request.', requestId));
    }
    // Anything that is not a positive ID is rejected or dropped, so NaN and 0 never reach the database query
    const keywordIDs = readKeywordIds(req) ?? [];
@@ -584,6 +589,14 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
          const locationUpdate = { location: formattedLocation, country: locationCountry };
          const selectedKeywords: Keyword[] = await Keyword.findAll({ where: { ID: { [Op.in]: keywordIDs } } });
          const domains = [...new Set(selectedKeywords.map((el) => el.domain))];
+         // Lock every affected domain before checking collisions or writing. The reservation
+         // rejects the whole edit if a refresh is active or queued on any selected domain.
+         const releaseDomains = refreshQueue.reserveDomains(domains);
+         if (!releaseDomains) {
+            const busyDomains = domains.filter((domain) => refreshQueue.isDomainLocked(domain));
+            return res.status(409).json(errorResponse('CONFLICT', `Cannot change keyword locations while these domains are updating: ${busyDomains.join(', ')}.`, requestId));
+         }
+         try {
          // Other tracked keywords on the same domains, so a change cannot create a duplicate
          const otherKeywords: Keyword[] = domains.length > 0
             ? await Keyword.findAll({ where: { domain: { [Op.in]: domains }, ID: { [Op.notIn]: keywordIDs } } })
@@ -601,6 +614,9 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
          const formattedKeywords = updatedKeywords.map((el) => el.get({ plain: true }));
          keywords = parseKeywords(formattedKeywords);
          return res.status(200).json({ keywords, updatedCount: acceptedIDs.length, skipped });
+         } finally {
+            releaseDomains();
+         }
       }
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Invalid Payload!', requestId));
    } catch (error) {

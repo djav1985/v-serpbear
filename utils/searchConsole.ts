@@ -11,6 +11,9 @@ import { atomicWriteFile } from './atomicWrite';
 import { safeJsonParse } from './safeJsonParse';
 import { readSettingsFile } from './settingsFile';
 import { APP_TIMEZONE, SEARCH_CONSOLE_TIMEZONE, dateKeyInZone, daysAgoKey, todayKey } from './timezone';
+import { isCurrentDomainRecord, withDomainLifecycleLock } from './domainLifecycle';
+
+const domainFetches = new Map<string, Promise<SCDomainDataType | null>>();
 
 export type SCDomainFetchError = {
    error: boolean,
@@ -121,9 +124,11 @@ export const fetchSearchConsoleData = async (domain:DomainType, days:number, typ
       return finalRows;
    } catch (err:any) {
       const qType = type === 'stat' ? '(stats)' : `(${days}days)`;
-      const errorMsg = err?.response?.status && `${err?.response?.statusText}. ${err?.response?.data?.error_description}`;
-      logger.error(`Search Console API error for ${domainName} ${qType}`, new Error(errorMsg || err?.code || 'Unknown error'));
-      return { error: true, errorMsg: errorMsg || err?.code };
+      const httpMsg = err?.response?.status ? `${err?.response?.statusText}. ${err?.response?.data?.error_description}` : '';
+      // A failure without an HTTP response (network error, bad key) still gets a readable reason
+      const errorMsg = httpMsg || err?.message || err?.code || 'Unknown error';
+      logger.error(`Search Console API error for ${domainName} ${qType}`, new Error(errorMsg));
+      return { error: true, errorMsg };
    }
 };
 
@@ -135,7 +140,7 @@ export const fetchSearchConsoleData = async (domain:DomainType, days:number, typ
  * @param {SCAPISettings} [scGlobalAPI] - Global Search Console credentials used as fallback.
  * @returns {Promise<SCDomainDataType|null>}
  */
-export const fetchDomainSCData = async (
+const fetchDomainSCDataOnce = async (
    domain:DomainType | null,
    scDomainAPI?: SCAPISettings,
    scGlobalAPI?: SCAPISettings,
@@ -155,39 +160,73 @@ export const fetchDomainSCData = async (
       lastFetched: existingData.lastFetched || '',
       lastFetchError: '',
       stats: [],
+      statsLastFetched: existingData.statsLastFetched || '',
+      statsLastFetchError: '',
    };
    const apiCreds = (scDomainAPI?.client_email && scDomainAPI?.private_key)
       ? scDomainAPI
       : scGlobalAPI;
    if (apiCreds?.client_email && apiCreds?.private_key) {
       const theDomain = domain;
+      // A window that fetched without error replaces the stored one, even when it is empty (a site with no recent
+      // clicks is a valid result). Only a window whose request failed keeps its previous data.
+      const failedWindows = new Set<number>();
       for (const day of days) {
          const items = await fetchSearchConsoleData(theDomain, day, undefined, apiCreds);
-         if (Array.isArray(items) && items.length > 0) {
+         if (Array.isArray(items)) {
             scDomainData.lastFetched = new Date().toJSON();
             if (day === 3) scDomainData.threeDays = items as SearchAnalyticsItem[];
             if (day === 7) scDomainData.sevenDays = items as SearchAnalyticsItem[];
             if (day === 30) scDomainData.thirtyDays = items as SearchAnalyticsItem[];
-         } else if ((items as SCDomainFetchError)?.error) {
-            scDomainData.lastFetchError = (items as SCDomainFetchError).errorMsg;
+         } else {
+            failedWindows.add(day);
+            if ((items as SCDomainFetchError)?.error) {
+               scDomainData.lastFetchError = (items as SCDomainFetchError).errorMsg;
+            }
          }
       }
       const stats = await fetchSearchConsoleData(theDomain, 30, 'stat', apiCreds);
-      if (Array.isArray(stats) && stats.length > 0) {
+      if (Array.isArray(stats)) {
          scDomainData.stats = stats as SearchAnalyticsStat[];
+         scDomainData.statsLastFetched = new Date().toJSON();
+      } else {
+         failedWindows.add(0);
+         scDomainData.statsLastFetchError = (stats as SCDomainFetchError)?.errorMsg || 'Search Console stats fetch failed';
       }
       // Keep the previous data for any window that failed to fetch, so a transient Google error does not
-      // blank the stored data. Only the windows that returned rows are replaced.
-      if (scDomainData.threeDays.length === 0) { scDomainData.threeDays = existingData.threeDays || []; }
-      if (scDomainData.sevenDays.length === 0) { scDomainData.sevenDays = existingData.sevenDays || []; }
-      if (scDomainData.thirtyDays.length === 0) { scDomainData.thirtyDays = existingData.thirtyDays || []; }
-      if (!scDomainData.stats || scDomainData.stats.length === 0) { scDomainData.stats = existingData.stats || []; }
-      const writeRes = await updateLocalSCData(domainName, scDomainData);
+      // blank the stored data.
+      if (failedWindows.has(3)) { scDomainData.threeDays = existingData.threeDays || []; }
+      if (failedWindows.has(7)) { scDomainData.sevenDays = existingData.sevenDays || []; }
+      if (failedWindows.has(30)) { scDomainData.thirtyDays = existingData.thirtyDays || []; }
+      if (failedWindows.has(0)) { scDomainData.stats = existingData.stats || []; }
+      const writeRes = await withDomainLifecycleLock(domainName, async () => {
+         if (Number.isFinite(domain.ID) && !await isCurrentDomainRecord(domainName, domain.ID)) return false;
+         return updateLocalSCData(domainName, scDomainData);
+      });
       if (!writeRes) {
          return null;
       }
    }
    return scDomainData;
+};
+
+/** Coalesce concurrent refreshes for a domain so every caller observes one merged cache write. */
+export const fetchDomainSCData = (
+   domain: DomainType | null,
+   scDomainAPI?: SCAPISettings,
+   scGlobalAPI?: SCAPISettings,
+): Promise<SCDomainDataType | null> => {
+   if (!domain) return Promise.resolve(null);
+   const key = domain.domain.toLowerCase();
+   const existing = domainFetches.get(key);
+   if (existing) return existing;
+   const fetch = fetchDomainSCDataOnce(domain, scDomainAPI, scGlobalAPI);
+   domainFetches.set(key, fetch);
+   const cleanup = () => {
+      if (domainFetches.get(key) === fetch) domainFetches.delete(key);
+   };
+   void fetch.then(cleanup, cleanup);
+   return fetch;
 };
 
 /**
@@ -273,9 +312,11 @@ export const integrateKeywordSCData = (keyword: KeywordType, SCData:SCDomainData
       position[dataKey] = totalData[dataKey].position ? Math.round(totalData[dataKey].position) : 0;
       // Average Data
       impressions[avgDataKey] = Math.round(impressions[dataKey] / divideBy);
-      ctr[avgDataKey] = Math.round((ctr[dataKey] / divideBy) * 100) / 100;
       visits[avgDataKey] = Math.round(visits[dataKey] / divideBy);
-      position[avgDataKey] = Math.round(position[dataKey] / divideBy);
+      // CTR and position are already averages over the window, so dividing them by the number of days would be
+      // meaningless. Only the totals (impressions, clicks) are averaged per day.
+      ctr[avgDataKey] = ctr[dataKey];
+      position[avgDataKey] = position[dataKey];
    });
    const finalSCData = { impressions, visits, ctr, position };
 

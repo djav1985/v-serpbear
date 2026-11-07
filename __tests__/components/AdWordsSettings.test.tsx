@@ -145,6 +145,25 @@ describe('Google Ads OAuth result handling in Settings', () => {
       fetchSpy.mockRestore();
    });
 
+   it('opens the OAuth window from the click and navigates it after the URL loads', async () => {
+      const popup = { location: { href: 'about:blank' }, close: jest.fn() };
+      const openSpy = jest.spyOn(window, 'open').mockReturnValue(popup as unknown as Window);
+      const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({ ok: true, json: async () => ({ authUrl: 'https://accounts.google.com/x' }) } as unknown as Response);
+      renderSettings();
+
+      fireEvent.click(screen.getByText('Integrations'));
+      fireEvent.click(screen.getByText('Google Ads'));
+      await act(async () => {
+         fireEvent.click(screen.getByText(/Authenticate Integration/));
+      });
+      await waitFor(() => expect(popup.location.href).toBe('https://accounts.google.com/x'));
+
+      expect(openSpy).toHaveBeenCalledWith('about:blank', '_blank');
+      expect(openSpy.mock.invocationCallOrder[0]).toBeLessThan(mockUpdateSettingsAsync.mock.invocationCallOrder[0]);
+      openSpy.mockRestore();
+      fetchSpy.mockRestore();
+   });
+
    it('keeps unsaved edits when the settings are refetched', () => {
       mockFetchSettings.mockReturnValue({
          data: { settings: { ...baseSettings, notification_interval: 'daily', smtp_server: '' } },

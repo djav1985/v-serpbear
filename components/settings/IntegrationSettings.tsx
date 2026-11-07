@@ -1,6 +1,6 @@
 /// <reference path="../../types.d.ts" />
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import SearchConsoleSettings from './SearchConsoleSettings';
 import AdWordsSettings from './AdWordsSettings';
 import Icon from '../common/Icon';
@@ -22,16 +22,12 @@ const IntegrationSettings = ({ settings, settingsError, updateSettings, performU
       <div className='settings__content styled-scrollbar p-6 text-sm'>
          <div className='mb-4 '>
             <ul>
-               <li
-               className={`${tabStyle} ${currentTab === 'searchconsole' ? ' bg-blue-50 text-blue-600' : ''}`}
-               onClick={() => setCurrentTab('searchconsole')}>
+               <li><button type="button" aria-pressed={currentTab === 'searchconsole'} className={`${tabStyle} ${currentTab === 'searchconsole' ? ' bg-blue-50 text-blue-600' : ''}`} onClick={() => setCurrentTab('searchconsole')}>
                   <Icon type='google' size={14} /> Search Console
-               </li>
-               <li
-               className={`${tabStyle} ${currentTab === 'adwords' ? ' bg-blue-50 text-blue-600' : ''}`}
-               onClick={() => setCurrentTab('adwords')}>
+               </button></li>
+               <li><button type="button" aria-pressed={currentTab === 'adwords'} className={`${tabStyle} ${currentTab === 'adwords' ? ' bg-blue-50 text-blue-600' : ''}`} onClick={() => setCurrentTab('adwords')}>
                   <Icon type='adwords' size={14} /> Google Ads
-               </li>
+               </button></li>
             </ul>
          </div>
          <div>

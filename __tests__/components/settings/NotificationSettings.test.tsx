@@ -11,7 +11,6 @@ jest.mock('../../../services/searchConsole', () => ({
    refreshSearchConsoleData: jest.fn(),
 }));
 
-import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import NotificationSettings from '../../../components/settings/NotificationSettings';

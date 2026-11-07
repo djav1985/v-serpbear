@@ -31,16 +31,17 @@ const makeKeyword = (overrides: Partial<KeywordType>): KeywordType => ({
 } as KeywordType);
 
 describe('getDomainTags', () => {
-   it('returns an empty list when there are no keywords', () => {
-      expect(getDomainTags([])).toEqual([]);
-   });
-
-   it('returns unique, non-blank tags across keywords', () => {
-      const keywords = [
-         makeKeyword({ ID: 1, tags: ['seo', ' ', ''] }),
-         makeKeyword({ ID: 2, tags: ['seo', 'content'] }),
-      ];
-      expect(getDomainTags(keywords)).toEqual(['seo', 'content']);
+   it('returns unique, non-blank tags and an empty list when there are no keywords', () => {
+      {
+         expect(getDomainTags([])).toEqual([]);
+      }
+      {
+         const keywords = [
+            makeKeyword({ ID: 1, tags: ['seo', ' ', ''] }),
+            makeKeyword({ ID: 2, tags: ['seo', 'content'] }),
+         ];
+         expect(getDomainTags(keywords)).toEqual(['seo', 'content']);
+      }
    });
 });
 
@@ -176,17 +177,17 @@ describe('planLocationUpdate', () => {
 });
 
 describe('getLocationUpdateMessage', () => {
-   it('reports a plain update with the right plural', () => {
-      expect(getLocationUpdateMessage(1)).toBe('Updated 1 keyword.');
-      expect(getLocationUpdateMessage(3)).toBe('Updated 3 keywords.');
-   });
-
-   it('reports skipped keywords alongside the updated count', () => {
-      expect(getLocationUpdateMessage(2, ['alpha'])).toBe('Updated 2 keywords. Skipped 1 already tracked in that location: alpha.');
-   });
-
-   it('says nothing changed when every keyword was skipped', () => {
-      expect(getLocationUpdateMessage(0, ['alpha', 'beta'])).toBe('No keywords changed. 2 already tracked in that location: alpha, beta.');
+   it('reports plain, partly skipped and fully skipped updates', () => {
+      {
+         expect(getLocationUpdateMessage(1)).toBe('Updated 1 keyword.');
+         expect(getLocationUpdateMessage(3)).toBe('Updated 3 keywords.');
+      }
+      {
+         expect(getLocationUpdateMessage(2, ['alpha'])).toBe('Updated 2 keywords. Skipped 1 already tracked in that location: alpha.');
+      }
+      {
+         expect(getLocationUpdateMessage(0, ['alpha', 'beta'])).toBe('No keywords changed. 2 already tracked in that location: alpha, beta.');
+      }
    });
 });
 
@@ -215,16 +216,16 @@ describe('splitAlreadyTracked', () => {
 });
 
 describe('getAddKeywordsMessage', () => {
-   it('keeps the original wording when nothing was skipped', () => {
-      expect(getAddKeywordsMessage(3)).toBe('Keywords Added Successfully!');
-   });
-
-   it('reports added and skipped keywords', () => {
-      expect(getAddKeywordsMessage(2, ['alpha (desktop)'])).toBe('Added 2 keywords. Skipped 1 already tracked: alpha (desktop).');
-      expect(getAddKeywordsMessage(1, ['alpha (desktop)'])).toBe('Added 1 keyword. Skipped 1 already tracked: alpha (desktop).');
-   });
-
-   it('says nothing was added when every row was skipped', () => {
-      expect(getAddKeywordsMessage(0, ['alpha (desktop)'])).toBe('No keywords added. 1 already tracked: alpha (desktop).');
+   it('reports plain, partly skipped and fully skipped adds', () => {
+      {
+         expect(getAddKeywordsMessage(3)).toBe('Keywords Added Successfully!');
+      }
+      {
+         expect(getAddKeywordsMessage(2, ['alpha (desktop)'])).toBe('Added 2 keywords. Skipped 1 already tracked: alpha (desktop).');
+         expect(getAddKeywordsMessage(1, ['alpha (desktop)'])).toBe('Added 1 keyword. Skipped 1 already tracked: alpha (desktop).');
+      }
+      {
+         expect(getAddKeywordsMessage(0, ['alpha (desktop)'])).toBe('No keywords added. 1 already tracked: alpha (desktop).');
+      }
    });
 });

@@ -111,7 +111,7 @@ class RetryQueueManager {
    /**
     * Read the current retry queue from file
     */
-   private async readQueue(): Promise<RetryQueueEntry[]> {
+   private async readQueue(quarantineCorrupt = true): Promise<RetryQueueEntry[]> {
       let rawData: string;
       try {
          // eslint-disable-next-line security/detect-non-literal-fs-filename
@@ -129,6 +129,12 @@ class RetryQueueManager {
       try {
          parsed = JSON.parse(rawData);
       } catch (err: any) {
+         // Peeks are deliberately lock-free and read-only. Quarantine only from a writer
+         // that owns the file lock, so a concurrent atomic replacement cannot be moved away.
+         if (!quarantineCorrupt) {
+            logger.error('Retry queue file is corrupt; ignoring it during read-only peek', err instanceof Error ? err : new Error(String(err)));
+            return [];
+         }
          // Move the damaged file aside once (kept for inspection) and carry on with an empty queue. Because the
          // file is moved, later reads see a missing file instead of re-copying it on every request, and queue
          // writes keep working instead of failing until someone repairs the file by hand.
@@ -233,7 +239,7 @@ class RetryQueueManager {
     */
    async peekEntries(): Promise<RetryQueueEntry[]> {
       try {
-         return await this.readQueue();
+         return await this.readQueue(false);
       } catch (_error) {
          // Already logged by readQueue; a read-only peek must never break the request that asked for it
          return [];

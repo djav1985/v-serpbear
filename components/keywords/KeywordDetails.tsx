@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Icon from '../common/Icon';
 import countries from '../../utils/countries';
 import Chart from '../common/Chart';
@@ -10,6 +10,7 @@ import { formatInZone } from '../../utils/timezone';
 import { getAppTimezone } from '../../utils/client/appTimezone';
 import { closeOnBGClick } from '../../utils/client/closeOnBGClick';
 import { safeHttpUrl } from '../../utils/client/safeUrl';
+import MapPackBadge from './MapPackBadge';
 
 type KeywordDetailsProps = {
    keyword: KeywordType,
@@ -34,6 +35,7 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
       ? keywordLocalResultsRaw
       : fallbackLocalResults;
    const mapPackTop3 = Boolean(keywordData?.mapPackTop3 ?? keyword.mapPackTop3);
+   const mapPackRemovedAt = keywordData?.mapPackRemovedAt ?? keyword.mapPackRemovedAt ?? null;
    const dateOptions = [
       { label: 'Last 7 Days', value: '7' },
       { label: 'Last 30 Days', value: '30' },
@@ -63,17 +65,15 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
 
    return (
        <div className="keywordDetails fixed w-full h-dvh top-0 left-0 z-[99999]" onClick={(e) => closeOnBGClick(e, closeDetails)} data-testid="keywordDetails">
-            <div className="keywordDetails absolute w-full lg:w-5/12 bg-white customShadow top-0 right-0 h-dvh overflow-y-auto" >
+            <div role="dialog" aria-modal="true" aria-labelledby="keyword-details-title" className="keywordDetails absolute w-full lg:w-5/12 bg-white customShadow top-0 right-0 h-dvh overflow-y-auto" >
                <div className='keywordDetails__header p-6 border-b border-b-slate-200 text-slate-600'>
-                  <h3 className=' text-lg font-bold flex items-center'>
+                  <h3 id="keyword-details-title" className=' text-lg font-bold flex items-center'>
                      <span className="fflag-stack mr-2">
                         <span
                            title={countries[keyword.country]?.[0] ?? keyword.country}
                            className={`fflag fflag-${keyword.country} w-[18px] h-[12px]`}
                         />
-                        {mapPackTop3 && (
-                           <span className="fflag fflag-map-pack w-[18px] h-[12px]" role="img" aria-label="Map pack top three" />
-                        )}
+                        <MapPackBadge inMapPack={mapPackTop3} removedAt={mapPackRemovedAt} />
                      </span>
                      <span>{keyword.keyword}</span>
                      <span
@@ -82,6 +82,8 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
                      </span>
                   </h3>
                   <button
+                  type="button"
+                  aria-label="Close keyword details"
                   className='absolute top-2 right-2 p-2 px-3 text-gray-400 hover:text-gray-700 transition-all hover:rotate-90'
                   onClick={() => closeDetails()}>
                      <Icon type='close' size={24} />
@@ -112,7 +114,7 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
                         <h3 className=' font-bold text-gray-700 lg:text-lg'>Local Search Results</h3>
                         <span className=' text-xs text-gray-500'>{updatedDate}</span>
                      </div>
-                     <div className='keywordDetails__section__results keywordDetails__section__results--local styled-scrollbar overflow-y-auto'>
+                     <div className='keywordDetails__section__results keywordDetails__section__results--local styled-scrollbar overflow-y-auto max-md:overflow-y-visible'>
                         {keywordLocalResults && Array.isArray(keywordLocalResults) && keywordLocalResults.length > 0 ? (
                            keywordLocalResults.map((item, index) => {
                               const position = item.position || index + 1;
@@ -154,7 +156,7 @@ const KeywordDetails = ({ keyword, closeDetails }:KeywordDetailsProps) => {
                         </h3>
                         <span className=' text-xs text-gray-500'>{updatedDate}</span>
                      </div>
-                     <div className='keywordDetails__section__results styled-scrollbar overflow-y-auto' ref={searchResultContainer}>
+                     <div className='keywordDetails__section__results styled-scrollbar overflow-y-auto max-md:overflow-y-visible' ref={searchResultContainer}>
                         {scrapedCount > 0 && keywordSearchResult.map((item) => {
                            const { position } = keyword;
                            const segUrl = safeHttpUrl(item.url);

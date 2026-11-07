@@ -42,14 +42,17 @@ describe('/api/mcp', () => {
     expect(res.status).toHaveBeenCalledWith(405);
   });
 
-  it.each([
-    ['no Authorization header', { cookie: 'token=anything' }],
-    ['a wrong Bearer key', { authorization: 'Bearer wrong-key' }],
-    ['a non-Bearer scheme', { authorization: 'Basic test-key' }],
-  ])('returns 401 when the request has %s, even with a session cookie', async (_name, headers) => {
-    const res = await call('POST', headers as Record<string, string>);
+  it('returns 401 without a valid Bearer key, even with a session cookie', async () => {
+    const badHeaders: Array<Record<string, string>> = [
+      { cookie: 'token=anything' }, // no Authorization header
+      { authorization: 'Bearer wrong-key' }, // wrong key
+      { authorization: 'Basic test-key' }, // not a Bearer scheme
+    ];
+    for (const headers of badHeaders) {
+      const res = await call('POST', headers);
 
-    expect(res.status).toHaveBeenCalledWith(401);
+      expect(res.status).toHaveBeenCalledWith(401);
+    }
   });
 
   it('returns 500 for an authorized POST when APIKEY is unset', async () => {

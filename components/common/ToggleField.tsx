@@ -1,4 +1,3 @@
-import React from 'react';
 import { TOGGLE_TRACK_CLASS_NAME } from './toggleStyles';
 
 type ToggleFieldProps = {

@@ -49,6 +49,12 @@ export const resolveCountryCode = (
    return safeFallback;
 };
 
+/** Configured Keyword Scrape Delay in ms (0 when unset or invalid), capped at 30s. */
+export const getScrapeDelay = (settings?: Pick<SettingsType, 'scrape_delay'> | null): number => {
+   const configuredDelay = settings?.scrape_delay ? parseInt(settings.scrape_delay, 10) : 0;
+   return Number.isFinite(configuredDelay) && configuredDelay > 0 ? Math.min(configuredDelay, 30000) : 0;
+};
+
 // The keyword's stored location ("City,State,Country Name") as one value, or [] for country-only keywords.
 // Scrapers send it as-is when present and skip the location parameter when it is empty; the country still comes from the country column.
 export const getKeywordLocationParts = (location?: string | null): string[] => {

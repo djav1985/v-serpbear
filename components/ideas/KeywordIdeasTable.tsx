@@ -1,5 +1,5 @@
 import { useRouter } from 'next/router';
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
 import { useAddKeywords, useFetchKeywords } from '../../services/keywords';
 import { useEmailKeywordIdeas } from '../../services/ideas';
@@ -20,6 +20,7 @@ import IdeaDetails from './IdeaDetails';
 import { useFetchDomains } from '../../services/domains';
 import SelectField from '../common/SelectField';
 import toast from 'react-hot-toast';
+import WindowVirtualList from '../common/WindowVirtualList';
 
 // Extended IdeaKeyword type that includes precomputed tracking status
 type IdeaKeywordWithTracking = IdeaKeyword & {
@@ -39,8 +40,8 @@ type IdeasKeywordsTableProps = {
 
 type IdeaRowData = {
    items: IdeaKeywordWithTracking[],
-   selectedKeywords: string[],
-   favoriteIDs: string[],
+   selectedKeywordSet: Set<string>,
+   favoriteIDSet: Set<string>,
    selectKeyword: (keywordID: string, isTrackedKeyword?: boolean) => void,
    favoriteKeyword: (keywordID: string) => void,
    showKeywordDetails: (keyword: IdeaKeywordWithTracking) => void,
@@ -48,16 +49,16 @@ type IdeaRowData = {
 
 // Defined outside the component so react-window does not remount rows on every render.
 const IdeaRow = ({ data, index, style }: ListChildComponentProps<IdeaRowData>) => {
-   const { items, selectedKeywords, favoriteIDs, selectKeyword, favoriteKeyword, showKeywordDetails } = data;
+   const { items, selectKeyword, favoriteKeyword, showKeywordDetails } = data;
    const keyword = items[index];
    return (
       <KeywordIdea
       style={style}
-      selected={selectedKeywords.includes(keyword.uid)}
+      selected={data.selectedKeywordSet.has(keyword.uid)}
       selectKeyword={selectKeyword}
       favoriteKeyword={() => favoriteKeyword(keyword.uid)}
       showKeywordDetails={() => showKeywordDetails(keyword)}
-      isFavorite={favoriteIDs.includes(keyword.uid)}
+      isFavorite={data.favoriteIDSet.has(keyword.uid)}
       keywordData={keyword}
       lastItem={index === (items.length - 1)}
       isTracked={keyword.isTracked}
@@ -70,6 +71,7 @@ const IdeasKeywordsTable = ({
    showFavorites = false, noIdeasDatabase = false }: IdeasKeywordsTableProps) => {
    const router = useRouter();
    const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
+   const selectedKeywordSet = useMemo(() => new Set(selectedKeywords), [selectedKeywords]);
    const [showKeyDetails, setShowKeyDetails] = useState<IdeaKeyword|null>(null);
    const [filterParams, setFilterParams] = useState<KeywordFilters>({ countries: [], tags: [], search: '' });
    const [sortBy, setSortBy] = useState<string>('imp_desc');
@@ -132,11 +134,12 @@ const IdeasKeywordsTable = ({
    }, [keywords, showFavorites, favorites, filterParams, sortBy, isIdeaTracked]);
 
    const selectableKeywordIds = useMemo(() => finalKeywords.filter((keyword) => !keyword.isTracked).map((keyword) => keyword.uid), [finalKeywords]);
+   const selectableKeywordIdSet = useMemo(() => new Set(selectableKeywordIds), [selectableKeywordIds]);
 
    // Keep the selection limited to ideas that can still be added. This also covers switching the research-page domain,
    // where ideas already tracked in the new domain are dropped from the selection (with a notice).
    useEffect(() => {
-      const kept = selectedKeywords.filter((id) => selectableKeywordIds.includes(id));
+      const kept = selectedKeywords.filter((id) => selectableKeywordIdSet.has(id));
       if (kept.length === selectedKeywords.length) { return; }
       const trackedIds = new Set(finalKeywords.filter((keyword) => keyword.isTracked).map((keyword) => keyword.uid));
       const droppedTracked = selectedKeywords.filter((id) => trackedIds.has(id)).length;
@@ -144,9 +147,10 @@ const IdeasKeywordsTable = ({
       if (droppedTracked > 0) {
          toast(`${droppedTracked} selected idea${droppedTracked === 1 ? ' is' : 's are'} already tracked and ${droppedTracked === 1 ? 'was' : 'were'} deselected.`, { icon: 'ℹ️' });
       }
-   }, [selectedKeywords, selectableKeywordIds, finalKeywords]);
+   }, [selectedKeywords, selectableKeywordIdSet, finalKeywords]);
 
    const favoriteIDs: string[] = useMemo(() => favorites.map((fav) => fav.uid), [favorites]);
+   const favoriteIDSet = useMemo(() => new Set(favoriteIDs), [favoriteIDs]);
 
    const allTags:string[] = useMemo(() => {
       const wordTags: Map<string, number> = new Map();
@@ -173,7 +177,7 @@ const IdeasKeywordsTable = ({
    const selectKeyword = (keywordID: string, isTrackedKeyword = false) => {
       if (isTrackedKeyword) { return; }
       let updatedSelected = [...selectedKeywords, keywordID];
-      if (selectedKeywords.includes(keywordID)) {
+      if (selectedKeywordSet.has(keywordID)) {
          updatedSelected = selectedKeywords.filter((keyID) => keyID !== keywordID);
       }
       setSelectedKeywords(updatedSelected);
@@ -244,8 +248,8 @@ const IdeasKeywordsTable = ({
 
    const rowData: IdeaRowData = {
       items: finalKeywords,
-      selectedKeywords,
-      favoriteIDs,
+      selectedKeywordSet,
+      favoriteIDSet,
       selectKeyword,
       favoriteKeyword,
       showKeywordDetails: (keyword) => setShowKeyDetails(keyword),
@@ -256,22 +260,20 @@ const IdeasKeywordsTable = ({
       // Layout is driven only by isMobile (<768px), matching the breakpoint of the header below (md:).
       if (isMobile) {
          keywordsContent = (
-            <div>
-               {finalKeywords.map((keyword, index) => (
+               <WindowVirtualList items={finalKeywords} estimateSize={150} getItemKey={(keyword) => keyword.uid}
+               renderItem={(keyword, index) => (
                   <KeywordIdea
-                     key={keyword.uid}
                      style={{}}
-                     selected={selectedKeywords.includes(keyword.uid)}
+                     selected={selectedKeywordSet.has(keyword.uid)}
                      selectKeyword={selectKeyword}
                      favoriteKeyword={() => favoriteKeyword(keyword.uid)}
                      showKeywordDetails={() => setShowKeyDetails(keyword)}
-                     isFavorite={favoriteIDs.includes(keyword.uid)}
+                     isFavorite={favoriteIDSet.has(keyword.uid)}
                      keywordData={keyword}
                      lastItem={index === (finalKeywords.length - 1)}
                      isTracked={keyword.isTracked}
                   />
-               ))}
-            </div>
+               )} />
          );
       } else {
          keywordsContent = (
@@ -284,6 +286,7 @@ const IdeasKeywordsTable = ({
                height={listHeight}
                width={'100%'}
                className={'styled-scrollbar'}
+               itemKey={(index, data: IdeaRowData) => data.items[index].uid}
                >
                   {IdeaRow}
                </List>

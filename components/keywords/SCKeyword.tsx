@@ -42,6 +42,7 @@ const SCKeyword = (props: SCKeywordProps) => {
                      : 'text-transparent'
                }`}
                aria-label={selectionLabel}
+               aria-pressed={selected}
                aria-disabled={isTracked}
                disabled={isTracked}
                onClick={() => selectKeyword(uid, isTracked)}

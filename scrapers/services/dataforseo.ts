@@ -32,6 +32,12 @@ const getTask = (response: any): DataForSeoTask | undefined => {
 
 const dataforseo: ScraperSettings = {
   id: "dataforseo",
+  // Google redirect links in the results are resolved through Serper's /resolve (needs SERPER_API_KEY)
+  resolveGoogleUrl: true,
+  // No baseline spacing between requests
+  minRequestIntervalMs: 0,
+  usesResultOffset: false,
+  reusesDesktopForMobile: false,
   name: "DataForSEO",
   allowsCity: true,
   supportsMapPack: true,

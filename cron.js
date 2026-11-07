@@ -81,6 +81,8 @@ const cronAt = ({ hour, minute }, dayOfMonth = '*', dayOfWeek = '*') => `0 ${min
 
 const MAIN_TIME = parseTimeOfDay('CRON_MAIN_SCHEDULE', process.env.CRON_MAIN_SCHEDULE, '00:00');
 const EMAIL_TIME = parseTimeOfDay('CRON_EMAIL_SCHEDULE', process.env.CRON_EMAIL_SCHEDULE, '06:00');
+/** CRON_VOLUME_SCHEDULE: time of day of the weekly keyword volume refresh, which runs on Mondays */
+const VOLUME_TIME = parseTimeOfDay('CRON_VOLUME_SCHEDULE', process.env.CRON_VOLUME_SCHEDULE, '03:00');
 
 /** CRON_FAILED_SCHEDULE: how often failed scrapes are retried: hourly, daily (at CRON_MAIN_SCHEDULE) or never */
 const FAILED_MODES = ['hourly', 'daily', 'never'];
@@ -190,13 +192,18 @@ const getAppSettings = async ({ strict = false } = {}) => {
    }
 };
 
-const makeCronApiCall = (apiKey, baseUrl, endpoint, successMessage) => {
+const makeCronApiCall = (apiKey, baseUrl, endpoint, successMessage, body) => {
    if (!apiKey) {
       logger.warn('CRON: Skipping API call, API key not configured.', { endpoint });
       return Promise.resolve();
    }
 
    const fetchOpts = { method: 'POST', headers: { Authorization: `Bearer ${apiKey}` } };
+   // An optional JSON body, for endpoints that take one (the volume refresh sends { domain: 'all' })
+   if (body !== undefined) {
+      fetchOpts.headers['Content-Type'] = 'application/json';
+      fetchOpts.body = JSON.stringify(body);
+   }
    return fetch(`${baseUrl}${endpoint}`, fetchOpts)
       .then((res) => {
          if (!res.ok) {
@@ -329,7 +336,7 @@ const runAppCronJobs = () => {
       return applyChain;
    };
 
-   syncScheduleFromSettings();
+   const initialScheduleSync = syncScheduleFromSettings();
    scheduleJob('settings safety check', SETTINGS_SAFETY_CHECK_SCHEDULE, syncScheduleFromSettings, cronOptions);
 
    // Watches the data directory rather than the file: settings are saved via temp file + rename, which a
@@ -397,7 +404,15 @@ const runAppCronJobs = () => {
       makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/searchconsole', 'CRON: Search Console Scraper Result');
    }, cronOptions);
    
+   // Weekly keyword volume refresh, every Monday at CRON_VOLUME_SCHEDULE. It makes the same request as the
+   // Update Keyword Volume Data button in Settings: all keywords, one country at a time across all domains.
+   scheduleJob('keyword volume', cronAt(VOLUME_TIME, '*', '1'), () => {
+      logger.info('CRON: Running Keyword Volume Update.');
+      makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/volume', 'CRON: Keyword Volume Update Result', { domain: 'all' });
+   }, cronOptions);
+
    logger.info('CRON: All cron jobs initialized successfully.');
+   return initialScheduleSync;
 };
 
 if (require.main === module) {

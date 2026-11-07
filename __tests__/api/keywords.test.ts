@@ -131,6 +131,16 @@ describe('PUT /api/keywords error handling', () => {
     expect(keywordMock.update).not.toHaveBeenCalled();
   });
 
+  it('rejects a request that mixes sticky, tags or location, instead of ignoring part of it', async () => {
+    const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { sticky: true, tags: { 1: ['a'] } } });
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(keywordMock.update).not.toHaveBeenCalled();
+  });
+
   it('returns 500 when keyword update fails', async () => {
     const failure = new Error('update failed');
     keywordMock.update.mockRejectedValueOnce(failure);
@@ -716,6 +726,21 @@ describe('PUT /api/keywords location updates', () => {
     );
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ updatedCount: 2, skipped: [] }));
+  });
+
+  it('rejects location updates while any selected domain is refreshing', async () => {
+    const selected = [locationRow()];
+    keywordMock.findAll.mockResolvedValueOnce(selected);
+    (refreshQueue.reserveDomains as jest.Mock).mockReturnValueOnce(null);
+    (refreshQueue.isDomainLocked as jest.Mock).mockReturnValueOnce(true);
+    const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { location: 'London,England,United Kingdom' } });
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(keywordMock.update).not.toHaveBeenCalled();
+    expect(keywordMock.findAll).toHaveBeenCalledTimes(1);
   });
 
   it('saves a blank location for a country-only choice', async () => {

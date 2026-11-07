@@ -6,6 +6,7 @@ Three times of day and one retry mode control the background jobs. All times use
 | --- | --- | --- |
 | `CRON_MAIN_SCHEDULE` (default `00:00`) | environment | Time of day for every scheduled scrape and the Search Console refresh |
 | `CRON_EMAIL_SCHEDULE` (default `06:00`) | environment | Time of day for every email digest |
+| `CRON_VOLUME_SCHEDULE` (default `03:00`) | environment | Time of day for the weekly keyword volume refresh, every Monday |
 | `CRON_FAILED_SCHEDULE` (default `hourly`) | environment | How often failed scrapes are retried: `hourly`, `daily` or `never` |
 | `scrape_interval` | Settings | Which days scrapes run |
 | `notification_interval` | Settings | Which days digests are sent |
@@ -17,6 +18,7 @@ Times are `HH:MM` in 24 hour format. A value that is not a valid time is ignored
 
 - **`scrape_interval`** runs at the `CRON_MAIN_SCHEDULE` time: `daily` every day, `other_day` on odd days of the month, `weekly` on Mondays, `monthly` on the 1st. `never` turns scheduled scraping off. You turn scraping off in the Settings UI, not with an environment variable.
 - **`notification_interval`** runs at the `CRON_EMAIL_SCHEDULE` time: `daily`, `weekly` (Mondays) or `monthly` (the 1st). `never` turns digests off.
+- **Keyword volumes** run every Monday at the `CRON_VOLUME_SCHEDULE` time, exactly like the **Update Keyword Volume Data** button in Settings (all keywords, one country at a time). Google updates its volume numbers about once a month, so the weekly run gives several chances to catch every keyword. It needs Google Ads connected; without it the run is skipped with a log message.
 
 ## Failed scrapes
 

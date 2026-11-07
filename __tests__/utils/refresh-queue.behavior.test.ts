@@ -204,3 +204,14 @@ describe('RefreshQueue concurrency configuration', () => {
     }
   });
 });
+
+describe('RefreshQueue task that throws before returning a promise', () => {
+  it('releases the domain lock instead of keeping it forever', async () => {
+    const throwingTask = (() => { throw new Error('sync failure'); }) as unknown as () => Promise<void>;
+
+    await refreshQueue.enqueue('sync-throw', throwingTask, ['sync-throw.com']);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(refreshQueue.isDomainLocked('sync-throw.com')).toBe(false);
+  });
+});

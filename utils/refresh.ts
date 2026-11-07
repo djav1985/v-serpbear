@@ -5,6 +5,7 @@ import { setTimeout as sleep } from 'timers/promises';
 import Cryptr from 'cryptr';
 import { RefreshResult, removeFromRetryQueue, retryScrape, scrapeKeywordWithStrategy } from './scraper';
 import parseKeywords from './parseKeywords';
+import { getScrapeDelay } from './scraperHelpers';
 import Keyword from '../database/models/keyword';
 import Domain from '../database/models/domain';
 import { serializeError } from './errorSerialization';
@@ -16,6 +17,7 @@ import normalizeDomainBooleans from './normalizeDomain';
 import { retryQueueManager } from './retryQueueManager';
 import { historyKeyToTime, toHistoryDateKey } from './historyDateKey';
 import allScrapers from '../scrapers/index';
+import { nextMapPackRemovedAt } from './mapPack';
 import { DEVICE_MOBILE } from './constants';
 
 const describeScraperType = (scraperType?: SettingsType['scraper_type']): string => {
@@ -86,21 +88,28 @@ const getParallelRefreshConcurrency = (): number => {
 const mapWithConcurrency = async <T, R>(items: T[], limit: number, task: (item: T) => Promise<R>): Promise<R[]> => {
    const results = new Array<R>(items.length);
    let nextIndex = 0;
+   let failed = false;
+   let firstError: unknown;
    const worker = async () => {
-      while (nextIndex < items.length) {
+      while (!failed && nextIndex < items.length) {
          const index = nextIndex;
          nextIndex += 1;
-         results[index] = await task(items[index]);
+         try {
+            results[index] = await task(items[index]);
+         } catch (error) {
+            // Stop handing out new items, but let the tasks already running finish before the error is reported,
+            // so the caller's cleanup never races with a scrape that is still writing to the database.
+            if (!failed) {
+               failed = true;
+               firstError = error;
+            }
+            return;
+         }
       }
    };
    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+   if (failed) { throw firstError; }
    return results;
-};
-
-/** Configured delay between requests in ms (0 when unset or invalid), capped at 30s. */
-const getScrapeDelay = (settings: SettingsType): number => {
-   const configuredDelay = settings.scrape_delay ? parseInt(settings.scrape_delay, 10) : 0;
-   return Number.isFinite(configuredDelay) && configuredDelay > 0 ? Math.min(configuredDelay, 30000) : 0;
 };
 
 /**
@@ -778,16 +787,14 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
 
       // Trim history to last 30 days to optimize storage and read performance
       // This prevents history object from growing indefinitely
-      const historyEntries = Object.entries(history);
-      if (historyEntries.length >= 31) {
+      const sortedHistoryEntries = Object.entries(history)
+         .map(([key, value]) => ({ key, date: historyKeyToTime(key), value }))
+         .sort((a, b) => a.date - b.date);
+      if (sortedHistoryEntries.length >= 31) {
          // Once we have 31 entries (30 + today's new entry), trim to 30 most recent
-         const sortedEntries = historyEntries
-            .map(([key, value]) => ({ key, date: historyKeyToTime(key), value }))
-            .sort((a, b) => a.date - b.date)
-            .slice(-30); // Keep last 30 entries
-         
+         const recentEntries = sortedHistoryEntries.slice(-30);
          const trimmedHistory: Record<string, number> = {};
-         sortedEntries.forEach(({ key, value }) => {
+         recentEntries.forEach(({ key, value }) => {
             trimmedHistory[key] = value;
          });
          Object.keys(history).forEach(key => delete history[key]);
@@ -798,15 +805,21 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
       const parsedNormalizedResult: KeywordLastResult[] = Array.isArray(updatedKeyword.result) ? updatedKeyword.result : [];
       const parsedLocalResults: KeywordLocalResult[] = Array.isArray(updatedKeyword.localResults) ? updatedKeyword.localResults : [];
       const isMapPackTop3 = normalizeToBoolean(updatedKeyword.mapPackTop3);
+      // The day the keyword dropped out of the map pack top three (kept 30 days, cleared if it returns)
+      const mapPackRemovedAt = nextMapPackRemovedAt({
+         wasInMapPack: normalizeToBoolean(keyword.mapPackTop3),
+         isInMapPack: isMapPackTop3,
+         removedAt: keyword.mapPackRemovedAt,
+         todayKey: dateKey,
+         supportsMapPack: allScrapers.find((scraper: ScraperSettings) => scraper.id === settings.scraper_type)?.supportsMapPack === true,
+      });
 
       const lastUpdatedValue = theDate.toJSON();
       const urlValue = typeof updatedKeyword.url === 'string' ? updatedKeyword.url : null;
 
       // Build single atomic update payload with ALL fields from API response + flags.
       // In the success path we perform a single update per keyword row to minimize DB writes and precompute derived fields such as history7d (last 7 entries from the already-trimmed history using timestamp sort).
-      const history7dObj = Object.entries(history)
-         .map(([key, value]) => ({ key, date: historyKeyToTime(key), value }))
-         .sort((a, b) => a.date - b.date)
+      const history7dObj = sortedHistoryEntries
          .slice(-7)
          .reduce<Record<string, number>>((acc, { key, value }) => { acc[key] = value; return acc; }, {});
 
@@ -820,6 +833,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          lastUpdated: lastUpdatedValue,
          lastUpdateError: 'false',
          mapPackTop3: toDbBool(isMapPackTop3),
+         mapPackRemovedAt,
          updatingStartedAt: null,
       };
 
@@ -867,6 +881,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
             lastUpdated: effectiveLastUpdated,
             lastUpdateError: false,
             mapPackTop3: isMapPackTop3,
+            mapPackRemovedAt,
          };
       } catch (error: any) {
          const normalizedError = error instanceof Error ? error : new Error(String(error));

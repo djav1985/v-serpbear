@@ -5,6 +5,7 @@
  * @returns {SCInsightItem[]}
  */
 import { logger } from './logger';
+import { averageSearchConsolePositionFromTotals } from './searchConsolePosition';
 
 export const sortInsightItems = (items:SCInsightItem[], sortBy: string = 'clicks'): SCInsightItem[] => {
    const sortKey = sortBy as keyof SCInsightItem;
@@ -26,6 +27,49 @@ export const sortInsightItems = (items:SCInsightItem[], sortBy: string = 'clicks
    return sortedItems;
 };
 
+/** Running totals for a group of Search Console rows (one country, keyword or page). */
+type InsightTotals = {
+   clicks: number,
+   impressions: number,
+   /** Sum of position x impressions, so busy rows count for more than rarely shown ones */
+   weightedPosition: number,
+   positionSum: number,
+   rows: number,
+};
+
+const emptyTotals = (): InsightTotals => ({ clicks: 0, impressions: 0, weightedPosition: 0, positionSum: 0, rows: 0 });
+
+const addRow = (totals: InsightTotals, row: SearchAnalyticsItem): void => {
+   const impressions = row.impressions || 0;
+   totals.clicks += row.clicks || 0;
+   totals.impressions += impressions;
+   totals.weightedPosition += (row.position || 0) * impressions;
+   totals.positionSum += row.position || 0;
+   totals.rows += 1;
+};
+
+/**
+ * CTR is clicks / impressions (as a percentage) and position is weighted by impressions. Averaging the per-row
+ * CTR or position values would let a row with a single impression count as much as one with thousands.
+ * A group with no impressions falls back to the plain mean position.
+ */
+const summarizeTotals = (totals: InsightTotals): { clicks: number, impressions: number, ctr: number, position: number } => ({
+   clicks: totals.clicks,
+   impressions: totals.impressions,
+   ctr: totals.impressions > 0 ? Number(((totals.clicks / totals.impressions) * 100).toFixed(2)) : 0,
+   position: averageSearchConsolePositionFromTotals({
+      impressions: totals.impressions,
+      weightedPosition: totals.weightedPosition,
+      positionTotal: totals.positionSum,
+      count: totals.rows,
+   }),
+});
+
+const readRows = (SCData: SCDomainDataType, queryDate: string): SearchAnalyticsItem[] => {
+   const dateKey = queryDate as keyof SCDomainDataType;
+   return SCData[dateKey] && Array.isArray(SCData[dateKey]) ? SCData[dateKey] as SearchAnalyticsItem[] : [];
+};
+
 /**
  * The `getCountryInsight` function takes search analytics data and returns insights about countries based on clicks, impressions, CTR, and position.
  * @param {SCDomainDataType} SCData - The SCData parameter is an object that contains search analytics data for different dates.
@@ -41,11 +85,9 @@ export const getCountryInsight = (SCData:SCDomainDataType, sortBy:string = 'clic
    }
 
    // One pass over the rows: each row is added to its country's totals, so the work grows linearly with the data
-   const keywordsCounts = new Map<string, Set<string>>();
-   const rowCounts = new Map<string, number>();
-   const countryItems = new Map<string, SCInsightItem>();
-   const dateKey = queryDate as keyof SCDomainDataType;
-   const scData = SCData[dateKey] && Array.isArray(SCData[dateKey]) ? SCData[dateKey] as SearchAnalyticsItem[] : [];
+   const keywordsByCountry = new Map<string, Set<string>>();
+   const totalsByCountry = new Map<string, InsightTotals>();
+   const scData = readRows(SCData, queryDate);
 
    if (scData.length === 0) {
       return [];
@@ -53,29 +95,19 @@ export const getCountryInsight = (SCData:SCDomainDataType, sortBy:string = 'clic
 
    scData.forEach((itm) => {
       if (!itm || !itm.country) { return; }
-      const itemData = countryItems.get(itm.country) || { clicks: 0, impressions: 0, ctr: 0, position: 0 };
-      itemData.clicks += itm.clicks || 0;
-      itemData.impressions += itm.impressions || 0;
-      itemData.ctr += itm.ctr || 0;
-      itemData.position += itm.position || 0;
-      countryItems.set(itm.country, itemData);
-      const countryKeywords = keywordsCounts.get(itm.country) || new Set<string>();
+      const totals = totalsByCountry.get(itm.country) || emptyTotals();
+      addRow(totals, itm);
+      totalsByCountry.set(itm.country, totals);
+      const countryKeywords = keywordsByCountry.get(itm.country) || new Set<string>();
       if (itm.keyword) { countryKeywords.add(itm.keyword); }
-      keywordsCounts.set(itm.country, countryKeywords);
-      rowCounts.set(itm.country, (rowCounts.get(itm.country) || 0) + 1);
+      keywordsByCountry.set(itm.country, countryKeywords);
    });
 
-   const countryInsight: SCInsightItem[] = Array.from(countryItems.entries()).map(([countryCode, item]) => {
-      const keywordCount = keywordsCounts.get(countryCode)?.size || 1;
-      const rowCount = rowCounts.get(countryCode) || 1; // Position and CTR are summed per row, so average over rows
-      return {
-         ...item,
-         position: Math.round(item.position / rowCount),
-         ctr: Number((item.ctr / rowCount).toFixed(2)),
-         keywords: keywordCount,
-         country: countryCode,
-      };
-   });
+   const countryInsight: SCInsightItem[] = Array.from(totalsByCountry.entries()).map(([countryCode, totals]) => ({
+      ...summarizeTotals(totals),
+      keywords: keywordsByCountry.get(countryCode)?.size || 1,
+      country: countryCode,
+   }));
 
    return sortBy ? sortInsightItems(countryInsight, sortBy) : countryInsight;
 };
@@ -95,11 +127,9 @@ export const getKeywordsInsight = (SCData:SCDomainDataType, sortBy:string = 'cli
    }
 
    // Maps are keyed by the exact keyword string, so keywords like "a b" and "a_b" stay distinct
-   const keywordItems = new Map<string, SCInsightItem>();
-   const keywordCounts = new Map<string, number>();
-   const countriesCount = new Map<string, Set<string>>();
-   const dateKey = queryDate as keyof SCDomainDataType;
-   const scData = SCData[dateKey] && Array.isArray(SCData[dateKey]) ? SCData[dateKey] as SearchAnalyticsItem[] : [];
+   const totalsByKeyword = new Map<string, InsightTotals>();
+   const countriesByKeyword = new Map<string, Set<string>>();
+   const scData = readRows(SCData, queryDate);
 
    if (scData.length === 0) {
       return [];
@@ -107,28 +137,19 @@ export const getKeywordsInsight = (SCData:SCDomainDataType, sortBy:string = 'cli
 
    scData.forEach((itm) => {
       if (!itm || !itm.keyword) { return; }
-      const itemData = keywordItems.get(itm.keyword) || { clicks: 0, impressions: 0, ctr: 0, position: 0 };
-      itemData.clicks += itm.clicks || 0;
-      itemData.impressions += itm.impressions || 0;
-      itemData.ctr += itm.ctr || 0;
-      itemData.position += itm.position || 0;
-      keywordItems.set(itm.keyword, itemData);
-      const countries = countriesCount.get(itm.keyword) || new Set<string>();
+      const totals = totalsByKeyword.get(itm.keyword) || emptyTotals();
+      addRow(totals, itm);
+      totalsByKeyword.set(itm.keyword, totals);
+      const countries = countriesByKeyword.get(itm.keyword) || new Set<string>();
       if (itm.country) { countries.add(itm.country); }
-      countriesCount.set(itm.keyword, countries);
-      keywordCounts.set(itm.keyword, (keywordCounts.get(itm.keyword) || 0) + 1);
+      countriesByKeyword.set(itm.keyword, countries);
    });
 
-   const keywordInsight: SCInsightItem[] = Array.from(keywordItems.entries()).map(([keyword, item]) => {
-      const keywordCount = keywordCounts.get(keyword) || 1; // Ensure safe division
-      return {
-         ...item,
-         position: Math.round(item.position / keywordCount),
-         ctr: Number((item.ctr / keywordCount).toFixed(2)),
-         countries: countriesCount.get(keyword)?.size || 0,
-         keyword,
-      };
-   });
+   const keywordInsight: SCInsightItem[] = Array.from(totalsByKeyword.entries()).map(([keyword, totals]) => ({
+      ...summarizeTotals(totals),
+      countries: countriesByKeyword.get(keyword)?.size || 0,
+      keyword,
+   }));
 
    return sortBy ? sortInsightItems(keywordInsight, sortBy) : keywordInsight;
 };
@@ -147,11 +168,10 @@ export const getPagesInsight = (SCData:SCDomainDataType, sortBy:string = 'clicks
       return [];
    }
 
-   const pagesItems = new Map<string, SCInsightItem>();
-   const keywordCounts = new Map<string, number>();
-   const countriesCount = new Map<string, Set<string>>();
-   const dateKey = queryDate as keyof SCDomainDataType;
-   const scData = SCData[dateKey] && Array.isArray(SCData[dateKey]) ? SCData[dateKey] as SearchAnalyticsItem[] : [];
+   const totalsByPage = new Map<string, InsightTotals>();
+   const keywordsByPage = new Map<string, Set<string>>();
+   const countriesByPage = new Map<string, Set<string>>();
+   const scData = readRows(SCData, queryDate);
 
    if (scData.length === 0) {
       return [];
@@ -159,29 +179,24 @@ export const getPagesInsight = (SCData:SCDomainDataType, sortBy:string = 'clicks
 
    scData.forEach((itm) => {
       if (!itm || !itm.page) { return; }
-      const itemData = pagesItems.get(itm.page) || { clicks: 0, impressions: 0, ctr: 0, position: 0 };
-      itemData.clicks += itm.clicks || 0;
-      itemData.impressions += itm.impressions || 0;
-      itemData.ctr += itm.ctr || 0;
-      itemData.position += itm.position || 0;
-      pagesItems.set(itm.page, itemData);
-      const countries = countriesCount.get(itm.page) || new Set<string>();
+      const totals = totalsByPage.get(itm.page) || emptyTotals();
+      addRow(totals, itm);
+      totalsByPage.set(itm.page, totals);
+      const countries = countriesByPage.get(itm.page) || new Set<string>();
       if (itm.country) { countries.add(itm.country); }
-      countriesCount.set(itm.page, countries);
-      keywordCounts.set(itm.page, (keywordCounts.get(itm.page) || 0) + 1);
+      countriesByPage.set(itm.page, countries);
+      // A row is one keyword in one country on one device, so count each keyword once per page
+      const keywords = keywordsByPage.get(itm.page) || new Set<string>();
+      if (itm.keyword) { keywords.add(itm.keyword); }
+      keywordsByPage.set(itm.page, keywords);
    });
 
-   const pagesInsight: SCInsightItem[] = Array.from(pagesItems.entries()).map(([page, item]) => {
-      const keywordCount = keywordCounts.get(page) || 1; // Ensure safe division
-      return {
-         ...item,
-         position: Math.round(item.position / keywordCount),
-         ctr: Number((item.ctr / keywordCount).toFixed(2)),
-         countries: countriesCount.get(page)?.size || 0,
-         keywords: keywordCount,
-         page,
-      };
-   });
+   const pagesInsight: SCInsightItem[] = Array.from(totalsByPage.entries()).map(([page, totals]) => ({
+      ...summarizeTotals(totals),
+      countries: countriesByPage.get(page)?.size || 0,
+      keywords: keywordsByPage.get(page)?.size || 0,
+      page,
+   }));
 
    return sortBy ? sortInsightItems(pagesInsight, sortBy) : pagesInsight;
 };

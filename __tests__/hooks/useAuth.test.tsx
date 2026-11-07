@@ -1,6 +1,7 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from 'react-query';
-import { useAuth, AUTH_QUERY_KEY } from '../../hooks/useAuth';
+import { useAuth, useAuthRequired, AUTH_QUERY_KEY } from '../../hooks/useAuth';
+import mockRouter from 'next-router-mock';
 
 // Mock next/router (not used by useAuth directly, but some transitive imports may need it)
 jest.mock('next/router', () => jest.requireActual('next-router-mock'));
@@ -31,6 +32,23 @@ beforeEach(() => {
 });
 
 describe('useAuth', () => {
+   it('does not redirect while the auth endpoint is failing', async () => {
+      fetchMock.mockResolvedValueOnce(createJsonResponse({ error: { message: 'Server error' } }, 500));
+      mockRouter.setCurrentUrl('/domains');
+      const pushSpy = jest.spyOn(mockRouter, 'push');
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+         <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      );
+
+      const { result } = renderHook(() => useAuthRequired(), { wrapper });
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      expect(result.current.error).toBeTruthy();
+      expect(pushSpy).not.toHaveBeenCalled();
+      pushSpy.mockRestore();
+   });
+
    it('fetches auth status and returns isAuthenticated=true on success', async () => {
       fetchMock.mockResolvedValueOnce(
          createJsonResponse({ user: 'admin' }, 200),

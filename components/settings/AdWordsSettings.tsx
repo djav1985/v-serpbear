@@ -1,6 +1,5 @@
 /// <reference path="../../types.d.ts" />
 
-import React from 'react';
 import toast from 'react-hot-toast';
 import { useMutateKeywordsVolume, useTestAdwordsIntegration } from '../../services/adwords';
 import Icon from '../common/Icon';
@@ -36,20 +35,25 @@ const AdWordsSettings = ({ settings, settingsError, updateSettings, performUpdat
 
    const updateAndAuthenticate = async () => {
       if (adwords_client_id && adwords_client_secret) {
-         if (performUpdate) {
-            // A failed or rejected save must not start Google authentication with the old stored credentials
-            const saved = await performUpdate();
-            if (saved === false) { return; }
-         }
+         // Open synchronously from the click to avoid popup blockers while saving/fetching.
+         const popup = window.open('about:blank', '_blank');
          try {
+            if (performUpdate) {
+               // A failed or rejected save must not start Google authentication with old credentials.
+               const saved = await performUpdate();
+               if (saved === false) { popup?.close(); return; }
+            }
             const response = await fetch('/api/adwords', { method: 'GET', credentials: 'same-origin' });
             const result = await response.json() as { authUrl?: string };
             if (!response.ok || !result.authUrl) {
+               popup?.close();
                toast('Unable to start Google Ads integration.', { icon: '⚠️' });
                return;
             }
-            window.open(result.authUrl, '_blank');
+            if (popup) { popup.location.href = result.authUrl; }
+            else { window.location.assign(result.authUrl); }
          } catch (_error) {
+            popup?.close();
             toast('Unable to start Google Ads integration.', { icon: '⚠️' });
          }
       }

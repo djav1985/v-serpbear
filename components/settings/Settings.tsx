@@ -205,12 +205,14 @@ const Settings = forwardRef<HTMLDivElement, SettingsProps>(({ closeSettings }:Se
 
    return (
        <div ref={ref} className="settings fixed w-full h-dvh top-0 left-0 z-[9999]" onClick={(e) => closeOnBGClick(e, closeSettings)}>
-            <div className="absolute w-full max-w-md bg-white customShadow top-0 right-0 h-dvh flex flex-col" data-loading={isLoading} >
+            <div role="dialog" aria-modal="true" aria-labelledby="settings-dialog-title" className="absolute w-full max-w-md bg-white customShadow top-0 right-0 h-dvh flex flex-col" data-loading={isLoading} >
                {isLoading && <div className='absolute flex content-center items-center h-full'><Icon type="loading" size={24} /></div>}
                <div className='flex-1 overflow-y-auto'>
                <div className='settings__header px-5 py-4 text-slate-500'>
-                  <h3 className=' text-black text-lg font-bold'>Settings</h3>
+                  <h3 id="settings-dialog-title" className=' text-black text-lg font-bold'>Settings</h3>
                   <button
+                  type="button"
+                  aria-label="Close settings"
                   className=' absolute top-2 right-2 p-2 px- text-gray-400 hover:text-gray-700 transition-all hover:rotate-90'
                   onClick={() => closeSettings()}>
                      <Icon type='close' size={24} />
@@ -218,21 +220,15 @@ const Settings = forwardRef<HTMLDivElement, SettingsProps>(({ closeSettings }:Se
                </div>
                <div className='border border-slate-200 px-3 py-4 pb-0 border-l-0 border-r-0 bg-[#f8f9ff]'>
                   <ul>
-                     <li
-                     className={`${tabStyle} ${currentTab === 'scraper' ? tabStyleActive : 'border-transparent '}`}
-                     onClick={() => setCurrentTab('scraper')}>
+                     <li><button type="button" aria-pressed={currentTab === 'scraper'} className={`${tabStyle} ${currentTab === 'scraper' ? tabStyleActive : 'border-transparent '}`} onClick={() => setCurrentTab('scraper')}>
                        <Icon type='scraper' /> Scraper
-                     </li>
-                     <li
-                     className={`${tabStyle} ${currentTab === 'notification' ? tabStyleActive : 'border-transparent'}`}
-                     onClick={() => setCurrentTab('notification')}>
+                     </button></li>
+                     <li><button type="button" aria-pressed={currentTab === 'notification'} className={`${tabStyle} ${currentTab === 'notification' ? tabStyleActive : 'border-transparent'}`} onClick={() => setCurrentTab('notification')}>
                         <Icon type='email' /> Notification
-                     </li>
-                     <li
-                     className={`${tabStyle} ${currentTab === 'integrations' ? tabStyleActive : 'border-transparent'}`}
-                     onClick={() => setCurrentTab('integrations')}>
+                     </button></li>
+                     <li><button type="button" aria-pressed={currentTab === 'integrations'} className={`${tabStyle} ${currentTab === 'integrations' ? tabStyleActive : 'border-transparent'}`} onClick={() => setCurrentTab('integrations')}>
                        <Icon type='integration' size={14} /> Integrations
-                     </li>
+                     </button></li>
                   </ul>
                </div>
                {currentTab === 'scraper' && settings && (

@@ -1,4 +1,4 @@
-import React, { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Icon from '../common/Icon';
 import Modal from '../common/Modal';
 import SelectField from '../common/SelectField';
@@ -130,7 +130,7 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
          const devices = nkwrds.device.split(',').filter(Boolean);
          const multiDevice = devices.length > 1;
 
-         const currentKeywords = keywords.map((k) => `${k.keyword}-${k.device}-${k.location || k.country}`);
+         const currentKeywords = new Set(keywords.map((k) => JSON.stringify([k.keyword, k.device, k.location || k.country])));
 
          const trimmedCity = (nkwrds.city || '').trim();
          const trimmedState = (nkwrds.state || '').trim();
@@ -147,8 +147,8 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
 
           const keywordExist = keywordsArray.filter((k) =>
              devices.some((device) => {
-                const id = `${k}-${device}-${locationString || nkwrds.country}`;
-                return currentKeywords.includes(id);
+                const id = JSON.stringify([k, device, locationString || nkwrds.country]);
+                return currentKeywords.has(id);
              }),
           );
 
@@ -160,8 +160,8 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
             const newKeywords = keywordsArray.flatMap((k) =>
                devices
                   .filter((device) => {
-                     const id = `${k}-${device}-${locationString || nkwrds.country}`;
-                     if (currentKeywords.includes(id)) {
+                     const id = JSON.stringify([k, device, locationString || nkwrds.country]);
+                     if (currentKeywords.has(id)) {
                         skipped.push(`${k} (${device})`);
                         return false;
                      }
@@ -176,6 +176,10 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
                      location: locationString,
                   })),
             );
+            if (newKeywords.length > 100) {
+               setErrorWithTimeout('You can add at most 100 keyword and device combinations at once.');
+               return;
+            }
             addMutate({ payloads: newKeywords, skipped });
          }
       } else {
@@ -222,18 +226,14 @@ const AddKeywords = forwardRef<HTMLDivElement, AddKeywordsProps>(({
                   />
                   </div>
                   <ul className='flex text-xs font-semibold text-gray-500'>
-                     <li
-                        className={`${deviceTabStyle} mr-2 ${newKeywordsData.device.includes('desktop') ? '  bg-indigo-50 text-indigo-700' : ''}`}
-                        onClick={() => setDeviceType('desktop')}>
+                     <li><button type="button" aria-pressed={newKeywordsData.device.includes('desktop')} className={`${deviceTabStyle} mr-2 ${newKeywordsData.device.includes('desktop') ? '  bg-indigo-50 text-indigo-700' : ''}`} onClick={() => setDeviceType('desktop')}>
                            <Icon type='desktop' classes={'top-[3px]'} size={15} /> <i className='not-italic hidden lg:inline-block'>Desktop</i>
                            <Icon type='check' classes={'pl-1'} size={12} color={newKeywordsData.device.includes('desktop') ? '#4338ca' : '#bbb'} />
-                        </li>
-                     <li
-                        className={`${deviceTabStyle} ${newKeywordsData.device.includes('mobile') ? '  bg-indigo-50 text-indigo-700' : ''}`}
-                        onClick={() => setDeviceType('mobile')}>
+                        </button></li>
+                     <li><button type="button" aria-pressed={newKeywordsData.device.includes('mobile')} className={`${deviceTabStyle} ${newKeywordsData.device.includes('mobile') ? '  bg-indigo-50 text-indigo-700' : ''}`} onClick={() => setDeviceType('mobile')}>
                            <Icon type='mobile' /> <i className='not-italic hidden lg:inline-block'>Mobile</i>
                            <Icon type='check' classes={'pl-1'} size={12} color={newKeywordsData.device.includes('mobile') ? '#4338ca' : '#bbb'} />
-                        </li>
+                        </button></li>
                   </ul>
                </div>
                <TagInput

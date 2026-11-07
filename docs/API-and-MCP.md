@@ -36,9 +36,10 @@ The example uses port 3030, which Docker Compose maps to the app.
 | GET | `/api/keyword?id=` | One keyword with its position history |
 | GET | `/api/keywords?domain=` | All tracked keywords of a domain |
 | GET | `/api/domains` | All tracked domains (`withstats=true` adds keyword statistics) |
-| POST | `/api/refresh` | Refresh chosen keywords: body `ids`, or query `id` (comma-separated, or `all` with `domain`) |
+| POST | `/api/refresh` | Refresh chosen keywords with body `{ "ids": [1, 2] }`, or query `id` (comma-separated, or `all` with `domain`). To poll retry status, send `{ "status": "retry", "ids": [1, 2] }` in the JSON body. The legacy `GET /api/refresh?status=retry&id=1,2` remains supported. |
 | POST | `/api/cron` | Run the scheduled refresh for every domain with scraping enabled |
 | POST | `/api/notify` | Send the email digest for one domain (`domain=`) or all |
+| POST | `/api/volume` | Update keyword search volumes from Google Ads: body `{ "domain": "all" }` for every domain, or one domain name |
 | GET | `/api/searchconsole?domain=` | Search Console data of a domain |
 | POST | `/api/searchconsole` | Refresh Search Console data for all domains |
 | GET | `/api/insight?domain=` | Search Console insight: top pages, keywords, countries and stats |

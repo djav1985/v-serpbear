@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import type { NextPage } from 'next';
 import { useRouter } from 'next/router';
 import { exportKeywordIdeas } from '../../../../utils/client/exportcsv';

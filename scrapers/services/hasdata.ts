@@ -10,6 +10,12 @@ interface HasDataResult {
 
 const hasdata: ScraperSettings = {
   id: "hasdata",
+  // Google redirect links in the results are resolved through Serper's /resolve (needs SERPER_API_KEY)
+  resolveGoogleUrl: true,
+  // No baseline spacing between requests
+  minRequestIntervalMs: 0,
+  method: "GET",
+  reusesDesktopForMobile: false,
   name: "HasData",
   allowsCity: true,
   headers: (_keyword: KeywordType, settings: SettingsType) => ({
@@ -19,7 +25,7 @@ const hasdata: ScraperSettings = {
   }),
   scrapeURL: (
     keyword: KeywordType,
-    settings: SettingsType,
+    _settings: SettingsType,
     countryData: any,
     pagination?: ScraperPagination,
   ) => {

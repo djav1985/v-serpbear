@@ -34,61 +34,59 @@ describe('db boolean helpers', () => {
   });
 
   describe('normalizeToBoolean', () => {
-    it('handles numeric values (DB integers)', () => {
-      expect(normalizeToBoolean(1)).toBe(true);
-      expect(normalizeToBoolean(0)).toBe(false);
-      expect(normalizeToBoolean(42)).toBe(true);
-      expect(normalizeToBoolean(-1)).toBe(true);
+    it('handles numbers, strings with whitespace, unrecognized values and synonyms', () => {
+      {
+        expect(normalizeToBoolean(1)).toBe(true);
+        expect(normalizeToBoolean(0)).toBe(false);
+        expect(normalizeToBoolean(42)).toBe(true);
+        expect(normalizeToBoolean(-1)).toBe(true);
+      }
+      {
+        expect(normalizeToBoolean('true')).toBe(true);
+        expect(normalizeToBoolean('True')).toBe(true);
+        expect(normalizeToBoolean('TRUE')).toBe(true);
+        expect(normalizeToBoolean('1')).toBe(true);
+
+        expect(normalizeToBoolean('false')).toBe(false);
+        expect(normalizeToBoolean('False')).toBe(false);
+        expect(normalizeToBoolean('FALSE')).toBe(false);
+        expect(normalizeToBoolean('0')).toBe(false);
+        expect(normalizeToBoolean('')).toBe(false);
+
+        expect(normalizeToBoolean('  true  ')).toBe(true);
+        expect(normalizeToBoolean('  TRUE  ')).toBe(true);
+        expect(normalizeToBoolean('  1  ')).toBe(true);
+        expect(normalizeToBoolean('  false  ')).toBe(false);
+        expect(normalizeToBoolean('  FALSE  ')).toBe(false);
+        expect(normalizeToBoolean('  0  ')).toBe(false);
+        expect(normalizeToBoolean('   ')).toBe(false);
+      }
+      {
+        expect(normalizeToBoolean(null)).toBe(false);
+        expect(normalizeToBoolean(undefined)).toBe(false);
+
+        // Unrecognized strings should be treated as false for safety
+        expect(normalizeToBoolean('error')).toBe(false);
+        expect(normalizeToBoolean('timeout')).toBe(false);
+        expect(normalizeToBoolean('API Error')).toBe(false);
+        expect(normalizeToBoolean('null')).toBe(false);
+        expect(normalizeToBoolean('undefined')).toBe(false);
+        expect(normalizeToBoolean('2')).toBe(false);
+        // Objects and arrays should also be false
+        expect(normalizeToBoolean([])).toBe(false);
+        expect(normalizeToBoolean({})).toBe(false);
+      }
+      {
+        expect(normalizeToBoolean('yes')).toBe(true);
+        expect(normalizeToBoolean('YES')).toBe(true);
+        expect(normalizeToBoolean('on')).toBe(true);
+        expect(normalizeToBoolean('ON')).toBe(true);
+        expect(normalizeToBoolean('off')).toBe(false);
+        expect(normalizeToBoolean('OFF')).toBe(false);
+        expect(normalizeToBoolean('no')).toBe(false);
+        expect(normalizeToBoolean('NO')).toBe(false);
+      }
     });
-
-    it('handles string values (API responses), including values with surrounding whitespace', () => {
-      expect(normalizeToBoolean('true')).toBe(true);
-      expect(normalizeToBoolean('True')).toBe(true);
-      expect(normalizeToBoolean('TRUE')).toBe(true);
-      expect(normalizeToBoolean('1')).toBe(true);
-
-      expect(normalizeToBoolean('false')).toBe(false);
-      expect(normalizeToBoolean('False')).toBe(false);
-      expect(normalizeToBoolean('FALSE')).toBe(false);
-      expect(normalizeToBoolean('0')).toBe(false);
-      expect(normalizeToBoolean('')).toBe(false);
-
-      expect(normalizeToBoolean('  true  ')).toBe(true);
-      expect(normalizeToBoolean('  TRUE  ')).toBe(true);
-      expect(normalizeToBoolean('  1  ')).toBe(true);
-      expect(normalizeToBoolean('  false  ')).toBe(false);
-      expect(normalizeToBoolean('  FALSE  ')).toBe(false);
-      expect(normalizeToBoolean('  0  ')).toBe(false);
-      expect(normalizeToBoolean('   ')).toBe(false);
-    });
-
-    it('uses conservative approach for unrecognized values (returns false), including null and undefined', () => {
-      expect(normalizeToBoolean(null)).toBe(false);
-      expect(normalizeToBoolean(undefined)).toBe(false);
-
-      // Unrecognized strings should be treated as false for safety
-      expect(normalizeToBoolean('error')).toBe(false);
-      expect(normalizeToBoolean('timeout')).toBe(false);
-      expect(normalizeToBoolean('API Error')).toBe(false);
-      expect(normalizeToBoolean('null')).toBe(false);
-      expect(normalizeToBoolean('undefined')).toBe(false);
-      expect(normalizeToBoolean('2')).toBe(false);
-      // Objects and arrays should also be false
-      expect(normalizeToBoolean([])).toBe(false);
-      expect(normalizeToBoolean({})).toBe(false);
-    });
-
-    it('maps recognized synonyms: yes/on to true, off/no to false', () => {
-      expect(normalizeToBoolean('yes')).toBe(true);
-      expect(normalizeToBoolean('YES')).toBe(true);
-      expect(normalizeToBoolean('on')).toBe(true);
-      expect(normalizeToBoolean('ON')).toBe(true);
-      expect(normalizeToBoolean('off')).toBe(false);
-      expect(normalizeToBoolean('OFF')).toBe(false);
-      expect(normalizeToBoolean('no')).toBe(false);
-      expect(normalizeToBoolean('NO')).toBe(false);
-    });
-
   });
 
   describe('normalizeToBoolean integration (parseKeywords DB coercion)', () => {

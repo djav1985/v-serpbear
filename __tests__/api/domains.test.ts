@@ -12,6 +12,12 @@ import { atomicWriteFile } from '../../utils/atomicWrite';
 import { refreshQueue } from '../../utils/refreshQueue';
 import { createMockResponse } from '../__helpers__';
 
+jest.mock('../../utils/thumbnails', () => ({
+  __esModule: true,
+  ensureThumbnails: jest.fn().mockResolvedValue(undefined),
+  deleteThumbnails: jest.fn().mockResolvedValue(undefined),
+}));
+
 jest.mock('../../database/database', () => ({
   __esModule: true,
   default: { sync: jest.fn(), transaction: jest.fn() },
@@ -183,6 +189,10 @@ describe('POST /api/domains', () => {
     expect(DomainMock.bulkCreate).toHaveBeenCalledWith([
       expect.objectContaining({ domain: 'example.com', slug: 'example-com' }),
       expect.objectContaining({ domain: 'sub.domain.com', slug: 'sub-domain-com' }),
+    ]);
+    expect(jest.requireMock('../../utils/thumbnails').ensureThumbnails).toHaveBeenCalledWith([
+      expect.objectContaining({ domain: 'example.com' }),
+      expect.objectContaining({ domain: 'sub.domain.com' }),
     ]);
     expect(res.status).toHaveBeenCalledWith(201);
     const responsePayload = (res.json as jest.Mock).mock.calls[0][0];
@@ -602,6 +612,7 @@ describe('DELETE /api/domains', () => {
     expect(KeywordMock.destroy).toHaveBeenCalledWith(expect.objectContaining({ transaction: { id: 'tx' } }));
     expect(DomainMock.destroy).toHaveBeenCalledWith(expect.objectContaining({ transaction: { id: 'tx' } }));
     expect(refreshQueueMock.enqueue).toHaveBeenCalledWith(expect.stringContaining('delete-domain-example.com-'), expect.any(Function), ['example.com']);
+    expect(jest.requireMock('../../utils/thumbnails').deleteThumbnails).toHaveBeenCalledWith('example.com');
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ domainRemoved: 1, keywordsRemoved: 2, cleanup: { complete: true, failed: [], retryPending: false } }));
   });
 

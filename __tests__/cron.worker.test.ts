@@ -275,3 +275,91 @@ describe('cron worker env file loading', () => {
     expect(() => loadEnvFiles(dir)).not.toThrow();
   });
 });
+
+describe('weekly keyword volume job', () => {
+  const originalFetch = global.fetch;
+  const saved = {
+    volume: process.env.CRON_VOLUME_SCHEDULE,
+    apiKey: process.env.APIKEY,
+    appUrl: process.env.APP_URL,
+  };
+
+  const restoreEnv = (name: string, value: string | undefined) => {
+    if (value === undefined) { delete process.env[name]; } else { process.env[name] = value; }
+  };
+
+  // Starts the worker with croner mocked, and returns the calls that scheduled jobs: [expression, task, options]
+  const startWorker = async () => {
+    const CronMock = jest.fn().mockImplementation(() => ({ stop: jest.fn() }));
+    jest.resetModules();
+    jest.doMock('croner', () => ({ Cron: CronMock }));
+    jest.spyOn(console, 'log').mockImplementation();
+    const cronModule = require('../cron.js');
+    await cronModule.runAppCronJobs();
+    return CronMock.mock.calls as Array<[string, () => void, { timezone: string }]>;
+  };
+
+  afterEach(() => {
+    restoreEnv('CRON_VOLUME_SCHEDULE', saved.volume);
+    restoreEnv('APIKEY', saved.apiKey);
+    restoreEnv('APP_URL', saved.appUrl);
+    if (originalFetch) { global.fetch = originalFetch; } else { delete (global as { fetch?: unknown }).fetch; }
+    jest.dontMock('croner');
+    jest.resetModules();
+    jest.restoreAllMocks();
+  });
+
+  it('schedules the volume refresh for Mondays at CRON_VOLUME_SCHEDULE', async () => {
+    process.env.CRON_VOLUME_SCHEDULE = '04:15';
+
+    const calls = await startWorker();
+
+    expect(calls.map(([expression]) => expression)).toContain('0 15 4 * * 1');
+  });
+
+  it('defaults to 03:00 when CRON_VOLUME_SCHEDULE is unset or is not a time', async () => {
+    delete process.env.CRON_VOLUME_SCHEDULE;
+    expect((await startWorker()).map(([expression]) => expression)).toContain('0 0 3 * * 1');
+
+    process.env.CRON_VOLUME_SCHEDULE = '0 0 6 * * *';
+    expect((await startWorker()).map(([expression]) => expression)).toContain('0 0 3 * * 1');
+  });
+
+  it('asks /api/volume to update all domains with the API key', async () => {
+    process.env.CRON_VOLUME_SCHEDULE = '04:15';
+    process.env.APIKEY = 'secret';
+    process.env.APP_URL = 'http://app.test';
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: jest.fn().mockReturnValue('application/json') },
+      json: () => Promise.resolve({ started: true }),
+    });
+
+    const volumeJob = (await startWorker()).find(([expression]) => expression === '0 15 4 * * 1');
+    volumeJob?.[1]();
+    await new Promise((resolve) => { setImmediate(resolve); });
+
+    expect(global.fetch).toHaveBeenCalledWith('http://app.test/api/volume', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer secret', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ domain: 'all' }),
+    });
+  });
+
+  it('sends a JSON body only when one is given', async () => {
+    jest.resetModules();
+    jest.spyOn(console, 'log').mockImplementation();
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true, status: 200, headers: { get: jest.fn().mockReturnValue(null) }, text: () => Promise.resolve(''),
+    });
+    const { makeCronApiCall } = require('../cron.js');
+
+    await makeCronApiCall('secret', 'http://localhost:3000', '/api/cron', 'ok');
+
+    expect(global.fetch).toHaveBeenCalledWith('http://localhost:3000/api/cron', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer secret' },
+    });
+  });
+});

@@ -3,6 +3,7 @@ import Domain from '../database/models/domain';
 import { logger } from './logger';
 import { getAppSettings } from '../pages/api/settings';
 import { AveragePositionKeyword, getUnrankedPenalty, roundAveragePosition, summarizeAveragePosition } from './averagePosition';
+import { withKeyedMutex } from './keyedMutex';
 
 /**
  * The domain row fields read before a refresh: the stored stats (for the prev* snapshot) and the scrape settings
@@ -103,7 +104,7 @@ const attemptDomainStatsUpdate = async (domainName: string): Promise<void> => {
  * @param {string} domainName - The domain to update stats for
  * @returns {Promise<boolean>} true when the stats were saved (first try or retry), false when both attempts failed
  */
-export const updateDomainStats = async (domainName: string): Promise<boolean> => {
+export const updateDomainStats = async (domainName: string): Promise<boolean> => withKeyedMutex(`domain-stats:${domainName.toLowerCase()}`, async () => {
    try {
       await attemptDomainStatsUpdate(domainName);
       return true;
@@ -122,4 +123,4 @@ export const updateDomainStats = async (domainName: string): Promise<boolean> =>
       logger.error(`Failed to update domain stats for ${domainName}`, toError(error));
       return false;
    }
-};
+});

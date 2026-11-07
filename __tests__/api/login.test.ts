@@ -212,10 +212,12 @@ describe('Authentication cookie handling', () => {
       expect(setCookieMock).not.toHaveBeenCalled();
    });
 
-   it.each([{ username: {}, password: 'password' }, { username: 'admin', password: 123 }, { username: ['admin'], password: 'password' }])('returns a client error for malformed credentials', async (body) => {
-      const req = { method: 'POST', headers: {}, body } as unknown as NextApiRequest;
-      const res = createResponse(); await loginHandler(req, res);
-      expect(res.status).toHaveBeenCalledWith(401);
+   it('returns a client error for malformed credentials', async () => {
+      for (const body of [{ username: {}, password: 'password' }, { username: 'admin', password: 123 }, { username: ['admin'], password: 'password' }]) {
+         const req = { method: 'POST', headers: {}, body } as unknown as NextApiRequest;
+         const res = createResponse(); await loginHandler(req, res);
+         expect(res.status).toHaveBeenCalledWith(401);
+      }
    });
 
    it('returns 405 Method Not Allowed for non-POST requests', async () => {

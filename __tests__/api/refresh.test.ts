@@ -89,6 +89,7 @@ describe('/api/refresh', () => {
     jest.useFakeTimers().setSystemTime(new Date('2024-06-01T12:00:00.000Z'));
     req.method = 'POST';
     req.query = {};
+    req.body = {};
     res = {
       status: jest.fn().mockReturnThis(),
       json: jest.fn(),
@@ -111,13 +112,50 @@ describe('/api/refresh', () => {
     await handler(req, res);
 
     expect(Keyword.findAll).toHaveBeenCalledWith(expect.objectContaining({
-      attributes: ['ID', 'updating', 'updatingStartedAt'],
+      attributes: ['ID', 'domain', 'updating', 'updatingStartedAt'],
     }));
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       keywords: [
         { ID: 11, updating: true },
         { ID: 12, updating: false },
+      ],
+    });
+  });
+
+  it('accepts retry status IDs in a JSON POST body', async () => {
+    req.method = 'POST';
+    req.body = { status: 'retry', ids: [11, 12] };
+    (Keyword.findAll as jest.Mock).mockResolvedValue([
+      { get: () => ({ ID: 11, domain: 'example.com', updating: 1, updatingStartedAt: '2024-06-01T11:55:00.000Z' }) },
+      { get: () => ({ ID: 12, domain: 'example.com', updating: 0, updatingStartedAt: null }) },
+    ]);
+
+    await handler(req, res);
+
+    expect(Keyword.findAll).toHaveBeenCalledWith(expect.objectContaining({ where: { ID: { [require('sequelize').Op.in]: [11, 12] } } }));
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ keywords: [{ ID: 11, updating: true }, { ID: 12, updating: false }] });
+  });
+
+  it('keeps an old updating flag active while its domain is being refreshed', async () => {
+    req.method = 'GET';
+    req.query = { status: 'retry', id: '21,22' };
+    const { refreshQueue } = require('../../utils/refreshQueue');
+    (refreshQueue.isDomainLocked as jest.Mock).mockImplementation((domain: string) => domain === 'busy.com');
+    // Both flags are far older than the stale limit; only the one on the domain with a live run counts
+    (Keyword.findAll as jest.Mock).mockResolvedValue([
+      { get: () => ({ ID: 21, domain: 'busy.com', updating: 1, updatingStartedAt: '2020-01-01T00:00:00.000Z' }) },
+      { get: () => ({ ID: 22, domain: 'idle.com', updating: 1, updatingStartedAt: '2020-01-01T00:00:00.000Z' }) },
+    ]);
+
+    await handler(req, res);
+
+    (refreshQueue.isDomainLocked as jest.Mock).mockReturnValue(false);
+    expect(res.json).toHaveBeenCalledWith({
+      keywords: [
+        { ID: 21, updating: true },
+        { ID: 22, updating: false },
       ],
     });
   });

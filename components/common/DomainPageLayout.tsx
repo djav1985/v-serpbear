@@ -1,4 +1,4 @@
-import React, { ComponentProps, ReactNode, useMemo, useRef, useState } from 'react';
+import { ComponentProps, ReactNode, useMemo, useRef, useState } from 'react';
 import Head from 'next/head';
 import { CSSTransition } from 'react-transition-group';
 import Sidebar from './Sidebar';

@@ -3,6 +3,7 @@ import { readSettingsFile } from './settingsFile';
 import * as path from 'path';
 import * as lockfile from 'proper-lockfile';
 import Cryptr from 'cryptr';
+import { createHash } from 'crypto';
 import TTLCache from '@isaacs/ttlcache';
 import { setTimeout as sleep } from 'timers/promises';
 import { Op } from 'sequelize';
@@ -13,10 +14,49 @@ import { readLocalSCData } from './searchConsole';
 import { logger } from './logger';
 import { RESEARCH_IDEAS_KEY, getIdeasFilePath } from './domainIdeasFile';
 import { atomicWriteFile } from './atomicWrite';
+import { isCurrentDomainRecord, withDomainLifecycleLock } from './domainLifecycle';
 
 export const GOOGLE_ADS_API_VERSION = 'v23';
 
+const fetchGoogleAdsVolume = async (url: string, init: RequestInit, country: string, keywordCount: number): Promise<Response> => {
+   const maxAttempts = 3;
+   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+         return await fetch(url, { ...init, signal: AbortSignal.timeout(30000) });
+      } catch (error) {
+         const isNetworkFailure = error instanceof TypeError;
+         const cause = error instanceof Error ? (error as Error & { cause?: unknown }).cause : undefined;
+         const causeInfo = cause instanceof Error
+            ? { name: cause.name, message: cause.message, code: (cause as NodeJS.ErrnoException).code }
+            : cause;
+         logger.warn('Google Ads volume request failed before receiving a response', {
+            country,
+            keywordCount,
+            attempt,
+            maxAttempts,
+            error: error instanceof Error ? { name: error.name, message: error.message } : String(error),
+            cause: causeInfo,
+         });
+         if (!isNetworkFailure || attempt === maxAttempts) { throw error; }
+         await sleep(attempt * 1000);
+      }
+   }
+   throw new Error('Google Ads volume request failed before receiving a response');
+};
+
 const memoryCache = new TTLCache({ max: 10000 });
+
+/**
+ * Cache key of an access token. It includes a hash of the OAuth client and refresh token the token was issued for,
+ * so saving different Google Ads credentials never reuses a token that belongs to the old ones.
+ */
+const adwordsTokenCacheKey = (credentials: AdwordsCredentials): string => {
+   const fingerprint = createHash('sha256')
+      .update(`${credentials.client_id}|${credentials.client_secret}|${credentials.refresh_token}`)
+      .digest('hex')
+      .slice(0, 16);
+   return `adwords_token:${fingerprint}`;
+};
 
 type keywordIdeasMetrics = {
    competition: IdeaKeyword['competition'],
@@ -41,6 +81,7 @@ type IdeaSettings = {
    keywords?: string[];
    /** Real domain name (example.com). Empty or missing means the research page, which has no domain. */
    domain?: string;
+   domainID?: number;
    seedType: 'auto' | 'custom' | 'tracking' | 'searchconsole';
    seedSCKeywords?: boolean;
    seedCurrentKeywords?: boolean;
@@ -208,39 +249,46 @@ export const getAdwordsAccessToken = async (credentials: AdwordsCredentials) => 
  * Stores fetched keyword ideas for a domain and fails when nothing was saved, so the caller never reports
  * success for ideas that were fetched but lost (for example because the domain slug was rejected).
  */
-const saveFetchedIdeas = async (domain: string, data: IdeaDatabaseUpdateData): Promise<void> => {
+const saveFetchedIdeas = async (domain: string, data: IdeaDatabaseUpdateData, domainID?: number): Promise<void> => {
    // The read-merge-write runs under the same lock as the favourites toggle, so neither overwrites the other.
    // updateLocalKeywordIdeas itself takes no lock (the toggle already holds it), so it is not called re-entrantly.
    const saved = getIdeasFilePath(domain)
-      ? await withIdeasLock(domain, () => updateLocalKeywordIdeas(domain, data), { createIfMissing: true })
+      ? await withDomainLifecycleLock(domain, async () => {
+         if (Number.isFinite(domainID) && !await isCurrentDomainRecord(domain, domainID as number)) return false;
+         return withIdeasLock(domain, () => updateLocalKeywordIdeas(domain, data), { createIfMissing: true });
+      })
       : false;
    if (!saved) {
       throw new Error('Keyword ideas were fetched but could not be saved for this domain.');
    }
 };
 
+/** A keyword idea request that cannot be sent as given (bad account ID, country without a geo target). */
+export class IdeasRequestError extends Error {
+   constructor(message: string) {
+      super(message);
+      this.name = 'IdeasRequestError';
+   }
+}
+
 /**
- * Validates the Google Ads account ID and resolves the geo target constant for the country. Returns `null` when the
- * keyword idea lookup should be skipped. In test mode invalid values throw instead, so the caller reports them.
+ * Validates the Google Ads account ID and resolves the geo target constant for the country. Throws an
+ * IdeasRequestError when either is unusable, so the caller can report what to fix instead of an empty result.
  */
 const resolveIdeasRequestTarget = (
    account_id: unknown,
    country: string,
-   test: boolean,
-): { customerID: string; geoTargetConstants: number } | null => {
+): { customerID: string; geoTargetConstants: number } => {
    // Accept only Google Ads customer IDs in expected format: digits with optional dashes.
    const normalizedAccountId = typeof account_id === 'string' ? account_id.trim() : '';
-   // In test mode a bad account ID must fail loudly; otherwise the caller would report the account as valid
    if (!/^\d[\d-]*\d$|^\d$/.test(normalizedAccountId)) {
-      if (test) throw new Error('Google Ads account ID is not in a valid format (digits, optionally with dashes).');
       logger.warn('Skipping keyword idea lookup: invalid Google Ads account_id format');
-      return null;
+      throw new IdeasRequestError('Google Ads account ID is not in a valid format (digits, optionally with dashes).');
    }
    const customerID = normalizedAccountId.replaceAll('-', '');
    if (!/^\d{10}$/.test(customerID)) {
-      if (test) throw new Error('Google Ads account ID must contain exactly 10 digits.');
       logger.warn('Skipping keyword idea lookup: invalid Google Ads customerID length');
-      return null;
+      throw new IdeasRequestError('Google Ads account ID must contain exactly 10 digits.');
    }
    const countryData = countries[country];
    const geoTargetConstants = countryData ? countryData[3] : undefined;
@@ -252,12 +300,11 @@ const resolveIdeasRequestTarget = (
    });
 
    if (!geoTargetConstants || Number(geoTargetConstants) === 0) {
-      if (test) throw new Error(`No Google Ads geo target is configured for country "${country}".`);
       logger.warn('Skipping keyword idea lookup: missing geo target constant', {
          country,
          countryData: countryData ? 'present' : 'missing',
       });
-      return null;
+      throw new IdeasRequestError(`No Google Ads geo target is configured for country "${country}".`);
    }
    return { customerID, geoTargetConstants };
 };
@@ -328,7 +375,7 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
 
    let accessToken = '';
 
-   const cachedAccessToken: string | false | undefined = memoryCache.get('adwords_token');
+   const cachedAccessToken: string | false | undefined = memoryCache.get(adwordsTokenCacheKey(credentials));
    if (cachedAccessToken && !test) {
       accessToken = cachedAccessToken;
       logger.debug('Using cached Google Ads access token');
@@ -339,8 +386,8 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
          logger.error('Failed to get Google Ads access token');
          throw new Error('Failed to authenticate with Google Ads API');
       }
-      memoryCache.delete('adwords_token');
-      memoryCache.set('adwords_token', accessToken, { ttl: 3300000 });
+      memoryCache.delete(adwordsTokenCacheKey(credentials));
+      memoryCache.set(adwordsTokenCacheKey(credentials), accessToken, { ttl: 3300000 });
       logger.debug('Successfully obtained and cached Google Ads access token');
    }
 
@@ -378,11 +425,7 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
 
       try {
          // API: https://developers.google.com/google-ads/api/rest/reference/rest/v21/customers/generateKeywordIdeas
-         const target = resolveIdeasRequestTarget(account_id, country, test);
-         if (!target) {
-            return [];
-         }
-         const { customerID, geoTargetConstants } = target;
+         const { customerID, geoTargetConstants } = resolveIdeasRequestTarget(account_id, country);
          const reqPayload = buildKeywordIdeasPayload(seedType, seedKeywords, domain, geoTargetConstants, language, test);
 
          // Note: DEBUG logging may include sensitive data (seed keywords, API tokens)
@@ -472,7 +515,7 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
          }
 
          if (!test && fetchedKeywords.length > 0) {
-            await saveFetchedIdeas(ideasFileKey, { keywords: fetchedKeywords, settings: adwordsDomainOptions });
+            await saveFetchedIdeas(ideasFileKey, { keywords: fetchedKeywords, settings: adwordsDomainOptions }, adwordsDomainOptions.domainID);
             logger.debug('Updated local keyword ideas', { domain: ideasFileKey, count: fetchedKeywords.length });
          }
       } catch (error) {
@@ -570,15 +613,21 @@ export const getKeywordsVolume = async (keywords: KeywordType[]): Promise<{ erro
 
    // Generate Access Token
    let accessToken = '';
-   const cachedAccessToken: string | false | undefined = memoryCache.get('adwords_token');
+   const cachedAccessToken: string | false | undefined = memoryCache.get(adwordsTokenCacheKey(credentials));
    if (cachedAccessToken) {
       accessToken = cachedAccessToken;
    } else {
       accessToken = await getAdwordsAccessToken(credentials);
-      memoryCache.delete('adwords_token');
-      memoryCache.set('adwords_token', accessToken, { ttl: 3300000 });
+      if (!accessToken) {
+         return { error: 'Failed to authenticate with Google Ads API', volumes: false };
+      }
+      memoryCache.delete(adwordsTokenCacheKey(credentials));
+      memoryCache.set(adwordsTokenCacheKey(credentials), accessToken, { ttl: 3300000 });
    }
    const fetchedKeywords: Record<number, number> = {};
+   // The last Google Ads failure, reported when no country could be looked up at all
+   let lastRequestError = '';
+   let countriesSucceeded = 0;
 
    if (accessToken) {
       // Group keywords based on their country.
@@ -616,7 +665,8 @@ export const getKeywordsVolume = async (keywords: KeywordType[]): Promise<{ erro
                // Pause only between country requests, never before the first or after the last
                if (volumeRequestSent) await sleep(7000);
                volumeRequestSent = true;
-               const resp = await fetch(`https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}/customers/${customerID}:generateKeywordHistoricalMetrics`, {
+               const requestUrl = `https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}/customers/${customerID}:generateKeywordHistoricalMetrics`;
+               const resp = await fetchGoogleAdsVolume(requestUrl, {
                   method: 'POST',
                   headers: {
                      'Content-Type': 'application/json',
@@ -625,7 +675,7 @@ export const getKeywordsVolume = async (keywords: KeywordType[]): Promise<{ erro
                      'login-customer-id': customerID,
                   },
                   body: JSON.stringify(reqPayload),
-               });
+               }, country, reqPayload.keywords.length);
 
                let ideaData;
                try {
@@ -636,25 +686,31 @@ export const getKeywordsVolume = async (keywords: KeywordType[]): Promise<{ erro
                         ideaData = JSON.parse(responseText);
                      } catch (parseError) {
                         logger.warn(`Failed to parse Google Ads Volume response (${resp.status})`, { response: responseText.substring(0, 200), error: parseError instanceof Error ? parseError.message : String(parseError) });
+                        lastRequestError = `Google Ads returned an unreadable response (${resp.status})`;
                         continue; // Skip this country and continue with next
                      }
                   } else {
                      // Handle non-JSON responses
                      logger.warn(`Google Ads Volume API returned non-JSON response (${resp.status})`, { response: responseText.substring(0, 200) });
+                     lastRequestError = `Google Ads returned a non-JSON response (${resp.status})`;
                      continue; // Skip this country and continue with next
                   }
                } catch (error) {
                   logger.warn(`Exception while handling Google Ads Volume response (${resp.status})`, { error: error instanceof Error ? error.message : String(error) });
+                  lastRequestError = `Google Ads response could not be read (${resp.status})`;
                   continue; // Skip this country and continue with next
                }
 
                if (resp.status !== 200) {
-                  const errorMessage = ideaData?.error?.details?.[0]?.errors?.[0]?.message || 'Unknown error';
+                  const errorMessage = ideaData?.error?.details?.[0]?.errors?.[0]?.message || ideaData?.error?.message || 'Unknown error';
                   logger.error('Google Ads Volume Request Response', new Error(errorMessage), {
                      status: resp.status,
                      errorDetails: ideaData?.error,
                   });
+                  lastRequestError = errorMessage;
+                  continue; // Skip this country and continue with next
                }
+               countriesSucceeded += 1;
 
                if (ideaData?.results) {
                   if (Array.isArray(ideaData.results) && ideaData.results.length > 0) {
@@ -678,10 +734,24 @@ export const getKeywordsVolume = async (keywords: KeywordType[]): Promise<{ erro
                   }
                }
             } catch (error) {
-               logger.error('Error fetching keyword volume from Google Ads', error instanceof Error ? error : new Error(String(error)));
+               const requestError = error instanceof Error ? error : new Error(String(error));
+               const cause = (requestError as Error & { cause?: unknown }).cause;
+               logger.error('Error fetching keyword volume from Google Ads', requestError, {
+                  country,
+                  keywordCount: keywordRequests[country].length,
+                  cause: cause instanceof Error
+                     ? { name: cause.name, message: cause.message, code: (cause as NodeJS.ErrnoException).code }
+                     : cause,
+               });
+               lastRequestError = error instanceof Error && error.message ? error.message : 'Google Ads request failed';
             }
          }
       }
+   }
+
+   // Every lookup failed: report it, instead of an empty result that looks like a successful update
+   if (countriesSucceeded === 0 && lastRequestError) {
+      return { error: `Google Ads volume lookup failed: ${lastRequestError}`, volumes: false };
    }
 
    return { volumes: fetchedKeywords };

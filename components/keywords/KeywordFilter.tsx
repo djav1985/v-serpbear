@@ -127,28 +127,31 @@ const KeywordFilters = (props: KeywordFilterProps) => {
       <div className='domKeywords_filters py-4 px-6 flex justify-between items-center text-sm text-gray-500 font-semibold border-b-[1px] lg:border-0'>
          <div>
             <ul className='flex items-center text-xs'>
-               <li
+               <li><button type="button" aria-pressed={device === 'desktop'}
                 data-testid="desktop_tab"
                className={`${deviceTabStyle} ${device === 'desktop' ? ' bg-[#F8F9FF] text-gray-700' : ''}`}
                onClick={() => setDevice('desktop')}>
                      <Icon type='desktop' classes='top-[3px]' size={15} />
                      <i className='hidden not-italic lg:inline-block ml-1'>Desktop</i>
                      <span className={`${deviceTabCountStyle}`}>{keywordCounts.desktop}</span>
-               </li>
-               <li
+                  </button></li>
+               <li><button type="button" aria-pressed={device === 'mobile'}
                data-testid="mobile_tab"
                className={`${deviceTabStyle} ${device === 'mobile' ? ' bg-[#F8F9FF] text-gray-700' : ''}`}
                onClick={() => setDevice('mobile')}>
                      <Icon type='mobile' />
                      <i className='hidden not-italic lg:inline-block ml-1'>Mobile</i>
                      <span className={`${deviceTabCountStyle}`}>{keywordCounts.mobile}</span>
-               </li>
+                  </button></li>
             </ul>
          </div>
          <div className='flex gap-5'>
             <div className=' lg:hidden'>
                <button
                data-testid="filter_button"
+               type="button"
+               aria-label="Filter keywords"
+               aria-expanded={filterOptions}
                className={`px-2 py-1 rounded ${filterOptions ? ' bg-indigo-100 text-blue-700' : ''}`}
                title='Filter'
                onClick={() => showFilterOptions(!filterOptions)}>
@@ -193,6 +196,9 @@ const KeywordFilters = (props: KeywordFilterProps) => {
                <div className='relative'>
                   <button
                   data-testid="sort_button"
+                  type="button"
+                  aria-label="Sort keywords"
+                  aria-expanded={sortOptions}
                   className={`px-2 py-1 rounded ${sortOptions ? ' bg-indigo-100 text-blue-700' : ''}`}
                   title='Sort'
                   onClick={() => showSortOptions(!sortOptions)}>
@@ -203,12 +209,11 @@ const KeywordFilters = (props: KeywordFilterProps) => {
                      data-testid="sort_options"
                      className='sort_options mt-2 border absolute w-48 min-w-[0] right-0 rounded-lg
                      max-h-96 bg-white z-[9999] overflow-y-auto styled-scrollbar'>
-                        {sortOptionChoices.map((sortOption) => <li
-                                    key={sortOption.value}
-                                    className={sortItemStyle(sortOption.value)}
-                                    onClick={() => { updateSort(sortOption.value); showSortOptions(false); }}>
-                                       {sortOption.label}
-                                    </li>)}
+                        {sortOptionChoices.map((sortOption) => <li key={sortOption.value}>
+                           <button type="button" className={sortItemStyle(sortOption.value)} onClick={() => { updateSort(sortOption.value); showSortOptions(false); }}>
+                              {sortOption.label}
+                           </button>
+                        </li>)}
                      </ul>
                   )}
                </div>
@@ -216,6 +221,9 @@ const KeywordFilters = (props: KeywordFilterProps) => {
                   <div className='relative'>
                   <button
                   data-testid="columns_button"
+                  type="button"
+                  aria-label="Show or hide keyword columns"
+                  aria-expanded={columnOptions}
                   className={`px-2 py-1 rounded ${columnOptions ? ' bg-indigo-100 text-blue-700' : ''} ${columnsDisabled ? 'opacity-40 cursor-not-allowed' : ''}`}
                   title={columnsDisabled ? 'Loading settings...' : 'Show/Hide Columns'}
                   disabled={columnsDisabled}
@@ -228,11 +236,8 @@ const KeywordFilters = (props: KeywordFilterProps) => {
                      data-testid="sort_options"
                      className='sort_options mt-2 border absolute w-48 min-w-[0] right-0 rounded-lg
                      max-h-96 bg-white z-[9999] overflow-y-auto styled-scrollbar border-gray-200 '>
-                        {columnOptionChoices.map(({ value, label, locked }) => <li
-                                    key={value}
-                                    className={sortItemStyle(value) + (locked ? 'bg-gray-50 cursor-not-allowed pointer-events-none' : '') }
-                                    onClick={() => { if (updateColumns) { updateColumns(value); } showColumnOptions(false); }}
-                                    >
+                        {columnOptionChoices.map(({ value, label, locked }) => <li key={value}>
+                                    <button type="button" aria-pressed={tableColumns.includes(value)} disabled={locked} className={sortItemStyle(value) + (locked ? 'bg-gray-50 cursor-not-allowed' : '') } onClick={() => { if (updateColumns) { updateColumns(value); } showColumnOptions(false); }}>
                                        <span className={' inline-block px-[3px] border border-gray-200  rounded-[4px] w-5'}>
                                           <Icon
                                           title={locked ? 'Cannot be Hidden' : ''}
@@ -243,6 +248,7 @@ const KeywordFilters = (props: KeywordFilterProps) => {
                                         </span>
                                        {' '}{label}
 
+                                    </button>
                                     </li>)}
                      </ul>
                   )}
