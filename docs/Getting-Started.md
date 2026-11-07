@@ -80,4 +80,4 @@ docker compose start
 
 Each deployment page has its own update steps. Migrations run automatically on start, and the database is backed up before any migration that changes data.
 
-Docker Compose stores data in a named volume (`data`) mounted at `/app/data`, prefixed with the project name (for example `v-serpbear_data`; find it with `docker volume ls`). It holds the SQLite database, `settings.json`, Search Console exports (`SC_<domain>.json`), keyword ideas (`IDEAS_*.json`), `session.json`, `email-throttle.json`, `failed_queue.json` and any white-label logo. Secrets in `settings.json` are encrypted with `SECRET`.
+Docker Compose stores data in a named volume (`data`) mounted at `/app/data`, prefixed with the project name (for example `v-serpbear_data`; find it with `docker volume ls`). It holds the SQLite database, `settings.json`, Search Console exports (`SC_<domain>.json`), keyword ideas (`IDEAS_*.json`), `session.json`, `email-throttle.json`, `failed_queue.json`, the website thumbnails in `thumbnails/` and the white-label `logo.png` and `favicon.ico`. Secrets in `settings.json` are encrypted with `SECRET`.

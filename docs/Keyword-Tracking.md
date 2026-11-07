@@ -8,7 +8,7 @@
 4. **Analyse.** Charts and tables show history, average position and day-over-day change.
 5. **Share** through the [API and MCP server](API-and-MCP) or [email digests](Email-Digests).
 
-The domain list shows a screenshot of each tracked website (from thum.io, requested by your browser, so the domain names are sent to that service). While a screenshot is still being generated, or if it fails to load, the site's favicon is shown instead; a pending screenshot is requested again a few times, 10 seconds apart, and replaces the favicon once it is ready. There is no setting to turn screenshots off.
+The domain list shows a screenshot of each tracked website. The server fetches it from thum.io (so the domain names are sent to that service, not by your browser), saves it in `data/thumbnails` as `<domain>_<YYYY-MM-DD>.jpg` and serves the same image to every browser. A domain without a thumbnail starts generating when the list is opened or when the domain is added, and one older than 30 days is regenerated while the old image keeps showing, then deleted once the new one is saved. Until a thumbnail exists the site's favicon is shown, and the page does not poll: new thumbnails appear on the next reload or navigation. A site that cannot be captured is not retried for an hour. The reload button on a thumbnail regenerates it now. There is no setting to turn screenshots off.
 
 ## Adding keywords
 

@@ -53,7 +53,7 @@ const TrendBadge = ({ current, previous, lowerIsBetter = false }: TrendBadgeProp
 type DomainItemProps = {
    domain: DomainType,
    isConsoleIntegrated: boolean,
-   thumb: string,
+   thumb?: string,
    updateThumb: (domain: string) => void,
    showMapPackStat?: boolean,
 }

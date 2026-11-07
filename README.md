@@ -217,7 +217,7 @@ Manage these in the Settings UI or at `/api/settings`.
 4. **Analyse.** Charts and tables show history, average position and day-over-day change.
 5. **Share** through the API, the MCP server or email digests.
 
-The domain list shows a screenshot of each tracked website (from thum.io, requested by your browser, so the domain names are sent to that service). While a screenshot is still being generated, or if it fails to load, the site's favicon is shown instead; a pending screenshot is requested again a few times, 10 seconds apart, and replaces the favicon once it is ready. There is no setting to turn screenshots off.
+The domain list shows a screenshot of each tracked website. The server fetches it from thum.io (so the domain names are sent to that service, not by your browser), saves it in `data/thumbnails` as `<domain>_<YYYY-MM-DD>.jpg` and serves the same image to every browser. A domain without a thumbnail starts generating when the list is opened or when the domain is added, and one older than 30 days is regenerated while the old image keeps showing, then deleted once the new one is saved. Until a thumbnail exists the site's favicon is shown, and the page does not poll: new thumbnails appear on the next reload or navigation. A site that cannot be captured is not retried for an hour. The reload button on a thumbnail regenerates it now. There is no setting to turn screenshots off.
 
 ### Scrape strategy
 
@@ -328,7 +328,7 @@ Set `NEXT_PUBLIC_WHITE_LABEL=true` for a custom name, logo and browser tab icon.
 
 Settings are stored in `data/settings.json`, with secrets encrypted using `SECRET`. `GET /api/settings` is public and returns only `scraper_type`, `available_scapers`, `search_console_integrated`, `version` and `timezone` without a session. `PUT /api/settings` needs a login session (an API key is not accepted). It merges the payload: keys left out keep their stored values, and a secret sent empty is cleared. Once logged in, `GET /api/settings` shows saved credentials (scraper API key, SMTP password, Search Console private key, Google Ads client secret, refresh token and developer token) as a row of bullets instead of the real value, and saving with the bullets still in place keeps the stored secret. `scrape_interval` must be one of the values above, and `scrape_delay` must be blank, `none` or a whole number from 0 to 30,000; anything else is rejected with a 400.
 
-Docker Compose stores data in a named volume (`data`) mounted at `/app/data`, prefixed with the project name (for example `v-serpbear_data`; find it with `docker volume ls`). It holds the SQLite database, `settings.json`, Search Console exports (`SC_<domain>.json`), keyword ideas (`IDEAS_*.json`), `session.json`, `email-throttle.json`, `failed_queue.json` and the white-label `logo.png` and `favicon.ico`.
+Docker Compose stores data in a named volume (`data`) mounted at `/app/data`, prefixed with the project name (for example `v-serpbear_data`; find it with `docker volume ls`). It holds the SQLite database, `settings.json`, Search Console exports (`SC_<domain>.json`), keyword ideas (`IDEAS_*.json`), `session.json`, `email-throttle.json`, `failed_queue.json`, the website thumbnails in `thumbnails/` and the white-label `logo.png` and `favicon.ico`.
 
 <br><br>
 

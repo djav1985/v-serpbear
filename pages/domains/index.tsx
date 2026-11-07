@@ -8,7 +8,7 @@ import TopBar from '../../components/common/TopBar';
 import AddDomain from '../../components/domains/AddDomain';
 import Settings from '../../components/settings/Settings';
 import { useFetchSettings } from '../../services/settings';
-import { fetchDomainScreenshot, useFetchDomains } from '../../services/domains';
+import { getDomainThumbnailUrl, regenerateDomainThumbnail, useFetchDomains, useFetchDomainThumbnails } from '../../services/domains';
 import DomainItem from '../../components/domains/DomainItem';
 import Footer from '../../components/common/Footer';
 import { withAuth } from '../../hooks/useAuth';
@@ -16,7 +16,7 @@ import PageLoader from '../../components/common/PageLoader';
 import { useBranding } from '../../hooks/useBranding';
 import { safeJsonParse } from '../../utils/safeJsonParse';
 
-type thumbImages = { [domain:string] : string }
+type thumbDates = { [domain:string] : string }
 
 const Domains: NextPage = () => {
    const router = useRouter();
@@ -26,7 +26,9 @@ const Domains: NextPage = () => {
    const [showSettings, setShowSettings] = useState(false);
    const [showAddDomain, setShowAddDomain] = useState(false);
    const addDomainNodeRef = useRef<HTMLDivElement>(null);
-   const [domainThumbs, setDomainThumbs] = useState<thumbImages>({});
+   // Thumbnails regenerated with the reload button, until the list is read again
+   const [regeneratedThumbs, setRegeneratedThumbs] = useState<thumbDates>({});
+   const { data: thumbnailDates } = useFetchDomainThumbnails();
    const settingsNodeRef = useRef<HTMLDivElement>(null);
    const { data: appSettingsData, isLoading: isAppSettingsLoading, refetch: refetchSettings } = useFetchSettings();
    const { data: domainsData, isLoading: isDomainsLoading } = useFetchDomains(router, true);
@@ -87,70 +89,17 @@ const Domains: NextPage = () => {
       router.replace({ pathname: router.pathname, query: remainingQuery }, undefined, { shallow: true });
    }, [router, refetchSettings]);
 
-   useEffect(() => {
-      const domains = domainsData?.domains;
-      if (!domains || domains.length === 0) { return undefined; }
-      const SCREENSHOT_CONCURRENCY = 3;
-      // A screenshot that is still being generated is not available yet, so the favicon stays and the domain is asked
-      // for again a few times, 10 seconds apart
-      const RETRY_DELAY_MS = 10000;
-      const MAX_ATTEMPTS = 4;
-      let cancelled = false;
-      let retryTimer: ReturnType<typeof setTimeout> | undefined;
-
-      // Fetches the screenshots of the given domains and returns the ones that are not available yet
-      const fetchScreenshots = async (names: string[]): Promise<string[]> => {
-         const found: Record<string, string> = {};
-         let nextIndex = 0;
-
-         // Worker function: each worker picks up the next available domain
-         const worker = async (): Promise<void> => {
-            while (nextIndex < names.length) {
-               const name = names[nextIndex];
-               nextIndex += 1;
-               try {
-                  const domainThumb = await fetchDomainScreenshot(name);
-                  if (domainThumb) { found[name] = domainThumb; }
-               } catch {
-                  // Individual failures are handled inside fetchDomainScreenshot
-               }
-            }
-         };
-
-         // Start at most SCREENSHOT_CONCURRENCY workers in parallel
-         await Promise.all(
-            Array.from({ length: Math.min(SCREENSHOT_CONCURRENCY, names.length) }, worker),
-         );
-
-         if (!cancelled && Object.keys(found).length > 0) {
-            setDomainThumbs((currentThumbs) => ({ ...currentThumbs, ...found }));
-         }
-         return names.filter((name) => !found[name]);
-      };
-
-      const run = async () => {
-         let missing = domains.map((item) => item.domain);
-         for (let attempt = 0; attempt < MAX_ATTEMPTS && missing.length > 0 && !cancelled; attempt += 1) {
-            if (attempt > 0) {
-               await new Promise<void>((resolve) => { retryTimer = setTimeout(resolve, RETRY_DELAY_MS); });
-               if (cancelled) { return; }
-            }
-            missing = await fetchScreenshots(missing);
-         }
-      };
-
-      run();
-      return () => {
-         cancelled = true;
-         if (retryTimer) { clearTimeout(retryTimer); }
-      };
-   }, [domainsData]);
+   const thumbUrlFor = (name: string): string | undefined => {
+      const version = regeneratedThumbs[name] || thumbnailDates?.[name];
+      return version ? getDomainThumbnailUrl(name, version) : undefined;
+   };
 
    const manuallyUpdateThumb = async (domain: string) => {
-      const domainThumb = await fetchDomainScreenshot(domain, true);
-      if (domainThumb) {
+      const date = await regenerateDomainThumbnail(domain);
+      if (date) {
          toast(`${domain} Screenshot Updated Successfully!`, { icon: '✔️' });
-         setDomainThumbs((currentThumbs) => ({ ...currentThumbs, [domain]: domainThumb }));
+         // The time is added so a thumbnail regenerated on the same day still gets a new address
+         setRegeneratedThumbs((current) => ({ ...current, [domain]: `${date}-${Date.now()}` }));
       } else {
          toast(`Failed to Fetch ${domain} Screenshot!`, { icon: '⚠️' });
       }
@@ -195,7 +144,7 @@ const Domains: NextPage = () => {
                            key={domain.ID}
                            domain={domain}
                            isConsoleIntegrated={!!(appSettings && appSettings.search_console_integrated) || !!domainSCAPiObj[domain.ID] }
-                           thumb={domainThumbs[domain.domain]}
+                           thumb={thumbUrlFor(domain.domain)}
                            updateThumb={manuallyUpdateThumb}
                            showMapPackStat={showMapPackStat}
                            />)}

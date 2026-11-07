@@ -7,63 +7,49 @@ jest.mock('../../utils/client/origin', () => ({
    getClientOrigin: () => mockOrigin,
 }));
 
-import { fetchDomain } from '../../services/domains';
+import { fetchDomain, fetchDomainThumbnails, getDomainThumbnailUrl, regenerateDomainThumbnail } from '../../services/domains';
 
 // ---------------------------------------------------------------------------
-// domain screenshots
+// domain thumbnails
 // ---------------------------------------------------------------------------
 
-type FetchDomainScreenshot = (domain: string, forceFetch?: boolean) => Promise<string | false>;
-
-describe('domain screenshots', () => {
-   const originalEnv = process.env;
+describe('domain thumbnails', () => {
+   const originalFetch = global.fetch;
 
    afterEach(() => {
-      process.env = { ...originalEnv };
-      jest.resetModules();
+      global.fetch = originalFetch;
    });
 
-   it('keeps the favicon while thum.io is still generating the screenshot', async () => {
-      let fetchDomainScreenshot: FetchDomainScreenshot | undefined;
-      jest.isolateModules(() => {
-         fetchDomainScreenshot = require('../../services/domains').fetchDomainScreenshot;
-      });
+   it('builds the thumbnail address from the domain and the file date', () => {
+      expect(getDomainThumbnailUrl('example.com', '2026-11-07')).toBe('/api/thumbnail?domain=example.com&v=2026-11-07');
+   });
 
-      const originalFetch = global.fetch;
-      const blob = jest.fn();
-      // thum.io answers 200 with a no-store placeholder image until the real screenshot is ready
+   it('reads the date of each saved thumbnail from the server', async () => {
       global.fetch = jest.fn().mockResolvedValue({
          status: 200,
-         headers: { get: (name: string) => (name.toLowerCase() === 'cache-control' ? 'no-cache, no-store, must-revalidate' : null) },
-         blob,
+         headers: { get: jest.fn().mockReturnValue(null) },
+         json: jest.fn().mockResolvedValue({ thumbnails: { 'example.com': '2026-11-07' } }),
       }) as unknown as typeof fetch;
-      window.localStorage.removeItem('domainThumbs');
-      try {
-         const result = await (fetchDomainScreenshot as FetchDomainScreenshot)('example.com');
-         expect(result).toBe(false);
-         expect(blob).not.toHaveBeenCalled();
-         expect(window.localStorage.getItem('domainThumbs')).toBeNull();
-      } finally {
-         global.fetch = originalFetch;
-      }
+
+      await expect(fetchDomainThumbnails()).resolves.toEqual({ 'example.com': '2026-11-07' });
+      expect(global.fetch).toHaveBeenCalledWith(`${mockOrigin}/api/thumbnail`, expect.anything());
    });
 
-   it('returns false when the screenshot service does not answer with an image, so the favicon is shown', async () => {
-      let fetchDomainScreenshot: FetchDomainScreenshot | undefined;
-      jest.isolateModules(() => {
-         fetchDomainScreenshot = require('../../services/domains').fetchDomainScreenshot;
-      });
+   it('reports the new date after a regeneration, and false when it fails', async () => {
+      global.fetch = jest.fn()
+         .mockResolvedValueOnce({
+            status: 200,
+            headers: { get: jest.fn().mockReturnValue(null) },
+            json: jest.fn().mockResolvedValue({ thumbnail: '2026-11-07' }),
+         })
+         .mockResolvedValueOnce({
+            status: 502,
+            headers: { get: jest.fn().mockReturnValue(null) },
+            json: jest.fn().mockResolvedValue({ error: { code: 'BAD_GATEWAY', message: 'No screenshot' } }),
+         }) as unknown as typeof fetch;
 
-      const originalFetch = global.fetch;
-      global.fetch = jest.fn().mockResolvedValue({ status: 404 }) as unknown as typeof fetch;
-      window.localStorage.removeItem('domainThumbs');
-      try {
-         const result = await (fetchDomainScreenshot as FetchDomainScreenshot)('example.com');
-         expect(result).toBe(false);
-         expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('image.thum.io'));
-      } finally {
-         global.fetch = originalFetch;
-      }
+      await expect(regenerateDomainThumbnail('example.com')).resolves.toBe('2026-11-07');
+      await expect(regenerateDomainThumbnail('example.com')).resolves.toBe(false);
    });
 });
 
@@ -138,242 +124,5 @@ describe('fetchDomain', () => {
 
       await expect(fetchDomain(router, 'unknown.example.com')).rejects.toThrow('Domain not found');
       expect(pushMock).not.toHaveBeenCalled();
-   });
-});
-
-// ---------------------------------------------------------------------------
-// fetchDomainScreenshot cache resilience
-// ---------------------------------------------------------------------------
-
-describe('fetchDomainScreenshot cache resilience', () => {
-   const originalFetch = global.fetch;
-
-   beforeEach(() => {
-      jest.resetModules();
-      localStorage.clear();
-      if (!originalFetch) {
-         (global as typeof globalThis & { fetch: jest.Mock }).fetch = jest.fn();
-      }
-   });
-
-   afterEach(() => {
-      if (!originalFetch) {
-         delete (global as unknown as { fetch?: jest.Mock }).fetch;
-      }
-   });
-
-   it.each([
-      ['invalid JSON string', 'not-json'],
-      ['a JSON array', '[]'],
-      ['a JSON primitive', 'true'],
-      ['an object with non-entry values (number)', '{"domain":123}'],
-      ['an object with plain string values (old cache format)', '{"domain.com":"data:image/png;base64,abc"}'],
-   ])('clears invalid cached thumbnails (%s) before fetching', async (_name, invalidCache) => {
-      localStorage.setItem('domainThumbs', invalidCache);
-
-      let fetchDomainScreenshot: FetchDomainScreenshot | undefined;
-      jest.isolateModules(() => {
-         const mod = require('../../services/domains');
-         fetchDomainScreenshot = mod.fetchDomainScreenshot;
-      });
-
-      const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({
-         status: 500,
-         blob: jest.fn(),
-      } as unknown as Response);
-      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-
-      const result = await (fetchDomainScreenshot as FetchDomainScreenshot)('example.com');
-
-      expect(result).toBe(false);
-      expect(fetchSpy).toHaveBeenCalledTimes(1);
-      expect(localStorage.getItem('domainThumbs')).toBeNull();
-
-      fetchSpy.mockRestore();
-      warnSpy.mockRestore();
-   });
-
-   it('clears cached thumbnails when values contain non-string data', async () => {
-      localStorage.setItem('domainThumbs', JSON.stringify({
-         'example.com': 'data:image/png;base64,validstring',
-         'test.com': 123,
-         'another.com': 'valid-string'
-      }));
-
-      let fetchDomainScreenshot: FetchDomainScreenshot | undefined;
-      jest.isolateModules(() => {
-         const mod = require('../../services/domains');
-         fetchDomainScreenshot = mod.fetchDomainScreenshot;
-      });
-
-      const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({
-         status: 500,
-         blob: jest.fn(),
-      } as unknown as Response);
-      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-
-      const result = await (fetchDomainScreenshot as FetchDomainScreenshot)('example.com');
-
-      expect(result).toBe(false);
-      expect(fetchSpy).toHaveBeenCalledTimes(1);
-      expect(localStorage.getItem('domainThumbs')).toBeNull();
-
-      fetchSpy.mockRestore();
-      warnSpy.mockRestore();
-   });
-
-   it('clears cached thumbnails when data is an array instead of object', async () => {
-      localStorage.setItem('domainThumbs', JSON.stringify([
-         'data:image/png;base64,somedata',
-         'data:image/png;base64,otherdata'
-      ]));
-
-      let fetchDomainScreenshot: FetchDomainScreenshot | undefined;
-      jest.isolateModules(() => {
-         const mod = require('../../services/domains');
-         fetchDomainScreenshot = mod.fetchDomainScreenshot;
-      });
-
-      const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({
-         status: 500,
-         blob: jest.fn(),
-      } as unknown as Response);
-      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-
-      const result = await (fetchDomainScreenshot as FetchDomainScreenshot)('example.com');
-
-      expect(result).toBe(false);
-      expect(fetchSpy).toHaveBeenCalledTimes(1);
-      expect(localStorage.getItem('domainThumbs')).toBeNull();
-
-      fetchSpy.mockRestore();
-      warnSpy.mockRestore();
-   });
-
-   it('returns cached data without fetching when entry is fresh', async () => {
-      const now = Date.now();
-      const validCache = {
-         'example.com': { data: 'data:image/png;base64,validdata', ts: now },
-         'test.com': { data: 'data:image/png;base64,anothervalid', ts: now }
-      };
-      localStorage.setItem('domainThumbs', JSON.stringify(validCache));
-
-      let fetchDomainScreenshot: FetchDomainScreenshot | undefined;
-      jest.isolateModules(() => {
-         const mod = require('../../services/domains');
-         fetchDomainScreenshot = mod.fetchDomainScreenshot;
-      });
-
-      const fetchSpy = jest.spyOn(global, 'fetch').mockImplementation(() => Promise.reject('Should not fetch'));
-      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-
-      const result = await (fetchDomainScreenshot as FetchDomainScreenshot)('example.com');
-
-      expect(result).toBe('data:image/png;base64,validdata');
-      expect(fetchSpy).not.toHaveBeenCalled();
-
-      fetchSpy.mockRestore();
-      warnSpy.mockRestore();
-   });
-
-   it('refetches when entry is stale (older than TTL)', async () => {
-      const staleTs = Date.now() - 25 * 60 * 60 * 1000;
-      const staleCache = {
-         'example.com': { data: 'data:image/png;base64,staledata', ts: staleTs }
-      };
-      localStorage.setItem('domainThumbs', JSON.stringify(staleCache));
-
-      let fetchDomainScreenshot: FetchDomainScreenshot | undefined;
-      jest.isolateModules(() => {
-         const mod = require('../../services/domains');
-         fetchDomainScreenshot = mod.fetchDomainScreenshot;
-      });
-
-      const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({
-         status: 500,
-         blob: jest.fn(),
-      } as unknown as Response);
-
-      await (fetchDomainScreenshot as FetchDomainScreenshot)('example.com');
-
-      expect(fetchSpy).toHaveBeenCalledTimes(1);
-
-      fetchSpy.mockRestore();
-   });
-
-   it('forceFetch bypasses the TTL check and always refetches', async () => {
-      const now = Date.now();
-      const freshCache = {
-         'example.com': { data: 'data:image/png;base64,freshdata', ts: now }
-      };
-      localStorage.setItem('domainThumbs', JSON.stringify(freshCache));
-
-      let fetchDomainScreenshot: FetchDomainScreenshot | undefined;
-      jest.isolateModules(() => {
-         const mod = require('../../services/domains');
-         fetchDomainScreenshot = mod.fetchDomainScreenshot;
-      });
-
-      const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({
-         status: 500,
-         blob: jest.fn(),
-      } as unknown as Response);
-
-      await (fetchDomainScreenshot as FetchDomainScreenshot)('example.com', true);
-
-      expect(fetchSpy).toHaveBeenCalledTimes(1);
-
-      fetchSpy.mockRestore();
-   });
-
-   it('clears cached thumbnails when values contain objects (not DomainThumbEntry)', async () => {
-      localStorage.setItem('domainThumbs', JSON.stringify({
-         'example.com': { url: 'data:image/png;base64,validdata' },
-         'test.com': 'valid-string'
-      }));
-
-      let fetchDomainScreenshot: FetchDomainScreenshot | undefined;
-      jest.isolateModules(() => {
-         const mod = require('../../services/domains');
-         fetchDomainScreenshot = mod.fetchDomainScreenshot;
-      });
-
-      const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({
-         status: 500,
-         blob: jest.fn(),
-      } as unknown as Response);
-      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-
-      const result = await (fetchDomainScreenshot as FetchDomainScreenshot)('example.com');
-
-      expect(result).toBe(false);
-      expect(fetchSpy).toHaveBeenCalledTimes(1);
-      expect(localStorage.getItem('domainThumbs')).toBeNull();
-
-      fetchSpy.mockRestore();
-      warnSpy.mockRestore();
-   });
-
-   it('handles empty valid object cache correctly', async () => {
-      localStorage.setItem('domainThumbs', JSON.stringify({}));
-
-      let fetchDomainScreenshot: FetchDomainScreenshot | undefined;
-      jest.isolateModules(() => {
-         const mod = require('../../services/domains');
-         fetchDomainScreenshot = mod.fetchDomainScreenshot;
-      });
-
-      const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({
-         status: 500,
-         blob: jest.fn(),
-      } as unknown as Response);
-
-      const result = await (fetchDomainScreenshot as FetchDomainScreenshot)('example.com');
-
-      expect(result).toBe(false);
-      expect(fetchSpy).toHaveBeenCalledTimes(1);
-      expect(localStorage.getItem('domainThumbs')).toBe('{}');
-
-      fetchSpy.mockRestore();
    });
 });
