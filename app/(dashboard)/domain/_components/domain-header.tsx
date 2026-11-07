@@ -17,6 +17,7 @@ type DomainHeaderProps = {
    onExport?: () => void;
    onReloadAll?: () => void;
    onAddKeyword?: () => void;
+   onLoadIdeas?: () => void;
    /** View-specific controls, shown before the standard actions (for example the Search Console period). */
    children?: ReactNode;
 };
@@ -29,7 +30,7 @@ const TABS = [
 ] as const;
 
 /** The domain name, the four view tabs and the actions every domain view shares. */
-export function DomainHeader({ domain, onOpenSettings, onExport, onReloadAll, onAddKeyword, children }: DomainHeaderProps) {
+export function DomainHeader({ domain, onOpenSettings, onExport, onReloadAll, onAddKeyword, onLoadIdeas, children }: DomainHeaderProps) {
    const pathname = usePathname() ?? '';
    const router = useRouter();
    const { domains } = useShell();
@@ -80,6 +81,9 @@ export function DomainHeader({ domain, onOpenSettings, onExport, onReloadAll, on
                )}
                {onReloadAll && (
                   <Button variant="ghost" size="sm" data-testid="reload_all" onClick={onReloadAll}><RefreshCw /><span className="hidden lg:inline">Reload All SERPs</span></Button>
+               )}
+               {onLoadIdeas && (
+                  <Button size="sm" data-testid="load_ideas" onClick={onLoadIdeas}><Download />Load Ideas</Button>
                )}
                <Button variant="ghost" size="sm" data-testid="show_domain_settings" onClick={onOpenSettings}><Settings /><span className="hidden lg:inline">Domain Settings</span></Button>
                {onAddKeyword && (
