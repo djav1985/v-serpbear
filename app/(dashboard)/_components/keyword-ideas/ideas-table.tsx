@@ -271,13 +271,14 @@ export function IdeasTable({
                         <IdeaKeywordCell
                            idea={row.original}
                            favorite={favoriteIds.has(row.original.uid)}
+                           starAtEnd
                            config={{ favoriteIds, onOpenDetails: (idea) => setDetailsId(idea.uid), onToggleFavorite: (idea) => { if (!isFaving) { toggleFavorite({ keywordID: idea.uid }); } } }}
                         />
                      </div>
                   </div>
                   <div className="text-muted-foreground flex flex-wrap items-center gap-x-5 gap-y-2 pl-7 text-xs">
                      <span className="text-foreground text-base font-semibold">{formattedNum(row.original.avgMonthlySearches ?? 0)}<span className="text-muted-foreground text-xs font-normal">/month</span></span>
-                     <VolumeSparkline volumes={row.original.monthlySearchVolumes} onClick={() => setDetailsId(row.original.uid)} />
+                     <VolumeSparkline large volumes={row.original.monthlySearchVolumes} onClick={() => setDetailsId(row.original.uid)} />
                      <CompetitionBadge idea={row.original} />
                   </div>
                </div>

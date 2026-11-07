@@ -29,7 +29,7 @@ const COMPETITION_STYLE: Record<string, string> = {
 };
 
 /** Monthly volumes as a small line. Higher is better, so a rising line goes up. */
-export function VolumeSparkline({ volumes, onClick }: { volumes: Record<string, string>; onClick?: () => void }) {
+export function VolumeSparkline({ volumes, onClick, large = false }: { volumes: Record<string, string>; onClick?: () => void; large?: boolean }) {
    const points = useMemo(() => {
       const series = Object.keys(volumes ?? {}).map((key) => parseInt(volumes[key], 10)).filter((v) => Number.isFinite(v));
       if (series.length === 0) { return null; }
@@ -44,8 +44,8 @@ export function VolumeSparkline({ volumes, onClick }: { volumes: Record<string, 
    if (!points) { return null; }
    return (
       <button type="button" aria-label="Open the search volume trend" onClick={onClick}>
-         <svg width="80" height="24" viewBox="0 0 80 24" role="img" aria-label="Monthly search volume">
-            <polyline fill="none" stroke="var(--primary)" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" points={points} />
+         <svg width={large ? 150 : 80} height={large ? 45 : 24} viewBox="0 0 80 24" role="img" aria-label="Monthly search volume">
+            <polyline fill="none" stroke="var(--primary)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" points={points} />
          </svg>
       </button>
    );
@@ -74,11 +74,12 @@ export function IdeaSelectCheckbox({ row }: { row: R }) {
    );
 }
 
-export function IdeaKeywordCell({ idea, favorite, config }: { idea: IdeaRow; favorite: boolean; config: IdeaColumnConfig }) {
+/** `starAtEnd` pushes the favorite star to the right edge, as the stacked mobile row does. */
+export function IdeaKeywordCell({ idea, favorite, config, starAtEnd = false }: { idea: IdeaRow; favorite: boolean; config: IdeaColumnConfig; starAtEnd?: boolean }) {
    return (
       <div className="flex min-w-0 items-center gap-2">
          <span className={`fflag fflag-${idea.country} h-[12px] w-[18px] shrink-0`} title={countries[idea.country]?.[0] ?? idea.country} />
-         <button type="button" className="hover:text-primary min-w-0 truncate text-left font-medium" title={idea.keyword} onClick={() => config.onOpenDetails(idea)}>
+         <button type="button" className={cn('hover:text-primary min-w-0 truncate text-left font-medium', starAtEnd && 'flex-1')} title={idea.keyword} onClick={() => config.onOpenDetails(idea)}>
             {idea.keyword}
          </button>
          <button
