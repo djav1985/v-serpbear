@@ -109,9 +109,7 @@ describe('useBranding hook', () => {
          ...DEFAULT_BRANDING,
          whiteLabelEnabled: true,
          platformName: 'Acme SEO',
-         logoFile: 'acme.png',
          hasCustomLogo: true,
-         logoMimeType: 'image/png',
       };
 
       if (typeof window !== 'undefined') {
@@ -171,10 +169,10 @@ describe('useBranding hook', () => {
          defaultPlatformName: 'SerpBear',
          whiteLabelEnabled: true,
          platformName: 'White Label SEO',
-         logoFile: 'whitelabel-logo.svg',
          hasCustomLogo: true,
-         logoMimeType: 'image/svg+xml',
-         logoApiPath: '/api/branding/logo',
+         hasCustomFavicon: true,
+         logoApiPath: '/api/branding/logo.png',
+         faviconApiPath: '/api/branding/favicon.ico',
       };
 
       if (typeof window !== 'undefined') {
@@ -192,7 +190,7 @@ describe('useBranding hook', () => {
       expect(result.current.branding.whiteLabelEnabled).toBe(true);
       expect(result.current.branding.platformName).toBe('White Label SEO');
       expect(result.current.branding.hasCustomLogo).toBe(true);
-      expect(result.current.branding.logoFile).toBe('whitelabel-logo.svg');
+      expect(result.current.branding.hasCustomFavicon).toBe(true);
 
       if (typeof window !== 'undefined') {
          delete (window as any).__NEXT_DATA__;

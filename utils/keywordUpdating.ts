@@ -30,7 +30,12 @@ export const isUpdatingStale = (keyword: UpdatingFields, now: number = Date.now(
    return now - startedAt > STALE_UPDATING_MINUTES * 60 * 1000;
 };
 
-/** True only when a live run is refreshing the keyword: flagged as updating and not stale. */
-export const isKeywordUpdating = (keyword: UpdatingFields, now: number = Date.now()): boolean => (
-   isUpdatingFlagSet(keyword) && !isUpdatingStale(keyword, now)
+/**
+ * True only when a live run is refreshing the keyword: flagged as updating and not stale.
+ * A run marks every keyword of its batch when it starts, so a large batch can outlast the stale limit while its
+ * later keywords are still waiting their turn. Pass `domainHasLiveRun` (the domain is locked by the refresh queue)
+ * to keep those keywords counted as updating; the age check then only applies to flags no live run owns.
+ */
+export const isKeywordUpdating = (keyword: UpdatingFields, now: number = Date.now(), domainHasLiveRun: boolean = false): boolean => (
+   isUpdatingFlagSet(keyword) && (domainHasLiveRun || !isUpdatingStale(keyword, now))
 );

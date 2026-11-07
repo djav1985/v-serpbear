@@ -121,9 +121,11 @@ export const fetchSearchConsoleData = async (domain:DomainType, days:number, typ
       return finalRows;
    } catch (err:any) {
       const qType = type === 'stat' ? '(stats)' : `(${days}days)`;
-      const errorMsg = err?.response?.status && `${err?.response?.statusText}. ${err?.response?.data?.error_description}`;
-      logger.error(`Search Console API error for ${domainName} ${qType}`, new Error(errorMsg || err?.code || 'Unknown error'));
-      return { error: true, errorMsg: errorMsg || err?.code };
+      const httpMsg = err?.response?.status ? `${err?.response?.statusText}. ${err?.response?.data?.error_description}` : '';
+      // A failure without an HTTP response (network error, bad key) still gets a readable reason
+      const errorMsg = httpMsg || err?.message || err?.code || 'Unknown error';
+      logger.error(`Search Console API error for ${domainName} ${qType}`, new Error(errorMsg));
+      return { error: true, errorMsg };
    }
 };
 
@@ -161,27 +163,35 @@ export const fetchDomainSCData = async (
       : scGlobalAPI;
    if (apiCreds?.client_email && apiCreds?.private_key) {
       const theDomain = domain;
+      // A window that fetched without error replaces the stored one, even when it is empty (a site with no recent
+      // clicks is a valid result). Only a window whose request failed keeps its previous data.
+      const failedWindows = new Set<number>();
       for (const day of days) {
          const items = await fetchSearchConsoleData(theDomain, day, undefined, apiCreds);
-         if (Array.isArray(items) && items.length > 0) {
+         if (Array.isArray(items)) {
             scDomainData.lastFetched = new Date().toJSON();
             if (day === 3) scDomainData.threeDays = items as SearchAnalyticsItem[];
             if (day === 7) scDomainData.sevenDays = items as SearchAnalyticsItem[];
             if (day === 30) scDomainData.thirtyDays = items as SearchAnalyticsItem[];
-         } else if ((items as SCDomainFetchError)?.error) {
-            scDomainData.lastFetchError = (items as SCDomainFetchError).errorMsg;
+         } else {
+            failedWindows.add(day);
+            if ((items as SCDomainFetchError)?.error) {
+               scDomainData.lastFetchError = (items as SCDomainFetchError).errorMsg;
+            }
          }
       }
       const stats = await fetchSearchConsoleData(theDomain, 30, 'stat', apiCreds);
-      if (Array.isArray(stats) && stats.length > 0) {
+      if (Array.isArray(stats)) {
          scDomainData.stats = stats as SearchAnalyticsStat[];
+      } else {
+         failedWindows.add(0);
       }
       // Keep the previous data for any window that failed to fetch, so a transient Google error does not
-      // blank the stored data. Only the windows that returned rows are replaced.
-      if (scDomainData.threeDays.length === 0) { scDomainData.threeDays = existingData.threeDays || []; }
-      if (scDomainData.sevenDays.length === 0) { scDomainData.sevenDays = existingData.sevenDays || []; }
-      if (scDomainData.thirtyDays.length === 0) { scDomainData.thirtyDays = existingData.thirtyDays || []; }
-      if (!scDomainData.stats || scDomainData.stats.length === 0) { scDomainData.stats = existingData.stats || []; }
+      // blank the stored data.
+      if (failedWindows.has(3)) { scDomainData.threeDays = existingData.threeDays || []; }
+      if (failedWindows.has(7)) { scDomainData.sevenDays = existingData.sevenDays || []; }
+      if (failedWindows.has(30)) { scDomainData.thirtyDays = existingData.thirtyDays || []; }
+      if (failedWindows.has(0)) { scDomainData.stats = existingData.stats || []; }
       const writeRes = await updateLocalSCData(domainName, scDomainData);
       if (!writeRes) {
          return null;
@@ -273,9 +283,11 @@ export const integrateKeywordSCData = (keyword: KeywordType, SCData:SCDomainData
       position[dataKey] = totalData[dataKey].position ? Math.round(totalData[dataKey].position) : 0;
       // Average Data
       impressions[avgDataKey] = Math.round(impressions[dataKey] / divideBy);
-      ctr[avgDataKey] = Math.round((ctr[dataKey] / divideBy) * 100) / 100;
       visits[avgDataKey] = Math.round(visits[dataKey] / divideBy);
-      position[avgDataKey] = Math.round(position[dataKey] / divideBy);
+      // CTR and position are already averages over the window, so dividing them by the number of days would be
+      // meaningless. Only the totals (impressions, clicks) are averaged per day.
+      ctr[avgDataKey] = ctr[dataKey];
+      position[avgDataKey] = position[dataKey];
    });
    const finalSCData = { impressions, visits, ctr, position };
 

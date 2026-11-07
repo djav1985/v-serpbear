@@ -162,7 +162,8 @@ const updateKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => 
          });
          // Only the "no seed keywords" messages are about the request; everything else stays in the log
          const seedMessage = typeof error?.message === 'string' && /^No (tracked|search console) keywords found for this domain$/.test(error.message);
-         if (seedMessage) {
+         // A Google Ads account ID or country that cannot be used says what to fix, instead of looking like an empty result
+         if (seedMessage || error?.name === 'IdeasRequestError') {
             return res.status(400).json(errorResponse('BAD_REQUEST', error.message, requestId));
          }
          return res.status(502).json(errorResponse('BAD_GATEWAY', errMsg, requestId));

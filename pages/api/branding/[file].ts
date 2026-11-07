@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createReadStream, promises as fs } from 'fs';
-import path from 'path';
 import { getBranding } from '../../../utils/branding';
+import { ensureBrandingAssets, getBrandingLogoPath } from '../../../utils/brandingAssets';
 import { logger } from '../../../utils/logger';
 import { withApiLogging } from '../../../utils/apiLogging';
 
@@ -20,13 +20,6 @@ const respondNotFound = (res: NextApiResponse) => {
 
 const isAllowedMethod = (method?: string): method is 'GET' | 'HEAD' => method === 'GET' || method === 'HEAD';
 
-const dataDirectory = path.join(process.cwd(), 'data');
-
-const resolveLogoPath = (fileName: string): string => {
-   const sanitizedFileName = path.basename(fileName);
-   return path.join(dataDirectory, sanitizedFileName);
-};
-
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
    if (!isAllowedMethod(req.method)) {
       logger.debug(`Method not allowed for logo: ${req.method}`);
@@ -35,25 +28,26 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       return;
    }
 
-   const { whiteLabelEnabled, hasCustomLogo, logoFile, logoMimeType } = getBranding();
+   ensureBrandingAssets();
+   const { whiteLabelEnabled, hasCustomLogo, logoApiPath } = getBranding();
 
-   if (!whiteLabelEnabled || !hasCustomLogo || !logoMimeType) {
+   // Only the logo's own address answers (/api/branding/logo.png); other names are not served
+   const requestedFile = typeof req.query.file === 'string' ? req.query.file : '';
+   if (`/api/branding/${requestedFile}` !== logoApiPath) {
+      respondNotFound(res);
+      return;
+   }
+
+   if (!whiteLabelEnabled || !hasCustomLogo) {
       logger.debug('Custom logo not configured or not enabled');
       respondNotFound(res);
       return;
    }
 
-   const filePath = resolveLogoPath(logoFile);
-   const resolvedPath = path.resolve(filePath);
-
-   if (!resolvedPath.startsWith(dataDirectory)) {
-      logger.warn('Attempt to access logo outside data directory', { requestedPath: filePath });
-      respondNotFound(res);
-      return;
-   }
+   const resolvedPath = getBrandingLogoPath();
 
    try {
-      // Path is constrained to the data directory via `resolveLogoPath` and checked above.
+      // The path is the data folder plus the fixed file name logo.png.
       // eslint-disable-next-line security/detect-non-literal-fs-filename
       const stat = await fs.stat(resolvedPath);
       if (!stat.isFile()) {
@@ -62,7 +56,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
          return;
       }
 
-      res.setHeader('Content-Type', logoMimeType);
+      res.setHeader('Content-Type', 'image/png');
       res.setHeader('Content-Length', stat.size.toString());
       // Cached only for a successful response. No `immutable`: the file keeps its name when a new logo is uploaded.
       res.setHeader('Cache-Control', 'public, max-age=3600');
@@ -72,7 +66,6 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
          return;
       }
 
-      // Path is constrained to the data directory via `resolveLogoPath` and checked above.
       // eslint-disable-next-line security/detect-non-literal-fs-filename
       const stream = createReadStream(resolvedPath);
       stream.on('error', (error) => {

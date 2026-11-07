@@ -118,7 +118,7 @@ describe('Insight Functions', () => {
       const page1Data = result.find((item) => item.page === '/page1');
       expect(page1Data).toBeDefined();
       expect(page1Data?.clicks).toBe(15); // 10 + 5
-      expect(page1Data?.keywords).toBe(2); // 2 occurrences of 'test keyword 1'
+      expect(page1Data?.keywords).toBe(1); // 'test keyword 1' in two countries is one keyword
       expect(page1Data?.countries).toBe(2); // US + CA
 
       // Check /page2
@@ -157,10 +157,10 @@ describe('Insight Functions', () => {
         stats: [],
       };
 
-      // 3 rows, 2 unique keywords: averages divide by rows (position 12/3, ctr 60/3)
+      // 3 rows, 2 unique keywords: CTR is total clicks / total impressions, position is weighted by impressions
       const countryResult = getCountryInsight(data, 'clicks', 'threeDays');
       expect(countryResult[0].position).toBe(4);
-      expect(countryResult[0].ctr).toBe(20);
+      expect(countryResult[0].ctr).toBe(100);
       expect(countryResult[0].keywords).toBe(2);
 
       const keywordResult = getKeywordsInsight(data, 'clicks', 'threeDays');
@@ -182,6 +182,26 @@ describe('Insight Functions', () => {
       expect(getPagesInsight(large, 'clicks', 'threeDays')).toHaveLength(25000);
       expect(getCountryInsight(large, 'clicks', 'threeDays')).toHaveLength(2);
       expect(Date.now() - startedAt).toBeLessThan(2000);
+    });
+
+    it('weights CTR and position by impressions instead of averaging rows', () => {
+      const data: SCDomainDataType = {
+        threeDays: [
+          { keyword: 'kw', uid: 'us:desktop:kw', device: 'desktop', country: 'US', clicks: 1, impressions: 1000, ctr: 0.1, position: 10, page: '/p' },
+          { keyword: 'kw', uid: 'ca:desktop:kw', device: 'desktop', country: 'CA', clicks: 1, impressions: 2, ctr: 50, position: 2, page: '/p' },
+        ],
+        sevenDays: [],
+        thirtyDays: [],
+        lastFetched: '',
+        lastFetchError: '',
+        stats: [],
+      };
+
+      const [keywordRow] = getKeywordsInsight(data, 'clicks', 'threeDays');
+      // 2 clicks / 1002 impressions, not the mean of 0.1 and 50
+      expect(keywordRow.ctr).toBe(0.2);
+      // (10 x 1000 + 2 x 2) / 1002 = 9.99, not the mean of 10 and 2
+      expect(keywordRow.position).toBe(10);
     });
 
     it('should handle null/undefined values in data', () => {

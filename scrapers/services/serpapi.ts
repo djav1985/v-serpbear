@@ -11,6 +11,12 @@ interface SerpApiResult {
 
 const serpapi: ScraperSettings = {
   id: "serpapi",
+  // Google redirect links in the results are resolved through Serper's /resolve (needs SERPER_API_KEY)
+  resolveGoogleUrl: true,
+  // No baseline spacing between requests
+  minRequestIntervalMs: 0,
+  method: "GET",
+  reusesDesktopForMobile: false,
   name: "SerpApi.com",
   allowsCity: true,
   supportsMapPack: true,

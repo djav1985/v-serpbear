@@ -77,7 +77,6 @@ describe('generateEmail', () => {
     process.env = {
       ...originalEnv,
       NEXT_PUBLIC_WHITE_LABEL: 'true',
-      WHITE_LABEL_LOGO_FILE: 'custom-logo.png',
       NEXT_PUBLIC_APP_URL: '',
     };
     try {
@@ -139,7 +138,8 @@ describe('generateEmail', () => {
     
     // Verify map pack flag is included in the icon column
     expect(html).toContain('map-pack-flag');
-    expect(html).toContain('MP</span>');
+    expect(html).toContain('MAP</span>');
+    expect(html).not.toContain('map-pack-flag--removed');
     expect(html).toContain('<span class="mini_stats__label">Keywords</span>');
   });
 

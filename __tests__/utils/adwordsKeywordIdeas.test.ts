@@ -61,6 +61,15 @@ describe('getAdwordsKeywordIdeas', () => {
     ).rejects.toThrow(/geo target/);
   });
 
+  it('reports an unusable account ID or country outside test mode instead of returning an empty list', async () => {
+    await expect(
+      adwordsUtils.getAdwordsKeywordIdeas(
+        { ...creds, account_id: 'not-an-id' },
+        { country: 'US', language: '1000', keywords: ['compress'], seedType: 'custom' },
+      ),
+    ).rejects.toMatchObject({ name: 'IdeasRequestError' });
+  });
+
   it('throws error when no tracked keywords found', async () => {
     await expect(
       adwordsUtils.getAdwordsKeywordIdeas(

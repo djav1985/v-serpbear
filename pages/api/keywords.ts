@@ -500,6 +500,10 @@ const updateKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
    if (body.sticky === undefined && body.tags === undefined && body.location === undefined) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Keyword update payload is required.', requestId));
    }
+   // Only one kind of change per request: handling the first and silently ignoring the others would hide part of it
+   if ([body.sticky, body.tags, body.location].filter((value) => value !== undefined).length > 1) {
+      return res.status(400).json(errorResponse('BAD_REQUEST', 'Send only one of sticky, tags or location per request.', requestId));
+   }
    // Anything that is not a positive ID is rejected or dropped, so NaN and 0 never reach the database query
    const keywordIDs = readKeywordIds(req) ?? [];
    if (keywordIDs.length === 0) {

@@ -12,9 +12,8 @@ import { errorResponse } from '../../utils/api/response';
 import { takeRateLimitToken } from '../../utils/rateLimit';
 import { getClientIp } from '../../utils/api/clientIp';
 
-// Looking up a whole domain (or every domain) is a paid Google Ads request per country, so it is limited per client.
-// Lookups by keyword IDs are not limited here.
-const DOMAIN_LOOKUPS_PER_HOUR = 6;
+// Updating every domain at once (the Settings button) is a paid Google Ads request per country, so it is limited per client.
+// Lookups by keyword IDs or for a single domain are not limited here.
 const ALL_DOMAIN_LOOKUPS_PER_HOUR = 2;
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -48,12 +47,10 @@ const updatekeywordVolume = async (req: NextApiRequest, res: NextApiResponse) =>
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Please provide keyword Ids or a domain name.', requestId));
    }
 
-   if (domain && keywords.length === 0) {
+   if (domain === 'all' && keywords.length === 0) {
       const clientKey = getClientIp(req);
-      const allowed = takeRateLimitToken(`volume-domain:${clientKey}`, DOMAIN_LOOKUPS_PER_HOUR, 60 * 60 * 1000)
-         && (domain !== 'all' || takeRateLimitToken(`volume-all:${clientKey}`, ALL_DOMAIN_LOOKUPS_PER_HOUR, 60 * 60 * 1000));
-      if (!allowed) {
-         return res.status(429).json(errorResponse('TOO_MANY_REQUESTS', 'Too many domain volume lookups. Please try again later.', requestId));
+      if (!takeRateLimitToken(`volume-all:${clientKey}`, ALL_DOMAIN_LOOKUPS_PER_HOUR, 60 * 60 * 1000)) {
+         return res.status(429).json(errorResponse('TOO_MANY_REQUESTS', 'You can update all domains only 2 times per hour. Please try again later.', requestId));
       }
    }
 
@@ -72,6 +69,29 @@ const updatekeywordVolume = async (req: NextApiRequest, res: NextApiResponse) =>
 
       if (keywordsToSend.length === 0) {
          return res.status(400).json(errorResponse('BAD_REQUEST', 'Error Updating Keywords Volume data', requestId));
+      }
+
+      // Google Ads is asked once per country with a pause between countries, so a domain-wide update that spans
+      // several countries can take minutes. It runs in the background instead of holding this request open
+      // until a proxy times it out. Credentials are checked first, so a setup problem is still reported here.
+      const countryCount = new Set(keywordsToSend.map((keywordItem) => keywordItem.country)).size;
+      if (update && keywords.length === 0 && countryCount > 1) {
+         const preflight = await getKeywordsVolume([]);
+         if (preflight.error || preflight.volumes === false) {
+            return res.status(400).json(errorResponse('BAD_REQUEST', preflight.error || 'Error Fetching Keywords Volume Data from Google Ads', requestId));
+         }
+         getKeywordsVolume(keywordsToSend)
+            .then((backgroundVolumes) => {
+               if (backgroundVolumes.volumes === false) {
+                  logger.error('Background keyword volume update failed', new Error(backgroundVolumes.error || 'Google Ads volume lookup failed'));
+                  return undefined;
+               }
+               return updateKeywordsVolumeData(backgroundVolumes.volumes);
+            })
+            .catch((backgroundError) => {
+               logger.error('Background keyword volume update failed', backgroundError instanceof Error ? backgroundError : new Error(String(backgroundError)));
+            });
+         return res.status(202).json({ started: true, keywordCount: keywordsToSend.length, countries: countryCount });
       }
 
       const keywordsVolumeData = await getKeywordsVolume(keywordsToSend);
@@ -100,7 +120,7 @@ const updatekeywordVolume = async (req: NextApiRequest, res: NextApiResponse) =>
       }
 
       // The lookup worked but saving the volumes failed: a server-side failure, not a bad request
-      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error Updating Keywords Volume data', requestId));
+      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error saving keywords volume data', requestId));
    } catch (error) {
       logger.error('Error updating keywords volume data', error instanceof Error ? error : new Error(String(error)));
       return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error Updating Keywords Volume data', requestId));

@@ -25,6 +25,12 @@ body {
    position: relative;
 }
 
+/* White bar with the same border and shadow as the domain cards */
+.topbar {
+   border-bottom: 1px solid #e9ebff;
+   box-shadow: 0 0 20px rgb(20 34 71 / 5%);
+}
+
 
 @media (max-width: 767px) {
    .topbar {
@@ -38,6 +44,17 @@ body {
    .topbar__back {
       right: 100px;
       left: auto;
+   }
+}
+
+/* From tablet up the white bar also runs edge to edge; its content stays inside .desktop-container */
+@media (min-width: 768px) {
+   .topbar {
+      margin-left: calc(-1 * var(--layout-inline));
+      margin-right: calc(-1 * var(--layout-inline));
+      padding-left: var(--layout-inline);
+      padding-right: var(--layout-inline);
+      width: calc(100% + (var(--layout-inline) * 2));
    }
 }
 
@@ -120,6 +137,15 @@ body {
 
 .keywordDetails__section__results--local {
    max-height: 325px;
+}
+
+/* Mobile: the Google Search Result and Local Search Results boxes grow to fit their results (no inner scrolling) */
+@media (max-width: 767px) {
+   .keywordDetails__section__results,
+   .keywordDetails__section__results--local {
+      height: auto;
+      max-height: none;
+   }
 }
 
 .settings__content {

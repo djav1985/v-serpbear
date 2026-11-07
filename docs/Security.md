@@ -16,11 +16,11 @@
 - `2` and up: several proxies in a chain, such as Cloudflare plus nginx. Values above 10 are capped at 10.
 - `true` means `1`, and `false` or an invalid value means `0`.
 
-The client IP drives the login and API-key lockouts and the keyword-search and volume rate limits. It also decides whether `X-Forwarded-Proto` marks the request as HTTPS, which sets the `Secure` cookie flag. Without it, behind a proxy, every client shares the proxy's address. Set the number too high and a client can spoof its IP through the header.
+The client IP drives the login and API-key lockouts and the keyword-search and volume rate limits. It also decides whether `X-Forwarded-Proto` marks the request as HTTPS, which sets the `Secure` cookie flag. Without it, behind a proxy, every client shares the proxy's address. Set the number too high and a client can spoof its IP through the header. If a request arrives with an `X-Forwarded-For` header while `TRUST_PROXY` is unset, the app logs a one-time warning, since that usually means a proxy is in front of it.
 
 ## Stored secrets
 
-Provider API keys, SMTP passwords and other secrets in `data/settings.json` are encrypted with `SECRET`. Secrets are redacted from logs. `GET /api/settings` is public but returns only a few non-secret fields; `PUT /api/settings` needs a login session.
+Provider API keys, SMTP passwords and other secrets in `data/settings.json` are encrypted with `SECRET`. Secrets are redacted from logs. `GET /api/settings` is public but returns only a few non-secret fields; `PUT /api/settings` needs a login session. After login, saved credentials are shown masked (a row of bullets) in the Settings page and API responses, and saving the mask back leaves the stored value unchanged.
 
 ## Data you should back up
 

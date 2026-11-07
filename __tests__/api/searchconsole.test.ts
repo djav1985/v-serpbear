@@ -268,6 +268,10 @@ describe('GET /api/searchconsole', () => {
     mockReadLocalSCData.mockResolvedValue(false);
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   it('looks the domain up by its real name, including hyphens, and returns 404 when it is unknown', async () => {
     mockDomainFindOne.mockResolvedValue(null as any);
 
@@ -288,6 +292,17 @@ describe('GET /api/searchconsole', () => {
 
     expect(mockDomainFindOne).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(400);
+  });
+
+  it('refetches instead of serving cached data whose last fetch recorded an error', async () => {
+    mockDomainFindOne.mockResolvedValue({ get: () => ({ domain: 'my-site.com', search_console: '' }) } as any);
+    mockGetSearchConsoleApiInfo.mockResolvedValue({ client_email: 'client', private_key: 'key' });
+    mockReadLocalSCData.mockResolvedValue({ ...mockSCDataResponse, lastFetchError: 'Search Console 30 day request failed' } as any);
+    mockFetchDomainSCData.mockResolvedValue(mockSCDataResponse);
+
+    await handler(req as NextApiRequest, res as NextApiResponse);
+
+    expect(mockFetchDomainSCData).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -339,5 +354,16 @@ describe('GET /api/insight', () => {
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({ error: expect.objectContaining({ code: 'BAD_REQUEST', message: 'Domain is Missing.' }) }),
     );
+  });
+
+  it('refetches instead of serving cached empty windows whose last fetch recorded an error', async () => {
+    mockDomainFindOne.mockResolvedValue({ get: () => ({ domain: 'my-site.com', search_console: '' }) } as any);
+    mockReadLocalSCData.mockResolvedValue({ ...mockSCDataResponse, lastFetchError: 'Search Console 30 day request failed' } as any);
+    mockFetchDomainSCData.mockResolvedValue(mockSCDataResponse);
+
+    await insightHandler(req as NextApiRequest, res as NextApiResponse);
+
+    expect(mockFetchDomainSCData).toHaveBeenCalledTimes(1);
+    expect(res.status).toHaveBeenCalledWith(200);
   });
 });

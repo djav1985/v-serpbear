@@ -270,6 +270,18 @@ describe('integrateKeywordSCData field mapping', () => {
     expect(result.scData!.impressions.avgSevenDays).toBe(10);
   });
 
+  it('keeps CTR and position as they are in the Avg views, since they are already averages', () => {
+    const uid = 'us:desktop:test_keyword';
+    const scData = buildSCData({
+      sevenDays: [makeItem(uid, 14, 70, 14, 7)],
+    });
+
+    const result = integrateKeywordSCData(baseKeyword, scData);
+
+    expect(result.scData!.position.avgSevenDays).toBe(7);
+    expect(result.scData!.ctr.avgSevenDays).toBe(14);
+  });
+
   it('computes averages correctly for thirtyDays data', () => {
     const uid = 'us:desktop:test_keyword';
     const scData = buildSCData({
