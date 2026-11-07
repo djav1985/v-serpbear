@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import { setAppTimezone } from 'utils/client/appTimezone';
 import { AddDomainDialog } from './add-domain-dialog';
 import { SettingsDialog } from './settings-dialog';
 
@@ -26,11 +27,16 @@ export const useShell = (): ShellContextValue => {
 type ShellProviderProps = {
    domains: DomainSummary[];
    domainsFailed: boolean;
+   /** The app's time zone (TZ on the server). Browsers cannot read it, so the server hands it down. */
+   timezone: string;
    children: ReactNode;
 };
 
 /** Owns the global dialogs (Add Domain, Settings) so the sidebar, header and pages can all open them. */
-export function ShellProvider({ domains, domainsFailed, children }: ShellProviderProps) {
+export function ShellProvider({ domains, domainsFailed, timezone, children }: ShellProviderProps) {
+   // Set during render so every date helper below already sees it on the first paint.
+   setAppTimezone(timezone);
+
    const [addDomainOpen, setAddDomainOpen] = useState(false);
    const [settingsOpen, setSettingsOpen] = useState(false);
 

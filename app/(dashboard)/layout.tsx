@@ -5,6 +5,7 @@ import { getBranding } from 'utils/branding';
 import { loadDomains } from 'utils/domainsList';
 import { logger } from 'utils/logger';
 import { requireSession } from 'utils/serverSession';
+import { APP_TIMEZONE } from 'utils/timezone';
 import packageJson from '../../package.json';
 import { AppSidebar } from './_components/app-sidebar';
 import { DashboardFooter } from './_components/dashboard-footer';
@@ -31,7 +32,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
    const branding = getBranding();
 
    return (
-      <ShellProvider domains={domains} domainsFailed={failed}>
+      <ShellProvider domains={domains} domainsFailed={failed} timezone={APP_TIMEZONE}>
          <SidebarProvider defaultOpen={defaultOpen}>
             <AppSidebar branding={branding} />
             <SidebarInset className="min-w-0">

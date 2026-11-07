@@ -1,4 +1,4 @@
-@import "./fflag.css";
+@import "../app/flags.css";
 @import "tailwindcss";
 
 /* Legacy Pages Router stylesheet. Remove once the last Pages UI route is gone. */
