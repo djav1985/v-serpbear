@@ -236,7 +236,7 @@ export const generateGoogleConsoleStats = async (domain:DomainType): Promise<str
       const initialSCData = await readLocalSCData(domain.domain);
       let localSCData:SCDomainDataType | null = initialSCData === false ? null : initialSCData;
       const hasStats = !!(localSCData?.stats && localSCData.stats.length);
-      const lastFetched = localSCData?.lastFetched;
+      const lastFetched = localSCData?.statsLastFetched;
       const isFresh = hasStats && isSearchConsoleDataFreshForToday(lastFetched);
       if (!isFresh) {
          const scDomainAPI = domain.search_console ? await getSearchConsoleApiInfo(domain) : { client_email: '', private_key: '' };

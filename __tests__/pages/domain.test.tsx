@@ -180,7 +180,7 @@ describe('SingleDomain Page', () => {
 
       let hasInvokedSuccess = false;
 
-      useFetchDomainFunc.mockImplementation((routerArg, domainValue, onSuccess) => {
+      useFetchDomainFunc.mockImplementation((_routerArg, domainValue, onSuccess) => {
          const domainResponse = {
             ...dummyDomain,
             search_console: JSON.stringify(decryptedSearchConsole),
@@ -216,7 +216,7 @@ describe('SingleDomain Page', () => {
    it('keeps default Search Console settings when data is malformed', async () => {
       let hasInvokedSuccess = false;
 
-      useFetchDomainFunc.mockImplementation((routerArg, domainValue, onSuccess) => {
+      useFetchDomainFunc.mockImplementation((_routerArg, domainValue, onSuccess) => {
          const domainResponse = {
             ...dummyDomain,
             search_console: '{invalid-json',

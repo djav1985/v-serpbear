@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { useQueryClient } from 'react-query';
 import Icon from './Icon';

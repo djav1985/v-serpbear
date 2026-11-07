@@ -258,10 +258,17 @@ describe('RetryQueueManager with a corrupt queue file', () => {
     jest.clearAllMocks();
   });
 
-  it('moves the damaged file aside once and returns an empty queue', async () => {
+  it('keeps a corrupt read-only peek side effect free', async () => {
     readMock.mockResolvedValue('{not json');
 
     await expect(isolatedQueue.peekQueue()).resolves.toEqual([]);
+
+    expect(renameMock).not.toHaveBeenCalled();
+  });
+
+  it('moves a corrupt queue aside under the writer lock', async () => {
+    readMock.mockResolvedValue('{not json');
+    await expect(isolatedQueue.addToQueue(8)).resolves.toBeUndefined();
 
     expect(renameMock).toHaveBeenCalledTimes(1);
     expect(renameMock).toHaveBeenCalledWith(

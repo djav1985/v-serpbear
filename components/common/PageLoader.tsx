@@ -1,4 +1,4 @@
-import React, { type HTMLAttributes, type ReactNode } from 'react';
+import { type HTMLAttributes, type ReactNode } from 'react';
 import Icon from './Icon';
 
 type PageLoaderProps = {

@@ -1,6 +1,6 @@
 /// <reference path="../../types.d.ts" />
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQueryClient } from 'react-query';
 import InputField from '../common/InputField';
 import Icon from '../common/Icon';

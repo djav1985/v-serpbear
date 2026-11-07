@@ -34,7 +34,7 @@ SerpBear is a full-stack Next.js application that tracks where your pages rank o
 
 - **Real links for Google redirects.** Results that come back as `google.com/goto` links are resolved to the real page URL, so your domain is matched correctly. It uses Serper's free `/resolve` endpoint: add a free [Serper](https://serper.dev) key as `SERPER_API_KEY` and it works for every scraper that returns those links. See [the settings table](#settings-configured-in-docker-composeyml-envs).
 - **A clearer average position.** One whole number, the same on the dashboard card and in the email. Keywords that failed their last scrape are left out, a keyword that ranked before and fell out of the results counts at 10 × pages scraped, and map pack keywords count at their best spot. See [How the average position is calculated](#how-the-average-position-is-calculated).
-- **Smarter keyword adding.** Discover and Ideas share one add-to-tracker bar with a Desktop/Mobile toggle, tags and a location picker. Keywords that are already tracked are skipped, and the Tracking tab can change the location of many keywords at once.
+- **Smarter keyword adding.** Discover and Ideas share one add-to-tracker bar with a Desktop/Mobile toggle, tags and a location picker. Keywords that are already tracked are skipped, additions can queue behind an active refresh, and the Tracking tab can change the location of many keywords at once when the domain is idle.
 
 The full list of changes is in the [changelog](./CHANGELOG.md). See [Update SerpBear](#update-serpbear) before you upgrade.
 
@@ -213,7 +213,7 @@ Manage these in the Settings UI or at `/api/settings`.
 
 1. **Add a domain** with the host name to monitor.
 2. **Add keywords** with the query, country, optional state and city, and device (desktop or mobile).
-3. **Scrape.** The cron worker (or **Refresh**) asks your provider for results and stores positions, using the [scrape strategy](#scrape-strategy).
+3. **Scrape.** The cron worker (or **Refresh**) asks your provider for results and stores positions, using the [scrape strategy](#scrape-strategy). Keyword additions are queued if that domain is already refreshing; each add request accepts up to 100 keyword and device combinations.
 4. **Analyse.** Charts and tables show history, average position and day-over-day change.
 5. **Share** through the API, the MCP server or email digests.
 
@@ -298,7 +298,7 @@ The Keywords and Map Pack counts include every keyword, whether or not it is in 
 ### Google Search Console
 
 - Add a service account to show impressions, clicks and CTR next to each keyword. Credentials are read from the domain's own settings first, then the Settings page, then `SEARCH_CONSOLE_CLIENT_EMAIL` and `SEARCH_CONSOLE_PRIVATE_KEY`.
-- Cached data is refetched when a dashboard or API read finds it more than 24 hours old, and by the cron at the `CRON_MAIN_SCHEDULE` time. Search Console days follow Pacific Time (`America/Los_Angeles`) whatever `TZ` is.
+- The 3, 7 and 30 day report windows are refetched when a dashboard or API read finds them more than 24 hours old, and by the cron at the `CRON_MAIN_SCHEDULE` time. Email stats track freshness separately and refresh when their cache is not current for the day. A failed request keeps its previous data and records the error. Search Console days follow Pacific Time (`America/Los_Angeles`) whatever `TZ` is.
 - If one of the 3, 7 or 30 day requests fails, only that window keeps its previous data and the error is recorded; a successful fetch with no rows is stored as an empty result instead of being treated as a failure. The 7 day comparison uses calendar dates, so missing days in the stored stats do not shift it.
 - Insight totals compute CTR as clicks divided by impressions, and the average position is weighted by impressions. The Pages table counts distinct keywords.
 - The Discover tab disables keywords that are already tracked, and "select all" skips them.

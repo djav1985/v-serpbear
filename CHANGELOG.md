@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file. Releases no
 
 ## [Unreleased]
 
+### Fixed
+- **Refresh-time keyword edits.** Location changes now reserve every selected domain and return a clear conflict if any is actively refreshing or queued, preventing partial changes during scrape runs. Keyword and domain deletion conflicts display the server's explanation in a toast.
+- **Domain sidecar cleanup races.** Search Console, keyword-ideas and thumbnail writes now share a per-domain lifecycle lock with deletion and verify the domain row ID before saving. A slow background request can no longer restore a deleted domain's files or write into a newly created row with the same name.
+- **Overlapping statistics and Search Console fetches.** Domain-stat recalculations are serialized per domain. Concurrent Search Console refreshes for one domain share one fetch/write, and email stats now use their own freshness and error fields so a recent report-window fetch does not incorrectly mark stale email stats as fresh. Existing cache files without the stats timestamp are refreshed once.
+- **Retry queue reads and polling.** Lock-free queue peeks no longer move a corrupt queue file; quarantine happens during a locked write. Retry status polling now sends keyword IDs in a JSON `POST /api/refresh` body, with the legacy GET form retained.
+- **Auth and update feedback.** An authentication API error no longer redirects users to login. Google Ads authentication opens its popup synchronously from the click and falls back to the current tab if popups are blocked. A completed synchronous volume update invalidates keyword data instead of reloading the page.
+
+### Changed
+- **Keyword additions during refresh.** Adding keywords remains available while a domain is refreshing; their initial scrape queues until the domain is free, and the success toast explains when that happens. The form now counts the generated keyword/device rows against the 100-row request limit and reports excess rows without silently dropping them. Duplicate detection uses structured target keys.
+- **Documentation.** Updated the keyword workflow and limits, Search Console cache behavior, Google Ads popup fallback, and JSON-body retry polling in the README and guides.
+
+### Cleaned
+- Removed unused default React imports and marked HasData's unused URL-builder settings argument as intentionally unused.
+
 ### Added
 - **TinyFish scraper.** Adds the TinyFish Search API as a country-level provider (no map pack, no mobile option). It has a free allowance of 12,000 requests a day and needs no Serper key. Requests are spaced 2 seconds apart to stay under its 30 requests a minute limit.
 - **Jina AI scraper.** Adds Jina AI Search (`s.jina.ai`) as a country-level provider (no map pack, no mobile option). It returns real URLs, so it needs no Serper key. Paging beyond page 1 is not documented by Jina, so use the Basic scrape strategy unless you have checked it.

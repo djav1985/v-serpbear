@@ -230,6 +230,8 @@ type SCDomainDataType = {
    lastFetched?: string,
    lastFetchError?: string,
    stats? : SearchAnalyticsStat[],
+   statsLastFetched?: string,
+   statsLastFetchError?: string,
 }
 
 type SCKeywordType = SearchAnalyticsItem;

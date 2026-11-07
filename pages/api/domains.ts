@@ -30,6 +30,7 @@ import { atomicWriteFile } from '../../utils/atomicWrite';
 import { withFileLock } from '../../utils/fileLock';
 import { removeDomainIdeasFile } from '../../utils/domainIdeasFile';
 import { deleteThumbnails, ensureThumbnails } from '../../utils/thumbnails';
+import { withDomainLifecycleLock } from '../../utils/domainLifecycle';
 
 // Sent in place of a saved Search Console credential: GET responses mask it, and a save that sends it back keeps the stored value
 const SC_CREDENTIAL_MARKER = 'true';
@@ -221,7 +222,7 @@ const addDomain = async (req: NextApiRequest, res: NextApiResponse) => {
          const newDomains:Domain[] = await Domain.bulkCreate(domainsToAdd);
          const formattedDomains = newDomains.map((el) => normalizeDomainBooleans(el.get({ plain: true }) as DomainType));
          // Start the website thumbnails now so they are usually ready by the time the list is opened. Not awaited.
-         ensureThumbnails(formattedDomains.map((item) => item.domain)).catch((thumbError) => {
+         ensureThumbnails(formattedDomains.map((item) => ({ domain: item.domain, ID: item.ID }))).catch((thumbError) => {
             logger.warn('Could not start thumbnail generation', { error: thumbError instanceof Error ? thumbError.message : String(thumbError) });
          });
          return res.status(201).json({ domains: formattedDomains });
@@ -289,6 +290,7 @@ export const deleteDomain = async (req: NextApiRequest, res: NextApiResponse) =>
                   const keywordIdsToRemove = new Set<number>(keywordsToRemove.map((keyword) => keyword.ID).filter((id): id is number => Number.isFinite(id)));
                   pendingKeywordIds?.forEach((id) => keywordIdsToRemove.add(id));
 
+                  await withDomainLifecycleLock(normalizedDomain, async () => {
                   let removedKeywordCount = 0;
                   let removedDomCount = 0;
                   await db.transaction(async (transaction) => {
@@ -344,6 +346,7 @@ export const deleteDomain = async (req: NextApiRequest, res: NextApiResponse) =>
                         cleanup: { complete: cleanupFailures.length === 0, failed: cleanupFailures, retryPending: cleanupFailures.length > 0 },
                      },
                   };
+                  });
                   resolve();
                } catch (error) {
                   reject(error);

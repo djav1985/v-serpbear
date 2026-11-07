@@ -2,6 +2,7 @@ import { updateDomainStats } from '../../utils/updateDomainStats';
 import Keyword from '../../database/models/keyword';
 import Domain from '../../database/models/domain';
 import { getAppSettings } from '../../pages/api/settings';
+import { waitFor } from '@testing-library/react';
 
 // Mock the database models
 jest.mock('../../database/models/keyword');
@@ -79,6 +80,23 @@ describe('updateDomainStats', () => {
       },
       { where: { domain: 'example.com' } }
     );
+  });
+
+  it('serializes overlapping recalculations for one domain', async () => {
+    let finishFirst!: (rows: unknown[]) => void;
+    mockKeywordFindAll
+      .mockImplementationOnce(() => new Promise((resolve) => { finishFirst = resolve; }) as any)
+      .mockResolvedValue([row(9, 0)] as any);
+    mockDomainUpdate.mockResolvedValue([1] as any);
+
+    const first = updateDomainStats('example.com');
+    const second = updateDomainStats('EXAMPLE.COM');
+    await waitFor(() => expect(mockKeywordFindAll).toHaveBeenCalledTimes(1));
+
+    finishFirst([row(5, 0)]);
+    await Promise.all([first, second]);
+    expect(mockKeywordFindAll).toHaveBeenCalledTimes(2);
+    expect(mockDomainUpdate).toHaveBeenCalledTimes(2);
   });
 
   it('handles domain with no keywords', async () => {

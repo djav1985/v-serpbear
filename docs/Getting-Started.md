@@ -37,7 +37,7 @@ Open **Settings → Scraper**, choose a provider, paste its API key and save, th
 
 ## Step 5: Add your first keywords
 
-Click **Add Keyword**, enter the keywords, choose the country and device (and a city, if your provider supports it), and add them. SerpBear fetches the results straight away and fills in the positions. See [Keyword Tracking](Keyword-Tracking).
+Click **Add Keyword**, enter the keywords, choose the country and device (and a city, if your provider supports it), and add them. SerpBear queues a refresh and fills in the positions when it runs. If that domain is already refreshing, the new keywords wait for the current refresh to finish. Each add request can contain up to 100 keyword and device combinations. See [Keyword Tracking](Keyword-Tracking).
 
 ## Step 6: Get email digests (optional)
 

@@ -1,7 +1,7 @@
 /// <reference path="../../types.d.ts" />
 
 import { useRouter } from 'next/router';
-import React, { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
 import { useAddKeywords, useFetchKeywords } from '../../services/keywords';
 import { SCfilterKeywords, SCkeywordsByDevice, SCsortKeywords } from '../../utils/client/sortFilter';

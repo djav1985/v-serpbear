@@ -728,6 +728,21 @@ describe('PUT /api/keywords location updates', () => {
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ updatedCount: 2, skipped: [] }));
   });
 
+  it('rejects location updates while any selected domain is refreshing', async () => {
+    const selected = [locationRow()];
+    keywordMock.findAll.mockResolvedValueOnce(selected);
+    (refreshQueue.reserveDomains as jest.Mock).mockReturnValueOnce(null);
+    (refreshQueue.isDomainLocked as jest.Mock).mockReturnValueOnce(true);
+    const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { location: 'London,England,United Kingdom' } });
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(keywordMock.update).not.toHaveBeenCalled();
+    expect(keywordMock.findAll).toHaveBeenCalledTimes(1);
+  });
+
   it('saves a blank location for a country-only choice', async () => {
     keywordMock.update.mockResolvedValue([1]);
     mockLocationLookups([locationRow()]);

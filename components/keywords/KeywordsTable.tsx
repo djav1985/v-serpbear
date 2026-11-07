@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
 import { filterKeywords, keywordsByDevice, NO_TAGS_FILTER, sortKeywords } from '../../utils/client/sortFilter';
 import Icon from '../common/Icon';

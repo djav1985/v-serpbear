@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import { useQuery } from 'react-query';
 import { useRouter } from 'next/router';
 import Icon from '../common/Icon';

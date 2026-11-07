@@ -1,6 +1,7 @@
 /// <reference path="../../types.d.ts" />
 
 import type { NextApiRequest, NextApiResponse } from 'next';
+import Domain from '../../database/models/domain';
 import verifyUser from '../../utils/verifyUser';
 import {
    getAdwordsCredentials, getAdwordsKeywordIdeas, getLocalKeywordIdeas, updateLocalKeywordIdeas, withIdeasLock,
@@ -135,7 +136,8 @@ const updateKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => 
          logger.error('Google Ads credentials not configured', undefined, { adwordsCreds: !!adwordsCreds });
          return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Google Ads credentials not configured', requestId));
       }
-      const ideaOptions = { country, language, keywords, domain, seedSCKeywords, seedCurrentKeywords, seedType };
+      const domainRow = domain ? await Domain.findOne({ where: { domain }, attributes: ['ID'], raw: true }) as unknown as { ID: number } | null : null;
+      const ideaOptions = { country, language, keywords, domain, domainID: domain ? (domainRow?.ID ?? -1) : undefined, seedSCKeywords, seedCurrentKeywords, seedType };
       
       logger.debug('Calling getAdwordsKeywordIdeas', { ideaOptions });
       

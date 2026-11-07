@@ -1,5 +1,5 @@
 import { useRouter } from 'next/router';
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
 import { useAddKeywords, useFetchKeywords } from '../../services/keywords';
 import { useEmailKeywordIdeas } from '../../services/ideas';

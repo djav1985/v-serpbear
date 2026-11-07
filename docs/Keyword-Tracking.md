@@ -14,6 +14,8 @@ The domain list shows a screenshot of each tracked website. The server fetches i
 
 Discover and Ideas share one add-to-tracker bar with a Desktop/Mobile toggle, tags and a location picker. Keywords that are already tracked are skipped. The Tracking tab can change the location of many keywords at once.
 
+Each add request accepts up to 100 keyword and device combinations (a keyword selected for both devices counts as two). New keywords can be added while their domain is refreshing; SerpBear queues their refresh until that domain is available. Location changes and keyword deletion are blocked while a refresh for the domain is active or queued. The dashboard shows a message explaining the conflict; retry the change after the refresh finishes.
+
 If your scraper is country-only (Serper, Serply, TinyFish or Jina AI), the city and state fields are disabled and show `N/A`, and a keyword's stored city and state are hidden. See [Scrapers](Scrapers).
 
 ## Keyword details panel

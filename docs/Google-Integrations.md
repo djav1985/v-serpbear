@@ -65,7 +65,7 @@ There are three ways to give SerpBear the credentials. They are read in this ord
 
 ### How the data is refreshed
 
-Cached data is refetched when a dashboard or API read finds it more than 24 hours old, and by the cron at the `CRON_MAIN_SCHEDULE` time. Search Console days follow Pacific Time (`America/Los_Angeles`) whatever `TZ` is. Results are read in pages of up to 25,000 rows.
+The 3, 7 and 30 day report windows are refreshed when a dashboard or API read finds them more than 24 hours old, and by the cron at the `CRON_MAIN_SCHEDULE` time. Email statistics track freshness separately and are refreshed when the stats cache is not current for the day. A failed request keeps that request's previous data and records its error, so the last successful data remains available while the next refresh can retry it. Concurrent requests for the same domain share one refresh. Search Console days follow Pacific Time (`America/Los_Angeles`) whatever `TZ` is. Results are read in pages of up to 25,000 rows.
 
 ---
 
@@ -99,7 +99,7 @@ Go to **APIs & Services → Library**, search for "google ads" and enable the **
    - `http://localhost:3000` gives `http://localhost:3000/api/adwords`
    - `https://serpbear.yourdomain.com` gives `https://serpbear.yourdomain.com/api/adwords`
 3. `NEXT_PUBLIC_APP_URL` must match that address without the `/api/adwords` part.
-4. In SerpBear, open **Settings → Google Ads**, paste the client ID and client secret, and click **Authenticate Integration**. A Google page opens in a new window. Grant the access it asks for.
+4. In SerpBear, open **Settings → Google Ads**, paste the client ID and client secret, and click **Authenticate Integration**. A Google page opens in a new window. If the browser blocks the popup, SerpBear continues in the current tab. Grant the access it asks for.
 
 ### Step 4: Create a Manager account and get the developer token
 

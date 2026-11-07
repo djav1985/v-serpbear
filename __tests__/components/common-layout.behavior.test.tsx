@@ -10,7 +10,6 @@ jest.mock('react-chartjs-2', () => ({
 }));
 jest.mock('../../hooks/useBranding');
 
-import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import Insight from '../../components/insight/Insight';
 import { DEFAULT_BRANDING, BrandingConfig } from '../../utils/branding';

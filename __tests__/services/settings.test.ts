@@ -57,6 +57,10 @@ describe('useRetryFailedQueue', () => {
       });
 
       expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(fetchMock.mock.calls.every(([, init]) => init?.method === 'POST')).toBe(true);
+      expect(JSON.parse(fetchMock.mock.calls[0][1]?.body as string)).toEqual({ ids: [11, 12] });
+      expect(JSON.parse(fetchMock.mock.calls[1][1]?.body as string)).toEqual({ status: 'retry', ids: [11, 12] });
+      expect(JSON.parse(fetchMock.mock.calls[2][1]?.body as string)).toEqual({ status: 'retry', ids: [11] });
       expect(result.current.isLoading).toBe(false);
       expect(toastMock).toHaveBeenCalledWith('Failed keyword retries completed', { icon: '✔️' });
    });

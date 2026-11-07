@@ -25,7 +25,7 @@ const hasdata: ScraperSettings = {
   }),
   scrapeURL: (
     keyword: KeywordType,
-    settings: SettingsType,
+    _settings: SettingsType,
     countryData: any,
     pagination?: ScraperPagination,
   ) => {

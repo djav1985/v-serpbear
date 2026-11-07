@@ -1,7 +1,7 @@
 import { useRouter, NextRouter } from 'next/router';
 import toast from 'react-hot-toast';
 import { useMutation, useQuery, useQueryClient, QueryClient, QueryKey } from 'react-query';
-import { apiGet, apiPost, apiPut, apiDelete } from '../utils/client/apiClient';
+import { ApiError, apiGet, apiPost, apiPut, apiDelete } from '../utils/client/apiClient';
 import { showQueryErrorToast } from './queryErrorToast';
 
 type UpdatePayload = {
@@ -220,7 +220,8 @@ export function useDeleteDomain(onSuccess: () => void) {
          queryClient.invalidateQueries(['domains']);
       },
       onError: (_error, _variables, _context) => {
-         toast('Error Removing Domain', { icon: '⚠️' });
+         const error = _error as ApiError;
+         toast(error.statusCode === 409 ? error.message : 'Error Removing Domain', { icon: '⚠️' });
       },
    });
 }

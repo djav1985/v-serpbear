@@ -13,6 +13,7 @@ jest.mock('../../database/database', () => ({
   __esModule: true,
   default: { sync: jest.fn() },
 }));
+jest.mock('../../database/models/domain', () => ({ __esModule: true, default: { findOne: jest.fn().mockResolvedValue({ ID: 1 }) } }));
 
 jest.mock('../../utils/verifyUser', () => ({ __esModule: true, default: jest.fn() }));
 

@@ -82,6 +82,7 @@ export function useMutateFavKeywordIdeas(router:NextRouter, onSuccess?: (show?: 
 }
 
 export function useMutateKeywordsVolume(onSuccess?: (show?: boolean) => void) {
+   const queryClient = useQueryClient();
    return useMutation(async (data:Record<string, any>) => (
       apiPost<{ started?: boolean }>('/api/volume', { ...data })
    ), {
@@ -94,10 +95,8 @@ export function useMutateKeywordsVolume(onSuccess?: (show?: boolean) => void) {
             toast('Keyword volume update started. It runs in the background and can take a few minutes. Reload the page later to see the new volumes.', { icon: '🔄' });
             return;
          }
-         toast('Keyword Volume Data Loaded Successfully! Reloading Page...', { icon: '✔️' });
-         setTimeout(() => {
-            window.location.reload();
-         }, 3000);
+         await queryClient.invalidateQueries(['keywords']);
+         toast('Keyword Volume Data Loaded Successfully!', { icon: '✔️' });
       },
       onError: (error, _variables, _context) => {
          const message = (error as Error)?.message || 'Error Loading Keyword Volume Data';

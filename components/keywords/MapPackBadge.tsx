@@ -1,5 +1,3 @@
-import React from 'react';
-
 type MapPackBadgeProps = {
    /** In the map pack top three: green badge */
    inMapPack: boolean,

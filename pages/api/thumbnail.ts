@@ -40,10 +40,11 @@ const normalizeDomain = (value: unknown): string => (typeof value === 'string' ?
 const listDomainThumbnails = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
    try {
-      const domains = await Domain.findAll({ attributes: ['domain'] });
-      const names = domains.map((item) => String(item.get({ plain: true }).domain));
+      const domains = await Domain.findAll({ attributes: ['ID', 'domain'] });
+      const records = domains.map((item) => item.get({ plain: true }) as { ID: number; domain: string });
+      const names = records.map((item) => String(item.domain));
       // Not awaited beyond the folder listing: a screenshot can take a while, and the old image keeps being served meanwhile
-      await ensureThumbnails(names);
+      await ensureThumbnails(records);
       const existing = await listThumbnails();
       const thumbnails: Record<string, string> = {};
       names.forEach((name) => {
@@ -92,11 +93,11 @@ const regenerateThumbnail = async (req: NextApiRequest, res: NextApiResponse) =>
       return res.status(400).json(errorResponse('BAD_REQUEST', 'Domain is Required!', requestId));
    }
    try {
-      const tracked = await Domain.findOne({ where: { domain }, attributes: ['ID'] });
+      const tracked = await Domain.findOne({ where: { domain }, attributes: ['ID'], raw: true }) as unknown as { ID: number } | null;
       if (!tracked) {
          return res.status(404).json(errorResponse('NOT_FOUND', 'Domain not found', requestId));
       }
-      const saved = await generateThumbnail(domain);
+      const saved = await generateThumbnail(domain, tracked.ID);
       const found = await getThumbnail(domain);
       if (!saved || !found) {
          return res.status(502).json(errorResponse('BAD_GATEWAY', 'Could not get a screenshot of this website right now.', requestId));

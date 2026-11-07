@@ -1,6 +1,6 @@
 /// <reference path="../../types.d.ts" />
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import SearchConsoleSettings from './SearchConsoleSettings';
 import AdWordsSettings from './AdWordsSettings';
 import Icon from '../common/Icon';

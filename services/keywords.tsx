@@ -2,7 +2,7 @@ import toast from 'react-hot-toast';
 import { NextRouter } from 'next/router';
 import { useMutation, useQuery, useQueryClient } from 'react-query';
 import { normalizeToBoolean } from '../utils/dbBooleans';
-import { apiFetch, apiGet, apiPost, apiPut } from '../utils/client/apiClient';
+import { ApiError, apiFetch, apiGet, apiPost, apiPut } from '../utils/client/apiClient';
 import { getAddKeywordsMessage, getLocationUpdateMessage } from '../utils/keywordMeta';
 
 type KeywordsResponse = {
@@ -77,10 +77,10 @@ export function useAddKeywords(onSuccess: () => void) {
    const queryClient = useQueryClient();
    return useMutation(async ({ payloads }: { payloads: KeywordAddPayload[], skipped?: string[] }) => (
       // Nothing left to add (everything was already tracked): skip the request and only report
-      payloads.length > 0 ? apiPost('/api/keywords', { keywords: payloads }) : null
+      payloads.length > 0 ? apiPost<{ queuedForRefresh?: boolean }>('/api/keywords', { keywords: payloads }) : null
    ), {
-      onSuccess: async (_data, { payloads, skipped = [] }) => {
-         const message = getAddKeywordsMessage(payloads.length, skipped);
+      onSuccess: async (data, { payloads, skipped = [] }) => {
+         const message = `${getAddKeywordsMessage(payloads.length, skipped)}${data?.queuedForRefresh ? ' New keywords were queued and will be scraped when this domain is available.' : ''}`;
          toast(message, { icon: skipped.length > 0 ? '⚠️' : '✔️' });
          onSuccess();
          queryClient.invalidateQueries(['keywords']);
@@ -103,7 +103,8 @@ export function useDeleteKeywords(onSuccess: () => void) {
          queryClient.invalidateQueries(['keywords']);
       },
       onError: (_error, _variables, _context) => {
-         toast('Error Removing the Keywords', { icon: '⚠️' });
+         const error = _error as ApiError;
+         toast(error.statusCode === 409 ? error.message : 'Error Removing the Keywords', { icon: '⚠️' });
       },
    });
 }
@@ -155,7 +156,8 @@ export function useUpdateKeywordLocation(onSuccess: () => void) {
          queryClient.invalidateQueries(['keywords']);
       },
       onError: (_error, _variables, _context) => {
-         toast('Error Updating Keyword Locations.', { icon: '⚠️' });
+         const error = _error as ApiError;
+         toast(error.statusCode === 409 ? error.message : 'Error Updating Keyword Locations.', { icon: '⚠️' });
       },
    });
 }

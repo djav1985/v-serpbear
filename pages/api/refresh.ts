@@ -43,6 +43,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return getKeywordSearchResults(req, res);
    }
    if (req.method === 'POST') {
+      if (req.body?.status === 'retry') {
+         return getRetryStatus(req, res);
+      }
+      if (req.body?.status !== undefined) {
+         return res.status(400).json(errorResponse('BAD_REQUEST', 'Invalid refresh status request.', requestId));
+      }
       return refreshTheKeywords(req, res);
    }
    return res.status(405).json(errorResponse('METHOD_NOT_ALLOWED', 'Method not allowed', requestId));
@@ -50,13 +56,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
 const getRetryStatus = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
-   if (!req.query.id || typeof req.query.id !== 'string') {
+   const bodyIDs = req.body?.ids;
+   const keywordIDs = Array.isArray(bodyIDs) && bodyIDs.every((id: unknown) => Number.isSafeInteger(id) && (id as number) > 0)
+      ? Array.from(new Set(bodyIDs as number[]))
+      : (typeof req.query.id === 'string' ? parseKeywordIds(req.query.id) : null);
+   if (!keywordIDs || keywordIDs.length === 0) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'keyword ID is Required!', requestId));
-   }
-
-   const keywordIDs = parseKeywordIds(req.query.id);
-   if (!keywordIDs) {
-      return res.status(400).json(errorResponse('BAD_REQUEST', 'No valid keyword IDs provided', requestId));
    }
 
    try {

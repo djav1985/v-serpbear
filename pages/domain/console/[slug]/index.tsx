@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { NextPage } from 'next';
 import { useRouter } from 'next/router';
 import exportCSV from '../../../../utils/client/exportcsv';

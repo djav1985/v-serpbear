@@ -54,7 +54,7 @@ describe('/api/thumbnail', () => {
 
       await handler(makeReq('GET'), res);
 
-      expect(thumbsMock.ensureThumbnails).toHaveBeenCalledWith(['a.com', 'b.com']);
+      expect(thumbsMock.ensureThumbnails).toHaveBeenCalledWith([{ domain: 'a.com' }, { domain: 'b.com' }]);
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({ thumbnails: { 'a.com': '2026-11-01-1762500000000' } });
    });
@@ -89,7 +89,7 @@ describe('/api/thumbnail', () => {
 
       await handler(makeReq('POST', { domain: 'a.com' }), res);
 
-      expect(thumbsMock.generateThumbnail).toHaveBeenCalledWith('a.com');
+      expect(thumbsMock.generateThumbnail).toHaveBeenCalledWith('a.com', 1);
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({ thumbnail: '2026-11-07-1762520000000' });
    });

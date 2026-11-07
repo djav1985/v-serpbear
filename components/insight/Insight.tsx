@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { sortInsightItems } from '../../utils/insight';
 import SelectField from '../common/SelectField';
 import InsightItem from './InsightItem';

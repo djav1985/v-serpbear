@@ -14,6 +14,7 @@ import { readLocalSCData } from './searchConsole';
 import { logger } from './logger';
 import { RESEARCH_IDEAS_KEY, getIdeasFilePath } from './domainIdeasFile';
 import { atomicWriteFile } from './atomicWrite';
+import { isCurrentDomainRecord, withDomainLifecycleLock } from './domainLifecycle';
 
 export const GOOGLE_ADS_API_VERSION = 'v23';
 
@@ -54,6 +55,7 @@ type IdeaSettings = {
    keywords?: string[];
    /** Real domain name (example.com). Empty or missing means the research page, which has no domain. */
    domain?: string;
+   domainID?: number;
    seedType: 'auto' | 'custom' | 'tracking' | 'searchconsole';
    seedSCKeywords?: boolean;
    seedCurrentKeywords?: boolean;
@@ -221,11 +223,14 @@ export const getAdwordsAccessToken = async (credentials: AdwordsCredentials) => 
  * Stores fetched keyword ideas for a domain and fails when nothing was saved, so the caller never reports
  * success for ideas that were fetched but lost (for example because the domain slug was rejected).
  */
-const saveFetchedIdeas = async (domain: string, data: IdeaDatabaseUpdateData): Promise<void> => {
+const saveFetchedIdeas = async (domain: string, data: IdeaDatabaseUpdateData, domainID?: number): Promise<void> => {
    // The read-merge-write runs under the same lock as the favourites toggle, so neither overwrites the other.
    // updateLocalKeywordIdeas itself takes no lock (the toggle already holds it), so it is not called re-entrantly.
    const saved = getIdeasFilePath(domain)
-      ? await withIdeasLock(domain, () => updateLocalKeywordIdeas(domain, data), { createIfMissing: true })
+      ? await withDomainLifecycleLock(domain, async () => {
+         if (Number.isFinite(domainID) && !await isCurrentDomainRecord(domain, domainID as number)) return false;
+         return withIdeasLock(domain, () => updateLocalKeywordIdeas(domain, data), { createIfMissing: true });
+      })
       : false;
    if (!saved) {
       throw new Error('Keyword ideas were fetched but could not be saved for this domain.');
@@ -484,7 +489,7 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
          }
 
          if (!test && fetchedKeywords.length > 0) {
-            await saveFetchedIdeas(ideasFileKey, { keywords: fetchedKeywords, settings: adwordsDomainOptions });
+            await saveFetchedIdeas(ideasFileKey, { keywords: fetchedKeywords, settings: adwordsDomainOptions }, adwordsDomainOptions.domainID);
             logger.debug('Updated local keyword ideas', { domain: ideasFileKey, count: fetchedKeywords.length });
          }
       } catch (error) {

@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Icon from '../common/Icon';
 import countries from '../../utils/countries';
 import Chart from '../common/Chart';

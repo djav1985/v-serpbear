@@ -87,7 +87,6 @@ jest.mock('../../components/keywords/KeywordPosition', () =>
    }
 );
 
-import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import SCKeywordsTable from '../../components/keywords/SCKeywordsTable';

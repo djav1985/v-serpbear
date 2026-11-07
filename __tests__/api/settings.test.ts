@@ -1,4 +1,4 @@
-import { writeFile, readFile, rename, unlink } from 'fs/promises';
+import { writeFile, readFile, rename } from 'fs/promises';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import handler from '../../pages/api/settings';
 import * as settingsApi from '../../pages/api/settings';
@@ -63,7 +63,6 @@ const readFileMock = readFile as unknown as jest.Mock;
 const verifyUserMock = verifyUser as unknown as jest.Mock;
 const writeFileMock = writeFile as unknown as jest.Mock;
 const renameMock = rename as unknown as jest.Mock;
-const _unlinkMock = unlink as unknown as jest.Mock;
 const originalEnv = process.env;
 
 jest.mock('cryptr', () => ({

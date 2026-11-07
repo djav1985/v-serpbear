@@ -2,6 +2,7 @@ import { mkdir, readdir, readFile, rename, stat, unlink, writeFile } from 'fs/pr
 import { randomBytes } from 'crypto';
 import path from 'path';
 import { logger } from './logger';
+import { isCurrentDomainRecord, withDomainLifecycleLock } from './domainLifecycle';
 
 /**
  * Website thumbnails for the domain list. The server fetches a screenshot from thum.io, saves it in
@@ -195,7 +196,7 @@ const releaseSlot = () => {
    if (next) { next(); } else { running -= 1; }
 };
 
-const generate = async (domain: string): Promise<boolean> => {
+const generate = async (domain: string, domainID?: number): Promise<boolean> => {
    await acquireSlot();
    try {
       let image: Buffer | null = null;
@@ -212,6 +213,8 @@ const generate = async (domain: string): Promise<boolean> => {
          return false;
       }
 
+      return await withDomainLifecycleLock(domain, async () => {
+      if (Number.isFinite(domainID) && !await isCurrentDomainRecord(domain, domainID as number)) return false;
       const dir = getThumbnailDir();
       const finalName = `${domain}_${todayStamp()}.jpg`;
       // eslint-disable-next-line security/detect-non-literal-fs-filename
@@ -234,6 +237,7 @@ const generate = async (domain: string): Promise<boolean> => {
       }
       failedAt.delete(domain);
       return true;
+      });
    } catch (error) {
       failedAt.set(domain, Date.now());
       logger.error('Could not generate a thumbnail', error instanceof Error ? error : new Error(String(error)), { domain });
@@ -244,11 +248,11 @@ const generate = async (domain: string): Promise<boolean> => {
 };
 
 /** Generates a thumbnail now. Resolves to whether a new one was saved. A generation already running for the domain is joined. */
-export const generateThumbnail = (domain: string): Promise<boolean> => {
+export const generateThumbnail = (domain: string, domainID?: number): Promise<boolean> => {
    if (!isSafeThumbnailDomain(domain)) { return Promise.resolve(false); }
    const existingJob = inFlight.get(domain);
    if (existingJob) { return existingJob; }
-   const job = generate(domain).finally(() => { inFlight.delete(domain); });
+   const job = generate(domain, domainID).finally(() => { inFlight.delete(domain); });
    inFlight.set(domain, job);
    return job;
 };
@@ -257,15 +261,17 @@ export const generateThumbnail = (domain: string): Promise<boolean> => {
  * Starts background generation for every given domain that has no thumbnail or only one older than 30 days.
  * It does not wait for the result: the old image (if any) keeps being served until the new one is saved.
  */
-export const ensureThumbnails = async (domains: string[], now: number = Date.now()): Promise<void> => {
+export const ensureThumbnails = async (domains: Array<string | { domain: string; ID: number }>, now: number = Date.now()): Promise<void> => {
    const existing = await listThumbnails();
-   for (const domain of domains) {
+   for (const entry of domains) {
+      const domain = typeof entry === 'string' ? entry : entry.domain;
+      const domainID = typeof entry === 'string' ? undefined : entry.ID;
       if (!isSafeThumbnailDomain(domain) || inFlight.has(domain)) { continue; }
       const current = existing.get(domain);
       if (current && !isThumbnailStale(current.date, now)) { continue; }
       const failed = failedAt.get(domain);
       if (failed && now - failed < FAILURE_COOLDOWN_MS) { continue; }
-      generateThumbnail(domain).catch(() => undefined);
+      generateThumbnail(domain, domainID).catch(() => undefined);
    }
 };
 
