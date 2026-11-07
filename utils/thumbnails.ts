@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, rename, unlink, writeFile } from 'fs/promises';
+import { mkdir, readdir, readFile, rename, stat, unlink, writeFile } from 'fs/promises';
 import { randomBytes } from 'crypto';
 import path from 'path';
 import { logger } from './logger';
@@ -24,7 +24,11 @@ const FILE_PATTERN = /^(.+)_(\d{4}-\d{2}-\d{2})\.jpg$/;
 // Domains are validated as host names when they are added; this is a second check because the name becomes a file name
 const SAFE_DOMAIN = /^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/;
 
-export type ThumbnailInfo = { domain: string; date: string; file: string };
+/**
+ * date is the day in the file name and decides when the thumbnail is old. version changes every time the file is
+ * written (it adds the file's modification time), so an image regenerated on the same day still gets a new address.
+ */
+export type ThumbnailInfo = { domain: string; date: string; file: string; version: string };
 
 export const getThumbnailDir = (): string => path.join(process.cwd(), 'data', 'thumbnails');
 
@@ -74,9 +78,20 @@ export const listThumbnails = async (): Promise<Map<string, ThumbnailInfo>> => {
       const [, domain, date] = match;
       const current = newest.get(domain);
       if (!current || date > current.date) {
-         newest.set(domain, { domain, date, file });
+         newest.set(domain, { domain, date, file, version: date });
       }
    }
+   // The modification time is read for the newest file of each domain only
+   await Promise.all(Array.from(newest.values()).map(async (info) => {
+      try {
+         // The file name matched <safe domain>_<date>.jpg in the folder listing.
+         // eslint-disable-next-line security/detect-non-literal-fs-filename
+         const { mtimeMs } = await stat(insideThumbnailDir(info.file));
+         info.version = `${info.date}-${Math.floor(mtimeMs)}`;
+      } catch {
+         // Keeps the date as the version
+      }
+   }));
    return newest;
 };
 

@@ -95,11 +95,10 @@ const Domains: NextPage = () => {
    };
 
    const manuallyUpdateThumb = async (domain: string) => {
-      const date = await regenerateDomainThumbnail(domain);
-      if (date) {
+      const version = await regenerateDomainThumbnail(domain);
+      if (version) {
          toast(`${domain} Screenshot Updated Successfully!`, { icon: '✔️' });
-         // The time is added so a thumbnail regenerated on the same day still gets a new address
-         setRegeneratedThumbs((current) => ({ ...current, [domain]: `${date}-${Date.now()}` }));
+         setRegeneratedThumbs((current) => ({ ...current, [domain]: version }));
       } else {
          toast(`Failed to Fetch ${domain} Screenshot!`, { icon: '⚠️' });
       }

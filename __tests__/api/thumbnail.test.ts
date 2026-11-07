@@ -49,13 +49,13 @@ describe('/api/thumbnail', () => {
          { get: () => ({ domain: 'a.com' }) },
          { get: () => ({ domain: 'b.com' }) },
       ]);
-      thumbsMock.listThumbnails.mockResolvedValue(new Map([['a.com', { domain: 'a.com', date: '2026-11-01', file: 'a.com_2026-11-01.jpg' }]]));
+      thumbsMock.listThumbnails.mockResolvedValue(new Map([['a.com', { domain: 'a.com', date: '2026-11-01', file: 'a.com_2026-11-01.jpg', version: '2026-11-01-1762500000000' }]]));
 
       await handler(makeReq('GET'), res);
 
       expect(thumbsMock.ensureThumbnails).toHaveBeenCalledWith(['a.com', 'b.com']);
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({ thumbnails: { 'a.com': '2026-11-01' } });
+      expect(res.json).toHaveBeenCalledWith({ thumbnails: { 'a.com': '2026-11-01-1762500000000' } });
    });
 
    it('serves the saved image of a domain', async () => {
@@ -83,13 +83,13 @@ describe('/api/thumbnail', () => {
    it('regenerates one tracked domain and reports the new date', async () => {
       DomainMock.findOne.mockResolvedValue({ ID: 1 });
       thumbsMock.generateThumbnail.mockResolvedValue(true);
-      thumbsMock.getThumbnail.mockResolvedValue({ domain: 'a.com', date: '2026-11-07', file: 'a.com_2026-11-07.jpg' });
+      thumbsMock.getThumbnail.mockResolvedValue({ domain: 'a.com', date: '2026-11-07', file: 'a.com_2026-11-07.jpg', version: '2026-11-07-1762520000000' });
 
       await handler(makeReq('POST', { domain: 'a.com' }), res);
 
       expect(thumbsMock.generateThumbnail).toHaveBeenCalledWith('a.com');
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({ thumbnail: '2026-11-07' });
+      expect(res.json).toHaveBeenCalledWith({ thumbnail: '2026-11-07-1762520000000' });
    });
 
    it('answers 404 for an untracked domain and 502 when no screenshot could be made', async () => {

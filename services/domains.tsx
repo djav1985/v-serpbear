@@ -91,7 +91,7 @@ export async function fetchDomain(router: NextRouter, domainName: string): Promi
    return apiGet(`/api/domain?domain=${encodedDomain}`, router);
 }
 
-/** The date of each tracked domain's saved thumbnail, by domain. The server starts any missing or old ones in the background. */
+/** The version of each tracked domain's saved thumbnail, by domain. The server starts any missing or old ones in the background. */
 export async function fetchDomainThumbnails(): Promise<Record<string, string>> {
    const data = await apiGet<{ thumbnails: Record<string, string> }>('/api/thumbnail');
    return data?.thumbnails || {};
@@ -105,12 +105,12 @@ export function useFetchDomainThumbnails() {
    });
 }
 
-/** The address of a domain's saved thumbnail. The date in the address makes a new image a new address. */
-export const getDomainThumbnailUrl = (domain: string, date: string): string => (
-   `/api/thumbnail?domain=${encodeURIComponent(domain)}&v=${encodeURIComponent(date)}`
+/** The address of a domain's saved thumbnail. The version (date and write time) makes a new image a new address. */
+export const getDomainThumbnailUrl = (domain: string, version: string): string => (
+   `/api/thumbnail?domain=${encodeURIComponent(domain)}&v=${encodeURIComponent(version)}`
 );
 
-/** Regenerates one domain's thumbnail now (the reload button). Resolves to the new thumbnail's date, or false when it failed. */
+/** Regenerates one domain's thumbnail now (the reload button). Resolves to the new thumbnail's version, or false when it failed. */
 export async function regenerateDomainThumbnail(domain: string): Promise<string | false> {
    try {
       const data = await apiPost<{ thumbnail: string }>(`/api/thumbnail?domain=${encodeURIComponent(domain)}`, {});

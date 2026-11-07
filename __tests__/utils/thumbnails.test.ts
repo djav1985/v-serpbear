@@ -1,5 +1,5 @@
 /* eslint-disable security/detect-non-literal-fs-filename -- reads and writes only a temp directory created by the test */
-import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'fs';
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, utimesSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
 import {
@@ -79,6 +79,25 @@ describe('thumbnails', () => {
       expect(found.get('example.com')?.date).toBe('2026-11-01');
       expect(found.get('other.org')?.date).toBe('2026-10-10');
       expect(found.size).toBe(2);
+      // The version adds the file's write time to its date
+      expect(found.get('example.com')?.version).toMatch(/^2026-11-01-\d+$/);
+   });
+
+   it('gives a thumbnail regenerated on the same day a new version', async () => {
+      const today = new Date().toISOString().slice(0, 10);
+      global.fetch = jest.fn().mockResolvedValue(imageResponse()) as unknown as typeof fetch;
+      await generateThumbnail('example.com');
+      const first = (await listThumbnails()).get('example.com')?.version;
+      // Back-date the saved file so its write time is clearly different
+      const saved = path.join(thumbDir, `example.com_${today}.jpg`);
+      utimesSync(saved, new Date(Date.now() - 60_000), new Date(Date.now() - 60_000));
+      const backdated = (await listThumbnails()).get('example.com')?.version;
+      await generateThumbnail('example.com');
+      const regenerated = (await listThumbnails()).get('example.com')?.version;
+
+      expect(backdated).not.toBe(first);
+      expect(regenerated).not.toBe(backdated);
+      expect(regenerated?.startsWith(today)).toBe(true);
    });
 
    it('saves a generated thumbnail under the domain and the date, and deletes the old one afterwards', async () => {

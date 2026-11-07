@@ -35,7 +35,7 @@ export default withApiLogging(handler, { name: 'thumbnail' });
 
 const normalizeDomain = (value: unknown): string => (typeof value === 'string' ? value.trim().toLowerCase() : '');
 
-/** GET /api/thumbnail: the date of each tracked domain's thumbnail. Missing and stale ones start generating in the background. */
+/** GET /api/thumbnail: the version of each tracked domain's thumbnail (its date plus when the file was written). Missing and stale ones start generating in the background. */
 const listDomainThumbnails = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
    try {
@@ -47,7 +47,7 @@ const listDomainThumbnails = async (req: NextApiRequest, res: NextApiResponse) =
       const thumbnails: Record<string, string> = {};
       names.forEach((name) => {
          const found = existing.get(name);
-         if (found) { thumbnails[name] = found.date; }
+         if (found) { thumbnails[name] = found.version; }
       });
       res.setHeader('Cache-Control', 'no-store');
       return res.status(200).json({ thumbnails });
@@ -99,7 +99,7 @@ const regenerateThumbnail = async (req: NextApiRequest, res: NextApiResponse) =>
       if (!saved || !found) {
          return res.status(502).json(errorResponse('BAD_GATEWAY', 'Could not get a screenshot of this website right now.', requestId));
       }
-      return res.status(200).json({ thumbnail: found.date });
+      return res.status(200).json({ thumbnail: found.version });
    } catch (error) {
       logger.error('Error regenerating a thumbnail', error instanceof Error ? error : new Error(String(error)));
       return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error Updating Thumbnail.', requestId));
