@@ -7,6 +7,7 @@ import { withApiLogging } from '../../utils/apiLogging';
 import { errorResponse } from '../../utils/api/response';
 import { logger } from '../../utils/logger';
 import {
+   THUMBNAIL_MAX_AGE_DAYS,
    ensureThumbnails,
    generateThumbnail,
    getThumbnail,
@@ -73,8 +74,9 @@ const sendThumbnail = async (req: NextApiRequest, res: NextApiResponse) => {
       const image = await readThumbnailFile(found);
       res.setHeader('Content-Type', 'image/jpeg');
       res.setHeader('Content-Length', image.length.toString());
-      // The page asks with the file's date in the URL (&v=), so a new image is a new address
-      res.setHeader('Cache-Control', 'private, max-age=86400');
+      // The page asks with the file's version in the URL (&v=), so a new image is a new address and the browser
+      // can keep each image for 30 days (THUMBNAIL_MAX_AGE_DAYS) without asking the server again
+      res.setHeader('Cache-Control', `private, max-age=${THUMBNAIL_MAX_AGE_DAYS * 24 * 60 * 60}`);
       return res.status(200).end(image);
    } catch (error) {
       logger.error('Error serving a thumbnail', error instanceof Error ? error : new Error(String(error)));

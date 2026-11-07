@@ -13,6 +13,7 @@ jest.mock('../../utils/verifyUser', () => ({ __esModule: true, default: jest.fn(
 jest.mock('../../utils/apiLogging', () => ({ __esModule: true, withApiLogging: (apiHandler: unknown) => apiHandler }));
 jest.mock('../../utils/thumbnails', () => ({
    __esModule: true,
+   THUMBNAIL_MAX_AGE_DAYS: 30,
    ensureThumbnails: jest.fn().mockResolvedValue(undefined),
    generateThumbnail: jest.fn(),
    getThumbnail: jest.fn(),
@@ -66,6 +67,7 @@ describe('/api/thumbnail', () => {
 
       expect(thumbsMock.getThumbnail).toHaveBeenCalledWith('a.com');
       expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'image/jpeg');
+      expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', `private, max-age=${30 * 24 * 60 * 60}`);
       expect(res.status).toHaveBeenCalledWith(200);
    });
 
