@@ -24,7 +24,7 @@ export function TrackerStackedRow({ row, config, optionalColumns, showSearchCons
       <div className="flex flex-col gap-3 px-4 py-4 text-sm">
          <div className="flex items-start gap-2">
             <Checkbox
-               className="mt-1"
+               className="mt-0.5"
                aria-label={`Select ${keyword.keyword}`}
                checked={row.getIsSelected()}
                onCheckedChange={(value) => row.toggleSelected(value === true)}

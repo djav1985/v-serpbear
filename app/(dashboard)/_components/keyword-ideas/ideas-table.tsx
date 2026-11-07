@@ -266,7 +266,7 @@ export function IdeasTable({
             renderStackedRow={(row) => (
                <div className="flex flex-col gap-3 px-4 py-4 text-sm">
                   <div className="flex items-start gap-2">
-                     <span className="mt-1"><IdeaSelectCheckbox row={row} /></span>
+                     <span className="mt-0.5"><IdeaSelectCheckbox row={row} /></span>
                      <div className="min-w-0 flex-1">
                         <IdeaKeywordCell
                            idea={row.original}

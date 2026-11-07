@@ -253,7 +253,7 @@ export function DiscoverView({ domain, searchConsoleConnected, allowsCity, avail
                   <div className="flex flex-col gap-2 px-4 py-4 text-sm">
                      <div className="flex items-start gap-2">
                         <Checkbox
-                           className="mt-1"
+                           className="mt-0.5"
                            aria-label={row.original.isTracked ? 'Keyword already tracked' : `Select ${row.original.keyword}`}
                            disabled={row.original.isTracked}
                            checked={row.getIsSelected()}
