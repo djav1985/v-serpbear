@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
+import { TooltipProvider } from 'components/ui/tooltip';
 
 // Server seeds and browser queries share one set of defaults so hydrated data is not refetched on mount.
 const STALE_TIME_MS = 30_000;
@@ -18,7 +19,7 @@ export function Providers({ children }: { children: ReactNode }) {
 
    return (
       <QueryClientProvider client={queryClient}>
-         {children}
+         <TooltipProvider>{children}</TooltipProvider>
          <Toaster position="bottom-center" />
       </QueryClientProvider>
    );
