@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createReadStream, promises as fs } from 'fs';
 import path from 'path';
-import { getBranding } from '../../../utils/branding';
+import { getBranding, LOGO_FILE, LOGO_MIME_TYPE } from '../../../utils/branding';
 import { logger } from '../../../utils/logger';
 import { withApiLogging } from '../../../utils/apiLogging';
 
@@ -20,12 +20,8 @@ const respondNotFound = (res: NextApiResponse) => {
 
 const isAllowedMethod = (method?: string): method is 'GET' | 'HEAD' => method === 'GET' || method === 'HEAD';
 
-const dataDirectory = path.join(process.cwd(), 'data');
-
-const resolveLogoPath = (fileName: string): string => {
-   const sanitizedFileName = path.basename(fileName);
-   return path.join(dataDirectory, sanitizedFileName);
-};
+// Fixed path: the logo is always data/logo.png, so no part of the path comes from the request or the environment.
+const logoPath = path.join(process.cwd(), 'data', LOGO_FILE);
 
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
    if (!isAllowedMethod(req.method)) {
@@ -35,34 +31,23 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       return;
    }
 
-   const { whiteLabelEnabled, hasCustomLogo, logoFile, logoMimeType } = getBranding();
-
-   if (!whiteLabelEnabled || !hasCustomLogo || !logoMimeType) {
-      logger.debug('Custom logo not configured or not enabled');
-      respondNotFound(res);
-      return;
-   }
-
-   const filePath = resolveLogoPath(logoFile);
-   const resolvedPath = path.resolve(filePath);
-
-   if (!resolvedPath.startsWith(dataDirectory)) {
-      logger.warn('Attempt to access logo outside data directory', { requestedPath: filePath });
+   if (!getBranding().hasCustomLogo) {
+      logger.debug('White-label is not enabled, so there is no custom logo');
       respondNotFound(res);
       return;
    }
 
    try {
-      // Path is constrained to the data directory via `resolveLogoPath` and checked above.
+      // logoPath is a fixed constant (data/logo.png); nothing from the request reaches it.
       // eslint-disable-next-line security/detect-non-literal-fs-filename
-      const stat = await fs.stat(resolvedPath);
+      const stat = await fs.stat(logoPath);
       if (!stat.isFile()) {
-         logger.debug('Logo path is not a file', { path: resolvedPath });
+         logger.debug('Logo path is not a file', { path: logoPath });
          respondNotFound(res);
          return;
       }
 
-      res.setHeader('Content-Type', logoMimeType);
+      res.setHeader('Content-Type', LOGO_MIME_TYPE);
       res.setHeader('Content-Length', stat.size.toString());
       // Cached only for a successful response. No `immutable`: the file keeps its name when a new logo is uploaded.
       res.setHeader('Cache-Control', 'public, max-age=3600');
@@ -72,9 +57,9 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
          return;
       }
 
-      // Path is constrained to the data directory via `resolveLogoPath` and checked above.
+      // logoPath is a fixed constant (data/logo.png); nothing from the request reaches it.
       // eslint-disable-next-line security/detect-non-literal-fs-filename
-      const stream = createReadStream(resolvedPath);
+      const stream = createReadStream(logoPath);
       stream.on('error', (error) => {
          logger.error('Error streaming logo file', error);
          respondNotFound(res);

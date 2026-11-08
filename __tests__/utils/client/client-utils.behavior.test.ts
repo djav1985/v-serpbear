@@ -3,7 +3,7 @@
 import { calculateChartBounds } from '../../../utils/client/chartBounds';
 import { isValidEmail } from '../../../utils/client/validators';
 import { formattedNum, getSelectedUntrackedKeywords } from '../../../utils/client/helpers';
-import { aggregateSCKeywords } from '../../../pages/domain/console/[slug]/index';
+import { aggregateSCKeywords } from '../../../app/(dashboard)/domain/console/[slug]/_components/sc-state';
 import exportCSV, { createKeywordCsvPayload, createKeywordIdeasCsvPayload } from '../../../utils/client/exportcsv';
 import { serializeForScript } from '../../../utils/api/scriptJson';
 

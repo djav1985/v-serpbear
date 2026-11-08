@@ -5,7 +5,7 @@ const nextConfig = {
 
   // Performance optimizations
   experimental: {
-    optimizePackageImports: ['react-chartjs-2', 'react-query'],
+    optimizePackageImports: ['lucide-react', 'recharts'],
   },
 
   // Next 16 builds with Turbopack by default (`next build` / `next dev`).
@@ -13,7 +13,7 @@ const nextConfig = {
     resolveExtensions: ['.tsx', '.ts', '.jsx', '.js', '.mjs', '.json'],
   },
 
-  // Image optimization (used by next/image in components/common/Branding.tsx)
+  // Image optimization
   images: {
     formats: ['image/webp', 'image/avif'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],

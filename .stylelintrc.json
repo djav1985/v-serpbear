@@ -14,6 +14,7 @@
         "ignore": ["after-comment"]
       }],
       "media-feature-range-notation": "prefix",
+      "import-notation": "string",
       "at-rule-no-unknown": [
         true,
         {
@@ -22,7 +23,14 @@
             "apply",
             "variants",
             "responsive",
-            "screen"
+            "screen",
+            "theme",
+            "source",
+            "config",
+            "plugin",
+            "utility",
+            "variant",
+            "custom-variant"
           ]
         }
       ],

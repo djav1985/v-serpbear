@@ -5,13 +5,9 @@ import { getBranding } from '../../../utils/branding';
 import { logger } from '../../../utils/logger';
 import { withApiLogging } from '../../../utils/apiLogging';
 import { errorResponse } from '../../../utils/api/response';
-import { parseEnvFlag } from '../../../utils/dbBooleans';
 
-export type BrandingConfigResponse = ReturnType<typeof getBranding> & { screenshots: boolean };
+export type BrandingConfigResponse = ReturnType<typeof getBranding>;
 type BrandingResponse = BrandingConfigResponse;
-
-// Read at request time (not build time) so docker-compose env changes take effect without a rebuild.
-const isScreenshotsEnabled = (): boolean => parseEnvFlag(process.env.SCREENSHOTS);
 
 const handler = (req: NextApiRequest, res: NextApiResponse<BrandingResponse | ReturnType<typeof errorResponse>>) => {
    const requestId = (req as ExtendedRequest).requestId;
@@ -24,7 +20,7 @@ const handler = (req: NextApiRequest, res: NextApiResponse<BrandingResponse | Re
 
    const branding = getBranding();
    res.setHeader('Cache-Control', 'no-store, max-age=0');
-   res.status(200).json({ ...branding, screenshots: isScreenshotsEnabled() });
+   res.status(200).json(branding);
 };
 
 export default withApiLogging(handler, { name: 'branding/config' });

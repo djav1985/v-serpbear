@@ -66,7 +66,8 @@ const TRANSFORM_ALLOWLIST = [
   'headers-polyfill',
   'cookie',
   'tough-cookie',
-  'uuid'
+  'uuid',
+  '@tanstack'
 ];
 
 const baseJestConfig = createJestConfig(customJestConfig);

@@ -118,6 +118,29 @@ export const splitAlreadyTracked = (
    return { payloads: kept, skipped: [...skipped] };
 };
 
+/** The lookup key for one tracked target: keyword, country, device and location ('' for country-only). */
+export const trackedTargetKey = (keyword: string, country: string, device: string, location = ''): string => (
+   `${keyword}:${country}:${device}:${location}`
+);
+
+// Like splitAlreadyTracked, but a keyword tracked in another location is a different target and is not skipped.
+// The lookup holds trackedTargetKey() entries.
+export const splitAlreadyTrackedByLocation = (
+   payloads: KeywordAddPayload[],
+   trackedLookup: Record<string, boolean>,
+): { payloads: KeywordAddPayload[], skipped: string[] } => {
+   const kept: KeywordAddPayload[] = [];
+   const skipped = new Set<string>();
+   payloads.forEach((payload) => {
+      if (trackedLookup[trackedTargetKey(payload.keyword, payload.country, payload.device, payload.location ?? '')]) {
+         skipped.add(`${payload.keyword} (${payload.device})`);
+      } else {
+         kept.push(payload);
+      }
+   });
+   return { payloads: kept, skipped: [...skipped] };
+};
+
 // Toast text after adding keywords. Keeps the original wording when nothing was skipped.
 export const getAddKeywordsMessage = (addedCount: number, skipped: string[] = []): string => {
    if (skipped.length === 0) {

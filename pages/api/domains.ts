@@ -6,7 +6,7 @@ import { mkdir, readFile } from 'fs/promises';
 import { dirname } from 'path';
 import Domain from '../../database/models/domain';
 import Keyword from '../../database/models/keyword';
-import getdomainStats from '../../utils/domains';
+import { loadDomains } from '../../utils/domainsList';
 import verifyUser from '../../utils/verifyUser';
 import { checkSearchConsoleIntegration, removeLocalSCData } from '../../utils/searchConsole';
 import { withApiLogging } from '../../utils/apiLogging';
@@ -153,19 +153,7 @@ export const getDomains = async (req: NextApiRequest, res: NextApiResponse) => {
    
    try {
       
-      const allDomains: Domain[] = await Domain.findAll();
-      const formattedDomains: DomainType[] = allDomains.map((el) => {
-         const domainPlain = el.get({ plain: true }) as any;
-         const searchConsoleData = maskSearchConsole(domainPlain?.search_console, String(domainPlain?.domain ?? domainPlain?.ID ?? ''));
-         const persistedScraperSettings = parseDomainScraperSettings(domainPlain?.scraper_settings);
-         const maskedDomain = {
-            ...domainPlain,
-            search_console: JSON.stringify(searchConsoleData),
-            scraper_settings: maskDomainScraperSettings(persistedScraperSettings),
-         } as DomainType;
-         return normalizeDomainBooleans(maskedDomain);
-      });
-      const theDomains: DomainType[] = withStats ? await getdomainStats(formattedDomains) : formattedDomains;
+      const theDomains: DomainType[] = await loadDomains(withStats);
       return res.status(200).json({ domains: theDomains });
    } catch (error) {
       logger.error('Getting Domains.', error instanceof Error ? error : new Error(String(error)));

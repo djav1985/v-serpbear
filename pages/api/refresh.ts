@@ -5,7 +5,7 @@ import crypto from 'crypto';
 import { Op } from 'sequelize';
 import Keyword from '../../database/models/keyword';
 import refreshAndUpdateKeywords, { clearKeywordUpdatingFlags, markKeywordsAsUpdating, partitionKeywordsByDomainStatus } from '../../utils/refresh';
-import { getAppSettings } from './settings';
+import { getAppSettings } from '../../utils/appSettings';
 import verifyUser from '../../utils/verifyUser';
 import { scrapeKeywordWithStrategy } from '../../utils/scraper';
 import { serializeError } from '../../utils/errorSerialization';

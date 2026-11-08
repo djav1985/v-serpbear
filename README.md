@@ -34,6 +34,7 @@ SerpBear is a full-stack Next.js application that tracks where your pages rank o
 
 - **Real links for Google redirects.** Results that come back as `google.com/goto` links are resolved to the real page URL, so your domain is matched correctly. It uses Serper's free `/resolve` endpoint: add a free [Serper](https://serper.dev) key as `SERPER_API_KEY` and it works for every scraper. See [the settings table](#settings-configured-in-docker-composeyml-envs).
 - **A clearer average position.** One whole number, the same on the dashboard card and in the email. Keywords that failed their last scrape are left out, a keyword that ranked before and fell out of the results counts at 10 × pages scraped, and map pack keywords count at their best spot. See [How the average position is calculated](#how-the-average-position-is-calculated).
+- **A new interface.** The front end is rebuilt on the Next.js App Router with a top menu bar, a shared table that stays fast on thousands of keywords, and layouts that work on phones. Settings open in a side panel. Domain thumbnails come from a screenshot service and fall back to the site's favicon, so the `SCREENSHOTS` setting is gone.
 - **Smarter keyword adding.** Discover and Ideas share one add-to-tracker bar with a Desktop/Mobile toggle, tags and a location picker. Keywords that are already tracked are skipped, and the Tracking tab can change the location of many keywords at once.
 
 The full list of changes is in the [changelog](./CHANGELOG.md). See [Update SerpBear](#update-serpbear) before you upgrade.
@@ -88,7 +89,7 @@ The full list of changes is in the [changelog](./CHANGELOG.md). See [Update Serp
 
 | Layer | Responsibility |
 | --- | --- |
-| **Frontend and API** | Next.js 16 serving React pages, JSON endpoints and the MCP server from one codebase. |
+| **Frontend and API** | Next.js 16 with the App Router (React 19, Tailwind CSS 4 and shadcn/ui components) for the pages, plus the JSON endpoints and the MCP server in `pages/api/`, all from one codebase. |
 | **Database** | SQLite through a custom `better-sqlite3` dialect (`database/sqlite-dialect.js`), with Sequelize and Umzug for models and migrations. No other engine is supported. |
 | **Background workers** | A Node cron runner schedules scrapes, retries, Search Console refreshes and digests from the times of day and timezone you set. |
 | **Settings** | Scraper, SMTP and Google Ads credentials live in the Settings UI and are stored in `data/settings.json` (secrets encrypted with `SECRET`). |
@@ -161,9 +162,7 @@ Behaviour is controlled by environment variables inside docker compose as well a
 | `TRUST_PROXY` | `0` | No | Number of reverse proxies in front of the app. `true` means 1, values above 10 are capped at 10, and invalid values mean 0. Login lockouts, API-key lockouts and the keyword-search and volume rate limits then use the `X-Forwarded-For` entry that many hops from the right. Without it, behind a proxy, every client shares the proxy's address. It also controls whether `X-Forwarded-Proto`, `X-Forwarded-Protocol` and `X-Forwarded-Ssl` set the `Secure` cookie flag; without it only the socket's TLS state does. |
 | `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | No | Public URL of the deployment, used for the Google Ads OAuth return origin, email links and logo, and as the cron worker's fallback origin. Set it for real deployments. |
 | `APP_URL` | — | No | Server-side origin for the cron worker's own calls to the app. It takes precedence over `NEXT_PUBLIC_APP_URL` for those calls, which helps in Docker when the public URL is not reachable from inside the container. Google Ads uses it only when `NEXT_PUBLIC_APP_URL` is unset. Email links ignore it. |
-| `SCREENSHOTS` | `true` | No | Domain thumbnails via thum.io. `false` shows favicons. |
-| `NEXT_PUBLIC_WHITE_LABEL` | `false` | No | Enables white-label branding (name and logo). |
-| `WHITE_LABEL_LOGO_FILE` | `branding-logo.png` | No | File name only, stored in `/app/data`. Accepted extensions are `png`, `jpg`, `jpeg`, `gif`, `svg` and `webp`. Used only when `NEXT_PUBLIC_WHITE_LABEL=true`, and served without login at `/api/branding/logo` (404 if the file is missing). Recommended size is 96×96 px. |
+| `NEXT_PUBLIC_WHITE_LABEL` | `false` | No | Enables white-label branding (name and logo). The logo is always the file `logo.png` in `/app/data` (PNG, recommended size 96×96 px), served without login at `/api/branding/logo` (404 if the file is missing). |
 | `NEXT_PUBLIC_PLATFORM_NAME` | `SerpBear` | No | App and email name. Used only in white-label mode. |
 | `SEARCH_CONSOLE_CLIENT_EMAIL` | — | No | Service account email with access to your Search Console properties. |
 | `SEARCH_CONSOLE_PRIVATE_KEY` | — | No | Matching private key; keep newlines escaped in `.env` files. |
@@ -286,7 +285,7 @@ The Keywords and Map Pack counts include every keyword, whether or not it is in 
 
 ### Google Search Console
 
-- Add a service account to show impressions, clicks and CTR next to each keyword. Credentials are read from the domain's own settings first, then the Settings page, then `SEARCH_CONSOLE_CLIENT_EMAIL` and `SEARCH_CONSOLE_PRIVATE_KEY`.
+- Add a service account to show impressions, clicks and CTR next to each keyword. Credentials are read from the domain's own settings first, then the Settings panel, then `SEARCH_CONSOLE_CLIENT_EMAIL` and `SEARCH_CONSOLE_PRIVATE_KEY`.
 - Cached data is refetched when a dashboard or API read finds it more than 24 hours old, and by the cron at the `CRON_MAIN_SCHEDULE` time. Search Console days follow Pacific Time (`America/Los_Angeles`) whatever `TZ` is.
 - The Discover tab disables keywords that are already tracked, and "select all" skips them.
 - It is optional. Without credentials the dashboard card is hidden and the Insight tab shows a message.
@@ -379,15 +378,15 @@ The example uses port 3000 (Node.js). Docker Compose serves the app on port 3030
 
 | Path | Contents |
 | --- | --- |
-| `pages/` | Next.js pages (`domains`, `domain`, `research`, `login`) and the JSON and MCP routes in `pages/api/` |
-| `components/` | React components grouped by area: `common`, `domains`, `ideas`, `insight`, `keywords`, `settings` |
-| `services/` | Client data hooks and API calls, such as `useFetchKeywords` |
-| `hooks/` | Shared React hooks, such as `useAuth` and `useBranding` |
+| `app/` | The App Router front end. `(auth)/login`, and `(dashboard)/` with `domains`, `domain/[slug]` (Tracking), `domain/console`, `domain/insight`, `domain/ideas` and `research`. Each route keeps its own parts in a private `_components/` folder. |
+| `pages/api/` | The JSON and MCP routes |
+| `components/ui/` | shadcn/ui building blocks (buttons, dialogs, selects, charts) |
+| `hooks/`, `lib/` | Small shared helpers for the front end |
 | `utils/` | Server and shared helpers: refresh pipeline, average position, email throttle, rate limits, Search Console, timezone |
 | `scrapers/` | Scraper registry, and `scrapers/services/` with one file per provider |
 | `database/` | Sequelize models, `migrations/`, `init.ts` (table sync) and the SQLite dialect |
 | `email/` | HTML email template |
-| `styles/`, `public/` | Global CSS, and static assets such as icons, the web app manifest and flag sprites |
+| `public/` | Static assets such as icons, the web app manifest and flag sprites. Global styles are in `app/globals.css` and `app/flags.css`. |
 | `scripts/` | Repository helper scripts (`setup:git`) |
 | `__tests__/` | Jest tests |
 | `cron.js` | Scheduled jobs worker |

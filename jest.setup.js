@@ -1,4 +1,3 @@
-import './styles/globals.css';
 import '@testing-library/jest-dom';
 import { TextEncoder, TextDecoder } from 'util';
 

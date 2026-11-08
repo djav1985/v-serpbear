@@ -3,7 +3,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import Domain from '../../../database/models/domain';
 import verifyUser from '../../../utils/verifyUser';
-import { getAppSettings } from '../settings';
+import { getAppSettings } from '../../../utils/appSettings';
 import { trimStringProperties, trimString, sanitizeSmtpHost } from '../../../utils/security';
 import { buildMailer } from '../../../utils/mailer';
 import normalizeDomainBooleans from '../../../utils/normalizeDomain';

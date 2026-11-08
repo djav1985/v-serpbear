@@ -559,8 +559,10 @@ const extractAdwordskeywordIdeas = (keywordIdeas: keywordIdeasResponseItem[], op
  * @returns returns a Promise that resolves to an object with a `volumes` and error `proprties`.
  *  The `volumes` propery which outputs `false` if the request fails and outputs the volume data in `{[keywordID]: volume}` object if succeeds.
  *  The `error` porperty that outputs the error message if any.
+ *  A lookup that fails for every country comes back as `volumes: false` with an `error`, never as an empty success. When only
+ *  some countries fail, the volumes that did load are returned along with `failedCountries`.
  */
-export const getKeywordsVolume = async (keywords: KeywordType[]): Promise<{ error?: string, volumes: false | Record<number, number> }> => {
+export const getKeywordsVolume = async (keywords: KeywordType[]): Promise<{ error?: string, volumes: false | Record<number, number>, failedCountries?: string[] }> => {
    const credentials = await getAdwordsCredentials();
    if (!credentials) { return { error: 'Cannot Load Google Ads Credentials', volumes: false }; }
    const { client_id, client_secret, developer_token, account_id } = credentials;
@@ -578,7 +580,12 @@ export const getKeywordsVolume = async (keywords: KeywordType[]): Promise<{ erro
       memoryCache.delete('adwords_token');
       memoryCache.set('adwords_token', accessToken, { ttl: 3300000 });
    }
+   if (!accessToken) {
+      return { error: 'Could not get a Google Ads access token. Re-authenticate the Google Ads integration in Settings.', volumes: false };
+   }
    const fetchedKeywords: Record<number, number> = {};
+   const failedCountries: string[] = [];
+   let succeededCountries = 0;
 
    if (accessToken) {
       // Group keywords based on their country.
@@ -636,15 +643,18 @@ export const getKeywordsVolume = async (keywords: KeywordType[]): Promise<{ erro
                         ideaData = JSON.parse(responseText);
                      } catch (parseError) {
                         logger.warn(`Failed to parse Google Ads Volume response (${resp.status})`, { response: responseText.substring(0, 200), error: parseError instanceof Error ? parseError.message : String(parseError) });
+                        failedCountries.push(country);
                         continue; // Skip this country and continue with next
                      }
                   } else {
                      // Handle non-JSON responses
                      logger.warn(`Google Ads Volume API returned non-JSON response (${resp.status})`, { response: responseText.substring(0, 200) });
+                     failedCountries.push(country);
                      continue; // Skip this country and continue with next
                   }
                } catch (error) {
                   logger.warn(`Exception while handling Google Ads Volume response (${resp.status})`, { error: error instanceof Error ? error.message : String(error) });
+                  failedCountries.push(country);
                   continue; // Skip this country and continue with next
                }
 
@@ -654,6 +664,9 @@ export const getKeywordsVolume = async (keywords: KeywordType[]): Promise<{ erro
                      status: resp.status,
                      errorDetails: ideaData?.error,
                   });
+                  failedCountries.push(country);
+               } else {
+                  succeededCountries += 1;
                }
 
                if (ideaData?.results) {
@@ -678,13 +691,28 @@ export const getKeywordsVolume = async (keywords: KeywordType[]): Promise<{ erro
                   }
                }
             } catch (error) {
-               logger.error('Error fetching keyword volume from Google Ads', error instanceof Error ? error : new Error(String(error)));
+               // A network failure carries its real reason (for example ECONNREFUSED or ENOTFOUND) in `cause`.
+               const cause = error instanceof Error ? (error as Error & { cause?: unknown }).cause : undefined;
+               logger.error('Error fetching keyword volume from Google Ads', error instanceof Error ? error : new Error(String(error)), {
+                  country,
+                  cause: cause instanceof Error ? `${cause.name}: ${cause.message}` : (cause ? String(cause) : undefined),
+               });
+               failedCountries.push(country);
             }
          }
       }
    }
 
-   return { volumes: fetchedKeywords };
+   // Every request that was sent failed: report it, instead of answering with an empty list that looks like a success.
+   if (failedCountries.length > 0 && succeededCountries === 0) {
+      return {
+         error: `Could not fetch keyword volume from Google Ads (failed for ${failedCountries.join(', ')}). Check the server log for the reason.`,
+         volumes: false,
+         failedCountries,
+      };
+   }
+
+   return failedCountries.length > 0 ? { volumes: fetchedKeywords, failedCountries } : { volumes: fetchedKeywords };
 };
 
 /**

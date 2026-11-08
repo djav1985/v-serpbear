@@ -10,7 +10,7 @@
 
 ## Adding keywords
 
-Discover and Ideas share one add-to-tracker bar with a Desktop/Mobile toggle, tags and a location picker. Keywords that are already tracked are skipped. The Tracking tab can change the location of many keywords at once.
+Discover and Ideas share one add-to-tracker bar with a Desktop/Mobile toggle, tags and a location picker. Keywords that are already tracked are skipped. The Tracking tab can change the location of many keywords at once, and one **Add/Edit Tags** action sets the tags of every selected keyword.
 
 If your scraper is country-only (Serper or Serply), the city and state fields are disabled and show `N/A`, and a keyword's stored city and state are hidden. See [Scrapers](Scrapers).
 

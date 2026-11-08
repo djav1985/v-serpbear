@@ -14,9 +14,7 @@ Behaviour is controlled by environment variables in `docker-compose.yml` (under 
 | `TRUST_PROXY` | `0` | No | Number of reverse proxies in front of the app, not an IP address. See [Security](Security). |
 | `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | No | Public URL of the deployment, used for the Google Ads OAuth return origin, email links and logo, and as the cron worker's fallback origin. Set it for real deployments. |
 | `APP_URL` | — | No | Server-side origin for the cron worker's own calls to the app. It takes precedence over `NEXT_PUBLIC_APP_URL` for those calls, which helps in Docker when the public URL is not reachable from inside the container. Google Ads uses it only when `NEXT_PUBLIC_APP_URL` is unset. Email links ignore it. |
-| `SCREENSHOTS` | `true` | No | Domain thumbnails via thum.io. `false` shows favicons. |
-| `NEXT_PUBLIC_WHITE_LABEL` | `false` | No | Enables white-label branding (name and logo). |
-| `WHITE_LABEL_LOGO_FILE` | `branding-logo.png` | No | File name only, stored in `/app/data`. Accepted extensions are `png`, `jpg`, `jpeg`, `gif`, `svg` and `webp`. Used only when `NEXT_PUBLIC_WHITE_LABEL=true`, and served without login at `/api/branding/logo` (404 if the file is missing). Recommended size is 96×96 px. |
+| `NEXT_PUBLIC_WHITE_LABEL` | `false` | No | Enables white-label branding (name and logo). The logo is always the file `logo.png` in `/app/data` (PNG, recommended size 96×96 px), served without login at `/api/branding/logo` (404 if the file is missing). |
 | `NEXT_PUBLIC_PLATFORM_NAME` | `SerpBear` | No | App and email name. Used only in white-label mode. |
 | `SEARCH_CONSOLE_CLIENT_EMAIL` | — | No | Service account email with access to your Search Console properties. |
 | `SEARCH_CONSOLE_PRIVATE_KEY` | — | No | Matching private key; keep newlines escaped. |

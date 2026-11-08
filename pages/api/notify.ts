@@ -8,7 +8,7 @@ import parseKeywords from '../../utils/parseKeywords';
 import getdomainStats from '../../utils/domains';
 import verifyUser from '../../utils/verifyUser';
 import { reserveEmailSend } from '../../utils/emailThrottle';
-import { getAppSettings } from './settings';
+import { getAppSettings } from '../../utils/appSettings';
 import { trimStringProperties, trimString, sanitizeSmtpHost } from '../../utils/security';
 import { buildMailer } from '../../utils/mailer';
 import { logger } from '../../utils/logger';

@@ -77,7 +77,6 @@ describe('generateEmail', () => {
     process.env = {
       ...originalEnv,
       NEXT_PUBLIC_WHITE_LABEL: 'true',
-      WHITE_LABEL_LOGO_FILE: 'custom-logo.png',
       NEXT_PUBLIC_APP_URL: '',
     };
     try {

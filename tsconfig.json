@@ -23,14 +23,22 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
-    "experimentalDecorators": true
+    "baseUrl": ".",
+    "experimentalDecorators": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
   },
   "include": [
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
     "types.d.ts",
-    "./jest.setup.js"
+    "./jest.setup.js",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"
