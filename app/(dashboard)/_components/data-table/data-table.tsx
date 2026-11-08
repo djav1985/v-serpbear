@@ -63,6 +63,8 @@ export function DataTable<TData extends RowData>({
       gridTemplateColumns: columns.map((column) => column.columnDef.meta?.width ?? DEFAULT_TRACK).join(' '),
    };
 
+   // TanStack Virtual returns functions that the React Compiler cannot memoize; the compiler skips this component, which is the intended outcome.
+   // eslint-disable-next-line react-hooks/incompatible-library
    const virtualizer = useVirtualizer({
       count: rows.length,
       getScrollElement: () => scrollRef.current,

@@ -123,6 +123,8 @@ export function IdeasTable({
       if (kept.length === selected.length) { return; }
       const trackedIds = new Set(filteredRows.filter((row) => row.original.isTracked).map((row) => row.id));
       const droppedTracked = selected.filter((id) => trackedIds.has(id)).length;
+      // This has to run after the render that made the idea tracked, because it also shows a notice, so it stays an effect.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRowSelection(Object.fromEntries(kept.map((id) => [id, true])));
       if (droppedTracked > 0) {
          toast.info(`${droppedTracked} selected idea${droppedTracked === 1 ? ' is' : 's are'} already tracked and ${droppedTracked === 1 ? 'was' : 'were'} deselected.`);

@@ -51,7 +51,11 @@ export function AddKeywordsDialog({
 
    useEffect(() => () => { if (errorTimer.current) { clearTimeout(errorTimer.current); } }, []);
    // Start from the country last used on this device.
-   useEffect(() => { if (open) { setCountry(readDefaultCountry()); } }, [open]);
+   const [wasOpen, setWasOpen] = useState(open);
+   if (open !== wasOpen) {
+      setWasOpen(open);
+      if (open) { setCountry(readDefaultCountry()); }
+   }
 
    const showError = (message: string) => {
       if (errorTimer.current) { clearTimeout(errorTimer.current); }

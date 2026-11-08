@@ -8,10 +8,15 @@ All notable changes to this project will be documented in this file. Releases no
 
 - Node.js is now 26.13.0 (the current long-term release) in the Docker image and `.nvmrc`, and `package.json` declares `engines.node >=22`.
 
+### Fixed
+
+- The screens no longer set state inside effects (the `use-mobile` hook, add-keywords dialog, research form, and the selection and tag-filter clean-ups), so `eslint-plugin-react-hooks` 7 passes with no errors.
+- Pinned the patched `minimatch`, `glob` and `uuid` versions for the packages that bundled old copies, so `npm audit` is down from 34 findings to 7 low ones (the remaining `deepmerge` finding has no fix). The `editorconfig` override no longer gets reset by `npm install`.
+
 ### Dependencies
 
 - Updated to the latest releases that work together: Jest 30, TypeScript 6, `better-sqlite3` 13, `croner` 11, `dotenv` 18, `google-auth-library` 11, `@googleapis/searchconsole` 11, `@isaacs/ttlcache` 2, `undici`, `uuid`, Testing Library and the type packages, plus all in-range updates (Next.js, nodemailer, dayjs, PostCSS and others).
-- Held back: ESLint 10 and its plugins, `eslint-plugin-react-hooks` 7 (new strict rules need code changes), TypeScript 7 (typescript-eslint does not support it yet) and Stylelint 18 (its packages do not resolve together yet).
+- Held back: ESLint 10 and its plugins, TypeScript 7 (typescript-eslint does not support it yet) and Stylelint 18 (its packages do not resolve together yet).
 - `tsconfig.json` uses `paths` instead of the removed `baseUrl`, and the Stylelint config allows Tailwind's `@apply`.
 
 ### Removed

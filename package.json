@@ -78,7 +78,7 @@
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-jsx-a11y": "^6.10.0",
     "eslint-plugin-react": "^7.37.0",
-    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-security": "^4.2.1",
     "globals": "^17.14.0",
     "jest": "^30.5.2",
@@ -101,16 +101,27 @@
     "flatted": "3.4.2",
     "happy-dom": "21.0.4",
     "fast-uri": "^3.1.9",
-    "js-beautify": {
-      "editorconfig": {
-        "minimatch": "9.0.9"
-      }
-    },
     "js-cookie": "3.0.7",
     "brace-expansion@1": "1.1.21",
     "brace-expansion@2": "2.1.7",
     "postcss-selector-parser@6": "^6.1.5",
-    "zod": "^4.6.7"
+    "zod": "^4.6.7",
+    "editorconfig": {
+      "minimatch": "^11.0.5"
+    },
+    "glob": "^14.0.4",
+    "test-exclude": {
+      "minimatch": "^11.0.5"
+    },
+    "@ts-morph/common": {
+      "minimatch": "^11.0.5"
+    },
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "^11.0.5"
+    },
+    "sequelize": {
+      "uuid": "^11.1.1"
+    }
   },
   "optionalDependencies": {
     "pg-hstore": "^2.3.4"

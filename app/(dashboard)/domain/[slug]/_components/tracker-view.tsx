@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
    useTable, type ColumnFiltersState, type ColumnVisibilityState, type RowSelectionState, type SortingState,
 } from '@tanstack/react-table';
@@ -122,18 +122,22 @@ export function TrackerView({
       .map((code) => ({ label: countries[code]?.[0] ?? code, value: code, flag: code })), [keywords]);
 
    // Drop a tag filter when its tag no longer exists on the domain.
-   useEffect(() => {
+   const [checkedTags, setCheckedTags] = useState(allTags);
+   if (checkedTags !== allTags) {
+      setCheckedTags(allTags);
       setFilters((previous) => {
          if (previous.tags.length === 0) { return previous; }
          const valid = previous.tags.filter((tag) => tag === NO_TAGS_FILTER || allTags.includes(tag));
          return valid.length === previous.tags.length ? previous : { ...previous, tags: valid };
       });
-   }, [allTags]);
+   }
 
    // Selection only ever holds rows that are on screen for the current device and filters. A row that is filtered out,
    // removed or on the other device tab drops out, so a bulk action never touches a row the user cannot see.
    const filteredRows = table.getFilteredRowModel().rows;
-   useEffect(() => {
+   const [checkedRows, setCheckedRows] = useState(filteredRows);
+   if (checkedRows !== filteredRows) {
+      setCheckedRows(filteredRows);
       setRowSelection((current) => {
          const selected = Object.keys(current);
          if (selected.length === 0) { return current; }
@@ -141,7 +145,7 @@ export function TrackerView({
          const kept = selected.filter((id) => visible.has(id));
          return kept.length === selected.length ? current : Object.fromEntries(kept.map((id) => [id, true]));
       });
-   }, [filteredRows]);
+   }
 
    const selectedIds = useMemo(() => Object.keys(rowSelection).filter((id) => rowSelection[id]).map(Number), [rowSelection]);
    const clearSelection = useCallback(() => setRowSelection({}), []);

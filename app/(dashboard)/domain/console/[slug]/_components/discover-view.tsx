@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { useTable, type ColumnDef, type RowSelectionState } from '@tanstack/react-table';
@@ -148,13 +148,14 @@ export function DiscoverView({ domain, searchConsoleConnected, allowsCity, avail
    });
 
    // Selection holds only rows that are on screen and can still be added.
-   useEffect(() => {
+   const [checked, setChecked] = useState({ rows, rowSelection });
+   if (checked.rows !== rows || checked.rowSelection !== rowSelection) {
+      setChecked({ rows, rowSelection });
       const selected = Object.keys(rowSelection);
-      if (selected.length === 0) { return; }
       const addable = new Set(rows.filter((row) => !row.isTracked).map((row) => row.uid));
       const kept = selected.filter((id) => addable.has(id));
       if (kept.length !== selected.length) { setRowSelection(Object.fromEntries(kept.map((id) => [id, true]))); }
-   }, [rows, rowSelection]);
+   }
 
    const selectedIds = useMemo(() => Object.keys(rowSelection).filter((id) => rowSelection[id]), [rowSelection]);
    const { mutate: addKeywords, isPending: isAdding } = useAddKeywords(() => { router.push(`/domain/${domain.slug}`); });
