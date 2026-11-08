@@ -89,7 +89,21 @@ function Field({ label, htmlFor, children, hint }: { label: string; htmlFor?: st
    );
 }
 
-export function DomainSettingsDialog({ open, onOpenChange, domain, availableScrapers = [], systemScraperType = '' }: DomainSettingsDialogProps) {
+/**
+ * Every time the dialog opens it starts from the stored settings. The form lives in an inner component that is remounted on
+ * each opening, so changes abandoned by closing the dialog can never be saved with a later edit.
+ */
+export function DomainSettingsDialog(props: DomainSettingsDialogProps) {
+   const [wasOpen, setWasOpen] = useState(props.open);
+   const [opening, setOpening] = useState(0);
+   if (props.open !== wasOpen) {
+      setWasOpen(props.open);
+      if (props.open) { setOpening((count) => count + 1); }
+   }
+   return <DomainSettingsForm key={opening} {...props} />;
+}
+
+function DomainSettingsForm({ open, onOpenChange, domain, availableScrapers = [], systemScraperType = '' }: DomainSettingsDialogProps) {
    const router = useRouter();
    const [tab, setTab] = useState<Tab>('notification');
    const [settings, setSettings] = useState<DomainSettings>(() => buildInitialSettings(domain));
