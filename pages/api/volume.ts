@@ -84,6 +84,8 @@ const updatekeywordVolume = async (req: NextApiRequest, res: NextApiResponse) =>
       }
 
       const volumesMap = keywordsVolumeData.volumes as Record<number, number>;
+      // Present only when some countries failed but others loaded, so the caller can tell it was a partial result.
+      const failedCountriesField = keywordsVolumeData.failedCountries?.length ? { failedCountries: keywordsVolumeData.failedCountries } : {};
 
       const enrichedKeywords = keywordsToSend.map((keywordItem) => ({
          ...keywordItem,
@@ -91,12 +93,12 @@ const updatekeywordVolume = async (req: NextApiRequest, res: NextApiResponse) =>
       }));
 
       if (!update) {
-         return res.status(200).json({ keywords: enrichedKeywords, volumes: volumesMap });
+         return res.status(200).json({ keywords: enrichedKeywords, volumes: volumesMap, ...failedCountriesField });
       }
 
       const updated = await updateKeywordsVolumeData(volumesMap);
       if (updated) {
-         return res.status(200).json({ keywords: enrichedKeywords, volumes: keywordsVolumeData.volumes });
+         return res.status(200).json({ keywords: enrichedKeywords, volumes: keywordsVolumeData.volumes, ...failedCountriesField });
       }
 
       // The lookup worked but saving the volumes failed: a server-side failure, not a bad request
