@@ -976,8 +976,8 @@ describe('parseKeywords', () => {
 
      it('logs when the stored history cannot be parsed', () => {
         const { logger } = require('../utils/logger');
-        // A history that cannot be read is logged at debug level (see safeJsonParse).
-        const logSpy = jest.spyOn(logger, 'debug').mockImplementation(() => undefined);
+        // A history that cannot be read is logged at error level (see safeJsonParse).
+        const logSpy = jest.spyOn(logger, 'error').mockImplementation(() => undefined);
         const [keyword] = parseKeywords([buildKeyword({ history: '{not json' }) as any]);
 
         expect(keyword.history).toEqual({});

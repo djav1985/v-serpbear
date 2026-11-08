@@ -34,7 +34,7 @@ export const safeJsonParse = <T>(
       return JSON.parse(trimmed) as T;
    } catch (error) {
       if (options.logError) {
-         logger.debug(`[LOCK] Failed to parse ${options.context || 'JSON'}`, {
+         logger.error(`[PARSE] Failed to parse ${options.context || 'JSON'}`, {
             error: error instanceof Error ? error.message : String(error),
          });
       }
