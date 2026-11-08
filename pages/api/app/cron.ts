@@ -45,7 +45,7 @@ const cronRefreshkeywords = async (_req: NextApiRequest, res: NextApiResponse) =
          .map((dom) => dom.domain);
 
       if (enabledDomains.length === 0) {
-         logger.warn('Cron refresh skipped: No domains have scraping enabled');
+         logger.debug('[SCRAPER] Cron refresh skipped: No domains have scraping enabled');
          // Stays 200: cron.js and scheduled callers treat "nothing to do" as a successful run, not a failure
          return res.status(200).json({ started: false, error: 'No domains have scraping enabled.' });
       }
@@ -85,9 +85,9 @@ const cronRefreshkeywords = async (_req: NextApiRequest, res: NextApiResponse) =
       }
 
       if (skippedDomains.length > 0) {
-         logger.info('Cron refresh skipped domains that are already being refreshed', { skippedDomains });
+         logger.debug('[SCRAPER] Cron refresh skipped domains that are already being refreshed', { skippedDomains });
       }
-      logger.info(`Cron refresh started for ${startedDomains.length} domains`);
+      logger.info(`[SCRAPER] Cron refresh started for ${startedDomains.length} domains`);
       // 200 either way (cron.js treats any 2xx as success); skipped lists what was already running
       return res.status(200).json(skippedDomains.length > 0
          ? { started: startedDomains.length > 0, skipped: { domains: skippedDomains } }
@@ -107,12 +107,12 @@ const processSingleDomain = async (domain: string, settings: SettingsType, domai
    let keywordQueries: Keyword[] = [];
    let keywordsToRefresh: Keyword[] = [];
    try {
-      logger.info(`Processing domain: ${domain}`);
+      logger.info(`[SCRAPER] Processing domain: ${domain}`);
       
       keywordQueries = await Keyword.findAll({ where: { domain } });
       
       if (keywordQueries.length === 0) {
-         logger.info(`No keywords found for domain: ${domain}`);
+         logger.debug(`[SCRAPER] No keywords found for domain: ${domain}`);
          return;
       }
 
@@ -140,7 +140,7 @@ const processSingleDomain = async (domain: string, settings: SettingsType, domai
       }
 
       if (keywordsToRefresh.length === 0) {
-         logger.info(`No eligible keywords found for domain: ${domain}`);
+         logger.debug(`[SCRAPER] No eligible keywords found for domain: ${domain}`);
          return;
       }
 
@@ -149,12 +149,12 @@ const processSingleDomain = async (domain: string, settings: SettingsType, domai
          keywordIds: keywordsToRefresh.map((keyword) => keyword.ID),
       });
       
-      logger.info(`Processing ${keywordsToRefresh.length} keywords for domain: ${domain}`);
+      logger.debug(`[SCRAPER] Processing ${keywordsToRefresh.length} keywords for domain: ${domain}`);
       
       // Process this domain's keywords
       await refreshAndUpdateKeywords(keywordsToRefresh, settings, domainRecords);
       
-      logger.info(`Completed processing domain: ${domain}`);
+      logger.info(`[SCRAPER] Completed processing domain: ${domain}`);
    } catch (domainError) {
       logger.error(`Error processing domain: ${domain}`, domainError instanceof Error ? domainError : new Error(String(domainError)));
       

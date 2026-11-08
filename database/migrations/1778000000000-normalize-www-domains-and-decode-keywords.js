@@ -111,7 +111,7 @@ module.exports = {
                renames.push({ from: row.domain, to: bare });
                renamed += 1;
             }
-            logger.info(`Removed the leading "www." from ${renamed} domain(s).`);
+            logger.info(`[MIGRATION] Removed the leading "www." from ${renamed} domain(s).`);
          }
 
          if (await tableExists(sequelize, 'keyword', transaction)) {
@@ -134,7 +134,7 @@ module.exports = {
                   logger.info(`[MIGRATION] Left keyword ${row.ID} as is - decoded value conflicts with an existing keyword.`);
                }
             }
-            logger.info(`Decoded percent-encoded keyword/location values on ${decoded} keyword(s).`);
+            logger.info(`[MIGRATION] Decoded percent-encoded keyword/location values on ${decoded} keyword(s).`);
          }
       });
 

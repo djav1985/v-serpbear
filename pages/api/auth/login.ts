@@ -16,7 +16,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
    const requestId = (req as ExtendedRequest).requestId;
    const startTime = Date.now();
    
-   logger.info('Login API endpoint accessed', {
+   logger.debug('[API] Login API endpoint accessed', {
       method: req.method,
       ip: getClientIp(req),
       userAgent: req.headers['user-agent']
@@ -26,7 +26,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return loginUser(req, res, startTime);
    }
    
-   logger.warn('Invalid method used for login endpoint', {
+   logger.debug('[API] Invalid method used for login endpoint', {
       method: req.method,
       duration: Date.now() - startTime
    });
@@ -41,7 +41,7 @@ const loginUser = async (req: NextApiRequest, res: NextApiResponse, startTime: n
    }
    const { username, password } = req.body;
    
-   logger.info('Login attempt started', {
+   logger.debug('[API] Login attempt started', {
       hasUsername: typeof username === 'string' && username.length > 0,
       hasPassword: !!password,
       ip: getClientIp(req)
@@ -52,7 +52,7 @@ const loginUser = async (req: NextApiRequest, res: NextApiResponse, startTime: n
       || username.length === 0 || password.length === 0
       || username.length > MAX_CREDENTIAL_LENGTH || password.length > MAX_CREDENTIAL_LENGTH) {
       const error = 'Username Password Missing';
-      logger.warn('Login failed: missing credentials', {
+      logger.debug('[API] Login failed: missing credentials', {
          hasUsername: !!username,
          hasPassword: !!password,
          duration: Date.now() - startTime
@@ -156,7 +156,7 @@ const loginUser = async (req: NextApiRequest, res: NextApiResponse, startTime: n
 
          clearLoginFailures(attemptKeys);
 
-         logger.info('Login successful', {
+         logger.debug('[API] Login successful', {
             sessionDuration: sessionDurationHours,
             expiresAt: expiryDate.toISOString(),
             duration: Date.now() - startTime,
@@ -186,7 +186,7 @@ const loginUser = async (req: NextApiRequest, res: NextApiResponse, startTime: n
    // Generic error message to prevent username enumeration
    const error = 'Invalid credentials';
    
-   logger.warn('Login failed: invalid credentials', {
+   logger.debug('[API] Login failed: invalid credentials', {
       duration: Date.now() - startTime,
       ip: getClientIp(req)
    });

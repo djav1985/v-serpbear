@@ -25,7 +25,7 @@ const clearFailedQueue = async (_req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (_req as ExtendedRequest).requestId;
    try {
       await retryQueueManager.clearQueue();
-      logger.info('Failed queue cleared successfully');
+      logger.debug('[SCRAPER] Failed queue cleared successfully');
       return res.status(200).json({ cleared: true });
    } catch (error) {
       logger.error('Error clearing failed queue', error instanceof Error ? error : new Error(String(error)));

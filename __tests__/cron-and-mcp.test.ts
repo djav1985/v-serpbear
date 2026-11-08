@@ -64,7 +64,7 @@ describe('cron worker', () => {
         json: () => Promise.resolve({ ok: true }),
       });
 
-      await makeCronApiCall('secret', 'http://localhost:3000', '/api/app/cron', 'CRON: Keyword Scraping Result');
+      await makeCronApiCall('secret', 'http://localhost:3000', '/api/app/cron', '[CRON] Keyword Scraping Result');
 
       expect(global.fetch).toHaveBeenCalledWith('http://localhost:3000/api/app/cron', {
         method: 'POST',
@@ -75,7 +75,7 @@ describe('cron worker', () => {
         expect.stringContaining('"level":"INFO"')
       );
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('CRON: Keyword Scraping Result')
+        expect.stringContaining('[CRON] Keyword Scraping Result')
       );
     });
 

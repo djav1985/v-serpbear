@@ -95,7 +95,7 @@ module.exports = {
             updatedCount += 1;
          }
 
-         logger.info(`Padded history date keys for ${updatedCount} keyword(s).`);
+         logger.info(`[MIGRATION] Padded history date keys for ${updatedCount} keyword(s).`);
       });
    },
 

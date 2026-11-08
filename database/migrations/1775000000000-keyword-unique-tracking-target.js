@@ -122,7 +122,7 @@ module.exports = {
             }
          }
          if (removed > 0) {
-            logger.info(`Merged ${removed} duplicate keyword row(s) before adding the unique target index.`);
+            logger.info(`[MIGRATION] Merged ${removed} duplicate keyword row(s) before adding the unique target index.`);
          }
 
          // COALESCE so that a missing location (NULL) and an empty one count as the same target

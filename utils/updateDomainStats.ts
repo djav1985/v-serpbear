@@ -81,7 +81,7 @@ const attemptDomainStatsUpdate = async (domainName: string): Promise<void> => {
       { where: { domain: domainName } }
    );
 
-   logger.info(`Updated domain stats for ${domainName}`, nextStats);
+   logger.debug(`[SCRAPER] Updated domain stats for ${domainName}`, nextStats);
 };
 
 /**

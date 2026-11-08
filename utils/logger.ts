@@ -115,15 +115,15 @@ export class Logger {
   // Authentication event logging
   authEvent(event: string, user?: string, success: boolean = true, meta?: Record<string, any>): void {
     if (success) {
-      // INFO level: Log auth success with structured metadata
-      this.info(`Auth: ${event}${user ? ` [${user}]` : ''}`, {
+      // DEBUG level: Log auth success with structured metadata
+      this.debug(`[API] ${event}${user ? ` [${user}]` : ''}`, {
         event,
         user,
         ...meta,
       });
     } else {
-      // WARN level: Log auth failures with some context
-      this.warn(`Auth Failed: ${event}`, {
+      // DEBUG level: Log auth failures with some context
+      this.debug(`[API] ${event}`, {
         event,
         user,
         ...meta,

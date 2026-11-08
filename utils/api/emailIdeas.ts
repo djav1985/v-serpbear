@@ -126,7 +126,7 @@ export const sendIdeasEmail = async (req: NextApiRequest, res: NextApiResponse) 
          html: emailHTML,
       });
 
-      logger.info(`Sent keyword ideas email for ${normalizedDomain.domain}`);
+      logger.info(`[EMAIL] Sent keyword ideas email for ${normalizedDomain.domain}`);
       return res.status(200).json({ success: true, error: null });
    } catch (error) {
       logger.error('Error sending keyword ideas email', error instanceof Error ? error : new Error(String(error)));

@@ -36,7 +36,7 @@ export const sortInsightItems = (items:SCInsightItem[], sortBy: string = 'clicks
 export const getCountryInsight = (SCData:SCDomainDataType, sortBy:string = 'clicks', queryDate:string = 'thirtyDays') : SCInsightItem[] => {
    // Validate input data
    if (!SCData || typeof SCData !== 'object') {
-      logger.warn('Invalid SCData provided to getCountryInsight');
+      logger.debug('[GOOGLE] Invalid SCData provided to getCountryInsight');
       return [];
    }
 
@@ -90,7 +90,7 @@ export const getCountryInsight = (SCData:SCDomainDataType, sortBy:string = 'clic
 export const getKeywordsInsight = (SCData:SCDomainDataType, sortBy:string = 'clicks', queryDate:string = 'thirtyDays') : SCInsightItem[] => {
    // Validate input data
    if (!SCData || typeof SCData !== 'object') {
-      logger.warn('Invalid SCData provided to getKeywordsInsight');
+      logger.debug('[GOOGLE] Invalid SCData provided to getKeywordsInsight');
       return [];
    }
 
@@ -143,7 +143,7 @@ export const getKeywordsInsight = (SCData:SCDomainDataType, sortBy:string = 'cli
 export const getPagesInsight = (SCData:SCDomainDataType, sortBy:string = 'clicks', queryDate:string = 'thirtyDays') : SCInsightItem[] => {
    // Validate input data
    if (!SCData || typeof SCData !== 'object') {
-      logger.warn('Invalid SCData provided to getPagesInsight');
+      logger.debug('[GOOGLE] Invalid SCData provided to getPagesInsight');
       return [];
    }
 

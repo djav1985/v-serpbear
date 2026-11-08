@@ -36,7 +36,7 @@ export const removeDomainIdeasFile = async (domain: string): Promise<boolean> =>
       if (error?.code === 'ENOENT') {
          return true;
       }
-      logger.warn('Domain deleted, but its keyword ideas file could not be removed', { domain, error: error?.message });
+      logger.error('Domain deleted, but its keyword ideas file could not be removed', undefined, { domain, error: error?.message });
       return false;
    }
 };

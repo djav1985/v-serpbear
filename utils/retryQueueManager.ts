@@ -56,7 +56,7 @@ class RetryQueueManager {
          // eslint-disable-next-line security/detect-non-literal-fs-filename
          await mkdir(dirname(this.filePath), { recursive: true });
       } catch (err: any) {
-         logger.debug('Failed to create retry queue directory', { error: err?.message });
+         logger.debug('[LOCK] Failed to create retry queue directory', { error: err?.message });
          throw err;
       }
 
@@ -75,7 +75,7 @@ class RetryQueueManager {
             },
          });
       } catch (err: any) {
-         logger.debug('Failed to acquire retry queue file lock', { error: err?.message });
+         logger.debug('[LOCK] Failed to acquire retry queue file lock', { error: err?.message });
          throw err;
       }
 
@@ -86,13 +86,13 @@ class RetryQueueManager {
             await readFile(this.filePath, { encoding: 'utf-8' });
          } catch (err: any) {
             if (err.code !== 'ENOENT') {
-               logger.debug('Failed to read retry queue file', { error: err?.message });
+               logger.debug('[LOCK] Failed to read retry queue file', { error: err?.message });
                throw err;
             }
             try {
                await atomicWriteFile(this.filePath, JSON.stringify([]), 'utf-8');
             } catch (createErr: any) {
-               logger.debug('Failed to create retry queue file', { error: createErr?.message });
+               logger.debug('[LOCK] Failed to create retry queue file', { error: createErr?.message });
                throw createErr;
             }
          }
@@ -103,7 +103,7 @@ class RetryQueueManager {
             await release();
          } catch (err: any) {
             // Log but do not rethrow to avoid masking the original operation error.
-            logger.debug('Failed to release retry queue file lock', { error: err?.message });
+            logger.debug('[LOCK] Failed to release retry queue file lock', { error: err?.message });
          }
       }
    }

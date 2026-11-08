@@ -103,7 +103,7 @@ export const decryptDomainScraperSettings = (
       try {
          decryptedKey = cryptr.decrypt(raw.scraping_api);
       } catch (error) {
-         logger.warn('Failed to decrypt domain scraper API key override', { error: error instanceof Error ? error.message : String(error) });
+         logger.debug('[SCRAPER] Failed to decrypt domain scraper API key override', { error: error instanceof Error ? error.message : String(error) });
          decryptedKey = null;
       }
    }

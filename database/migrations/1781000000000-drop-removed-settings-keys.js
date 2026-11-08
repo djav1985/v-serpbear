@@ -44,7 +44,7 @@ module.exports = {
    up: async function up() {
       const removed = dropRemovedSettingsKeys();
       if (removed.length > 0) {
-         logger.info(`Removed obsolete keys from data/settings.json: ${removed.join(', ')}.`);
+         logger.info(`[MIGRATION] Removed obsolete keys from data/settings.json: ${removed.join(', ')}.`);
       }
    },
 

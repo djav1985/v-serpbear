@@ -33,12 +33,12 @@ export function withApiLogging(
     // Log body in DEBUG mode
     const shouldLogBody = process.env.LOG_LEVEL?.toLowerCase() === 'debug';
 
-    // INFO level: Just log the request method and URL
-    logger.info(`${req.method} ${redactUrl(req.url)}${name ? ` [${name}]` : ''}`);
+    // DEBUG level: Log the request method and URL
+    logger.debug(`[API] ${req.method} ${redactUrl(req.url)}${name ? ` [${name}]` : ''}`);
 
     // DEBUG level: Log full request details
     if (shouldLogBody) {
-      logger.debug(`API Request Details${name ? ` [${name}]` : ''}`, {
+      logger.debug(`[API] Request Details${name ? ` [${name}]` : ''}`, {
         requestId,
         method: req.method,
         url: redactUrl(req.url),
@@ -84,15 +84,15 @@ export function withApiLogging(
           duration,
         });
       } else if (statusCode >= 400) {
-        // WARN level: Log client errors with moderate detail
-        logger.warn(`${req.method} ${redactUrl(req.url)}${name ? ` [${name}]` : ''} - ${statusCode}`, {
+        // DEBUG level: Log client responses with status details
+        logger.debug(`[API] ${req.method} ${redactUrl(req.url)}${name ? ` [${name}]` : ''} - ${statusCode}`, {
           requestId,
           statusCode,
           duration,
         });
       } else {
-        // INFO level: Just log success with duration
-        logger.info(`${req.method} ${redactUrl(req.url)}${name ? ` [${name}]` : ''} - ${statusCode} (${duration}ms)`);
+        // DEBUG level: Log success with duration
+        logger.debug(`[API] ${req.method} ${redactUrl(req.url)}${name ? ` [${name}]` : ''} - ${statusCode} (${duration}ms)`);
       }
 
     } catch (error) {

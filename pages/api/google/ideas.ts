@@ -79,7 +79,7 @@ const updateKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => 
       return res.status(400).json(errorResponse('BAD_REQUEST', 'keywords must be a list of up to 1000 strings.', requestId));
    }
 
-   logger.debug('updateKeywordIdeas called', {
+   logger.debug('[GOOGLE] updateKeywordIdeas called', {
       keywordsCount: keywords.length,
       country: rawCountry,
       language,
@@ -122,7 +122,7 @@ const updateKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => 
       const adwordsCreds = await getAdwordsCredentials();
       const { client_id, client_secret, developer_token, account_id, refresh_token } = adwordsCreds || {};
       
-      logger.debug('Google Ads credentials check', {
+      logger.debug('[GOOGLE] Google Ads credentials check', {
          hasCredentials: !!adwordsCreds,
          hasClientId: !!client_id,
          hasClientSecret: !!client_secret,
@@ -137,23 +137,23 @@ const updateKeywordIdeas = async (req: NextApiRequest, res: NextApiResponse) => 
       }
       const ideaOptions = { country, language, keywords, domain, seedSCKeywords, seedCurrentKeywords, seedType };
       
-      logger.debug('Calling getAdwordsKeywordIdeas', { ideaOptions });
+      logger.debug('[GOOGLE] Calling getAdwordsKeywordIdeas', { ideaOptions });
       
       try {
          const keywordIdeas = await getAdwordsKeywordIdeas(adwordsCreds, ideaOptions);
          
-         logger.debug('getAdwordsKeywordIdeas result', {
+         logger.debug('[GOOGLE] getAdwordsKeywordIdeas result', {
             hasResults: !!keywordIdeas,
             isArray: Array.isArray(keywordIdeas),
             count: Array.isArray(keywordIdeas) ? keywordIdeas.length : 0,
          });
          
          if (keywordIdeas && Array.isArray(keywordIdeas) && keywordIdeas.length > 0) {
-            logger.info('Successfully fetched keyword ideas', { count: keywordIdeas.length });
+            logger.info('[GOOGLE] Successfully fetched keyword ideas', { count: keywordIdeas.length });
             return res.status(200).json({ keywords: keywordIdeas });
          }
          // Surface empty result sets as a not-found condition so the client can warn the user appropriately
-         logger.warn('No keyword ideas returned by Google Ads', { ideaOptions });
+         logger.debug('[GOOGLE] No keyword ideas returned by Google Ads', { ideaOptions });
          return res.status(404).json(errorResponse('NOT_FOUND', 'No keyword ideas were returned for these keywords.', requestId));
       } catch (error: any) {
          logger.error('Error fetching keyword ideas from Google Ads', error instanceof Error ? error : new Error(String(error)), {

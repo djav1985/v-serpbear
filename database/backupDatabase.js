@@ -38,7 +38,7 @@ const backupDatabaseFile = async (queryInterface, now = new Date()) => {
       logger.info(`[MIGRATION] Backed up database to ${backupPath}`);
       return backupPath;
    } catch (error) {
-      logger.warn(`[MIGRATION] Could not back up database before migrating: ${error instanceof Error ? error.message : String(error)}`);
+      logger.error(`[MIGRATION] Could not back up database before migrating: ${error instanceof Error ? error.message : String(error)}`);
       return null;
    }
 };

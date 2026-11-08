@@ -41,7 +41,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
         timezone: APP_TIMEZONE,
       } as AuthCheckResponse);
     } catch (error) {
-      logger.warn('Failed to decode JWT token in auth check', {
+      logger.debug('[API] Failed to decode JWT token in auth check', {
         error: error instanceof Error ? error.message : String(error)
       });
       

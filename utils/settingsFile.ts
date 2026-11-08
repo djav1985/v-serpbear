@@ -45,7 +45,7 @@ export const withSettingsLock = async <T>(fn: () => Promise<T>): Promise<T> => {
       try {
          await release();
       } catch (err: any) {
-         logger.debug('Failed to release settings file lock', { error: err?.message });
+         logger.debug('[LOCK] Failed to release settings file lock', { error: err?.message });
       }
    }
 };

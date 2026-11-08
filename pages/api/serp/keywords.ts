@@ -389,7 +389,7 @@ const deleteKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
    if (!hasKeywordIdInput(req)) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'keyword ID is Required!', requestId));
    }
-   logger.debug('keyword IDs: ', { data: req.body?.ids ?? req.query.id });
+   logger.debug('[SCRAPER] keyword IDs: ', { data: req.body?.ids ?? req.query.id });
 
    try {
       const keywordsToRemove = readKeywordIds(req) ?? [];
@@ -410,7 +410,7 @@ const deleteKeywords = async (req: NextApiRequest, res: NextApiResponse) => {
       const releaseDomains = refreshQueue.reserveDomains(affectedDomains);
       if (!releaseDomains) {
          const lockedDomains = affectedDomains.filter(domain => refreshQueue.isDomainLocked(domain));
-         logger.warn(`Cannot delete keywords while domains are being refreshed`, { lockedDomains });
+         logger.debug(`[SCRAPER] Cannot delete keywords while domains are being refreshed`, { lockedDomains });
          return res.status(409).json(
             errorResponse('CONFLICT', `Cannot delete keywords while their domains are being refreshed: ${lockedDomains.join(', ')}. Please wait for the refresh to complete.`, requestId),
          );

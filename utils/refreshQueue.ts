@@ -40,7 +40,7 @@ class RefreshQueue {
       if (envConcurrency && parsedConcurrency !== this.maxConcurrency) {
          logger.warn(`Invalid REFRESH_QUEUE_CONCURRENCY value "${envConcurrency}", using default: ${this.maxConcurrency}`);
       } else if (envConcurrency && this.maxConcurrency !== 3) {
-         logger.info(`Refresh queue concurrency set to ${this.maxConcurrency} via environment variable`);
+         logger.debug(`[SCRAPER] Refresh queue concurrency set to ${this.maxConcurrency} via environment variable`);
       }
    }
 
@@ -52,11 +52,11 @@ class RefreshQueue {
     */
    async enqueue(taskId: string, task: () => Promise<void>, domains: Iterable<string> = []): Promise<void> {
       const normalizedDomains = new Set(Array.from(domains, (domain) => domain.trim().toLowerCase()).filter(Boolean));
-      logger.info(`Enqueueing refresh task: ${taskId}`, { domains: Array.from(normalizedDomains) });
+      logger.debug(`[SCRAPER] Enqueueing refresh task: ${taskId}`, { domains: Array.from(normalizedDomains) });
       
       // Check whether any task domain is already being processed
       if (Array.from(normalizedDomains).some((domain) => this.activeDomains.has(domain))) {
-         logger.info('One or more task domains are already being processed, queueing task', { taskId, domains: Array.from(normalizedDomains) });
+         logger.debug('[SCRAPER] One or more task domains are already being processed, queueing task', { taskId, domains: Array.from(normalizedDomains) });
       }
       
       this.queue.push({
@@ -65,7 +65,7 @@ class RefreshQueue {
          execute: task,
       });
 
-      logger.debug(`Queue status`, { 
+      logger.debug(`[SCRAPER] Queue status`, {
          queueLength: this.queue.length, 
          activeProcesses: this.activeProcesses.size,
          activeDomains: Array.from(this.activeDomains),
@@ -88,7 +88,7 @@ class RefreshQueue {
          
          if (taskIndex === -1) {
             // All remaining tasks are blocked by active domain locks
-            logger.debug('No available tasks (all blocked by domain locks)', {
+            logger.debug('[SCRAPER] No available tasks (all blocked by domain locks)', {
                queueLength: this.queue.length,
                activeDomains: Array.from(this.activeDomains),
             });
@@ -106,7 +106,7 @@ class RefreshQueue {
     */
    private startTask(task: RefreshTask): void {
       const domains = Array.from(task.domains);
-      logger.info(`Starting refresh task: ${task.id}`, { domains });
+      logger.debug(`[SCRAPER] Starting refresh task: ${task.id}`, { domains });
       const startTime = Date.now();
 
       // Mark domain as active if specified
@@ -118,7 +118,7 @@ class RefreshQueue {
       const taskPromise = task.execute()
          .then(() => {
             const duration = Date.now() - startTime;
-            logger.info(`Completed refresh task: ${task.id} (${duration}ms)`, { domains });
+            logger.debug(`[SCRAPER] Completed refresh task: ${task.id} (${duration}ms)`, { domains });
          })
          .catch((error) => {
             const duration = Date.now() - startTime;
@@ -190,7 +190,7 @@ class RefreshQueue {
          throw new Error('Max concurrency must be at least 1');
       }
       this.maxConcurrency = max;
-      logger.info(`Updated max concurrency to ${max}`);
+      logger.debug(`[SCRAPER] Updated max concurrency to ${max}`);
       
       // Try to process more tasks if we increased the limit
       this.processQueue();

@@ -105,7 +105,7 @@ const sendNotificationEmail = async (domain: DomainType, settings: SettingsType)
    const domainName = domain.domain;
    const recipients = trimString(domain.notification_emails);
    if (!recipients) {
-      logger.info(`Skipping email for ${domainName}: no notification address set for this domain`);
+      logger.info(`[EMAIL] Skipping email for ${domainName}: no notification address set for this domain`);
       return 'skipped';
    }
 
@@ -115,7 +115,7 @@ const sendNotificationEmail = async (domain: DomainType, settings: SettingsType)
    // Check the throttle and reserve the send in one step, so overlapping runs cannot both send
    const reservation = await reserveEmailSend(domainName);
    if (!reservation.reserved) {
-      logger.info(`Skipping email for ${domainName}: ${reservation.reason}`);
+      logger.info(`[EMAIL] Skipping email for ${domainName}: ${reservation.reason}`);
       return 'skipped';
    }
 
@@ -140,7 +140,7 @@ const sendNotificationEmail = async (domain: DomainType, settings: SettingsType)
          html: emailHTML,
       });
 
-      logger.info(`Successfully sent notification for ${domainName}`);
+      logger.info(`[EMAIL] Successfully sent notification for ${domainName}`);
       return 'sent';
 
    } catch (error:any) {

@@ -165,7 +165,7 @@ const verifyUser = (req: NextApiRequest, res: NextApiResponse): string => {
    
    // Log the final authentication result
    if (authorized === 'authorized') {
-      logger.debug('Authentication successful', {
+      logger.debug('[API] Authentication successful', {
          method: req.method,
          url: redactUrl(req.url),
          authMethod,
@@ -173,7 +173,7 @@ const verifyUser = (req: NextApiRequest, res: NextApiResponse): string => {
          duration
       });
    } else {
-      logger.warn('Authentication failed', {
+      logger.debug('[API] Authentication failed', {
          method: req.method,
          url: redactUrl(req.url),
          reason: authorized,

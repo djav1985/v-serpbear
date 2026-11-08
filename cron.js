@@ -70,7 +70,7 @@ const parseTimeOfDay = (name, value, fallback) => {
    const normalized = normalizeValue(value, fallback);
    const match = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(normalized);
    if (!match) {
-      logger.warn(`CRON: ${name} must be a time like 06:30 (HH:MM, 24 hour); using ${fallback}.`, { value: normalized });
+      logger.warn(`[CRON] ${name} must be a time like 06:30 (HH:MM, 24 hour); using ${fallback}.`, { value: normalized });
       return parseTimeOfDay(name, fallback, fallback);
    }
    return { hour: Number(match[1]), minute: Number(match[2]) };
@@ -87,7 +87,7 @@ const FAILED_MODES = ['hourly', 'daily', 'never'];
 const configuredFailedMode = normalizeValue(process.env.CRON_FAILED_SCHEDULE, 'hourly').toLowerCase();
 const FAILED_MODE = FAILED_MODES.includes(configuredFailedMode) ? configuredFailedMode : 'hourly';
 if (FAILED_MODE !== configuredFailedMode) {
-   logger.warn('CRON: CRON_FAILED_SCHEDULE must be hourly, daily or never; using hourly.', { value: configuredFailedMode });
+   logger.warn('[CRON] CRON_FAILED_SCHEDULE must be hourly, daily or never; using hourly.', { value: configuredFailedMode });
 }
 
 const HOURLY_SCHEDULE = '0 0 * * * *';
@@ -157,13 +157,13 @@ const getAppSettings = async ({ strict = false } = {}) => {
       try {
          settings = JSON.parse(settingsRaw);
       } catch (error) {
-         logger.error('CRON: Parsing Settings File.', error instanceof Error ? error : new Error(String(error)));
+         logger.error('[CRON] Parsing Settings File.', error instanceof Error ? error : new Error(String(error)));
          if (strict) { throw error; }
          return defaultSettings;
       }
 
       if (!process.env.SECRET) {
-         logger.error('CRON: SECRET is not set; cannot decrypt the API keys in settings. Set SECRET in your environment.');
+         logger.error('[CRON] SECRET is not set; cannot decrypt the API keys in settings. Set SECRET in your environment.');
          return { ...settings, scraping_api: '', smtp_password: '' };
       }
 
@@ -173,7 +173,7 @@ const getAppSettings = async ({ strict = false } = {}) => {
          const smtp_password = settings.smtp_password ? cryptr.decrypt(settings.smtp_password) : '';
          return { ...settings, scraping_api, smtp_password };
       } catch (error) {
-         logger.error('CRON: Error Decrypting Settings API Keys.', error instanceof Error ? error : new Error(String(error)));
+         logger.error('[CRON] Error Decrypting Settings API Keys.', error instanceof Error ? error : new Error(String(error)));
          return {
             ...settings,
             scraping_api: '',
@@ -185,14 +185,14 @@ const getAppSettings = async ({ strict = false } = {}) => {
          return defaultSettings;
       }
       if (strict) { throw error; }
-      logger.error('CRON: Reading Settings File.', error instanceof Error ? error : new Error(String(error)));
+      logger.error('[CRON] Reading Settings File.', error instanceof Error ? error : new Error(String(error)));
       return defaultSettings;
    }
 };
 
 const makeCronApiCall = (apiKey, baseUrl, endpoint, successMessage) => {
    if (!apiKey) {
-      logger.warn('CRON: Skipping API call, API key not configured.', { endpoint });
+      logger.warn('[CRON] Skipping API call, API key not configured.', { endpoint });
       return Promise.resolve();
    }
 
@@ -225,7 +225,7 @@ const makeCronApiCall = (apiKey, baseUrl, endpoint, successMessage) => {
          }
       })
       .catch((err) => {
-         logger.error('CRON: Error making API call.', err instanceof Error ? err : new Error(String(err)), { endpoint });
+         logger.error('[CRON] Error making API call.', err instanceof Error ? err : new Error(String(err)), { endpoint });
       });
 };
 
@@ -237,7 +237,7 @@ const scheduleJob = (name, expression, task, options) => {
    try {
       return new Cron(expression, task, options);
    } catch (error) {
-      logger.error(`CRON: Invalid schedule for ${name}; job not scheduled.`, error instanceof Error ? error : new Error(String(error)), { expression });
+      logger.error(`[CRON] Invalid schedule for ${name}; job not scheduled.`, error instanceof Error ? error : new Error(String(error)), { expression });
       return null;
    }
 };
@@ -246,13 +246,13 @@ const scheduleJob = (name, expression, task, options) => {
 const RETRY_BATCH_SIZE = 100;
 
 const runAppCronJobs = () => {
-   logger.info('CRON: Initializing application cron jobs.', { timezone: TZ_NAME });
+   logger.info('[CRON] Initializing application cron jobs.', { timezone: TZ_NAME });
    
    // APP_URL is the internal origin for the worker's own calls and wins when set (the public URL may not be
    // reachable from inside the container). Falls back to NEXT_PUBLIC_APP_URL, then localhost.
    const internalApiUrl = normalizeValue(process.env.APP_URL, '') || normalizeValue(process.env.NEXT_PUBLIC_APP_URL, '') || 'http://localhost:3000';
    
-   logger.debug('CRON: Worker configuration.', { url: internalApiUrl, apiKeyConfigured: !!process.env.APIKEY });
+   logger.debug('[CRON] Worker configuration.', { url: internalApiUrl, apiKeyConfigured: !!process.env.APIKEY });
    
    // Timezone only: croner has no "scheduled" option, jobs start as soon as they are created
    const cronOptions = { timezone: TZ_NAME };
@@ -271,7 +271,7 @@ const runAppCronJobs = () => {
          settings = await getAppSettings({ strict: true });
       } catch (error) {
          // Unreadable settings must not tear down jobs that are already running
-         logger.error('CRON: Could not read settings; keeping the current schedule.', error instanceof Error ? error : new Error(String(error)));
+         logger.error('[CRON] Could not read settings; keeping the current schedule.', error instanceof Error ? error : new Error(String(error)));
          if (activePlanKey !== null) {
             return;
          }
@@ -295,12 +295,12 @@ const runAppCronJobs = () => {
       if (scrapeJob) { scrapeJob.stop(); scrapeJob = null; }
       if (emailJob) { emailJob.stop(); emailJob = null; }
 
-      logger.info('CRON: Applying schedule from settings.', { scrapeSchedule: scrapeCronTime, emailSchedule: emailCronTime, type: settings.scraper_type || 'none' });
+      logger.info('[CRON] Applying schedule from settings.', { scrapeSchedule: scrapeCronTime, emailSchedule: emailCronTime, type: settings.scraper_type || 'none' });
 
       if (scrapeCronTime) {
          scrapeJob = scheduleJob('keyword scraping', scrapeCronTime, () => {
-            logger.info('CRON: Running Keyword Position Cron Job.');
-            makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/app/cron', 'CRON: Keyword Scraping Result');
+            logger.info('[CRON] Running Keyword Position Cron Job.');
+            makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/app/cron', '[CRON] Keyword Scraping Result');
          }, cronOptions);
       }
 
@@ -309,11 +309,11 @@ const runAppCronJobs = () => {
             // Same check as the digest email route: without an SMTP host the API answers 400, so skip quietly instead
             const smtpSettings = await getAppSettings();
             if (!normalizeValue(smtpSettings.smtp_server, '')) {
-               logger.debug('CRON: SMTP is not configured; skipping the notification email.');
+               logger.debug('[CRON] SMTP is not configured; skipping the notification email.');
                return;
             }
-            logger.info('CRON: Sending Notification Email.');
-            makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/app/email?type=digest', 'CRON: Email Notification Result');
+            logger.info('[CRON] Sending Notification Email.');
+            makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/app/email?type=digest', '[CRON] Email Notification Result');
          }, cronOptions);
       }
 
@@ -324,7 +324,7 @@ const runAppCronJobs = () => {
       applyChain = applyChain
          .then(applyScheduleFromSettings)
          .catch((error) => {
-            logger.error('CRON: Could not apply schedule from settings; keeping the current jobs.', error instanceof Error ? error : new Error(String(error)));
+            logger.error('[CRON] Could not apply schedule from settings; keeping the current jobs.', error instanceof Error ? error : new Error(String(error)));
          });
       return applyChain;
    };
@@ -350,12 +350,12 @@ const runAppCronJobs = () => {
    try {
       const settingsWatcher = watch(path.join(process.cwd(), 'data'), onSettingsDirEvent);
       settingsWatcher.on('error', (error) => {
-         logger.warn('CRON: Settings watcher failed; relying on the 30 minute safety check.', { error: error?.message || String(error) });
+         logger.warn('[CRON] Settings watcher failed; relying on the 30 minute safety check.', { error: error?.message || String(error) });
          settingsWatcher.close();
       });
       settingsWatcher.unref();
    } catch (error) {
-      logger.warn('CRON: Could not watch the settings directory; relying on the 30 minute safety check.', { error: error?.message || String(error) });
+      logger.warn('[CRON] Could not watch the settings directory; relying on the 30 minute safety check.', { error: error?.message || String(error) });
    }
 
    // Retry failed scrapes hourly or daily (CRON_FAILED_SCHEDULE); "never" schedules no retry job
@@ -365,27 +365,27 @@ const runAppCronJobs = () => {
          // Auto Retry is opt-in: skip the whole run unless scrape_retry is enabled in settings
          const settings = await getAppSettings();
          if (!settings.scrape_retry) {
-            logger.debug('CRON: Auto Retry is disabled; skipping failed scrape retry.');
+            logger.debug('[CRON] Auto Retry is disabled; skipping failed scrape retry.');
             return;
          }
 
-         logger.info('CRON: Retrying Failed Scrapes.');
+         logger.info('[CRON] Retrying Failed Scrapes.');
          // Use retryQueueManager for concurrency-safe access
          const keywordsToRetry = await retryQueueManager.peekQueue();
 
          if (keywordsToRetry.length > 0) {
-            logger.info('CRON: Found failed scrapes to retry.', { count: keywordsToRetry.length });
+            logger.info('[CRON] Found failed scrapes to retry.', { count: keywordsToRetry.length });
             // Send the IDs in batches so each request URL stays small
             for (let i = 0; i < keywordsToRetry.length; i += RETRY_BATCH_SIZE) {
                const batch = keywordsToRetry.slice(i, i + RETRY_BATCH_SIZE);
                const params = new URLSearchParams({ id: batch.join(',') });
-               await makeCronApiCall(process.env.APIKEY, internalApiUrl, `/api/serp/refresh?${params.toString()}`, 'CRON: Failed Scrapes Retry Result');
+               await makeCronApiCall(process.env.APIKEY, internalApiUrl, `/api/serp/refresh?${params.toString()}`, '[CRON] Failed Scrapes Retry Result');
             }
          } else {
-            logger.debug('CRON: No failed scrapes to retry.');
+            logger.debug('[CRON] No failed scrapes to retry.');
          }
       } catch (error) {
-         logger.error('CRON: Error in Failed Scrapes Retry.', error instanceof Error ? error : new Error(String(error)));
+         logger.error('[CRON] Error in Failed Scrapes Retry.', error instanceof Error ? error : new Error(String(error)));
       }
    }, cronOptions);
 
@@ -393,16 +393,16 @@ const runAppCronJobs = () => {
    // Always run the CRON as the API endpoint will check for credentials per domain
    const searchConsoleCRONTime = CRON_INTERVAL_MAP.daily;
    scheduleJob('search console', searchConsoleCRONTime, () => {
-      logger.info('CRON: Running Google Search Console Scraper.');
-      makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/google/searchconsole', 'CRON: Search Console Scraper Result');
+      logger.info('[CRON] Running Google Search Console Scraper.');
+      makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/google/searchconsole', '[CRON] Search Console Scraper Result');
    }, cronOptions);
    
-   logger.info('CRON: All cron jobs initialized successfully.');
+   logger.info('[CRON] All cron jobs initialized successfully.');
 };
 
 if (require.main === module) {
    runAppCronJobs();
-   logger.info('CRON: Cron worker started.');
+   logger.info('[CRON] Cron worker started.');
 }
 
 module.exports = {

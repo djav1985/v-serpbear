@@ -323,7 +323,7 @@ export const getSearchConsoleApiInfo = async (domain: DomainType): Promise<SCAPI
          scAPIData.client_email = settings.search_console_client_email ? cryptr.decrypt(settings.search_console_client_email) : '';
          scAPIData.private_key = settings.search_console_private_key ? cryptr.decrypt(settings.search_console_private_key) : '';
       } catch (error) {
-         logger.warn('Unable to read app settings for Search Console credentials', { error: error instanceof Error ? error.message : String(error) });
+         logger.error('Unable to read app settings for Search Console credentials', undefined, { error: error instanceof Error ? error.message : String(error) });
          // Settings file doesn't exist or is invalid, continue with environment variables
       }
    }
@@ -402,7 +402,7 @@ export const updateLocalSCData = async (domain:string, scDomainData?:SCDomainDat
       await atomicWriteFile(filePath, JSON.stringify(dataToWrite), 'utf-8');
       return dataToWrite;
    } catch (error) {
-      logger.warn(`Failed to write local Search Console data for domain: ${domain}`, { error: error instanceof Error ? error.message : String(error) });
+      logger.error(`Failed to write local Search Console data for domain: ${domain}`, undefined, { error: error instanceof Error ? error.message : String(error) });
       return false;
    }
 };
@@ -421,7 +421,7 @@ export const removeLocalSCData = async (domain:string): Promise<boolean> => {
       return true;
    } catch (error) {
       if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') return true;
-      logger.warn(`Failed to remove local Search Console data for domain: ${domain}`, { error: error instanceof Error ? error.message : String(error) });
+      logger.error(`Failed to remove local Search Console data for domain: ${domain}`, undefined, { error: error instanceof Error ? error.message : String(error) });
       return false;
    }
 };

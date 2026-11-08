@@ -105,7 +105,7 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse) => 
    if (domain !== undefined && typeof domain !== 'string') {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'domain must be a single domain name.', requestId));
    }
-   logger.debug('keywordIDs: ', { data: keywordIDs });
+   logger.debug('[SCRAPER] keywordIDs: ', { data: keywordIDs });
 
    if (!refreshAll && (!keywordIDs || keywordIDs.length === 0)) {
       return res.status(400).json(errorResponse('BAD_REQUEST', 'No valid keyword IDs provided', requestId));
@@ -121,7 +121,7 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse) => 
       const settings = await getAppSettings();
       
       if (!settings || (settings && settings.scraper_type === 'none')) {
-         logger.debug('Scraper not configured');
+         logger.debug('[SCRAPER] Scraper not configured');
          return res.status(400).json(errorResponse('BAD_REQUEST', 'Scraper has not been set up yet.', requestId));
       }
       const query = refreshAll && domain ? { domain } : { ID: { [Op.in]: keywordIDs } };
@@ -213,7 +213,7 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse) => 
 
          // 409 only when nothing at all could be started
          if (keywordsToStart.length === 0) {
-            logger.info('Manual refresh rejected: nothing could be started', { lockedDomains, updatingKeywordIds });
+            logger.debug('[SCRAPER] Manual refresh rejected: nothing could be started', { lockedDomains, updatingKeywordIds });
             const message = lockedDomains.length > 0
                ? `Domains are already being refreshed: ${lockedDomains.join(', ')}. Please wait for the current refresh to complete.`
                : `Keywords are already being refreshed: ${updatingKeywordIds.join(', ')}. Please wait for the current refresh to complete.`;
@@ -231,7 +231,7 @@ const refreshTheKeywords = async (req: NextApiRequest, res: NextApiResponse) => 
          const taskId = refreshAll
             ? `manual-refresh-domain-${domain}-${uniqueId}`
             : `manual-refresh-ids-${keywordIdsToRefresh.join(',')}-${uniqueId}`;
-         logger.info(`Manual refresh enqueued: ${taskId} (${keywordsToStart.length} keywords)`, { domains: domainsToRefresh, skipped });
+         logger.info(`[SCRAPER] Manual refresh enqueued: ${taskId} (${keywordsToStart.length} keywords)`, { domains: domainsToRefresh, skipped });
 
          // Enqueue the manual refresh task with its domains for per-domain locking
          // This prevents the same domain from being refreshed multiple times simultaneously

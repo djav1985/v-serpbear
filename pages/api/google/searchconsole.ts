@@ -80,7 +80,7 @@ const cronRefreshSearchConsoleData = async (_req: NextApiRequest, res: NextApiRe
             if (scDomainAPI.client_email || scGlobalAPI.client_email) {
                const scData = await fetchDomainSCData(domain, scDomainAPI, scGlobalAPI);
                if (scData && scData.thirtyDays && scData.thirtyDays.length) {
-                  logger.info(`Updated Search Console data for domain: ${domain.domain}`);
+                  logger.info(`[GOOGLE] Updated Search Console data for domain: ${domain.domain}`);
                } else {
                   logger.error(`Failed to update Search Console data for domain: ${domain.domain}`);
                }
@@ -91,7 +91,7 @@ const cronRefreshSearchConsoleData = async (_req: NextApiRequest, res: NextApiRe
                   failedCount += 1;
                }
             } else {
-               logger.debug(`No Search Console API credentials found for domain: ${domain.domain}`);
+               logger.debug(`[GOOGLE] No Search Console API credentials found for domain: ${domain.domain}`);
             }
          } catch (domainError) {
             failedCount += 1;

@@ -14,14 +14,14 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
    const requestId = (req as ExtendedRequest).requestId;
    const startTime = Date.now();
    
-   logger.info('Logout API endpoint accessed', {
+   logger.debug('[API] Logout API endpoint accessed', {
       method: req.method,
       ip: getClientIp(req),
       userAgent: req.headers['user-agent']
    });
 
    if (req.method !== 'POST') {
-      logger.warn('Invalid method used for logout endpoint', {
+      logger.debug('[API] Invalid method used for logout endpoint', {
          method: req.method,
          duration: Date.now() - startTime
       });
@@ -30,7 +30,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 
    const authorized = verifyUser(req, res);
    if (authorized !== 'authorized') {
-      logger.warn('Logout attempt by unauthenticated user', {
+      logger.debug('[API] Logout attempt by unauthenticated user', {
          reason: authorized,
          duration: Date.now() - startTime
       });
@@ -56,7 +56,7 @@ const logout = async (req: NextApiRequest, res: NextApiResponse, startTime: numb
             username = decoded?.user || username;
          }
       } catch (error) {
-         logger.debug('Failed to decode logout token during logout', { error: error instanceof Error ? error.message : String(error) });
+         logger.debug('[API] Failed to decode logout token during logout', { error: error instanceof Error ? error.message : String(error) });
       }
 
       // Revoke every issued token, including copies taken before logout, then clear the cookie
@@ -71,7 +71,7 @@ const logout = async (req: NextApiRequest, res: NextApiResponse, startTime: numb
          secure: secureCookie,
       });
 
-      logger.info('User logged out successfully', {
+      logger.debug('[API] User logged out successfully', {
          username,
          duration: Date.now() - startTime,
          ip: getClientIp(req)

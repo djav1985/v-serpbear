@@ -37,7 +37,7 @@ export const withFileLock = async <T>(filePath: string, fn: () => Promise<T>): P
       try {
          await release();
       } catch (err: any) {
-         logger.debug('Failed to release file lock', { error: err?.message });
+         logger.debug('[LOCK] Failed to release file lock', { error: err?.message });
       }
    }
 };

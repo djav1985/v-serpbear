@@ -113,18 +113,18 @@ describe('logger', () => {
     });
 
     describe('authEvent logging', () => {
-      it('should log successful auth events at INFO level with structured metadata', () => {
-        process.env.LOG_LEVEL = 'info';
+      it('should log successful auth events at DEBUG level with structured metadata', () => {
+        process.env.LOG_LEVEL = 'debug';
 
         const logger = new Logger();
 
         logger.authEvent('test_event', 'test_user', true);
 
         expect(mockConsoleLog).toHaveBeenCalledWith(
-          expect.stringContaining('"level":"INFO"')
+          expect.stringContaining('"level":"DEBUG"')
         );
         expect(mockConsoleLog).toHaveBeenCalledWith(
-          expect.stringContaining('"message":"Auth: test_event [test_user]"')
+          expect.stringContaining('"message":"[API] test_event [test_user]"')
         );
         expect(mockConsoleLog).toHaveBeenCalledWith(
           expect.stringContaining('"event":"test_event"')
@@ -135,7 +135,7 @@ describe('logger', () => {
       });
 
       it('should include extra meta fields in successful auth event logs', () => {
-        process.env.LOG_LEVEL = 'info';
+        process.env.LOG_LEVEL = 'debug';
 
         const logger = new Logger();
 
@@ -143,12 +143,12 @@ describe('logger', () => {
 
         const call = mockConsoleLog.mock.calls[0][0];
         const parsed = JSON.parse(call);
-        expect(parsed.level).toBe('INFO');
+        expect(parsed.level).toBe('DEBUG');
         expect(parsed.meta).toMatchObject({ event: 'login', user: 'alice', ip: '1.2.3.4' });
       });
 
-      it('should not log successful auth events when LOG_LEVEL is error', () => {
-        process.env.LOG_LEVEL = 'error';
+      it('should not log successful auth events when LOG_LEVEL is info', () => {
+        process.env.LOG_LEVEL = 'info';
 
         const logger = new Logger();
 
@@ -157,18 +157,18 @@ describe('logger', () => {
         expect(mockConsoleLog).not.toHaveBeenCalled();
       });
 
-      it('should always log failed auth events at WARN level', () => {
-        process.env.LOG_LEVEL = 'info';
+      it('should log failed auth events at DEBUG level', () => {
+        process.env.LOG_LEVEL = 'debug';
 
         const logger = new Logger();
 
         logger.authEvent('test_event', 'test_user', false);
 
         expect(mockConsoleLog).toHaveBeenCalledWith(
-          expect.stringContaining('"level":"WARN"')
+          expect.stringContaining('"level":"DEBUG"')
         );
         expect(mockConsoleLog).toHaveBeenCalledWith(
-          expect.stringContaining('"message":"Auth Failed: test_event"')
+          expect.stringContaining('"message":"[API] test_event"')
         );
       });
     });
@@ -248,7 +248,7 @@ describe('api logging', () => {
       process.env.LOG_LEVEL = 'DEBUG';
       await wrapped(createRequest(), createResponse());
       expect(logger.debug).toHaveBeenCalledWith(
-        expect.stringContaining('API Request Details'),
+        expect.stringContaining('[API] Request Details'),
         expect.objectContaining({
           method: 'GET',
           url: '/api/test',
@@ -256,11 +256,11 @@ describe('api logging', () => {
         })
       );
 
-      // Without DEBUG, no debug logging happens
+      // Without DEBUG, request details are not passed to the logger
       delete process.env.LOG_LEVEL;
       logger.debug.mockClear();
       await wrapped(createRequest(), createResponse());
-      expect(logger.debug).not.toHaveBeenCalled();
+      expect(logger.debug).not.toHaveBeenCalledWith(expect.stringContaining('[API] Request Details'), expect.anything());
     });
 
     it('withApiLogging accepts only name option (no logBody)', async () => {
@@ -276,10 +276,10 @@ describe('api logging', () => {
       await wrapped(createRequest(), res);
 
       expect(res.setHeader).toHaveBeenCalledWith('X-Request-Id', expect.any(String));
-      expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('[test-route]'));
+      expect(logger.debug).toHaveBeenCalledWith(expect.stringMatching(/^\[API\].*\[test-route\]/));
     });
 
-    it('logs warning severity when handler sets res.statusCode directly or uses writeHead', async () => {
+    it('logs client errors at DEBUG when handler sets res.statusCode directly or uses writeHead', async () => {
       const { withApiLogging } = await import('../utils/apiLogging');
 
       const directHandler = jest.fn(async (_req: NextApiRequest, res: NextApiResponse) => {
@@ -287,7 +287,7 @@ describe('api logging', () => {
         res.end();
       });
       await withApiLogging(directHandler)(createRequest(), createResponse());
-      expect(logger.warn).toHaveBeenCalledWith(
+      expect(logger.debug).toHaveBeenCalledWith(
         expect.stringContaining('GET /api/test - 404'),
         expect.objectContaining({
           statusCode: 404,
@@ -299,7 +299,7 @@ describe('api logging', () => {
         res.end();
       });
       await withApiLogging(writeHeadHandler)(createRequest(), createResponse());
-      expect(logger.warn).toHaveBeenCalledWith(
+      expect(logger.debug).toHaveBeenCalledWith(
         expect.stringContaining('GET /api/test - 418'),
         expect.objectContaining({
           statusCode: 418,

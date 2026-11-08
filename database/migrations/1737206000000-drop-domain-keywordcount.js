@@ -21,7 +21,7 @@ module.exports = {
             await queryInterface.removeColumn('domain', 'keywordCount', { transaction });
          }
 
-         logger.info('Removed domain.keywordCount column.');
+         logger.info('[MIGRATION] Removed domain.keywordCount column.');
       });
    },
 
@@ -51,7 +51,7 @@ module.exports = {
             );
          }
 
-         logger.info('Restored domain.keywordCount column.');
+         logger.info('[MIGRATION] Restored domain.keywordCount column.');
       });
    },
 };
