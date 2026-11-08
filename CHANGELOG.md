@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file. Releases no
 
 ### Added
 
-- Credited the dashboard UI source and included its MIT license notice in the README.
+- Credited the dashboard UI source and linked its MIT license in the README.
 - SerpBase (`serpbase`) scraper: Google search through `POST https://api.serpbase.dev/google/search` with the key in the `X-API-Key` header. City-level targeting through the `location` parameter, mobile and desktop, map pack from `local_results`, and organic results ranked by `rank`. When a result link is a `google.com/goto` redirect, the result's own domain is used instead. SerpBase also reports credits remaining through its free `/account/credits` endpoint.
 - Domain cards show `Credits remaining:` under the last-updated line for scrapers that report it: SerpApi, SearchApi, ValueSERP, HasData, CrazySERP, PrismCrawl, SerpBase and DataForSEO (a dollar balance). Serper and Serply have no way to look it up, so nothing shows. SerpApi, SearchApi, ValueSERP, HasData, CrazySERP, SerpBase and DataForSEO are asked once per API key at the end of a refresh run. PrismCrawl sends the balance in the `X-Credits-Remaining` header, so the lowest value seen in the run is kept. Balances are saved in `data/scraper_credits.json`, keyed by scraper and a keyed hash of the API key, so domains sharing a key share one entry. Entries no domain or the global setting uses anymore are dropped on each save.
 - Domain cards hold the favicon for 500 ms, so a cached screenshot replaces it without a flash, then the screenshot fades in over 500 ms. Settings and domain settings tabs fade their panels in over 1 s, and the domain settings dialog keeps a fixed height and footer position.
