@@ -651,7 +651,13 @@ describe('retry queue manager', () => {
       
         // Setup atomicWriteFile mock
         (atomicWriteFile as jest.MockedFunction<typeof atomicWriteFile>).mockResolvedValue(undefined);
+
+        // The lock creates the queue file when it is missing. Give it an existing, empty one, so these tests
+        // do not depend on (or write to) the real data folder.
+        jest.spyOn(require('fs/promises'), 'readFile').mockResolvedValue('[]');
      });
+
+     afterEach(() => { jest.restoreAllMocks(); });
 
      describe('locking', () => {
         it('takes the lock without resolving the real path, so the queue file can be created inside it', async () => {
