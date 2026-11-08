@@ -94,7 +94,7 @@ export function DomainCard({
       >
          <div className="flex flex-col lg:flex-row">
             <div className={cn('flex flex-1 gap-4 p-5', !consoleIntegrated && 'lg:basis-1/3')}>
-               <div className="group bg-muted relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-md border">
+               <div className="group bg-muted relative flex size-28 shrink-0 items-center justify-center overflow-hidden rounded-md border">
                   <button
                      type="button"
                      className="text-muted-foreground hover:text-foreground absolute top-0 right-1 z-10 p-1 opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
@@ -106,7 +106,7 @@ export function DomainCard({
                   </button>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                     className={cn(!thumb && 'max-w-[50px]')}
+                     className={cn(thumb ? 'size-full object-cover object-top' : 'max-w-[50px]')}
                      src={thumb || `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain.domain)}&sz=128`}
                      alt={domain.domain}
                   />
@@ -127,7 +127,7 @@ export function DomainCard({
                </div>
             </div>
 
-            <div className="flex flex-1 flex-col p-4">
+            <div className="flex min-w-0 flex-1 flex-col p-4 lg:basis-0">
                <div className="mb-1 flex items-end justify-between gap-3">
                   <p className="text-primary text-xs leading-none font-medium">Tracker</p>
                   <label className={cn('text-muted-foreground flex items-center gap-2 text-xs leading-none', toggling && 'cursor-not-allowed opacity-70')}>
@@ -160,7 +160,7 @@ export function DomainCard({
             </div>
 
             {consoleIntegrated && (
-               <div className="flex flex-1 flex-col p-4 lg:basis-56">
+               <div className="flex min-w-0 flex-1 flex-col p-4 lg:basis-0">
                   <p className="text-primary mb-2 text-xs font-medium">Search Console (7d)</p>
                   <div className="bg-accent/70 border-primary/15 flex flex-1 items-center rounded-md border p-4" data-testid="dom_sc_stats">
                      <Stat label="Visits">

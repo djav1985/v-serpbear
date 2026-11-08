@@ -51,6 +51,13 @@ export const hasValidSessionCookie = (req: Request): boolean => {
    }
 };
 
+/** True when the Bearer key matches APIKEY. Records nothing; checkApiKey does the counting. */
+export const hasValidApiKey = (req: Request): boolean => {
+   const header = req.headers.get('authorization') ?? undefined;
+   if (!isBearerAuthorization(header)) { return false; }
+   return safeEqual((header as string).substring('Bearer '.length), process.env.APIKEY);
+};
+
 /**
  * Checks `Authorization: Bearer <APIKEY>` in constant time. This is the only place the API key is compared.
  * Cookies are never looked at. A wrong Bearer key is recorded against the client address (withApiLogging answers

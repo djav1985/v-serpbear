@@ -1,11 +1,14 @@
 import { logger } from './logger';
 import { ensureDatabase } from '../database/init';
-import { ApiError, fail, getQuery, type ApiContext } from './api/http';
+import { ApiError, fail, getQuery, readTextUpTo, type ApiContext } from './api/http';
 import { redactSecrets, redactUrl } from './logRedaction';
 import { getClientIp } from './api/clientIp';
 import { isLoginLocked } from './loginThrottle';
 import { getApiKeyAttemptKeys } from './apiKeyThrottle';
-import verifyUser, { hasValidSessionCookie, isBearerAuthorization } from './verifyUser';
+import verifyUser, { hasValidApiKey, hasValidSessionCookie, isBearerAuthorization } from './verifyUser';
+
+// Debug logging shows the body of small requests only. Larger ones are never read for the log.
+const DEBUG_BODY_LOG_MAX_BYTES = 16 * 1024;
 
 export { ApiError, fail, getParam, getQuery, json, readJson } from './api/http';
 export type { ApiContext } from './api/http';
@@ -51,8 +54,12 @@ const run = async (handler: ApiHandler | undefined, def: RouteDefinition, req: R
    logger.debug(`[API] ${label}`);
 
    if (process.env.LOG_LEVEL?.toLowerCase() === 'debug') {
+      // Read a bounded slice of a copy, so a large body is never buffered in full before authentication
       let body: unknown;
-      try { body = await req.clone().json(); } catch (_error) { body = undefined; }
+      try {
+         const text = await readTextUpTo(req.clone().body, DEBUG_BODY_LOG_MAX_BYTES);
+         body = text ? JSON.parse(text) : undefined;
+      } catch (_error) { body = undefined; }
       logger.debug(`[API] Request Details${def.name ? ` [${def.name}]` : ''}`, {
          requestId,
          method: req.method,
@@ -65,9 +72,10 @@ const run = async (handler: ApiHandler | undefined, def: RouteDefinition, req: R
       });
    }
 
-   // A client address that sent too many wrong API keys is refused before any handler or key check runs.
-   // Only Bearer attempts count, and a request with a valid login cookie is never refused for it.
-   if (isBearerAuthorization(req.headers.get('authorization') ?? undefined) && isLoginLocked(getApiKeyAttemptKeys(req)) && !hasValidSessionCookie(req)) {
+   // A client address that sent too many wrong API keys refuses further wrong keys before any handler or key check runs.
+   // The correct key is still accepted, so a lockout cannot shut out the owner (this matters when no address is known and
+   // all clients share one bucket). A request with a valid login cookie is never refused for it.
+   if (isBearerAuthorization(req.headers.get('authorization') ?? undefined) && isLoginLocked(getApiKeyAttemptKeys(req)) && !hasValidSessionCookie(req) && !hasValidApiKey(req)) {
       logger.warn(`${label} - 429 (API key locked)`);
       return withRequestId(fail(429, 'TOO_MANY_ATTEMPTS', 'Too many failed API key attempts. Try again in 15 minutes.', ctx, undefined, { 'Retry-After': '900' }), requestId);
    }

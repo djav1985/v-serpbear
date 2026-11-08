@@ -8,6 +8,9 @@ import { AttemptKey, clearLoginFailures, isLoginLocked, recordLoginFailure } fro
 import { getSessionVersion } from '../../../../utils/sessionStore';
 import { getClientIp } from '../../../../utils/api/clientIp';
 
+// A login body is a username and a password, so anything larger is refused before it is read
+const LOGIN_BODY_MAX_BYTES = 4 * 1024;
+
 const loginUser = async (req: Request, ctx: ApiContext) => {
    const startTime = Date.now();
    logger.debug('[API] Login API endpoint accessed', {
@@ -15,7 +18,7 @@ const loginUser = async (req: Request, ctx: ApiContext) => {
       ip: getClientIp(req),
       userAgent: req.headers.get('user-agent'),
    });
-   const body = await readJson(req);
+   const body = await readJson(req, LOGIN_BODY_MAX_BYTES);
    if (!body || typeof body !== 'object' || Array.isArray(body)) {
       return fail(400, 'BAD_REQUEST', 'Request body must be a JSON object', ctx);
    }
@@ -47,18 +50,22 @@ const loginUser = async (req: Request, ctx: ApiContext) => {
    //  - a per-address cap bounds one address trying many usernames
    // Names that are not the configured user share one bucket, so made-up usernames cannot grow the tracked set.
    // The address is the socket address, or the X-Forwarded-For entry selected by TRUST_PROXY (see utils/api/clientIp).
+   // When no address is known (TRUST_PROXY unset), the per-address keys are skipped: every client would share one
+   // "unknown" bucket, and a remote caller could use it to lock out the real user. The per-user caps still apply.
    const clientIp = getClientIp(req);
    const configuredUser = (process.env.USER_NAME ? process.env.USER_NAME : process.env.USER) || '';
    const knownUser = configuredUser !== '' && username.toLowerCase() === configuredUser.toLowerCase();
    const userWideKey: AttemptKey = knownUser
       ? { key: `user:${configuredUser.toLowerCase()}`, maxFailures: 100 }
       : { key: 'user:unknown', maxFailures: 200 };
-   const addressKeys: AttemptKey[] = knownUser
-      ? [
-         { key: `user:${configuredUser.toLowerCase()}@${clientIp}`, maxFailures: 5 },
-         { key: `ip:${clientIp}`, maxFailures: 20 },
-      ]
-      : [{ key: `ip:${clientIp}`, maxFailures: 20 }];
+   const addressKeys: AttemptKey[] = clientIp === 'unknown'
+      ? []
+      : knownUser
+         ? [
+            { key: `user:${configuredUser.toLowerCase()}@${clientIp}`, maxFailures: 5 },
+            { key: `ip:${clientIp}`, maxFailures: 20 },
+         ]
+         : [{ key: `ip:${clientIp}`, maxFailures: 20 }];
    const attemptKeys: AttemptKey[] = [...addressKeys, userWideKey];
    if (isLoginLocked(addressKeys)) {
       logger.warn('Login blocked: too many failed attempts', { duration: Date.now() - startTime });

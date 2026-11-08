@@ -69,5 +69,5 @@ export type SearchResultsResponse = {
 
 /** A live Google search for one idea, run only when the user asks for it. */
 export const fetchSearchResults = (params: { keyword: string; country: string; device: string }) => (
-   apiGet<SearchResultsResponse>(`/api/serp/refresh?${new URLSearchParams(params).toString()}`)
+   apiPost<SearchResultsResponse>('/api/serp/refresh', params)
 );

@@ -11,6 +11,8 @@ import { refreshQueue } from '../../../../utils/refreshQueue';
 import { takeRateLimitToken } from '../../../../utils/rateLimit';
 import { getClientIp } from '../../../../utils/api/clientIp';
 import { isKeywordUpdating } from '../../../../utils/keywordUpdating';
+import { isSameOriginRequest } from '../../../../utils/api/sameOrigin';
+import { isBearerAuthorization } from '../../../../utils/verifyUser';
 
 /**
  * Parses a comma separated list of keyword IDs. Returns null when any item is not a positive integer,
@@ -76,7 +78,12 @@ const readKeywordIds = async (req: Request): Promise<number[] | null> => {
 };
 
 const refreshTheKeywords = async (req: Request, ctx: ApiContext) => {
-   const idsInBody = (await readBody(req)).ids !== undefined;
+   const body = await readBody(req);
+   // A body with a keyword is a one-off keyword search (see searchKeyword), not a refresh
+   if (body.keyword !== undefined) {
+      return searchKeyword(req, body, ctx);
+   }
+   const idsInBody = body.ids !== undefined;
    if (!idsInBody && !getParam(req, 'id')) {
       return fail(400, 'BAD_REQUEST', 'keyword ID is Required!', ctx);
    }
@@ -254,10 +261,21 @@ const refreshTheKeywords = async (req: Request, ctx: ApiContext) => {
 
 const KEYWORD_SEARCHES_PER_MINUTE = 20;
 
-const getKeywordSearchResults = async (req: Request, ctx: ApiContext) => {
-   if (!getParam(req, 'keyword') || !getParam(req, 'country')) {
+/**
+ * A one-off keyword search, which is a paid provider request. It is a POST with the JSON body { keyword, country, device }.
+ * Requests that use a login cookie must come from this site, so a page on another site cannot make a logged-in
+ * browser spend provider quota. Requests with an API key are checked by the key instead.
+ */
+const searchKeyword = async (req: Request, body: Record<string, any>, ctx: ApiContext) => {
+   if (!isBearerAuthorization(req.headers.get('authorization') ?? undefined) && !isSameOriginRequest(req)) {
+      return fail(403, 'FORBIDDEN', 'Keyword searches must be started from this site.', ctx);
+   }
+   const keyword: unknown = body.keyword;
+   const country: unknown = body.country;
+   if (typeof keyword !== 'string' || !keyword || typeof country !== 'string' || !country) {
       return fail(400, 'BAD_REQUEST', 'A Valid keyword and Country Code is Required!', ctx);
    }
+   const device = typeof body.device === 'string' && body.device ? body.device : 'desktop';
    // Each search is a paid provider request, so limit how many one client can start per minute
    const clientKey = `keyword-search:${getClientIp(req)}`;
    if (!takeRateLimitToken(clientKey, KEYWORD_SEARCHES_PER_MINUTE, 60 * 1000)) {
@@ -268,12 +286,12 @@ const getKeywordSearchResults = async (req: Request, ctx: ApiContext) => {
       if (!settings || (settings && settings.scraper_type === 'none')) {
          return fail(400, 'BAD_REQUEST', 'Scraper has not been set up yet.', ctx);
       }
-      const requestedDevice = getParam(req, 'device') ?? 'desktop';
+      const requestedDevice = device;
       const dummyKeyword:KeywordType = {
          ID: 99999999999999,
-         keyword: getParam(req, 'keyword') as string,
+         keyword,
          device: requestedDevice,
-         country: getParam(req, 'country') as string,
+         country,
          domain: '',
          lastUpdated: '',
          volume: 0,
@@ -294,7 +312,7 @@ const getKeywordSearchResults = async (req: Request, ctx: ApiContext) => {
             results: scrapeResult.result,
             keyword: scrapeResult.keyword,
             position: scrapeResult.position,
-            country: getParam(req, 'country') as string,
+            country,
             device: requestedDevice,
          };
          return json({ searchResult });
@@ -303,14 +321,17 @@ const getKeywordSearchResults = async (req: Request, ctx: ApiContext) => {
       logger.warn('Keyword search scrape failed', { error: scrapeResult ? String((scrapeResult as { error?: unknown }).error ?? 'no result') : 'no result' });
       return fail(502, 'BAD_GATEWAY', 'Error Scraping Search Results for the given keyword!', ctx);
    } catch (error) {
-      logger.error('ERROR getKeywordSearchResults: ', error instanceof Error ? error : new Error(String(error)));
+      logger.error('ERROR searchKeyword: ', error instanceof Error ? error : new Error(String(error)));
       return fail(500, 'INTERNAL_SERVER_ERROR', 'Failed to search for the keyword.', ctx);
    }
 };
 
-// GET ?status=retry reports which keywords are still updating; any other GET runs a one-off keyword search
+// GET is read-only: ?status=retry reports which keywords are still updating. Starting a refresh or a search is a POST,
+// so a link or an image on another site cannot trigger provider requests.
 const refreshGet = (req: Request, ctx: ApiContext) => (
-   getParam(req, 'status') === 'retry' ? getRetryStatus(req, ctx) : getKeywordSearchResults(req, ctx)
+   getParam(req, 'status') === 'retry'
+      ? getRetryStatus(req, ctx)
+      : fail(405, 'METHOD_NOT_ALLOWED', 'Use POST to start a refresh or a keyword search', ctx, undefined, { Allow: 'GET, POST' })
 );
 
 export const { GET, POST, PUT, PATCH, DELETE } = createRoute({ name: 'refresh', GET: refreshGet, POST: refreshTheKeywords });

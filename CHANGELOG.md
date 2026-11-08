@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file. Releases no
 
 ## [Unreleased]
 
+### Security
+
+- A failed login or API key from a client with no known address (`TRUST_PROXY` unset) no longer locks out the real user through a shared "unknown" bucket. Per-user caps still apply, and a correct password or API key is accepted while they are reached.
+- The one-off keyword search moved from `GET /api/serp/refresh` to `POST /api/serp/refresh` (body `keyword`, `country`, `device`). A logged-in browser's search must come from this site, so a link on another site can no longer spend provider quota. `GET` now only serves `?status=retry`.
+- Login bodies are capped at 4 KB and other JSON bodies at 1 MB, answering 413 when larger. Debug request logging reads at most 16 KB of a body and never buffers larger ones.
+
 ### Changed
 
 - Node.js is now 26.13.0 (the current long-term release) in the Docker image and `.nvmrc`, and `package.json` declares `engines.node >=22`.
