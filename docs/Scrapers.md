@@ -17,7 +17,7 @@ SerpBear asks a SERP data provider for Google results. Pick one globally in **Se
 | CrazySERP (`crazyserp`) | Pay-as-you-go | City | Yes | Yes | Yes | Header `Authorization: Bearer` |
 | PrismCrawl (`prismcrawl`) | 100 free credits, packages from $5 (about $0.21 per 1,000, valid 90 days) | City | Yes | Yes | Yes | Header `x-api-key` (POST JSON) |
 | DataForSEO (`dataforseo`) | Pay-as-you-go, $50 minimum top-up | City | Yes | Yes | Yes (dollar balance) | HTTP Basic, `login:password` in the API key field |
-| SerpBase (`serpbase`) | Credit-based | City | Yes | Yes | Yes | Header `X-API-Key` (POST JSON) |
+| SerpBase | Credit-based | City | Yes | Yes | Yes | Header `X-API-Key` (POST JSON) |
 
 \*Pricing is indicative. Check each vendor before buying. The request formats are implemented in [`scrapers/services`](https://github.com/djav1985/v-serpbear/tree/main/scrapers/services).
 
