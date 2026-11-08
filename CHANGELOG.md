@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file. Releases no
 
 ## [Unreleased]
 
+### Changed
+
+- Node.js is now 26.13.0 (the current long-term release) in the Docker image and `.nvmrc`, and `package.json` declares `engines.node >=22`.
+
 ### Removed
 
 - Unused dev dependencies (`msw`, `@types/cryptr`, `autoprefixer`, `js-yaml`, `postcss-selector-parser`, `source-map-js`, `browserslist`, `esbuild`, `shell-quote`, `ws`, `@babel/core`), the msw test shims, unused UI pieces (`badge`, `empty`, `separator`), the unused `screenshot.jpg`, and two unused constants.
