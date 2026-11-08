@@ -50,6 +50,16 @@ Rules for new tests:
 | `frontend.test.ts` | The Tracker and Ideas tables (real columns in a real table) and the thumbnail cache |
 | `app/domainSettingsDialog.test.tsx` | The domain settings dialog starting fresh on every open |
 
+### Testing App Router routes
+
+The API lives in `app/api/**/route.ts`. A route tests run for real: it gets a standard `Request` and returns a standard `Response`.
+
+- `asHandler(routeModule)` (in `routeAdapter.ts`) turns a route module into `(req, res)`. It builds a real `Request` from the mock request (`method`, `query`, `body`, `headers`, `url`, `cookies`, and `socket.remoteAddress` as the client address) and writes the `Response` into the mock response (`status`, `json`, `setHeader`, `send`). `asModule` does the same for `require()` inside `jest.isolateModules`.
+- `buildRequest(mock)` gives the same real `Request` for helpers that take one (`verifyUser`, `checkApiKey`, `getApiKeyAttemptKeys`).
+- `apiLoggingMock()` replaces `utils/apiLogging` in route tests: no request ids, logging, lockout or database check, but the same auth and 405 rules (auth goes through the test's mocked `verifyUser`). The real wrapper is covered in `logging.test.ts`.
+- The client address is read from `X-Forwarded-For` only when `TRUST_PROXY` is set, so tests that depend on an address set `TRUST_PROXY = '1'`.
+- Under `jest.useFakeTimers()`, pass `{ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] }`, or reading a `Response` body never finishes.
+
 ### Contract + Delta Pattern
 
 Use the **contract + delta** pattern when multiple implementations share the same interface:
