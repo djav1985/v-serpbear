@@ -40,6 +40,7 @@ The API routes are regrouped. **There are no compatibility aliases: the old rout
 - **Tables:** Tracking, Discover, Insight and the keyword ideas tables share one virtualized table, so long keyword lists scroll smoothly. Row selection works on keyword IDs and ignores rows hidden by a filter. The column header stays solid while you scroll, and the table is sized to whole rows.
 - **Tracking tab:** a single `Add/Edit Tags` action replaces the separate add and remove tag buttons.
 - **Page background:** a faint tiled texture (`public/body-texture.png`) sits behind every page. The top bar, cards and tables stay solid.
+- **Domain list:** each domain shows its site icon (a larger 32px copy for sharper rendering), and a globe takes its place when the icon cannot be loaded, so the names always line up.
 - **Selection bar** (Discover, Ideas and Research): on phones the Desktop and Mobile buttons stretch to fill the bar, and on Research so does the domain picker, each running the full width. Desktop is unchanged.
 - **Research** now lives inside the same page frame as every other screen.
 - **Charts:** Chart.js is replaced by Recharts. The Insight chart plots visits and impressions on two axes.

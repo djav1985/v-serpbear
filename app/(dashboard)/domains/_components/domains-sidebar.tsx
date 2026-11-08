@@ -1,9 +1,27 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
-import { Plus } from 'lucide-react';
+import { Globe, Plus } from 'lucide-react';
 import { Button } from 'components/ui/button';
 import { useShell } from '../../_components/shell-context';
+
+/** The site's favicon, with a globe in the same space when it cannot be loaded, so the names always line up. */
+function SiteIcon({ domain }: { domain: string }) {
+   const [failed, setFailed] = useState(false);
+   if (failed) { return <Globe className="text-muted-foreground size-4 shrink-0" aria-hidden="true" />; }
+   return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+         className="size-4 shrink-0"
+         src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=32`}
+         alt=""
+         width={16}
+         height={16}
+         onError={() => setFailed(true)}
+      />
+   );
+}
 
 /** The domain list beside the Domains screen, with the Add Domain action. Shown on large screens only. */
 export function DomainsSidebar() {
@@ -18,8 +36,7 @@ export function DomainsSidebar() {
                {domains.map((d) => (
                   <li key={d.domain}>
                      <Link href={`/domain/${d.slug}`} className="hover:bg-accent flex items-center gap-2 truncate rounded-md px-2 py-2">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img className="size-4 shrink-0" src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(d.domain)}&sz=16`} alt="" width={16} height={16} />
+                        <SiteIcon domain={d.domain} />
                         <span className="truncate">{d.domain}</span>
                      </Link>
                   </li>
