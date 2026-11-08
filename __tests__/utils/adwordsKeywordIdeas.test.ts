@@ -1,4 +1,3 @@
-import { Op } from 'sequelize';
 import Keyword from '../../database/models/keyword';
 import * as scUtils from '../../utils/searchConsole';
 import * as adwordsUtils from '../../utils/adwords';
@@ -199,37 +198,25 @@ describe('updateKeywordsVolumeData', () => {
     jest.restoreAllMocks();
   });
 
-  it('groups keywords with the same volume into one update', async () => {
-    const updateSpy = jest.spyOn(Keyword, 'update').mockResolvedValue([1] as any);
+  const targets = [{ ID: 1, keyword: 'alpha', country: 'US' }, { ID: 2, keyword: 'beta', country: 'GB' }];
 
-    await expect(adwordsUtils.updateKeywordsVolumeData({ 1: 100, 2: 100, 3: 200 })).resolves.toBe(true);
+  it('reports only volumes saved for a matching keyword and country', async () => {
+    const updateSpy = jest.spyOn(Keyword, 'update')
+      .mockResolvedValueOnce([0])
+      .mockResolvedValueOnce([1]);
 
-    expect(updateSpy).toHaveBeenCalledTimes(2);
-    expect(updateSpy).toHaveBeenCalledWith({ volume: 100 }, { where: { ID: { [Op.in]: [1, 2] } } });
-    expect(updateSpy).toHaveBeenCalledWith({ volume: 200 }, { where: { ID: { [Op.in]: [3] } } });
+    await expect(adwordsUtils.updateKeywordsVolumeData({ 1: 100, 2: 200 }, targets)).resolves.toEqual({ 2: 200 });
+
+    expect(updateSpy).toHaveBeenNthCalledWith(1, { volume: 100 }, { where: targets[0] });
+    expect(updateSpy).toHaveBeenNthCalledWith(2, { volume: 200 }, { where: targets[1] });
   });
 
-  it('skips non-numeric IDs and treats non-numeric volumes as 0', async () => {
-    const updateSpy = jest.spyOn(Keyword, 'update').mockResolvedValue([1] as any);
+  it('skips targets without a volume and propagates database errors', async () => {
+    const updateSpy = jest.spyOn(Keyword, 'update').mockRejectedValue(new Error('db failure'));
 
-    await adwordsUtils.updateKeywordsVolumeData({ abc: 50, 4: undefined } as any);
-
-    expect(updateSpy).toHaveBeenCalledTimes(1);
-    expect(updateSpy).toHaveBeenCalledWith({ volume: 0 }, { where: { ID: { [Op.in]: [4] } } });
-  });
-
-  it('returns false without writing when volume data is unavailable', async () => {
-    const updateSpy = jest.spyOn(Keyword, 'update');
-
-    await expect(adwordsUtils.updateKeywordsVolumeData(false)).resolves.toBe(false);
+    await expect(adwordsUtils.updateKeywordsVolumeData({}, targets)).resolves.toEqual({});
     expect(updateSpy).not.toHaveBeenCalled();
-  });
-
-  it('propagates update errors', async () => {
-    const failure = new Error('db failure');
-    jest.spyOn(Keyword, 'update').mockRejectedValue(failure);
-
-    await expect(adwordsUtils.updateKeywordsVolumeData({ 3: 500 })).rejects.toThrow('db failure');
+    await expect(adwordsUtils.updateKeywordsVolumeData({ 1: 500 }, targets)).rejects.toThrow('db failure');
   });
 });
 

@@ -50,11 +50,11 @@ export function KeywordDetails({ keyword, onClose }: KeywordDetailsProps) {
    const foundRef = useRef<HTMLDivElement>(null);
    const { data } = useKeywordDetails(keyword.ID);
 
-   const history = useMemo<KeywordHistory>(() => data?.history || keyword.history || {}, [data?.history, keyword.history]);
+   const history = useMemo<KeywordHistory>(() => data?.history || keyword.history || {}, [data, keyword.history]);
    const searchResults = useMemo<KeywordLastResult[]>(() => {
       if (Array.isArray(data?.searchResult)) { return data.searchResult as KeywordLastResult[]; }
       return Array.isArray(keyword.lastResult) ? keyword.lastResult : [];
-   }, [data?.searchResult, keyword.lastResult]);
+   }, [data, keyword.lastResult]);
    const localResults: KeywordLocalResult[] = Array.isArray(data?.localResults) ? (data?.localResults as KeywordLocalResult[]) : (Array.isArray(keyword.localResults) ? keyword.localResults : []);
    const mapPackTop3 = Boolean(data?.mapPackTop3 ?? keyword.mapPackTop3);
    const chart = useMemo(() => generateTheChartData(history, range), [history, range]);

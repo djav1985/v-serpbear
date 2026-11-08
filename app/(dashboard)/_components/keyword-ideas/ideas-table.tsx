@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { startTransition, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -49,7 +49,7 @@ type IdeasTableProps = {
    allowsCity: boolean;
 };
 
-const DOCS_URL = 'https://docs.serpbear.com/miscellaneous/integrate-google-ads';
+const DOCS_URL = 'https://github.com/djav1985/v-serpbear/wiki/Google-Integrations';
 
 export function IdeasTable({
    domain, ideas, favorites, isLoading, noIdeasDatabase, adwordsConnected, showFavorites, onShowFavorites, domains, allowsCity,
@@ -123,6 +123,8 @@ export function IdeasTable({
       if (kept.length === selected.length) { return; }
       const trackedIds = new Set(filteredRows.filter((row) => row.original.isTracked).map((row) => row.id));
       const droppedTracked = selected.filter((id) => trackedIds.has(id)).length;
+      // This has to run after the render that made the idea tracked, because it also shows a notice, so it stays an effect.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRowSelection(Object.fromEntries(kept.map((id) => [id, true])));
       if (droppedTracked > 0) {
          toast.info(`${droppedTracked} selected idea${droppedTracked === 1 ? ' is' : 's are'} already tracked and ${droppedTracked === 1 ? 'was' : 'were'} deselected.`);
@@ -186,7 +188,7 @@ export function IdeasTable({
             : 'No keyword ideas match these filters.';
 
    return (
-      <div className="bg-card rounded-xl border" data-testid="domKeywords">
+      <div className="bg-card rounded-xl border shadow-sm" data-testid="domKeywords">
          {selectedIds.length > 0 ? (
             <AddToTrackerBar
                selectedCount={selectedIds.length}
@@ -202,7 +204,7 @@ export function IdeasTable({
             >
                {isResearch && (
                   <Select value={pickedDomain || undefined} onValueChange={setPickedDomain}>
-                     <SelectTrigger size="sm" className="w-52" aria-label="Domain to add to" data-testid="target_domain"><SelectValue placeholder="Select a domain" /></SelectTrigger>
+                     <SelectTrigger size="sm" className="w-52 max-sm:w-full" aria-label="Domain to add to" data-testid="target_domain"><SelectValue placeholder="Select a domain" /></SelectTrigger>
                      <SelectContent>
                         {domains.length === 0 && <p className="text-muted-foreground px-2 py-1.5 text-xs">No domains found</p>}
                         {domains.map((d) => <SelectItem key={d.slug} value={d.domain}>{d.domain}</SelectItem>)}
@@ -240,15 +242,15 @@ export function IdeasTable({
                         className="max-lg:order-2 max-lg:min-w-0 max-lg:flex-1 max-lg:basis-[calc(50%-0.25rem)]"
                         options={groups.map((group) => ({ label: group, value: group }))}
                         selected={filters.groups}
-                        onChange={(next) => setFilters({ ...filters, groups: next })}
+                        onChange={(next) => startTransition(() => setFilters({ ...filters, groups: next }))}
                         emptyMessage="No groups found"
                      />
                   )}
                   <div className="relative max-lg:order-1 max-lg:min-w-28 max-lg:flex-1 max-lg:basis-28">
                      <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
-                     <Input data-testid="filter_input" className="h-8 w-full pl-8 lg:w-44" placeholder="Filter keywords..." value={filters.search} onChange={(event) => setFilters({ ...filters, search: event.target.value })} />
+                     <Input data-testid="filter_input" className="h-8 w-full pl-8 lg:w-44" placeholder="Filter keywords..." value={filters.search} onChange={(event) => startTransition(() => setFilters({ ...filters, search: event.target.value }))} />
                   </div>
-                  <Select value={ideaChoiceFor(userSort) || undefined} onValueChange={(value) => setUserSort(ideaSortingFor(value))}>
+                  <Select value={ideaChoiceFor(userSort) || undefined} onValueChange={(value) => startTransition(() => setUserSort(ideaSortingFor(value)))}>
                      <SelectTrigger size="sm" className="w-full max-lg:order-2 max-lg:min-w-0 max-lg:flex-1 max-lg:basis-[calc(50%-0.25rem)] lg:w-48" data-testid="sort_button" aria-label="Sort keyword ideas"><SelectValue placeholder="Sorted by column" /></SelectTrigger>
                      <SelectContent align="end">{IDEA_SORT_CHOICES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
                   </Select>

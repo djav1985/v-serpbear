@@ -7,15 +7,14 @@ import './globals.css';
 export const dynamic = 'force-dynamic';
 
 export function generateMetadata(): Metadata {
-   const { platformName, hasCustomLogo, logoApiPath } = getBranding();
+   const { platformName, hasCustomLogo, logoApiPath, faviconApiPath } = getBranding();
    const icon = hasCustomLogo
-      ? { url: logoApiPath, type: LOGO_MIME_TYPE }
+      ? { url: faviconApiPath, type: LOGO_MIME_TYPE }
       : { url: '/favicon.ico' };
 
    return {
       title: { default: platformName, template: `%s - ${platformName}` },
-      manifest: '/manifest.json',
-      icons: { icon: [icon], apple: '/icon.png' },
+      icons: { icon: [icon], apple: hasCustomLogo ? { url: logoApiPath, type: LOGO_MIME_TYPE } : '/icon.png' },
    };
 }
 

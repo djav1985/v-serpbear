@@ -57,3 +57,29 @@ export const getKeywordLocationParts = (location?: string | null): string[] => {
   if (!trimmed) return [];
   return [trimmed];
 };
+
+const ACCOUNT_CALL_TIMEOUT_MS = 10000;
+
+/**
+ * Reads a provider's account endpoint as JSON. Returns null on any failure (network, timeout, non-2xx,
+ * invalid JSON) so a credit lookup can never break a refresh.
+ */
+export const fetchAccountJson = async (url: string, headers: Record<string, string> = {}): Promise<any | null> => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ACCOUNT_CALL_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, { method: "GET", headers: { Accept: "application/json", ...headers }, signal: controller.signal });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
+/** A finite number from a number or numeric string, otherwise null. */
+export const toCreditNumber = (value: unknown): number | null => {
+  const parsed = typeof value === "string" && value.trim() !== "" ? Number(value) : value;
+  return typeof parsed === "number" && Number.isFinite(parsed) ? parsed : null;
+};

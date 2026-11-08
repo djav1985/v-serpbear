@@ -82,7 +82,7 @@ export const getAppSettings = async () : Promise<SettingsType> => {
       let decryptedSettings: SettingsType = baseSettings;
 
       if (!process.env.SECRET) {
-         logger.warn('SECRET environment variable not configured, cannot decrypt settings');
+         logger.error('SECRET environment variable not configured, cannot decrypt settings');
          return {
             ...baseSettings,
             scraping_api: '',

@@ -21,7 +21,7 @@ export default async function InsightPage({ params }: PageProps) {
    if (!domain) { notFound(); }
 
    const settings = await getAppSettings();
-   const domainSearchConsole = safeJsonParse<DomainSearchConsole | null>(domain.search_console, null);
+   const domainSearchConsole = safeJsonParse<DomainSearchConsole | null>(domain.search_console, null, { context: `domain ${domain.domain} search_console` });
    const domainHasOwnSearchConsole = !!(domainSearchConsole?.client_email && domainSearchConsole?.private_key);
    const { scraper_type: globalScraper = '', available_scapers: availableScrapers = [] } = settings;
 

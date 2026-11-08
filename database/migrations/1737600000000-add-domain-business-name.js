@@ -31,7 +31,7 @@ module.exports = {
             );
          }
 
-         logger.info('Added domain.business_name column.');
+         logger.info('[MIGRATION] Added domain.business_name column.');
       });
    },
 
@@ -52,7 +52,7 @@ module.exports = {
             await queryInterface.removeColumn('domain', 'business_name', { transaction });
          }
 
-         logger.info('Removed domain.business_name column.');
+         logger.info('[MIGRATION] Removed domain.business_name column.');
       });
    },
 };

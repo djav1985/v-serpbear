@@ -4,11 +4,100 @@ All notable changes to this project will be documented in this file. Releases no
 
 ## [Unreleased]
 
+### Added
+
+- Credited the dashboard UI source and linked its MIT license in the README.
+- SerpBase (`serpbase`) scraper: Google search through `POST https://api.serpbase.dev/google/search` with the key in the `X-API-Key` header. City-level targeting through the `location` parameter, mobile and desktop, map pack from `local_results`, and organic results ranked by `rank`. When a result link is a `google.com/goto` redirect, the result's own domain is used instead. SerpBase also reports credits remaining through its free `/account/credits` endpoint.
+- Domain cards show `Credits remaining:` under the last-updated line for scrapers that report it: SerpApi, SearchApi, ValueSERP, HasData, CrazySERP, PrismCrawl, SerpBase and DataForSEO (a dollar balance). Serper and Serply have no way to look it up, so nothing shows. SerpApi, SearchApi, ValueSERP, HasData, CrazySERP, SerpBase and DataForSEO are asked once per API key at the end of a refresh run. PrismCrawl sends the balance in the `X-Credits-Remaining` header, so the lowest value seen in the run is kept. Balances are saved in `data/scraper_credits.json`, keyed by scraper and a keyed hash of the API key, so domains sharing a key share one entry. Entries no domain or the global setting uses anymore are dropped on each save.
+- Domain cards hold the favicon for 500 ms, so a cached screenshot replaces it without a flash, then the screenshot fades in over 500 ms. Settings and domain settings tabs fade their panels in over 1 s, and the domain settings dialog keeps a fixed height and footer position.
+- Page changes cross-fade (400 ms), and the top bar stays still. Tracker and Discover filters, sorting and the Search Console period update inside transitions. Dialogs and sheets use a 400 ms fade. All motion is turned off for users who prefer reduced motion.
+
+### Security
+
+- A failed login or API key from a client with no known address (`TRUST_PROXY` unset) no longer locks out the real user through a shared "unknown" bucket. Per-user caps still apply, and a correct password or API key is accepted while they are reached.
+- The one-off keyword search moved from `GET /api/serp/refresh` to `POST /api/serp/refresh` (body `keyword`, `country`, `device`). Only a logged-in session can run a search (an API key cannot), and requests from a login session must come from this site, so a link on another site can no longer start a refresh or spend provider quota. `GET` now only serves `?status=retry`.
+- Login bodies are capped at 4 KB and other JSON bodies at 1 MB, answering 413 when larger. Debug request logging reads at most 16 KB of a body and never buffers larger ones.
+
 ### Changed
-- **New front end:** the whole interface is rebuilt on the Next.js App Router (React 19, Tailwind CSS 4, shadcn/ui, TanStack Query, Table and Virtual, and Recharts). The URLs are the same: `/login`, `/domains`, `/domain/<slug>`, `/domain/console/<slug>` (Discover), `/domain/insight/<slug>`, `/domain/ideas/<slug>` and `/research`. `/` now redirects to `/domains`. The JSON API in `pages/api/` is unchanged.
+
+- Node.js is now 26.13.0 (the current long-term release) in the Docker image and `.nvmrc`, and `package.json` declares `engines.node >=22`.
+
+### Fixed
+
+- Guarded keyword history and search volume writes after location changes, isolated scraper credit tracking by refresh, and made refresh startup and keyword creation safe when requests overlap.
+- Scraper credit balances are saved in the order they were read. Overlapping refreshes (up to three domains run at once) could finish in a different order than they started, so a slow account lookup or an older header reading could overwrite a newer balance. Each reading now carries the time it was taken (when a lookup started, or when the response arrived) and the save, under the existing file lock, only replaces an entry that was read earlier. A newer balance can still be higher, for example after a top-up. Entries saved before this change count as oldest.
+- Domain stats are saved one update at a time per domain. Adding keywords while a refresh finishes on the same domain could make both updates read the same "previous" numbers and overwrite each other's up and down arrows. Each update now reads the current data after it gets its turn. Different domains still update in parallel.
+- Changing a keyword's location no longer races a refresh. The edit claims the domain first, like a delete does, and answers `409` with a message telling you to try again once the refresh has finished when one is running or queued. Only keywords whose location or country really changed are touched: in one transaction they lose their old position, history, ranked URL, saved results, map pack data and refresh status, then a fresh scrape runs with the new location. If that scrape fails the keyword stays empty instead of showing another city's rankings.
+- Queued refreshes now wait while a delete or location edit holds their domain, and start when it is released. A request that queues its own refresh hands its claim to that task, so nothing can slip in between. Refresh tasks (manual, cron-style, after adding keywords, after a location change) load their keywords by ID when they start, so a keyword deleted while the task waited is skipped and a moved one is scraped with its current location.
+- The toast for a blocked keyword delete, location change or domain delete now shows the server's message ("try again once the refresh has finished"). Other errors keep the generic text.
+- The screens no longer set state inside effects (the `use-mobile` hook, add-keywords dialog, research form, and the selection and tag-filter clean-ups), so `eslint-plugin-react-hooks` 7 passes with no errors.
+- Pinned the patched `minimatch`, `glob` and `uuid` versions for the packages that bundled old copies, so `npm audit` is down from 34 findings to 7 low ones (the remaining `deepmerge` finding has no fix). The `editorconfig` override no longer gets reset by `npm install`.
+
+### Dependencies
+
+- Updated to the latest releases that work together: Jest 30, TypeScript 6, `better-sqlite3` 13, `croner` 11, `dotenv` 18, `google-auth-library` 11, `@googleapis/searchconsole` 11, `@isaacs/ttlcache` 2, `undici`, `uuid`, Testing Library and the type packages, plus all in-range updates (Next.js, nodemailer, dayjs, PostCSS and others).
+- Held back: ESLint 10 and its plugins, TypeScript 7 (typescript-eslint does not support it yet) and Stylelint 18 (its packages do not resolve together yet).
+- `tsconfig.json` uses `paths` instead of the removed `baseUrl`, and the Stylelint config allows Tailwind's `@apply`.
+
+### Removed
+
+- Unused dev dependencies (`msw`, `@types/cryptr`, `autoprefixer`, `js-yaml`, `postcss-selector-parser`, `source-map-js`, `browserslist`, `esbuild`, `shell-quote`, `ws`, `@babel/core`), the msw test shims, unused UI pieces (`badge`, `empty`, `separator`), the unused `screenshot.jpg`, and two unused constants.
+
+### Fixed
+
+- Settings toasts now show the server's own error text (for example the reason a Google Ads test failed) instead of a generic line, and failed form checks on Update Settings also show a toast.
+- Send Notifications Now reports how many emails went out, and shows a warning instead of a success when nothing was sent.
+
+### Documentation
+
+- The provider tables in the README and the Scrapers wiki page have a "Credits left" column showing which scrapers report the balance. The Scrapers page has a longer "Credits remaining" section: how each provider is asked, when the number updates, shared keys, the saved file and troubleshooting.
+- Added desktop screenshots to the wiki pages (in `docs/images/`), and a set of desktop and phone screenshots in `screenshots/`, all taken from demo data with example domains.
+- The Google guide links in the app now point to the wiki's Google Integrations page.
+
+### Upgrade notes (API routes)
+The API routes are regrouped. **There are no compatibility aliases: the old routes now return 404.** Update scripts, cron jobs, MCP clients and reverse-proxy rules that call them.
+
+| Old | New |
+| --- | --- |
+| `/api/settings` | `/api/app/settings` |
+| `/api/cron` | `/api/app/cron` |
+| `/api/notify` | `POST /api/app/email?type=digest` |
+| `/api/ideas/email` | `POST /api/app/email?type=ideas` |
+| `/api/login`, `/api/logout`, `/api/auth-check` | `/api/auth/login`, `/api/auth/logout`, `/api/auth/check` |
+| `/api/domains`, `/api/domain`, `/api/keywords`, `/api/keyword`, `/api/refresh`, `/api/clearfailed` | the same names under `/api/serp/` |
+| `/api/searchconsole`, `/api/insight`, `/api/ideas`, `/api/volume` | the same names under `/api/google/` |
+| `/api/branding/logo` | `/api/images/logo.png` |
+| `/api/branding/config` | removed (the name and logo are in `GET /api/app/settings` as `branding`) |
+
+`/api/adwords` and `/api/mcp` are unchanged. The Docker health check now calls `GET /api/app/settings`.
+
+### Added
+- `GET /api/app/settings` returns a read-only `branding` object (`platformName`, `whiteLabelEnabled`, `hasCustomLogo`, `logoApiPath`, `defaultPlatformName`) in both the public and the signed-in response. A settings save never writes it.
+- `POST /api/app/email` sends both kinds of email, chosen by `?type=`: `digest` accepts the API key or a login session, `ideas` needs a login session and answers `403` to an API key. A missing or unknown `type` is a `400`.
+- The web app manifest is generated at `/manifest.webmanifest`, so white-label installs use your name and logo. The apple touch icon follows the logo too.
+
+### Removed
+- The `setup:git` script (`scripts/set-default-branch.mjs`) and the unused test fixture `__mocks__/data.ts`.
+
+### Changed (API)
+- **The API runs on the App Router.** Every endpoint is now a route handler in `app/api/**/route.ts` that takes a standard `Request` and returns a standard `Response`; `pages/` is gone. URLs, methods, request bodies and response shapes are the same. A shared wrapper (`createRoute` in `utils/apiLogging`) adds the request id, logging, the database check, the login or API-key check and the `405` answer. A method a route does not offer answers `405` with an `Allow` header. The MCP route uses the SDK's web-standard transport, and the `cookies` package is no longer a dependency.
+- **`TRUST_PROXY` matters more.** A route handler cannot see the connection's address, and Next keeps a client-supplied `X-Forwarded-For` as it is, so the header is read only when `TRUST_PROXY` names the proxies in front of the app. Without it every client counts as one address: five wrong logins or API keys from anyone lock everyone out for 15 minutes. Set `TRUST_PROXY` when the app sits behind a reverse proxy.
+- The log line for a request shows the path and query, as before. Unauthenticated calls to a route that does not exist for that method now answer `401` before `405`.
+- `/api/images/favicon.png` serves `data/favicon.png` the same way (white-label on and the file exists, otherwise the built-in default), and the tab icon uses it when white-label is on. `/api/images/logo.png` stays the logo. Only these two file names exist.
+- `/api/images/logo.png` always returns an image: your `data/logo.png` when white-label is on and the file exists, otherwise the built-in default. It used to answer 404 in those cases. Only that one URL exists, so other file names return 404.
+- Server pages and utilities read the settings through `utils/appSettings` instead of importing from an API route.
+
+### Changed
+- **New front end:** the whole interface is rebuilt on the Next.js App Router (React 19, Tailwind CSS 4, shadcn/ui, TanStack Query, Table and Virtual, and Recharts). The URLs are the same: `/login`, `/domains`, `/domain/<slug>`, `/domain/console/<slug>` (Discover), `/domain/insight/<slug>`, `/domain/ideas/<slug>` and `/research`. `/` now redirects to `/domains`. The JSON API now lives in `app/api/` (see Changed (API)); its URLs, methods and bodies are the same.
 - **Layout:** a top bar with the logo on the left and the menu on the right replaces the sidebar. The domain list sits on the left only on the Domains page. Settings open in a side panel with the Scraper, Notification and Integrations tabs. Phones get a menu button, stacked rows and a compact filter bar.
 - **Tables:** Tracking, Discover, Insight and the keyword ideas tables share one virtualized table, so long keyword lists scroll smoothly. Row selection works on keyword IDs and ignores rows hidden by a filter. The column header stays solid while you scroll, and the table is sized to whole rows.
 - **Tracking tab:** a single `Add/Edit Tags` action replaces the separate add and remove tag buttons.
+- **Help:** the Help button in the menu opens this project's wiki on GitHub instead of the upstream docs site.
+- **Look:** the accent colour is now green (`#33cc66`, with dark text on green buttons) in place of indigo. Cards and tables get a soft shadow, the top bar is solid white with a shadow, table headers and the domain-card stat boxes carry a light green tint, and the web app's theme colour matches.
+- **Page background:** a faint tiled texture (`public/body-texture.png`) sits behind every page. The top bar, cards and tables stay solid.
+- **Domain list:** each domain shows its site icon (a larger 32px copy for sharper rendering), and a globe takes its place when the icon cannot be loaded, so the names always line up.
+- **Buttons:** the label text is nudged down by half a pixel so it sits in the vertical centre of the button. It was drawn slightly high, because of how the font's line box is spaced. Icons stay where they were.
+- **Selection bar** (Discover, Ideas and Research): on phones the Desktop and Mobile buttons stretch to fill the bar, and on Research so does the domain picker, each running the full width. Desktop is unchanged.
 - **Research** now lives inside the same page frame as every other screen.
 - **Charts:** Chart.js is replaced by Recharts. The Insight chart plots visits and impressions on two axes.
 - **Domain thumbnails:** always loaded from the screenshot service and cached in the browser, with the site's favicon as the fallback.

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { RefreshCw } from 'lucide-react';
@@ -26,6 +27,13 @@ const formatCompactNumber = (value: number) => {
 const UPDATED_TITLE_FORMAT: Intl.DateTimeFormatOptions = {
    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true,
 };
+
+/** Whole credits with thousands separators; a money balance (DataForSEO) as US dollars. */
+const formatCredits = (value: number, unit: 'credits' | 'usd'): string => (
+   unit === 'usd'
+      ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)
+      : new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value)
+);
 
 type TrendProps = { current: number; previous: number | null; lowerIsBetter?: boolean };
 
@@ -78,13 +86,19 @@ export function DomainCard({
    domain, consoleIntegrated, thumb, showMapPackStat, timezone, toggling, onToggle, onRefreshThumb,
 }: DomainCardProps) {
    const router = useRouter();
+   // The favicon stays hidden for 500 ms. A screenshot that is ready by then replaces it before it is ever shown.
+   const [faviconReady, setFaviconReady] = useState(false);
+   useEffect(() => {
+      const timer = setTimeout(() => setFaviconReady(true), 500);
+      return () => clearTimeout(timer);
+   }, []);
    const avgPosition = roundAveragePosition(domain.avgPosition);
    const prevAvgPosition = domain.prevAvgPosition === null ? null : roundAveragePosition(domain.prevAvgPosition);
    const href = `/domain/${domain.slug}`;
 
    return (
       <Card
-         className="hover:ring-primary/30 cursor-pointer gap-0 p-0 transition-shadow"
+         className={cn('hover:ring-primary/30 cursor-pointer gap-0 p-0 transition-[box-shadow,filter] duration-300 hover:shadow-md', !domain.scrapeEnabled && 'grayscale')}
          data-testid="domain-card"
          onClick={(event) => {
             // The name is a real link and the switch is a control, so only clicks elsewhere on the card navigate.
@@ -94,7 +108,7 @@ export function DomainCard({
       >
          <div className="flex flex-col lg:flex-row">
             <div className={cn('flex flex-1 gap-4 p-5', !consoleIntegrated && 'lg:basis-1/3')}>
-               <div className="group bg-muted relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-md border">
+               <div className="group bg-muted relative flex size-28 shrink-0 items-center justify-center overflow-hidden rounded-md border">
                   <button
                      type="button"
                      className="text-muted-foreground hover:text-foreground absolute top-0 right-1 z-10 p-1 opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
@@ -106,7 +120,8 @@ export function DomainCard({
                   </button>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                     className={cn(!thumb && 'max-w-[50px]')}
+                     key={thumb ? 'screenshot' : 'favicon'}
+                     className={cn(thumb ? 'size-full object-cover object-top animate-in fade-in-0 duration-500' : 'max-w-[50px]', !thumb && !faviconReady && 'invisible')}
                      src={thumb || `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain.domain)}&sz=128`}
                      alt={domain.domain}
                   />
@@ -124,10 +139,15 @@ export function DomainCard({
                         <span>Not updated yet</span>
                      )}
                   </div>
+                  {domain.creditsRemaining !== null && (
+                     <div className="text-muted-foreground mt-1 text-xs" data-testid="dom_credits">
+                        Credits remaining: {formatCredits(domain.creditsRemaining, domain.creditsUnit)}
+                     </div>
+                  )}
                </div>
             </div>
 
-            <div className="flex flex-1 flex-col p-4">
+            <div className="flex min-w-0 flex-1 flex-col p-4 lg:basis-0">
                <div className="mb-1 flex items-end justify-between gap-3">
                   <p className="text-primary text-xs leading-none font-medium">Tracker</p>
                   <label className={cn('text-muted-foreground flex items-center gap-2 text-xs leading-none', toggling && 'cursor-not-allowed opacity-70')}>
@@ -141,7 +161,7 @@ export function DomainCard({
                      />
                   </label>
                </div>
-               <div className="bg-accent/40 flex flex-1 items-center rounded-md border p-4" data-testid="dom_stats">
+               <div className="bg-accent/70 border-primary/15 flex flex-1 items-center rounded-md border p-4" data-testid="dom_stats">
                   <Stat label="Keywords">
                      {domain.keywordsTracked}
                      <Trend current={domain.keywordsTracked} previous={domain.prevKeywordsTracked} />
@@ -160,9 +180,9 @@ export function DomainCard({
             </div>
 
             {consoleIntegrated && (
-               <div className="flex flex-1 flex-col p-4 lg:basis-56">
+               <div className="flex min-w-0 flex-1 flex-col p-4 lg:basis-0">
                   <p className="text-primary mb-2 text-xs font-medium">Search Console (7d)</p>
-                  <div className="bg-accent/40 flex flex-1 items-center rounded-md border p-4" data-testid="dom_sc_stats">
+                  <div className="bg-accent/70 border-primary/15 flex flex-1 items-center rounded-md border p-4" data-testid="dom_sc_stats">
                      <Stat label="Visits">
                         <CompactMetric value={domain.scVisits} />
                         <Trend current={domain.scVisits} previous={domain.scVisitsPrev} />

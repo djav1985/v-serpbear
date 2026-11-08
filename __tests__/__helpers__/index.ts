@@ -5,6 +5,7 @@
 
 export { createMockResponse } from './mockResponse';
 export { createMockRequest } from './mockRequest';
+export { asHandler, buildRequest } from './routeAdapter';
 export {
   mockDatabase,
   mockVerifyUser,

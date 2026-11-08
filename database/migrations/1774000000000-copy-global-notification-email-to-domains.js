@@ -46,7 +46,7 @@ module.exports = {
             `UPDATE domain SET notification_emails = :email WHERE ${noEmail}`,
             { transaction, replacements: { email: globalEmail } }
          );
-         logger.info(`Copied the global notification email onto domains without one (${rowsUpdated} row(s)).`);
+         logger.info(`[MIGRATION] Copied the global notification email onto domains without one (${rowsUpdated} row(s)).`);
       });
    },
 

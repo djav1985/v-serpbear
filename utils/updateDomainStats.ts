@@ -81,7 +81,24 @@ const attemptDomainStatsUpdate = async (domainName: string): Promise<void> => {
       { where: { domain: domainName } }
    );
 
-   logger.info(`Updated domain stats for ${domainName}`, nextStats);
+   logger.debug(`[SCRAPER] Updated domain stats for ${domainName}`, nextStats);
+};
+
+// The tail of each domain's chain of stats updates. A refresh finishing while keywords are added or removed on the same
+// domain would otherwise read the same "previous" numbers twice and overwrite each other's prev* snapshot.
+const domainStatsChains = new Map<string, Promise<unknown>>();
+
+/** Runs fn after every earlier stats update for the same domain has finished. Other domains are not held up. */
+const withDomainStatsLock = <T>(domainName: string, fn: () => Promise<T>): Promise<T> => {
+   const key = domainName.trim().toLowerCase();
+   const previous = domainStatsChains.get(key) ?? Promise.resolve();
+   // fn never rejects here, but a failed earlier link must not block the next one either way
+   const run = previous.then(fn, fn);
+   const tail = run.then(() => undefined, () => undefined);
+   domainStatsChains.set(key, tail);
+   // Drop the entry once nothing newer was queued behind it, so the map does not grow with every domain
+   void tail.then(() => { if (domainStatsChains.get(key) === tail) { domainStatsChains.delete(key); } });
+   return run;
 };
 
 /**
@@ -97,13 +114,18 @@ const attemptDomainStatsUpdate = async (domainName: string): Promise<void> => {
  * whether each stat went up or down since the last refresh. The prev* columns stay null until a
  * refresh has stored a real baseline (a previous keywordsTracked above zero).
  *
+ * Updates for the same domain run one after another, and each one reads the current data after it gets its turn.
  * If an attempt fails, it is retried exactly once after a short delay. If the retry also fails, the error is
  * logged and swallowed; this function never throws.
  *
  * @param {string} domainName - The domain to update stats for
  * @returns {Promise<boolean>} true when the stats were saved (first try or retry), false when both attempts failed
  */
-export const updateDomainStats = async (domainName: string): Promise<boolean> => {
+export const updateDomainStats = (domainName: string): Promise<boolean> => (
+   withDomainStatsLock(domainName, () => updateDomainStatsUnlocked(domainName))
+);
+
+const updateDomainStatsUnlocked = async (domainName: string): Promise<boolean> => {
    try {
       await attemptDomainStatsUpdate(domainName);
       return true;

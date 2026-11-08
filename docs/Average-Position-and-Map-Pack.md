@@ -2,6 +2,8 @@
 
 ## How the average position is calculated
 
+![A tracker with map pack results](images/tracker-map-pack.png)
+
 A domain's average position (on the dashboard card and in the digest) is a whole number, rounded from the keyword positions below. It is recalculated after every refresh that stores results and whenever keywords are added or deleted. Changing the scrape strategy, page count or business name does not change it until the next refresh.
 
 Each keyword is counted as follows:
@@ -18,7 +20,9 @@ The Keywords and Map Pack counts include every keyword, whether or not it is in 
 
 ## Business name and map pack detection
 
-The optional **Business Name** field in the domain's scraper tab turns on map pack detection. Matching uses the name only, never the link.
+![The Business name field in domain settings](images/domain-settings-scraper.png)
+
+The optional **Business name** field in **Domain Settings → Scraper** turns on map pack detection. Matching uses the name only, never the link.
 
 1. Each provider builds a list of local results from its response, in the order Google shows them.
 2. If one of the first three titles matches your business name, the keyword counts as a map pack appearance.

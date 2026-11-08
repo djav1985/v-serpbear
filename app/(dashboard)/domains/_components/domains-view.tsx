@@ -29,7 +29,7 @@ type DomainsViewProps = {
 };
 
 const fetchDomainCards = async (): Promise<DomainCardData[]> => {
-   const { domains } = await apiGet<{ domains: DomainType[] }>('/api/domains?withstats=true');
+   const { domains } = await apiGet<{ domains: DomainType[] }>('/api/serp/domains?withstats=true');
    return domains.map(toDomainCardData);
 };
 
@@ -55,7 +55,7 @@ export function DomainsView({
 
    const toggleActive = useMutation({
       mutationFn: ({ domain, scrapeEnabled }: { domain: string; scrapeEnabled: boolean }) => (
-         apiPut(`/api/domains?domain=${encodeURIComponent(domain)}`, { scrapeEnabled })
+         apiPut(`/api/serp/domains?domain=${encodeURIComponent(domain)}`, { scrapeEnabled })
       ),
       onMutate: async ({ domain, scrapeEnabled }) => {
          await queryClient.cancelQueries({ queryKey: DOMAINS_KEY });

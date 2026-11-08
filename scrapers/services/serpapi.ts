@@ -1,5 +1,5 @@
 import countries, { getGoogleDomain } from "../../utils/countries";
-import { resolveCountryCode, getKeywordLocationParts } from "../../utils/scraperHelpers";
+import { resolveCountryCode, getKeywordLocationParts, fetchAccountJson, toCreditNumber } from "../../utils/scraperHelpers";
 import { computeMapPackTop3 } from "../../utils/mapPack";
 import { DEVICE_MOBILE } from "../../utils/constants";
 
@@ -12,6 +12,12 @@ interface SerpApiResult {
 const serpapi: ScraperSettings = {
   id: "serpapi",
   name: "SerpApi.com",
+   // Free account call; total_searches_left already includes any extra credits.
+   fetchCredits: async (settings: SettingsType) => {
+      const key = encodeURIComponent(settings.scraping_api ?? '');
+      const data = await fetchAccountJson(`https://serpapi.com/account.json?api_key=${key}`);
+      return toCreditNumber(data?.total_searches_left);
+   },
   allowsCity: true,
   supportsMapPack: true,
   usesResultOffset: true,

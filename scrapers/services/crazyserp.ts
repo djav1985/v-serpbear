@@ -1,5 +1,5 @@
 import { getGoogleDomain } from "../../utils/countries";
-import { resolveCountryCode, getKeywordLocationParts } from "../../utils/scraperHelpers";
+import { resolveCountryCode, getKeywordLocationParts, fetchAccountJson, toCreditNumber } from "../../utils/scraperHelpers";
 import { computeMapPackTop3 } from "../../utils/mapPack";
 
 interface CrazySerpResult {
@@ -17,6 +17,10 @@ interface CrazySerpLocation {
 const crazyserp: ScraperSettings = {
    id: 'crazyserp',
    name: 'CrazySERP',
+   fetchCredits: async (settings: SettingsType) => {
+      const data = await fetchAccountJson('https://crazyserp.com/api/get-credits', { Authorization: `Bearer ${settings.scraping_api ?? ''}` });
+      return toCreditNumber(data?.available_credits?.total);
+   },
    allowsCity: true,
    supportsMapPack: true,
    resultObjectKey: 'parsed_data',

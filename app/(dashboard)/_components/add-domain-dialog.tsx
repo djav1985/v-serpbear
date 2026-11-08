@@ -32,7 +32,7 @@ export function AddDomainDialog({ open, onOpenChange, existingDomains }: AddDoma
    };
 
    const { mutate, isPending } = useMutation({
-      mutationFn: (domains: string[]) => apiPost<{ domains: DomainType[] }>('/api/domains', { domains }),
+      mutationFn: (domains: string[]) => apiPost<{ domains: DomainType[] }>('/api/serp/domains', { domains }),
       onSuccess: (data) => {
          const added = data.domains;
          const single = added.length === 1;

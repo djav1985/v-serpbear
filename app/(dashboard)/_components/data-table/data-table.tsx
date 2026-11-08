@@ -1,6 +1,6 @@
 'use client';
 
-import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { startTransition, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { ReactTable, Row, RowData } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react';
@@ -63,6 +63,8 @@ export function DataTable<TData extends RowData>({
       gridTemplateColumns: columns.map((column) => column.columnDef.meta?.width ?? DEFAULT_TRACK).join(' '),
    };
 
+   // TanStack Virtual returns functions that the React Compiler cannot memoize; the compiler skips this component, which is the intended outcome.
+   // eslint-disable-next-line react-hooks/incompatible-library
    const virtualizer = useVirtualizer({
       count: rows.length,
       getScrollElement: () => scrollRef.current,
@@ -106,7 +108,7 @@ export function DataTable<TData extends RowData>({
          {!stacked && (
             <div ref={headRef} role="rowgroup" className="bg-card sticky top-0 z-10 border-y" style={{ minWidth }}>
                {table.getHeaderGroups().map((headerGroup) => (
-                  <div key={headerGroup.id} role="row" className="bg-muted/40 grid items-center gap-3 px-4 py-3 text-xs font-semibold" style={gridStyle}>
+                  <div key={headerGroup.id} role="row" className="bg-accent/70 text-accent-foreground grid items-center gap-3 px-4 py-3 text-xs font-semibold" style={gridStyle}>
                      {headerGroup.headers.map((header) => {
                         const canSort = header.column.getCanSort();
                         const sorted = header.column.getIsSorted();
@@ -121,7 +123,7 @@ export function DataTable<TData extends RowData>({
                                  <button
                                     type="button"
                                     className="hover:text-foreground flex items-center gap-1"
-                                    onClick={header.column.getToggleSortingHandler()}
+                                    onClick={(event) => startTransition(() => header.column.getToggleSortingHandler()?.(event))}
                                  >
                                     <table.FlexRender header={header} />
                                     {sorted === 'asc' ? <ArrowUp className="size-3" /> : sorted === 'desc' ? <ArrowDown className="size-3" /> : <ChevronsUpDown className="size-3 opacity-40" />}

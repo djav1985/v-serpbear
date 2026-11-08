@@ -9,7 +9,7 @@ import parseKeywords from './parseKeywords';
 import { integrateKeywordSCData, readLocalSCData } from './searchConsole';
 
 /**
- * Reads a domain's keywords the way `GET /api/keywords` returns them: seven days of history, the stored search
+ * Reads a domain's keywords the way `GET /api/serp/keywords` returns them: seven days of history, the stored search
  * results left out, and Search Console data merged in. Shared by the API handler and by server components.
  *
  * Rows saved before the 7-day history existed need a backfill. It is returned as `backfill` instead of being done here,
@@ -24,13 +24,14 @@ export const loadDomainKeywords = async (domain: string): Promise<{ keywords: Ke
       : false;
 
    const allKeywords:Keyword[] = await Keyword.findAll({ where: { domain } });
-   const keywords: KeywordType[] = parseKeywords(allKeywords.map((e) => e.get({ plain: true })));
+   const rows = allKeywords.map((row) => row.get({ plain: true }) as Keyword);
+   const keywords: KeywordType[] = parseKeywords(rows);
    
    // Consolidate pipeline: do history slicing + lastResult reset + SC integration in a single pass.
    // Collect legacy rows that need a history7d backfill; the writes happen after the response is sent.
-   const backfillQueue: Array<{ id: number; history7d: string }> = [];
+   const backfillQueue: Array<{ id: number; history7d: string; source: Keyword }> = [];
 
-   const processedKeywords = keywords.map((keyword) => {
+   const processedKeywords = keywords.map((keyword, index) => {
       let lastWeekHistory: KeywordHistory;
 
       if (keyword.history7d && Object.keys(keyword.history7d).length > 0) {
@@ -53,7 +54,7 @@ export const loadDomainKeywords = async (domain: string): Promise<{ keywords: Ke
          }
          // Queue the backfill — do not write here to avoid per-row DB work on the request path
          if (historyEntries.length > 0) {
-            backfillQueue.push({ id: keyword.ID, history7d: JSON.stringify(lastWeekHistory) });
+            backfillQueue.push({ id: keyword.ID, history7d: JSON.stringify(lastWeekHistory), source: rows[index] });
          }
       }
       
@@ -68,7 +69,7 @@ export const loadDomainKeywords = async (domain: string): Promise<{ keywords: Ke
    const backfill = () => {
       if (backfillQueue.length === 0) { return; }
       backfillQueue.reduce<Promise<void>>(
-         (chain, { id, history7d }) => chain.then(() => Keyword.update({ history7d }, { where: { ID: id } }).then(() => undefined))
+         (chain, { id, history7d, source }) => chain.then(() => Keyword.update({ history7d }, { where: { ID: id, history: source.history ?? null, history7d: source.history7d ?? null } }).then(() => undefined))
             .catch((err: unknown) => {
                logger.error('Failed to backfill history7d', err instanceof Error ? err : new Error(String(err)), { keywordId: id });
             }),

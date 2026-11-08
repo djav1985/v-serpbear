@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { startTransition, useMemo, useState } from 'react';
 import { useShell } from 'app/(dashboard)/_components/shell-context';
 import { IdeasTable } from 'app/(dashboard)/_components/keyword-ideas/ideas-table';
 import { useIdeas } from 'app/(dashboard)/_components/keyword-ideas/ideas-queries';
@@ -46,7 +46,7 @@ export function IdeasView({ domain, adwordsConnected, searchConsoleConnected, al
             noIdeasDatabase={isError}
             adwordsConnected={adwordsConnected}
             showFavorites={showFavorites}
-            onShowFavorites={setShowFavorites}
+            onShowFavorites={(show) => startTransition(() => setShowFavorites(show))}
             domains={domains}
             allowsCity={allowsCity}
          />

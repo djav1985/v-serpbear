@@ -1,7 +1,8 @@
 import { Op } from 'sequelize';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { buildStoredLocation } from '../../utils/location';
-import handler from '../../pages/api/keywords';
+import { asHandler } from '../__helpers__/routeAdapter';
+import * as handlerRoute from '../../app/api/serp/keywords/route';
 import Keyword from '../../database/models/keyword';
 import Domain from '../../database/models/domain';
 import verifyUser from '../../utils/verifyUser';
@@ -10,10 +11,11 @@ import { getKeywordsVolume } from '../../utils/adwords';
 import { refreshQueue } from '../../utils/refreshQueue';
 import { updateDomainStats } from '../../utils/updateDomainStats';
 import { createMockRequest, createMockResponse } from '../__helpers__';
+const handler = asHandler(handlerRoute);
 
 jest.mock('../../database/database', () => ({
   __esModule: true,
-  default: { sync: jest.fn() },
+  default: { sync: jest.fn(), transaction: jest.fn(async (_options, work) => work({ id: "tx" })) },
 }));
 
 jest.mock('../../database/models/keyword', () => ({
@@ -27,7 +29,12 @@ jest.mock('../../database/models/domain', () => ({
 }));
 
 jest.mock('../../utils/verifyUser', () => ({ __esModule: true, default: jest.fn() }));
-jest.mock('../../utils/refresh', () => ({ __esModule: true, default: jest.fn().mockResolvedValue([]) }));
+jest.mock('../../utils/refresh', () => ({
+  __esModule: true,
+  default: jest.fn().mockResolvedValue([]),
+  refreshKeywordsByIds: jest.fn().mockResolvedValue([]),
+  markKeywordsAsUpdating: jest.fn().mockResolvedValue(undefined),
+}));
 jest.mock('../../utils/appSettings', () => ({ __esModule: true, getAppSettings: jest.fn() }));
 jest.mock('../../utils/adwords', () => ({
   __esModule: true,
@@ -49,7 +56,7 @@ jest.mock('../../utils/retryQueueManager', () => ({
   __esModule: true,
   retryQueueManager: { removeBatch: jest.fn().mockResolvedValue(undefined) },
 }));
-jest.mock('../../utils/apiLogging', () => ({ withApiLogging: (apiHandler: any) => apiHandler }));
+jest.mock('../../utils/apiLogging', () => require('../__helpers__/apiLoggingMock').apiLoggingMock());
 jest.mock('../../utils/updateDomainStats', () => ({ __esModule: true, updateDomainStats: jest.fn().mockResolvedValue(undefined) }));
 
 const KeywordMock = Keyword as unknown as { findAll: jest.Mock; bulkCreate: jest.Mock; update: jest.Mock };
@@ -58,7 +65,7 @@ const DomainMock = Domain as unknown as { findAll: jest.Mock };
 const austin = buildStoredLocation({ city: 'Austin', state: 'Texas', countryCode: 'US' });
 const storedRow = (values: Record<string, unknown>) => ({ get: () => ({ ID: 1, history: '{}', tags: '[]', lastResult: '[]', lastUpdateError: 'false', ...values }) });
 
-describe('/api/keywords data rules', () => {
+describe('/api/serp/keywords data rules', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (verifyUser as jest.Mock).mockReturnValue('authorized');
@@ -123,6 +130,22 @@ describe('/api/keywords data rules', () => {
 
     expect(KeywordMock.findAll).toHaveBeenLastCalledWith({ where: { ID: { [Op.in]: [41] } } });
     expect(KeywordMock.findAll).not.toHaveBeenLastCalledWith(expect.objectContaining({ where: { added: expect.anything() } }));
+  });
+
+  it('still saves keywords added while the domain is being refreshed, and queues their scrape behind the refresh', async () => {
+    const { refreshQueue } = require('../../utils/refreshQueue');
+    (refreshQueue.isDomainLocked as jest.Mock).mockImplementation(() => true);
+    KeywordMock.bulkCreate.mockResolvedValue([{ ID: 52, keyword: 'alpha' }]);
+    KeywordMock.findAll.mockResolvedValueOnce([]).mockResolvedValueOnce([storedRow({ ID: 52, keyword: 'alpha', domain: 'example.com', device: 'desktop', country: 'US' })]);
+
+    const res = await postKeywords([newKeyword]);
+
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(KeywordMock.bulkCreate).toHaveBeenCalledTimes(1);
+    // No claim on the domain, just a task that waits its turn in the queue
+    expect(refreshQueue.reserveDomains).not.toHaveBeenCalled();
+    expect(refreshQueue.enqueue).toHaveBeenCalledWith(expect.stringMatching(/^addKeywords-example\.com-/), expect.any(Function), ['example.com']);
+    (refreshQueue.isDomainLocked as jest.Mock).mockImplementation(() => false);
   });
 
   it('does not treat the same keyword on another device or in another city as a duplicate', async () => {
@@ -214,7 +237,7 @@ describe('/api/keywords data rules', () => {
   });
 });
 
-describe('/api/keywords concurrent duplicate insert', () => {
+describe('/api/serp/keywords concurrent duplicate insert', () => {
   it('returns 409 when the unique index rejects an insert that passed the duplicate check', async () => {
     jest.clearAllMocks();
     (verifyUser as jest.Mock).mockReturnValue('authorized');

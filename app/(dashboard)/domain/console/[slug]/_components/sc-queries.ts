@@ -9,7 +9,7 @@ export const scKeywordsKey = (domain: string) => ['sc-keywords', domain] as cons
 export function useScKeywords(domain: string, enabled: boolean) {
    return useQuery({
       queryKey: scKeywordsKey(domain),
-      queryFn: async () => (await apiGet<{ data: SCDomainDataType }>(`/api/searchconsole?domain=${encodeURIComponent(domain)}`)).data,
+      queryFn: async () => (await apiGet<{ data: SCDomainDataType }>(`/api/google/searchconsole?domain=${encodeURIComponent(domain)}`)).data,
       enabled,
       retry: false,
    });

@@ -34,6 +34,12 @@
           ]
         }
       ],
+      "at-rule-prelude-no-invalid": [
+        true,
+        {
+          "ignoreAtRules": ["apply"]
+        }
+      ],
       "@stylistic/declaration-block-trailing-semicolon": null,
       "no-descending-specificity": null
     }

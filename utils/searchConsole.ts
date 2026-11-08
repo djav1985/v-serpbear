@@ -53,7 +53,6 @@ export const fetchSearchConsoleData = async (domain:DomainType, days:number, typ
    const defaultSCSettings = { property_type: 'domain', url: '', client_email: '', private_key: '' };
    const domainSettings = safeJsonParse(domain.search_console, defaultSCSettings, {
       context: `domain ${domainName} search_console`,
-      logError: true,
    });
    const sCPrivateKey = api?.private_key || process.env.SEARCH_CONSOLE_PRIVATE_KEY || '';
    const sCClientEmail = api?.client_email || process.env.SEARCH_CONSOLE_CLIENT_EMAIL || '';
@@ -295,7 +294,7 @@ export const getSearchConsoleApiInfo = async (domain: DomainType): Promise<SCAPI
    const domainSCSettings = safeJsonParse<Record<string, string> | null>(
       domain.search_console,
       null,
-      { context: `domain ${domain.domain ?? ''} search_console`, logError: true },
+      { context: `domain ${domain.domain ?? ''} search_console` },
    );
    if (domainSCSettings && domainSCSettings.private_key) {
       if (!domainSCSettings.private_key.includes('BEGIN PRIVATE KEY')) {
@@ -323,7 +322,7 @@ export const getSearchConsoleApiInfo = async (domain: DomainType): Promise<SCAPI
          scAPIData.client_email = settings.search_console_client_email ? cryptr.decrypt(settings.search_console_client_email) : '';
          scAPIData.private_key = settings.search_console_private_key ? cryptr.decrypt(settings.search_console_private_key) : '';
       } catch (error) {
-         logger.warn('Unable to read app settings for Search Console credentials', { error: error instanceof Error ? error.message : String(error) });
+         logger.error('Unable to read app settings for Search Console credentials', undefined, { error: error instanceof Error ? error.message : String(error) });
          // Settings file doesn't exist or is invalid, continue with environment variables
       }
    }
@@ -345,7 +344,7 @@ export const checkSearchConsoleIntegration = async (domain: DomainType): Promise
    const { client_email = '', private_key = '' } = safeJsonParse<DomainSearchConsole>(
       domain?.search_console,
       { client_email: '', private_key: '', property_type: 'domain', url: '' },
-      { context: `domain ${domain?.domain ?? ''} search_console`, logError: true },
+      { context: `domain ${domain?.domain ?? ''} search_console` },
    );
    const response = await fetchSearchConsoleData(domain, 3, undefined, { client_email, private_key });
    if (Array.isArray(response)) { res.isValid = true; }
@@ -374,7 +373,7 @@ export const readLocalSCData = async (domain:string): Promise<SCDomainDataType|f
       const domainSCData = safeJsonParse<SCDomainDataType | false>(
          currentQueueRaw,
          false,
-         { context: `local Search Console data for ${domain}`, logError: true },
+         { context: `local Search Console data for ${domain}` },
       );
       if (!domainSCData) {
          return false;
@@ -402,7 +401,7 @@ export const updateLocalSCData = async (domain:string, scDomainData?:SCDomainDat
       await atomicWriteFile(filePath, JSON.stringify(dataToWrite), 'utf-8');
       return dataToWrite;
    } catch (error) {
-      logger.warn(`Failed to write local Search Console data for domain: ${domain}`, { error: error instanceof Error ? error.message : String(error) });
+      logger.error(`Failed to write local Search Console data for domain: ${domain}`, undefined, { error: error instanceof Error ? error.message : String(error) });
       return false;
    }
 };
@@ -421,7 +420,7 @@ export const removeLocalSCData = async (domain:string): Promise<boolean> => {
       return true;
    } catch (error) {
       if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') return true;
-      logger.warn(`Failed to remove local Search Console data for domain: ${domain}`, { error: error instanceof Error ? error.message : String(error) });
+      logger.error(`Failed to remove local Search Console data for domain: ${domain}`, undefined, { error: error instanceof Error ? error.message : String(error) });
       return false;
    }
 };

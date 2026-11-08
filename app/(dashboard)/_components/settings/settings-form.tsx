@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from 'components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from 'components/ui/tabs';
 import { IntegrationsTab } from './integrations-tab';
@@ -54,6 +55,7 @@ export function SettingsForm({ platformName }: { platformName: string }) {
    const { mutateAsync: saveSettings, isPending } = useSaveSettings();
    const [settings, setSettings] = useState<SettingsType>(() => createDefaults(platformName));
    const [error, setError] = useState<SettingsError | null>(null);
+   const [tab, setTab] = useState('scraper');
    const errorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
    // Local edits must survive background refetches, so the stored copy is only taken on the first load and after a save.
@@ -92,6 +94,7 @@ export function SettingsForm({ platformName }: { platformName: string }) {
       if (problem) {
          if (errorTimer.current) { clearTimeout(errorTimer.current); }
          setError(problem);
+         toast.error(problem.msg);
          errorTimer.current = setTimeout(() => { setError(null); errorTimer.current = null; }, ERROR_VISIBLE_MS);
          return false;
       }
@@ -116,7 +119,8 @@ export function SettingsForm({ platformName }: { platformName: string }) {
 
    return (
       <>
-         <Tabs defaultValue="scraper" className="flex min-h-0 flex-1 flex-col">
+         {/* Tab changes run as a transition so the panel fades between tabs */}
+         <Tabs value={tab} onValueChange={(value) => setTab(value)} className="flex min-h-0 flex-1 flex-col">
             <TabsList className="mx-4 mb-4 self-start">
                <TabsTrigger value="scraper">Scraper</TabsTrigger>
                <TabsTrigger value="notification">Notification</TabsTrigger>
@@ -126,9 +130,9 @@ export function SettingsForm({ platformName }: { platformName: string }) {
                {isLoading && <Loader2 className="text-muted-foreground absolute top-6 left-1/2 size-5 animate-spin" />}
                {!isLoading && (
                   <>
-                     <TabsContent value="scraper"><ScraperTab {...tabProps} /></TabsContent>
-                     <TabsContent value="notification"><NotificationTab {...tabProps} /></TabsContent>
-                     <TabsContent value="integrations"><IntegrationsTab {...tabProps} /></TabsContent>
+                     <TabsContent value="scraper" className="animate-in fade-in-0 slide-in-from-right-4 duration-1000"><ScraperTab {...tabProps} /></TabsContent>
+                     <TabsContent value="notification" className="animate-in fade-in-0 slide-in-from-right-4 duration-1000"><NotificationTab {...tabProps} /></TabsContent>
+                     <TabsContent value="integrations" className="animate-in fade-in-0 slide-in-from-right-4 duration-1000"><IntegrationsTab {...tabProps} /></TabsContent>
                   </>
                )}
             </div>

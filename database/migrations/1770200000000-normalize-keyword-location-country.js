@@ -81,7 +81,7 @@ module.exports = {
             }
          }
 
-         logger.info(`Normalized keyword locations to City,State,Country Name for ${updatedCount} keyword(s).`);
+         logger.info(`[MIGRATION] Normalized keyword locations to City,State,Country Name for ${updatedCount} keyword(s).`);
       });
    },
 

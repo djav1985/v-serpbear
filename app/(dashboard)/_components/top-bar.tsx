@@ -15,7 +15,7 @@ import type { BrandingConfig } from 'utils/branding';
 import { apiPost, ApiError } from 'utils/client/apiClient';
 import { useShell } from './shell-context';
 
-const DOCS_URL = 'https://docs.serpbear.com/';
+const DOCS_URL = 'https://github.com/djav1985/v-serpbear/wiki';
 
 const NAV = [
    { href: '/domains', label: 'Domains', icon: Globe },
@@ -32,7 +32,7 @@ export function TopBar({ branding }: { branding: BrandingConfig }) {
 
    const logout = async () => {
       try {
-         await apiPost('/api/logout', {});
+         await apiPost('/api/auth/logout', {});
          // Drop all cached server state so nothing from the previous session survives.
          queryClient.clear();
          router.push('/login');
@@ -43,7 +43,7 @@ export function TopBar({ branding }: { branding: BrandingConfig }) {
    };
 
    return (
-      <header className="bg-background/90 sticky top-0 z-40 border-b backdrop-blur-md" data-testid="topbar">
+      <header className="bg-card/90 sticky top-0 z-40 border-b shadow-sm backdrop-blur-md" data-testid="topbar">
          <div className="mx-auto flex h-16 w-full max-w-screen-2xl items-center justify-between gap-3 px-4 md:px-6">
             <div className="flex min-w-0 items-center gap-2">
                <Link href="/domains" className="text-primary flex items-center text-base font-bold" aria-label="Home">

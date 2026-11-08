@@ -61,14 +61,14 @@ export const resolveGoogleRedirects = async <T extends { title?: string, url?: s
             signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
          });
          if (!response.ok) {
-            logger.warn('[SCRAPE] Serper link resolve failed', { status: response.status, attempt });
+            logger.debug('[SCRAPER] Serper link resolve failed', { status: response.status, attempt });
             continue;
          }
 
          const data: any = await response.json();
          const organic: any[] = Array.isArray(data?.organic) ? data.organic : [];
          if (organic.length !== pending.length) {
-            logger.warn('[SCRAPE] Serper link resolve returned an unexpected list', { sent: pending.length, received: organic.length, attempt });
+            logger.debug('[SCRAPER] Serper link resolve returned an unexpected list', { sent: pending.length, received: organic.length, attempt });
             continue;
          }
 
@@ -85,14 +85,14 @@ export const resolveGoogleRedirects = async <T extends { title?: string, url?: s
          const retryAfter = Number(data?.retryAfter);
          waitSeconds = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 0;
       } catch (error: any) {
-         logger.warn('[SCRAPE] Serper link resolve request failed', { error: error?.message || '', attempt });
+         logger.debug('[SCRAPER] Serper link resolve request failed', { error: error?.message || '', attempt });
       }
    }
 
    if (remaining.length > 0) {
       logger.warn('[SCRAPE] Google links left unresolved', { unresolved: remaining.length, total });
    } else {
-      logger.info('[SCRAPE] Resolved Google links', { total });
+      logger.debug('[SCRAPER] Resolved Google links', { total });
    }
    return resolved;
 };

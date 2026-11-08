@@ -1,5 +1,5 @@
 import { getGoogleDomain } from "../../utils/countries";
-import { resolveCountryCode, getKeywordLocationParts } from "../../utils/scraperHelpers";
+import { resolveCountryCode, getKeywordLocationParts, fetchAccountJson, toCreditNumber } from "../../utils/scraperHelpers";
 import { computeMapPackTop3 } from '../../utils/mapPack';
 import { DEVICE_MOBILE } from '../../utils/constants';
 
@@ -12,6 +12,10 @@ interface SearchApiResult {
 const searchapi:ScraperSettings = {
   id: 'searchapi',
   name: 'SearchApi.io',
+   fetchCredits: async (settings: SettingsType) => {
+      const data = await fetchAccountJson('https://www.searchapi.io/api/v1/me', { Authorization: `Bearer ${settings.scraping_api ?? ''}` });
+      return toCreditNumber(data?.account?.remaining_credits);
+   },
   allowsCity: true,
   supportsMapPack: true,
    headers: () => ({

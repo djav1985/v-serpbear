@@ -100,7 +100,7 @@ module.exports = {
             }
          }
 
-         logger.info(`Removed skipped placeholder entries from lastResult for ${updatedCount} keyword(s).`);
+         logger.info(`[MIGRATION] Removed skipped placeholder entries from lastResult for ${updatedCount} keyword(s).`);
       });
    },
 

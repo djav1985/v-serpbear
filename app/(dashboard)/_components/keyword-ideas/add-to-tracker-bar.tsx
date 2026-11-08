@@ -31,13 +31,13 @@ export function AddToTrackerBar({
       <div className="flex flex-col gap-2 p-4 sm:flex-row sm:flex-wrap sm:items-center" data-testid="bulk_actions">
          <span className="text-muted-foreground text-sm font-medium sm:mr-2">{selectedCount} selected{label ? ` · ${label}` : ''}</span>
          {children}
-         <div className="flex gap-2" role="group" aria-label="Devices">
+         <div className="flex gap-2 max-sm:w-full" role="group" aria-label="Devices">
             {DEVICES.map(({ value, label: deviceLabel }) => (
                <button
                   key={value}
                   type="button"
                   aria-pressed={devices.includes(value)}
-                  className={cn('flex h-8 items-center gap-1.5 rounded-md border px-3 text-sm font-medium', devices.includes(value) ? 'bg-accent text-accent-foreground border-primary/30' : 'text-muted-foreground')}
+                  className={cn('flex h-8 items-center gap-1.5 rounded-md border px-3 text-sm font-medium max-sm:flex-1 max-sm:justify-center', devices.includes(value) ? 'bg-accent text-accent-foreground border-primary/30' : 'text-muted-foreground')}
                   onClick={() => toggle(value)}
                >
                   <Check className={cn('size-3.5', !devices.includes(value) && 'opacity-30')} />{deviceLabel}

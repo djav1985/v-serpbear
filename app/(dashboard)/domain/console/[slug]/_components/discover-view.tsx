@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { startTransition, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { useTable, type ColumnDef, type RowSelectionState } from '@tanstack/react-table';
@@ -42,7 +42,7 @@ type DiscoverViewProps = {
    systemScraperType: string;
 };
 
-const DOCS_URL = 'https://docs.serpbear.com/miscellaneous/integrate-google-search-console';
+const DOCS_URL = 'https://github.com/djav1985/v-serpbear/wiki/Google-Integrations';
 const percent = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 // Search Console rows are country level, so a row counts as tracked only when it is tracked without a city location.
@@ -148,13 +148,14 @@ export function DiscoverView({ domain, searchConsoleConnected, allowsCity, avail
    });
 
    // Selection holds only rows that are on screen and can still be added.
-   useEffect(() => {
+   const [checked, setChecked] = useState({ rows, rowSelection });
+   if (checked.rows !== rows || checked.rowSelection !== rowSelection) {
+      setChecked({ rows, rowSelection });
       const selected = Object.keys(rowSelection);
-      if (selected.length === 0) { return; }
       const addable = new Set(rows.filter((row) => !row.isTracked).map((row) => row.uid));
       const kept = selected.filter((id) => addable.has(id));
       if (kept.length !== selected.length) { setRowSelection(Object.fromEntries(kept.map((id) => [id, true]))); }
-   }, [rows, rowSelection]);
+   }
 
    const selectedIds = useMemo(() => Object.keys(rowSelection).filter((id) => rowSelection[id]), [rowSelection]);
    const { mutate: addKeywords, isPending: isAdding } = useAddKeywords(() => { router.push(`/domain/${domain.slug}`); });
@@ -185,13 +186,13 @@ export function DiscoverView({ domain, searchConsoleConnected, allowsCity, avail
             onOpenSettings={() => setSettingsOpen(true)}
             onExport={() => exportCSV(grouped, domain.domain, period)}
          >
-            <Select value={period} onValueChange={setPeriod}>
+            <Select value={period} onValueChange={(value) => startTransition(() => setPeriod(value))}>
                <SelectTrigger size="sm" className="w-32" aria-label="Search Console period" data-testid="sc_period"><CalendarDays className="size-4" /><SelectValue /></SelectTrigger>
                <SelectContent>{SC_PERIODS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
             </Select>
          </DomainHeader>
 
-         <div className="bg-card rounded-xl border" data-testid="domKeywords">
+         <div className="bg-card rounded-xl border shadow-sm" data-testid="domKeywords">
             {selectedIds.length > 0 ? (
                <AddToTrackerBar
                   selectedCount={selectedIds.length}
@@ -212,7 +213,7 @@ export function DiscoverView({ domain, searchConsoleConnected, allowsCity, avail
                            aria-selected={device === value}
                            data-testid={`${value}_tab`}
                            className={cn('rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap capitalize transition-colors', device === value ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted')}
-                           onClick={() => { setDevice(value); setPickedCountries([]); setRowSelection({}); }}
+                           onClick={() => startTransition(() => { setDevice(value); setPickedCountries([]); setRowSelection({}); })}
                         >
                            {value}
                            <span className="bg-background ml-1.5 rounded-full px-1.5 text-[0.7rem] font-semibold">{grouped.filter((r) => r.device === value).length}</span>
@@ -227,14 +228,14 @@ export function DiscoverView({ domain, searchConsoleConnected, allowsCity, avail
                         className="max-lg:order-2 max-lg:min-w-0 max-lg:flex-1 max-lg:basis-[calc(50%-0.25rem)]"
                         options={countryOptions}
                         selected={pickedCountries}
-                        onChange={setPickedCountries}
+                        onChange={(next) => startTransition(() => setPickedCountries(next))}
                         emptyMessage="No countries found"
                      />
                      <div className="relative max-lg:order-1 max-lg:min-w-28 max-lg:flex-1 max-lg:basis-28">
                         <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
-                        <Input data-testid="filter_input" className="h-8 w-full pl-8 lg:w-44" placeholder="Filter keywords..." value={search} onChange={(event) => setSearch(event.target.value)} />
+                        <Input data-testid="filter_input" className="h-8 w-full pl-8 lg:w-44" placeholder="Filter keywords..." value={search} onChange={(event) => startTransition(() => setSearch(event.target.value))} />
                      </div>
-                     <Select value={sortBy} onValueChange={setSortBy}>
+                     <Select value={sortBy} onValueChange={(value) => startTransition(() => setSortBy(value))}>
                         <SelectTrigger size="sm" className="w-full max-lg:order-2 max-lg:min-w-0 max-lg:flex-1 max-lg:basis-[calc(50%-0.25rem)] lg:w-48" data-testid="sort_button" aria-label="Sort keywords"><SelectValue /></SelectTrigger>
                         <SelectContent align="end">{SC_SORT_CHOICES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
                      </Select>
@@ -274,7 +275,7 @@ export function DiscoverView({ domain, searchConsoleConnected, allowsCity, avail
             />
 
             {rows.length > 0 && (
-               <div className="bg-muted/40 grid grid-cols-[1.5rem_minmax(12rem,3fr)_6rem_7rem_6rem_6rem] items-center gap-3 border-t px-4 py-3 text-xs font-semibold max-lg:hidden" data-testid="sc_summary">
+               <div className="bg-accent/70 text-accent-foreground grid grid-cols-[1.5rem_minmax(12rem,3fr)_6rem_7rem_6rem_6rem] items-center gap-3 border-t px-4 py-3 text-xs font-semibold max-lg:hidden" data-testid="sc_summary">
                   <span />
                   <span>{rows.length} {device} keywords</span>
                   <span className="text-center">{summary.position}</span>

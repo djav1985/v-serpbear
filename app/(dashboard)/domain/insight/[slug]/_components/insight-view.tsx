@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { startTransition, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTable, type ColumnDef } from '@tanstack/react-table';
 import { DataTable } from 'app/(dashboard)/_components/data-table/data-table';
@@ -22,7 +22,7 @@ import { InsightChart } from './insight-chart';
 type Scraper = NonNullable<SettingsType['available_scapers']>[number];
 type Tab = 'stats' | 'keywords' | 'countries' | 'pages';
 const TABS: Tab[] = ['stats', 'keywords', 'countries', 'pages'];
-const DOCS_URL = 'https://docs.serpbear.com/miscellaneous/integrate-google-search-console';
+const DOCS_URL = 'https://github.com/djav1985/v-serpbear/wiki/Google-Integrations';
 const EMPTY: InsightDataType = { stats: null, keywords: [], countries: [], pages: [] };
 
 const percent = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -97,7 +97,7 @@ export function InsightView({ domain, searchConsoleConnected, availableScrapers,
 
    const { data, isLoading, isError } = useQuery({
       queryKey: ['sc-insight', domain.domain],
-      queryFn: async () => (await apiGet<{ data: InsightDataType }>(`/api/insight?domain=${encodeURIComponent(domain.domain)}`)).data,
+      queryFn: async () => (await apiGet<{ data: InsightDataType }>(`/api/google/insight?domain=${encodeURIComponent(domain.domain)}`)).data,
       enabled: searchConsoleConnected,
       retry: false,
    });
@@ -130,7 +130,7 @@ export function InsightView({ domain, searchConsoleConnected, availableScrapers,
       <div className="flex flex-col gap-4">
          <DomainHeader domain={domain} onOpenSettings={() => setSettingsOpen(true)} />
 
-         <div className="bg-card rounded-xl border" data-testid="domKeywords">
+         <div className="bg-card rounded-xl border shadow-sm" data-testid="domKeywords">
             <div className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
                <div className="hidden items-center gap-1 lg:flex" role="tablist" aria-label="Insight sections">
                   {TABS.map((value) => (
@@ -140,7 +140,7 @@ export function InsightView({ domain, searchConsoleConnected, availableScrapers,
                         role="tab"
                         aria-selected={tab === value}
                         className={cn('rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap capitalize transition-colors', tab === value ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted')}
-                        onClick={() => setTab(value)}
+                        onClick={() => startTransition(() => setTab(value))}
                      >
                         {value}
                         {value !== 'stats' && <span className="bg-background ml-1.5 rounded-full px-1.5 text-[0.7rem] font-semibold">{insight[value]?.length ?? 0}</span>}
@@ -148,7 +148,7 @@ export function InsightView({ domain, searchConsoleConnected, availableScrapers,
                   ))}
                </div>
                <div className="lg:hidden">
-                  <Select value={tab} onValueChange={(value) => setTab(value as Tab)}>
+                  <Select value={tab} onValueChange={(value) => startTransition(() => setTab(value as Tab))}>
                      <SelectTrigger className="w-full capitalize" aria-label="Insight section"><SelectValue /></SelectTrigger>
                      <SelectContent>{TABS.map((value) => <SelectItem key={value} value={value} className="capitalize">{value}</SelectItem>)}</SelectContent>
                   </Select>

@@ -7,6 +7,7 @@ import hasdata from './services/hasdata';
 import crazyserp from './services/crazyserp';
 import prismcrawl from './services/prismcrawl';
 import dataforseo from './services/dataforseo';
+import serpbase from './services/serpbase';
 
 export default [
    serpapi,
@@ -18,4 +19,5 @@ export default [
    crazyserp,
    prismcrawl,
    dataforseo,
+   serpbase,
 ];

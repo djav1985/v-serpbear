@@ -12,7 +12,7 @@
  * - debug: Logs full diagnostic output, including API requests, responses, and internal processing details
  * 
  * Example log output:
- * {"timestamp":"2026-01-21T06:00:00.000Z","level":"INFO","message":"GET /api/domains - 200 (150ms)"}
+ * {"timestamp":"2026-01-21T06:00:00.000Z","level":"INFO","message":"GET /api/serp/domains - 200 (150ms)"}
  */
 
 export enum LogLevel {
@@ -115,15 +115,15 @@ export class Logger {
   // Authentication event logging
   authEvent(event: string, user?: string, success: boolean = true, meta?: Record<string, any>): void {
     if (success) {
-      // INFO level: Log auth success with structured metadata
-      this.info(`Auth: ${event}${user ? ` [${user}]` : ''}`, {
+      // DEBUG level: Log auth success with structured metadata
+      this.debug(`[API] ${event}${user ? ` [${user}]` : ''}`, {
         event,
         user,
         ...meta,
       });
     } else {
-      // WARN level: Log auth failures with some context
-      this.warn(`Auth Failed: ${event}`, {
+      // DEBUG level: Log auth failures with some context
+      this.debug(`[API] ${event}`, {
         event,
         user,
         ...meta,

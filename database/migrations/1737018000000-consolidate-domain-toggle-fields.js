@@ -54,7 +54,7 @@ module.exports = {
                await queryInterface.removeColumn('domain', 'notify_enabled', { transaction: t });
             }
 
-            logger.info('Successfully consolidated domain toggle fields');
+            logger.info('[MIGRATION] Successfully consolidated domain toggle fields');
          } catch (error) {
             logger.error('Migration error', error instanceof Error ? error : new Error(String(error)));
             throw error;
@@ -97,7 +97,7 @@ module.exports = {
                }
             }
 
-            logger.info('Successfully rolled back domain toggle fields consolidation');
+            logger.info('[MIGRATION] Successfully rolled back domain toggle fields consolidation');
          } catch (error) {
             logger.error('Migration error', error instanceof Error ? error : new Error(String(error)));
             throw error;

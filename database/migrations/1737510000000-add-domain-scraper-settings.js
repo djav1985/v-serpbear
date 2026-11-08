@@ -30,7 +30,7 @@ module.exports = {
             );
          }
 
-         logger.info('Added domain.scraper_settings column.');
+         logger.info('[MIGRATION] Added domain.scraper_settings column.');
       });
    },
 
@@ -51,7 +51,7 @@ module.exports = {
             await queryInterface.removeColumn('domain', 'scraper_settings', { transaction });
          }
 
-         logger.info('Removed domain.scraper_settings column.');
+         logger.info('[MIGRATION] Removed domain.scraper_settings column.');
       });
    },
 };

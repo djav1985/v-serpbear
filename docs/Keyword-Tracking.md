@@ -2,19 +2,25 @@
 
 ## Workflow
 
+![The keyword tracker for a domain](images/tracker.png)
+
 1. **Add a domain** with the host name to monitor.
 2. **Add keywords** with the query, country, optional state and city, and device (desktop or mobile).
-3. **Scrape.** The cron worker (or **Refresh**) asks your provider for results and stores positions, using the [scrape strategy](Scrapers#scrape-strategy).
+3. **Scrape.** The cron worker (or **Reload All SERPs**, or a single keyword's reload action) asks your provider for results and stores positions, using the [scrape strategy](Scrapers#scrape-strategy).
 4. **Analyse.** Charts and tables show history, average position and day-over-day change.
 5. **Share** through the [API and MCP server](API-and-MCP) or [email digests](Email-Digests).
 
 ## Adding keywords
+
+![Selecting keywords shows the bulk actions bar](images/tracker-selection.png)
 
 Discover and Ideas share one add-to-tracker bar with a Desktop/Mobile toggle, tags and a location picker. Keywords that are already tracked are skipped. The Tracking tab can change the location of many keywords at once, and one **Add/Edit Tags** action sets the tags of every selected keyword.
 
 If your scraper is country-only (Serper or Serply), the city and state fields are disabled and show `N/A`, and a keyword's stored city and state are hidden. See [Scrapers](Scrapers).
 
 ## Keyword details panel
+
+![The keyword details panel with its position history](images/keyword-details.png)
 
 Click a keyword row for the SERP snapshot, the rank-history chart and the local results.
 
@@ -23,7 +29,7 @@ Click a keyword row for the SERP snapshot, the rank-history chart and the local 
 
 ## CSV export
 
-**Export as csv** in the domain header downloads `<domain>-keywords_serp.csv` with the columns `ID`, `Keyword`, `Map Pack`, `Position`, `URL`, `Country`, `Location`, `Device`, `Updated`, `Added` and `Tags`.
+**Export CSV** in the domain header downloads `<domain>-keywords_serp.csv` with the columns `ID`, `Keyword`, `Map Pack`, `Position`, `URL`, `Country`, `Location`, `Device`, `Updated`, `Added` and `Tags`.
 
 - **Map Pack:** `0` when not in the top three, `1`–`3` for its spot, and empty when it is in the top three but no spot is known.
 - **Position:** `-` when the keyword is unranked.

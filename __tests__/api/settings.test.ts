@@ -1,14 +1,17 @@
 import { writeFile, readFile, rename, unlink } from 'fs/promises';
 import type { NextApiRequest, NextApiResponse } from 'next';
-import handler from '../../pages/api/settings';
-import * as settingsApi from '../../pages/api/settings';
+import { asHandler } from '../__helpers__/routeAdapter';
+import * as handlerRoute from '../../app/api/app/settings/route';
+import { validateSettingsPayload } from '../../utils/settingsPayload';
 import { getAppSettings } from '../../utils/appSettings';
-import clearFailedHandler from '../../pages/api/clearfailed';
+import * as clearFailedHandlerRoute from '../../app/api/serp/clearfailed/route';
 import { getBranding } from '../../utils/branding';
 import { createMockResponse } from '../__helpers__';
 
 const { platformName } = getBranding();
 import verifyUser from '../../utils/verifyUser';
+const handler = asHandler(handlerRoute);
+const clearFailedHandler = asHandler(clearFailedHandlerRoute);
 
 jest.mock('../../utils/verifyUser', () => ({
   __esModule: true,
@@ -34,7 +37,7 @@ jest.mock('../../utils/settingsFile', () => ({
   withSettingsLock: jest.fn(async (fn: () => Promise<unknown>) => fn()),
 }));
 
-// Mock retryQueueManager (clearQueue is used by the merged /api/clearfailed suite below)
+// Mock retryQueueManager (clearQueue is used by the merged /api/serp/clearfailed suite below)
 jest.mock('../../utils/retryQueueManager', () => ({
   retryQueueManager: {
     peekQueue: jest.fn().mockResolvedValue([]),
@@ -55,9 +58,7 @@ jest.mock('../../utils/logger', () => ({
 }));
 
 // Mock the API logging middleware
-jest.mock('../../utils/apiLogging', () => ({
-  withApiLogging: (handler: any) => handler,
-}));
+jest.mock('../../utils/apiLogging', () => require('../__helpers__/apiLoggingMock').apiLoggingMock());
 
 const encryptMock = jest.fn((value: string) => value);
 const readFileMock = readFile as unknown as jest.Mock;
@@ -74,7 +75,7 @@ jest.mock('cryptr', () => ({
   })),
 }));
 
-describe('PUT /api/settings validation and errors', () => {
+describe('PUT /api/app/settings validation and errors', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env = { ...originalEnv, SECRET: 'secret' };
@@ -196,8 +197,6 @@ describe('PUT /api/settings validation and errors', () => {
 });
 
 describe('validateSettingsPayload', () => {
-  const { validateSettingsPayload } = settingsApi;
-
   it('accepts a valid payload and empty optional values', () => {
     expect(validateSettingsPayload({
       scraper_type: 'none',
@@ -233,7 +232,7 @@ describe('validateSettingsPayload', () => {
 
 });
 
-describe('GET /api/settings and configuration requirements', () => {
+describe('GET /api/app/settings and configuration requirements', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env = { ...originalEnv, SECRET: 'secret' };
@@ -410,7 +409,7 @@ describe('GET /api/settings and configuration requirements', () => {
   });
 });
 
-describe('/api/clearfailed', () => {
+describe('/api/serp/clearfailed', () => {
    const req = { method: 'PUT', headers: {} } as unknown as NextApiRequest;
    let res: NextApiResponse;
 
@@ -444,7 +443,7 @@ describe('/api/clearfailed', () => {
 
 // Suites below need mocks that differ from the ones above (real Cryptr, atomicWrite/settingsFile, a
 // cookies-aware verifyUser), so they load the handler in an isolated module registry.
-describe('PUT /api/settings keeps secrets that are left out of the payload', () => {
+describe('PUT /api/app/settings keeps secrets that are left out of the payload', () => {
   const originalSecret = process.env.SECRET;
   const mockStoredFile = { current: '{}' };
   let handler: any;
@@ -473,7 +472,7 @@ describe('PUT /api/settings keeps secrets that are left out of the payload', () 
     }));
     jest.doMock('../../utils/settingsFile', () => ({ ...jest.requireActual('../../utils/settingsFile'), withSettingsLock: (section: () => Promise<unknown>) => section() }));
     jest.isolateModules(() => {
-      const settingsModule = require('../../pages/api/settings');
+      const settingsModule = require('../__helpers__/routeAdapter').asModule(require('../../app/api/app/settings/route'));
       handler = settingsModule.default;
       getAppSettings = require('../../utils/appSettings').getAppSettings;
       verifyUserInstance = require('../../utils/verifyUser').default;
@@ -551,16 +550,14 @@ describe('PUT /api/settings keeps secrets that are left out of the payload', () 
   });
 });
 
-describe('GET /api/settings session checks', () => {
+describe('GET /api/app/settings session checks', () => {
   const originalSecret = process.env.SECRET;
   let handler: any;
   let verifySessionMock: jest.Mock;
   let readFileMock: jest.Mock;
-  let CookiesMock: jest.Mock;
 
   beforeAll(() => {
     jest.resetModules();
-    jest.doMock('cookies', () => jest.fn());
     jest.doMock('../../utils/verifyUser', () => ({
       __esModule: true,
       default: jest.fn(),
@@ -577,16 +574,15 @@ describe('GET /api/settings session checks', () => {
       retryQueueManager: { peekQueue: jest.fn().mockResolvedValue([]) },
     }));
     jest.isolateModules(() => {
-      handler = require('../../pages/api/settings').default;
+      handler = require('../__helpers__/routeAdapter').asModule(require('../../app/api/app/settings/route')).default;
       verifySessionMock = require('../../utils/verifyUser').verifySessionToken;
       readFileMock = require('fs/promises').readFile;
-      CookiesMock = require('cookies');
     });
   });
 
   const run = async () => {
-    const req = { method: 'GET', headers: {}, query: {} } as unknown as NextApiRequest;
-    const res = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
+    const req = { method: 'GET', headers: {}, query: {}, cookies: { token: 'copied-token' } } as unknown as NextApiRequest;
+    const res = { status: jest.fn().mockReturnThis(), json: jest.fn(), setHeader: jest.fn() } as unknown as NextApiResponse;
     await handler(req, res);
     return (res.json as jest.Mock).mock.calls[0][0].settings;
   };
@@ -594,7 +590,6 @@ describe('GET /api/settings session checks', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.SECRET = 'secret';
-    CookiesMock.mockImplementation(() => ({ get: () => 'copied-token' }));
     readFileMock.mockResolvedValue(JSON.stringify({ smtp_password: 'hunter2', scraping_api: 'key' }));
   });
 
@@ -613,6 +608,7 @@ describe('GET /api/settings session checks', () => {
       search_console_integrated: expect.any(Boolean),
       timezone: expect.any(String),
       version: expect.any(String),
+      branding: expect.objectContaining({ platformName: expect.any(String), logoApiPath: '/api/images/logo.png' }),
     });
     expect(settings.smtp_password).toBeUndefined();
   });
@@ -624,5 +620,6 @@ describe('GET /api/settings session checks', () => {
 
     expect(verifySessionMock).toHaveBeenCalledWith('copied-token');
     expect(settings.smtp_password).toBeDefined();
+    expect(settings.branding).toEqual(expect.objectContaining({ logoApiPath: '/api/images/logo.png' }));
   });
 });

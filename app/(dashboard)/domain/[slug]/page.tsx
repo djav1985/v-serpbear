@@ -44,7 +44,7 @@ export default async function TrackerPage({ params }: PageProps) {
    const { scraper_type: globalScraper = '', available_scapers: availableScrapers = [] } = settings;
    const domainScraper = domain.scraper_settings?.scraper_type || null;
    const activeScraper = availableScrapers.find((scraper) => scraper.value === (domainScraper || globalScraper));
-   const domainSearchConsole = safeJsonParse<DomainSearchConsole | null>(domain.search_console, null);
+   const domainSearchConsole = safeJsonParse<DomainSearchConsole | null>(domain.search_console, null, { context: `domain ${domain.domain} search_console` });
    const domainHasOwnSearchConsole = !!(domainSearchConsole?.client_email && domainSearchConsole?.private_key);
 
    // Only the values this screen needs are handed to the browser, never the whole settings object.

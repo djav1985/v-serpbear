@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { startTransition, useMemo, useState } from 'react';
 import { Download, Loader2 } from 'lucide-react';
 import { useShell } from 'app/(dashboard)/_components/shell-context';
 import { IdeasTable } from 'app/(dashboard)/_components/keyword-ideas/ideas-table';
@@ -41,11 +41,14 @@ export function ResearchView({ adwordsConnected, allowsCity }: ResearchViewProps
    const previousCountry = previous?.country;
    const previousLanguage = previous?.language;
    const previousSeeds = previous?.keywords;
-   useEffect(() => {
+   const previousSignature = `${previousCountry ?? ''}|${previousLanguage ?? ''}|${previousSeeds?.join(',') ?? ''}`;
+   const [appliedSignature, setAppliedSignature] = useState('||');
+   if (previousSignature !== appliedSignature) {
+      setAppliedSignature(previousSignature);
       if (previousCountry) { setCountry(previousCountry); }
       if (previousLanguage) { setLanguage(previousLanguage.toString()); }
       if (previousSeeds) { setSeedKeywords(previousSeeds.join(',')); }
-   }, [previousCountry, previousLanguage, previousSeeds]);
+   }
 
    const countryOptions = useMemo(() => Object.keys(allCountries)
       .filter((code) => allCountries[code][3] !== 0)
@@ -120,7 +123,7 @@ export function ResearchView({ adwordsConnected, allowsCity }: ResearchViewProps
                noIdeasDatabase={isError}
                adwordsConnected={adwordsConnected}
                showFavorites={showFavorites}
-               onShowFavorites={setShowFavorites}
+               onShowFavorites={(show) => startTransition(() => setShowFavorites(show))}
                domains={domains}
                allowsCity={allowsCity}
             />

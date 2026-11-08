@@ -93,6 +93,7 @@ export const buildPersistedScraperSettings = (
 export const decryptDomainScraperSettings = (
    raw: PersistedDomainScraperSettings | null,
    cryptr: Cryptr,
+   strict = false,
 ): PersistedDomainScraperSettings | null => {
    if (!raw || !isNonEmptyString(raw.scraper_type)) {
       return null;
@@ -103,7 +104,8 @@ export const decryptDomainScraperSettings = (
       try {
          decryptedKey = cryptr.decrypt(raw.scraping_api);
       } catch (error) {
-         logger.warn('Failed to decrypt domain scraper API key override', { error: error instanceof Error ? error.message : String(error) });
+         if (strict) { throw error; }
+         logger.debug('[SCRAPER] Failed to decrypt domain scraper API key override', { error: error instanceof Error ? error.message : String(error) });
          decryptedKey = null;
       }
    }

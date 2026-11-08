@@ -1,5 +1,5 @@
 import { getGoogleDomain } from "../../utils/countries";
-import { resolveCountryCode, getKeywordLocationParts } from "../../utils/scraperHelpers";
+import { resolveCountryCode, getKeywordLocationParts, toCreditNumber } from "../../utils/scraperHelpers";
 import { DEVICE_MOBILE } from "../../utils/constants";
 import { computeMapPackTop3 } from "../../utils/mapPack";
 import { isGoogleRedirectUrl } from "../../utils/resolveGoogleLinks";
@@ -23,6 +23,8 @@ const buildLocation = (keyword: KeywordType): string | undefined => {
 const prismcrawl: ScraperSettings = {
   id: "prismcrawl",
   name: "PrismCrawl",
+  // No account endpoint: every response carries the balance in a header.
+  readCredits: (_body: any, headers: Headers) => toCreditNumber(headers?.get?.("x-credits-remaining")),
   allowsCity: true,
   supportsMapPack: true,
   usesResultOffset: true,

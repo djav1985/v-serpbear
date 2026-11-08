@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { startTransition, useCallback, useMemo, useState } from 'react';
 import {
    useTable, type ColumnFiltersState, type ColumnVisibilityState, type RowSelectionState, type SortingState,
 } from '@tanstack/react-table';
@@ -60,6 +60,8 @@ export function TrackerView({
 
    // ── Table state ───────────────────────────────────────────────────────────
    const [filters, setFilters] = useState<TrackerFilters>(DEFAULT_FILTERS);
+   // Filter changes run as a transition so the rows that move or leave animate (see ViewTransition in DataTable)
+   const updateFilters = (next: TrackerFilters) => startTransition(() => setFilters(next));
    const [userSort, setUserSort] = useState<SortingState>(() => sortingForChoice(DEFAULT_SORT_CHOICE));
    const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
    const [scPeriod, setScPeriod] = useState(DEFAULT_SC_PERIOD);
@@ -122,18 +124,22 @@ export function TrackerView({
       .map((code) => ({ label: countries[code]?.[0] ?? code, value: code, flag: code })), [keywords]);
 
    // Drop a tag filter when its tag no longer exists on the domain.
-   useEffect(() => {
+   const [checkedTags, setCheckedTags] = useState(allTags);
+   if (checkedTags !== allTags) {
+      setCheckedTags(allTags);
       setFilters((previous) => {
          if (previous.tags.length === 0) { return previous; }
          const valid = previous.tags.filter((tag) => tag === NO_TAGS_FILTER || allTags.includes(tag));
          return valid.length === previous.tags.length ? previous : { ...previous, tags: valid };
       });
-   }, [allTags]);
+   }
 
    // Selection only ever holds rows that are on screen for the current device and filters. A row that is filtered out,
    // removed or on the other device tab drops out, so a bulk action never touches a row the user cannot see.
    const filteredRows = table.getFilteredRowModel().rows;
-   useEffect(() => {
+   const [checkedRows, setCheckedRows] = useState(filteredRows);
+   if (checkedRows !== filteredRows) {
+      setCheckedRows(filteredRows);
       setRowSelection((current) => {
          const selected = Object.keys(current);
          if (selected.length === 0) { return current; }
@@ -141,14 +147,14 @@ export function TrackerView({
          const kept = selected.filter((id) => visible.has(id));
          return kept.length === selected.length ? current : Object.fromEntries(kept.map((id) => [id, true]));
       });
-   }, [filteredRows]);
+   }
 
    const selectedIds = useMemo(() => Object.keys(rowSelection).filter((id) => rowSelection[id]).map(Number), [rowSelection]);
    const clearSelection = useCallback(() => setRowSelection({}), []);
 
    const toggleColumn = (column: string) => {
       const next = optionalColumns.includes(column) ? optionalColumns.filter((c) => c !== column) : [...optionalColumns, column];
-      setOptionalColumns(next);
+      startTransition(() => setOptionalColumns(next));
       saveColumnChoice(next);
    };
 
@@ -174,7 +180,7 @@ export function TrackerView({
             onAddKeyword={() => setAddKeywordsOpen(true)}
          />
 
-         <div className="bg-card rounded-xl border" data-testid="domKeywords">
+         <div className="bg-card rounded-xl border shadow-sm" data-testid="domKeywords">
             {selectedIds.length > 0 ? (
                <div className="flex flex-wrap items-center gap-2 p-4" data-testid="bulk_actions">
                   <span className="text-muted-foreground mr-2 text-sm font-medium">{selectedIds.length} selected</span>
@@ -188,24 +194,24 @@ export function TrackerView({
                <TrackerToolbar
                   device={filters.device}
                   deviceCounts={deviceCounts}
-                  onDeviceChange={(device) => setFilters({ ...filters, device })}
+                  onDeviceChange={(device) => updateFilters({ ...filters, device })}
                   countries={filters.countries}
                   countryOptions={countryOptions}
-                  onCountriesChange={(next) => setFilters({ ...filters, countries: next })}
+                  onCountriesChange={(next) => updateFilters({ ...filters, countries: next })}
                   tags={filters.tags}
                   tagOptions={allTags}
-                  onTagsChange={(next) => setFilters({ ...filters, tags: next })}
+                  onTagsChange={(next) => updateFilters({ ...filters, tags: next })}
                   search={filters.search}
-                  onSearchChange={(search) => setFilters({ ...filters, search })}
+                  onSearchChange={(search) => updateFilters({ ...filters, search })}
                   sortChoice={choiceForSorting(userSort)}
-                  onSortChange={(value) => setUserSort(sortingForChoice(value))}
+                  onSortChange={(value) => startTransition(() => setUserSort(sortingForChoice(value)))}
                   searchConsoleConnected={searchConsoleConnected}
                   optionalColumns={optionalColumns}
                   onToggleColumn={toggleColumn}
                   columnsDisabled={savingColumns}
                   showScPeriod={showSearchConsole}
                   scPeriod={scPeriod}
-                  onScPeriodChange={setScPeriod}
+                  onScPeriodChange={(value) => startTransition(() => setScPeriod(value))}
                />
             )}
 

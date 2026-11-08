@@ -2,58 +2,72 @@
 
 This directory contains shared test utilities to reduce code duplication across test files.
 
-## Test Suite Budget
+## Test Suite Layout
 
-| Metric | Value |
-|--------|-------|
-| **Baseline (2026-03 pass 1)** | 114 `*.test.*` files |
-| **First-pass target** | ≤ 91 files (~20% reduction) |
-| **Acceptance criteria** | No meaningful coverage loss; no increase in duplicated setup logic |
+The suite was consolidated in November 2026 from 81 files to 26, with no test removed and coverage unchanged or higher.
 
-Completed passes are tracked in the **Consolidated Suites** table below.
+| Metric | Before | Now |
+|--------|--------|-----|
+| Test files (suites) | 81 | 26 |
+| Tests | 838 (1 failing) | 838 (all passing) |
+| Statements covered | 57.1% | 59.3% |
+| Lines / branches / functions | 58.3% / 45.1% / 43.2% | 60.3% / 47.0% / 47.0% |
 
-### Budget Rules
+Rules for new tests:
 
-1. A new `*.test.*` file may be added only when it tests a genuinely new module or feature that has no natural home in an existing suite.
-2. When two or more files share the same mock setup and test different aspects of the same module/feature area, prefer merging them into a `*.behavior.test.ts(x)` file.
-3. After each consolidation pass, update the table below and re-verify all tests pass.
+1. Add a test to the file for its topic (below) before creating a new file. Create a new file only for a genuinely new area.
+2. Keep each file under roughly 1,500 lines. Past that, split by topic.
+3. Every old suite keeps its own `describe` block inside the merged file, so hooks, helpers and environment changes stay scoped to it.
+4. Two suites that mock the same module differently cannot share top-level `jest.mock` calls. Put each in its own `describe` and use `jest.isolateModules` with `jest.doMock`, so each loads its own copy of the modules (see `serp-routes.test.ts` and `email-digest.test.ts` for examples).
+5. Keep this table up to date when files are added, merged or split.
 
----
+| File | Covers |
+|------|--------|
+| `auth.test.ts` | `verifyUser`, login throttle, session store, the session check route |
+| `api/login.test.ts` | Login and logout routes |
+| `branding.test.ts` | Branding config and the logo route (`/api/images/logo.png`) |
+| `api/settings.test.ts` | The settings route (`/api/app/settings`) |
+| `serp-routes.test.ts` | Domains, domain and keyword routes, domain stats helpers, keyword meta helpers |
+| `keywords-route.test.ts` | The keywords route and keyword parsing |
+| `api/keywords.integrity.test.ts` | Keyword data integrity rules on add and update |
+| `refresh-route.test.ts` | The refresh route and the retry queue manager |
+| `refresh-core.test.ts` | Keyword refresh flow, refresh queue, settings file lock |
+| `refresh-stats-and-effects.test.ts` | Domain stats updates and refresh side effects (history trimming, business name) |
+| `google-routes.test.ts` | Search Console, Volume, AdWords and Ideas routes, Insight, AdWords idea paths |
+| `search-console-and-volume.test.ts` | AdWords volume lookup and Search Console utilities |
+| `utils/adwordsKeywordIdeas.test.ts` | Google Ads keyword ideas |
+| `email-digest.test.ts` | The digest email route and the `?type=` routing |
+| `email-ideas.test.ts` | The keyword ideas email, the email throttle, the email templates |
+| `cron-and-mcp.test.ts` | The cron worker and the MCP route |
+| `api/cron.test.ts` | The cron route |
+| `scraper-core.test.ts` | Shared scraper logic: strategy, pagination, body reading, Google link resolving, map pack marking |
+| `scraper-providers.test.ts` | Every provider: URL contract checks for all providers plus provider-specific behaviour |
+| `database/db-core.test.ts` | Database init and the SQLite dialect |
+| `database/db-migrations.test.ts` | Migrations, including the ones that run in a separate Node process |
+| `logging.test.ts` | The logger and API request logging |
+| `utils-small.test.ts` | Location, time zone, security, boolean helpers, history date keys, average position, API helpers |
+| `client-utils.test.ts` | Client API wrapper, helpers, sorting and filtering, CSV export, chart data, safe URL |
+| `frontend.test.ts` | The Tracker and Ideas tables (real columns in a real table) and the thumbnail cache |
+| `app/domainSettingsDialog.test.tsx` | The domain settings dialog starting fresh on every open |
 
-## Test Suite Structure
+### Testing App Router routes
 
-Tests are grouped by runtime boundary:
+The API lives in `app/api/**/route.ts`. A route tests run for real: it gets a standard `Request` and returns a standard `Response`.
 
-| Directory | Purpose |
-|-----------|---------|
-| `__tests__/api/` | API route handlers (`pages/api/`) |
-| `__tests__/utils/` | Server/shared utility logic |
-| `__tests__/utils/client/` | Browser/client utility logic |
-| `__tests__/services/` | React Query hooks and service fetch wrappers |
-| `__tests__/components/` | UI component behavior |
-| `__tests__/scrapers/` | Scraper service URL-generation and extraction logic |
-
-### File Naming Conventions
-
-- **`*.behavior.test.ts(x)`** – broad, thematic suites that consolidate related concerns (preferred for new work)
-- **`*.matrix.test.ts`** – parameterized suites using `describe.each` / `it.each` to run shared contract checks across multiple providers
-- **`*.test.ts(x)`** – retained for isolated, single-module tests with no overlap
+- `asHandler(routeModule)` (in `routeAdapter.ts`) turns a route module into `(req, res)`. It builds a real `Request` from the mock request (`method`, `query`, `body`, `headers`, `url`, `cookies`, and `socket.remoteAddress` as the client address) and writes the `Response` into the mock response (`status`, `json`, `setHeader`, `send`). `asModule` does the same for `require()` inside `jest.isolateModules`.
+- `buildRequest(mock)` gives the same real `Request` for helpers that take one (`verifyUser`, `checkApiKey`, `getApiKeyAttemptKeys`).
+- `apiLoggingMock()` replaces `utils/apiLogging` in route tests: no request ids, logging, lockout or database check, but the same auth and 405 rules (auth goes through the test's mocked `verifyUser`). The real wrapper is covered in `logging.test.ts`.
+- The client address is read from `X-Forwarded-For` only when `TRUST_PROXY` is set, so tests that depend on an address set `TRUST_PROXY = '1'`.
+- Under `jest.useFakeTimers()`, pass `{ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] }`, or reading a `Response` body never finishes.
 
 ### Contract + Delta Pattern
 
 Use the **contract + delta** pattern when multiple implementations share the same interface:
 
-1. **Contract tests** (`*.matrix.test.ts` or using helper functions in `__helpers__/`) – assert shared behaviour that every implementation must satisfy (e.g., URL encoding, no console.log leakage, standard error envelope shape).
-2. **Delta tests** (individual `*.test.ts` files) – assert behaviour that is unique to a specific implementation.
+1. **Contract tests** (a `describe.each` over all providers, or helper functions in `__helpers__/`) assert behaviour every implementation must satisfy, such as URL encoding, no `console.log` leakage and the error envelope shape.
+2. **Delta tests** assert behaviour unique to one implementation.
 
-#### Scraper example
-
-```
-__tests__/scrapers/
-  scrapers.matrix.test.ts   ← contract: runs runScraperURLContracts() against all providers
-  providers.delta.test.ts    ← delta:    hasdata, serper, serpapi, serply & searchapi specifics
-  ...
-```
+`scraper-providers.test.ts` follows this: the shared checks run against every provider, then each provider has its own section.
 
 #### API route example
 
@@ -67,45 +81,6 @@ it('returns 401 when not authorised', async () => {
   await assertUnauthorized(handler, req);
 });
 ```
-
-### Merge vs Split Guidelines
-
-**Merge** tests into a single `*.behavior.test.ts` file when:
-- Multiple source files test different aspects of the same module or feature area
-- Setup (mocks, fixtures) is nearly identical across files
-- Total combined line count remains manageable (< ~600 lines)
-- Use `describe` blocks to preserve readability within the merged file
-
-**Keep separate** when:
-- Modules are genuinely independent (different imports, different mocks)
-- The component/module is complex and stateful (tables, forms, multi-step flows)
-- The test file already serves a clear, bounded purpose
-
-### Consolidated Suites (Reference)
-
-Each row is an existing suite. Source suites merged into it in earlier passes have been removed, so only the consolidated target and the area it covers are listed.
-
-| Consolidated file | Covers |
-|----------|---------|
-| `utils/refresh.core.behavior.test.ts` | Keyword refresh flow, sync verification, atomic flag clearing |
-| `utils/refresh.side-effects.behavior.test.ts` | Refresh side effects: history trimming, business name, parallel domain stats, override logging |
-| `utils/refresh-queue.behavior.test.ts` | Refresh queue behaviour and configuration |
-| `utils/searchConsole.behavior.test.ts` | Search Console utils: behaviour, error logging, domain conversion |
-| `services/searchConsole-hooks.behavior.test.ts` | Search Console service hooks |
-| `utils/client/client-utils.behavior.test.ts` | Chart bounds, validators, helpers, CSV payload formatting and CSV export download |
-| `components/common-layout.behavior.test.tsx` | Footer, page loader, spinner message, branding |
-| `components/settings/NotificationSettings.test.tsx` | Notification settings, settings scraper reload behaviour, Search Console settings panel |
-| `components/ui-primitives.behavior.test.tsx` | Icon, modal, toggle field and toggle styles |
-| `components/navigation.behavior.test.tsx` | Sidebar and topbar |
-| `utils/api/api.utils.behavior.test.ts` | Request security, boolean query parsing, response helpers, origin normalisation |
-| `utils/dbBooleans.test.ts` | Boolean normalisation (extended) |
-| `utils/scraper.test.ts` | Country code resolution, error serialisation, SERP domain matching, scraper error extraction (extended) |
-| `utils/client/apiClient.test.ts` | Client fetch wrapper error handling (extended) |
-| `services/domains.behavior.test.ts` | Domain service: env handling, domain fetch, screenshot cache |
-| `services/keywords.behavior.test.ts` | Keyword service: idea fetch and keyword fetch |
-| `pages/page-renders.behavior.test.tsx` | Page render checks for the index, research and app shell pages |
-| `scrapers/scrapers.matrix.test.ts` | Shared URL-contract checks across all scraper providers |
-| `hooks/hooks.behavior.test.tsx` | Branding and domains hooks |
 
 ## Available Helpers
 
@@ -198,7 +173,7 @@ describe('myscraper – URL contract', () => {
 });
 ```
 
-See `__tests__/scrapers/scrapers.matrix.test.ts` for a full example running the contract across all providers with `describe.each`.
+See `__tests__/scraper-providers.test.ts` for a full example running the contract across all providers with `describe.each`.
 
 ### Common Mock Configurations
 
