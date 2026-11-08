@@ -86,9 +86,15 @@ export function useTestAdwords() {
 
 export function useUpdateAllVolume() {
    return useMutation({
-      mutationFn: () => apiPost('/api/google/volume', { domain: 'all' }),
-      onSuccess: () => {
-         toast.success('Keyword volume data loaded successfully! Reloading page...');
+      mutationFn: () => apiPost<{ failedCountries?: string[] }>('/api/google/volume', { domain: 'all' }),
+      onSuccess: (response) => {
+         const failed = response?.failedCountries ?? [];
+         if (failed.length > 0) {
+            // Some countries loaded and some did not, so this is not a plain success.
+            toast.warning(`Keyword volume updated, but Google Ads could not be reached for: ${failed.join(', ')}. Reloading page...`);
+         } else {
+            toast.success('Keyword volume data loaded successfully! Reloading page...');
+         }
          setTimeout(() => { window.location.reload(); }, 3000);
       },
       onError: (error) => { toast.error(error instanceof Error && error.message ? error.message : 'Error loading keyword volume data'); },
