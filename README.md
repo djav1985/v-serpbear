@@ -47,21 +47,30 @@ The full list of changes is in the [changelog](./CHANGELOG.md). See [Update Serp
 
 **What this fork adds over [upstream SerpBear](https://github.com/towfiqi/serpbear)**
 
-- **Map pack tracking.** Flags keywords where your business is in Google's local top three. See [Business name and map pack detection](#business-name-and-map-pack-detection).
-- **Per-domain scrapers.** Give each domain its own provider and API key, or use one global scraper. See [Per-domain scrapers](#per-domain-scrapers).
-- **Google redirect resolving.** `google.com/goto` result links become real URLs through Serper's free `/resolve` endpoint.
-- **Credits remaining.** Domain cards show how many credits are left on the scraper account for providers that report it. See [Credits remaining](https://github.com/djav1985/v-serpbear/wiki/Scrapers#credits-remaining).
-- **More providers.** PrismCrawl and DataForSEO, on top of the ones upstream supports.
-- **Faster refreshes.** A parallel path for SerpApi and SearchApi, configurable concurrency limits and a per-domain refresh lock.
-- **Trend arrows.** Domain stats show up and down triangles against the previous refresh.
-- **Easier keyword adding.** One add-to-tracker bar for Discover and Ideas with a Desktop/Mobile toggle, tags and a location picker, plus a bulk Change Location action.
-- **Larger Search Console data.** Results are read in pages of up to 25,000 rows.
-- **Idea emails and digest throttling.** Email selected keyword ideas, with limits that keep digests and idea emails from flooding inboxes.
-- **Set the time of day.** Scrapes, retries and digests run at times you choose, in your own timezone.
-- **MCP server.** Read-only access to rankings, Search Console and ideas for AI assistants.
-- **White labelling.** Custom name and logo, applied without a rebuild.
-- **Security.** API-key and login lockouts, `TRUST_PROXY` support, encrypted stored keys and secrets redacted from logs.
-- **Database safety.** Migrations back up your database first, and a unique index on keywords merges duplicates.
+- **Map pack tracking.** Flags keywords where your business appears in Google's local top three, and shows map pack data in the tracker, domain stats, and digests. See [Business name and map pack detection](#business-name-and-map-pack-detection).
+- **Per-domain scraper settings.** Choose a provider and API key for each domain, or inherit the global scraper. Set a scrape strategy per domain too. See [Per-domain scrapers](#per-domain-scrapers).
+- **More scraper providers.** Adds PrismCrawl and DataForSEO to the seven providers shared with upstream. The fork removes the older SpaceSerp, ScrapingAnt, ScrapingRobot, and proxy integrations that upstream itself marks as no longer working.
+- **Credits remaining.** Domain cards show the account balance for providers that report it, including DataForSEO's dollar balance. See [Credits remaining](https://github.com/djav1985/v-serpbear/wiki/Scrapers#credits-remaining).
+- **Google redirect resolving.** Resolves `google.com/goto` result links through Serper's `/resolve` endpoint so SerpBear can match the actual destination domain.
+- **Domain trend indicators and clearer averages.** Domain stats show movement since the previous refresh; average position has explicit handling for failed scrapes, keywords that drop out of results, and map pack positions. See [How the average position is calculated](#how-the-average-position-is-calculated).
+- **Improved keyword workflows.** Discover and Ideas share an add-to-tracker bar with device, tags, and location controls. Existing keywords are skipped, and tracked keywords can be changed to a new location in bulk.
+- **Idea emails and richer digests.** Email selected keyword ideas and see a tracker summary with average position and map pack counts in digest emails.
+- **Flexible schedules.** Choose the time and timezone for scheduled scrapes, failed-scrape retries, Search Console refreshes, and email digests.
+- **Read-only MCP server.** AI assistants can read rankings, Search Console data, and keyword ideas through MCP.
+- **White-label branding.** Apply a custom app and email name and logo without rebuilding the app.
+- **A rebuilt responsive interface.** The fork replaces the older pages with a responsive dashboard, shared data tables, settings panels, and transitions that respect reduced-motion preferences.
+
+**Security and data integrity**
+
+- Login and API-key lockouts, session expiry and revocation, same-origin checks for browser-triggered searches, bounded request bodies, and `TRUST_PROXY` support.
+- Sensitive values are redacted from logs; MCP accepts API-key authentication rather than browser cookies.
+- Destructive database migrations back up SQLite first. A unique index and duplicate merging prevent repeated tracking targets, and stale refresh flags are recovered.
+
+**Performance and engineering**
+
+- Parallel scraping for SerpApi and SearchApi, bounded concurrency for other providers, and per-domain refresh locks.
+- Indexed keyword queries, virtualized large tables, single-pass statistics, and Search Console retrieval in pages of up to 25,000 rows.
+- Next.js 16 App Router API and page routes share a typed codebase and common request handling. See [Project structure](#project-structure).
 
 <br><br>
 
@@ -70,30 +79,6 @@ The full list of changes is in the [changelog](./CHANGELOG.md). See [Update Serp
 - [ ] **Multi-user support with domain-specific users.** More than one login, and you choose which domains each user can see.
 
 <br><br>
-
-**Core capabilities**
-
-| Capability | Details |
-| --- | --- |
-| **Unlimited domains and keywords** | Track as many keywords as you like across multiple sites, per country, city and device. |
-| **Managed SERP providers** | Nine providers with built-in retries (see [Supported SERP data providers](#supported-serp-data-providers)). |
-| **Failed scrape controls** | Retry all failed scrapes immediately, or clear the retry queue from Settings. |
-| **Keyword research** | Search volumes and suggestions from a Google Ads account. |
-| **Search Console enrichment** | Impressions, clicks and CTR next to your rankings. |
-| **Email digests** | Branded summaries of winners, losers and visits, opening with a tracker summary (tracked keywords, average position, map pack count). |
-| **Progressive web app** | Install the dashboard on iOS or Android. |
-| **REST API** | Manage and read data programmatically (see [API and MCP server](#api-and-mcp-server)). |
-
-<br><br>
-
-**Architecture**
-
-| Layer | Responsibility |
-| --- | --- |
-| **Frontend and API** | Next.js 16 with the App Router (React 19, Tailwind CSS 4 and shadcn/ui components) for the pages, plus the JSON endpoints and the MCP server as route handlers in `app/api/`, all from one codebase. |
-| **Database** | SQLite through a custom `better-sqlite3` dialect (`database/sqlite-dialect.js`), with Sequelize and Umzug for models and migrations. No other engine is supported. |
-| **Background workers** | A Node cron runner schedules scrapes, retries, Search Console refreshes and digests from the times of day and timezone you set. |
-| **Settings** | Scraper, SMTP and Google Ads credentials live in the Settings UI and are stored in `data/settings.json` (secrets encrypted with `SECRET`). |
 
 <br><br>
 
@@ -106,14 +91,15 @@ The full list of changes is in the [changelog](./CHANGELOG.md). See [Update Serp
 ```bash
 git clone https://github.com/djav1985/v-serpbear.git
 cd v-serpbear
-cp .env.example .env
-# edit .env: replace every placeholder, and set USER, PASSWORD, SECRET, APIKEY and NEXT_PUBLIC_APP_URL
+# edit docker-compose.yml: replace PASSWORD, SECRET and APIKEY, and set NEXT_PUBLIC_APP_URL
 docker compose up -d
 ```
 
+The checked-in Compose file sets these values directly under `environment:`, so edit that file before starting the container. `.env` values are not automatically passed through by this Compose configuration.
+
 The image is published on [Docker Hub](https://hub.docker.com/r/vontainment/v-serpbear) as `vontainment/v-serpbear`: `latest` is the newest stable release, a version number such as `5.0.0` pins a release, and `beta` is the opt-in beta build.
 
-The app is served at <http://localhost:3030> (compose maps host port 3030 to container port 3000). Sign in with `USER` and `PASSWORD`, add a domain, then open **Settings → Scraper** to choose a provider and enter its API key.
+The app is served at <http://localhost:3030> (compose maps host port 3030 to container port 3000). Sign in with `USER_NAME` (or `USER`) and `PASSWORD`, add a domain, then open **Settings → Scraper** to choose a provider and enter its API key.
 
 <br><br>
 
@@ -122,10 +108,11 @@ The app is served at <http://localhost:3030> (compose maps host port 3030 to con
 ```bash
 docker compose stop
 docker cp serpbear:/app/data ./serpbear-data-backup
-docker compose start
+docker compose pull
+docker compose up -d
 ```
 
-Back up `data/` first. With Docker, run `docker compose pull && docker compose up -d` and migrations apply on start. With Node.js, pull, run `npm install`, `npm run db:migrate`, then rebuild. Read the *Upgrade notes* in the [changelog](./CHANGELOG.md) before upgrading.
+This backs up the data directory, pulls the new image and recreates the container; migrations apply on start. With Node.js, pull the code, run `npm install`, `npm run db:migrate`, then rebuild. Read the *Upgrade notes* in the [changelog](./CHANGELOG.md) before upgrading.
 
 <br><br>
 

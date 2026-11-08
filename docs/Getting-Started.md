@@ -85,7 +85,8 @@ Back up the data before updating:
 ```bash
 docker compose stop
 docker cp serpbear:/app/data ./serpbear-data-backup
-docker compose start
+docker compose pull
+docker compose up -d
 ```
 
 Each deployment page has its own update steps. Migrations run automatically on start, and the database is backed up before any migration that changes data.
