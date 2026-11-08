@@ -49,7 +49,7 @@ The full list of changes is in the [changelog](./CHANGELOG.md). See [Update Serp
 
 - **Map pack tracking.** Flags keywords where your business appears in Google's local top three, and shows map pack data in the tracker, domain stats, and digests. See [Business name and map pack detection](#business-name-and-map-pack-detection).
 - **Per-domain scraper settings.** Choose a provider and API key for each domain, or inherit the global scraper. Set a scrape strategy per domain too. See [Per-domain scrapers](#per-domain-scrapers).
-- **More scraper providers.** Adds PrismCrawl and DataForSEO to the seven providers shared with upstream. The fork removes the older SpaceSerp, ScrapingAnt, ScrapingRobot, and proxy integrations that upstream itself marks as no longer working.
+- **More scraper providers.** Adds PrismCrawl, DataForSEO and SerpBase to the seven providers shared with upstream. The fork removes the older SpaceSerp, ScrapingAnt, ScrapingRobot, and proxy integrations that upstream itself marks as no longer working.
 - **Credits remaining.** Domain cards show the account balance for providers that report it, including DataForSEO's dollar balance. See [Credits remaining](https://github.com/djav1985/v-serpbear/wiki/Scrapers#credits-remaining).
 - **Google redirect resolving.** Resolves `google.com/goto` result links through Serper's `/resolve` endpoint so SerpBear can match the actual destination domain.
 - **Domain trend indicators and clearer averages.** Domain stats show movement since the previous refresh; average position has explicit handling for failed scrapes, keywords that drop out of results, and map pack positions. See [How the average position is calculated](#how-the-average-position-is-calculated).
@@ -129,6 +129,7 @@ This backs up the data directory, pulls the new image and recreates the containe
 | CrazySERP (`crazyserp`) | Pay-as-you-go | City | Yes | Yes | Yes | Header `Authorization: Bearer` |
 | PrismCrawl (`prismcrawl`) | 100 free credits, packages from $5 (about $0.21 per 1,000, valid 90 days) | City | Yes | Yes | Yes | Header `x-api-key` (POST JSON) |
 | DataForSEO (`dataforseo`) | Pay-as-you-go, $50 minimum top-up | City | Yes | Yes | Yes (dollar balance) | HTTP Basic, `login:password` in the API key field |
+| SerpBase (`serpbase`) | Credit-based | Country | Yes | No | Yes | Header `X-API-Key` (POST JSON) |
 
 > \*Pricing is indicative. Check each vendor before buying. The request formats are implemented in [`scrapers/services`](./scrapers/services).
 The **Credits left** column shows which providers can report the balance left on your account. For those, the domain card shows `Credits remaining:` under the last-updated line, and it refreshes whenever keywords are refreshed. Serply and Serper have no lookup, so nothing is shown for them. DataForSEO shows a dollar balance. Details are in [Credits remaining](https://github.com/djav1985/v-serpbear/wiki/Scrapers#credits-remaining).

@@ -17,10 +17,11 @@ SerpBear asks a SERP data provider for Google results. Pick one globally in **Se
 | CrazySERP (`crazyserp`) | Pay-as-you-go | City | Yes | Yes | Yes | Header `Authorization: Bearer` |
 | PrismCrawl (`prismcrawl`) | 100 free credits, packages from $5 (about $0.21 per 1,000, valid 90 days) | City | Yes | Yes | Yes | Header `x-api-key` (POST JSON) |
 | DataForSEO (`dataforseo`) | Pay-as-you-go, $50 minimum top-up | City | Yes | Yes | Yes (dollar balance) | HTTP Basic, `login:password` in the API key field |
+| SerpBase (`serpbase`) | Credit-based | Country | Yes | No | Yes | Header `X-API-Key` (POST JSON) |
 
 \*Pricing is indicative. Check each vendor before buying. The request formats are implemented in [`scrapers/services`](https://github.com/djav1985/v-serpbear/tree/main/scrapers/services).
 
-Each page request asks for 10 results. The scrape strategy below sets how many pages are fetched. For country-only providers (Serper, Serply) the city and state fields are disabled and show `N/A`.
+Each page request asks for 10 results. The scrape strategy below sets how many pages are fetched. For country-only providers (Serper, Serply, SerpBase) the city and state fields are disabled and show `N/A`.
 
 ## Credits remaining
 
@@ -43,6 +44,7 @@ It saves you a trip to the provider's dashboard, and it's a quick way to catch a
 | HasData | Yes | `GET /user/me/usage` (`data.availableCredits`) |
 | CrazySERP | Yes | `GET /api/get-credits` (`available_credits.total`) |
 | DataForSEO | Yes, in dollars | `GET /v3/appendix/user_data` (`money.balance`). DataForSEO bills by balance, so the card shows `$42.17` and not a credit count |
+| SerpBase | Yes | `GET /account/credits` (`credits`, the total across permanent and expiring credits). The call is free |
 | PrismCrawl | Yes | The `X-Credits-Remaining` header on every scrape response. There's no account endpoint to ask |
 | Serper | No | No lookup available |
 | Serply | No | No lookup available |

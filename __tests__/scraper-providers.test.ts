@@ -2,6 +2,7 @@ import crazyserp from '../scrapers/services/crazyserp';
 import prismcrawl from '../scrapers/services/prismcrawl';
 import { getScraperClient } from '../utils/scraper';
 import dataforseo from '../scrapers/services/dataforseo';
+import serpbase from '../scrapers/services/serpbase';
 import valueSerp from '../scrapers/services/valueserp';
 import hasdata from '../scrapers/services/hasdata';
 import serper from '../scrapers/services/serper';
@@ -1277,6 +1278,7 @@ describe('map pack absent', () => {
     ['prismcrawl', prismcrawl, { data: { content: { results: [], serp_features: [] } } }],
     ['dataforseo', dataforseo, { tasks: [{ status_code: 20000, result: [{ items: [] }] }] }],
     ['crazyserp', crazyserp, { organic: [] }],
+    ['serpbase', serpbase, { organic: [] }],
   ];
 
   describe('map pack when the response has no local results', () => {
@@ -1333,6 +1335,84 @@ describe('map pack absent', () => {
     it('returns false when the business name is only whitespace', () => {
       const singleLocal = [{ position: 1, title: 'Some Business' }];
       expect(computeMapPackTop3(singleLocal, '   ')).toBe(false);
+    });
+  });
+});
+
+describe('serpbase', () => {
+  const countryData = { US: ['United States', 'Washington, D.C.', 'en', 2840], DE: ['Germany', 'Berlin', 'de', 2921] } as any;
+  const settings = { scraping_api: 'sb-key', business_name: 'Kula Coffee' } as unknown as SettingsType;
+  const keyword = (overrides: Partial<KeywordType> = {}) =>
+    ({ keyword: 'coffee shops', country: 'US', device: 'desktop', location: '', domain: 'example.com', ...overrides } as KeywordType);
+  const bodyOf = serpbase.body! as (...args: Parameters<NonNullable<ScraperSettings['body']>>) => any;
+
+  it('is a POST scraper with the key in the X-API-Key header', () => {
+    expect(serpbase.method).toBe('POST');
+    expect(serpbase.scrapeURL!(keyword(), settings, countryData)).toBe('https://api.serpbase.dev/google/search');
+    expect(serpbase.headers!(keyword(), settings)['X-API-Key']).toBe('sb-key');
+  });
+
+  it('sends the query with country and language, and the page only after the first', () => {
+    expect(bodyOf(keyword(), settings, countryData, { start: 0, num: 10, page: 1 })).toEqual({ q: 'coffee shops', gl: 'us', hl: 'en' });
+    expect(bodyOf(keyword({ country: 'DE' }), settings, countryData, { start: 10, num: 10, page: 2 })).toEqual({ q: 'coffee shops', gl: 'de', hl: 'de', page: 2 });
+  });
+
+  it('is country level only and supports the map pack', () => {
+    expect(serpbase.allowsCity).toBeFalsy();
+    expect(serpbase.supportsMapPack).toBe(true);
+  });
+
+  const payload = {
+    status: 0,
+    local_results: [
+      { title: 'HallowBean Coffee Co', position: 1, rank: 1 },
+      { title: 'Kula Coffee', position: 1, rank: 2 },
+    ],
+    organic: [
+      { title: 'Los Dos Cristianos', link: 'https://www.google.com/goto?url=abc', url: 'https://www.google.com/goto?url=abc', display_link: 'https://www.losdoscristianos.com', position: 2, rank: 1 },
+      { title: 'Facebook thread', link: 'https://www.google.com/goto?url=def', display_link: 'www.facebook.com', position: 7, rank: 2 },
+      { title: 'Tripadvisor', link: 'https://www.tripadvisor.com/Restaurants.html', display_link: 'https://www.tripadvisor.com', position: 10, rank: 3 },
+      { title: 'Broken', display_link: 'https://nolink.example', rank: 4 },
+    ],
+  };
+  const extract = (response: any, s = settings) => serpbase.serpExtractor({ keyword: keyword(), response, result: response.organic, settings: s } as any);
+
+  it('uses rank for position, and the result domain when the link is a Google redirect', () => {
+    const out = extract(payload);
+    expect(out.organic).toEqual([
+      { title: 'Los Dos Cristianos', url: 'https://www.losdoscristianos.com/', position: 1 },
+      { title: 'Facebook thread', url: 'https://www.facebook.com/', position: 2 },
+      { title: 'Tripadvisor', url: 'https://www.tripadvisor.com/Restaurants.html', position: 3 },
+    ]);
+  });
+
+  it('keeps the redirect link when there is no usable display_link', () => {
+    const out = extract({ organic: [{ title: 'X', link: 'https://www.google.com/goto?url=zzz', rank: 1 }] });
+    expect(out.organic[0].url).toBe('https://www.google.com/goto?url=zzz');
+  });
+
+  it('reads the map pack and flags the business when it is in the top three', () => {
+    const out = extract(payload);
+    expect(out.localResults).toEqual([{ position: 1, title: 'HallowBean Coffee Co' }, { position: 2, title: 'Kula Coffee' }]);
+    expect(out.mapPackTop3).toBe(true);
+    expect(extract(payload, { ...settings, business_name: 'Somebody Else' } as unknown as SettingsType).mapPackTop3).toBe(false);
+  });
+
+  describe('credits', () => {
+    const originalFetch = global.fetch;
+    afterEach(() => { global.fetch = originalFetch; });
+
+    it('reads credits from the free account endpoint', async () => {
+      const fetchMock = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ status: 0, credits: 12345, permanent_credits: 10000 }) });
+      global.fetch = fetchMock as unknown as typeof fetch;
+      expect(await serpbase.fetchCredits!(settings)).toBe(12345);
+      expect(fetchMock.mock.calls[0][0]).toBe('https://api.serpbase.dev/account/credits');
+      expect(fetchMock.mock.calls[0][1].headers['X-API-Key']).toBe('sb-key');
+    });
+
+    it('returns null when the lookup fails', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: false }) as unknown as typeof fetch;
+      expect(await serpbase.fetchCredits!(settings)).toBeNull();
     });
   });
 });

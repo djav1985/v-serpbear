@@ -36,6 +36,12 @@ describe('provider credit lookups', () => {
       expect(fetchMock.mock.calls[0][0]).toBe('https://serpapi.com/account.json?api_key=k%20e%20y');
    });
 
+   it('SerpBase reads credits from /account/credits', async () => {
+      const fetchMock = mockAccount({ status: 0, credits: 12345 });
+      expect(await scraper('serpbase').fetchCredits?.(settingsFor('abc'))).toBe(12345);
+      expect(fetchMock.mock.calls[0][1].headers['X-API-Key']).toBe('abc');
+   });
+
    it('SearchApi reads account.remaining_credits with a Bearer key', async () => {
       const fetchMock = mockAccount({ account: { remaining_credits: 4200 } });
       expect(await scraper('searchapi').fetchCredits?.(settingsFor('abc'))).toBe(4200);
