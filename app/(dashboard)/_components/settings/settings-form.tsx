@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from 'components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from 'components/ui/tabs';
 import { IntegrationsTab } from './integrations-tab';
@@ -92,6 +93,7 @@ export function SettingsForm({ platformName }: { platformName: string }) {
       if (problem) {
          if (errorTimer.current) { clearTimeout(errorTimer.current); }
          setError(problem);
+         toast.error(problem.msg);
          errorTimer.current = setTimeout(() => { setError(null); errorTimer.current = null; }, ERROR_VISIBLE_MS);
          return false;
       }

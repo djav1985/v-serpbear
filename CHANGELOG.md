@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file. Releases no
 
 ## [Unreleased]
 
+### Fixed
+
+- Settings toasts now show the server's own error text (for example the reason a Google Ads test failed) instead of a generic line, and failed form checks on Update Settings also show a toast.
+- Send Notifications Now reports how many emails went out, and shows a warning instead of a success when nothing was sent.
+
 ### Documentation
 
 - Added desktop screenshots to the wiki pages (in `docs/images/`), and a set of desktop and phone screenshots in `screenshots/`, all taken from demo data with example domains.

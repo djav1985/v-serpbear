@@ -5,6 +5,9 @@ import { toast } from 'sonner';
 import { apiGet, apiPost, apiPut } from 'utils/client/apiClient';
 import { settingsKey } from '../../domain/_components/keyword-queries';
 
+/** The server's own message when it sent one (it says what to fix), otherwise the fallback. */
+const errorText = (error: unknown, fallback: string) => (error instanceof Error && error.message && !error.message.startsWith('Server error (') ? error.message : fallback);
+
 export function useAppSettings(enabled: boolean) {
    return useQuery({
       queryKey: settingsKey,
@@ -18,7 +21,7 @@ export function useSaveSettings() {
    return useMutation({
       mutationFn: (settings: Partial<SettingsType>) => apiPut('/api/app/settings', { settings }),
       onSuccess: () => { toast.success('Settings updated!'); queryClient.invalidateQueries({ queryKey: settingsKey }); },
-      onError: () => { toast.error('Error updating app settings.'); },
+      onError: (error) => { toast.error(errorText(error, 'Error updating app settings.')); },
    });
 }
 
@@ -27,7 +30,7 @@ export function useClearFailedQueue() {
    return useMutation({
       mutationFn: () => apiPut('/api/serp/clearfailed', {}),
       onSuccess: () => { toast.success('Failed queue cleared'); queryClient.invalidateQueries({ queryKey: settingsKey }); },
-      onError: () => { toast.error('Error clearing failed queue.'); },
+      onError: (error) => { toast.error(errorText(error, 'Error clearing failed queue.')); },
    });
 }
 
@@ -50,15 +53,24 @@ export function useRetryFailedQueue() {
          }
       },
       onSuccess: () => { toast.success('Failed keyword retries completed'); queryClient.invalidateQueries({ queryKey: settingsKey }); },
-      onError: (error) => { toast.error(error instanceof Error && error.message ? error.message : 'Error retrying failed keywords.'); },
+      onError: (error) => { toast.error(errorText(error, 'Error retrying failed keywords.')); },
    });
 }
 
 export function useSendNotifications() {
    return useMutation({
-      mutationFn: () => apiPost<{ message?: string }>('/api/app/email?type=digest', {}),
-      onSuccess: (response) => { toast.success(response?.message || 'Notifications sent!'); },
-      onError: (error) => { toast.error(error instanceof Error && error.message ? error.message : 'Error sending notifications.'); },
+      mutationFn: () => apiPost<{ message?: string; sent?: number; skipped?: number }>('/api/app/email?type=digest', {}),
+      onSuccess: (response) => {
+         const sent = response?.sent ?? 0;
+         const skipped = response?.skipped ?? 0;
+         if (sent > 0) {
+            toast.success(`Sent ${sent} notification email${sent === 1 ? '' : 's'}${skipped > 0 ? ` (${skipped} skipped)` : ''}.`);
+         } else {
+            // Nothing went out, so this is not a plain success.
+            toast.warning(response?.message || `No notifications were sent${skipped > 0 ? ` (${skipped} skipped)` : ''}.`);
+         }
+      },
+      onError: (error) => { toast.error(errorText(error, 'Error sending notifications.')); },
    });
 }
 
@@ -72,7 +84,7 @@ export function useRefreshSearchConsole() {
          queryClient.invalidateQueries({ queryKey: ['sc-keywords'] });
          queryClient.invalidateQueries({ queryKey: ['sc-insight'] });
       },
-      onError: () => { toast.error('Error refreshing Search Console data'); },
+      onError: (error) => { toast.error(errorText(error, 'Error refreshing Search Console data')); },
    });
 }
 
@@ -80,7 +92,7 @@ export function useTestAdwords() {
    return useMutation({
       mutationFn: (payload: { developer_token: string; account_id: string }) => apiPost('/api/adwords', payload),
       onSuccess: () => { toast.success('Google Ads has been integrated successfully!'); },
-      onError: () => { toast.error('Failed to connect to Google Ads. Please make sure you have provided the correct API info.'); },
+      onError: (error) => { toast.error(errorText(error, 'Failed to connect to Google Ads. Please make sure you have provided the correct API info.')); },
    });
 }
 
@@ -97,6 +109,6 @@ export function useUpdateAllVolume() {
          }
          setTimeout(() => { window.location.reload(); }, 3000);
       },
-      onError: (error) => { toast.error(error instanceof Error && error.message ? error.message : 'Error loading keyword volume data'); },
+      onError: (error) => { toast.error(errorText(error, 'Error loading keyword volume data')); },
    });
 }
