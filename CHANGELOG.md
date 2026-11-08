@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file. Releases no
 
 ## [Unreleased]
 
+### Changed
+
+- Node.js is now 26.13.0 (the current long-term release) in the Docker image and `.nvmrc`, and `package.json` declares `engines.node >=22`.
+
+### Dependencies
+
+- Updated to the latest releases that work together: Jest 30, TypeScript 6, `better-sqlite3` 13, `croner` 11, `dotenv` 18, `google-auth-library` 11, `@googleapis/searchconsole` 11, `@isaacs/ttlcache` 2, `undici`, `uuid`, Testing Library and the type packages, plus all in-range updates (Next.js, nodemailer, dayjs, PostCSS and others).
+- Held back: ESLint 10 and its plugins, `eslint-plugin-react-hooks` 7 (new strict rules need code changes), TypeScript 7 (typescript-eslint does not support it yet) and Stylelint 18 (its packages do not resolve together yet).
+- `tsconfig.json` uses `paths` instead of the removed `baseUrl`, and the Stylelint config allows Tailwind's `@apply`.
+
 ### Removed
 
 - Unused dev dependencies (`msw`, `@types/cryptr`, `autoprefixer`, `js-yaml`, `postcss-selector-parser`, `source-map-js`, `browserslist`, `esbuild`, `shell-quote`, `ws`, `@babel/core`), the msw test shims, unused UI pieces (`badge`, `empty`, `separator`), the unused `screenshot.jpg`, and two unused constants.

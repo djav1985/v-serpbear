@@ -3,7 +3,7 @@ import { readSettingsFile } from './settingsFile';
 import * as path from 'path';
 import * as lockfile from 'proper-lockfile';
 import Cryptr from 'cryptr';
-import TTLCache from '@isaacs/ttlcache';
+import { TTLCache } from '@isaacs/ttlcache';
 import { setTimeout as sleep } from 'timers/promises';
 import { Op } from 'sequelize';
 import Keyword from '../database/models/keyword';
@@ -16,7 +16,7 @@ import { atomicWriteFile } from './atomicWrite';
 
 export const GOOGLE_ADS_API_VERSION = 'v23';
 
-const memoryCache = new TTLCache({ max: 10000 });
+const memoryCache = new TTLCache<string, string | false>({ max: 10000 });
 
 type keywordIdeasMetrics = {
    competition: IdeaKeyword['competition'],

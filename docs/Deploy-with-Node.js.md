@@ -4,7 +4,7 @@ Use this to run SerpBear without Docker, on your computer or on a server.
 
 ## Step 1: Install Node.js and Git
 
-The Docker image uses Node.js 24, so use a current Node.js release. Check what you have:
+The Docker image uses Node.js 26, so use a current Node.js release. Check what you have:
 
 ```bash
 node -v
