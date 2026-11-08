@@ -4,7 +4,7 @@ import * as handlerRoute from '../app/api/serp/refresh/route';
 import db from '../database/database';
 import Keyword from '../database/models/keyword';
 import Domain from '../database/models/domain';
-import verifyUser from '../utils/verifyUser';
+import verifyUser, { hasValidSessionCookie } from '../utils/verifyUser';
 import refreshAndUpdateKeywords from '../utils/refresh';
 import { getAppSettings } from '../utils/appSettings';
 import { scrapeKeywordWithStrategy } from '../utils/scraper';
@@ -107,8 +107,47 @@ describe('refresh route', () => {
 
       (db.sync as jest.Mock).mockResolvedValue(undefined);
       (verifyUser as jest.Mock).mockReturnValue('authorized');
+      (hasValidSessionCookie as jest.Mock).mockReturnValue(true);
       (getAppSettings as jest.Mock).mockResolvedValue({ scraper_type: 'serpapi' });
       (refreshAndUpdateKeywords as jest.Mock).mockResolvedValue([]);
+    });
+
+    it('refuses a refresh started from another site', async () => {
+      jest.clearAllMocks();
+      const crossSiteReq = {
+        method: 'POST',
+        body: { ids: [11] },
+        headers: { origin: 'https://evil.example', 'sec-fetch-site': 'cross-site' },
+      } as unknown as NextApiRequest;
+      const crossSiteRes = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+      } as unknown as NextApiResponse;
+
+      await handler(crossSiteReq, crossSiteRes);
+
+      expect(crossSiteRes.status).toHaveBeenCalledWith(403);
+      expect(Keyword.findAll).not.toHaveBeenCalled();
+      expect(refreshAndUpdateKeywords).not.toHaveBeenCalled();
+    });
+
+    it('refuses a keyword search that uses an API key instead of a login session', async () => {
+      jest.clearAllMocks();
+      (hasValidSessionCookie as jest.Mock).mockReturnValueOnce(false);
+      const apiKeySearchReq = {
+        method: 'POST',
+        body: { keyword: 'widgets', country: 'US' },
+        headers: { authorization: 'Bearer test-api-key' },
+      } as unknown as NextApiRequest;
+      const apiKeySearchRes = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+      } as unknown as NextApiResponse;
+
+      await handler(apiKeySearchReq, apiKeySearchRes);
+
+      expect(apiKeySearchRes.status).toHaveBeenCalledWith(403);
+      expect(scrapeKeywordWithStrategy).not.toHaveBeenCalled();
     });
 
     it('returns updating state for retry keyword IDs', async () => {
@@ -273,8 +312,8 @@ describe('refresh route', () => {
       ['desktop when the device parameter is omitted', {}, 'desktop'],
     ])('passes %s to keyword preview scrapes', async (_label, deviceQuery, expectedDevice) => {
       const previewReq = {
-        method: 'GET',
-        query: { keyword: 'widgets', country: 'US', ...deviceQuery },
+        method: 'POST',
+        body: { keyword: 'widgets', country: 'US', ...deviceQuery },
         headers: {},
       } as unknown as NextApiRequest;
 

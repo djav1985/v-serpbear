@@ -1,6 +1,6 @@
 'use client';
 
-import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { startTransition, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { ReactTable, Row, RowData } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react';
@@ -123,7 +123,7 @@ export function DataTable<TData extends RowData>({
                                  <button
                                     type="button"
                                     className="hover:text-foreground flex items-center gap-1"
-                                    onClick={header.column.getToggleSortingHandler()}
+                                    onClick={(event) => startTransition(() => header.column.getToggleSortingHandler()?.(event))}
                                  >
                                     <table.FlexRender header={header} />
                                     {sorted === 'asc' ? <ArrowUp className="size-3" /> : sorted === 'desc' ? <ArrowDown className="size-3" /> : <ChevronsUpDown className="size-3 opacity-40" />}

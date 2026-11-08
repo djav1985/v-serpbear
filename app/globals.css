@@ -104,3 +104,23 @@
       font-family: var(--font-sans);
    }
 }
+
+/* Page changes cross-fade (see app/_components/page-transition.tsx). The timing is short so navigation still feels quick. */
+::view-transition-old(root),
+::view-transition-new(root) {
+   animation-duration: 400ms;
+}
+
+/* Rows and panels that move or appear during a sort or filter use the same timing */
+::view-transition-group(*) {
+   animation-duration: 400ms;
+}
+
+/* People who ask for less motion get instant changes, for page changes and list moves alike */
+@media (prefers-reduced-motion: reduce) {
+   ::view-transition-group(*),
+   ::view-transition-old(*),
+   ::view-transition-new(*) {
+      animation: none !important;
+   }
+}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { startTransition, useCallback, useMemo, useState } from 'react';
 import {
    useTable, type ColumnFiltersState, type ColumnVisibilityState, type RowSelectionState, type SortingState,
 } from '@tanstack/react-table';
@@ -60,6 +60,8 @@ export function TrackerView({
 
    // ── Table state ───────────────────────────────────────────────────────────
    const [filters, setFilters] = useState<TrackerFilters>(DEFAULT_FILTERS);
+   // Filter changes run as a transition so the rows that move or leave animate (see ViewTransition in DataTable)
+   const updateFilters = (next: TrackerFilters) => startTransition(() => setFilters(next));
    const [userSort, setUserSort] = useState<SortingState>(() => sortingForChoice(DEFAULT_SORT_CHOICE));
    const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
    const [scPeriod, setScPeriod] = useState(DEFAULT_SC_PERIOD);
@@ -192,24 +194,24 @@ export function TrackerView({
                <TrackerToolbar
                   device={filters.device}
                   deviceCounts={deviceCounts}
-                  onDeviceChange={(device) => setFilters({ ...filters, device })}
+                  onDeviceChange={(device) => updateFilters({ ...filters, device })}
                   countries={filters.countries}
                   countryOptions={countryOptions}
-                  onCountriesChange={(next) => setFilters({ ...filters, countries: next })}
+                  onCountriesChange={(next) => updateFilters({ ...filters, countries: next })}
                   tags={filters.tags}
                   tagOptions={allTags}
-                  onTagsChange={(next) => setFilters({ ...filters, tags: next })}
+                  onTagsChange={(next) => updateFilters({ ...filters, tags: next })}
                   search={filters.search}
-                  onSearchChange={(search) => setFilters({ ...filters, search })}
+                  onSearchChange={(search) => updateFilters({ ...filters, search })}
                   sortChoice={choiceForSorting(userSort)}
-                  onSortChange={(value) => setUserSort(sortingForChoice(value))}
+                  onSortChange={(value) => startTransition(() => setUserSort(sortingForChoice(value)))}
                   searchConsoleConnected={searchConsoleConnected}
                   optionalColumns={optionalColumns}
                   onToggleColumn={toggleColumn}
                   columnsDisabled={savingColumns}
                   showScPeriod={showSearchConsole}
                   scPeriod={scPeriod}
-                  onScPeriodChange={setScPeriod}
+                  onScPeriodChange={(value) => startTransition(() => setScPeriod(value))}
                />
             )}
 

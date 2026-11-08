@@ -36,7 +36,7 @@ The example uses port 3030, which Docker Compose maps to the app.
 | GET | `/api/serp/keyword?id=` | One keyword with its position history |
 | GET | `/api/serp/keywords?domain=` | All tracked keywords of a domain |
 | GET | `/api/serp/domains` | All tracked domains (`withstats=true` adds keyword statistics) |
-| POST | `/api/serp/refresh` | Refresh chosen keywords: body `ids`, or query `id` (comma-separated, or `all` with `domain`). Body `{ keyword, country, device }` runs a one-off keyword search (browser sessions must come from this site) |
+| POST | `/api/serp/refresh` | Refresh chosen keywords: body `ids`, or query `id` (comma-separated, or `all` with `domain`). Body `{ keyword, country, device }` runs a one-off keyword search (login session only, not an API key). Requests from a login session must come from this site |
 | GET | `/api/serp/refresh?status=retry&id=…` | Read which keywords are still updating (read-only) |
 | POST | `/api/app/cron` | Run the scheduled refresh for every domain with scraping enabled |
 | POST | `/api/app/email?type=digest` | Send the email digest for one domain (`domain=`) or all |

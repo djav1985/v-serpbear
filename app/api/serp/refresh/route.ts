@@ -12,7 +12,7 @@ import { takeRateLimitToken } from '../../../../utils/rateLimit';
 import { getClientIp } from '../../../../utils/api/clientIp';
 import { isKeywordUpdating } from '../../../../utils/keywordUpdating';
 import { isSameOriginRequest } from '../../../../utils/api/sameOrigin';
-import { isBearerAuthorization } from '../../../../utils/verifyUser';
+import { hasValidSessionCookie, isBearerAuthorization } from '../../../../utils/verifyUser';
 
 /**
  * Parses a comma separated list of keyword IDs. Returns null when any item is not a positive integer,
@@ -77,7 +77,18 @@ const readKeywordIds = async (req: Request): Promise<number[] | null> => {
    return idParam ? parseKeywordIds(idParam) : null;
 };
 
+/**
+ * A request that is not authenticated by an API key is a browser session, so it must come from this site. A page on
+ * another site cannot make a logged-in browser start a refresh or a search. API key requests are checked by the key.
+ */
+const isCrossSiteBrowserRequest = (req: Request): boolean => (
+   !isBearerAuthorization(req.headers.get('authorization') ?? undefined) && !isSameOriginRequest(req)
+);
+
 const refreshTheKeywords = async (req: Request, ctx: ApiContext) => {
+   if (isCrossSiteBrowserRequest(req)) {
+      return fail(403, 'FORBIDDEN', 'Refreshes must be started from this site.', ctx);
+   }
    const body = await readBody(req);
    // A body with a keyword is a one-off keyword search (see searchKeyword), not a refresh
    if (body.keyword !== undefined) {
@@ -263,12 +274,11 @@ const KEYWORD_SEARCHES_PER_MINUTE = 20;
 
 /**
  * A one-off keyword search, which is a paid provider request. It is a POST with the JSON body { keyword, country, device }.
- * Requests that use a login cookie must come from this site, so a page on another site cannot make a logged-in
- * browser spend provider quota. Requests with an API key are checked by the key instead.
+ * Only a logged-in browser session can run one; an API key cannot. refreshTheKeywords has already checked the origin.
  */
 const searchKeyword = async (req: Request, body: Record<string, any>, ctx: ApiContext) => {
-   if (!isBearerAuthorization(req.headers.get('authorization') ?? undefined) && !isSameOriginRequest(req)) {
-      return fail(403, 'FORBIDDEN', 'Keyword searches must be started from this site.', ctx);
+   if (!hasValidSessionCookie(req)) {
+      return fail(403, 'FORBIDDEN', 'Keyword searches need a logged-in session.', ctx);
    }
    const keyword: unknown = body.keyword;
    const country: unknown = body.country;

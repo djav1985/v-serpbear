@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { startTransition, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { useTable, type ColumnDef, type RowSelectionState } from '@tanstack/react-table';
@@ -186,7 +186,7 @@ export function DiscoverView({ domain, searchConsoleConnected, allowsCity, avail
             onOpenSettings={() => setSettingsOpen(true)}
             onExport={() => exportCSV(grouped, domain.domain, period)}
          >
-            <Select value={period} onValueChange={setPeriod}>
+            <Select value={period} onValueChange={(value) => startTransition(() => setPeriod(value))}>
                <SelectTrigger size="sm" className="w-32" aria-label="Search Console period" data-testid="sc_period"><CalendarDays className="size-4" /><SelectValue /></SelectTrigger>
                <SelectContent>{SC_PERIODS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
             </Select>
@@ -228,14 +228,14 @@ export function DiscoverView({ domain, searchConsoleConnected, allowsCity, avail
                         className="max-lg:order-2 max-lg:min-w-0 max-lg:flex-1 max-lg:basis-[calc(50%-0.25rem)]"
                         options={countryOptions}
                         selected={pickedCountries}
-                        onChange={setPickedCountries}
+                        onChange={(next) => startTransition(() => setPickedCountries(next))}
                         emptyMessage="No countries found"
                      />
                      <div className="relative max-lg:order-1 max-lg:min-w-28 max-lg:flex-1 max-lg:basis-28">
                         <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
-                        <Input data-testid="filter_input" className="h-8 w-full pl-8 lg:w-44" placeholder="Filter keywords..." value={search} onChange={(event) => setSearch(event.target.value)} />
+                        <Input data-testid="filter_input" className="h-8 w-full pl-8 lg:w-44" placeholder="Filter keywords..." value={search} onChange={(event) => startTransition(() => setSearch(event.target.value))} />
                      </div>
-                     <Select value={sortBy} onValueChange={setSortBy}>
+                     <Select value={sortBy} onValueChange={(value) => startTransition(() => setSortBy(value))}>
                         <SelectTrigger size="sm" className="w-full max-lg:order-2 max-lg:min-w-0 max-lg:flex-1 max-lg:basis-[calc(50%-0.25rem)] lg:w-48" data-testid="sort_button" aria-label="Sort keywords"><SelectValue /></SelectTrigger>
                         <SelectContent align="end">{SC_SORT_CHOICES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
                      </Select>

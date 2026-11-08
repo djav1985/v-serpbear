@@ -5,6 +5,7 @@ import { logger } from 'utils/logger';
 import { requireSession } from 'utils/serverSession';
 import { APP_TIMEZONE } from 'utils/timezone';
 import packageJson from '../../package.json';
+import { PageTransition } from '../_components/page-transition';
 import { DashboardFooter } from './_components/dashboard-footer';
 import { ShellProvider, type DomainSummary } from './_components/shell-context';
 import { TopBar } from './_components/top-bar';
@@ -31,7 +32,8 @@ export default async function DashboardLayout({ children }: { children: ReactNod
       <ShellProvider domains={domains} domainsFailed={failed} timezone={APP_TIMEZONE} platformName={branding.platformName}>
          <div className="flex min-h-screen flex-col">
             <TopBar branding={branding} />
-            <main className="mx-auto w-full max-w-screen-2xl min-w-0 flex-1 p-4 md:p-6">{children}</main>
+            {/* Only the page content cross-fades, so the top bar and footer stay still */}
+            <main className="mx-auto w-full max-w-screen-2xl min-w-0 flex-1 p-4 md:p-6"><PageTransition>{children}</PageTransition></main>
             <DashboardFooter platformName={branding.platformName} version={packageJson.version} />
          </div>
       </ShellProvider>
