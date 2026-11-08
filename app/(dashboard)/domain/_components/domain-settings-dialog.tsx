@@ -196,7 +196,7 @@ function DomainSettingsForm({ open, onOpenChange, domain, availableScrapers = []
    return (
       <>
          <Dialog open={open} onOpenChange={close}>
-            <DialogContent className="min-h-[min(38rem,90vh)] max-h-[90vh] grid-rows-[auto_1fr_auto] overflow-y-auto sm:max-w-lg" data-testid="domain_settings">
+            <DialogContent className="min-h-[min(38rem,90vh)] max-h-[90vh] grid-rows-[auto_1fr_auto] overflow-x-hidden overflow-y-auto sm:max-w-lg" data-testid="domain_settings">
                <DialogHeader>
                   <DialogTitle>Domain settings</DialogTitle>
                   <DialogDescription>{domain.domain}</DialogDescription>
