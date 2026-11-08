@@ -190,7 +190,6 @@ export function IdeasTable({
          {selectedIds.length > 0 ? (
             <AddToTrackerBar
                selectedCount={selectedIds.length}
-               label={isResearch ? 'Select a domain for the action' : undefined}
                devices={devices}
                onDevicesChange={setDevices}
                onAdd={openAddStep}
@@ -202,7 +201,7 @@ export function IdeasTable({
             >
                {isResearch && (
                   <Select value={pickedDomain || undefined} onValueChange={setPickedDomain}>
-                     <SelectTrigger size="sm" className="w-52" aria-label="Domain to add to" data-testid="target_domain"><SelectValue placeholder="Select a domain" /></SelectTrigger>
+                     <SelectTrigger size="sm" className="w-full sm:min-w-52 sm:flex-1" aria-label="Domain to add to" data-testid="target_domain"><SelectValue placeholder="Select a domain" /></SelectTrigger>
                      <SelectContent>
                         {domains.length === 0 && <p className="text-muted-foreground px-2 py-1.5 text-xs">No domains found</p>}
                         {domains.map((d) => <SelectItem key={d.slug} value={d.domain}>{d.domain}</SelectItem>)}

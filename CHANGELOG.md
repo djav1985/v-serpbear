@@ -38,6 +38,7 @@ The API routes are regrouped. **There are no compatibility aliases: the old rout
 - **Layout:** a top bar with the logo on the left and the menu on the right replaces the sidebar. The domain list sits on the left only on the Domains page. Settings open in a side panel with the Scraper, Notification and Integrations tabs. Phones get a menu button, stacked rows and a compact filter bar.
 - **Tables:** Tracking, Discover, Insight and the keyword ideas tables share one virtualized table, so long keyword lists scroll smoothly. Row selection works on keyword IDs and ignores rows hidden by a filter. The column header stays solid while you scroll, and the table is sized to whole rows.
 - **Tracking tab:** a single `Add/Edit Tags` action replaces the separate add and remove tag buttons.
+- **Selection bar** (Discover, Ideas and Research): the Desktop and Mobile buttons stretch to fill the bar, and on Research the domain picker does too. On phones they run the full width.
 - **Research** now lives inside the same page frame as every other screen.
 - **Charts:** Chart.js is replaced by Recharts. The Insight chart plots visits and impressions on two axes.
 - **Domain thumbnails:** always loaded from the screenshot service and cached in the browser, with the site's favicon as the fallback.
