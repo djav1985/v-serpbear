@@ -7,7 +7,7 @@ You need a server with SSH access and a domain name (for example `serpbear.yourd
 Whichever proxy you use:
 
 1. Set `NEXT_PUBLIC_APP_URL` to the full HTTPS address, for example `https://serpbear.yourdomain.com`.
-2. Set `TRUST_PROXY` to the number of proxies in front of the app, usually `1`. Without it every visitor shares the proxy's address, which breaks the login lockouts. See [Security](Security).
+2. Set `TRUST_PROXY` to the number of proxies in front of the app, usually `1`. Without it every visitor shares one address, so a few wrong logins from anyone lock the real user out. See [Security](Security).
 3. Make sure the proxy forwards the `Host`, `X-Forwarded-For` and `X-Forwarded-Proto` headers, as in the examples below.
 
 ## Option A: Nginx

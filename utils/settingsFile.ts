@@ -59,7 +59,7 @@ export const readSettingsFile = async (settingsPath: string = settingsFilePath()
    let raw: unknown;
    try {
       // eslint-disable-next-line security/detect-non-literal-fs-filename
-      raw = await readFile(settingsPath, { encoding: 'utf-8' });
+      raw = await readFile(/*turbopackIgnore: true*/ settingsPath, { encoding: 'utf-8' });
    } catch (err) {
       if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') {
          return {};

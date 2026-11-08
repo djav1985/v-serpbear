@@ -52,16 +52,13 @@ describe('domains route', () => {
         isDomainLocked: jest.fn(() => false),
       },
     }));
-    jest.doMock('../utils/apiLogging', () => ({
-      __esModule: true,
-      withApiLogging: (apiHandler: any) => apiHandler,
-    }));
+    jest.doMock('../utils/apiLogging', () => require('./__helpers__/apiLoggingMock').apiLoggingMock());
     const m0 = require('cryptr');
     Cryptr = m0 && m0.__esModule ? m0.default : m0;
     const m1 = require('fs/promises');
     readFile = m1.readFile;
     unlink = m1.unlink;
-    const m2 = require('../pages/api/serp/domains');
+    const m2 = require('./__helpers__/routeAdapter').asModule(require('../app/api/serp/domains/route'));
     handler = m2 && m2.__esModule ? m2.default : m2;
     const m3 = require('../database/database');
     db = m3 && m3.__esModule ? m3.default : m3;
@@ -692,10 +689,7 @@ describe('domain route', () => {
       __esModule: true,
       default: jest.fn(),
     }));
-    jest.doMock('../utils/apiLogging', () => ({
-      __esModule: true,
-      withApiLogging: (apiHandler: any) => apiHandler,
-    }));
+    jest.doMock('../utils/apiLogging', () => require('./__helpers__/apiLoggingMock').apiLoggingMock());
     jest.doMock('../utils/domainScraperSettings', () => ({
       __esModule: true,
       maskDomainScraperSettings: jest.fn((s: any) => s),
@@ -707,7 +701,7 @@ describe('domain route', () => {
     }));
     const m0 = require('cryptr');
     Cryptr = m0 && m0.__esModule ? m0.default : m0;
-    const m1 = require('../pages/api/serp/domain');
+    const m1 = require('./__helpers__/routeAdapter').asModule(require('../app/api/serp/domain/route'));
     handler = m1 && m1.__esModule ? m1.default : m1;
     const m2 = require('../database/models/domain');
     Domain = m2 && m2.__esModule ? m2.default : m2;
@@ -849,8 +843,8 @@ describe('domain route', () => {
       jest.doMock('../utils/domainScraperSettings', () => jest.requireActual('../utils/domainScraperSettings'));
       jest.doMock('../utils/normalizeDomain', () => jest.requireActual('../utils/normalizeDomain'));
       jest.isolateModules(() => {
-        isoDomainHandler = require('../pages/api/serp/domain').default;
-        isoUpdateDomain = require('../pages/api/serp/domains').updateDomain;
+        isoDomainHandler = require('./__helpers__/routeAdapter').asModule(require('../app/api/serp/domain/route')).default;
+        isoUpdateDomain = require('./__helpers__/routeAdapter').asModule(require('../app/api/serp/domains/route')).default;
         isoDomainModel = require('../database/models/domain').default;
         isoVerifyUser = require('../utils/verifyUser').default;
         isoCheckMock = require('../utils/searchConsole').checkSearchConsoleIntegration;
@@ -986,11 +980,8 @@ describe('keyword route', () => {
       __esModule: true,
       default: jest.fn(),
     }));
-    jest.doMock('../utils/apiLogging', () => ({
-      __esModule: true,
-      withApiLogging: (apiHandler: any) => apiHandler,
-    }));
-    const m0 = require('../pages/api/serp/keyword');
+    jest.doMock('../utils/apiLogging', () => require('./__helpers__/apiLoggingMock').apiLoggingMock());
+    const m0 = require('./__helpers__/routeAdapter').asModule(require('../app/api/serp/keyword/route'));
     handler = m0 && m0.__esModule ? m0.default : m0;
     const m1 = require('../database/models/keyword');
     Keyword = m1 && m1.__esModule ? m1.default : m1;

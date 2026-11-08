@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import handler from '../pages/api/serp/refresh';
+import { asHandler } from './__helpers__/routeAdapter';
+import * as handlerRoute from '../app/api/serp/refresh/route';
 import db from '../database/database';
 import Keyword from '../database/models/keyword';
 import Domain from '../database/models/domain';
@@ -11,6 +12,7 @@ import path from 'path';
 import { retryQueueManager } from '../utils/retryQueueManager';
 import { atomicWriteFile } from '../utils/atomicWrite';
 import * as lockfile from 'proper-lockfile';
+const handler = asHandler(handlerRoute);
 
 jest.mock('../database/database', () => ({
   __esModule: true,
@@ -42,9 +44,7 @@ jest.mock('../utils/scraper', () => ({
   retryScrape: jest.fn(),
   removeFromRetryQueue: jest.fn(),
 }));
-jest.mock('../utils/apiLogging', () => ({
-  withApiLogging: (handler: any) => handler,
-}));
+jest.mock('../utils/apiLogging', () => require('./__helpers__/apiLoggingMock').apiLoggingMock());
 jest.mock('../utils/refreshQueue', () => ({
   refreshQueue: {
     enqueue: jest.fn().mockImplementation(async (_id: string, task: () => Promise<void>, _domain?: string) => {
@@ -97,7 +97,7 @@ describe('refresh route', () => {
     });
 
     beforeEach(() => {
-      jest.useFakeTimers().setSystemTime(new Date('2024-06-01T12:00:00.000Z'));
+      jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] }).setSystemTime(new Date('2024-06-01T12:00:00.000Z'));
       req.method = 'POST';
       req.query = {};
       res = {

@@ -1,17 +1,16 @@
 import { LOGO_FILE, LOGO_MIME_TYPE, buildLogoUrl, getBranding } from '../utils/branding';
 import path from 'path';
-import { createReadStream, promises as fs } from 'fs';
+import { promises as fs } from 'fs';
 import { createMockRequest, createMockResponse } from './__helpers__';
 
-jest.mock('../utils/apiLogging', () => ({ __esModule: true, withApiLogging: (fn: unknown) => fn }));
+jest.mock('../utils/apiLogging', () => require('./__helpers__/apiLoggingMock').apiLoggingMock());
 jest.mock('../utils/logger', () => ({
    __esModule: true,
    logger: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
 }));
 jest.mock('fs', () => ({
    __esModule: true,
-   createReadStream: jest.fn(),
-   promises: { stat: jest.fn() },
+   promises: { readFile: jest.fn() },
 }));
 
 describe('branding', () => {
@@ -156,31 +155,24 @@ describe('branding', () => {
 
 describe('logo route', () => {
   // The file name ends in .png, which Jest maps to an image stub, so the route is loaded with its real .ts name.
-  const handler = require('../pages/api/images/logo.png.ts').default;
+  const handler = require('./__helpers__/routeAdapter').asModule(require('../app/api/images/logo.png/route')).default;
 
-  const statMock = fs.stat as unknown as jest.Mock;
-  const streamMock = createReadStream as unknown as jest.Mock;
+  const readFileMock = fs.readFile as unknown as jest.Mock;
   const ORIGINAL_ENV = { ...process.env };
   const CUSTOM_LOGO = path.join(process.cwd(), 'data', 'logo.png');
   const DEFAULT_LOGO = path.join(process.cwd(), 'public', 'icon.png');
 
-  const createResponse = () => {
-     const res = createMockResponse();
-     (res as unknown as { removeHeader: jest.Mock }).removeHeader = jest.fn();
-     return res;
-  };
-
-  // The stat of each fixed path decides what is served.
-  const filesOnDisk = (paths: Record<string, number>) => statMock.mockImplementation(async (filePath: string) => {
-     if (paths[filePath] === undefined) { throw Object.assign(new Error('missing'), { code: 'ENOENT' }); }
-     return { isFile: () => true, size: paths[filePath] };
+  // The contents of each fixed path decide what is served; a path that is not listed does not exist.
+  const filesOnDisk = (files: Record<string, Buffer>) => readFileMock.mockImplementation(async (filePath: string) => {
+     if (files[filePath] === undefined) { throw Object.assign(new Error('missing'), { code: 'ENOENT' }); }
+     return files[filePath];
   });
+  const png = (size: number) => Buffer.alloc(size, 1);
 
   describe('GET /api/images/logo.png', () => {
      beforeEach(() => {
         jest.clearAllMocks();
         process.env = { ...ORIGINAL_ENV, NEXT_PUBLIC_WHITE_LABEL: 'true' };
-        streamMock.mockImplementation(() => ({ on: jest.fn(), pipe: jest.fn() }));
      });
 
      afterAll(() => {
@@ -188,43 +180,43 @@ describe('logo route', () => {
      });
 
      it('serves data/logo.png as a PNG when white-label is on and the file exists', async () => {
-        filesOnDisk({ [CUSTOM_LOGO]: 2048, [DEFAULT_LOGO]: 99 });
-        const res = createResponse();
+        filesOnDisk({ [CUSTOM_LOGO]: png(2048), [DEFAULT_LOGO]: png(99) });
+        const res = createMockResponse();
 
-        await handler(createMockRequest({ method: 'HEAD' }), res);
+        await handler(createMockRequest({ method: 'GET' }), res);
 
-        expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'image/png');
-        expect(res.setHeader).toHaveBeenCalledWith('Content-Length', '2048');
-        expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'public, max-age=3600');
+        expect(res.setHeader).toHaveBeenCalledWith('content-type', 'image/png');
+        expect(res.setHeader).toHaveBeenCalledWith('content-length', '2048');
+        expect(res.setHeader).toHaveBeenCalledWith('cache-control', 'public, max-age=3600');
         expect(res.status).toHaveBeenCalledWith(200);
      });
 
      it('serves the bundled default, not a 404, when white-label is off, without looking for the custom file', async () => {
         process.env.NEXT_PUBLIC_WHITE_LABEL = 'false';
-        filesOnDisk({ [CUSTOM_LOGO]: 2048, [DEFAULT_LOGO]: 99 });
-        const res = createResponse();
+        filesOnDisk({ [CUSTOM_LOGO]: png(2048), [DEFAULT_LOGO]: png(99) });
+        const res = createMockResponse();
 
-        await handler(createMockRequest({ method: 'HEAD' }), res);
+        await handler(createMockRequest({ method: 'GET' }), res);
 
-        expect(statMock).not.toHaveBeenCalledWith(CUSTOM_LOGO);
-        expect(res.setHeader).toHaveBeenCalledWith('Content-Length', '99');
-        expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'public, max-age=300');
+        expect(readFileMock).not.toHaveBeenCalledWith(CUSTOM_LOGO);
+        expect(res.setHeader).toHaveBeenCalledWith('content-length', '99');
+        expect(res.setHeader).toHaveBeenCalledWith('cache-control', 'public, max-age=300');
         expect(res.status).toHaveBeenCalledWith(200);
      });
 
      it('serves the bundled default when white-label is on but logo.png is missing', async () => {
-        filesOnDisk({ [DEFAULT_LOGO]: 99 });
-        const res = createResponse();
+        filesOnDisk({ [DEFAULT_LOGO]: png(99) });
+        const res = createMockResponse();
 
         await handler(createMockRequest({ method: 'GET' }), res);
 
-        expect(streamMock).toHaveBeenCalledWith(DEFAULT_LOGO);
-        expect(res.status).not.toHaveBeenCalledWith(404);
+        expect(readFileMock).toHaveBeenCalledWith(DEFAULT_LOGO);
+        expect(res.status).toHaveBeenCalledWith(200);
      });
 
      it('answers 404 only when not even the bundled default exists', async () => {
         filesOnDisk({});
-        const res = createResponse();
+        const res = createMockResponse();
 
         await handler(createMockRequest({ method: 'GET' }), res);
 
@@ -233,20 +225,20 @@ describe('logo route', () => {
 
      it('ignores the old WHITE_LABEL_LOGO_FILE setting: only fixed paths are ever read', async () => {
         process.env.WHITE_LABEL_LOGO_FILE = '../settings.json';
-        filesOnDisk({ [CUSTOM_LOGO]: 10 });
+        filesOnDisk({ [CUSTOM_LOGO]: png(10) });
 
-        await handler(createMockRequest({ method: 'HEAD' }), createResponse());
+        await handler(createMockRequest({ method: 'GET' }), createMockResponse());
 
-        expect(statMock.mock.calls.map(([filePath]) => filePath)).toEqual([CUSTOM_LOGO]);
+        expect(readFileMock.mock.calls.map(([filePath]) => filePath)).toEqual([CUSTOM_LOGO]);
      });
 
      it('rejects methods other than GET and HEAD', async () => {
-        const res = createResponse();
+        const res = createMockResponse();
 
         await handler(createMockRequest({ method: 'POST' }), res);
 
         expect(res.status).toHaveBeenCalledWith(405);
-        expect(statMock).not.toHaveBeenCalled();
+        expect(readFileMock).not.toHaveBeenCalled();
      });
   });
 });

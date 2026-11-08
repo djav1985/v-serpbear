@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Op } from 'sequelize';
-import handler from '../pages/api/serp/keywords';
+import { asHandler } from './__helpers__/routeAdapter';
+import * as handlerRoute from '../app/api/serp/keywords/route';
 import db from '../database/database';
 import Keyword from '../database/models/keyword';
 import verifyUser from '../utils/verifyUser';
@@ -10,6 +11,7 @@ import { refreshQueue } from '../utils/refreshQueue';
 import { updateDomainStats } from '../utils/updateDomainStats';
 import { createMockRequest, createMockResponse } from './__helpers__';
 import parseKeywords from '../utils/parseKeywords';
+const handler = asHandler(handlerRoute);
 
 jest.mock('../database/database', () => ({
   __esModule: true,
@@ -70,10 +72,7 @@ jest.mock('../utils/refreshQueue', () => ({
     };
   })(),
 }));
-jest.mock('../utils/apiLogging', () => ({
-  __esModule: true,
-  withApiLogging: (handler: any) => handler,
-}));
+jest.mock('../utils/apiLogging', () => require('./__helpers__/apiLoggingMock').apiLoggingMock());
 jest.mock('../utils/updateDomainStats', () => ({
   __esModule: true,
   updateDomainStats: jest.fn().mockResolvedValue(undefined),
@@ -98,7 +97,7 @@ describe('keywords', () => {
 
   describe('PUT /api/serp/keywords error handling', () => {
     beforeEach(() => {
-      jest.useFakeTimers().setSystemTime(new Date('2024-06-01T12:00:00.000Z'));
+      jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] }).setSystemTime(new Date('2024-06-01T12:00:00.000Z'));
       jest.clearAllMocks();
       dbMock.sync.mockResolvedValue(undefined);
       verifyUserMock.mockReturnValue('authorized');
@@ -141,7 +140,7 @@ describe('keywords', () => {
       await handler(req, res);
 
       // db.sync() is now called at startup via instrumentation, not in handlers
-      expect(verifyUserMock).toHaveBeenCalledWith(req, res);
+      expect(verifyUserMock).toHaveBeenCalledWith(expect.any(Request));
       expect(keywordMock.update).toHaveBeenCalledWith({ sticky: 1 }, { where: { ID: { [Op.in]: [1] } } });
       expect(keywordMock.findAll).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(500);
@@ -413,7 +412,7 @@ describe('keywords', () => {
 
   describe('PUT /api/serp/keywords tags updates', () => {
     beforeEach(() => {
-      jest.useFakeTimers().setSystemTime(new Date('2024-06-01T12:00:00.000Z'));
+      jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] }).setSystemTime(new Date('2024-06-01T12:00:00.000Z'));
       jest.clearAllMocks();
       dbMock.sync.mockResolvedValue(undefined);
       verifyUserMock.mockReturnValue('authorized');

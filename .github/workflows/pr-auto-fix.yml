@@ -35,15 +35,15 @@ jobs:
         shell: bash
         run: |
           if [ -f node_modules/eslint/bin/eslint.js ]; then
-            if find components pages utils -type f \( -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" \) | grep -q .; then
+            if find components app utils -type f \( -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" \) | grep -q .; then
               node node_modules/eslint/bin/eslint.js \
                 --config eslint.config.mjs \
                 "components/**/*.{js,jsx,ts,tsx}" \
-                "pages/**/*.{js,jsx,ts,tsx}" \
+                "app/**/*.{js,jsx,ts,tsx}" \
                 "utils/**/*.{js,jsx,ts,tsx}" \
                 --fix || true
             else
-              echo "No JS/TS files found in components, pages, or utils. Skipping ESLint."
+              echo "No JS/TS files found in components, app, or utils. Skipping ESLint."
             fi
           else
             echo "ESLint not installed locally. Skipping."

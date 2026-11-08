@@ -1,8 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import loginHandler from '../../pages/api/auth/login';
-import logoutHandler from '../../pages/api/auth/logout';
+import { asHandler } from '../__helpers__/routeAdapter';
+import * as loginHandlerRoute from '../../app/api/auth/login/route';
+import * as logoutHandlerRoute from '../../app/api/auth/logout/route';
 import verifyUser from '../../utils/verifyUser';
-import Cookies from 'cookies';
+const loginHandler = asHandler(loginHandlerRoute);
+const logoutHandler = asHandler(logoutHandlerRoute);
 
 // Mock the logger to prevent console output during tests
 jest.mock('../../utils/logger', () => ({
@@ -17,9 +19,7 @@ jest.mock('../../utils/logger', () => ({
 }));
 
 // Mock the API logging middleware
-jest.mock('../../utils/apiLogging', () => ({
-  withApiLogging: (handler: any) => handler,
-}));
+jest.mock('../../utils/apiLogging', () => require('../__helpers__/apiLoggingMock').apiLoggingMock());
 
 type MutableEnv = typeof process.env & {
    USER?: string;
@@ -29,12 +29,11 @@ type MutableEnv = typeof process.env & {
    SESSION_DURATION?: string;
 };
 
-const setCookieMock = jest.fn();
-
-jest.mock('cookies', () => ({
-   __esModule: true,
-   default: jest.fn(() => ({ set: setCookieMock })),
-}));
+/** The Set-Cookie header a route wrote to the mock response, or undefined. */
+const setCookieHeader = (res: NextApiResponse): string | undefined => {
+   const call = (res.setHeader as jest.Mock).mock.calls.find(([name]) => String(name).toLowerCase() === 'set-cookie');
+   return call?.[1];
+};
 
 jest.mock('../../utils/verifyUser', () => ({
    __esModule: true,
@@ -43,12 +42,12 @@ jest.mock('../../utils/verifyUser', () => ({
 
 describe('Authentication cookie handling', () => {
    const originalEnv = process.env;
-   const CookiesMock = Cookies as unknown as jest.Mock;
 
    const createResponse = () => {
       const res = {
          status: jest.fn().mockReturnThis(),
          json: jest.fn(),
+         setHeader: jest.fn(),
       } as unknown as NextApiResponse;
       return res;
    };
@@ -59,8 +58,6 @@ describe('Authentication cookie handling', () => {
       (process.env as MutableEnv).PASSWORD = 'password';
       (process.env as MutableEnv).SECRET = 'shhh';
       (verifyUser as jest.Mock).mockReturnValue('authorized');
-      setCookieMock.mockClear();
-      CookiesMock.mockClear();
    });
 
    afterEach(() => {
@@ -71,7 +68,7 @@ describe('Authentication cookie handling', () => {
    it('sets the cookie maxAge and expires based on the configured session duration', async () => {
       (process.env as MutableEnv).SESSION_DURATION = '12';
       const baseTime = new Date('2024-01-01T00:00:00.000Z');
-      jest.useFakeTimers().setSystemTime(baseTime);
+      jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] }).setSystemTime(baseTime);
 
       const req = {
          method: 'POST',
@@ -86,20 +83,13 @@ describe('Authentication cookie handling', () => {
 
       await loginHandler(req as NextApiRequest, res);
 
-      expect(setCookieMock).toHaveBeenCalledTimes(1);
-      const [, , options] = setCookieMock.mock.calls[0];
-      expect(options).toMatchObject({
-         httpOnly: true,
-         sameSite: 'lax',
-         maxAge: 12 * 60 * 60 * 1000,
-      });
-      expect(options.expires).toEqual(new Date(baseTime.getTime() + (12 * 60 * 60 * 1000)));
-      expect(options.secure).toBe(false);
-
-      const [cookiesReq, cookiesRes, cookiesOptions] = CookiesMock.mock.calls[0];
-      expect(cookiesReq).toBe(req);
-      expect(cookiesRes).toBe(res);
-      expect(cookiesOptions).toEqual({ secure: false });
+      const cookie = setCookieHeader(res) as string;
+      expect(cookie).toMatch(/^token=[^;]+; Path=\//);
+      expect(cookie).toContain('HttpOnly');
+      expect(cookie).toContain('SameSite=Lax');
+      expect(cookie).toContain(`Max-Age=${12 * 60 * 60}`);
+      expect(cookie).toContain(`Expires=${new Date(baseTime.getTime() + (12 * 60 * 60 * 1000)).toUTCString()}`);
+      expect(cookie).not.toContain('Secure');
 
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({ success: true });
@@ -108,7 +98,7 @@ describe('Authentication cookie handling', () => {
    it('defaults to a 24 hour session when SESSION_DURATION is missing or invalid', async () => {
       (process.env as MutableEnv).SESSION_DURATION = 'not-a-number';
       const baseTime = new Date('2024-01-01T00:00:00.000Z');
-      jest.useFakeTimers().setSystemTime(baseTime);
+      jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] }).setSystemTime(baseTime);
 
       const req = {
          method: 'POST',
@@ -123,10 +113,9 @@ describe('Authentication cookie handling', () => {
 
       await loginHandler(req as NextApiRequest, res);
 
-      expect(setCookieMock).toHaveBeenCalledTimes(1);
-      const [, , options] = setCookieMock.mock.calls[0];
-      expect(options.maxAge).toBe(24 * 60 * 60 * 1000);
-      expect(options.expires).toEqual(new Date(baseTime.getTime() + (24 * 60 * 60 * 1000)));
+      const cookie = setCookieHeader(res) as string;
+      expect(cookie).toContain(`Max-Age=${24 * 60 * 60}`);
+      expect(cookie).toContain(`Expires=${new Date(baseTime.getTime() + (24 * 60 * 60 * 1000)).toUTCString()}`);
    });
 
    it('clears the authentication cookie on logout', async () => {
@@ -142,19 +131,14 @@ describe('Authentication cookie handling', () => {
 
       await logoutHandler(req as NextApiRequest, res);
 
-      expect(verifyUser).toHaveBeenCalledWith(req, res);
-      expect(setCookieMock).toHaveBeenCalledWith('token', '', expect.objectContaining({
-         httpOnly: true,
-         sameSite: 'lax',
-         maxAge: 0,
-         path: '/',
-         expires: new Date(0),
-         secure: false,
-      }));
-      const [cookiesReq, cookiesRes, cookiesOptions] = CookiesMock.mock.calls[0];
-      expect(cookiesReq).toBe(req);
-      expect(cookiesRes).toBe(res);
-      expect(cookiesOptions).toEqual({ secure: false });
+      expect(verifyUser).toHaveBeenCalledWith(expect.any(Request));
+      const cookie = setCookieHeader(res) as string;
+      expect(cookie).toMatch(/^token=; Path=\//);
+      expect(cookie).toContain('Max-Age=0');
+      expect(cookie).toContain(`Expires=${new Date(0).toUTCString()}`);
+      expect(cookie).toContain('HttpOnly');
+      expect(cookie).toContain('SameSite=Lax');
+      expect(cookie).not.toContain('Secure');
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({ success: true });
    });
@@ -178,11 +162,7 @@ describe('Authentication cookie handling', () => {
 
       await loginHandler(loginReq as NextApiRequest, loginRes);
 
-      const [, , loginOptions] = setCookieMock.mock.calls[0];
-      expect(loginOptions.secure).toBe(true);
-
-      const loginCookieConstructorCall = CookiesMock.mock.calls.find(([reqArg]) => reqArg === loginReq);
-      expect(loginCookieConstructorCall?.[2]).toEqual({ secure: true });
+      expect(setCookieHeader(loginRes)).toContain('Secure');
 
       const logoutReq = {
          method: 'POST',
@@ -197,10 +177,7 @@ describe('Authentication cookie handling', () => {
 
       await logoutHandler(logoutReq as NextApiRequest, logoutRes);
 
-      const logoutOptions = setCookieMock.mock.calls.find((call) => call[0] === 'token' && call[1] === '');
-      expect(logoutOptions?.[2].secure).toBe(true);
-      const logoutCookieConstructorCall = CookiesMock.mock.calls.find(([reqArg]) => reqArg === logoutReq);
-      expect(logoutCookieConstructorCall?.[2]).toEqual({ secure: true });
+      expect(setCookieHeader(logoutRes)).toContain('Secure');
    });
 
    it('rejects credentials that only share the first 256 characters', async () => {
@@ -209,7 +186,7 @@ describe('Authentication cookie handling', () => {
       const req = { method: 'POST', headers: {}, body: { username: 'a'.repeat(256) + 'different', password: 'b'.repeat(256) + 'different' } } as unknown as NextApiRequest;
       const res = createResponse(); await loginHandler(req, res);
       expect(res.status).toHaveBeenCalledWith(401);
-      expect(setCookieMock).not.toHaveBeenCalled();
+      expect(setCookieHeader(res)).toBeUndefined();
    });
 
    it.each([{ username: {}, password: 'password' }, { username: 'admin', password: 123 }, { username: ['admin'], password: 'password' }])('returns a client error for malformed credentials', async (body) => {
@@ -248,7 +225,7 @@ describe('login lockout', () => {
     jest.resetModules();
     jest.doMock('../../utils/sessionStore', () => ({ getSessionVersion: jest.fn(() => 0) }));
     jest.isolateModules(() => {
-      isolatedLoginHandler = require('../../pages/api/auth/login').default;
+      isolatedLoginHandler = require('../__helpers__/routeAdapter').asModule(require('../../app/api/auth/login/route')).default;
       resetLoginThrottle = require('../../utils/loginThrottle').resetLoginThrottle;
     });
   });
@@ -260,7 +237,7 @@ describe('login lockout', () => {
       headers: {},
       socket: { remoteAddress: ip },
     } as unknown as NextApiRequest;
-    const res = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
+    const res = { status: jest.fn().mockReturnThis(), json: jest.fn(), setHeader: jest.fn() } as unknown as NextApiResponse;
     await isolatedLoginHandler(req, res);
     return (res.status as jest.Mock).mock.calls[0][0] as number;
   };
@@ -269,7 +246,8 @@ describe('login lockout', () => {
     resetLoginThrottle();
     Object.assign(process.env, { USER: 'admin', PASSWORD: 'right-password', SECRET: 'shhh' });
     delete process.env.USER_NAME;
-    delete process.env.TRUST_PROXY;
+    // The client address comes from X-Forwarded-For, which is only read behind a configured proxy
+    process.env.TRUST_PROXY = '1';
   });
 
   afterAll(() => {

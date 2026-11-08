@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import handler from '../../pages/api/app/cron';
+import { asHandler } from '../__helpers__/routeAdapter';
+import * as handlerRoute from '../../app/api/app/cron/route';
 import db from '../../database/database';
 import Domain from '../../database/models/domain';
 import Keyword from '../../database/models/keyword';
@@ -7,6 +8,7 @@ import verifyUser from '../../utils/verifyUser';
 import refreshAndUpdateKeywords from '../../utils/refresh';
 import { getAppSettings } from '../../utils/appSettings';
 import { refreshQueue } from '../../utils/refreshQueue';
+const handler = asHandler(handlerRoute);
 
 jest.mock('../../database/database', () => ({
   __esModule: true,
@@ -39,9 +41,7 @@ jest.mock('../../utils/refresh', () => {
   };
 });
 
-jest.mock('../../utils/apiLogging', () => ({
-  withApiLogging: (handler: any) => handler,
-}));
+jest.mock('../../utils/apiLogging', () => require('../__helpers__/apiLoggingMock').apiLoggingMock());
 
 jest.mock('../../utils/refreshQueue', () => ({
   refreshQueue: {
@@ -71,7 +71,7 @@ describe('/api/app/cron', () => {
   let res: MockedResponse;
 
   beforeEach(() => {
-    jest.useFakeTimers().setSystemTime(new Date('2024-06-01T12:00:00.000Z'));
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] }).setSystemTime(new Date('2024-06-01T12:00:00.000Z'));
     res = {
       status: jest.fn().mockReturnThis(),
       json: jest.fn(),

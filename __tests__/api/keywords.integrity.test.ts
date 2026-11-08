@@ -1,7 +1,8 @@
 import { Op } from 'sequelize';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { buildStoredLocation } from '../../utils/location';
-import handler from '../../pages/api/serp/keywords';
+import { asHandler } from '../__helpers__/routeAdapter';
+import * as handlerRoute from '../../app/api/serp/keywords/route';
 import Keyword from '../../database/models/keyword';
 import Domain from '../../database/models/domain';
 import verifyUser from '../../utils/verifyUser';
@@ -10,6 +11,7 @@ import { getKeywordsVolume } from '../../utils/adwords';
 import { refreshQueue } from '../../utils/refreshQueue';
 import { updateDomainStats } from '../../utils/updateDomainStats';
 import { createMockRequest, createMockResponse } from '../__helpers__';
+const handler = asHandler(handlerRoute);
 
 jest.mock('../../database/database', () => ({
   __esModule: true,
@@ -49,7 +51,7 @@ jest.mock('../../utils/retryQueueManager', () => ({
   __esModule: true,
   retryQueueManager: { removeBatch: jest.fn().mockResolvedValue(undefined) },
 }));
-jest.mock('../../utils/apiLogging', () => ({ withApiLogging: (apiHandler: any) => apiHandler }));
+jest.mock('../../utils/apiLogging', () => require('../__helpers__/apiLoggingMock').apiLoggingMock());
 jest.mock('../../utils/updateDomainStats', () => ({ __esModule: true, updateDomainStats: jest.fn().mockResolvedValue(undefined) }));
 
 const KeywordMock = Keyword as unknown as { findAll: jest.Mock; bulkCreate: jest.Mock; update: jest.Mock };

@@ -2,10 +2,12 @@ import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
 import type { NextApiRequest, NextApiResponse } from 'next';
-import handler from '../pages/api/mcp';
+import { asHandler } from './__helpers__/routeAdapter';
+import * as handlerRoute from '../app/api/mcp/route';
 import { createMockRequest, createMockResponse } from './__helpers__';
+const handler = asHandler(handlerRoute);
 
-jest.mock('../utils/apiLogging', () => ({ withApiLogging: (fn: any) => fn }));
+jest.mock('../utils/apiLogging', () => require('./__helpers__/apiLoggingMock').apiLoggingMock());
 jest.mock('@modelcontextprotocol/sdk/server/mcp.js', () => ({ McpServer: jest.fn() }));
 jest.mock('@modelcontextprotocol/sdk/server/streamableHttp.js', () => ({ StreamableHTTPServerTransport: jest.fn() }));
 

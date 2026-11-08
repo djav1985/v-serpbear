@@ -9,9 +9,8 @@ import parseKeywords from '../utils/parseKeywords';
 import sqlite from '../database/sqlite-dialect';
 import { historyKeyToTime, normalizeHistoryDateKey, toHistoryDateKey } from '../utils/historyDateKey';
 import { UNRANKED_PENALTY_PER_PAGE, getUnrankedPenalty, summarizeAveragePosition } from '../utils/averagePosition';
-import type { NextApiRequest } from 'next';
 import isRequestSecure from '../utils/api/isRequestSecure';
-import { parseStrictBooleanQueryParam } from '../pages/api/serp/domains';
+import { parseStrictBooleanQueryParam } from '../utils/api/queryBoolean';
 import { errorResponse } from '../utils/api/response';
 import normalizeOrigin from '../utils/normalizeOrigin';
 
@@ -623,13 +622,13 @@ describe('api helpers', () => {
   // isRequestSecure
   // ---------------------------------------------------------------------------
 
+  // `encrypted` stands for the request reaching the app over HTTPS itself (the request URL scheme)
   const createRequestWithHeaders = (
     headers: Record<string, string | string[]>,
     encrypted?: boolean,
-  ): NextApiRequest => {
-    const socket = encrypted !== undefined ? { encrypted } : undefined;
-    return { headers, socket } as unknown as NextApiRequest;
-  };
+  ): Request => new Request(`${encrypted ? 'https' : 'http'}://app.test/api/test`, {
+    headers: Object.fromEntries(Object.entries(headers).map(([key, value]) => [key, Array.isArray(value) ? value.join(', ') : value])),
+  });
 
   describe('isRequestSecure', () => {
     const originalTrustProxy = process.env.TRUST_PROXY;
@@ -663,7 +662,7 @@ describe('api helpers', () => {
       expect(isRequestSecure(createRequestWithHeaders({ 'x-forwarded-ssl': 'ON' }))).toBe(true);
     });
 
-    it('ignores forwarded protocol headers without TRUST_PROXY and uses only socket encryption', () => {
+    it('ignores forwarded protocol headers without TRUST_PROXY and uses only the request URL scheme', () => {
       delete process.env.TRUST_PROXY;
       expect(isRequestSecure(createRequestWithHeaders({ 'x-forwarded-proto': 'https' }))).toBe(false);
       expect(isRequestSecure(createRequestWithHeaders({ 'x-forwarded-protocol': 'https' }))).toBe(false);
@@ -671,7 +670,7 @@ describe('api helpers', () => {
       expect(isRequestSecure(createRequestWithHeaders({ 'x-forwarded-proto': 'https' }, true))).toBe(true);
     });
 
-    it('falls back to socket encryption and reports insecure when no indicator is present', () => {
+    it('falls back to the request URL scheme and reports insecure when no indicator is present', () => {
       expect(isRequestSecure(createRequestWithHeaders({}, true))).toBe(true);
       expect(isRequestSecure(createRequestWithHeaders({}, false))).toBe(false);
       expect(isRequestSecure(createRequestWithHeaders({}))).toBe(false);

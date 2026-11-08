@@ -1,7 +1,8 @@
  
 import { NextApiRequest, NextApiResponse } from 'next';
 import nodeMailer from 'nodemailer';
-import handler from '../pages/api/app/email';
+import { asHandler } from './__helpers__/routeAdapter';
+import * as handlerRoute from '../app/api/app/email/route';
 import db from '../database/database';
 import Domain from '../database/models/domain';
 import Keyword from '../database/models/keyword';
@@ -11,6 +12,7 @@ import generateEmail from '../utils/generateEmail';
 import { getAppSettings } from '../utils/appSettings';
 import { getBranding } from '../utils/branding';
 import { reserveEmailSend } from '../utils/emailThrottle';
+const handler = asHandler(handlerRoute);
 
 jest.mock('../database/database', () => ({
   __esModule: true,
@@ -38,9 +40,7 @@ jest.mock('../utils/appSettings', () => ({
   __esModule: true,
   getAppSettings: jest.fn(),
 }));
-jest.mock('../utils/apiLogging', () => ({
-  withApiLogging: (handler: any) => handler,
-}));
+jest.mock('../utils/apiLogging', () => require('./__helpers__/apiLoggingMock').apiLoggingMock());
 
 describe('email digest', () => {
   const { platformName } = getBranding();
@@ -91,7 +91,7 @@ describe('email digest', () => {
 
       await handler(req as NextApiRequest, res as NextApiResponse);
 
-      expect(verifyUser).toHaveBeenCalledWith(req, res);
+      expect(verifyUser).toHaveBeenCalledWith(expect.any(Request));
       expect(res.status).toHaveBeenCalledWith(401);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({ error: expect.objectContaining({ code: 'UNAUTHORIZED' }) }),
@@ -138,8 +138,8 @@ describe('email digest', () => {
         authorization: 'Bearer valid-key',
       };
 
-      (verifyUser as jest.Mock).mockImplementation((incomingReq: NextApiRequest) => (
-        incomingReq.headers?.authorization === 'Bearer valid-key'
+      (verifyUser as jest.Mock).mockImplementation((incomingReq: Request) => (
+        incomingReq.headers.get('authorization') === 'Bearer valid-key'
           ? 'authorized'
           : 'Invalid API Key Provided.'
       ));
@@ -187,7 +187,7 @@ describe('email digest', () => {
 
       await handler(req as NextApiRequest, res as NextApiResponse);
 
-      expect(verifyUser).toHaveBeenCalledWith(req, res);
+      expect(verifyUser).toHaveBeenCalledWith(expect.any(Request));
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, error: null }));
       expect(Domain.findAll).toHaveBeenCalledTimes(1);
@@ -587,10 +587,10 @@ describe('email routing', () => {
   let sendIdeasEmail: any;
   jest.isolateModules(() => {
     jest.doMock('../utils/verifyUser');
-    jest.doMock('../utils/apiLogging', () => ({ withApiLogging: (fn: unknown) => fn }));
-    jest.doMock('../utils/api/emailDigest', () => ({ sendDigestEmails: jest.fn() }));
-    jest.doMock('../utils/api/emailIdeas', () => ({ sendIdeasEmail: jest.fn() }));
-    const m0 = require('../pages/api/app/email');
+    jest.doMock('../utils/apiLogging', () => require('./__helpers__/apiLoggingMock').apiLoggingMock());
+    jest.doMock('../utils/api/emailDigest', () => ({ sendDigestEmails: jest.fn(async () => Response.json({ success: true })) }));
+    jest.doMock('../utils/api/emailIdeas', () => ({ sendIdeasEmail: jest.fn(async () => Response.json({ success: true })) }));
+    const m0 = require('./__helpers__/routeAdapter').asModule(require('../app/api/app/email/route'));
     handler = m0 && m0.__esModule ? m0.default : m0;
     const m1 = require('../utils/verifyUser');
     verifyUser = m1 && m1.__esModule ? m1.default : m1;

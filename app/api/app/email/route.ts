@@ -1,4 +1,4 @@
-import { createRoute, fail, getParam, type ApiContext } from '../../../../utils/apiLogging';
+import { createRoute, fail, getQuery, type ApiContext } from '../../../../utils/apiLogging';
 import { hasValidSessionCookie } from '../../../../utils/verifyUser';
 import { sendDigestEmails } from '../../../../utils/api/emailDigest';
 import { sendIdeasEmail } from '../../../../utils/api/emailIdeas';
@@ -8,7 +8,7 @@ import { sendIdeasEmail } from '../../../../utils/api/emailIdeas';
  * POST /api/app/email?type=ideas    Emails selected keyword ideas (JSON body). Needs a login session; an API key is refused.
  */
 const sendEmail = async (req: Request, ctx: ApiContext) => {
-   const type = getParam(req, 'type');
+   const { type } = getQuery(req);
    if (type === 'digest') {
       return sendDigestEmails(req, ctx);
    }

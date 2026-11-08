@@ -9,10 +9,13 @@ import { trimStringProperties, trimString, sanitizeSmtpHost } from '../security'
 import { buildMailer } from '../mailer';
 import { logger } from '../logger';
 import normalizeDomainBooleans from '../normalizeDomain';
-import { fail, json, getParam, type ApiContext } from '../apiLogging';
+import { fail, json, getQuery, type ApiContext } from '../apiLogging';
 
 export const sendDigestEmails = async (req: Request, ctx: ApiContext) => {
-   const rawDomain = getParam(req, 'domain');
+   const rawDomain = getQuery(req).domain;
+   if (rawDomain !== undefined && typeof rawDomain !== 'string') {
+      return fail(400, 'BAD_REQUEST', 'domain must be a single domain name.', ctx);
+   }
    // Domains are stored trimmed and lowercase
    const reqDomain = (rawDomain || '').trim().toLowerCase();
    try {

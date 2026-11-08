@@ -1,7 +1,8 @@
  
 import type { NextApiRequest, NextApiResponse } from 'next';
 import nodeMailer from 'nodemailer';
-import handler from '../pages/api/app/email';
+import { asHandler } from './__helpers__/routeAdapter';
+import * as handlerRoute from '../app/api/app/email/route';
 import db from '../database/database';
 import Domain from '../database/models/domain';
 import verifyUser, { hasValidSessionCookie } from '../utils/verifyUser';
@@ -10,6 +11,7 @@ import generateKeywordIdeasEmail from '../utils/generateKeywordIdeasEmail';
 import { getBranding } from '../utils/branding';
 import { readFile, rename, writeFile } from 'fs/promises';
 import { reserveEmailSend } from '../utils/emailThrottle';
+const handler = asHandler(handlerRoute);
 
 jest.mock('../database/database', () => ({
    __esModule: true,
@@ -29,11 +31,7 @@ jest.mock('nodemailer', () => ({
    __esModule: true,
    default: { createTransport: jest.fn() },
 }));
-jest.mock('../utils/apiLogging', () => ({
-   __esModule: true,
-   default: (h: any) => h,
-   withApiLogging: (h: any) => h,
-}));
+jest.mock('../utils/apiLogging', () => require('./__helpers__/apiLoggingMock').apiLoggingMock());
 jest.mock('../database/init', () => ({
    ensureDatabase: jest.fn().mockResolvedValue(undefined),
 }));
@@ -120,7 +118,7 @@ describe('email ideas', () => {
 
         await handler(req as NextApiRequest, res as NextApiResponse);
 
-        expect(verifyUser).toHaveBeenCalledWith(req, res);
+        expect(verifyUser).toHaveBeenCalledWith(expect.any(Request));
         expect(res.status).toHaveBeenCalledWith(401);
         expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
            error: expect.objectContaining({ code: 'UNAUTHORIZED', message: 'Unauthorized' }),

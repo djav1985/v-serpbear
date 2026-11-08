@@ -1,8 +1,8 @@
  
 import type { NextApiRequest, NextApiResponse } from 'next';
 import verifyUser, { checkApiKey } from '../utils/verifyUser';
+import { buildRequest } from './__helpers__/routeAdapter';
 import jwt from 'jsonwebtoken';
-import Cookies from 'cookies';
 import { getApiKeyAttemptKeys } from '../utils/apiKeyThrottle';
 import { clearLoginFailures, isLoginLocked, recordLoginFailure, resetLoginThrottle } from '../utils/loginThrottle';
 import { resetRateLimits, takeRateLimitToken } from '../utils/rateLimit';
@@ -11,7 +11,6 @@ import { atomicWriteFile } from '../utils/atomicWrite';
 import { getSessionVersion } from '../utils/sessionStore';
 
 jest.mock('jsonwebtoken');
-jest.mock('cookies');
 jest.mock('../utils/sessionStore', () => ({
    getSessionVersion: jest.fn(() => 0),
 }));
@@ -41,24 +40,20 @@ jest.mock('../utils/atomicWrite', () => ({
 describe('verifyUser, login throttle, session store', () => {
   describe('verifyUser', () => {
     describe('verifyUser', () => {
-       let req: Partial<NextApiRequest>;
-       let res: Partial<NextApiResponse>;
+       let req: Partial<NextApiRequest> & { cookies?: Record<string, string> };
        const originalEnv = process.env;
 
        beforeEach(() => {
           jest.clearAllMocks();
           process.env = { ...originalEnv };
+          // The client address comes from X-Forwarded-For, which is read only behind a configured proxy
+          process.env.TRUST_PROXY = '1';
       
           req = {
              method: 'GET',
              url: '/api/serp/domains',
              headers: {},
              cookies: {},
-          };
-      
-          res = {
-             setHeader: jest.fn(),
-             getHeader: jest.fn(),
           };
        });
 
@@ -73,7 +68,7 @@ describe('verifyUser, login throttle, session store', () => {
              req.url = '/api/serp/domains';
              req.method = 'GET';
 
-             const result = verifyUser(req as NextApiRequest, res as NextApiResponse);
+             const result = verifyUser(buildRequest(req));
 
              expect(result).toBe('Invalid API Key Provided.');
           });
@@ -84,7 +79,7 @@ describe('verifyUser, login throttle, session store', () => {
              req.url = '/api/serp/domains';
              req.method = 'GET';
 
-             const result = verifyUser(req as NextApiRequest, res as NextApiResponse);
+             const result = verifyUser(buildRequest(req));
 
              expect(result).toBe('authorized');
           });
@@ -95,7 +90,7 @@ describe('verifyUser, login throttle, session store', () => {
              req.url = '/api/serp/domains';
              req.method = 'GET';
 
-             const result = verifyUser(req as NextApiRequest, res as NextApiResponse);
+             const result = verifyUser(buildRequest(req));
 
              expect(result).toBe('Invalid API Key Provided.');
           });
@@ -105,9 +100,9 @@ describe('verifyUser, login throttle, session store', () => {
              req.socket = { remoteAddress: '203.0.113.9' } as NextApiRequest['socket'];
              const attempt = (key: string) => {
                 req.headers = { authorization: `Bearer ${key}` };
-                verifyUser(req as NextApiRequest, res as NextApiResponse);
+                verifyUser(buildRequest(req));
              };
-             const keys = getApiKeyAttemptKeys(req as NextApiRequest);
+             const keys = getApiKeyAttemptKeys(buildRequest(req));
              resetLoginThrottle();
 
              for (let i = 0; i < 4; i += 1) { attempt('wrong'); }
@@ -123,12 +118,12 @@ describe('verifyUser, login throttle, session store', () => {
           it('does not count non-Bearer Authorization headers as API key attempts', () => {
              process.env.APIKEY = 'test-api-key';
              req.socket = { remoteAddress: '203.0.113.20' } as NextApiRequest['socket'];
-             const keys = getApiKeyAttemptKeys(req as NextApiRequest);
+             const keys = getApiKeyAttemptKeys(buildRequest(req));
              resetLoginThrottle();
 
              for (let i = 0; i < 10; i += 1) {
                 req.headers = { authorization: 'Basic dXNlcjpwYXNz' };
-                verifyUser(req as NextApiRequest, res as NextApiResponse);
+                verifyUser(buildRequest(req));
              }
 
              expect(isLoginLocked(keys)).toBe(false);
@@ -138,14 +133,14 @@ describe('verifyUser, login throttle, session store', () => {
              process.env.APIKEY = 'test-api-key';
              process.env.SECRET = 'test-secret';
              req.socket = { remoteAddress: '203.0.113.21' } as NextApiRequest['socket'];
-             (Cookies as jest.MockedClass<typeof Cookies>).mockImplementation(() => ({ get: jest.fn().mockReturnValue('valid-jwt-token') } as any));
+             req.cookies = { token: 'valid-jwt-token' };
              (jwt.verify as jest.Mock).mockReturnValue({ user: 'testuser' });
-             const keys = getApiKeyAttemptKeys(req as NextApiRequest);
+             const keys = getApiKeyAttemptKeys(buildRequest(req));
              resetLoginThrottle();
 
              for (let i = 0; i < 10; i += 1) {
                 req.headers = { authorization: 'Bearer wrong' };
-                expect(verifyUser(req as NextApiRequest, res as NextApiResponse)).toBe('authorized');
+                expect(verifyUser(buildRequest(req))).toBe('authorized');
              }
 
              expect(isLoginLocked(keys)).toBe(false);
@@ -157,7 +152,7 @@ describe('verifyUser, login throttle, session store', () => {
              req.url = '/api/serp/domains';
              req.method = 'GET';
 
-             const result = verifyUser(req as NextApiRequest, res as NextApiResponse);
+             const result = verifyUser(buildRequest(req));
 
              expect(result).toBe('Invalid API Key Provided.');
           });
@@ -167,15 +162,11 @@ describe('verifyUser, login throttle, session store', () => {
           it('should authorize valid JWT token synchronously', () => {
              process.env.SECRET = 'test-secret';
          
-             // Mock Cookies to return a valid JWT token
-             const mockGet = jest.fn().mockReturnValue('valid-jwt-token');
-             (Cookies as jest.MockedClass<typeof Cookies>).mockImplementation(() => ({
-                get: mockGet,
-             } as any));
+             req.cookies = { token: 'valid-jwt-token' };
          
              (jwt.verify as jest.Mock).mockReturnValue({ user: 'testuser' });
 
-             const result = verifyUser(req as NextApiRequest, res as NextApiResponse);
+             const result = verifyUser(buildRequest(req));
 
              expect(jwt.verify).toHaveBeenCalledWith('valid-jwt-token', 'test-secret');
              expect(result).toBe('authorized');
@@ -184,17 +175,13 @@ describe('verifyUser, login throttle, session store', () => {
           it('should reject invalid JWT token synchronously', () => {
              process.env.SECRET = 'test-secret';
          
-             // Mock Cookies to return an invalid JWT token
-             const mockGet = jest.fn().mockReturnValue('invalid-jwt-token');
-             (Cookies as jest.MockedClass<typeof Cookies>).mockImplementation(() => ({
-                get: mockGet,
-             } as any));
+             req.cookies = { token: 'invalid-jwt-token' };
          
              (jwt.verify as jest.Mock).mockImplementation(() => {
                 throw new Error('Invalid token');
              });
 
-             const result = verifyUser(req as NextApiRequest, res as NextApiResponse);
+             const result = verifyUser(buildRequest(req));
 
              expect(result).toBe('Not authorized');
           });
@@ -207,7 +194,7 @@ describe('verifyUser, login throttle, session store', () => {
              req.url = '/api/app/cron';
              req.method = 'POST';
 
-             const result = verifyUser(req as NextApiRequest, res as NextApiResponse);
+             const result = verifyUser(buildRequest(req));
 
              expect(result).toBe('authorized');
           });
@@ -219,7 +206,7 @@ describe('verifyUser, login throttle, session store', () => {
              req.url = '/api/google/ideas';
              req.method = 'GET';
 
-             const result = verifyUser(req as NextApiRequest, res as NextApiResponse);
+             const result = verifyUser(buildRequest(req));
 
              expect(result).toBe('authorized');
           });
@@ -230,7 +217,7 @@ describe('verifyUser, login throttle, session store', () => {
              req.url = '/api/google/ideas';
              req.method = 'POST';
 
-             const result = verifyUser(req as NextApiRequest, res as NextApiResponse);
+             const result = verifyUser(buildRequest(req));
 
              expect(result).toBe('authorized');
           });
@@ -241,7 +228,7 @@ describe('verifyUser, login throttle, session store', () => {
              req.url = '/api/app/settings';
              req.method = 'PUT';
 
-             const result = verifyUser(req as NextApiRequest, res as NextApiResponse);
+             const result = verifyUser(buildRequest(req));
 
              expect(result).toBe('This Route cannot be accessed with API.');
           });
@@ -250,15 +237,13 @@ describe('verifyUser, login throttle, session store', () => {
 
     describe('verifyUser session revocation', () => {
       const originalSecret = process.env.SECRET;
-      const req = { method: 'GET', url: '/api/serp/keywords?domain=example.com', headers: {} } as unknown as NextApiRequest;
-      const res = {} as NextApiResponse;
+      const req = { method: 'GET', url: '/api/serp/keywords?domain=example.com', headers: {}, cookies: { token: 'session-token' } };
       const versionMock = getSessionVersion as unknown as jest.Mock;
       const jwtVerifyMock = jwt.verify as unknown as jest.Mock;
 
       beforeEach(() => {
         jest.clearAllMocks();
         process.env.SECRET = 'test-secret';
-        (Cookies as unknown as jest.Mock).mockImplementation(() => ({ get: () => 'session-token' }));
       });
 
       afterEach(() => {
@@ -273,35 +258,36 @@ describe('verifyUser, login throttle, session store', () => {
         versionMock.mockReturnValue(2);
         jwtVerifyMock.mockReturnValue({ user: 'admin', sv: 2 });
 
-        expect(verifyUser(req, res)).toBe('authorized');
+        expect(verifyUser(buildRequest(req))).toBe('authorized');
       });
 
       it('rejects a token issued before the last logout', () => {
         versionMock.mockReturnValue(2);
         jwtVerifyMock.mockReturnValue({ user: 'admin', sv: 1 });
 
-        expect(verifyUser(req, res)).toBe('Not authorized');
+        expect(verifyUser(buildRequest(req))).toBe('Not authorized');
       });
 
       it('treats a token without a version as version 0', () => {
         versionMock.mockReturnValue(0);
         jwtVerifyMock.mockReturnValue({ user: 'admin' });
-        expect(verifyUser(req, res)).toBe('authorized');
+        expect(verifyUser(buildRequest(req))).toBe('authorized');
 
         versionMock.mockReturnValue(1);
-        expect(verifyUser(req, res)).toBe('Not authorized');
+        expect(verifyUser(buildRequest(req))).toBe('Not authorized');
       });
     });
 
     describe('checkApiKey', () => {
-       const makeReq = (authorization?: string) => ({
+       const makeReq = (authorization?: string) => buildRequest({
           method: 'POST',
           url: '/api/mcp',
           headers: authorization ? { authorization } : {},
           socket: { remoteAddress: '203.0.113.9' },
-       } as unknown as NextApiRequest);
+       });
 
        beforeEach(() => {
+          process.env.TRUST_PROXY = '1';
           process.env.APIKEY = 'right-key';
           resetLoginThrottle();
        });
@@ -561,31 +547,26 @@ describe('session check route', () => {
         isSuccessLoggingEnabled: jest.fn(() => true),
       },
     }));
-    jest.doMock('../utils/apiLogging', () => ({
-      withApiLogging: (h: any) => h,
-    }));
+    jest.doMock('../utils/apiLogging', () => require('./__helpers__/apiLoggingMock').apiLoggingMock());
     jest.doMock('../utils/verifyUser', () => ({
       __esModule: true,
       default: jest.fn(),
       verifySessionToken: jest.fn(),
     }));
-    jest.doMock('cookies', () => ({
-      __esModule: true,
-      default: jest.fn(() => ({ get: getCookieMock })),
-    }));
-    const m0 = require('../pages/api/auth/check');
+    const m0 = require('./__helpers__/routeAdapter').asModule(require('../app/api/auth/check/route'));
     handler = m0 && m0.__esModule ? m0.default : m0;
     const m1 = require('../utils/verifyUser');
     verifyUser = m1 && m1.__esModule ? m1.default : m1;
     verifySessionToken = m1.verifySessionToken;
   });
 
-  const getCookieMock = jest.fn();
+  let cookieToken: string | undefined;
   const jwtVerifyMock = verifySessionToken as unknown as jest.Mock;
 
   const createRes = () => ({
     status: jest.fn().mockReturnThis(),
     json: jest.fn(),
+    setHeader: jest.fn(),
   } as unknown as NextApiResponse);
 
   describe('GET /api/auth/check', () => {
@@ -593,6 +574,7 @@ describe('session check route', () => {
 
     beforeEach(() => {
       jest.clearAllMocks();
+      cookieToken = undefined;
     });
 
     afterEach(() => {
@@ -604,6 +586,7 @@ describe('session check route', () => {
     });
 
     it('returns 405 for non-GET requests', async () => {
+      (verifyUser as jest.Mock).mockReturnValue('authorized');
       const req = { method: 'POST' } as NextApiRequest;
       const res = createRes();
 
@@ -617,7 +600,7 @@ describe('session check route', () => {
 
     it('returns 401 when verifyUser rejects', async () => {
       (verifyUser as jest.Mock).mockReturnValue('not authorized');
-      const req = { method: 'GET' } as NextApiRequest;
+      const req = { method: 'GET', cookies: cookieToken ? { token: cookieToken } : {} } as unknown as NextApiRequest;
       const res = createRes();
 
       await handler(req, res);
@@ -630,12 +613,12 @@ describe('session check route', () => {
 
     it('returns 200 with decoded user when token is valid', async () => {
       (verifyUser as jest.Mock).mockReturnValue('authorized');
-      getCookieMock.mockReturnValue('valid-token');
+      cookieToken = 'valid-token';
       process.env.SECRET = 'test-secret';
 
       jwtVerifyMock.mockReturnValue({ user: 'admin' });
 
-      const req = { method: 'GET' } as NextApiRequest;
+      const req = { method: 'GET', cookies: cookieToken ? { token: cookieToken } : {} } as unknown as NextApiRequest;
       const res = createRes();
 
       await handler(req, res);
@@ -646,9 +629,9 @@ describe('session check route', () => {
 
     it('falls back to authenticated_user when no token is present', async () => {
       (verifyUser as jest.Mock).mockReturnValue('authorized');
-      getCookieMock.mockReturnValue(undefined);
+      cookieToken = undefined;
 
-      const req = { method: 'GET' } as NextApiRequest;
+      const req = { method: 'GET', cookies: cookieToken ? { token: cookieToken } : {} } as unknown as NextApiRequest;
       const res = createRes();
 
       await handler(req, res);
@@ -659,12 +642,12 @@ describe('session check route', () => {
 
     it('falls back to authenticated_user when jwt.verify throws', async () => {
       (verifyUser as jest.Mock).mockReturnValue('authorized');
-      getCookieMock.mockReturnValue('bad-token');
+      cookieToken = 'bad-token';
       process.env.SECRET = 'test-secret';
 
       jwtVerifyMock.mockImplementation(() => { throw new Error('invalid token'); });
 
-      const req = { method: 'GET' } as NextApiRequest;
+      const req = { method: 'GET', cookies: cookieToken ? { token: cookieToken } : {} } as unknown as NextApiRequest;
       const res = createRes();
 
       await handler(req, res);

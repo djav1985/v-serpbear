@@ -1,4 +1,3 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
 import { getClientIp } from '../utils/api/clientIp';
 import { redactSecrets, redactUrl } from '../utils/logRedaction';
 
@@ -8,6 +7,7 @@ jest.mock('../utils/logger', () => ({
     warn: jest.fn(),
     error: jest.fn(),
     debug: jest.fn(),
+    authEvent: jest.fn(),
   },
 }));
 jest.mock('../database/init', () => ({
@@ -177,7 +177,7 @@ describe('logger', () => {
 });
 
 describe('api logging', () => {
-  describe('withApiLogging', () => {
+  describe('createRoute', () => {
     const { logger } = require('../utils/logger') as {
       logger: {
         info: jest.Mock;
@@ -187,44 +187,10 @@ describe('api logging', () => {
       };
     };
 
-    const createRequest = (): NextApiRequest => ({
-      method: 'GET',
-      url: '/api/test',
-      headers: {},
-      query: {},
-    } as unknown as NextApiRequest);
-
-    const createResponse = (): NextApiResponse => {
-      const res: Partial<NextApiResponse> & { statusCode: number; headersSent: boolean } = {
-        statusCode: 200,
-        headersSent: false,
-      };
-
-      res.status = jest.fn((code: number) => {
-        res.statusCode = code;
-        return res as NextApiResponse;
-      });
-
-      res.writeHead = jest.fn((code: number) => {
-        res.statusCode = code;
-        return res as NextApiResponse;
-      });
-
-      res.json = jest.fn((body: unknown) => {
-        void body;
-        res.headersSent = true;
-        return res as NextApiResponse;
-      });
-
-      res.end = jest.fn(() => {
-        res.headersSent = true;
-        return res as NextApiResponse;
-      });
-
-      res.setHeader = jest.fn().mockReturnThis();
-
-      return res as NextApiResponse;
-    };
+    const request = (init: { method?: string; headers?: Record<string, string>; url?: string } = {}) => (
+      new Request(init.url ?? 'http://localhost:3000/api/test', { method: init.method ?? 'GET', headers: init.headers })
+    );
+    const ok = async () => Response.json({ ok: true });
 
     beforeEach(() => {
       jest.clearAllMocks();
@@ -236,138 +202,140 @@ describe('api logging', () => {
     });
 
     it('logs request details at debug level only when LOG_LEVEL is DEBUG (case-insensitive)', async () => {
-      const { withApiLogging } = await import('../utils/apiLogging');
+      const { createRoute } = await import('../utils/apiLogging');
+      const { GET } = createRoute({ name: 'test', auth: false, GET: ok });
 
-      const handler = jest.fn(async (_req: NextApiRequest, res: NextApiResponse) => {
-        res.status(200).json({ ok: true });
-      });
-
-      const wrapped = withApiLogging(handler);
-
-      // Verify debug logging for request details
       process.env.LOG_LEVEL = 'DEBUG';
-      await wrapped(createRequest(), createResponse());
+      await GET(request());
       expect(logger.debug).toHaveBeenCalledWith(
         expect.stringContaining('[API] Request Details'),
-        expect.objectContaining({
-          method: 'GET',
-          url: '/api/test',
-          body: undefined,
-        })
+        expect.objectContaining({ method: 'GET', url: '/api/test', body: undefined }),
       );
 
       // Without DEBUG, request details are not passed to the logger
       delete process.env.LOG_LEVEL;
       logger.debug.mockClear();
-      await wrapped(createRequest(), createResponse());
+      await GET(request());
       expect(logger.debug).not.toHaveBeenCalledWith(expect.stringContaining('[API] Request Details'), expect.anything());
     });
 
-    it('withApiLogging accepts only name option (no logBody)', async () => {
-      const { withApiLogging } = await import('../utils/apiLogging');
+    it('puts the route name in the log lines and a request id on the response', async () => {
+      const { createRoute } = await import('../utils/apiLogging');
+      const { GET } = createRoute({ name: 'test-route', auth: false, GET: ok });
 
-      const handler = jest.fn(async (_req: NextApiRequest, res: NextApiResponse) => {
-        res.status(200).json({ ok: true });
-      });
+      const response = await GET(request());
 
-      // Should compile and run with name only (no logBody option)
-      const wrapped = withApiLogging(handler, { name: 'test-route' });
-      const res = createResponse();
-      await wrapped(createRequest(), res);
-
-      expect(res.setHeader).toHaveBeenCalledWith('X-Request-Id', expect.any(String));
+      expect(response.headers.get('X-Request-Id')).toEqual(expect.any(String));
       expect(logger.debug).toHaveBeenCalledWith(expect.stringMatching(/^\[API\].*\[test-route\]/));
     });
 
-    it('logs client errors at DEBUG when handler sets res.statusCode directly or uses writeHead', async () => {
-      const { withApiLogging } = await import('../utils/apiLogging');
+    it('gives the handler the same request id that the response carries', async () => {
+      const { createRoute } = await import('../utils/apiLogging');
+      let seen: string | undefined;
+      const { GET } = createRoute({ name: 'test', auth: false, GET: async (_req, ctx) => { seen = ctx.requestId; return Response.json({}); } });
 
-      const directHandler = jest.fn(async (_req: NextApiRequest, res: NextApiResponse) => {
-        res.statusCode = 404;
-        res.end();
-      });
-      await withApiLogging(directHandler)(createRequest(), createResponse());
-      expect(logger.debug).toHaveBeenCalledWith(
-        expect.stringContaining('GET /api/test - 404'),
-        expect.objectContaining({
-          statusCode: 404,
-        })
-      );
+      const response = await GET(request());
 
-      const writeHeadHandler = jest.fn(async (_req: NextApiRequest, res: NextApiResponse) => {
-        res.writeHead(418);
-        res.end();
-      });
-      await withApiLogging(writeHeadHandler)(createRequest(), createResponse());
+      expect(seen).toBeTruthy();
+      expect(response.headers.get('X-Request-Id')).toBe(seen);
+    });
+
+    it('logs client errors at DEBUG and server errors at ERROR', async () => {
+      const { createRoute } = await import('../utils/apiLogging');
+      const { GET } = createRoute({ name: 'test', auth: false, GET: async () => new Response('gone', { status: 404 }) });
+      await GET(request());
       expect(logger.debug).toHaveBeenCalledWith(
-        expect.stringContaining('GET /api/test - 418'),
-        expect.objectContaining({
-          statusCode: 418,
-        })
+        expect.stringContaining('GET /api/test'),
+        expect.objectContaining({ statusCode: 404 }),
       );
+      expect(logger.error).not.toHaveBeenCalled();
+
+      const failing = createRoute({ name: 'test', auth: false, GET: async () => new Response('bad', { status: 502 }) });
+      await failing.GET(request());
+      expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('- 502'), undefined, expect.objectContaining({ statusCode: 502 }));
     });
 
     it('calls ensureDatabase before executing the handler', async () => {
-      const { withApiLogging } = await import('../utils/apiLogging');
+      const { createRoute } = await import('../utils/apiLogging');
       const { ensureDatabase } = require('../database/init') as { ensureDatabase: jest.Mock };
+      const handler = jest.fn(ok);
+      const { GET } = createRoute({ name: 'test', auth: false, GET: handler });
 
-      const handler = jest.fn(async (_req: NextApiRequest, res: NextApiResponse) => {
-        res.status(200).json({ ok: true });
-      });
+      await GET(request());
 
-      const wrapped = withApiLogging(handler);
-
-      await wrapped(createRequest(), createResponse());
-
-      // Verify ensureDatabase was called
       expect(ensureDatabase).toHaveBeenCalled();
-    
-      // Verify ensureDatabase was called before the handler
-      const ensureDatabaseCallOrder = ensureDatabase.mock.invocationCallOrder[0];
-      const handlerCallOrder = handler.mock.invocationCallOrder[0];
-      expect(ensureDatabaseCallOrder).toBeLessThan(handlerCallOrder);
+      expect(ensureDatabase.mock.invocationCallOrder[0]).toBeLessThan(handler.mock.invocationCallOrder[0]);
+    });
+
+    it('answers 500 in the shared error shape when a handler throws, and 400 for an ApiError', async () => {
+      const { createRoute, ApiError } = await import('../utils/apiLogging');
+      const boom = createRoute({ name: 'test', auth: false, GET: async () => { throw new Error('boom'); } });
+      const response = await boom.GET(request());
+      expect(response.status).toBe(500);
+      expect(await response.json()).toMatchObject({ error: { code: 'INTERNAL_SERVER_ERROR' }, requestId: expect.any(String) });
+      expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('Exception'), expect.any(Error), expect.anything());
+
+      const bad = createRoute({ name: 'test', auth: false, POST: async () => { throw new ApiError(400, 'BAD_REQUEST', 'Request body is not valid JSON'); } });
+      const badResponse = await bad.POST(request({ method: 'POST' }));
+      expect(badResponse.status).toBe(400);
+      expect(await badResponse.json()).toMatchObject({ error: { code: 'BAD_REQUEST', message: 'Request body is not valid JSON' } });
+    });
+
+    it('answers 405 with an Allow header for a method the route does not define', async () => {
+      const { createRoute } = await import('../utils/apiLogging');
+      const { POST, GET } = createRoute({ name: 'test', auth: false, GET: ok });
+
+      const response = await POST(request({ method: 'POST' }));
+
+      expect(response.status).toBe(405);
+      expect(response.headers.get('Allow')).toBe('GET');
+      expect(await response.json()).toMatchObject({ error: { code: 'METHOD_NOT_ALLOWED' } });
+      expect((await GET(request())).status).toBe(200);
+    });
+
+    it('answers 401 before the handler runs unless auth is turned off', async () => {
+      const { createRoute } = await import('../utils/apiLogging');
+      const handler = jest.fn(ok);
+      process.env.SECRET = 'secret';
+      const { GET } = createRoute({ name: 'test', GET: handler });
+
+      const response = await GET(request());
+
+      expect(response.status).toBe(401);
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('reads a JSON body once and answers 400 when it is not valid JSON', async () => {
+      const { readJson } = await import('../utils/apiLogging');
+      const good = new Request('http://localhost/api/test', { method: 'POST', body: '{"a":1}' });
+      expect(await readJson(good)).toEqual({ a: 1 });
+      expect(await readJson(good)).toEqual({ a: 1 });
+      expect(await readJson(new Request('http://localhost/api/test', { method: 'POST' }))).toBeUndefined();
+      await expect(readJson(new Request('http://localhost/api/test', { method: 'POST', body: '{nope' }))).rejects.toMatchObject({ status: 400 });
     });
 
     it('refuses a locked address only for Bearer attempts without a valid session', async () => {
-      const { withApiLogging } = await import('../utils/apiLogging');
+      const { createRoute } = await import('../utils/apiLogging');
       const { recordLoginFailure, resetLoginThrottle } = await import('../utils/loginThrottle');
       const { getApiKeyAttemptKeys } = await import('../utils/apiKeyThrottle');
-      const handler = jest.fn(async (_req: NextApiRequest, res: NextApiResponse) => {
-        res.status(200).json({ ok: true });
-      });
-      const wrapped = withApiLogging(handler);
-      const buildRequest = (authorization: string) => ({ ...createRequest(), headers: { authorization }, socket: { remoteAddress: '198.51.100.7' } } as unknown as NextApiRequest);
+      const handler = jest.fn(ok);
+      const { GET } = createRoute({ name: 'test', auth: false, GET: handler });
+      // The client address comes from X-Forwarded-For, which is read only behind a configured proxy
+      process.env.TRUST_PROXY = '1';
+      const build = (authorization: string) => request({ headers: { authorization, 'x-forwarded-for': '198.51.100.7' } });
       resetLoginThrottle();
-      const keys = getApiKeyAttemptKeys(buildRequest('Bearer x'));
+      const keys = getApiKeyAttemptKeys(build('Bearer x'));
       for (let i = 0; i < 6; i += 1) { recordLoginFailure(keys); }
 
-      const bearerRes = createResponse();
-      await wrapped(buildRequest('Bearer wrong'), bearerRes);
-      expect(bearerRes.status).toHaveBeenCalledWith(429);
+      const bearer = await GET(build('Bearer wrong'));
+      expect(bearer.status).toBe(429);
+      expect(bearer.headers.get('Retry-After')).toBe('900');
       expect(handler).not.toHaveBeenCalled();
 
-      const basicRes = createResponse();
-      await wrapped(buildRequest('Basic dXNlcjpwYXNz'), basicRes);
-      expect(basicRes.status).toHaveBeenCalledWith(200);
+      const basic = await GET(build('Basic dXNlcjpwYXNz'));
+      expect(basic.status).toBe(200);
       resetLoginThrottle();
-    });
-
-    it('exposes requestId on req object for downstream handlers', async () => {
-      const { withApiLogging } = await import('../utils/apiLogging');
-      let capturedRequestId: string | undefined;
-
-      const handler = jest.fn(async (req: NextApiRequest, res: NextApiResponse) => {
-        capturedRequestId = (req as any).requestId;
-        res.status(200).json({ ok: true });
-      });
-
-      const wrapped = withApiLogging(handler);
-
-      await wrapped(createRequest(), createResponse());
-
-      expect(capturedRequestId).toBeDefined();
-      expect(typeof capturedRequestId).toBe('string');
-      expect(capturedRequestId!.length).toBeGreaterThan(0);
+      delete process.env.TRUST_PROXY;
     });
   });
 
@@ -410,18 +378,16 @@ describe('api logging', () => {
   });
 
   describe('getClientIp', () => {
-    const makeReq = (headers: Record<string, string | string[]>, remoteAddress = '10.0.0.9') => (
-      { headers, socket: { remoteAddress } } as unknown as NextApiRequest
-    );
+    const makeReq = (headers: Record<string, string>) => new Request('http://localhost/api/test', { headers });
 
     const original = process.env.TRUST_PROXY;
     afterEach(() => {
       if (original === undefined) { delete process.env.TRUST_PROXY; } else { process.env.TRUST_PROXY = original; }
     });
 
-    it('uses the socket address by default and ignores a forwarded header', () => {
+    it('ignores a forwarded header unless a proxy is configured, because a client can send it itself', () => {
       delete process.env.TRUST_PROXY;
-      expect(getClientIp(makeReq({ 'x-forwarded-for': '1.2.3.4' }))).toBe('10.0.0.9');
+      expect(getClientIp(makeReq({ 'x-forwarded-for': '1.2.3.4' }))).toBe('unknown');
     });
 
     it('reads the entry one hop from the right when TRUST_PROXY=true', () => {
@@ -435,17 +401,12 @@ describe('api logging', () => {
       expect(getClientIp(makeReq({ 'x-forwarded-for': '6.6.6.6, 203.0.113.5, 172.16.0.1' }))).toBe('203.0.113.5');
     });
 
-    it('falls back to the socket address when the entry is missing or not an IP', () => {
+    it('returns unknown when the entry is missing or not an IP', () => {
       process.env.TRUST_PROXY = '1';
-      expect(getClientIp(makeReq({}))).toBe('10.0.0.9');
-      expect(getClientIp(makeReq({ 'x-forwarded-for': 'not-an-ip' }))).toBe('10.0.0.9');
+      expect(getClientIp(makeReq({}))).toBe('unknown');
+      expect(getClientIp(makeReq({ 'x-forwarded-for': 'not-an-ip' }))).toBe('unknown');
       process.env.TRUST_PROXY = '3';
-      expect(getClientIp(makeReq({ 'x-forwarded-for': '203.0.113.5' }))).toBe('10.0.0.9');
-    });
-
-    it('returns unknown without a socket address', () => {
-      delete process.env.TRUST_PROXY;
-      expect(getClientIp({ headers: {} } as unknown as NextApiRequest)).toBe('unknown');
+      expect(getClientIp(makeReq({ 'x-forwarded-for': '203.0.113.5' }))).toBe('unknown');
     });
   });
 });

@@ -36,7 +36,7 @@ const customJestConfig = {
       lines: 60,
       statements: 60
     },
-    './pages/api/': {
+    './app/api/': {
       branches: 40,
       functions: 40,
       lines: 40,

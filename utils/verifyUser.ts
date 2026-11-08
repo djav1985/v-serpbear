@@ -99,7 +99,9 @@ const verifyUser = (req: Request): string => {
    const verifiedAPI = checkApiKey(req, () => !hasValidSessionCookie(req));
 
    // Compute normalized path once for all route checks
-   const pathname = (() => { try { return new URL(req.url).pathname; } catch (_error) { return ''; } })();
+   const parsedUrl = (() => { try { return new URL(req.url); } catch (_error) { return null; } })();
+   const pathname = parsedUrl?.pathname ?? '';
+   const loggedUrl = parsedUrl ? `${parsedUrl.pathname}${parsedUrl.search}` : '';
    const normalizedPath = pathname && req.method ? `${req.method}:${pathname}` : '';
    const accessingAllowedRoute = normalizedPath && allowedApiRoutes.includes(normalizedPath);
    
@@ -165,7 +167,7 @@ const verifyUser = (req: Request): string => {
    if (authorized === 'authorized') {
       logger.debug('[API] Authentication successful', {
          method: req.method,
-         url: redactUrl(req.url),
+         url: redactUrl(loggedUrl),
          authMethod,
          username,
          duration
@@ -173,7 +175,7 @@ const verifyUser = (req: Request): string => {
    } else {
       logger.debug('[API] Authentication failed', {
          method: req.method,
-         url: redactUrl(req.url),
+         url: redactUrl(loggedUrl),
          reason: authorized,
          duration
       });

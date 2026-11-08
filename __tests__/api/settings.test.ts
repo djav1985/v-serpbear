@@ -1,14 +1,17 @@
 import { writeFile, readFile, rename, unlink } from 'fs/promises';
 import type { NextApiRequest, NextApiResponse } from 'next';
-import handler from '../../pages/api/app/settings';
-import * as settingsApi from '../../pages/api/app/settings';
+import { asHandler } from '../__helpers__/routeAdapter';
+import * as handlerRoute from '../../app/api/app/settings/route';
+import { validateSettingsPayload } from '../../utils/settingsPayload';
 import { getAppSettings } from '../../utils/appSettings';
-import clearFailedHandler from '../../pages/api/serp/clearfailed';
+import * as clearFailedHandlerRoute from '../../app/api/serp/clearfailed/route';
 import { getBranding } from '../../utils/branding';
 import { createMockResponse } from '../__helpers__';
 
 const { platformName } = getBranding();
 import verifyUser from '../../utils/verifyUser';
+const handler = asHandler(handlerRoute);
+const clearFailedHandler = asHandler(clearFailedHandlerRoute);
 
 jest.mock('../../utils/verifyUser', () => ({
   __esModule: true,
@@ -55,9 +58,7 @@ jest.mock('../../utils/logger', () => ({
 }));
 
 // Mock the API logging middleware
-jest.mock('../../utils/apiLogging', () => ({
-  withApiLogging: (handler: any) => handler,
-}));
+jest.mock('../../utils/apiLogging', () => require('../__helpers__/apiLoggingMock').apiLoggingMock());
 
 const encryptMock = jest.fn((value: string) => value);
 const readFileMock = readFile as unknown as jest.Mock;
@@ -196,8 +197,6 @@ describe('PUT /api/app/settings validation and errors', () => {
 });
 
 describe('validateSettingsPayload', () => {
-  const { validateSettingsPayload } = settingsApi;
-
   it('accepts a valid payload and empty optional values', () => {
     expect(validateSettingsPayload({
       scraper_type: 'none',
@@ -473,7 +472,7 @@ describe('PUT /api/app/settings keeps secrets that are left out of the payload',
     }));
     jest.doMock('../../utils/settingsFile', () => ({ ...jest.requireActual('../../utils/settingsFile'), withSettingsLock: (section: () => Promise<unknown>) => section() }));
     jest.isolateModules(() => {
-      const settingsModule = require('../../pages/api/app/settings');
+      const settingsModule = require('../__helpers__/routeAdapter').asModule(require('../../app/api/app/settings/route'));
       handler = settingsModule.default;
       getAppSettings = require('../../utils/appSettings').getAppSettings;
       verifyUserInstance = require('../../utils/verifyUser').default;
@@ -556,11 +555,9 @@ describe('GET /api/app/settings session checks', () => {
   let handler: any;
   let verifySessionMock: jest.Mock;
   let readFileMock: jest.Mock;
-  let CookiesMock: jest.Mock;
 
   beforeAll(() => {
     jest.resetModules();
-    jest.doMock('cookies', () => jest.fn());
     jest.doMock('../../utils/verifyUser', () => ({
       __esModule: true,
       default: jest.fn(),
@@ -577,16 +574,15 @@ describe('GET /api/app/settings session checks', () => {
       retryQueueManager: { peekQueue: jest.fn().mockResolvedValue([]) },
     }));
     jest.isolateModules(() => {
-      handler = require('../../pages/api/app/settings').default;
+      handler = require('../__helpers__/routeAdapter').asModule(require('../../app/api/app/settings/route')).default;
       verifySessionMock = require('../../utils/verifyUser').verifySessionToken;
       readFileMock = require('fs/promises').readFile;
-      CookiesMock = require('cookies');
     });
   });
 
   const run = async () => {
-    const req = { method: 'GET', headers: {}, query: {} } as unknown as NextApiRequest;
-    const res = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
+    const req = { method: 'GET', headers: {}, query: {}, cookies: { token: 'copied-token' } } as unknown as NextApiRequest;
+    const res = { status: jest.fn().mockReturnThis(), json: jest.fn(), setHeader: jest.fn() } as unknown as NextApiResponse;
     await handler(req, res);
     return (res.json as jest.Mock).mock.calls[0][0].settings;
   };
@@ -594,7 +590,6 @@ describe('GET /api/app/settings session checks', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.SECRET = 'secret';
-    CookiesMock.mockImplementation(() => ({ get: () => 'copied-token' }));
     readFileMock.mockResolvedValue(JSON.stringify({ smtp_password: 'hunter2', scraping_api: 'key' }));
   });
 

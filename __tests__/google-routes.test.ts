@@ -1,13 +1,16 @@
  
 import { NextApiRequest, NextApiResponse } from 'next';
-import handler from '../pages/api/google/searchconsole';
-import insightHandler from '../pages/api/google/insight';
+import { asHandler } from './__helpers__/routeAdapter';
+import * as handlerRoute from '../app/api/google/searchconsole/route';
+import * as insightHandlerRoute from '../app/api/google/insight/route';
 import { fetchDomainSCData, getSearchConsoleApiInfo, readLocalSCData } from '../utils/searchConsole';
 import Domain from '../database/models/domain';
 import verifyUser from '../utils/verifyUser';
 import { readFile, writeFile } from 'fs/promises';
 import { type KeywordIdeasDatabase, getLocalKeywordIdeas, updateLocalKeywordIdeas } from '../utils/adwords';
 import { getCountryInsight, getKeywordsInsight, getPagesInsight, sortInsightItems } from '../utils/insight';
+const handler = asHandler(handlerRoute);
+const insightHandler = asHandler(insightHandlerRoute);
 
 jest.mock('../utils/searchConsole');
 jest.mock('../database/models/domain', () => ({
@@ -19,9 +22,7 @@ jest.mock('../database/database', () => ({
   default: { sync: jest.fn() },
 }));
 jest.mock('../utils/verifyUser');
-jest.mock('../utils/apiLogging', () => ({
-  withApiLogging: (handler: any) => handler,
-}));
+jest.mock('../utils/apiLogging', () => require('./__helpers__/apiLoggingMock').apiLoggingMock());
 jest.mock('fs/promises', () => ({
   __esModule: true,
   readFile: jest.fn(),
@@ -393,10 +394,8 @@ describe('Search Console, Volume and AdWords routes', () => {
          getKeywordsVolume: jest.fn(),
          updateKeywordsVolumeData: jest.fn(),
       }));
-      jest.doMock('../utils/apiLogging', () => ({
-         withApiLogging: (handler: any) => handler,
-      }));
-      const m0 = require('../pages/api/google/volume');
+      jest.doMock('../utils/apiLogging', () => require('./__helpers__/apiLoggingMock').apiLoggingMock());
+      const m0 = require('./__helpers__/routeAdapter').asModule(require('../app/api/google/volume/route'));
       handler = m0 && m0.__esModule ? m0.default : m0;
       const m1 = require('../database/database');
       db = m1 && m1.__esModule ? m1.default : m1;
@@ -453,7 +452,7 @@ describe('Search Console, Volume and AdWords routes', () => {
           await handler(req, res);
 
           // db.sync() is now called at startup via instrumentation, not in handlers
-          expect(verifyUserMock).toHaveBeenCalledWith(req, res);
+          expect(verifyUserMock).toHaveBeenCalledWith(expect.any(Request));
           expect(keywordModelMock.findAll).toHaveBeenCalled();
           expect(getKeywordsVolumeMock).toHaveBeenCalledWith([{ ID: 1, keyword: 'alpha', volume: 0 }]);
           expect(updateKeywordsVolumeDataMock).not.toHaveBeenCalled();
@@ -585,12 +584,12 @@ describe('Search Console, Volume and AdWords routes', () => {
       jest.doMock('cryptr', () => ({ __esModule: true, default: jest.fn(() => ({ decrypt: decryptMock, encrypt: encryptMock })) }));
       jest.doMock('google-auth-library', () => ({ OAuth2Client: jest.fn(() => ({ getToken: getTokenMock })) }));
       jest.doMock('../utils/adwords', () => ({ getAdwordsCredentials: jest.fn(), getAdwordsKeywordIdeas: jest.fn() }));
-      jest.doMock('../utils/apiLogging', () => ({ withApiLogging: (fn: unknown) => fn }));
+      jest.doMock('../utils/apiLogging', () => require('./__helpers__/apiLoggingMock').apiLoggingMock());
       const m0 = require('google-auth-library');
       OAuth2Client = m0.OAuth2Client;
       const m1 = require('fs/promises');
       readFile = m1.readFile;
-      const m2 = require('../pages/api/adwords');
+      const m2 = require('./__helpers__/routeAdapter').asModule(require('../app/api/adwords/route'));
       handler = m2 && m2.__esModule ? m2.default : m2;
       const m3 = require('../utils/verifyUser');
       verifyUser = m3 && m3.__esModule ? m3.default : m3;
@@ -1087,7 +1086,7 @@ describe('ideas route', () => {
       readFile: jest.fn(),
       writeFile: jest.fn(),
     }));
-    jest.doMock('../utils/apiLogging', () => ({ withApiLogging: (fn: any) => fn }));
+    jest.doMock('../utils/apiLogging', () => require('./__helpers__/apiLoggingMock').apiLoggingMock());
     jest.doMock('../utils/logger', () => ({
       logger: {
         debug: jest.fn(),
@@ -1103,7 +1102,7 @@ describe('ideas route', () => {
     writeFile = m0.writeFile;
     const m1 = require('../database/database');
     db = m1 && m1.__esModule ? m1.default : m1;
-    const m2 = require('../pages/api/google/ideas');
+    const m2 = require('./__helpers__/routeAdapter').asModule(require('../app/api/google/ideas/route'));
     handler = m2 && m2.__esModule ? m2.default : m2;
     const m3 = require('../utils/verifyUser');
     verifyUser = m3 && m3.__esModule ? m3.default : m3;
