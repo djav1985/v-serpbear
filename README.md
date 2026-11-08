@@ -162,7 +162,7 @@ Behaviour is controlled by environment variables inside docker compose as well a
 | `TRUST_PROXY` | `0` | No | Number of reverse proxies in front of the app. `true` means 1, values above 10 are capped at 10, and invalid values mean 0. Login lockouts, API-key lockouts and the keyword-search and volume rate limits then use the `X-Forwarded-For` entry that many hops from the right. Without it, every client shares one address, so five wrong logins or API keys from anyone lock everyone out for 15 minutes. The app cannot see the connection's own address, and a client can send its own `X-Forwarded-For`, so the header is trusted only when you say how many proxies are in front. It also controls whether `X-Forwarded-Proto`, `X-Forwarded-Protocol` and `X-Forwarded-Ssl` set the `Secure` cookie flag; without it only the request's own `https://` URL does. |
 | `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | No | Public URL of the deployment, used for the Google Ads OAuth return origin, email links and logo, and as the cron worker's fallback origin. Set it for real deployments. |
 | `APP_URL` | — | No | Server-side origin for the cron worker's own calls to the app. It takes precedence over `NEXT_PUBLIC_APP_URL` for those calls, which helps in Docker when the public URL is not reachable from inside the container. Google Ads uses it only when `NEXT_PUBLIC_APP_URL` is unset. Email links ignore it. |
-| `NEXT_PUBLIC_WHITE_LABEL` | `false` | No | Enables white-label branding (name and logo). The logo is always the file `logo.png` in `/app/data` (PNG, recommended size 96×96 px), served without login at `/api/images/logo.png`. When white-label is off or the file is missing, that URL serves the built-in default logo instead, so it always returns an image. |
+| `NEXT_PUBLIC_WHITE_LABEL` | `false` | No | Enables white-label branding (name and logo). The logo is always the file `logo.png` in `/app/data` (PNG, recommended size 96×96 px), served without login at `/api/images/logo.png`. The browser tab icon is the file `favicon.png` in the same folder, served at `/api/images/favicon.png`. When white-label is off or a file is missing, that URL serves the built-in default icon instead, so both always return an image. |
 | `NEXT_PUBLIC_PLATFORM_NAME` | `SerpBear` | No | App and email name. Used only in white-label mode. |
 | `SEARCH_CONSOLE_CLIENT_EMAIL` | — | No | Service account email with access to your Search Console properties. |
 | `SEARCH_CONSOLE_PRIVATE_KEY` | — | No | Matching private key; keep newlines escaped in `.env` files. |
@@ -307,7 +307,7 @@ The Keywords and Map Pack counts include every keyword, whether or not it is in 
 
 ### White labelling
 
-Set `NEXT_PUBLIC_WHITE_LABEL=true` for a custom name and logo. Logo file changes apply on the next request, so refresh the browser. Environment value changes need a restart (`docker compose up -d` or restarting the Node.js process). Neither needs a rebuild.
+Set `NEXT_PUBLIC_WHITE_LABEL=true` for a custom name and logo. Logo and favicon file changes apply on the next request, so refresh the browser. Environment value changes need a restart (`docker compose up -d` or restarting the Node.js process). Neither needs a rebuild.
 
 ### Settings and data
 
@@ -351,7 +351,7 @@ A REST API for scripts and automation. Send `Authorization: Bearer <APIKEY>`. Af
 
 ```bash
 export APIKEY=your-api-key
-curl -H "Authorization: Bearer $APIKEY" "http://localhost:3000/api/keywords?domain=example.com"
+curl -H "Authorization: Bearer $APIKEY" "http://localhost:3000/api/serp/keywords?domain=example.com"
 ```
 
 The example uses port 3000 (Node.js). Docker Compose serves the app on port 3030.
@@ -387,7 +387,6 @@ The example uses port 3000 (Node.js). Docker Compose serves the app on port 3030
 | `database/` | Sequelize models, `migrations/`, `init.ts` (table sync) and the SQLite dialect |
 | `email/` | HTML email template |
 | `public/` | Static assets such as icons, the web app manifest and flag sprites. Global styles are in `app/globals.css` and `app/flags.css`. |
-| `scripts/` | Repository helper scripts (`setup:git`) |
 | `__tests__/` | Jest tests |
 | `cron.js` | Scheduled jobs worker |
 | `instrumentation.ts` | Next.js startup hook that initialises the database |
