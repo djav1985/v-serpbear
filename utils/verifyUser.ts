@@ -1,5 +1,3 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
-import Cookies from 'cookies';
 import jwt from 'jsonwebtoken';
 import { timingSafeEqual } from 'crypto';
 import { logger } from './logger';
@@ -7,6 +5,7 @@ import { getSessionVersion } from './sessionStore';
 import { redactUrl } from './logRedaction';
 import { clearLoginFailures, recordLoginFailure } from './loginThrottle';
 import { getApiKeyAttemptKeys } from './apiKeyThrottle';
+import { getCookie } from './api/cookies';
 
 /**
  * Compares two secrets in constant time. Returns false when either side is missing.
@@ -41,9 +40,9 @@ export const verifySessionToken = (token: string): JwtDecodedPayload => {
 export const isBearerAuthorization = (header: string | undefined): boolean => typeof header === 'string' && header.startsWith('Bearer ');
 
 /** True when the request carries a login cookie with a valid signature, expiry and session version. */
-export const hasValidSessionCookie = (req: NextApiRequest, res: NextApiResponse): boolean => {
+export const hasValidSessionCookie = (req: Request): boolean => {
    try {
-      const token = new Cookies(req, res).get('token');
+      const token = getCookie(req, 'token');
       if (!token || !process.env.SECRET) { return false; }
       verifySessionToken(token);
       return true;
@@ -59,8 +58,8 @@ export const hasValidSessionCookie = (req: NextApiRequest, res: NextApiResponse)
  * attempts and are ignored. `shouldCountFailure` can veto counting a wrong key (verifyUser skips it for requests
  * with a valid login cookie).
  */
-export const checkApiKey = (req: NextApiRequest, shouldCountFailure: () => boolean = () => true): boolean => {
-   const header = req.headers.authorization;
+export const checkApiKey = (req: Request, shouldCountFailure: () => boolean = () => true): boolean => {
+   const header = req.headers.get('authorization') ?? undefined;
    if (!isBearerAuthorization(header)) { return false; }
    const verified = safeEqual((header as string).substring('Bearer '.length), process.env.APIKEY);
    const attemptKeys = getApiKeyAttemptKeys(req);
@@ -75,14 +74,12 @@ export const checkApiKey = (req: NextApiRequest, shouldCountFailure: () => boole
 /**
  * Psuedo Middleware: Verifies the user by their cookie value or their API Key
  * When accessing with API key only certain routes are accessible.
- * @param {NextApiRequest} req - The Next Request
- * @param {NextApiResponse} res - The Next Response.
- * @returns {string}
+ * @param {Request} req - The request
+ * @returns {string} 'authorized', or the reason the request was refused
  */
-const verifyUser = (req: NextApiRequest, res: NextApiResponse): string => {
+const verifyUser = (req: Request): string => {
    const startTime = Date.now();
-   const cookies = new Cookies(req, res);
-   const token = cookies && cookies.get('token');
+   const token = getCookie(req, 'token');
 
    const allowedApiRoutes = [
       'GET:/api/serp/keyword',
@@ -99,10 +96,11 @@ const verifyUser = (req: NextApiRequest, res: NextApiResponse): string => {
    ];
    
    // Wrong keys are not counted when the request also carries a valid login cookie
-   const verifiedAPI = checkApiKey(req, () => !hasValidSessionCookie(req, res));
+   const verifiedAPI = checkApiKey(req, () => !hasValidSessionCookie(req));
 
    // Compute normalized path once for all route checks
-   const normalizedPath = req.url && req.method ? `${req.method}:${req.url.replace(/\?(.*)/, '')}` : '';
+   const pathname = (() => { try { return new URL(req.url).pathname; } catch (_error) { return ''; } })();
+   const normalizedPath = pathname && req.method ? `${req.method}:${pathname}` : '';
    const accessingAllowedRoute = normalizedPath && allowedApiRoutes.includes(normalizedPath);
    
    let authorized: string = '';
@@ -155,7 +153,7 @@ const verifyUser = (req: NextApiRequest, res: NextApiResponse): string => {
             route: normalizedPath
          });
       }
-      if (req.headers.authorization && !verifiedAPI) {
+      if (req.headers.get('authorization') && !verifiedAPI) {
          authorized = 'Invalid API Key Provided.';
          logger.authEvent('invalid_api_key', undefined, false);
       }

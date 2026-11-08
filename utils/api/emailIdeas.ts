@@ -1,6 +1,3 @@
-/// <reference path="../../types.d.ts" />
-
-import type { NextApiRequest, NextApiResponse } from 'next';
 import Domain from '../../database/models/domain';
 import { getAppSettings } from '../appSettings';
 import { trimStringProperties, trimString, sanitizeSmtpHost } from '../security';
@@ -9,7 +6,7 @@ import normalizeDomainBooleans from '../normalizeDomain';
 import generateKeywordIdeasEmail, { KeywordIdeasEmailKeyword } from '../generateKeywordIdeasEmail';
 import { getBranding } from '../branding';
 import { logger } from '../logger';
-import { errorResponse } from './response';
+import { fail, json, readJson, type ApiContext } from '../apiLogging';
 import { takeRateLimitToken } from '../rateLimit';
 
 // Same cap as the ideas list (pages/api/google/ideas.ts)
@@ -50,27 +47,27 @@ const normalizeKeywords = (keywords: KeywordIdeasEmailKeyword[] = []): KeywordId
    };
 });
 
-export const sendIdeasEmail = async (req: NextApiRequest, res: NextApiResponse) => {
-   const requestId = (req as ExtendedRequest).requestId;
-   if (req.body !== undefined && req.body !== null && (typeof req.body !== 'object' || Array.isArray(req.body))) {
-      return res.status(400).json(errorResponse('BAD_REQUEST', 'Request body must be a JSON object.', requestId));
+export const sendIdeasEmail = async (req: Request, ctx: ApiContext) => {
+   const rawBody = await readJson(req);
+   if (rawBody !== undefined && rawBody !== null && (typeof rawBody !== 'object' || Array.isArray(rawBody))) {
+      return fail(400, 'BAD_REQUEST', 'Request body must be a JSON object.', ctx);
    }
-   const body = (req.body || {}) as EmailKeywordIdeasRequest;
+   const body = (rawBody || {}) as EmailKeywordIdeasRequest;
    const { platformName } = getBranding();
    const targetDomain = trimString(body.domain);
    if (!targetDomain) {
-      return res.status(400).json(errorResponse('BAD_REQUEST', 'A domain is required to email keyword ideas.', requestId));
+      return fail(400, 'BAD_REQUEST', 'A domain is required to email keyword ideas.', ctx);
    }
 
    if (!Array.isArray(body.keywords) || body.keywords.length === 0) {
-      return res.status(400).json(errorResponse('BAD_REQUEST', 'Select at least one keyword idea to email.', requestId));
+      return fail(400, 'BAD_REQUEST', 'Select at least one keyword idea to email.', ctx);
    }
 
    if (body.keywords.length > MAX_EMAIL_KEYWORDS) {
-      return res.status(400).json(errorResponse('BAD_REQUEST', `Select at most ${MAX_EMAIL_KEYWORDS} keyword ideas to email.`, requestId));
+      return fail(400, 'BAD_REQUEST', `Select at most ${MAX_EMAIL_KEYWORDS} keyword ideas to email.`, ctx);
    }
    if (body.keywords.some((keyword) => !keyword || typeof keyword !== 'object' || Array.isArray(keyword))) {
-      return res.status(400).json(errorResponse('BAD_REQUEST', 'Each keyword idea must be an object.', requestId));
+      return fail(400, 'BAD_REQUEST', 'Each keyword idea must be an object.', ctx);
    }
 
    try {
@@ -85,14 +82,14 @@ export const sendIdeasEmail = async (req: NextApiRequest, res: NextApiResponse) 
 
       // Recipients are set per domain (notification_emails), so only the SMTP server is needed here
       if (!sanitizedHost || !sanitizedPort) {
-         return res.status(400).json(errorResponse('BAD_REQUEST', 'SMTP has not been setup properly!', requestId));
+         return fail(400, 'BAD_REQUEST', 'SMTP has not been setup properly!', ctx);
       }
 
       const domainRecord = await Domain.findOne({ where: { domain: targetDomain } })
          || await Domain.findOne({ where: { slug: targetDomain } });
 
       if (!domainRecord) {
-         return res.status(404).json(errorResponse('NOT_FOUND', 'Domain not found.', requestId));
+         return fail(404, 'NOT_FOUND', 'Domain not found.', ctx);
       }
 
       const domainPlain = domainRecord.get({ plain: true }) as DomainType;
@@ -100,15 +97,15 @@ export const sendIdeasEmail = async (req: NextApiRequest, res: NextApiResponse) 
 
       const notificationEmails = trimString(normalizedDomain.notification_emails);
       if (!notificationEmails) {
-         return res.status(400).json(errorResponse('BAD_REQUEST', 'Notification email not configured for this domain.', requestId));
+         return fail(400, 'BAD_REQUEST', 'Notification email not configured for this domain.', ctx);
       }
 
       if (!normalizedSettings.smtp_server) {
-         return res.status(400).json(errorResponse('BAD_REQUEST', 'SMTP has not been setup properly!', requestId));
+         return fail(400, 'BAD_REQUEST', 'SMTP has not been setup properly!', ctx);
       }
 
       if (!takeRateLimitToken(`ideas-email:${normalizedDomain.domain}`, IDEAS_EMAILS_PER_HOUR, 60 * 60 * 1000)) {
-         return res.status(429).json(errorResponse('TOO_MANY_REQUESTS', 'Too many keyword idea emails for this domain. Please try again later.', requestId));
+         return fail(429, 'TOO_MANY_REQUESTS', 'Too many keyword idea emails for this domain. Please try again later.', ctx);
       }
 
       const { transporter, fromEmail } = buildMailer(normalizedSettings);
@@ -127,9 +124,9 @@ export const sendIdeasEmail = async (req: NextApiRequest, res: NextApiResponse) 
       });
 
       logger.info(`[EMAIL] Sent keyword ideas email for ${normalizedDomain.domain}`);
-      return res.status(200).json({ success: true, error: null });
+      return json({ success: true, error: null });
    } catch (error) {
       logger.error('Error sending keyword ideas email', error instanceof Error ? error : new Error(String(error)));
-      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error sending keyword ideas email.', requestId));
+      return fail(500, 'INTERNAL_SERVER_ERROR', 'Error sending keyword ideas email.', ctx);
    }
 };

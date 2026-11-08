@@ -1,6 +1,3 @@
-/// <reference path="../../types.d.ts" />
-
-import type { NextApiRequest, NextApiResponse } from 'next';
 import Domain from '../../database/models/domain';
 import Keyword from '../../database/models/keyword';
 import generateEmail from '../generateEmail';
@@ -12,14 +9,10 @@ import { trimStringProperties, trimString, sanitizeSmtpHost } from '../security'
 import { buildMailer } from '../mailer';
 import { logger } from '../logger';
 import normalizeDomainBooleans from '../normalizeDomain';
-import { errorResponse } from './response';
+import { fail, json, getParam, type ApiContext } from '../apiLogging';
 
-export const sendDigestEmails = async (req: NextApiRequest, res: NextApiResponse) => {
-   const requestId = (req as ExtendedRequest).requestId;
-   const rawDomain = req?.query?.domain;
-   if (rawDomain !== undefined && typeof rawDomain !== 'string') {
-      return res.status(400).json(errorResponse('BAD_REQUEST', 'domain must be a single domain name.', requestId));
-   }
+export const sendDigestEmails = async (req: Request, ctx: ApiContext) => {
+   const rawDomain = getParam(req, 'domain');
    // Domains are stored trimmed and lowercase
    const reqDomain = (rawDomain || '').trim().toLowerCase();
    try {
@@ -35,7 +28,7 @@ export const sendDigestEmails = async (req: NextApiRequest, res: NextApiResponse
 
       // Recipients are set per domain (notification_emails), so only the SMTP server is needed here
       if (!sanitizedHost || !sanitizedPort) {
-         return res.status(400).json(errorResponse('BAD_REQUEST', 'SMTP has not been setup properly!', requestId));
+         return fail(400, 'BAD_REQUEST', 'SMTP has not been setup properly!', ctx);
       }
 
       let sentCount = 0;
@@ -61,7 +54,7 @@ export const sendDigestEmails = async (req: NextApiRequest, res: NextApiResponse
       if (reqDomain) {
          const theDomain = await Domain.findOne({ where: { domain: reqDomain } });
          if (!theDomain) {
-            return res.status(404).json(errorResponse('NOT_FOUND', 'Domain not found.', requestId));
+            return fail(404, 'NOT_FOUND', 'Domain not found.', ctx);
          }
          const normalizedDomain = normalizeDomainBooleans(theDomain.get({ plain: true }) as DomainType);
          if (isNotifiable(normalizedDomain)) {
@@ -81,19 +74,19 @@ export const sendDigestEmails = async (req: NextApiRequest, res: NextApiResponse
 
       // Only real send failures are errors: every eligible domain failed and none was sent
       if (failedCount > 0 && sentCount === 0) {
-         return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'All notification emails failed to send. Please check your SMTP configuration.', requestId));
+         return fail(500, 'INTERNAL_SERVER_ERROR', 'All notification emails failed to send. Please check your SMTP configuration.', ctx);
       }
 
       // No eligible domains at all: tell the user nothing was sent
       if (sentCount === 0 && skippedCount === 0) {
-         return res.status(200).json({ success: true, error: null, sent: 0, skipped: 0, message: 'No domains are enabled for notifications.' });
+         return json({ success: true, error: null, sent: 0, skipped: 0, message: 'No domains are enabled for notifications.' });
       }
 
-      return res.status(200).json({ success: true, error: null, sent: sentCount, skipped: skippedCount });
+      return json({ success: true, error: null, sent: sentCount, skipped: skippedCount });
    } catch (error) {
       logger.error('Error sending notification emails', error instanceof Error ? error : new Error(String(error)));
       // A missing or invalid SMTP host is answered with 400 before any send (see the check above)
-      return res.status(500).json(errorResponse('INTERNAL_SERVER_ERROR', 'Error Sending Notification Email.', requestId));
+      return fail(500, 'INTERNAL_SERVER_ERROR', 'Error Sending Notification Email.', ctx);
    }
 };
 
