@@ -195,6 +195,66 @@ describe('tracking and saving balances', () => {
       await flushScraperCredits();
       expect(existsSync(file())).toBe(false);
    });
+
+   describe('overlapping refreshes', () => {
+      const deferred = <T,>() => {
+         let resolve!: (value: T) => void;
+         const promise = new Promise<T>((r) => { resolve = r; });
+         return { promise, resolve };
+      };
+      const accountReply = (remaining: number) => ({ ok: true, json: async () => ({ total_searches_left: remaining }) });
+
+      it('does not let a lookup that started earlier and finished later overwrite a newer balance', async () => {
+         const slow = deferred<unknown>();
+         const fast = deferred<unknown>();
+         global.fetch = jest.fn()
+            .mockReturnValueOnce(slow.promise)
+            .mockReturnValueOnce(fast.promise) as unknown as typeof fetch;
+         const serpapi = scraper('serpapi');
+
+         trackScrapeCredits(serpapi, settingsFor('shared'), response('0'), {});
+         const first = flushScraperCredits();
+         trackScrapeCredits(serpapi, settingsFor('shared'), response('0'), {});
+         const second = flushScraperCredits();
+
+         // The later lookup answers first with the lower, newer balance; the earlier one answers after
+         fast.resolve(accountReply(90));
+         await second;
+         slow.resolve(accountReply(100));
+         await first;
+
+         expect((await readScraperCredits())[creditKey('serpapi', 'shared')].remaining).toBe(90);
+      });
+
+      it('does not let a slow save of an older header balance overwrite a newer one', async () => {
+         const gate = deferred<Set<string> | null>();
+         trackScrapeCredits(prism(), settingsFor('k1', 'prismcrawl'), response('95'), {});
+         const older = flushScraperCredits(() => gate.promise);
+
+         trackScrapeCredits(prism(), settingsFor('k1', 'prismcrawl'), response('150'), {});
+         await flushScraperCredits();
+         expect((await readScraperCredits())[creditKey('prismcrawl', 'k1')].remaining).toBe(150);
+
+         gate.resolve(null);
+         await older;
+         expect((await readScraperCredits())[creditKey('prismcrawl', 'k1')].remaining).toBe(150);
+      });
+
+      it('lets a newer balance rise above an older one, for example after a top-up', async () => {
+         trackScrapeCredits(prism(), settingsFor('k1', 'prismcrawl'), response('5'), {});
+         await flushScraperCredits();
+         trackScrapeCredits(prism(), settingsFor('k1', 'prismcrawl'), response('500'), {});
+         await flushScraperCredits();
+         expect((await readScraperCredits())[creditKey('prismcrawl', 'k1')].remaining).toBe(500);
+      });
+
+      it('treats a saved entry from before this field existed as older, using its updatedAt', async () => {
+         writeFileSync(file(), JSON.stringify({ [creditKey('prismcrawl', 'k1')]: { scraper: 'prismcrawl', remaining: 7, updatedAt: '2020-01-01T00:00:00.000Z' } }));
+         trackScrapeCredits(prism(), settingsFor('k1', 'prismcrawl'), response('60'), {});
+         await flushScraperCredits();
+         expect((await readScraperCredits())[creditKey('prismcrawl', 'k1')].remaining).toBe(60);
+      });
+   });
 });
 
 describe('domain card data', () => {

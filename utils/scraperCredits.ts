@@ -13,7 +13,10 @@ import { decryptDomainScraperSettings, parseDomainScraperSettings } from './doma
 // Credits left on each scraper account, kept in data/scraper_credits.json. An entry belongs to a scraper plus an API key
 // (stored as a keyed hash, never the key), so every domain that uses the same key reads and updates the same entry.
 
-export type CreditEntry = { scraper: string, remaining: number, updatedAt: string };
+// `observedAt` is when the number was read: when an account lookup started, or when a response carrying it arrived.
+// Overlapping refreshes can finish in a different order than they started, so a save only replaces a number that
+// was read earlier. Entries saved before this field existed fall back to `updatedAt`.
+export type CreditEntry = { scraper: string, remaining: number, updatedAt: string, observedAt?: number };
 type CreditFile = Record<string, CreditEntry>;
 
 const creditsFilePath = (): string => path.join(process.cwd(), 'data', 'scraper_credits.json');
@@ -85,9 +88,20 @@ export const readScraperCredits = async (): Promise<CreditFile> => {
    }
 };
 
+let lastStamp = 0;
+/** A millisecond timestamp that never repeats or goes backwards within this process, so two readings always order. */
+const nextStamp = (): number => {
+   lastStamp = Math.max(Date.now(), lastStamp + 1);
+   return lastStamp;
+};
+
+const entryTime = (entry?: CreditEntry): number => (
+   typeof entry?.observedAt === 'number' ? entry.observedAt : (Date.parse(entry?.updatedAt ?? '') || 0)
+);
+
 // Balances seen since the last save. `observed` holds numbers read off scrape responses (the lowest wins, since
 // credits only go down during a run); `lookups` holds accounts that need one account call at the end of the run.
-let observed = new Map<string, { scraper: string, remaining: number }>();
+let observed = new Map<string, { scraper: string, remaining: number, observedAt: number }>();
 let lookups = new Map<string, { scraper: ScraperSettings, settings: SettingsType }>();
 
 /**
@@ -104,8 +118,12 @@ export const trackScrapeCredits = (scraper: ScraperSettings, settings: SettingsT
       }
       const remaining = scraper.readCredits?.(body, response?.headers);
       if (typeof remaining === 'number' && Number.isFinite(remaining)) {
+         // Responses of one run can arrive out of order, and credits only go down during a run, so the lowest wins.
+         // Its time is when that reading arrived.
          const previous = observed.get(key);
-         observed.set(key, { scraper: scraper.id, remaining: previous ? Math.min(previous.remaining, remaining) : remaining });
+         if (!previous || remaining <= previous.remaining) {
+            observed.set(key, { scraper: scraper.id, remaining, observedAt: nextStamp() });
+         }
       }
    } catch (error: any) {
       logger.debug('[CREDITS] Could not read credits from a response', { scraper: scraper?.id, error: error?.message });
@@ -128,9 +146,11 @@ export const flushScraperCredits = async (getInUseKeys?: () => Promise<Set<strin
       const fresh = new Map(seen);
       await Promise.all(Array.from(pending.entries()).map(async ([key, { scraper, settings }]) => {
          try {
+            // Stamped when the lookup starts, so a slow lookup that began earlier cannot overwrite a newer one
+            const observedAt = nextStamp();
             const remaining = await scraper.fetchCredits?.(settings);
             if (typeof remaining === 'number' && Number.isFinite(remaining)) {
-               fresh.set(key, { scraper: scraper.id, remaining });
+               fresh.set(key, { scraper: scraper.id, remaining, observedAt });
             }
          } catch (error: any) {
             logger.debug('[CREDITS] Account lookup failed', { scraper: scraper.id, error: error?.message });
@@ -147,7 +167,12 @@ export const flushScraperCredits = async (getInUseKeys?: () => Promise<Set<strin
          const saved = await readScraperCredits();
          const next: CreditFile = { ...saved };
          const updatedAt = new Date().toJSON();
-         fresh.forEach((value, key) => { next[key] = { scraper: value.scraper, remaining: value.remaining, updatedAt }; });
+         // Compared here, under the lock, against what is saved now: another refresh may have saved a newer reading
+         // while this one was looking up. A newer number replaces an older one in either direction (a top-up raises it).
+         fresh.forEach((value, key) => {
+            if (value.observedAt < entryTime(saved[key])) { return; }
+            next[key] = { scraper: value.scraper, remaining: value.remaining, updatedAt, observedAt: value.observedAt };
+         });
          if (inUse) {
             Object.keys(next).forEach((key) => { if (!inUse.has(key)) { delete next[key]; } });
          }

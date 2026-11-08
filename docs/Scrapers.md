@@ -65,7 +65,7 @@ Credits belong to the provider account, not the domain. SerpBear saves one balan
 
 ### Where it's stored
 
-Balances live in `data/scraper_credits.json`, next to your other data files. Each entry holds the scraper, the remaining amount and the time it was recorded. The API key itself is never written there. Entries are keyed by a hash made with your `SECRET`, so the file doesn't give anyone a way back to your key.
+Balances live in `data/scraper_credits.json`, next to your other data files. Each entry holds the scraper, the remaining amount and the time it was recorded. The API key itself is never written there. Entries are keyed by a hash made with your `SECRET`, so the file doesn't give anyone a way back to your key. If two refreshes overlap, the number read most recently wins, so a slow lookup that started earlier can't overwrite a newer one. A newer number can still be higher than an older one, which is what happens after a top-up.
 
 Every save also cleans up. Any entry that no domain and not the global scraper uses anymore (an old key, a removed domain) is dropped. You never need to edit the file by hand. Deleting it is safe too: the numbers come back after the next refresh.
 
