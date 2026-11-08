@@ -32,7 +32,7 @@ jest.mock('../database/models/keyword', () => ({
   default: { findAll: jest.fn() },
 }));
 
-describe('google routes', () => {
+describe('Search Console, Volume and AdWords routes', () => {
  
 
   describe('searchconsole', () => {
@@ -1054,7 +1054,7 @@ describe('google routes', () => {
   });
 });
 
-describe('ideas', () => {
+describe('ideas route', () => {
   let readFile: any;
   let writeFile: any;
   let db: any;

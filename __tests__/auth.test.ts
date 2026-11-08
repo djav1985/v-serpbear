@@ -38,7 +38,7 @@ jest.mock('../utils/atomicWrite', () => ({
   atomicWriteFile: jest.fn().mockResolvedValue(undefined),
 }));
 
-describe('auth core', () => {
+describe('verifyUser, login throttle, session store', () => {
   describe('verifyUser', () => {
     describe('verifyUser', () => {
        let req: Partial<NextApiRequest>;
@@ -546,7 +546,7 @@ describe('auth core', () => {
   });
 });
 
-describe('auth check', () => {
+describe('session check route', () => {
   let handler: any;
   let verifyUser: any;
   let verifySessionToken: any;

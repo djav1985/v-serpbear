@@ -86,7 +86,7 @@ jest.mock('proper-lockfile', () => ({
    lock: jest.fn(),
 }));
 
-describe('refresh', () => {
+describe('refresh route', () => {
   describe('/api/serp/refresh', () => {
     const req = { method: 'POST', query: {}, headers: {} } as unknown as NextApiRequest;
     let res: NextApiResponse;
@@ -631,7 +631,7 @@ describe('refresh', () => {
   });
 });
 
-describe('retryQueueManager', () => {
+describe('retry queue manager', () => {
   // Mock the logger to avoid console output during tests
   // Mock atomicWriteFile
   // Mock proper-lockfile

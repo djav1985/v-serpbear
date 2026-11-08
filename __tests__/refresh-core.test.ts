@@ -29,7 +29,7 @@ jest.mock('../utils/updateDomainStats', () => ({
   updateDomainStats: jest.fn().mockResolvedValue(undefined),
 }));
 
-describe('refresh core behavior', () => {
+describe('refresh core', () => {
   // Mock the dependencies
   // Mock retryQueueManager
   // Mock updateDomainStats so it doesn't require real DB access
@@ -1402,7 +1402,7 @@ describe('refresh core behavior', () => {
   });
 });
 
-describe('refresh queue behavior', () => {
+describe('refresh queue', () => {
   /**
    * Behavior tests for RefreshQueue: concurrency, per-domain locking,
    * error resilience, status reporting, and configurable concurrency.
@@ -1610,7 +1610,7 @@ describe('refresh queue behavior', () => {
   });
 });
 
-describe('settingsFile lock', () => {
+describe('settings file lock', () => {
   /* eslint-disable security/detect-non-literal-fs-filename -- writes only to a temp directory created by the test */
 
 

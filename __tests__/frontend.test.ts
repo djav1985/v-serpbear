@@ -7,7 +7,7 @@ import { NO_TAGS_FILTER } from 'utils/client/sortFilter';
 import { createIdeaColumns } from 'app/(dashboard)/_components/keyword-ideas/ideas-columns';
 import { DEFAULT_IDEA_SORT, IDEA_SORT_CHOICES, IdeaRow, buildIdeaGroups, ideaChoiceFor, ideaSortingFor } from 'app/(dashboard)/_components/keyword-ideas/ideas-state';
 
-describe('trackerTablex', () => {
+describe('Tracker table', () => {
   // The Tracker's sort and filter rules live in its column definitions. These tests drive the real columns through a real
   // table, so they cover what the screen does, not a copy of it.
 
@@ -118,7 +118,7 @@ describe('trackerTablex', () => {
   });
 });
 
-describe('ideasTablex', () => {
+describe('Ideas table', () => {
   // The Ideas table is used by the Research page and by each domain's Ideas page. These tests drive its real columns.
 
   const noop = () => undefined;
@@ -179,7 +179,7 @@ describe('ideasTablex', () => {
   });
 });
 
-describe('domainScreenshots', () => {
+describe('Domain screenshots', () => {
   type FetchDomainScreenshot = (domain: string, forceFetch?: boolean) => Promise<string | false>;
 
   describe('fetchDomainScreenshot cache resilience', () => {

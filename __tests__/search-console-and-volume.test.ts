@@ -51,7 +51,7 @@ jest.mock('@googleapis/searchconsole', () => ({
   },
 }));
 
-describe('adwordsVolume', () => {
+describe('AdWords volume lookup', () => {
   // A failed Google Ads volume lookup must come back as a failure. It used to come back as an empty success,
   // and the Settings button reported "loaded successfully".
 
@@ -168,7 +168,7 @@ describe('adwordsVolume', () => {
   });
 });
 
-describe('searchConsole behavior', () => {
+describe('Search Console utilities', () => {
   dayjs.extend(utc);
   dayjs.extend(timezone);
 

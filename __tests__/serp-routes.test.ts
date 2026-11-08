@@ -2,7 +2,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { buildKeywordAddPayloads, getAddKeywordsMessage, getDomainLocations, getDomainTags, getLocationUpdateMessage, planLocationUpdate, scraperAllowsCity, splitAlreadyTracked } from '../utils/keywordMeta';
 
-describe('domains', () => {
+describe('domains route', () => {
   let Cryptr: any;
   let readFile: any;
   let unlink: any;
@@ -669,7 +669,7 @@ describe('domains', () => {
   });
 });
 
-describe('domain', () => {
+describe('domain route', () => {
   let Cryptr: any;
   let handler: any;
   let Domain: any;
@@ -968,7 +968,7 @@ describe('domain', () => {
   });
 });
 
-describe('keyword', () => {
+describe('keyword route', () => {
   let handler: any;
   let Keyword: any;
   let verifyUser: any;
@@ -1028,7 +1028,7 @@ describe('keyword', () => {
   });
 });
 
-describe('domains', () => {
+describe('domain stats helpers', () => {
   let getdomainStats: any;
   let Keyword: any;
   let readLocalSCData: any;
@@ -1253,7 +1253,7 @@ describe('domains', () => {
   });
 });
 
-describe('keywordMeta', () => {
+describe('keyword meta helpers', () => {
   const makeKeyword = (overrides: Partial<KeywordType>): KeywordType => ({
      ID: 1,
      keyword: 'alpha',

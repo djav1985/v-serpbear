@@ -285,7 +285,7 @@ describe('cron worker', () => {
   });
 });
 
-describe('mcp', () => {
+describe('MCP route', () => {
   const originalApiKey = process.env.APIKEY;
 
   const call = async (method: string, headers: Record<string, string> = { authorization: 'Bearer test-key' }) => {
