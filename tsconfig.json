@@ -23,7 +23,11 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
-    "baseUrl": ".",
+    "paths": {
+      "*": [
+        "./*"
+      ]
+    },
     "experimentalDecorators": true,
     "plugins": [
       {
