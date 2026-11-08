@@ -974,14 +974,15 @@ describe('parseKeywords', () => {
         expect(parsed.history7d).toEqual({ '2026-01-05': 7 });
      });
 
-     it('logs a warning when the stored history cannot be parsed', () => {
+     it('logs when the stored history cannot be parsed', () => {
         const { logger } = require('../utils/logger');
-        const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
+        // A history that cannot be read is logged at debug level (see safeJsonParse).
+        const logSpy = jest.spyOn(logger, 'debug').mockImplementation(() => undefined);
         const [keyword] = parseKeywords([buildKeyword({ history: '{not json' }) as any]);
 
         expect(keyword.history).toEqual({});
-        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('history'), expect.anything());
-        warnSpy.mockRestore();
+        expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('history'), expect.anything());
+        logSpy.mockRestore();
      });
   });
 });

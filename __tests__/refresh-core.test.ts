@@ -900,17 +900,18 @@ describe('refresh core', () => {
         scrape_retry: false,
       } as SettingsType;
 
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      // The refresh mode is reported in a debug message. Spy on the logger, because debug messages are not printed by default.
+      const { logger } = require('../utils/logger');
+      const debugSpy = jest.spyOn(logger, 'debug').mockImplementation();
 
       await refreshAndUpdateKeywords([keywordModel1, keywordModel2], settings);
 
       // Should use sequential mode because keyword2 has a custom-scraper override
       // which is not in the parallel-friendly list
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"level":"INFO"'));
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Keyword refresh completed'));
-      expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('Parallel keyword refresh completed'));
+      expect(debugSpy).toHaveBeenCalledWith(expect.stringContaining('Keyword refresh completed'), expect.anything());
+      expect(debugSpy).not.toHaveBeenCalledWith(expect.stringContaining('Parallel keyword refresh completed'), expect.anything());
 
-      consoleSpy.mockRestore();
+      debugSpy.mockRestore();
     });
 
     it('uses parallel mode when all domain overrides are parallel-friendly', async () => {
@@ -1013,16 +1014,17 @@ describe('refresh core', () => {
         scrape_retry: false,
       } as SettingsType;
 
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      // The refresh mode is reported in a debug message. Spy on the logger, because debug messages are not printed by default.
+      const { logger } = require('../utils/logger');
+      const debugSpy = jest.spyOn(logger, 'debug').mockImplementation();
 
       await refreshAndUpdateKeywords([keywordModel1, keywordModel2], settings);
 
       // Should use parallel mode because both domain overrides are parallel-friendly
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"level":"INFO"'));
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Parallel keyword refresh completed'));
-      expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('START SCRAPE:'));
+      expect(debugSpy).toHaveBeenCalledWith(expect.stringContaining('Parallel keyword refresh completed'), expect.anything());
+      expect(debugSpy).not.toHaveBeenCalledWith(expect.stringContaining('START SCRAPE:'), expect.anything());
 
-      consoleSpy.mockRestore();
+      debugSpy.mockRestore();
     });
 
     it('handles various position input types correctly with simplified logic', async () => {
