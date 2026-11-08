@@ -15,7 +15,7 @@ import type { BrandingConfig } from 'utils/branding';
 import { apiPost, ApiError } from 'utils/client/apiClient';
 import { useShell } from './shell-context';
 
-const DOCS_URL = 'https://docs.serpbear.com/';
+const DOCS_URL = 'https://github.com/djav1985/v-serpbear/wiki';
 
 const NAV = [
    { href: '/domains', label: 'Domains', icon: Globe },
