@@ -132,6 +132,22 @@ describe('/api/serp/keywords data rules', () => {
     expect(KeywordMock.findAll).not.toHaveBeenLastCalledWith(expect.objectContaining({ where: { added: expect.anything() } }));
   });
 
+  it('still saves keywords added while the domain is being refreshed, and queues their scrape behind the refresh', async () => {
+    const { refreshQueue } = require('../../utils/refreshQueue');
+    (refreshQueue.isDomainLocked as jest.Mock).mockImplementation(() => true);
+    KeywordMock.bulkCreate.mockResolvedValue([{ ID: 52, keyword: 'alpha' }]);
+    KeywordMock.findAll.mockResolvedValueOnce([]).mockResolvedValueOnce([storedRow({ ID: 52, keyword: 'alpha', domain: 'example.com', device: 'desktop', country: 'US' })]);
+
+    const res = await postKeywords([newKeyword]);
+
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(KeywordMock.bulkCreate).toHaveBeenCalledTimes(1);
+    // No claim on the domain, just a task that waits its turn in the queue
+    expect(refreshQueue.reserveDomains).not.toHaveBeenCalled();
+    expect(refreshQueue.enqueue).toHaveBeenCalledWith(expect.stringMatching(/^addKeywords-example\.com-/), expect.any(Function), ['example.com']);
+    (refreshQueue.isDomainLocked as jest.Mock).mockImplementation(() => false);
+  });
+
   it('does not treat the same keyword on another device or in another city as a duplicate', async () => {
     KeywordMock.findAll.mockResolvedValueOnce([storedRow({ keyword: 'alpha', domain: 'example.com', device: 'mobile', country: 'US' })]);
 
