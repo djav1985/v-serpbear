@@ -48,3 +48,5 @@ data/*
 
 # local Claude Code settings (personal, not part of the project)
 .claude/settings.local.json
+
+.claude/
