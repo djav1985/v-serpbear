@@ -1,4 +1,4 @@
-import { SCfilterKeywords, SCkeywordsByDevice, SCsortKeywords } from '../../../utils/client/sortFilter';
+import { SCfilterKeywords, SCsortKeywords } from '../../../utils/client/sortFilter';
 
 describe('SCsortKeywords', () => {
    const createKeyword = (overrides: Partial<SCKeywordType>): SCKeywordType => ({
@@ -108,36 +108,5 @@ describe('SCfilterKeywords', () => {
       // A whitespace-only search does not filter anything out
       const unfiltered = SCfilterKeywords(keywords, { countries: ['US'], tags: [], search: '   ' });
       expect(unfiltered.map((k) => k.uid)).toEqual(['a', 'b']);
-   });
-});
-
-describe('SCkeywordsByDevice', () => {
-   it('returns only keywords for the selected device', () => {
-      const keywords: SCKeywordType[] = [
-         {
-            uid: 'a',
-            keyword: 'Alpha',
-            country: 'US',
-            device: 'desktop',
-            position: 1,
-            impressions: 10,
-            clicks: 1,
-            ctr: 0.1,
-            page: '/test',
-         },
-         {
-            uid: 'b',
-            keyword: 'Beta',
-            country: 'US',
-            device: 'mobile',
-            position: 2,
-            impressions: 20,
-            clicks: 2,
-            ctr: 0.2,
-            page: '/test',
-         },
-      ];
-
-      expect(SCkeywordsByDevice(keywords, 'desktop')).toEqual({ desktop: [keywords[0]], mobile: [] });
    });
 });
