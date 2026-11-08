@@ -7,11 +7,14 @@ export type BrandingConfig = {
    platformName: string;
    hasCustomLogo: boolean;
    logoApiPath: string;
+   faviconApiPath: string;
 };
 
 export const DEFAULT_PLATFORM_NAME = 'SerpBear';
 /** The white-label logo is always this file in the data directory. There is no setting for it. */
 export const LOGO_FILE = 'logo.png';
+/** The white-label tab icon is always this file in the data directory. */
+export const FAVICON_FILE = 'favicon.png';
 export const LOGO_MIME_TYPE = 'image/png';
 
 const stripTrailingSlash = (value: string): string => (value.endsWith('/') ? value.slice(0, -1) : value);
@@ -22,6 +25,7 @@ export const DEFAULT_BRANDING: BrandingConfig = {
    platformName: DEFAULT_PLATFORM_NAME,
    hasCustomLogo: false,
    logoApiPath: '/api/images/logo.png',
+   faviconApiPath: '/api/images/favicon.png',
 };
 
 export const getBranding = (): BrandingConfig => {
@@ -38,6 +42,7 @@ export const getBranding = (): BrandingConfig => {
       platformName,
       hasCustomLogo: whiteLabelEnabled,
       logoApiPath: '/api/images/logo.png',
+      faviconApiPath: '/api/images/favicon.png',
    } as const;
 };
 

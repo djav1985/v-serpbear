@@ -242,3 +242,50 @@ describe('logo route', () => {
      });
   });
 });
+
+describe('favicon route', () => {
+  const faviconHandler = require('./__helpers__/routeAdapter').asModule(require('../app/api/images/favicon.png/route')).default;
+  const readFileMock = fs.readFile as unknown as jest.Mock;
+  const ORIGINAL_ENV = { ...process.env };
+  const CUSTOM_FAVICON = path.join(process.cwd(), 'data', 'favicon.png');
+  const CUSTOM_LOGO = path.join(process.cwd(), 'data', 'logo.png');
+  const DEFAULT_ICON = path.join(process.cwd(), 'public', 'icon.png');
+  const filesOnDisk = (files: Record<string, Buffer>) => readFileMock.mockImplementation(async (filePath: string) => {
+     if (files[filePath] === undefined) { throw Object.assign(new Error('missing'), { code: 'ENOENT' }); }
+     return files[filePath];
+  });
+
+  beforeEach(() => {
+     jest.clearAllMocks();
+     process.env = { ...ORIGINAL_ENV, NEXT_PUBLIC_WHITE_LABEL: 'true' };
+  });
+
+  afterAll(() => {
+     process.env = ORIGINAL_ENV;
+  });
+
+  it('serves data/favicon.png when white-label is on and the file exists, never the logo', async () => {
+     filesOnDisk({ [CUSTOM_FAVICON]: Buffer.alloc(64, 1), [CUSTOM_LOGO]: Buffer.alloc(2048, 1), [DEFAULT_ICON]: Buffer.alloc(99, 1) });
+     const res = createMockResponse();
+
+     await faviconHandler(createMockRequest({ method: 'GET' }), res);
+
+     expect(res.setHeader).toHaveBeenCalledWith('content-length', '64');
+     expect(res.setHeader).toHaveBeenCalledWith('content-type', 'image/png');
+     expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('serves the bundled default when white-label is off or favicon.png is missing', async () => {
+     filesOnDisk({ [CUSTOM_LOGO]: Buffer.alloc(2048, 1), [DEFAULT_ICON]: Buffer.alloc(99, 1) });
+     const missing = createMockResponse();
+     await faviconHandler(createMockRequest({ method: 'GET' }), missing);
+     expect(missing.setHeader).toHaveBeenCalledWith('content-length', '99');
+
+     process.env.NEXT_PUBLIC_WHITE_LABEL = 'false';
+     readFileMock.mockClear();
+     const off = createMockResponse();
+     await faviconHandler(createMockRequest({ method: 'GET' }), off);
+     expect(readFileMock).not.toHaveBeenCalledWith(CUSTOM_FAVICON);
+     expect(off.status).toHaveBeenCalledWith(200);
+  });
+});
