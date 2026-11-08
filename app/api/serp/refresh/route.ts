@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { Op } from 'sequelize';
 import Keyword from '../../../../database/models/keyword';
-import refreshAndUpdateKeywords, { clearKeywordUpdatingFlags, markKeywordsAsUpdating, partitionKeywordsByDomainStatus } from '../../../../utils/refresh';
+import { refreshKeywordsByIds, clearKeywordUpdatingFlags, markKeywordsAsUpdating, partitionKeywordsByDomainStatus } from '../../../../utils/refresh';
 import { getAppSettings } from '../../../../utils/appSettings';
 import { scrapeKeywordWithStrategy } from '../../../../utils/scraper';
 import { serializeError } from '../../../../utils/errorSerialization';
@@ -240,7 +240,8 @@ const refreshTheKeywords = async (req: Request, ctx: ApiContext) => {
             taskId,
             async () => {
                try {
-                  await refreshAndUpdateKeywords(keywordsToStart, settings);
+                  // Loads the rows when the task starts, so a keyword deleted or moved while it waited is handled
+                  await refreshKeywordsByIds(keywordIdsToRefresh, settings);
                } catch (refreshError) {
                   const message = serializeError(refreshError);
                   logger.error('[REFRESH] ERROR refreshAndUpdateKeywords: ', refreshError instanceof Error ? refreshError : new Error(message), { keywordIds: keywordIdsToRefresh });
@@ -251,7 +252,9 @@ const refreshTheKeywords = async (req: Request, ctx: ApiContext) => {
                   throw refreshError; // Re-throw to be caught by queue error handler
                }
             },
-            domainsToRefresh
+            domainsToRefresh,
+            // The queued task takes over the domain claims, so a delete or location edit cannot slip in before it starts
+            { reservations: releases }
          );
 
          // Return immediately with 200 OK status; skipped lists what was not started and why

@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { normalizeToBoolean } from 'utils/dbBooleans';
 import { normalizeKeyword } from './keyword-normalize';
-import { apiFetch, apiGet, apiPost, apiPut } from 'utils/client/apiClient';
+import { apiFetch, apiGet, apiPost, apiPut, conflictMessage } from 'utils/client/apiClient';
 import { getAddKeywordsMessage, getLocationUpdateMessage } from 'utils/keywordMeta';
 
 const POLL_WHILE_UPDATING_MS = 5000;
@@ -72,7 +72,7 @@ export function useDeleteKeywords(onDone: () => void) {
       // IDs travel in the JSON body, so a large selection cannot overflow the URL length.
       mutationFn: (ids: number[]) => apiFetch('/api/serp/keywords', { method: 'DELETE', body: JSON.stringify({ ids }) }),
       onSuccess: () => { onDone(); toast.success('Keywords removed successfully!'); invalidate(); },
-      onError: () => { toast.error('Error removing the keywords'); },
+      onError: (error) => { toast.error(conflictMessage(error, 'Error removing the keywords')); },
    });
 }
 
@@ -114,7 +114,7 @@ export function useUpdateKeywordLocation(onDone: () => void) {
          if (skipped.length > 0) { toast.warning(message); } else { toast.success(message); }
          invalidate();
       },
-      onError: () => { toast.error('Error updating keyword locations.'); },
+      onError: (error) => { toast.error(conflictMessage(error, 'Error updating keyword locations.')); },
    });
 }
 

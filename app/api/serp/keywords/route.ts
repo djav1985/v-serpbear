@@ -5,13 +5,14 @@ import Domain from '../../../../database/models/domain';
 import { getAppSettings } from '../../../../utils/appSettings';
 import { loadDomainKeywords } from '../../../../utils/keywordsList';
 import parseKeywords from '../../../../utils/parseKeywords';
-import refreshAndUpdateKeywords from '../../../../utils/refresh';
+import { refreshKeywordsByIds, markKeywordsAsUpdating } from '../../../../utils/refresh';
 import { getKeywordsVolume, updateKeywordsVolumeData } from '../../../../utils/adwords';
 import { buildStoredLocation, getLocationCountry, hasValidCityStatePair, isCountryOnlyLocation, parseCityState } from '../../../../utils/location';
 import { planLocationUpdate } from '../../../../utils/keywordMeta';
 import { isValidHostname } from '../../../../utils/validators/hostname';
 import { logger } from '../../../../utils/logger';
 import { createRoute, fail, json, getParam, readJson, type ApiContext } from '../../../../utils/apiLogging';
+import db from '../../../../database/database';
 import { toDbBool } from '../../../../utils/dbBooleans';
 import { refreshQueue } from '../../../../utils/refreshQueue';
 import { retryQueueManager } from '../../../../utils/retryQueueManager';
@@ -313,7 +314,8 @@ const addKeywords = async (req: Request, ctx: ApiContext) => {
             `addKeywords-${domainName}-${uniqueId}`,
             async () => {
                try {
-                  await refreshAndUpdateKeywords(reloadedKeywords, settings);
+                  // Loaded when the task starts, so a row removed or moved while it waited is handled
+                  await refreshKeywordsByIds(reloadedKeywords.map((keyword) => keyword.ID), settings);
                } catch (error) {
                   logger.error('Failed to refresh keywords after adding', error instanceof Error ? error : new Error(String(error)));
                }
@@ -322,7 +324,7 @@ const addKeywords = async (req: Request, ctx: ApiContext) => {
          );
       } else {
          // Fallback: if no domain, just call it directly
-         refreshAndUpdateKeywords(reloadedKeywords, settings).catch((error) => {
+         refreshKeywordsByIds(reloadedKeywords.map((keyword) => keyword.ID), settings).catch((error) => {
             logger.error('Failed to refresh keywords after adding', error instanceof Error ? error : new Error(String(error)));
          });
       }
@@ -377,7 +379,7 @@ const deleteKeywords = async (req: Request, ctx: ApiContext) => {
       if (!releaseDomains) {
          const lockedDomains = affectedDomains.filter(domain => refreshQueue.isDomainLocked(domain));
          logger.debug(`[SCRAPER] Cannot delete keywords while domains are being refreshed`, { lockedDomains });
-         return fail(409, 'CONFLICT', `Cannot delete keywords while their domains are being refreshed: ${lockedDomains.join(', ')}. Please wait for the refresh to complete.`, ctx);
+         return fail(409, 'CONFLICT', `Cannot delete keywords while their domains are being refreshed: ${lockedDomains.join(', ')}. Try again once the refresh has finished.`, ctx);
       }
 
       try {
@@ -484,26 +486,91 @@ const updateKeywords = async (req: Request, ctx: ApiContext) => {
             state: parsedLocation.state,
             countryCode: locationCountry,
          }).substring(0, 255);
-         const locationUpdate = { location: formattedLocation, country: locationCountry };
          const selectedKeywords: Keyword[] = await Keyword.findAll({ where: { ID: { [Op.in]: keywordIDs } } });
          const domains = [...new Set(selectedKeywords.map((el) => el.domain))];
-         // Other tracked keywords on the same domains, so a change cannot create a duplicate
-         const otherKeywords: Keyword[] = domains.length > 0
-            ? await Keyword.findAll({ where: { domain: { [Op.in]: domains }, ID: { [Op.notIn]: keywordIDs } } })
-            : [];
-         const { acceptedIDs, skipped } = planLocationUpdate(
-            selectedKeywords.map((el) => ({ ID: el.ID, keyword: el.keyword, domain: el.domain, country: el.country, device: el.device, location: el.location || '' })),
-            otherKeywords.map((el) => ({ ID: el.ID, keyword: el.keyword, domain: el.domain, country: el.country, device: el.device, location: el.location || '' })),
-            locationCountry,
-            formattedLocation,
-         );
-         if (acceptedIDs.length > 0) {
-            await Keyword.update(locationUpdate, { where: { ID: { [Op.in]: acceptedIDs } } });
+
+         // A location edit must not run next to a refresh: a scrape that finishes afterwards would write rankings
+         // for the old location onto the keyword. Claim the domains first, the same way a delete does.
+         const releaseDomains = refreshQueue.reserveDomains(domains);
+         if (!releaseDomains) {
+            const lockedDomains = domains.filter((domain) => refreshQueue.isDomainLocked(domain));
+            logger.debug('[SCRAPER] Cannot change keyword locations while domains are being refreshed', { lockedDomains });
+            return fail(409, 'CONFLICT', `Cannot change keyword locations while their domains are being refreshed: ${lockedDomains.join(', ')}. Try again once the refresh has finished.`, ctx);
          }
-         const updatedKeywords:Keyword[] = await Keyword.findAll({ where: { ID: { [Op.in]: keywordIDs } } });
-         const formattedKeywords = updatedKeywords.map((el) => el.get({ plain: true }));
-         keywords = parseKeywords(formattedKeywords);
-         return json({ keywords, updatedCount: acceptedIDs.length, skipped });
+         let handedOff = false;
+         try {
+            // Re-read under the claim, so the plan matches the rows as they are now
+            const lockedKeywords: Keyword[] = await Keyword.findAll({ where: { ID: { [Op.in]: keywordIDs } } });
+            // Other tracked keywords on the same domains, so a change cannot create a duplicate
+            const otherKeywords: Keyword[] = domains.length > 0
+               ? await Keyword.findAll({ where: { domain: { [Op.in]: domains }, ID: { [Op.notIn]: keywordIDs } } })
+               : [];
+            const toTarget = (el: Keyword) => ({ ID: el.ID, keyword: el.keyword, domain: el.domain, country: el.country, device: el.device, location: el.location || '' });
+            const { acceptedIDs, skipped } = planLocationUpdate(
+               lockedKeywords.map(toTarget),
+               otherKeywords.map(toTarget),
+               locationCountry,
+               formattedLocation,
+            );
+            // Only keywords whose location or country really changes lose their rankings
+            const acceptedSet = new Set(acceptedIDs);
+            const changed = lockedKeywords.filter((el) => acceptedSet.has(el.ID)
+               && ((el.location || '') !== formattedLocation || el.country !== locationCountry));
+            const changedIDs = changed.map((el) => el.ID);
+
+            if (changedIDs.length > 0) {
+               // Rankings for the old location are wrong for the new one, so they go in the same commit as the move.
+               // If the fresh scrape fails, the keyword stays empty rather than showing another city's positions.
+               await db.transaction(async (transaction) => {
+                  await Keyword.update({
+                     location: formattedLocation,
+                     country: locationCountry,
+                     position: 0,
+                     url: '',
+                     history: JSON.stringify({}),
+                     history7d: null,
+                     lastResult: JSON.stringify([]),
+                     mapPackTop3: toDbBool(false),
+                     localResults: JSON.stringify([]),
+                     lastUpdateError: 'false',
+                     updating: toDbBool(false),
+                     updatingStartedAt: null,
+                  }, { where: { ID: { [Op.in]: changedIDs } }, transaction });
+               });
+               await retryQueueManager.removeBatch(new Set(changedIDs)).catch((error) => {
+                  logger.error('Failed to clear moved keywords from the retry queue', error instanceof Error ? error : new Error(String(error)));
+               });
+               await refreshDomainStats(domains);
+
+               // Queue a fresh scrape with the new location. The task takes over the domain claim, so nothing can
+               // start a refresh in between.
+               const settings = await getAppSettings();
+               const movedRows: Keyword[] = await Keyword.findAll({ where: { ID: { [Op.in]: changedIDs } } });
+               await markKeywordsAsUpdating(movedRows, 'before location refresh', { keywordIds: changedIDs });
+               refreshQueue.enqueue(
+                  `location-refresh-${changedIDs.join(',')}-${crypto.randomUUID()}`,
+                  async () => {
+                     try {
+                        await refreshKeywordsByIds(changedIDs, settings);
+                     } catch (error) {
+                        logger.error('Failed to refresh keywords after a location change', error instanceof Error ? error : new Error(String(error)));
+                     }
+                  },
+                  domains,
+                  { reservations: [releaseDomains] },
+               ).catch((error) => {
+                  logger.error('Failed to queue the refresh after a location change', error instanceof Error ? error : new Error(String(error)));
+               });
+               handedOff = true;
+            }
+
+            const updatedKeywords:Keyword[] = await Keyword.findAll({ where: { ID: { [Op.in]: keywordIDs } } });
+            const formattedKeywords = updatedKeywords.map((el) => el.get({ plain: true }));
+            keywords = parseKeywords(formattedKeywords);
+            return json({ keywords, updatedCount: changedIDs.length, skipped });
+         } finally {
+            if (!handedOff) { releaseDomains(); }
+         }
       }
       return fail(400, 'BAD_REQUEST', 'Invalid Payload!', ctx);
    } catch (error) {

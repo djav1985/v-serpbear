@@ -50,6 +50,7 @@ describe('domains route', () => {
       refreshQueue: {
         enqueue: jest.fn(async (_taskId: string, task: () => Promise<void>) => { await task(); }),
         isDomainLocked: jest.fn(() => false),
+        reserveDomains: jest.fn(() => jest.fn()),
       },
     }));
     jest.doMock('../utils/apiLogging', () => require('./__helpers__/apiLoggingMock').apiLoggingMock());
@@ -89,7 +90,7 @@ describe('domains route', () => {
   const readFileMock = readFile as unknown as jest.Mock;
   const unlinkMock = unlink as unknown as jest.Mock;
   const atomicWriteFileMock = atomicWriteFile as jest.Mock;
-  const refreshQueueMock = refreshQueue as unknown as { enqueue: jest.Mock; isDomainLocked: jest.Mock };
+  const refreshQueueMock = refreshQueue as unknown as { enqueue: jest.Mock; isDomainLocked: jest.Mock; reserveDomains: jest.Mock };
 
   describe('GET /api/serp/domains', () => {
      beforeEach(() => {
@@ -606,6 +607,17 @@ describe('domains route', () => {
       expect(res.status).toHaveBeenCalledWith(200);
     });
 
+    it('returns 409 with a retry message and deletes nothing while a refresh holds the domain', async () => {
+      refreshQueueMock.reserveDomains.mockReturnValueOnce(null);
+      const res = createMockResponse(); await handler(request(), res);
+      expect(res.status).toHaveBeenCalledWith(409);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+        error: expect.objectContaining({ message: expect.stringMatching(/Try again once the refresh has finished/) }),
+      }));
+      expect(DomainMock.destroy).not.toHaveBeenCalled();
+      expect(refreshQueueMock.enqueue).not.toHaveBeenCalled();
+    });
+
     it('returns 404 when the target domain is missing', async () => {
       DomainMock.findOne.mockResolvedValue(null);
       KeywordMock.findAll.mockResolvedValueOnce([]);
@@ -622,7 +634,7 @@ describe('domains route', () => {
       expect(order).toEqual(['keywords', 'domain']);
       expect(KeywordMock.destroy).toHaveBeenCalledWith(expect.objectContaining({ transaction: { id: 'tx' } }));
       expect(DomainMock.destroy).toHaveBeenCalledWith(expect.objectContaining({ transaction: { id: 'tx' } }));
-      expect(refreshQueueMock.enqueue).toHaveBeenCalledWith(expect.stringContaining('delete-domain-example.com-'), expect.any(Function), ['example.com']);
+      expect(refreshQueueMock.enqueue).toHaveBeenCalledWith(expect.stringContaining('delete-domain-example.com-'), expect.any(Function), ['example.com'], { reservations: [expect.any(Function)] });
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ domainRemoved: 1, keywordsRemoved: 2, cleanup: { complete: true, failed: [], retryPending: false } }));
     });
 

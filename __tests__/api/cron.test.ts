@@ -217,13 +217,15 @@ describe('/api/app/cron', () => {
       1,
       expect.stringMatching(/^cron-refresh-first\.com-/),
       expect.any(Function),
-      ['first.com']
+      ['first.com'],
+      { reservations: [expect.any(Function)] }
     );
     expect(refreshQueue.enqueue).toHaveBeenNthCalledWith(
       2,
       expect.stringMatching(/^cron-refresh-second\.com-/),
       expect.any(Function),
-      ['second.com']
+      ['second.com'],
+      { reservations: [expect.any(Function)] }
     );
   });
 

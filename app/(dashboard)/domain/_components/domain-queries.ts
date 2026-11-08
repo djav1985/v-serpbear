@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { apiDelete, apiGet, apiPut } from 'utils/client/apiClient';
+import { apiDelete, apiGet, apiPut, conflictMessage } from 'utils/client/apiClient';
 
 /** The full domain, including the Search Console and scraper settings the list endpoint masks. */
 export function useDomain(domainName: string, enabled: boolean) {
@@ -37,6 +37,6 @@ export function useDeleteDomain(onDone: () => void) {
    return useMutation({
       mutationFn: (domain: string) => apiDelete(`/api/serp/domains?domain=${encodeURIComponent(domain)}`),
       onSuccess: () => { toast.success('Domain removed successfully!'); onDone(); invalidate(); },
-      onError: () => { toast.error('Error removing domain'); },
+      onError: (error) => { toast.error(conflictMessage(error, 'Error removing domain')); },
    });
 }

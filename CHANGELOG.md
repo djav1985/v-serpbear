@@ -23,6 +23,9 @@ All notable changes to this project will be documented in this file. Releases no
 
 ### Fixed
 
+- Changing a keyword's location no longer races a refresh. The edit claims the domain first, like a delete does, and answers `409` with a message telling you to try again once the refresh has finished when one is running or queued. Only keywords whose location or country really changed are touched: in one transaction they lose their old position, history, ranked URL, saved results, map pack data and refresh status, then a fresh scrape runs with the new location. If that scrape fails the keyword stays empty instead of showing another city's rankings.
+- Queued refreshes now wait while a delete or location edit holds their domain, and start when it is released. A request that queues its own refresh hands its claim to that task, so nothing can slip in between. Refresh tasks (manual, cron-style, after adding keywords, after a location change) load their keywords by ID when they start, so a keyword deleted while the task waited is skipped and a moved one is scraped with its current location.
+- The toast for a blocked keyword delete, location change or domain delete now shows the server's message ("try again once the refresh has finished"). Other errors keep the generic text.
 - The screens no longer set state inside effects (the `use-mobile` hook, add-keywords dialog, research form, and the selection and tag-filter clean-ups), so `eslint-plugin-react-hooks` 7 passes with no errors.
 - Pinned the patched `minimatch`, `glob` and `uuid` versions for the packages that bundled old copies, so `npm audit` is down from 34 findings to 7 low ones (the remaining `deepmerge` finding has no fix). The `editorconfig` override no longer gets reset by `npm install`.
 

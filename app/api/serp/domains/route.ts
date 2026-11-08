@@ -185,9 +185,11 @@ const deleteDomain = async (req: Request, ctx: ApiContext) => {
       const normalizedDomain = domain.trim().toLowerCase();
       // Waiting in the queue behind a long refresh would leave this request hanging until it times out,
       // so reject it the same way deleting keywords does.
-      if (refreshQueue.isDomainLocked(normalizedDomain)) {
+      // The claim also keeps new refreshes for this domain waiting until the delete task has started.
+      const releaseDomain = refreshQueue.reserveDomains([normalizedDomain]);
+      if (!releaseDomain) {
          logger.debug('[SCRAPER] Cannot delete domain while it is being refreshed', { domain: normalizedDomain });
-         return fail(409, 'CONFLICT', `Cannot delete ${normalizedDomain} while it is being refreshed. Please wait for the refresh to complete.`, ctx);
+         return fail(409, 'CONFLICT', `Cannot delete ${normalizedDomain} while it is being refreshed. Try again once the refresh has finished.`, ctx);
       }
       const taskId = `delete-domain-${normalizedDomain}-${Date.now()}`;
       let responsePayload: {
@@ -280,7 +282,8 @@ const deleteDomain = async (req: Request, ctx: ApiContext) => {
                }
             },
             [normalizedDomain],
-         ).catch(reject);
+            { reservations: [releaseDomain] },
+         ).catch((error) => { releaseDomain(); reject(error); });
       });
 
       if (!responsePayload) {

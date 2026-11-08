@@ -844,3 +844,14 @@ describe('chart data', () => {
      });
   });
 });
+
+describe('conflictMessage', () => {
+  const { ApiError, conflictMessage } = require('../utils/client/apiClient');
+
+  it('shows the server message for a 409 and the fallback for anything else', () => {
+    expect(conflictMessage(new ApiError('Try again once the refresh has finished.', 409, 'CONFLICT'), 'Error')).toBe('Try again once the refresh has finished.');
+    expect(conflictMessage(new ApiError('Server error', 500, 'INTERNAL_SERVER_ERROR'), 'Error removing the keywords')).toBe('Error removing the keywords');
+    expect(conflictMessage(new ApiError('   ', 409, 'CONFLICT'), 'Error')).toBe('Error');
+    expect(conflictMessage(new Error('network down'), 'Error')).toBe('Error');
+  });
+});

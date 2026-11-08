@@ -1021,4 +1021,17 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
    }
 };
 
+/**
+ * Refreshes keywords by ID, loading the rows when the refresh starts rather than when it was queued. A keyword
+ * deleted while the task waited is skipped, and one whose location changed is scraped with its current location.
+ */
+export const refreshKeywordsByIds = async (ids: number[], settings: SettingsType, preloadedDomains?: Domain[]): Promise<KeywordType[]> => {
+   const uniqueIds = Array.from(new Set(ids.filter((id) => Number.isInteger(id) && id > 0)));
+   const rows = uniqueIds.length > 0 ? await Keyword.findAll({ where: { ID: uniqueIds } }) : [];
+   if (rows.length < uniqueIds.length) {
+      logger.debug('[SCRAPER] Skipping keywords removed while the refresh was queued', { removed: uniqueIds.length - rows.length });
+   }
+   return refreshAndUpdateKeywords(rows, settings, preloadedDomains);
+};
+
 export default refreshAndUpdateKeywords;

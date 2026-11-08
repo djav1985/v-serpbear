@@ -54,7 +54,8 @@ const cronRefreshkeywords = async (_req: Request, ctx: ApiContext) => {
                async () => {
                   await processSingleDomain(domain, settings, domainRecords);
                },
-               [domain]
+               [domain],
+               { reservations: [release] }
             ).catch((queueError) => {
                logger.error(`[CRON] ERROR enqueueing refresh task for ${domain}: `, queueError instanceof Error ? queueError : new Error(String(queueError)));
             });

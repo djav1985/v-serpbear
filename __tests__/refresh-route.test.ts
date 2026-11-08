@@ -5,7 +5,7 @@ import db from '../database/database';
 import Keyword from '../database/models/keyword';
 import Domain from '../database/models/domain';
 import verifyUser, { hasValidSessionCookie } from '../utils/verifyUser';
-import refreshAndUpdateKeywords from '../utils/refresh';
+import { refreshKeywordsByIds } from '../utils/refresh';
 import { getAppSettings } from '../utils/appSettings';
 import { scrapeKeywordWithStrategy } from '../utils/scraper';
 import path from 'path';
@@ -37,6 +37,7 @@ jest.mock('../utils/refresh', () => {
     __esModule: true,
     ...actual,
     default: jest.fn(),
+    refreshKeywordsByIds: jest.fn(),
   };
 });
 jest.mock('../utils/scraper', () => ({
@@ -109,7 +110,7 @@ describe('refresh route', () => {
       (verifyUser as jest.Mock).mockReturnValue('authorized');
       (hasValidSessionCookie as jest.Mock).mockReturnValue(true);
       (getAppSettings as jest.Mock).mockResolvedValue({ scraper_type: 'serpapi' });
-      (refreshAndUpdateKeywords as jest.Mock).mockResolvedValue([]);
+      (refreshKeywordsByIds as jest.Mock).mockResolvedValue([]);
     });
 
     it('refuses a refresh started from another site', async () => {
@@ -128,7 +129,7 @@ describe('refresh route', () => {
 
       expect(crossSiteRes.status).toHaveBeenCalledWith(403);
       expect(Keyword.findAll).not.toHaveBeenCalled();
-      expect(refreshAndUpdateKeywords).not.toHaveBeenCalled();
+      expect(refreshKeywordsByIds).not.toHaveBeenCalled();
     });
 
     it('refuses a keyword search that uses an API key instead of a login session', async () => {
@@ -204,7 +205,7 @@ describe('refresh route', () => {
         { get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) },
       ]);
 
-      (refreshAndUpdateKeywords as jest.Mock).mockRejectedValue(new Error('scraper failed'));
+      (refreshKeywordsByIds as jest.Mock).mockRejectedValue(new Error('scraper failed'));
 
       await handler(req, res);
     
@@ -278,7 +279,7 @@ describe('refresh route', () => {
         { ...keywordRecord1.get(), updating: 0 },
         { ...keywordRecord2.get(), updating: 0 },
       ];
-      (refreshAndUpdateKeywords as jest.Mock).mockResolvedValue(refreshedKeywords);
+      (refreshKeywordsByIds as jest.Mock).mockResolvedValue(refreshedKeywords);
 
       await handler(req, res);
 
@@ -297,8 +298,8 @@ describe('refresh route', () => {
         updatingStartedAt: '2024-06-01T12:00:00.000Z',
       });
       expect(Keyword.findAll).toHaveBeenCalledTimes(1);
-      expect(refreshAndUpdateKeywords).toHaveBeenCalledTimes(1);
-      expect(refreshAndUpdateKeywords).toHaveBeenCalledWith([keywordRecord1, keywordRecord2], { scraper_type: 'serpapi' });
+      expect(refreshKeywordsByIds).toHaveBeenCalledTimes(1);
+      expect(refreshKeywordsByIds).toHaveBeenCalledWith([keywordRecord1.ID, keywordRecord2.ID], { scraper_type: 'serpapi' });
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
         message: 'Refresh started',
@@ -389,7 +390,7 @@ describe('refresh route', () => {
         skipped: { domains: ['busy.com'], keywordIds: [2] },
       });
       expect(busyKeyword.update).not.toHaveBeenCalled();
-      expect(refreshAndUpdateKeywords).toHaveBeenCalledWith([freeKeyword], expect.anything());
+      expect(refreshKeywordsByIds).toHaveBeenCalledWith([freeKeyword.ID], expect.anything());
     });
 
     it('restarts a keyword whose updating flag is stale, but skips one that is still live', async () => {
@@ -417,7 +418,7 @@ describe('refresh route', () => {
       }));
       expect(staleKeyword.update).toHaveBeenCalledWith(expect.objectContaining({ updating: 1 }));
       expect(liveKeyword.update).not.toHaveBeenCalled();
-      expect(refreshAndUpdateKeywords).toHaveBeenCalledWith([staleKeyword], expect.anything());
+      expect(refreshKeywordsByIds).toHaveBeenCalledWith([staleKeyword.ID], expect.anything());
     });
 
     it('handles keywords with domains missing from Domain table', async () => {
@@ -464,8 +465,8 @@ describe('refresh route', () => {
         error: expect.objectContaining({ message: 'Domains not found in database: missing-domain.com. Please ensure domains are created before adding keywords.' }),
       }));
 
-      // Should NOT call refreshAndUpdateKeywords
-      expect(refreshAndUpdateKeywords).not.toHaveBeenCalled();
+      // Should NOT call refreshKeywordsByIds
+      expect(refreshKeywordsByIds).not.toHaveBeenCalled();
     });
 
     it('handles mixed scenario with some domains missing and some present', async () => {
@@ -579,7 +580,7 @@ describe('refresh route', () => {
       ]);
 
       // Simulate scraping failure to trigger clearKeywordUpdatingFlags
-      (refreshAndUpdateKeywords as jest.Mock).mockRejectedValue(new Error('Scraping failed'));
+      (refreshKeywordsByIds as jest.Mock).mockRejectedValue(new Error('Scraping failed'));
 
       await handler(req, res);
 
@@ -659,8 +660,8 @@ describe('refresh route', () => {
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({ keywords: [] });
 
-      // refreshAndUpdateKeywords should not be called
-      expect(refreshAndUpdateKeywords).not.toHaveBeenCalled();
+      // refreshKeywordsByIds should not be called
+      expect(refreshKeywordsByIds).not.toHaveBeenCalled();
     });
 
     afterEach(() => {

@@ -29,7 +29,12 @@ jest.mock('../../database/models/domain', () => ({
 }));
 
 jest.mock('../../utils/verifyUser', () => ({ __esModule: true, default: jest.fn() }));
-jest.mock('../../utils/refresh', () => ({ __esModule: true, default: jest.fn().mockResolvedValue([]) }));
+jest.mock('../../utils/refresh', () => ({
+  __esModule: true,
+  default: jest.fn().mockResolvedValue([]),
+  refreshKeywordsByIds: jest.fn().mockResolvedValue([]),
+  markKeywordsAsUpdating: jest.fn().mockResolvedValue(undefined),
+}));
 jest.mock('../../utils/appSettings', () => ({ __esModule: true, getAppSettings: jest.fn() }));
 jest.mock('../../utils/adwords', () => ({
   __esModule: true,

@@ -15,7 +15,7 @@ const handler = asHandler(handlerRoute);
 
 jest.mock('../database/database', () => ({
   __esModule: true,
-  default: { sync: jest.fn() },
+  default: { sync: jest.fn(), transaction: jest.fn(async (work: (t: unknown) => Promise<unknown>) => work({ id: 'tx' })) },
 }));
 jest.mock('../database/models/keyword', () => ({
   __esModule: true,
@@ -43,6 +43,8 @@ jest.mock('../utils/verifyUser', () => ({
 jest.mock('../utils/refresh', () => ({
   __esModule: true,
   default: jest.fn(),
+  refreshKeywordsByIds: jest.fn().mockResolvedValue([]),
+  markKeywordsAsUpdating: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('../utils/appSettings', () => ({
   __esModule: true,
@@ -93,7 +95,7 @@ describe('keywords', () => {
   const getAppSettingsMock = getAppSettings as unknown as jest.Mock;
   const getKeywordsVolumeMock = getKeywordsVolume as unknown as jest.Mock;
   const updateKeywordsVolumeDataMock = updateKeywordsVolumeData as unknown as jest.Mock;
-  const refreshQueueMock = refreshQueue as unknown as { enqueue: jest.Mock; isDomainLocked: jest.Mock };
+  const refreshQueueMock = refreshQueue as unknown as { enqueue: jest.Mock; isDomainLocked: jest.Mock; reserveDomains: jest.Mock };
 
   describe('PUT /api/serp/keywords error handling', () => {
     beforeEach(() => {
@@ -680,11 +682,14 @@ describe('keywords', () => {
       return { ...plain, get: () => plain };
     };
 
-    // Lookups run in order: the selected keywords, the other tracked keywords on those domains, then the refreshed rows
+    // Lookups run in order: the selected keywords (to find their domains), the same keywords again once the domains
+    // are claimed, the other tracked keywords on those domains, the moved rows for the refresh, then the response rows
     const mockLocationLookups = (selected: object[], others: object[] = []) => {
       keywordMock.findAll
         .mockResolvedValueOnce(selected)
+        .mockResolvedValueOnce(selected)
         .mockResolvedValueOnce(others)
+        .mockResolvedValueOnce(selected)
         .mockResolvedValueOnce(selected);
     };
 
@@ -701,8 +706,8 @@ describe('keywords', () => {
       await handler(req, res);
 
       expect(keywordMock.update).toHaveBeenCalledWith(
-        { location: 'Austin,TX,United States', country: 'US' },
-        { where: { ID: { [Op.in]: [1, 2] } } },
+        expect.objectContaining({ location: 'Austin,TX,United States', country: 'US', position: 0, history: '{}', updating: 0 }),
+        { where: { ID: { [Op.in]: [1, 2] } }, transaction: expect.anything() },
       );
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ updatedCount: 2, skipped: [] }));
@@ -717,10 +722,68 @@ describe('keywords', () => {
       await handler(req, res);
 
       expect(keywordMock.update).toHaveBeenCalledWith(
-        { location: '', country: 'DE' },
-        { where: { ID: { [Op.in]: [1] } } },
+        expect.objectContaining({ location: '', country: 'DE', position: 0, history: '{}', updating: 0 }),
+        { where: { ID: { [Op.in]: [1] } }, transaction: expect.anything() },
       );
       expect(res.status).toHaveBeenCalledWith(200);
+    });
+
+    it('clears the old rankings of a moved keyword, drops it from the retry queue and queues a fresh scrape that takes over the domain claim', async () => {
+      const { retryQueueManager } = require('../utils/retryQueueManager');
+      const { refreshKeywordsByIds } = require('../utils/refresh');
+      keywordMock.update.mockResolvedValue([1]);
+      mockLocationLookups([locationRow({ ID: 1, domain: 'example.com' })]);
+      const release = jest.fn();
+      (refreshQueue as any).reserveDomains.mockReturnValueOnce(release);
+      const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { location: 'Miami,Florida,United States' } });
+      const res = createMockResponse();
+
+      await handler(req, res);
+
+      expect(refreshQueue.reserveDomains).toHaveBeenCalledWith(['example.com']);
+      expect(keywordMock.update).toHaveBeenCalledWith(
+        expect.objectContaining({ position: 0, url: '', history: '{}', history7d: null, lastResult: '[]', mapPackTop3: 0, localResults: '[]' }),
+        { where: { ID: { [Op.in]: [1] } }, transaction: expect.anything() },
+      );
+      expect(retryQueueManager.removeBatch).toHaveBeenCalledWith(new Set([1]));
+      expect(updateDomainStats).toHaveBeenCalledWith('example.com');
+      // The queued task takes the claim over instead of the route releasing it
+      expect(refreshQueueMock.enqueue).toHaveBeenCalledWith(expect.stringMatching(/^location-refresh-1-/), expect.any(Function), ['example.com'], { reservations: [release] });
+      expect(release).not.toHaveBeenCalled();
+      await (refreshQueueMock.enqueue.mock.calls[0][1] as () => Promise<void>)();
+      expect(refreshKeywordsByIds).toHaveBeenCalledWith([1], expect.anything());
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ updatedCount: 1 }));
+    });
+
+    it('leaves a keyword that already has the chosen location untouched and releases the domain claim', async () => {
+      const release = jest.fn();
+      (refreshQueue as any).reserveDomains.mockReturnValueOnce(release);
+      mockLocationLookups([locationRow({ ID: 1, location: 'Miami,Florida,United States', country: 'US' })]);
+      const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { location: 'Miami,Florida,United States' } });
+      const res = createMockResponse();
+
+      await handler(req, res);
+
+      expect(keywordMock.update).not.toHaveBeenCalled();
+      expect(refreshQueueMock.enqueue).not.toHaveBeenCalled();
+      expect(release).toHaveBeenCalledTimes(1);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ updatedCount: 0 }));
+    });
+
+    it('returns 409 with a retry message and changes nothing while a refresh holds the domain', async () => {
+      refreshQueueMock.isDomainLocked.mockImplementation((domain?: string) => domain === 'example.com');
+      (refreshQueue as any).reserveDomains.mockReturnValueOnce(null);
+      keywordMock.findAll.mockResolvedValueOnce([locationRow({ ID: 1, domain: 'example.com' })]);
+      const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { location: 'Miami,Florida,United States' } });
+      const res = createMockResponse();
+
+      await handler(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(409);
+      expect(JSON.stringify((res.json as jest.Mock).mock.calls[0][0])).toMatch(/example\.com.*Try again once the refresh has finished/);
+      expect(keywordMock.update).not.toHaveBeenCalled();
+      expect(refreshQueueMock.enqueue).not.toHaveBeenCalled();
+      refreshQueueMock.isDomainLocked.mockImplementation(() => false);
     });
 
     it('returns 400 and changes nothing when no country can be determined from a blank location or from location alone', async () => {
@@ -755,8 +818,8 @@ describe('keywords', () => {
       await handler(req, res);
 
       expect(keywordMock.update).toHaveBeenCalledWith(
-        { location: 'London,England,United Kingdom', country: 'GB' },
-        { where: { ID: { [Op.in]: [1] } } },
+        expect.objectContaining({ location: 'London,England,United Kingdom', country: 'GB', position: 0, history: '{}', updating: 0 }),
+        { where: { ID: { [Op.in]: [1] } }, transaction: expect.anything() },
       );
     });
 
@@ -773,8 +836,8 @@ describe('keywords', () => {
 
       expect(keywordMock.update).toHaveBeenCalledTimes(1);
       expect(keywordMock.update).toHaveBeenCalledWith(
-        { location: 'London,England,United Kingdom', country: 'GB' },
-        { where: { ID: { [Op.in]: [2] } } },
+        expect.objectContaining({ location: 'London,England,United Kingdom', country: 'GB', position: 0, history: '{}', updating: 0 }),
+        { where: { ID: { [Op.in]: [2] } }, transaction: expect.anything() },
       );
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ updatedCount: 1, skipped: ['alpha'] }));
