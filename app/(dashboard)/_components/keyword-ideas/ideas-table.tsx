@@ -186,7 +186,7 @@ export function IdeasTable({
             : 'No keyword ideas match these filters.';
 
    return (
-      <div className="bg-card rounded-xl border" data-testid="domKeywords">
+      <div className="bg-card rounded-xl border shadow-sm" data-testid="domKeywords">
          {selectedIds.length > 0 ? (
             <AddToTrackerBar
                selectedCount={selectedIds.length}

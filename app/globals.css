@@ -53,7 +53,7 @@
    --font-heading: var(--font-sans);
 }
 
-/* One light theme. Indigo is Tailwind indigo-600 / indigo-50 / indigo-100, matching the legacy UI. */
+/* One light theme. The accent is #33cc66 (oklch 74.5% 0.19 150), with dark text on it for contrast. */
 :root {
    --radius: 0.625rem;
    --background: oklch(100% 0 0deg);
@@ -62,31 +62,31 @@
    --card-foreground: oklch(14.5% 0 0deg);
    --popover: oklch(100% 0 0deg);
    --popover-foreground: oklch(14.5% 0 0deg);
-   --primary: oklch(51.1% 0.262 276.966deg);
-   --primary-foreground: oklch(98.5% 0 0deg);
+   --primary: oklch(74.5% 0.19 149.6deg);
+   --primary-foreground: oklch(18% 0.04 150deg);
    --secondary: oklch(97% 0 0deg);
    --secondary-foreground: oklch(20.5% 0 0deg);
    --muted: oklch(97% 0 0deg);
    --muted-foreground: oklch(55.6% 0 0deg);
-   --accent: oklch(96.2% 0.018 272.314deg);
-   --accent-foreground: oklch(35.9% 0.144 278.697deg);
+   --accent: oklch(96% 0.035 150deg);
+   --accent-foreground: oklch(32% 0.09 150deg);
    --destructive: oklch(57.7% 0.245 27.325deg);
    --border: oklch(92.2% 0 0deg);
    --input: oklch(92.2% 0 0deg);
-   --ring: oklch(58.5% 0.233 277.117deg);
-   --chart-1: oklch(51.1% 0.262 276.966deg);
-   --chart-2: oklch(67.3% 0.182 276.935deg);
-   --chart-3: oklch(78.5% 0.115 274.713deg);
+   --ring: oklch(74.5% 0.19 149.6deg);
+   --chart-1: oklch(74.5% 0.19 149.6deg);
+   --chart-2: oklch(62% 0.17 150deg);
+   --chart-3: oklch(85% 0.12 150deg);
    --chart-4: oklch(55.6% 0 0deg);
    --chart-5: oklch(26.9% 0 0deg);
    --sidebar: oklch(98.5% 0 0deg);
    --sidebar-foreground: oklch(14.5% 0 0deg);
-   --sidebar-primary: oklch(51.1% 0.262 276.966deg);
-   --sidebar-primary-foreground: oklch(98.5% 0 0deg);
-   --sidebar-accent: oklch(96.2% 0.018 272.314deg);
-   --sidebar-accent-foreground: oklch(35.9% 0.144 278.697deg);
+   --sidebar-primary: oklch(74.5% 0.19 149.6deg);
+   --sidebar-primary-foreground: oklch(18% 0.04 150deg);
+   --sidebar-accent: oklch(96% 0.035 150deg);
+   --sidebar-accent-foreground: oklch(32% 0.09 150deg);
    --sidebar-border: oklch(92.2% 0 0deg);
-   --sidebar-ring: oklch(58.5% 0.233 277.117deg);
+   --sidebar-ring: oklch(74.5% 0.19 149.6deg);
    --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", roboto, "Helvetica Neue", arial, sans-serif;
 }
 

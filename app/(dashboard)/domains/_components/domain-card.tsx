@@ -84,7 +84,7 @@ export function DomainCard({
 
    return (
       <Card
-         className="hover:ring-primary/30 cursor-pointer gap-0 p-0 transition-shadow"
+         className="hover:ring-primary/30 cursor-pointer gap-0 p-0 transition-shadow hover:shadow-md"
          data-testid="domain-card"
          onClick={(event) => {
             // The name is a real link and the switch is a control, so only clicks elsewhere on the card navigate.
@@ -141,7 +141,7 @@ export function DomainCard({
                      />
                   </label>
                </div>
-               <div className="bg-accent/40 flex flex-1 items-center rounded-md border p-4" data-testid="dom_stats">
+               <div className="bg-accent/70 border-primary/15 flex flex-1 items-center rounded-md border p-4" data-testid="dom_stats">
                   <Stat label="Keywords">
                      {domain.keywordsTracked}
                      <Trend current={domain.keywordsTracked} previous={domain.prevKeywordsTracked} />
@@ -162,7 +162,7 @@ export function DomainCard({
             {consoleIntegrated && (
                <div className="flex flex-1 flex-col p-4 lg:basis-56">
                   <p className="text-primary mb-2 text-xs font-medium">Search Console (7d)</p>
-                  <div className="bg-accent/40 flex flex-1 items-center rounded-md border p-4" data-testid="dom_sc_stats">
+                  <div className="bg-accent/70 border-primary/15 flex flex-1 items-center rounded-md border p-4" data-testid="dom_sc_stats">
                      <Stat label="Visits">
                         <CompactMetric value={domain.scVisits} />
                         <Trend current={domain.scVisits} previous={domain.scVisitsPrev} />

@@ -174,7 +174,7 @@ export function TrackerView({
             onAddKeyword={() => setAddKeywordsOpen(true)}
          />
 
-         <div className="bg-card rounded-xl border" data-testid="domKeywords">
+         <div className="bg-card rounded-xl border shadow-sm" data-testid="domKeywords">
             {selectedIds.length > 0 ? (
                <div className="flex flex-wrap items-center gap-2 p-4" data-testid="bulk_actions">
                   <span className="text-muted-foreground mr-2 text-sm font-medium">{selectedIds.length} selected</span>

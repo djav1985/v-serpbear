@@ -130,7 +130,7 @@ export function InsightView({ domain, searchConsoleConnected, availableScrapers,
       <div className="flex flex-col gap-4">
          <DomainHeader domain={domain} onOpenSettings={() => setSettingsOpen(true)} />
 
-         <div className="bg-card rounded-xl border" data-testid="domKeywords">
+         <div className="bg-card rounded-xl border shadow-sm" data-testid="domKeywords">
             <div className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
                <div className="hidden items-center gap-1 lg:flex" role="tablist" aria-label="Insight sections">
                   {TABS.map((value) => (

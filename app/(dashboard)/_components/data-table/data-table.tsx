@@ -106,7 +106,7 @@ export function DataTable<TData extends RowData>({
          {!stacked && (
             <div ref={headRef} role="rowgroup" className="bg-card sticky top-0 z-10 border-y" style={{ minWidth }}>
                {table.getHeaderGroups().map((headerGroup) => (
-                  <div key={headerGroup.id} role="row" className="bg-muted/40 grid items-center gap-3 px-4 py-3 text-xs font-semibold" style={gridStyle}>
+                  <div key={headerGroup.id} role="row" className="bg-accent/70 text-accent-foreground grid items-center gap-3 px-4 py-3 text-xs font-semibold" style={gridStyle}>
                      {headerGroup.headers.map((header) => {
                         const canSort = header.column.getCanSort();
                         const sorted = header.column.getIsSorted();
