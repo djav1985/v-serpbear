@@ -981,7 +981,7 @@ describe('parseKeywords', () => {
         const [keyword] = parseKeywords([buildKeyword({ history: '{not json' }) as any]);
 
         expect(keyword.history).toEqual({});
-        expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('history'), expect.anything());
+        expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('history'), expect.any(Error));
         logSpy.mockRestore();
      });
   });

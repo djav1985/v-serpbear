@@ -53,7 +53,6 @@ export const fetchSearchConsoleData = async (domain:DomainType, days:number, typ
    const defaultSCSettings = { property_type: 'domain', url: '', client_email: '', private_key: '' };
    const domainSettings = safeJsonParse(domain.search_console, defaultSCSettings, {
       context: `domain ${domainName} search_console`,
-      logError: true,
    });
    const sCPrivateKey = api?.private_key || process.env.SEARCH_CONSOLE_PRIVATE_KEY || '';
    const sCClientEmail = api?.client_email || process.env.SEARCH_CONSOLE_CLIENT_EMAIL || '';
@@ -295,7 +294,7 @@ export const getSearchConsoleApiInfo = async (domain: DomainType): Promise<SCAPI
    const domainSCSettings = safeJsonParse<Record<string, string> | null>(
       domain.search_console,
       null,
-      { context: `domain ${domain.domain ?? ''} search_console`, logError: true },
+      { context: `domain ${domain.domain ?? ''} search_console` },
    );
    if (domainSCSettings && domainSCSettings.private_key) {
       if (!domainSCSettings.private_key.includes('BEGIN PRIVATE KEY')) {
@@ -345,7 +344,7 @@ export const checkSearchConsoleIntegration = async (domain: DomainType): Promise
    const { client_email = '', private_key = '' } = safeJsonParse<DomainSearchConsole>(
       domain?.search_console,
       { client_email: '', private_key: '', property_type: 'domain', url: '' },
-      { context: `domain ${domain?.domain ?? ''} search_console`, logError: true },
+      { context: `domain ${domain?.domain ?? ''} search_console` },
    );
    const response = await fetchSearchConsoleData(domain, 3, undefined, { client_email, private_key });
    if (Array.isArray(response)) { res.isValid = true; }
@@ -374,7 +373,7 @@ export const readLocalSCData = async (domain:string): Promise<SCDomainDataType|f
       const domainSCData = safeJsonParse<SCDomainDataType | false>(
          currentQueueRaw,
          false,
-         { context: `local Search Console data for ${domain}`, logError: true },
+         { context: `local Search Console data for ${domain}` },
       );
       if (!domainSCData) {
          return false;

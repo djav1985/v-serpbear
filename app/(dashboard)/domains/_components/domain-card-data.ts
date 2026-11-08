@@ -34,7 +34,7 @@ const toPrevious = (value: unknown): number | null => (
 
 /** Maps the `/api/serp/domains?withstats=true` shape to what the card needs. Used on the server and after a refetch. */
 export const toDomainCardData = (domain: DomainType): DomainCardData => {
-   const searchConsole = safeJsonParse<DomainSearchConsole | null>(domain?.search_console, null);
+   const searchConsole = safeJsonParse<DomainSearchConsole | null>(domain?.search_console, null, { context: `domain ${domain?.domain ?? ''} search_console` });
    return {
       id: domain.ID,
       domain: domain.domain,

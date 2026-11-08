@@ -9,7 +9,7 @@ export const maskSearchConsole = (raw: unknown, label: string): Record<string, s
    const scData = safeJsonParse<Record<string, string> | null>(
       raw,
       null,
-      { context: `domain ${label} search_console`, logError: true },
+      { context: `domain ${label} search_console` },
    );
    if (!scData) {
       return {};

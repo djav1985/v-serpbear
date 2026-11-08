@@ -47,7 +47,7 @@ const isSavedCredential = (value?: string | null): boolean => value === SAVED_CR
 const DEFAULT_SEARCH_CONSOLE: DomainSearchConsole = { property_type: 'domain', url: '', client_email: '', private_key: '' };
 
 const parseSearchConsole = (raw?: string | null): DomainSearchConsole => {
-   const parsed = safeJsonParse<DomainSearchConsole | null>(raw, null);
+   const parsed = safeJsonParse<DomainSearchConsole | null>(raw, null, { context: 'domain search_console settings' });
    return parsed && typeof parsed === 'object' ? { ...DEFAULT_SEARCH_CONSOLE, ...parsed } : { ...DEFAULT_SEARCH_CONSOLE };
 };
 
