@@ -18,7 +18,7 @@ The Keywords and Map Pack counts include every keyword, whether or not it is in 
 
 ## Business name and map pack detection
 
-The optional **Business Name** field in the domain's scraper tab turns on map pack detection. Matching uses the name only, never the link.
+The optional **Business name** field in **Domain Settings → Scraper** turns on map pack detection. Matching uses the name only, never the link.
 
 1. Each provider builds a list of local results from its response, in the order Google shows them.
 2. If one of the first three titles matches your business name, the keyword counts as a map pack appearance.

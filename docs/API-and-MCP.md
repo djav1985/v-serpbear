@@ -26,7 +26,7 @@ A REST API for scripts and automation. Send `Authorization: Bearer <APIKEY>`. Af
 
 ```bash
 export APIKEY=your-api-key
-curl -H "Authorization: Bearer $APIKEY" "http://localhost:3030/api/keywords?domain=example.com"
+curl -H "Authorization: Bearer $APIKEY" "http://localhost:3030/api/serp/keywords?domain=example.com"
 ```
 
 The example uses port 3030, which Docker Compose maps to the app.

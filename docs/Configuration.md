@@ -14,7 +14,7 @@ Behaviour is controlled by environment variables in `docker-compose.yml` (under 
 | `TRUST_PROXY` | `0` | No | Number of reverse proxies in front of the app, not an IP address. See [Security](Security). |
 | `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | No | Public URL of the deployment, used for the Google Ads OAuth return origin, email links and logo, and as the cron worker's fallback origin. Set it for real deployments. |
 | `APP_URL` | — | No | Server-side origin for the cron worker's own calls to the app. It takes precedence over `NEXT_PUBLIC_APP_URL` for those calls, which helps in Docker when the public URL is not reachable from inside the container. Google Ads uses it only when `NEXT_PUBLIC_APP_URL` is unset. Email links ignore it. |
-| `NEXT_PUBLIC_WHITE_LABEL` | `false` | No | Enables white-label branding (name and logo). The logo is always the file `logo.png` in `/app/data` (PNG, recommended size 96×96 px), served without login at `/api/images/logo.png`. When white-label is off or the file is missing, that URL serves the built-in default logo instead, so it always returns an image. |
+| `NEXT_PUBLIC_WHITE_LABEL` | `false` | No | Enables white-label branding (name and logo). The logo is always the file `logo.png` in `/app/data` (PNG, recommended size 96×96 px), served without login at `/api/images/logo.png`. The browser tab icon is the file `favicon.png` in the same folder, served at `/api/images/favicon.png`. When white-label is off or a file is missing, that URL serves the built-in default icon instead, so both always return an image. |
 | `NEXT_PUBLIC_PLATFORM_NAME` | `SerpBear` | No | App and email name. Used only in white-label mode. |
 | `SEARCH_CONSOLE_CLIENT_EMAIL` | — | No | Service account email with access to your Search Console properties. |
 | `SEARCH_CONSOLE_PRIVATE_KEY` | — | No | Matching private key; keep newlines escaped. |
@@ -54,7 +54,7 @@ Manage these in the Settings UI or at `/api/app/settings`.
 
 ## White labelling
 
-Set `NEXT_PUBLIC_WHITE_LABEL=true` for a custom name and logo. Logo file changes apply on the next request, so refresh the browser. Environment value changes need a restart (`docker compose up -d`). Neither needs a rebuild.
+Set `NEXT_PUBLIC_WHITE_LABEL=true` for a custom name, logo and tab icon. Put `logo.png` and `favicon.png` in the data folder (`/app/data`). Logo and favicon file changes apply on the next request, so refresh the browser. Environment value changes need a restart (`docker compose up -d`). Neither needs a rebuild.
 
 ## YAML notes for docker-compose.yml
 

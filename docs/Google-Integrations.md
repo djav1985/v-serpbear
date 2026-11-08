@@ -53,12 +53,12 @@ First check which property type your domain has in Search Console:
 - **Domain property** (`example.com`): covers all subdomains and protocols.
 - **URL-prefix property** (`https://example.com/`): covers only that prefix.
 
-In SerpBear's domain settings, the property type must match. Choose **Domain** for a domain property. Choose **URL** for a URL-prefix property, and enter the exact URL as shown in Search Console. A mismatch is the most common cause of "Forbidden" errors.
+In SerpBear's **Domain Settings → Search Console** tab, the property type must match. Choose **Domain** for a domain property. Choose **URL** for a URL-prefix property, and enter the exact URL as shown in Search Console. A mismatch is the most common cause of "Forbidden" errors.
 
 There are three ways to give SerpBear the credentials. They are read in this order:
 
-1. **Domain settings:** insert the `client_email` and `private_key` in a domain's settings. This uses that account for that domain only.
-2. **App settings:** open **Settings → Search Console** and insert the two values. They are used for every domain without its own.
+1. **Domain settings:** insert the `client_email` and `private_key` in a domain's **Domain Settings → Search Console** tab. This uses that account for that domain only.
+2. **App settings:** open **Settings → Integrations → Search Console** and insert the two values. They are used for every domain without its own.
 3. **Environment variables:** set `SEARCH_CONSOLE_CLIENT_EMAIL` and `SEARCH_CONSOLE_PRIVATE_KEY` in `docker-compose.yml`. Keep the newlines in the key escaped as `\n`. They are used for all domains, as long as the service account has access to each one.
 
 ### How the data is refreshed
@@ -103,7 +103,7 @@ Go to **APIs & Services → Library**, search for "google ads" and enable the **
 
 1. Create a [Google Ads Manager account](https://ads.google.com/home/tools/manager-accounts/) (also called an MCC account). Use an email address that is not already attached to a Google Ads account.
 2. Click **Tools**, then **API Center**.
-3. Copy the **Developer Token** and paste it in the **Developer token** field in SerpBear.
+3. Copy the **Developer Token** and paste it in the **Developer Token** field in SerpBear.
 
 ### Step 5: Apply for Basic Access
 
