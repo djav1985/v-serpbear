@@ -120,15 +120,15 @@ This backs up the data directory, pulls the new image and recreates the containe
 
 | Provider | Pricing snapshot* | Geo targeting | Map pack | Mobile | Credits left | Authentication |
 | --- | --- | --- | --- | --- | --- | --- |
-| Serply (`serply`) | Plans from $49/mo | Country | Yes | Yes | No | Header `X-Api-Key` |
-| SerpApi (`serpapi`) | Free 250/mo, plans from $75/mo | City | Yes | Yes | Yes | Query `api_key` |
-| SearchApi (`searchapi`) | Plans from $40/mo | City | Yes | Yes | Yes | Query `api_key` |
-| ValueSerp (`valueserp`) | Pay-as-you-go, 10,000 for $25 | City | Yes | Yes | Yes | Query `api_key` |
-| Serper (`serper`) | Credit-based, 50,000 for $50 | Country | No | No | No | Query `apiKey` |
-| HasData (`hasdata`) | Free 1,000/mo, plans from $49/mo | City | Yes | Yes | Yes | Header `x-api-key` |
-| CrazySERP (`crazyserp`) | Pay-as-you-go | City | Yes | Yes | Yes | Header `Authorization: Bearer` |
-| PrismCrawl (`prismcrawl`) | 100 free credits, packages from $5 (about $0.21 per 1,000, valid 90 days) | City | Yes | Yes | Yes | Header `x-api-key` (POST JSON) |
-| DataForSEO (`dataforseo`) | Pay-as-you-go, $50 minimum top-up | City | Yes | Yes | Yes (dollar balance) | HTTP Basic, `login:password` in the API key field |
+| Serply | Plans from $49/mo | Country | Yes | Yes | No | Header `X-Api-Key` |
+| SerpApi | Free 250/mo, plans from $75/mo | City | Yes | Yes | Yes | Query `api_key` |
+| SearchApi | Plans from $40/mo | City | Yes | Yes | Yes | Query `api_key` |
+| ValueSerp | Pay-as-you-go, 10,000 for $25 | City | Yes | Yes | Yes | Query `api_key` |
+| Serper | Credit-based, 50,000 for $50 | Country | No | No | No | Query `apiKey` |
+| HasData | Free 1,000/mo, plans from $49/mo | City | Yes | Yes | Yes | Header `x-api-key` |
+| CrazySERP | Pay-as-you-go | City | Yes | Yes | Yes | Header `Authorization: Bearer` |
+| PrismCrawl | 100 free credits, packages from $5 (about $0.21 per 1,000, valid 90 days) | City | Yes | Yes | Yes | Header `x-api-key` (POST JSON) |
+| DataForSEO | Pay-as-you-go, $50 minimum top-up | City | Yes | Yes | Yes (dollar balance) | HTTP Basic, `login:password` in the API key field |
 | SerpBase | Credit-based | City | Yes | Yes | Yes | Header `X-API-Key` (POST JSON) |
 
 > \*Pricing is indicative. Check each vendor before buying. The request formats are implemented in [`scrapers/services`](./scrapers/services).
