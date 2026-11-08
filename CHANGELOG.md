@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file. Releases no
 
 ## [Unreleased]
 
+### Removed
+
+- Unused dev dependencies (`msw`, `@types/cryptr`, `autoprefixer`, `js-yaml`, `postcss-selector-parser`, `source-map-js`, `browserslist`, `esbuild`, `shell-quote`, `ws`, `@babel/core`), the msw test shims, unused UI pieces (`badge`, `empty`, `separator`), the unused `screenshot.jpg`, and two unused constants.
+
 ### Fixed
 
 - Settings toasts now show the server's own error text (for example the reason a Google Ads test failed) instead of a generic line, and failed form checks on Update Settings also show a toast.

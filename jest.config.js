@@ -19,8 +19,7 @@ const customJestConfig = {
   testPathIgnorePatterns: ['/node_modules/', '/__helpers__/(?!.*\\.test\\.[jt]sx?$)'],
   moduleNameMapper: {
     '^uuid$': uuidPath,
-    'better-sqlite3': '<rootDir>/__mocks__/better-sqlite3.js',
-    '^until-async$': '<rootDir>/__mocks__/until-async.js'
+    'better-sqlite3': '<rootDir>/__mocks__/better-sqlite3.js'
   },
   modulePathIgnorePatterns: ['<rootDir>/.next/'],
   coverageThreshold: {
@@ -55,17 +54,9 @@ const customJestConfig = {
 
 // next/jest always prepends '/node_modules/' to transformIgnorePatterns and Jest skips a file if ANY
 // pattern matches, so a custom allowlist passed above is never effective. Override the final list here
-// so ESM-only packages (msw and its deps) are transformed.
+// so ESM-only packages (sequelize, uuid and TanStack) are transformed.
 const TRANSFORM_ALLOWLIST = [
   'sequelize',
-  'until-async',
-  '@bundled-es-modules',
-  'msw',
-  '@mswjs',
-  'rettime',
-  'headers-polyfill',
-  'cookie',
-  'tough-cookie',
   'uuid',
   '@tanstack'
 ];
