@@ -61,7 +61,6 @@ export const DEFAULT_SC_PERIOD = 'threeDays';
 /** Optional columns the user can switch off. The others are locked on. */
 export const OPTIONAL_COLUMNS = ['Best', 'History', 'Volume', 'Search Console'] as const;
 export const LOCKED_COLUMNS = ['Keyword', 'Position', 'URL', 'Updated'] as const;
-export const DEFAULT_OPTIONAL_COLUMNS: string[] = [...OPTIONAL_COLUMNS];
 
 export const toColumnFilters = (filters: TrackerFilters): ColumnFiltersState => [
    { id: 'device', value: filters.device },
