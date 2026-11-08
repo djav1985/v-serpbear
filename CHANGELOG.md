@@ -45,6 +45,7 @@ The API routes are regrouped. **There are no compatibility aliases: the old rout
 - **Look:** the accent colour is now green (`#33cc66`, with dark text on green buttons) in place of indigo. Cards and tables get a soft shadow, the top bar is solid white with a shadow, table headers and the domain-card stat boxes carry a light green tint, and the web app's theme colour matches.
 - **Page background:** a faint tiled texture (`public/body-texture.png`) sits behind every page. The top bar, cards and tables stay solid.
 - **Domain list:** each domain shows its site icon (a larger 32px copy for sharper rendering), and a globe takes its place when the icon cannot be loaded, so the names always line up.
+- **Buttons:** the label text now sits in the vertical centre of the button. It was drawn about a pixel and a half too high, because of how the font's line box is spaced. Icons stay where they were.
 - **Selection bar** (Discover, Ideas and Research): on phones the Desktop and Mobile buttons stretch to fill the bar, and on Research so does the domain picker, each running the full width. Desktop is unchanged.
 - **Research** now lives inside the same page frame as every other screen.
 - **Charts:** Chart.js is replaced by Recharts. The Insight chart plots visits and impressions on two axes.
