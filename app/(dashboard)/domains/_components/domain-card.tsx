@@ -28,6 +28,13 @@ const UPDATED_TITLE_FORMAT: Intl.DateTimeFormatOptions = {
    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true,
 };
 
+/** Whole credits with thousands separators; a money balance (DataForSEO) as US dollars. */
+const formatCredits = (value: number, unit: 'credits' | 'usd'): string => (
+   unit === 'usd'
+      ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)
+      : new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value)
+);
+
 type TrendProps = { current: number; previous: number | null; lowerIsBetter?: boolean };
 
 function Trend({ current, previous, lowerIsBetter = false }: TrendProps) {
@@ -132,6 +139,11 @@ export function DomainCard({
                         <span>Not updated yet</span>
                      )}
                   </div>
+                  {domain.creditsRemaining !== null && (
+                     <div className="text-muted-foreground mt-1 text-xs" data-testid="dom_credits">
+                        Credits remaining: {formatCredits(domain.creditsRemaining, domain.creditsUnit)}
+                     </div>
+                  )}
                </div>
             </div>
 

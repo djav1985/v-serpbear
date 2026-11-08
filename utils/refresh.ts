@@ -17,6 +17,7 @@ import { retryQueueManager } from './retryQueueManager';
 import { historyKeyToTime, toHistoryDateKey } from './historyDateKey';
 import allScrapers from '../scrapers/index';
 import { DEVICE_MOBILE } from './constants';
+import { collectInUseCreditKeys, flushScraperCredits } from './scraperCredits';
 
 const describeScraperType = (scraperType?: SettingsType['scraper_type']): string => {
    if (!scraperType || scraperType.length === 0) {
@@ -293,7 +294,7 @@ const markKeywordsWithUnreadableKey = async (keywords: Keyword[]): Promise<void>
  * @param {SettingsType} settings - The App Settings that contain the Scraper settings
  * @returns {Promise}
  */
-const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsType, preloadedDomains?: Domain[]): Promise<KeywordType[]> => {
+const runKeywordRefresh = async (rawkeyword:Keyword[], settings:SettingsType, preloadedDomains?: Domain[]): Promise<KeywordType[]> => {
    if (!rawkeyword || rawkeyword.length === 0) { return []; }
 
    const domainNames = Array.from(new Set(rawkeyword.map((el) => el.domain).filter(Boolean)));
@@ -1003,6 +1004,21 @@ const refreshParallel = async (
    
    logger.debug('[SCRAPER] Parallel keyword refresh completed', { count: updatedKeywords.length });
    return updatedKeywords;
+};
+
+/**
+ * Refreshes the keywords, then saves the scraper credit balances seen during the run (see utils/scraperCredits.ts).
+ * The save runs even when the refresh throws, and never fails the refresh itself.
+ */
+const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsType, preloadedDomains?: Domain[]): Promise<KeywordType[]> => {
+   try {
+      return await runKeywordRefresh(rawkeyword, settings, preloadedDomains);
+   } finally {
+      await flushScraperCredits(async () => {
+         const domains = await Domain.findAll({ attributes: ['scraper_settings'] });
+         return collectInUseCreditKeys(settings, domains.map((domain) => domain.get({ plain: true }) as { scraper_settings?: unknown }));
+      });
+   }
 };
 
 export default refreshAndUpdateKeywords;

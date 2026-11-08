@@ -6,6 +6,7 @@ import { logger } from './logger';
 import { retryQueueManager } from './retryQueueManager';
 import { markOwnLocalResults } from './mapPack';
 import { resolveGoogleRedirects } from './resolveGoogleLinks';
+import { trackScrapeCredits } from './scraperCredits';
 
 type SearchResult = {
    title: string,
@@ -232,6 +233,7 @@ const scrapeSinglePage = async (
       try {
          const response = await scraperClient;
          const res = await parseScraperResponse(response);
+         trackScrapeCredits(scraperObj, settings, response, res);
          if (!res || typeof res !== 'object') {
             lastError = 'Provider returned an empty or invalid response';
             if (attempt < maxRetries) {

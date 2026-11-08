@@ -22,6 +22,9 @@ type DomainType = {
    scVisits?: number,
    scImpressions?: number,
    scPosition?: number,
+   /** Credits left on the scraper account this domain uses. Missing when the scraper does not report it. */
+   creditsRemaining?: number | null,
+   creditsUnit?: 'credits' | 'usd',
    prevKeywordsTracked?: number | null,
    prevAvgPosition?: number | null,
    prevMapPackKeywords?: number | null,
@@ -346,6 +349,18 @@ interface ScraperSettings {
     * Useful for scrapers that require longer response times (e.g., ValueSerp).
     */
    timeoutMs?: number,
+   /**
+    * Reads the credits the account has left from a scrape response. Return null when the response has none.
+    * Set it only when the provider sends the number with the scrape and has no account endpoint.
+    */
+   readCredits?(body: any, headers: Headers): number | null,
+   /**
+    * Asks the provider's account endpoint how many credits are left. Return null when it cannot be read.
+    * Called once per API key at the end of a refresh run, and must never throw.
+    */
+   fetchCredits?(settings: SettingsType): Promise<number | null>,
+   /** What the number from readCredits or fetchCredits counts. Defaults to 'credits'. */
+   creditsUnit?: 'credits' | 'usd',
 }
 
 // JWT Token Payload

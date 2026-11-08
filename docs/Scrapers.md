@@ -22,6 +22,23 @@ SerpBear asks a SERP data provider for Google results. Pick one globally in **Se
 
 Each page request asks for 10 results. The scrape strategy below sets how many pages are fetched. For country-only providers (Serper, Serply) the city and state fields are disabled and show `N/A`.
 
+## Credits remaining
+
+The domain cards show `Credits remaining:` under the last-updated line when the domain's scraper (its own, or the global one) can report it. The balance is saved in `data/scraper_credits.json`, keyed by scraper and a hash of the API key, so domains that share a key share one number. Entries no domain or the global setting uses anymore are removed on each save.
+
+| Provider | Where the balance comes from |
+| --- | --- |
+| SerpApi | `GET /account.json` (`total_searches_left`), once per key at the end of a refresh run |
+| SearchApi | `GET /api/v1/me` (`account.remaining_credits`), same timing |
+| ValueSerp | `GET /account` (monthly plus top-up credits), same timing |
+| HasData | `GET /user/me/usage` (`data.availableCredits`), same timing |
+| CrazySERP | `GET /api/get-credits` (`available_credits.total`), same timing |
+| DataForSEO | `GET /v3/appendix/user_data` (`money.balance`), shown as a dollar amount |
+| PrismCrawl | `X-Credits-Remaining` response header on each scrape; the lowest value in the run is saved |
+| Serper, Serply | No lookup available, so nothing is shown |
+
+The figures refresh when keywords are refreshed. A failed lookup keeps the last saved number and never fails a refresh.
+
 ## Scrape strategy
 
 Google's removal of `num=100` limits SERP APIs to 10 results per request. The strategy sets how many pages are fetched per keyword, trading API credits against depth.

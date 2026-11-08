@@ -1,5 +1,5 @@
 import { getGoogleDomain } from "../../utils/countries";
-import { resolveCountryCode, getKeywordLocationParts } from "../../utils/scraperHelpers";
+import { resolveCountryCode, getKeywordLocationParts, fetchAccountJson, toCreditNumber } from "../../utils/scraperHelpers";
 import { computeMapPackTop3 } from "../../utils/mapPack";
 import { DEVICE_MOBILE } from "../../utils/constants";
 
@@ -12,6 +12,14 @@ interface ValueSerpResult {
 const valueSerp: ScraperSettings = {
   id: "valueserp",
   name: "Value Serp",
+  // Monthly plan credits plus top-up credits, since both can be spent.
+  fetchCredits: async (settings: SettingsType) => {
+    const key = encodeURIComponent(settings.scraping_api ?? "");
+    const data = await fetchAccountJson(`https://api.valueserp.com/account?api_key=${key}`);
+    const monthly = toCreditNumber(data?.account_info?.monthly_credits_remaining);
+    if (monthly === null) return null;
+    return monthly + (toCreditNumber(data?.account_info?.topup_credits_remaining) ?? 0);
+  },
   allowsCity: true,
   timeoutMs: 20000, // 20s — fail fast; long hangs are usually a broken connection, not a slow response
   scrapeURL: (

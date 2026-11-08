@@ -19,6 +19,9 @@ export type DomainCardData = {
    scPosition: number;
    scPositionPrev: number | null;
    scrapeEnabled: boolean;
+   /** Credits left on the scraper account this domain uses, or null when the scraper does not report it. */
+   creditsRemaining: number | null;
+   creditsUnit: 'credits' | 'usd';
    /** True when this domain has its own Search Console credentials (the global integration is handled separately). */
    hasOwnSearchConsole: boolean;
 };
@@ -53,6 +56,8 @@ export const toDomainCardData = (domain: DomainType): DomainCardData => {
       scPosition: toNumber(domain.scPosition),
       scPositionPrev: toPrevious(domain.scPositionPrev),
       scrapeEnabled: Boolean(domain.scrapeEnabled),
+      creditsRemaining: toPrevious(domain.creditsRemaining),
+      creditsUnit: domain.creditsUnit === 'usd' ? 'usd' : 'credits',
       hasOwnSearchConsole: !!(searchConsole?.client_email && searchConsole?.private_key),
    };
 };

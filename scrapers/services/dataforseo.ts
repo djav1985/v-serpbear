@@ -1,5 +1,5 @@
 import countries, { getGoogleDomain } from "../../utils/countries";
-import { resolveCountryCode, getKeywordLocationParts } from "../../utils/scraperHelpers";
+import { resolveCountryCode, getKeywordLocationParts, fetchAccountJson, toCreditNumber } from "../../utils/scraperHelpers";
 import { computeMapPackTop3 } from "../../utils/mapPack";
 import { DEVICE_MOBILE } from "../../utils/constants";
 
@@ -33,6 +33,13 @@ const getTask = (response: any): DataForSeoTask | undefined => {
 const dataforseo: ScraperSettings = {
   id: "dataforseo",
   name: "DataForSEO",
+  // The balance is money in US dollars, not a count of credits.
+  creditsUnit: "usd",
+  fetchCredits: async (settings: SettingsType) => {
+    const auth = Buffer.from(settings.scraping_api ?? "").toString("base64");
+    const data = await fetchAccountJson("https://api.dataforseo.com/v3/appendix/user_data", { Authorization: `Basic ${auth}` });
+    return toCreditNumber(data?.tasks?.[0]?.result?.[0]?.money?.balance);
+  },
   allowsCity: true,
   supportsMapPack: true,
   timeoutMs: 30000,
