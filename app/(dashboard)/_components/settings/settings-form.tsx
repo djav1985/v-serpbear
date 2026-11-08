@@ -106,8 +106,9 @@ export function SettingsForm({ platformName }: { platformName: string }) {
          return false;
       }
       seedPending.current = true;
-      // Turning a scraper on changes what every screen offers, so reload what the server pages passed down.
-      if (stored?.scraper_type === 'none' && clean.scraper_type !== 'none') { router.refresh(); }
+      // The pages read the scraper, its city support and the Search Console and Google Ads connections on the server and
+      // pass them down, so after any saved change they are read again. Without this the open page keeps the old values.
+      router.refresh();
       return true;
    };
 
