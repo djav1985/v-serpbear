@@ -426,7 +426,7 @@ describe('Search Console, Volume and AdWords routes', () => {
              { get: () => ({ ID: 1, keyword: 'alpha', volume: 0 }) },
           ]);
           getKeywordsVolumeMock.mockResolvedValue({ volumes: { 1: 25 } });
-          updateKeywordsVolumeDataMock.mockResolvedValue(true);
+          updateKeywordsVolumeDataMock.mockResolvedValue({ 1: 25 });
        });
 
        afterEach(() => {
@@ -464,6 +464,8 @@ describe('Search Console, Volume and AdWords routes', () => {
        });
 
        it('updates keyword volumes and returns refreshed data', async () => {
+          parseKeywordsMock.mockReturnValueOnce([{ ID: 1, keyword: 'alpha', volume: 0 }])
+             .mockReturnValueOnce([{ ID: 1, keyword: 'alpha', volume: 25 }]);
           const req = {
              method: 'POST',
              body: { keywords: [1], update: true },
@@ -473,7 +475,7 @@ describe('Search Console, Volume and AdWords routes', () => {
 
           await handler(req, res);
 
-          expect(updateKeywordsVolumeDataMock).toHaveBeenCalledWith({ 1: 25 });
+          expect(updateKeywordsVolumeDataMock).toHaveBeenCalledWith({ 1: 25 }, [{ ID: 1, keyword: 'alpha', volume: 0 }]);
           expect(res.status).toHaveBeenCalledWith(200);
           expect(res.json).toHaveBeenCalledWith({
              keywords: [{ ID: 1, keyword: 'alpha', volume: 25 }],
@@ -555,7 +557,7 @@ describe('Search Console, Volume and AdWords routes', () => {
        });
 
        it('answers 500 when saving the volumes fails', async () => {
-          updateKeywordsVolumeDataMock.mockResolvedValue(false);
+          updateKeywordsVolumeDataMock.mockRejectedValue(new Error('db failure'));
           const req = { method: 'POST', body: { keywords: [1] }, headers: {} } as unknown as NextApiRequest;
           const res = createResponse();
 

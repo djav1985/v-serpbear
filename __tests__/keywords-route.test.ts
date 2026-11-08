@@ -15,7 +15,7 @@ const handler = asHandler(handlerRoute);
 
 jest.mock('../database/database', () => ({
   __esModule: true,
-  default: { sync: jest.fn(), transaction: jest.fn(async (work: (t: unknown) => Promise<unknown>) => work({ id: 'tx' })) },
+  default: { sync: jest.fn(), transaction: jest.fn(async (options: unknown, work?: (t: unknown) => Promise<unknown>) => (work ?? (options as (t: unknown) => Promise<unknown>))({ id: 'tx' })) },
 }));
 jest.mock('../database/models/keyword', () => ({
   __esModule: true,
@@ -45,6 +45,7 @@ jest.mock('../utils/refresh', () => ({
   default: jest.fn(),
   refreshKeywordsByIds: jest.fn().mockResolvedValue([]),
   markKeywordsAsUpdating: jest.fn().mockResolvedValue(undefined),
+  clearKeywordUpdatingFlags: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('../utils/appSettings', () => ({
   __esModule: true,
@@ -240,7 +241,7 @@ describe('keywords', () => {
       for (let tick = 0; tick < 10; tick += 1) {
         await Promise.resolve();
       }
-      expect(updateKeywordsVolumeDataMock).toHaveBeenCalledWith({ 1: 100 });
+      expect(updateKeywordsVolumeDataMock).toHaveBeenCalledWith({ 1: 100 }, expect.any(Array));
       expect(res.status).toHaveBeenCalledWith(201);
     });
 
@@ -315,7 +316,7 @@ describe('keywords', () => {
           tags: JSON.stringify(['Primary', 'secondary']),
           updatingStartedAt: now,
         }),
-      ]);
+      ], { transaction: expect.anything() });
       expect(res.status).toHaveBeenCalledWith(201);
     });
 
@@ -407,7 +408,7 @@ describe('keywords', () => {
       // Backfill should write history7d for the legacy row
       expect(keywordMock.update).toHaveBeenCalledWith(
         { history7d: expect.any(String) },
-        { where: { ID: 6 } },
+        { where: { ID: 6, history: expect.any(String), history7d: null } },
       );
     });
   });
@@ -728,6 +729,22 @@ describe('keywords', () => {
       expect(res.status).toHaveBeenCalledWith(200);
     });
 
+    it('clears its updating flags before releasing the domain when enqueue fails', async () => {
+      const { clearKeywordUpdatingFlags } = require('../utils/refresh');
+      const row = locationRow();
+      const release = jest.fn(() => expect(clearKeywordUpdatingFlags).toHaveBeenCalled());
+      refreshQueueMock.reserveDomains.mockReturnValueOnce(release);
+      refreshQueueMock.enqueue.mockRejectedValueOnce(new Error('enqueue failed'));
+      mockLocationLookups([row]);
+      const res = createMockResponse();
+
+      await handler(createMockRequest({ method: 'PUT', query: { id: '1' }, body: { location: '', country: 'DE' } }), res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(clearKeywordUpdatingFlags).toHaveBeenCalledWith([row], 'after location enqueue failure', { keywordIds: [1] }, true);
+      expect(release).toHaveBeenCalledTimes(1);
+    });
+
     it('clears the old rankings of a moved keyword, drops it from the retry queue and queues a fresh scrape that takes over the domain claim', async () => {
       const { retryQueueManager } = require('../utils/retryQueueManager');
       const { refreshKeywordsByIds } = require('../utils/refresh');
@@ -834,7 +851,7 @@ describe('keywords', () => {
 
       await handler(req, res);
 
-      expect(keywordMock.update).toHaveBeenCalledTimes(1);
+      expect(keywordMock.update).toHaveBeenCalledTimes(2);
       expect(keywordMock.update).toHaveBeenCalledWith(
         expect.objectContaining({ location: 'London,England,United Kingdom', country: 'GB', position: 0, history: '{}', updating: 0 }),
         { where: { ID: { [Op.in]: [2] } }, transaction: expect.anything() },

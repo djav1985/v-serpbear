@@ -1,5 +1,6 @@
 /// <reference path="../types.d.ts" />
 
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { createHmac } from 'crypto';
 import { readFile } from 'fs/promises';
 import * as path from 'path';
@@ -7,6 +8,7 @@ import Cryptr from 'cryptr';
 import allScrapers from '../scrapers/index';
 import { atomicWriteFile } from './atomicWrite';
 import { withFileLock } from './fileLock';
+import { readSettingsFile } from './settingsFile';
 import { logger } from './logger';
 import { decryptDomainScraperSettings, parseDomainScraperSettings } from './domainScraperSettings';
 
@@ -47,9 +49,12 @@ export const resolveCreditSource = (
    domainPlain: { scraper_settings?: unknown } | null | undefined,
    globalSettings: Pick<SettingsType, 'scraper_type' | 'scraping_api'>,
    cryptr: Cryptr | null,
+   strict = false,
 ): { scraperId: string, apiKey: string } => {
-   const persisted = parseDomainScraperSettings(domainPlain?.scraper_settings);
-   const decrypted = cryptr ? decryptDomainScraperSettings(persisted, cryptr) : null;
+   const raw = domainPlain?.scraper_settings;
+   // A corrupt override is unknown configuration, so callers doing cleanup must keep existing balances.
+   const persisted = parseDomainScraperSettings(strict && typeof raw === 'string' && raw ? JSON.parse(raw) : raw);
+   const decrypted = cryptr ? decryptDomainScraperSettings(persisted, cryptr, strict) : null;
    const overrideType = decrypted?.scraper_type;
    if (!overrideType) {
       return { scraperId: globalSettings.scraper_type, apiKey: globalSettings.scraping_api ?? '' };
@@ -61,7 +66,7 @@ export const resolveCreditSource = (
 
 /** The credit keys currently in use: the global scraper and every domain's own scraper. */
 export const collectInUseCreditKeys = (
-   globalSettings: SettingsType,
+   globalSettings: Pick<SettingsType, 'scraper_type' | 'scraping_api'>,
    domains: { scraper_settings?: unknown }[],
 ): Set<string> => {
    const secret = process.env.SECRET;
@@ -73,7 +78,7 @@ export const collectInUseCreditKeys = (
       }
    };
    add({ scraperId: globalSettings.scraper_type, apiKey: globalSettings.scraping_api ?? '' });
-   domains.forEach((domain) => add(resolveCreditSource(domain, globalSettings, cryptr)));
+   domains.forEach((domain) => add(resolveCreditSource(domain, globalSettings, cryptr, true)));
    return keys;
 };
 
@@ -99,10 +104,25 @@ const entryTime = (entry?: CreditEntry): number => (
    typeof entry?.observedAt === 'number' ? entry.observedAt : (Date.parse(entry?.updatedAt ?? '') || 0)
 );
 
-// Balances seen since the last save. `observed` holds numbers read off scrape responses (the lowest wins, since
-// credits only go down during a run); `lookups` holds accounts that need one account call at the end of the run.
-let observed = new Map<string, { scraper: string, remaining: number, observedAt: number }>();
-let lookups = new Map<string, { scraper: ScraperSettings, settings: SettingsType }>();
+type CreditBatch = {
+   observed: Map<string, { scraper: string, remaining: number, observedAt: number }>;
+   lookups: Map<string, { scraper: ScraperSettings, settings: SettingsType }>;
+};
+
+const creditBatch = new AsyncLocalStorage<CreditBatch>();
+
+export const withScraperCreditBatch = <T>(run: () => Promise<T>): Promise<T> =>
+   creditBatch.run({ observed: new Map(), lookups: new Map() }, run);
+
+export const readCurrentGlobalCreditSettings = async () => {
+   const settings = await readSettingsFile();
+   const secret = process.env.SECRET;
+   if (!secret) { throw new Error('Cannot read scraper credit settings without SECRET'); }
+   return {
+      scraper_type: settings.scraper_type ?? 'none',
+      scraping_api: settings.scraping_api ? new Cryptr(secret).decrypt(settings.scraping_api) : '',
+   } satisfies Pick<SettingsType, 'scraper_type' | 'scraping_api'>;
+};
 
 /**
  * Called after every scrape response. Scrapers that send the balance with the response update the in-memory number;
@@ -110,6 +130,9 @@ let lookups = new Map<string, { scraper: ScraperSettings, settings: SettingsType
  */
 export const trackScrapeCredits = (scraper: ScraperSettings, settings: SettingsType, response: Response, body: any): void => {
    try {
+      const batch = creditBatch.getStore();
+      if (!batch) { return; }
+      const { observed, lookups } = batch;
       if (!settings?.scraping_api || (!scraper.readCredits && !scraper.fetchCredits)) { return; }
       const key = creditKey(scraper.id, settings.scraping_api);
       if (scraper.fetchCredits) {
@@ -136,11 +159,12 @@ export const trackScrapeCredits = (scraper: ScraperSettings, settings: SettingsT
  * returns null nothing is pruned. Never throws, so a credit problem cannot fail a refresh.
  */
 export const flushScraperCredits = async (getInUseKeys?: () => Promise<Set<string> | null>): Promise<void> => {
-   if (observed.size === 0 && lookups.size === 0) { return; }
-   const seen = observed;
-   const pending = lookups;
-   observed = new Map();
-   lookups = new Map();
+   const batch = creditBatch.getStore();
+   if (!batch || (batch.observed.size === 0 && batch.lookups.size === 0)) { return; }
+   const { observed: seen, lookups: pending } = batch;
+   batch.observed = new Map();
+   batch.lookups = new Map();
+   const flushStartedAt = nextStamp();
 
    try {
       const fresh = new Map(seen);
@@ -157,11 +181,6 @@ export const flushScraperCredits = async (getInUseKeys?: () => Promise<Set<strin
          }
       }));
 
-      let inUse: Set<string> | null = null;
-      if (getInUseKeys) {
-         try { inUse = await getInUseKeys(); } catch { inUse = null; }
-      }
-
       const filePath = creditsFilePath();
       await withFileLock(filePath, async () => {
          const saved = await readScraperCredits();
@@ -173,8 +192,12 @@ export const flushScraperCredits = async (getInUseKeys?: () => Promise<Set<strin
             if (value.observedAt < entryTime(saved[key])) { return; }
             next[key] = { scraper: value.scraper, remaining: value.remaining, updatedAt, observedAt: value.observedAt };
          });
-         if (inUse) {
-            Object.keys(next).forEach((key) => { if (!inUse.has(key)) { delete next[key]; } });
+         if (getInUseKeys) {
+            let inUse: Set<string> | null = null;
+            try { inUse = await getInUseKeys(); } catch { /* Configuration is unreadable. Keep saved balances. */ }
+            for (const key of Object.keys(next)) {
+               if (inUse && !inUse.has(key) && entryTime(saved[key]) < flushStartedAt) { delete next[key]; }
+            }
          }
          if (JSON.stringify(next) !== JSON.stringify(saved)) {
             await atomicWriteFile(filePath, JSON.stringify(next, null, 2));

@@ -163,7 +163,13 @@ class RefreshQueue {
       task.reservations.forEach((reservation) => this.releaseReservation(reservation));
 
       // Create and track the promise
-      const taskPromise = task.execute()
+      let execution: Promise<void>;
+      try {
+         execution = task.execute();
+      } catch (error) {
+         execution = Promise.reject(error);
+      }
+      const taskPromise = execution
          .then(() => {
             const duration = Date.now() - startTime;
             logger.debug(`[SCRAPER] Completed refresh task: ${task.id} (${duration}ms)`, { domains });

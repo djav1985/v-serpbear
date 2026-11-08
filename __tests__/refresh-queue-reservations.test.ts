@@ -91,6 +91,19 @@ describe('refresh queue reservations', () => {
     await flush();
   });
 
+  it('releases the domain and runs waiting work when a task throws synchronously', async () => {
+    const queue = freshQueue('1');
+    const reservation = queue.reserveDomains(['example.com'])!;
+    const waiting = jest.fn().mockResolvedValue(undefined);
+
+    await queue.enqueue('waiting', waiting, ['example.com']);
+    await queue.enqueue('broken', () => { throw new Error('startup failed'); }, ['example.com'], { reservations: [reservation] });
+    await flush();
+
+    expect(waiting).toHaveBeenCalledTimes(1);
+    expect(queue.isDomainLocked('example.com')).toBe(false);
+  });
+
   it('refuses a new reservation while a task is queued or running on the domain', async () => {
     const queue = freshQueue();
     const running = controlledTask();

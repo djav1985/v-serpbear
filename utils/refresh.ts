@@ -17,7 +17,7 @@ import { retryQueueManager } from './retryQueueManager';
 import { historyKeyToTime, toHistoryDateKey } from './historyDateKey';
 import allScrapers from '../scrapers/index';
 import { DEVICE_MOBILE } from './constants';
-import { collectInUseCreditKeys, flushScraperCredits } from './scraperCredits';
+import { collectInUseCreditKeys, flushScraperCredits, readCurrentGlobalCreditSettings, withScraperCreditBatch } from './scraperCredits';
 
 const describeScraperType = (scraperType?: SettingsType['scraper_type']): string => {
    if (!scraperType || scraperType.length === 0) {
@@ -1010,16 +1010,19 @@ const refreshParallel = async (
  * Refreshes the keywords, then saves the scraper credit balances seen during the run (see utils/scraperCredits.ts).
  * The save runs even when the refresh throws, and never fails the refresh itself.
  */
-const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsType, preloadedDomains?: Domain[]): Promise<KeywordType[]> => {
+const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsType, preloadedDomains?: Domain[]): Promise<KeywordType[]> => withScraperCreditBatch(async () => {
    try {
       return await runKeywordRefresh(rawkeyword, settings, preloadedDomains);
    } finally {
       await flushScraperCredits(async () => {
-         const domains = await Domain.findAll({ attributes: ['scraper_settings'] });
-         return collectInUseCreditKeys(settings, domains.map((domain) => domain.get({ plain: true }) as { scraper_settings?: unknown }));
+         const [domains, currentSettings] = await Promise.all([
+            Domain.findAll({ attributes: ['scraper_settings'] }),
+            readCurrentGlobalCreditSettings(),
+         ]);
+         return collectInUseCreditKeys(currentSettings, domains.map((domain) => domain.get({ plain: true }) as { scraper_settings?: unknown }));
       });
    }
-};
+});
 
 /**
  * Refreshes keywords by ID, loading the rows when the refresh starts rather than when it was queued. A keyword

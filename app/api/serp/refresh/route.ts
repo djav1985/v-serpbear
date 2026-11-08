@@ -236,7 +236,7 @@ const refreshTheKeywords = async (req: Request, ctx: ApiContext) => {
          // Enqueue the manual refresh task with its domains for per-domain locking
          // This prevents the same domain from being refreshed multiple times simultaneously
          // but allows different domains to process in parallel
-         refreshQueue.enqueue(
+         await refreshQueue.enqueue(
             taskId,
             async () => {
                try {
@@ -255,7 +255,10 @@ const refreshTheKeywords = async (req: Request, ctx: ApiContext) => {
             domainsToRefresh,
             // The queued task takes over the domain claims, so a delete or location edit cannot slip in before it starts
             { reservations: releases }
-         );
+         ).catch(async (error) => {
+            await clearUpdatingFlags(keywordsToStart, 'after enqueue error', 'refresh-error', true);
+            throw error;
+         });
 
          // Return immediately with 200 OK status; skipped lists what was not started and why
          return json({

@@ -1,11 +1,11 @@
-import { Op } from 'sequelize';
+import { Transaction, Op } from 'sequelize';
 import crypto from 'crypto';
 import Keyword from '../../../../database/models/keyword';
 import Domain from '../../../../database/models/domain';
 import { getAppSettings } from '../../../../utils/appSettings';
 import { loadDomainKeywords } from '../../../../utils/keywordsList';
 import parseKeywords from '../../../../utils/parseKeywords';
-import { refreshKeywordsByIds, markKeywordsAsUpdating } from '../../../../utils/refresh';
+import { refreshKeywordsByIds, markKeywordsAsUpdating, clearKeywordUpdatingFlags } from '../../../../utils/refresh';
 import { getKeywordsVolume, updateKeywordsVolumeData } from '../../../../utils/adwords';
 import { buildStoredLocation, getLocationCountry, hasValidCityStatePair, isCountryOnlyLocation, parseCityState } from '../../../../utils/location';
 import { planLocationUpdate } from '../../../../utils/keywordMeta';
@@ -262,34 +262,37 @@ const addKeywords = async (req: Request, ctx: ApiContext) => {
    try {
       // Keywords can only be added to a domain that is already tracked
       const requestedDomains = Array.from(new Set(keywordsToAdd.map((keyword) => keyword.domain)));
-      const knownDomains: Domain[] = await Domain.findAll({ where: { domain: requestedDomains }, attributes: ['domain'] });
-      const knownDomainNames = new Set(knownDomains.map((domain) => domain.get({ plain: true }).domain));
-      const unknownDomains = requestedDomains.filter((domain) => !knownDomainNames.has(domain));
-      if (unknownDomains.length > 0) {
-         return fail(400, 'BAD_REQUEST', `Domains not found in database: ${unknownDomains.join(', ')}. Please ensure domains are created before adding keywords.`, ctx);
-      }
-
-      // The same keyword, country, location and device on the same domain is one tracked keyword. The same
-      // keyword in a different city is a separate target (the Add Keywords form lets users pick one), so the
-      // location is part of the key. A missing location and an empty one count as the same (no city).
-      const trackingKey = (item: { keyword: string, domain: string, device: string, country: string, location?: string | null }) => (
-         [item.domain, item.keyword, item.country, (item.location || '').trim(), item.device].join('|')
-      );
-      const existingKeywords: Keyword[] = await Keyword.findAll({ where: { domain: requestedDomains }, attributes: ['keyword', 'domain', 'device', 'country', 'location'] });
-      const tracked = new Set(existingKeywords.map((item) => trackingKey(item.get({ plain: true }) as KeywordType)));
-      const duplicates: string[] = [];
-      keywordsToAdd.forEach((item) => {
-         const key = trackingKey(item);
-         if (tracked.has(key)) {
-            duplicates.push(`${item.keyword} (${item.device})`);
+      const createdKeywords = await db.transaction({ type: Transaction.TYPES.IMMEDIATE }, async (transaction) => {
+         const knownDomains: Domain[] = await Domain.findAll({ where: { domain: requestedDomains }, attributes: ['domain'], transaction });
+         const knownDomainNames = new Set(knownDomains.map((domain) => domain.get({ plain: true }).domain));
+         const unknownDomains = requestedDomains.filter((domain) => !knownDomainNames.has(domain));
+         if (unknownDomains.length > 0) {
+            return fail(400, 'BAD_REQUEST', `Domains not found in database: ${unknownDomains.join(', ')}. Please ensure domains are created before adding keywords.`, ctx);
          }
-         tracked.add(key);
-      });
-      if (duplicates.length > 0) {
-         return fail(409, 'CONFLICT', `Already tracked: ${duplicates.join(', ')}`, ctx);
-      }
 
-      const createdKeywords = await Keyword.bulkCreate(keywordsToAdd as any);
+         // The same keyword, country, location and device on the same domain is one tracked keyword. The same
+         // keyword in a different city is a separate target (the Add Keywords form lets users pick one), so the
+         // location is part of the key. A missing location and an empty one count as the same (no city).
+         const trackingKey = (item: { keyword: string, domain: string, device: string, country: string, location?: string | null }) => (
+            [item.domain, item.keyword, item.country, (item.location || '').trim(), item.device].join('|')
+         );
+         const existingKeywords: Keyword[] = await Keyword.findAll({ where: { domain: requestedDomains }, attributes: ['keyword', 'domain', 'device', 'country', 'location'], transaction });
+         const tracked = new Set(existingKeywords.map((item) => trackingKey(item.get({ plain: true }) as KeywordType)));
+         const duplicates: string[] = [];
+         keywordsToAdd.forEach((item) => {
+            const key = trackingKey(item);
+            if (tracked.has(key)) {
+               duplicates.push(`${item.keyword} (${item.device})`);
+            }
+            tracked.add(key);
+         });
+         if (duplicates.length > 0) {
+            return fail(409, 'CONFLICT', `Already tracked: ${duplicates.join(', ')}`, ctx);
+         }
+
+         return Keyword.bulkCreate(keywordsToAdd as any, { transaction });
+      });
+      if (createdKeywords instanceof Response) { return createdKeywords; }
       await refreshDomainStats(requestedDomains);
 
       // Reload exactly the rows this request inserted, by the IDs the insert returned. The "added" timestamp alone
@@ -335,7 +338,7 @@ const addKeywords = async (req: Request, ctx: ApiContext) => {
       if (adwords_account_id && adwords_client_id && adwords_client_secret && adwords_developer_token) {
          getKeywordsVolume(keywordsParsed)
             .then((keywordsVolumeData) => (
-               keywordsVolumeData.volumes !== false ? updateKeywordsVolumeData(keywordsVolumeData.volumes) : undefined
+               keywordsVolumeData.volumes !== false ? updateKeywordsVolumeData(keywordsVolumeData.volumes, keywordsParsed) : undefined
             ))
             .catch((volumeError) => {
                logger.error('Failed to update keyword volume after adding keywords', volumeError instanceof Error ? volumeError : new Error(String(volumeError)));
@@ -526,6 +529,7 @@ const updateKeywords = async (req: Request, ctx: ApiContext) => {
                      location: formattedLocation,
                      country: locationCountry,
                      position: 0,
+                     lastUpdated: null,
                      url: '',
                      history: JSON.stringify({}),
                      history7d: null,
@@ -536,6 +540,10 @@ const updateKeywords = async (req: Request, ctx: ApiContext) => {
                      updating: toDbBool(false),
                      updatingStartedAt: null,
                   }, { where: { ID: { [Op.in]: changedIDs } }, transaction });
+                  const countryChanged = changed.filter((keyword) => keyword.country !== locationCountry).map((keyword) => keyword.ID);
+                  if (countryChanged.length > 0) {
+                     await Keyword.update({ volume: 0 }, { where: { ID: { [Op.in]: countryChanged } }, transaction });
+                  }
                });
                await retryQueueManager.removeBatch(new Set(changedIDs)).catch((error) => {
                   logger.error('Failed to clear moved keywords from the retry queue', error instanceof Error ? error : new Error(String(error)));
@@ -547,19 +555,22 @@ const updateKeywords = async (req: Request, ctx: ApiContext) => {
                const settings = await getAppSettings();
                const movedRows: Keyword[] = await Keyword.findAll({ where: { ID: { [Op.in]: changedIDs } } });
                await markKeywordsAsUpdating(movedRows, 'before location refresh', { keywordIds: changedIDs });
-               refreshQueue.enqueue(
+               await refreshQueue.enqueue(
                   `location-refresh-${changedIDs.join(',')}-${crypto.randomUUID()}`,
                   async () => {
                      try {
                         await refreshKeywordsByIds(changedIDs, settings);
                      } catch (error) {
+                        await clearKeywordUpdatingFlags(movedRows, 'after location refresh failure', { keywordIds: changedIDs }, true);
                         logger.error('Failed to refresh keywords after a location change', error instanceof Error ? error : new Error(String(error)));
                      }
                   },
                   domains,
                   { reservations: [releaseDomains] },
-               ).catch((error) => {
+               ).catch(async (error) => {
+                  await clearKeywordUpdatingFlags(movedRows, 'after location enqueue failure', { keywordIds: changedIDs }, true);
                   logger.error('Failed to queue the refresh after a location change', error instanceof Error ? error : new Error(String(error)));
+                  throw error;
                });
                handedOff = true;
             }

@@ -78,13 +78,9 @@ const updatekeywordVolume = async (req: Request, ctx: ApiContext) => {
          return json({ keywords: enrichedKeywords, volumes: volumesMap, ...failedCountriesField });
       }
 
-      const updated = await updateKeywordsVolumeData(volumesMap);
-      if (updated) {
-         return json({ keywords: enrichedKeywords, volumes: keywordsVolumeData.volumes, ...failedCountriesField });
-      }
-
-      // The lookup worked but saving the volumes failed: a server-side failure, not a bad request
-      return fail(500, 'INTERNAL_SERVER_ERROR', 'Error Updating Keywords Volume data', ctx);
+      const volumes = await updateKeywordsVolumeData(volumesMap, keywordsToSend);
+      const current = await Keyword.findAll({ where: { ID: { [Op.in]: keywordsToSend.map((keyword) => keyword.ID) } } });
+      return json({ keywords: parseKeywords(current.map((row) => row.get({ plain: true }))), volumes, ...failedCountriesField });
    } catch (error) {
       logger.error('Error updating keywords volume data', error instanceof Error ? error : new Error(String(error)));
       return fail(500, 'INTERNAL_SERVER_ERROR', 'Error Updating Keywords Volume data', ctx);

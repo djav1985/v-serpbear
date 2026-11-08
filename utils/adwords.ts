@@ -721,26 +721,18 @@ export const getKeywordsVolume = async (keywords: KeywordType[]): Promise<{ erro
  * keyword IDs as keys and corresponding volume data as values.
  * @returns returns a Promise that resolves to `true` if `volumesData` is not `false` else it returns `false`.
  */
-export const updateKeywordsVolumeData = async (volumesData: false | Record<number, number>) => {
-   if (volumesData === false) { return false; }
-
-   // Group keyword IDs by volume so each distinct volume is one UPDATE instead of one per keyword.
-   const idsByVolume = new Map<number, number[]>();
-   for (const [keywordID, volume] of Object.entries(volumesData)) {
-      const keyID = Number(keywordID);
-      if (!Number.isNaN(keyID)) {
-         const volumeData = typeof volume === 'number' ? volume : 0;
-         const ids = idsByVolume.get(volumeData) ?? [];
-         ids.push(keyID);
-         idsByVolume.set(volumeData, ids);
-      }
+export const updateKeywordsVolumeData = async (
+   volumes: Record<number, number>,
+   targets: Pick<KeywordType, 'ID' | 'keyword' | 'country'>[],
+): Promise<Record<number, number>> => {
+   const applied: Record<number, number> = {};
+   for (const { ID, keyword, country } of targets) {
+      const volume = volumes[ID];
+      if (typeof volume !== 'number') { continue; }
+      const [count] = await Keyword.update({ volume }, { where: { ID, keyword, country } });
+      if (count > 0) { applied[ID] = volume; }
    }
-
-   for (const [volumeData, ids] of idsByVolume) {
-      await Keyword.update({ volume: volumeData }, { where: { ID: { [Op.in]: ids } } });
-   }
-
-   return true;
+   return applied;
 };
 
 const IDEAS_LOCK_RETRIES = { retries: 12, factor: 1.5, minTimeout: 50, maxTimeout: 1500 };

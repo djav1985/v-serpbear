@@ -15,7 +15,7 @@ const handler = asHandler(handlerRoute);
 
 jest.mock('../../database/database', () => ({
   __esModule: true,
-  default: { sync: jest.fn() },
+  default: { sync: jest.fn(), transaction: jest.fn(async (_options, work) => work({ id: "tx" })) },
 }));
 
 jest.mock('../../database/models/keyword', () => ({

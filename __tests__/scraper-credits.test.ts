@@ -14,6 +14,7 @@ import {
    resolveCreditSource,
    supportsCredits,
    trackScrapeCredits,
+   withScraperCreditBatch,
 } from '../utils/scraperCredits';
 import { toDomainCardData } from '../app/(dashboard)/domains/_components/domain-card-data';
 
@@ -126,6 +127,8 @@ describe('tracking and saving balances', () => {
    let cwdSpy: jest.SpyInstance;
    const file = () => path.join(dir, 'data', 'scraper_credits.json');
 
+   const creditTest = (name: string, run: () => Promise<void>) => it(name, () => withScraperCreditBatch(run));
+
    beforeEach(() => {
       dir = mkdtempSync(path.join(os.tmpdir(), 'serpbear-credits-'));
       mkdirSync(path.join(dir, 'data'));
@@ -141,7 +144,7 @@ describe('tracking and saving balances', () => {
    const prism = () => scraper('prismcrawl');
    const response = (credits: string) => ({ headers: new Headers({ 'x-credits-remaining': credits }) }) as unknown as Response;
 
-   it('keeps the lowest balance seen during a run and saves it once', async () => {
+   creditTest('keeps the lowest balance seen during a run and saves it once', async () => {
       trackScrapeCredits(prism(), settingsFor('k1', 'prismcrawl'), response('95'), {});
       trackScrapeCredits(prism(), settingsFor('k1', 'prismcrawl'), response('93'), {});
       trackScrapeCredits(prism(), settingsFor('k1', 'prismcrawl'), response('94'), {});
@@ -153,7 +156,7 @@ describe('tracking and saving balances', () => {
       expect(JSON.stringify(saved)).not.toContain('k1"');
    });
 
-   it('looks up account-endpoint scrapers once per key, however many scrapes used it', async () => {
+   creditTest('looks up account-endpoint scrapers once per key, however many scrapes used it', async () => {
       const fetchMock = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ total_searches_left: 250 }) });
       global.fetch = fetchMock as unknown as typeof fetch;
       const serpapi = scraper('serpapi');
@@ -163,7 +166,7 @@ describe('tracking and saving balances', () => {
       expect((await readScraperCredits())[creditKey('serpapi', 'shared')].remaining).toBe(250);
    });
 
-   it('keeps the saved number when an account lookup fails', async () => {
+   creditTest('keeps the saved number when an account lookup fails', async () => {
       writeFileSync(file(), JSON.stringify({ [creditKey('serpapi', 'shared')]: { scraper: 'serpapi', remaining: 99, updatedAt: 'x' } }));
       global.fetch = jest.fn().mockResolvedValue({ ok: false }) as unknown as typeof fetch;
       trackScrapeCredits(scraper('serpapi'), settingsFor('shared'), response('0'), {});
@@ -171,7 +174,7 @@ describe('tracking and saving balances', () => {
       expect((await readScraperCredits())[creditKey('serpapi', 'shared')].remaining).toBe(99);
    });
 
-   it('drops saved entries that nothing uses anymore', async () => {
+   creditTest('drops saved entries that nothing uses anymore', async () => {
       const stale = creditKey('prismcrawl', 'old-key');
       writeFileSync(file(), JSON.stringify({ [stale]: { scraper: 'prismcrawl', remaining: 5, updatedAt: 'x' } }));
       trackScrapeCredits(prism(), settingsFor('current', 'prismcrawl'), response('50'), {});
@@ -181,7 +184,7 @@ describe('tracking and saving balances', () => {
       expect(saved[creditKey('prismcrawl', 'current')].remaining).toBe(50);
    });
 
-   it('does not prune when the in-use lookup fails', async () => {
+   creditTest('does not prune when the in-use lookup fails', async () => {
       const other = creditKey('prismcrawl', 'other');
       writeFileSync(file(), JSON.stringify({ [other]: { scraper: 'prismcrawl', remaining: 5, updatedAt: 'x' } }));
       trackScrapeCredits(prism(), settingsFor('current', 'prismcrawl'), response('50'), {});
@@ -189,7 +192,7 @@ describe('tracking and saving balances', () => {
       expect((await readScraperCredits())[other]).toBeDefined();
    });
 
-   it('writes nothing when no scraper reported a balance', async () => {
+   creditTest('writes nothing when no scraper reported a balance', async () => {
       trackScrapeCredits(scraper('serper'), settingsFor('k', 'serper'), response('1'), {});
       trackScrapeCredits(prism(), settingsFor('', 'prismcrawl'), response('1'), {});
       await flushScraperCredits();
@@ -204,7 +207,7 @@ describe('tracking and saving balances', () => {
       };
       const accountReply = (remaining: number) => ({ ok: true, json: async () => ({ total_searches_left: remaining }) });
 
-      it('does not let a lookup that started earlier and finished later overwrite a newer balance', async () => {
+      creditTest('does not let a lookup that started earlier and finished later overwrite a newer balance', async () => {
          const slow = deferred<unknown>();
          const fast = deferred<unknown>();
          global.fetch = jest.fn()
@@ -226,21 +229,59 @@ describe('tracking and saving balances', () => {
          expect((await readScraperCredits())[creditKey('serpapi', 'shared')].remaining).toBe(90);
       });
 
-      it('does not let a slow save of an older header balance overwrite a newer one', async () => {
+      creditTest('does not let a slow save of an older header balance overwrite a newer one', async () => {
          const gate = deferred<Set<string> | null>();
          trackScrapeCredits(prism(), settingsFor('k1', 'prismcrawl'), response('95'), {});
          const older = flushScraperCredits(() => gate.promise);
 
          trackScrapeCredits(prism(), settingsFor('k1', 'prismcrawl'), response('150'), {});
-         await flushScraperCredits();
-         expect((await readScraperCredits())[creditKey('prismcrawl', 'k1')].remaining).toBe(150);
-
+         const newer = flushScraperCredits();
          gate.resolve(null);
-         await older;
+         await Promise.all([older, newer]);
          expect((await readScraperCredits())[creditKey('prismcrawl', 'k1')].remaining).toBe(150);
       });
 
-      it('lets a newer balance rise above an older one, for example after a top-up', async () => {
+      creditTest('keeps a rotated account balance observed after an older flush began', async () => {
+         const slow = deferred<unknown>();
+         global.fetch = jest.fn().mockReturnValue(slow.promise) as unknown as typeof fetch;
+         const oldKey = creditKey('serpapi', 'old');
+         const newKey = creditKey('prismcrawl', 'new');
+         const older = withScraperCreditBatch(async () => {
+            trackScrapeCredits(scraper('serpapi'), settingsFor('old'), response('0'), {});
+            await flushScraperCredits(async () => new Set([oldKey]));
+         });
+
+         await withScraperCreditBatch(async () => {
+            trackScrapeCredits(prism(), settingsFor('new', 'prismcrawl'), response('75'), {});
+            await flushScraperCredits();
+         });
+         slow.resolve(accountReply(100));
+         await older;
+
+         expect((await readScraperCredits())[newKey].remaining).toBe(75);
+      });
+
+      creditTest('keeps simultaneous refreshes from draining each other’s header balances', async () => {
+         const key = creditKey('prismcrawl', 'shared');
+         const firstMayFinish = deferred<void>();
+         const first = withScraperCreditBatch(async () => {
+            trackScrapeCredits(prism(), settingsFor('shared', 'prismcrawl'), response('95'), {});
+            await firstMayFinish.promise;
+            await flushScraperCredits();
+         });
+
+         await withScraperCreditBatch(async () => {
+            trackScrapeCredits(prism(), settingsFor('shared', 'prismcrawl'), response('150'), {});
+            await flushScraperCredits();
+         });
+
+         expect((await readScraperCredits())[key].remaining).toBe(150);
+         firstMayFinish.resolve();
+         await first;
+         expect((await readScraperCredits())[key].remaining).toBe(150);
+      });
+
+      creditTest('lets a newer balance rise above an older one, for example after a top-up', async () => {
          trackScrapeCredits(prism(), settingsFor('k1', 'prismcrawl'), response('5'), {});
          await flushScraperCredits();
          trackScrapeCredits(prism(), settingsFor('k1', 'prismcrawl'), response('500'), {});
@@ -248,7 +289,7 @@ describe('tracking and saving balances', () => {
          expect((await readScraperCredits())[creditKey('prismcrawl', 'k1')].remaining).toBe(500);
       });
 
-      it('treats a saved entry from before this field existed as older, using its updatedAt', async () => {
+      creditTest('treats a saved entry from before this field existed as older, using its updatedAt', async () => {
          writeFileSync(file(), JSON.stringify({ [creditKey('prismcrawl', 'k1')]: { scraper: 'prismcrawl', remaining: 7, updatedAt: '2020-01-01T00:00:00.000Z' } }));
          trackScrapeCredits(prism(), settingsFor('k1', 'prismcrawl'), response('60'), {});
          await flushScraperCredits();
