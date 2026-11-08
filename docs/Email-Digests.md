@@ -7,3 +7,8 @@
 - **Limits:** each domain gets at most one digest per hour and five per calendar day in `TZ`.
 - **Send Notifications Now** in **Settings → Notification** sends a digest for every domain with scraping enabled. Domains without a notification address, or held back by the throttle, are reported as skipped.
 - Selected keyword ideas can also be emailed from the research table or a domain's ideas tab, limited to 10 per domain per hour.
+
+
+![Notification settings](images/settings-notification.png)
+
+![Notification settings for a domain](images/domain-settings-notification.png)

@@ -22,7 +22,7 @@ import { InsightChart } from './insight-chart';
 type Scraper = NonNullable<SettingsType['available_scapers']>[number];
 type Tab = 'stats' | 'keywords' | 'countries' | 'pages';
 const TABS: Tab[] = ['stats', 'keywords', 'countries', 'pages'];
-const DOCS_URL = 'https://docs.serpbear.com/miscellaneous/integrate-google-search-console';
+const DOCS_URL = 'https://github.com/djav1985/v-serpbear/wiki/Google-Integrations';
 const EMPTY: InsightDataType = { stats: null, keywords: [], countries: [], pages: [] };
 
 const percent = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });

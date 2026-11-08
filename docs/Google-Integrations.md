@@ -1,6 +1,6 @@
 # Google Integrations
 
-Both integrations are optional. The setup steps follow the [original SerpBear documentation](https://docs.serpbear.com/).
+Both integrations are optional. The setup steps are written out below.
 
 - [Google Search Console](#google-search-console): real impressions, clicks and CTR next to your rankings
 - [Google Ads](#google-ads): keyword research and monthly search volumes
@@ -8,6 +8,8 @@ Both integrations are optional. The setup steps follow the [original SerpBear do
 ---
 
 ## Google Search Console
+
+![The Discover screen, fed by Search Console](images/discover.png)
 
 Once connected you can:
 
@@ -48,6 +50,8 @@ Repeat this for every domain you want to connect.
 
 ### Step 5: Connect it to SerpBear
 
+![Search Console settings for a domain](images/domain-settings-search-console.png)
+
 First check which property type your domain has in Search Console:
 
 - **Domain property** (`example.com`): covers all subdomains and protocols.
@@ -62,6 +66,8 @@ There are three ways to give SerpBear the credentials. They are read in this ord
 3. **Environment variables:** set `SEARCH_CONSOLE_CLIENT_EMAIL` and `SEARCH_CONSOLE_PRIVATE_KEY` in `docker-compose.yml`. Keep the newlines in the key escaped as `\n`. They are used for all domains, as long as the service account has access to each one.
 
 ### How the data is refreshed
+
+![The Insight screen](images/insight.png)
 
 Cached data is refetched when a dashboard or API read finds it more than 24 hours old, and by the cron at the `CRON_MAIN_SCHEDULE` time. Search Console days follow Pacific Time (`America/Los_Angeles`) whatever `TZ` is. Results are read in pages of up to 25,000 rows.
 
@@ -124,6 +130,8 @@ You need a Google Ads customer account to send requests against.
 
 ### Step 7: Test it
 
+![The Integrations tab in Settings](images/settings-integrations.png)
+
 Click **Test Google Ads Integration**. A success message means it is set up.
 
 ### Step 8: Load volumes for existing keywords
@@ -161,6 +169,10 @@ Click **Update Keyword Volume Data** once to fill in search volumes for keywords
 If it still fails, check the logs, click **Authenticate Integration** again for a fresh refresh token, and update SerpBear.
 
 ### Keyword ideas
+
+![Keyword ideas for a domain](images/ideas.png)
+
+![The Research page](images/research.png)
 
 - The seed type decides where suggestions come from: `auto` uses the domain as a site seed, `custom` your keyword list, `tracking` the domain's tracked keywords, and `searchconsole` its top 100 Search Console queries by impressions over the last 30 days.
 - An idea is disabled only when it is tracked for every selected device, so a partly tracked idea can still be added for the missing device.

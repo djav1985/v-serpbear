@@ -104,7 +104,7 @@ function AdwordsSection({ settings, update, save }: SettingsTabProps) {
 
          <p className="text-xs">
             Relevant documentation:{' '}
-            <a className="text-primary underline" target="_blank" rel="noreferrer" href="https://docs.serpbear.com/miscellaneous/integrate-google-ads">Integrate Google Ads</a>.
+            <a className="text-primary underline" target="_blank" rel="noreferrer" href="https://github.com/djav1985/v-serpbear/wiki/Google-Integrations">Integrate Google Ads</a>.
          </p>
       </div>
    );

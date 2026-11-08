@@ -49,7 +49,7 @@ type IdeasTableProps = {
    allowsCity: boolean;
 };
 
-const DOCS_URL = 'https://docs.serpbear.com/miscellaneous/integrate-google-ads';
+const DOCS_URL = 'https://github.com/djav1985/v-serpbear/wiki/Google-Integrations';
 
 export function IdeasTable({
    domain, ideas, favorites, isLoading, noIdeasDatabase, adwordsConnected, showFavorites, onShowFavorites, domains, allowsCity,

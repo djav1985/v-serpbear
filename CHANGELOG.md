@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file. Releases no
 
 ## [Unreleased]
 
+### Documentation
+
+- Added desktop screenshots to the wiki pages (in `docs/images/`), and a set of desktop and phone screenshots in `screenshots/`, all taken from demo data with example domains.
+- The Google guide links in the app now point to the wiki's Google Integrations page.
+
 ### Upgrade notes (API routes)
 The API routes are regrouped. **There are no compatibility aliases: the old routes now return 404.** Update scripts, cron jobs, MCP clients and reverse-proxy rules that call them.
 

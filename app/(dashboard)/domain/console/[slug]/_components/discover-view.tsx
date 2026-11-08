@@ -42,7 +42,7 @@ type DiscoverViewProps = {
    systemScraperType: string;
 };
 
-const DOCS_URL = 'https://docs.serpbear.com/miscellaneous/integrate-google-search-console';
+const DOCS_URL = 'https://github.com/djav1985/v-serpbear/wiki/Google-Integrations';
 const percent = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 // Search Console rows are country level, so a row counts as tracked only when it is tracked without a city location.

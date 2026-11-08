@@ -4,6 +4,8 @@ SerpBear asks a SERP data provider for Google results. Pick one globally in **Se
 
 ## Supported providers
 
+![Scraper settings](images/settings-scraper.png)
+
 | Provider | Pricing snapshot* | Geo targeting | Map pack | Mobile | Authentication |
 | --- | --- | --- | --- | --- | --- |
 | Serply (`serply`) | Plans from $49/mo | Country | Yes | Yes | Header `X-Api-Key` |
@@ -34,6 +36,8 @@ Google's removal of `num=100` limits SERP APIs to 10 results per request. The st
 - **Failed pages:** if a page request fails and the domain was not found on the pages that loaded, the keyword is reported as an error with the provider's message. It keeps its previous position and history rather than being recorded as "not ranked".
 
 ## Per-domain scrapers
+
+![Scraper settings for a single domain](images/domain-settings-scraper.png)
 
 A domain can use its own provider without changing the global default. Open the domain, switch to the **Scraper** tab, pick a provider (or **System Scraper** to inherit the global one) and enter its API key. Stored keys are encrypted. **Remove stored key** clears a domain's key on save.
 
