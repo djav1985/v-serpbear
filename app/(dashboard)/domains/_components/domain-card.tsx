@@ -91,7 +91,7 @@ export function DomainCard({
 
    return (
       <Card
-         className="hover:ring-primary/30 cursor-pointer gap-0 p-0 transition-shadow hover:shadow-md"
+         className={cn('hover:ring-primary/30 cursor-pointer gap-0 p-0 transition-[box-shadow,filter] duration-300 hover:shadow-md', !domain.scrapeEnabled && 'grayscale')}
          data-testid="domain-card"
          onClick={(event) => {
             // The name is a real link and the switch is a control, so only clicks elsewhere on the card navigate.
