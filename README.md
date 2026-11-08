@@ -66,7 +66,8 @@ The full list of changes is in the [changelog](./CHANGELOG.md). See [Update Serp
 **Feature roadmap**
 
 - [ ] **Multi-user support with domain-specific users.** More than one login, and you choose which domains each user can see.
-
+- [ ] **New UI** the current UI doesn't work very well on mobile it feels very claustrophobic. so I'm moving this to a new UI.
+- [ ] **move to app router** I'll take in the back end to use app router instead of page router.
 <br><br>
 
 **Core capabilities**
