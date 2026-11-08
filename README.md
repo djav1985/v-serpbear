@@ -129,7 +129,7 @@ This backs up the data directory, pulls the new image and recreates the containe
 | CrazySERP (`crazyserp`) | Pay-as-you-go | City | Yes | Yes | Yes | Header `Authorization: Bearer` |
 | PrismCrawl (`prismcrawl`) | 100 free credits, packages from $5 (about $0.21 per 1,000, valid 90 days) | City | Yes | Yes | Yes | Header `x-api-key` (POST JSON) |
 | DataForSEO (`dataforseo`) | Pay-as-you-go, $50 minimum top-up | City | Yes | Yes | Yes (dollar balance) | HTTP Basic, `login:password` in the API key field |
-| SerpBase (`serpbase`) | Credit-based | Country | Yes | No | Yes | Header `X-API-Key` (POST JSON) |
+| SerpBase (`serpbase`) | Credit-based | Country | Yes | Yes | Yes | Header `X-API-Key` (POST JSON) |
 
 > \*Pricing is indicative. Check each vendor before buying. The request formats are implemented in [`scrapers/services`](./scrapers/services).
 The **Credits left** column shows which providers can report the balance left on your account. For those, the domain card shows `Credits remaining:` under the last-updated line, and it refreshes whenever keywords are refreshed. Serply and Serper have no lookup, so nothing is shown for them. DataForSEO shows a dollar balance. Details are in [Credits remaining](https://github.com/djav1985/v-serpbear/wiki/Scrapers#credits-remaining).

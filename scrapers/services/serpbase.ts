@@ -1,6 +1,7 @@
 import { resolveCountryCode, fetchAccountJson, toCreditNumber } from "../../utils/scraperHelpers";
 import { computeMapPackTop3 } from "../../utils/mapPack";
 import { isGoogleRedirectUrl } from "../../utils/resolveGoogleLinks";
+import { DEVICE_MOBILE } from "../../utils/constants";
 
 interface SerpBaseOrganic {
   title?: string;
@@ -62,6 +63,7 @@ const serpbase: ScraperSettings = {
       q: keyword.keyword,
       gl: country.toLowerCase(),
       hl: lang,
+      device: keyword.device === DEVICE_MOBILE ? "mobile" : "pc",
     };
     if (p.page > 1) {
       body.page = p.page;

@@ -1353,8 +1353,12 @@ describe('serpbase', () => {
   });
 
   it('sends the query with country and language, and the page only after the first', () => {
-    expect(bodyOf(keyword(), settings, countryData, { start: 0, num: 10, page: 1 })).toEqual({ q: 'coffee shops', gl: 'us', hl: 'en' });
-    expect(bodyOf(keyword({ country: 'DE' }), settings, countryData, { start: 10, num: 10, page: 2 })).toEqual({ q: 'coffee shops', gl: 'de', hl: 'de', page: 2 });
+    expect(bodyOf(keyword(), settings, countryData, { start: 0, num: 10, page: 1 })).toEqual({ q: 'coffee shops', gl: 'us', hl: 'en', device: 'pc' });
+    expect(bodyOf(keyword({ country: 'DE' }), settings, countryData, { start: 10, num: 10, page: 2 })).toEqual({ q: 'coffee shops', gl: 'de', hl: 'de', device: 'pc', page: 2 });
+  });
+
+  it('sends device mobile for mobile keywords', () => {
+    expect(bodyOf(keyword({ device: 'mobile' as any }), settings, countryData).device).toBe('mobile');
   });
 
   it('is country level only and supports the map pack', () => {
