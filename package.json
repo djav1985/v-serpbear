@@ -14,8 +14,7 @@
     "test:ci": "jest --ci",
     "test:cv": "jest --coverage --coverageDirectory='coverage'",
     "db:migrate": "sequelize-cli db:migrate --env production",
-    "db:revert": "sequelize-cli db:migrate:undo --env production",
-    "setup:git": "node scripts/set-default-branch.mjs"
+    "db:revert": "sequelize-cli db:migrate:undo --env production"
   },
   "dependencies": {
     "@googleapis/searchconsole": "^5.0.0",

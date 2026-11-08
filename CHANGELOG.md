@@ -26,6 +26,9 @@ The API routes are regrouped. **There are no compatibility aliases: the old rout
 - `POST /api/app/email` sends both kinds of email, chosen by `?type=`: `digest` accepts the API key or a login session, `ideas` needs a login session and answers `403` to an API key. A missing or unknown `type` is a `400`.
 - The web app manifest is generated at `/manifest.webmanifest`, so white-label installs use your name and logo. The apple touch icon follows the logo too.
 
+### Removed
+- The `setup:git` script (`scripts/set-default-branch.mjs`) and the unused test fixture `__mocks__/data.ts`.
+
 ### Changed (API)
 - **The API runs on the App Router.** Every endpoint is now a route handler in `app/api/**/route.ts` that takes a standard `Request` and returns a standard `Response`; `pages/` is gone. URLs, methods, request bodies and response shapes are the same. A shared wrapper (`createRoute` in `utils/apiLogging`) adds the request id, logging, the database check, the login or API-key check and the `405` answer. A method a route does not offer answers `405` with an `Allow` header. The MCP route uses the SDK's web-standard transport, and the `cookies` package is no longer a dependency.
 - **`TRUST_PROXY` matters more.** A route handler cannot see the connection's address, and Next keeps a client-supplied `X-Forwarded-For` as it is, so the header is read only when `TRUST_PROXY` names the proxies in front of the app. Without it every client counts as one address: five wrong logins or API keys from anyone lock everyone out for 15 minutes. Set `TRUST_PROXY` when the app sits behind a reverse proxy.
