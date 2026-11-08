@@ -1,4 +1,4 @@
-import { resolveCountryCode, fetchAccountJson, toCreditNumber } from "../../utils/scraperHelpers";
+import { resolveCountryCode, getKeywordLocationParts, fetchAccountJson, toCreditNumber } from "../../utils/scraperHelpers";
 import { computeMapPackTop3 } from "../../utils/mapPack";
 import { isGoogleRedirectUrl } from "../../utils/resolveGoogleLinks";
 import { DEVICE_MOBILE } from "../../utils/constants";
@@ -39,6 +39,7 @@ const serpbase: ScraperSettings = {
     const data = await fetchAccountJson("https://api.serpbase.dev/account/credits", { "X-API-Key": settings.scraping_api ?? "" });
     return toCreditNumber(data?.credits);
   },
+  allowsCity: true,
   supportsMapPack: true,
   timeoutMs: 60000,
   resultObjectKey: "organic",
@@ -65,6 +66,11 @@ const serpbase: ScraperSettings = {
       hl: lang,
       device: keyword.device === DEVICE_MOBILE ? "mobile" : "pc",
     };
+    // Stored location ("City,State,Country Name") as-is; country-only keywords send none
+    const [location] = getKeywordLocationParts(keyword.location);
+    if (location) {
+      body.location = location;
+    }
     if (p.page > 1) {
       body.page = p.page;
     }

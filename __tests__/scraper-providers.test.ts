@@ -1361,8 +1361,14 @@ describe('serpbase', () => {
     expect(bodyOf(keyword({ device: 'mobile' as any }), settings, countryData).device).toBe('mobile');
   });
 
-  it('is country level only and supports the map pack', () => {
-    expect(serpbase.allowsCity).toBeFalsy();
+  it('sends the stored city location, and none for country-only keywords', () => {
+    const city = bodyOf(keyword({ location: 'Port Charlotte,Florida,United States' }), settings, countryData);
+    expect(city.location).toBe('Port Charlotte,Florida,United States');
+    expect(bodyOf(keyword({ location: '' }), settings, countryData)).not.toHaveProperty('location');
+  });
+
+  it('allows city targeting and supports the map pack', () => {
+    expect(serpbase.allowsCity).toBe(true);
     expect(serpbase.supportsMapPack).toBe(true);
   });
 
