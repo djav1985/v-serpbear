@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file. Releases no
 
 ### Added
 
+- Domain cards hold the favicon for 500 ms, so a cached screenshot replaces it without a flash, then the screenshot fades in over 500 ms. Settings and domain settings tabs fade their panels in over 1 s, and the domain settings dialog keeps a fixed height and footer position.
 - Page changes cross-fade (400 ms), and the top bar stays still. Tracker and Discover filters, sorting and the Search Console period update inside transitions. Dialogs and sheets use a 400 ms fade. All motion is turned off for users who prefer reduced motion.
 
 ### Security

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { startTransition, useMemo, useState } from 'react';
 import { Download, Loader2 } from 'lucide-react';
 import { useShell } from 'app/(dashboard)/_components/shell-context';
 import { IdeasTable } from 'app/(dashboard)/_components/keyword-ideas/ideas-table';
@@ -123,7 +123,7 @@ export function ResearchView({ adwordsConnected, allowsCity }: ResearchViewProps
                noIdeasDatabase={isError}
                adwordsConnected={adwordsConnected}
                showFavorites={showFavorites}
-               onShowFavorites={setShowFavorites}
+               onShowFavorites={(show) => startTransition(() => setShowFavorites(show))}
                domains={domains}
                allowsCity={allowsCity}
             />

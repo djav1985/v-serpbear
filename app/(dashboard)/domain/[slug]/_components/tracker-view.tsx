@@ -154,7 +154,7 @@ export function TrackerView({
 
    const toggleColumn = (column: string) => {
       const next = optionalColumns.includes(column) ? optionalColumns.filter((c) => c !== column) : [...optionalColumns, column];
-      setOptionalColumns(next);
+      startTransition(() => setOptionalColumns(next));
       saveColumnChoice(next);
    };
 

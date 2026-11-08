@@ -213,7 +213,7 @@ export function DiscoverView({ domain, searchConsoleConnected, allowsCity, avail
                            aria-selected={device === value}
                            data-testid={`${value}_tab`}
                            className={cn('rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap capitalize transition-colors', device === value ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted')}
-                           onClick={() => { setDevice(value); setPickedCountries([]); setRowSelection({}); }}
+                           onClick={() => startTransition(() => { setDevice(value); setPickedCountries([]); setRowSelection({}); })}
                         >
                            {value}
                            <span className="bg-background ml-1.5 rounded-full px-1.5 text-[0.7rem] font-semibold">{grouped.filter((r) => r.device === value).length}</span>

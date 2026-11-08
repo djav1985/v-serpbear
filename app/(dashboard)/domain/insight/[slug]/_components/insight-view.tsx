@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { startTransition, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTable, type ColumnDef } from '@tanstack/react-table';
 import { DataTable } from 'app/(dashboard)/_components/data-table/data-table';
@@ -140,7 +140,7 @@ export function InsightView({ domain, searchConsoleConnected, availableScrapers,
                         role="tab"
                         aria-selected={tab === value}
                         className={cn('rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap capitalize transition-colors', tab === value ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted')}
-                        onClick={() => setTab(value)}
+                        onClick={() => startTransition(() => setTab(value))}
                      >
                         {value}
                         {value !== 'stats' && <span className="bg-background ml-1.5 rounded-full px-1.5 text-[0.7rem] font-semibold">{insight[value]?.length ?? 0}</span>}
@@ -148,7 +148,7 @@ export function InsightView({ domain, searchConsoleConnected, availableScrapers,
                   ))}
                </div>
                <div className="lg:hidden">
-                  <Select value={tab} onValueChange={(value) => setTab(value as Tab)}>
+                  <Select value={tab} onValueChange={(value) => startTransition(() => setTab(value as Tab))}>
                      <SelectTrigger className="w-full capitalize" aria-label="Insight section"><SelectValue /></SelectTrigger>
                      <SelectContent>{TABS.map((value) => <SelectItem key={value} value={value} className="capitalize">{value}</SelectItem>)}</SelectContent>
                   </Select>

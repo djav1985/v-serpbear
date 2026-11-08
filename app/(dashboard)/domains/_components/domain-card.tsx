@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { RefreshCw } from 'lucide-react';
@@ -78,6 +79,12 @@ export function DomainCard({
    domain, consoleIntegrated, thumb, showMapPackStat, timezone, toggling, onToggle, onRefreshThumb,
 }: DomainCardProps) {
    const router = useRouter();
+   // The favicon stays hidden for 500 ms. A screenshot that is ready by then replaces it before it is ever shown.
+   const [faviconReady, setFaviconReady] = useState(false);
+   useEffect(() => {
+      const timer = setTimeout(() => setFaviconReady(true), 500);
+      return () => clearTimeout(timer);
+   }, []);
    const avgPosition = roundAveragePosition(domain.avgPosition);
    const prevAvgPosition = domain.prevAvgPosition === null ? null : roundAveragePosition(domain.prevAvgPosition);
    const href = `/domain/${domain.slug}`;
@@ -106,7 +113,8 @@ export function DomainCard({
                   </button>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                     className={cn(thumb ? 'size-full object-cover object-top' : 'max-w-[50px]')}
+                     key={thumb ? 'screenshot' : 'favicon'}
+                     className={cn(thumb ? 'size-full object-cover object-top animate-in fade-in-0 duration-500' : 'max-w-[50px]', !thumb && !faviconReady && 'invisible')}
                      src={thumb || `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain.domain)}&sz=128`}
                      alt={domain.domain}
                   />

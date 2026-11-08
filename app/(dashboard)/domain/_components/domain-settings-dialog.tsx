@@ -196,7 +196,7 @@ function DomainSettingsForm({ open, onOpenChange, domain, availableScrapers = []
    return (
       <>
          <Dialog open={open} onOpenChange={close}>
-            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg" data-testid="domain_settings">
+            <DialogContent className="min-h-[min(38rem,90vh)] max-h-[90vh] grid-rows-[auto_1fr_auto] overflow-y-auto sm:max-w-lg" data-testid="domain_settings">
                <DialogHeader>
                   <DialogTitle>Domain settings</DialogTitle>
                   <DialogDescription>{domain.domain}</DialogDescription>
@@ -209,7 +209,7 @@ function DomainSettingsForm({ open, onOpenChange, domain, availableScrapers = []
                      <TabsTrigger value="scraper">Scraper</TabsTrigger>
                   </TabsList>
 
-                  <TabsContent value="notification" className="mt-4 flex flex-col gap-4">
+                  <TabsContent value="notification" className="mt-4 flex flex-col gap-4 animate-in fade-in-0 slide-in-from-right-4 duration-1000">
                      <Field label="Notification emails" htmlFor="ds-emails" hint="Leave blank to turn off notification emails for this domain.">
                         <Input
                            id="ds-emails"
@@ -221,7 +221,7 @@ function DomainSettingsForm({ open, onOpenChange, domain, availableScrapers = []
                      </Field>
                   </TabsContent>
 
-                  <TabsContent value="searchconsole" className="mt-4 flex flex-col gap-4">
+                  <TabsContent value="searchconsole" className="mt-4 flex flex-col gap-4 animate-in fade-in-0 slide-in-from-right-4 duration-1000">
                      <Field label="Property type">
                         <Select value={sc.property_type || 'domain'} onValueChange={(value) => setSettings({ ...settings, search_console: { ...sc, property_type: value as 'domain' | 'url' } })}>
                            <SelectTrigger className="w-full" aria-label="Property type"><SelectValue /></SelectTrigger>
@@ -255,7 +255,7 @@ function DomainSettingsForm({ open, onOpenChange, domain, availableScrapers = []
                      </Field>
                   </TabsContent>
 
-                  <TabsContent value="scraper" className="mt-4 flex flex-col gap-4">
+                  <TabsContent value="scraper" className="mt-4 flex flex-col gap-4 animate-in fade-in-0 slide-in-from-right-4 duration-1000">
                      <label className="flex items-center justify-between gap-3 text-sm font-medium">
                         <span>{settings.scrapeEnabled ? 'Active' : 'Deactive'}</span>
                         <Switch checked={Boolean(settings.scrapeEnabled)} aria-label="Toggle domain active status" onCheckedChange={(next) => setSettings({ ...settings, scrapeEnabled: next })} />
