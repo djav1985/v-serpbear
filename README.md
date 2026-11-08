@@ -50,6 +50,7 @@ The full list of changes is in the [changelog](./CHANGELOG.md). See [Update Serp
 - **Map pack tracking.** Flags keywords where your business is in Google's local top three. See [Business name and map pack detection](#business-name-and-map-pack-detection).
 - **Per-domain scrapers.** Give each domain its own provider and API key, or use one global scraper. See [Per-domain scrapers](#per-domain-scrapers).
 - **Google redirect resolving.** `google.com/goto` result links become real URLs through Serper's free `/resolve` endpoint.
+- **Credits remaining.** Domain cards show how many credits are left on the scraper account for providers that report it. See [Credits remaining](https://github.com/djav1985/v-serpbear/wiki/Scrapers#credits-remaining).
 - **More providers.** PrismCrawl and DataForSEO, on top of the ones upstream supports.
 - **Faster refreshes.** A parallel path for SerpApi and SearchApi, configurable concurrency limits and a per-domain refresh lock.
 - **Trend arrows.** Domain stats show up and down triangles against the previous refresh.
@@ -130,19 +131,21 @@ Back up `data/` first. With Docker, run `docker compose pull && docker compose u
 
 ### Supported SERP data providers
 
-| Provider | Pricing snapshot* | Geo targeting | Map pack | Mobile | Authentication |
-| --- | --- | --- | --- | --- | --- |
-| Serply (`serply`) | Plans from $49/mo | Country | Yes | Yes | Header `X-Api-Key` |
-| SerpApi (`serpapi`) | Free 250/mo, plans from $75/mo | City | Yes | Yes | Query `api_key` |
-| SearchApi (`searchapi`) | Plans from $40/mo | City | Yes | Yes | Query `api_key` |
-| ValueSerp (`valueserp`) | Pay-as-you-go, 10,000 for $25 | City | Yes | Yes | Query `api_key` |
-| Serper (`serper`) | Credit-based, 50,000 for $50 | Country | No | No | Query `apiKey` |
-| HasData (`hasdata`) | Free 1,000/mo, plans from $49/mo | City | Yes | Yes | Header `x-api-key` |
-| CrazySERP (`crazyserp`) | Pay-as-you-go | City | Yes | Yes | Header `Authorization: Bearer` |
-| PrismCrawl (`prismcrawl`) | 100 free credits, packages from $5 (about $0.21 per 1,000, valid 90 days) | City | Yes | Yes | Header `x-api-key` (POST JSON) |
-| DataForSEO (`dataforseo`) | Pay-as-you-go, $50 minimum top-up | City | Yes | Yes | HTTP Basic, `login:password` in the API key field |
+| Provider | Pricing snapshot* | Geo targeting | Map pack | Mobile | Credits left | Authentication |
+| --- | --- | --- | --- | --- | --- | --- |
+| Serply (`serply`) | Plans from $49/mo | Country | Yes | Yes | No | Header `X-Api-Key` |
+| SerpApi (`serpapi`) | Free 250/mo, plans from $75/mo | City | Yes | Yes | Yes | Query `api_key` |
+| SearchApi (`searchapi`) | Plans from $40/mo | City | Yes | Yes | Yes | Query `api_key` |
+| ValueSerp (`valueserp`) | Pay-as-you-go, 10,000 for $25 | City | Yes | Yes | Yes | Query `api_key` |
+| Serper (`serper`) | Credit-based, 50,000 for $50 | Country | No | No | No | Query `apiKey` |
+| HasData (`hasdata`) | Free 1,000/mo, plans from $49/mo | City | Yes | Yes | Yes | Header `x-api-key` |
+| CrazySERP (`crazyserp`) | Pay-as-you-go | City | Yes | Yes | Yes | Header `Authorization: Bearer` |
+| PrismCrawl (`prismcrawl`) | 100 free credits, packages from $5 (about $0.21 per 1,000, valid 90 days) | City | Yes | Yes | Yes | Header `x-api-key` (POST JSON) |
+| DataForSEO (`dataforseo`) | Pay-as-you-go, $50 minimum top-up | City | Yes | Yes | Yes (dollar balance) | HTTP Basic, `login:password` in the API key field |
 
 > \*Pricing is indicative. Check each vendor before buying. The request formats are implemented in [`scrapers/services`](./scrapers/services).
+The **Credits left** column shows which providers can report the balance left on your account. For those, the domain card shows `Credits remaining:` under the last-updated line, and it refreshes whenever keywords are refreshed. Serply and Serper have no lookup, so nothing is shown for them. DataForSEO shows a dollar balance. Details are in [Credits remaining](https://github.com/djav1985/v-serpbear/wiki/Scrapers#credits-remaining).
+
 Each page request asks for 10 results. The [scrape strategy](#scrape-strategy) sets how many pages are fetched.
 
 <br><br>

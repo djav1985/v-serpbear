@@ -42,6 +42,7 @@ All notable changes to this project will be documented in this file. Releases no
 
 ### Documentation
 
+- The provider tables in the README and the Scrapers wiki page have a "Credits left" column showing which scrapers report the balance. The Scrapers page has a longer "Credits remaining" section: how each provider is asked, when the number updates, shared keys, the saved file and troubleshooting.
 - Added desktop screenshots to the wiki pages (in `docs/images/`), and a set of desktop and phone screenshots in `screenshots/`, all taken from demo data with example domains.
 - The Google guide links in the app now point to the wiki's Google Integrations page.
 
