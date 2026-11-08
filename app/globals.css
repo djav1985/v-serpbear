@@ -98,6 +98,8 @@
    body {
       @apply bg-background text-foreground;
 
+      /* A faint tiled texture over the page background; cards and tables stay solid white */
+      background-image: url('/body-texture.png');
       font-family: var(--font-sans);
    }
 }
