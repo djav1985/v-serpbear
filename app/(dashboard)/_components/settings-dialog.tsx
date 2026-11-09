@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, ViewTransition } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from 'components/ui/sheet';
@@ -46,7 +46,9 @@ export function SettingsDialog({ open, onOpenChange, platformName }: SettingsDia
                <SheetTitle>Settings</SheetTitle>
                <SheetDescription className="sr-only">Scraper, notification and integration settings</SheetDescription>
             </SheetHeader>
-            {open && <SettingsForm platformName={platformName} />}
+            <ViewTransition default="none">
+               {open && <SettingsForm platformName={platformName} />}
+            </ViewTransition>
          </SheetContent>
       </Sheet>
    );

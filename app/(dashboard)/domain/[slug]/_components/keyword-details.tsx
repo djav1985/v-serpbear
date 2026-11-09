@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, ViewTransition } from 'react';
+import dynamic from 'next/dynamic';
 import { ExternalLink } from 'lucide-react';
-import { PositionChart } from 'app/(dashboard)/_components/position-chart';
 import {
    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from 'components/ui/select';
@@ -16,6 +16,10 @@ import { safeHttpUrl } from 'utils/client/safeUrl';
 import countries from 'utils/countries';
 import { formatInZone } from 'utils/timezone';
 import { useKeywordDetails } from '../../_components/keyword-queries';
+
+const PositionChart = dynamic(() => import('app/(dashboard)/_components/position-chart').then((module) => module.PositionChart), {
+   loading: () => <div aria-hidden="true" className="h-64 w-full" />,
+});
 
 const RANGE_OPTIONS = [
    { label: 'Last 7 Days', value: '7' },
@@ -94,7 +98,9 @@ export function KeywordDetails({ keyword, onClose }: KeywordDetailsProps) {
                         <SelectContent>{RANGE_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
                      </Select>
                   </div>
-                  <PositionChart className="h-64" labels={chart.labels} series={chart.series} />
+                  <ViewTransition default="none">
+                     <PositionChart className="h-64 animate-in fade-in-0 duration-1000 motion-reduce:animate-none" labels={chart.labels} series={chart.series} />
+                  </ViewTransition>
                </section>
 
                <section>

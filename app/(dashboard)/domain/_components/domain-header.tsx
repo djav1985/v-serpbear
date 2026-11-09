@@ -13,6 +13,8 @@ import { useShell } from '../../_components/shell-context';
 
 type DomainHeaderProps = {
    domain: { domain: string; slug: string };
+   searchConsoleConnected: boolean;
+   adwordsConnected: boolean;
    onOpenSettings: () => void;
    onExport?: () => void;
    onReloadAll?: () => void;
@@ -34,6 +36,11 @@ export function DomainHeader({ domain, onOpenSettings, onExport, onReloadAll, on
    const pathname = usePathname() ?? '';
    const router = useRouter();
    const { domains } = useShell();
+
+   const prefetchTab = (href: string) => {
+      if (pathname === href) { return; }
+      router.prefetch(href);
+   };
 
    const switchDomain = (slug: string) => {
       // Stay on the same view (Tracking, Discover, Insight or Ideas) when switching domains.
@@ -60,6 +67,9 @@ export function DomainHeader({ domain, onOpenSettings, onExport, onReloadAll, on
                      <Link
                         key={label}
                         href={href}
+                        prefetch={false}
+                        onPointerEnter={() => prefetchTab(href)}
+                        onFocus={() => prefetchTab(href)}
                         title={hint}
                         aria-current={active ? 'page' : undefined}
                         className={cn(

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Globe, Plus } from 'lucide-react';
 import { Button } from 'components/ui/button';
 import { useShell } from '../../_components/shell-context';
@@ -26,6 +27,7 @@ function SiteIcon({ domain }: { domain: string }) {
 /** The domain list beside the Domains screen, with the Add Domain action. Shown on large screens only. */
 export function DomainsSidebar() {
    const { domains, domainsFailed, openAddDomain } = useShell();
+   const router = useRouter();
    return (
       <aside className="hidden lg:block" data-testid="sidebar" aria-label="Your domains">
          <div className="sticky top-24 flex flex-col gap-2">
@@ -35,7 +37,13 @@ export function DomainsSidebar() {
                {!domainsFailed && domains.length === 0 && <li className="text-muted-foreground px-2 py-1 text-xs">No domains yet.</li>}
                {domains.map((d) => (
                   <li key={d.domain}>
-                     <Link href={`/domain/${d.slug}`} className="hover:bg-accent flex items-center gap-2 truncate rounded-md px-2 py-2">
+                     <Link
+                        href={`/domain/${d.slug}`}
+                        prefetch={false}
+                        onPointerEnter={() => router.prefetch(`/domain/${d.slug}`)}
+                        onFocus={() => router.prefetch(`/domain/${d.slug}`)}
+                        className="hover:bg-accent flex items-center gap-2 truncate rounded-md px-2 py-2"
+                     >
                         <SiteIcon domain={d.domain} />
                         <span className="truncate">{d.domain}</span>
                      </Link>

@@ -5,8 +5,14 @@ import { setAppTimezone } from 'utils/client/appTimezone';
 import { AddDomainDialog } from './add-domain-dialog';
 import { SettingsDialog } from './settings-dialog';
 
-/** The part of a domain the shell needs. Kept small so only plain strings cross the server/client boundary. */
-export type DomainSummary = { domain: string; slug: string };
+/** Non-secret domain fields needed to draw the sidebar and initial domain cards. */
+export type DomainSummary = {
+   id: number;
+   domain: string;
+   slug: string;
+   scrapeEnabled: boolean;
+   hasOwnSearchConsole: boolean;
+};
 
 type ShellContextValue = {
    domains: DomainSummary[];

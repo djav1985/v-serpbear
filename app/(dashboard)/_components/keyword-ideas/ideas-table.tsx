@@ -2,7 +2,6 @@
 
 import { startTransition, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
 import {
    useTable, type ColumnFiltersState, type ColumnVisibilityState, type RowSelectionState, type SortingState,
 } from '@tanstack/react-table';
@@ -13,16 +12,19 @@ import {
    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from 'components/ui/select';
 import { cn } from 'lib/utils';
-import { formattedNum, getSelectedUntrackedKeywords } from 'utils/client/helpers';
+import { formattedNum } from 'utils/client/helpers';
 import {
-   buildKeywordAddPayloads, getDomainLocations, getDomainTags, splitAlreadyTrackedByLocation, trackedTargetKey, type TrackerDevice,
+   getDomainLocations, getDomainTags, scraperAllowsCity, type TrackerDevice,
 } from 'utils/keywordMeta';
-import { fetchKeywords, keywordsKey, useAddKeywords } from '../../domain/_components/keyword-queries';
+import { useAddKeywords, useTrackedKeywordsForAdd } from '../../domain/_components/keyword-queries';
+import { useDomain } from '../../domain/_components/domain-queries';
+import { useAppSettings } from '../settings/settings-queries';
 import { DataTable } from '../data-table/data-table';
 import { dataTableFeatures } from '../data-table/features';
 import { MultiSelect } from '../multi-select';
 import { AddToTrackerBar } from './add-to-tracker-bar';
 import { AddToTrackerDialog } from './add-to-tracker-dialog';
+import { buildAddKeywordPayloads } from './add-to-tracker-state';
 import { IdeaDetails } from './idea-details';
 import {
    CompetitionBadge, IdeaKeywordCell, IdeaSelectCheckbox, VolumeSparkline, createIdeaColumns,
@@ -46,13 +48,13 @@ type IdeasTableProps = {
    onShowFavorites: (show: boolean) => void;
    /** The domains Research can add to. */
    domains: { domain: string; slug: string }[];
-   allowsCity: boolean;
+   domainScraperType?: string | null;
 };
 
 const DOCS_URL = 'https://github.com/djav1985/v-serpbear/wiki/Google-Integrations';
 
 export function IdeasTable({
-   domain, ideas, favorites, isLoading, noIdeasDatabase, adwordsConnected, showFavorites, onShowFavorites, domains, allowsCity,
+   domain, ideas, favorites, isLoading, noIdeasDatabase, adwordsConnected, showFavorites, onShowFavorites, domains, domainScraperType,
 }: IdeasTableProps) {
    const router = useRouter();
    const isResearch = domain === null;
@@ -66,27 +68,17 @@ export function IdeasTable({
 
    const targetDomain = isResearch ? pickedDomain : (domain ?? '');
 
-   // What is already tracked in the target domain. A keyword tracked in another location is a different target.
-   const { data: trackedKeywords } = useQuery({
-      queryKey: keywordsKey(targetDomain),
-      queryFn: () => fetchKeywords(targetDomain),
-      enabled: !!targetDomain,
-   });
+   // Add-dialog metadata is fetched only when the user starts the add flow.
+   const trackedQuery = useTrackedKeywordsForAdd(targetDomain, showAddStep);
+   const trackedKeywords = trackedQuery.data;
    const tracked = useMemo(() => trackedKeywords ?? [], [trackedKeywords]);
-   const trackedLookup = useMemo(() => {
-      const lookup: Record<string, boolean> = {};
-      tracked.forEach((k) => { if (k.keyword && k.country && k.device) { lookup[trackedTargetKey(k.keyword, k.country, k.device, k.location ?? '')] = true; } });
-      return lookup;
-   }, [tracked]);
-
-   const devicesToCheck = devices.length > 0 ? devices : (['desktop', 'mobile'] as TrackerDevice[]);
-   // Tracked only when every chosen device already has it (country-only); a partly tracked idea can still add the missing device.
-   const isTracked = (idea: IdeaKeyword) => devicesToCheck.every((device) => trackedLookup[trackedTargetKey(idea.keyword, idea.country, device)]);
+   const settingsQuery = useAppSettings(showAddStep, true);
+   const domainQuery = useDomain(targetDomain, showAddStep && isResearch);
+   const resolvedDomainScraper = isResearch ? domainQuery.data?.scraper_settings?.scraper_type : domainScraperType;
+   const allowsCity = scraperAllowsCity(settingsQuery.data, resolvedDomainScraper);
 
    const source = showFavorites ? favorites : ideas;
-   const rows = useMemo<IdeaRow[]>(() => source.map((idea) => ({ ...idea, isTracked: isTracked(idea) })),
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      [source, trackedLookup, devices]);
+   const rows: IdeaRow[] = source;
    const favoriteIds = useMemo(() => new Set(favorites.map((f) => f.uid)), [favorites]);
    const groups = useMemo(() => buildIdeaGroups(ideas), [ideas]);
 
@@ -106,33 +98,25 @@ export function IdeasTable({
       columns,
       getRowId: (idea) => idea.uid,
       state: { sorting: userSort, columnFilters, columnVisibility, rowSelection },
-      enableRowSelection: (row) => !row.original.isTracked,
       enableMultiSort: false,
       onRowSelectionChange: setRowSelection,
       onSortingChange: (updater) => setUserSort((current) => (typeof updater === 'function' ? updater(current) : updater)),
    });
 
-   // Selection holds only ideas that are on screen and can still be added. Switching the target domain can make a
-   // selected idea tracked, and it is dropped with a notice.
+   // Keep selection limited to ideas that remain visible under the current filters.
    const filteredRows = table.getFilteredRowModel().rows;
    useEffect(() => {
       const selected = Object.keys(rowSelection);
       if (selected.length === 0) { return; }
-      const addable = new Set(filteredRows.filter((row) => !row.original.isTracked).map((row) => row.id));
-      const kept = selected.filter((id) => addable.has(id));
+      const visible = new Set(filteredRows.map((row) => row.id));
+      const kept = selected.filter((id) => visible.has(id));
       if (kept.length === selected.length) { return; }
-      const trackedIds = new Set(filteredRows.filter((row) => row.original.isTracked).map((row) => row.id));
-      const droppedTracked = selected.filter((id) => trackedIds.has(id)).length;
-      // This has to run after the render that made the idea tracked, because it also shows a notice, so it stays an effect.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setRowSelection(Object.fromEntries(kept.map((id) => [id, true])));
-      if (droppedTracked > 0) {
-         toast.info(`${droppedTracked} selected idea${droppedTracked === 1 ? ' is' : 's are'} already tracked and ${droppedTracked === 1 ? 'was' : 'were'} deselected.`);
-      }
    }, [filteredRows, rowSelection]);
 
    const selectedIds = useMemo(() => Object.keys(rowSelection).filter((id) => rowSelection[id]), [rowSelection]);
-   const selectedIdeas = useMemo(() => getSelectedUntrackedKeywords(rows, selectedIds), [rows, selectedIds]);
+   const selectedIdeas = useMemo(() => rows.filter((idea) => selectedIds.includes(idea.uid)), [rows, selectedIds]);
    const clearSelection = () => setRowSelection({});
 
    const { mutate: addKeywords, isPending: isAdding } = useAddKeywords(() => {
@@ -149,15 +133,16 @@ export function IdeasTable({
    };
 
    const submitToTracker = ({ tags, location, country }: { tags: string[]; location: string; country: string }) => {
-      if (isAdding) { return; }
-      const { payloads, skipped } = splitAlreadyTrackedByLocation(buildKeywordAddPayloads({
+      if (isAdding || isLoadingAddData || hasAddDataError || !trackedKeywords || !settingsQuery.data || (isResearch && !domainQuery.data)) { return; }
+      const { payloads, skipped } = buildAddKeywordPayloads({
          items: selectedIdeas.map(({ keyword, country: itemCountry }) => ({ keyword, country: itemCountry })),
          domain: targetDomain,
          devices,
          tags,
          location,
          country,
-      }), trackedLookup);
+         tracked,
+      });
       addKeywords({ payloads, skipped });
    };
 
@@ -179,6 +164,14 @@ export function IdeasTable({
    const detailsIdea = detailsId === null ? undefined : rows.find((row) => row.uid === detailsId) ?? [...ideas, ...favorites].find((i) => i.uid === detailsId);
    const existingTags = useMemo(() => getDomainTags(tracked), [tracked]);
    const existingLocations = useMemo(() => getDomainLocations(tracked), [tracked]);
+   const isLoadingAddData = showAddStep && (
+      trackedQuery.isPending || trackedQuery.isFetching || settingsQuery.isPending || settingsQuery.isFetching
+      || (isResearch && (domainQuery.isPending || domainQuery.isFetching))
+   );
+   const hasAddDataError = showAddStep && (trackedQuery.isError || settingsQuery.isError || (isResearch && domainQuery.isError));
+   const retryAddData = () => {
+      void Promise.all([trackedQuery.refetch(), settingsQuery.refetch(), ...(isResearch ? [domainQuery.refetch()] : [])]);
+   };
 
    const emptyMessage = !adwordsConnected ? (
       <>Google Ads has not been integrated yet. Follow <a className="text-primary underline" href={DOCS_URL} target="_blank" rel="noreferrer">these steps</a> to integrate it.</>
@@ -213,7 +206,7 @@ export function IdeasTable({
                )}
             </AddToTrackerBar>
          ) : (
-            <div className="flex flex-wrap items-center gap-2 p-4 lg:flex-row lg:justify-between lg:gap-3">
+            <div className="grid grid-cols-2 items-center gap-2 p-4 lg:flex lg:flex-row lg:flex-wrap lg:justify-between lg:gap-3">
                <div className="flex items-center gap-1" role="tablist" aria-label="Keyword ideas">
                   {([['all', 'All Keywords', Tags, ideas.length], ['favorites', 'Favorites', Star, favorites.length]] as const).map(([value, label, Icon, count]) => {
                      const active = (value === 'favorites') === showFavorites;
@@ -246,7 +239,7 @@ export function IdeasTable({
                         emptyMessage="No groups found"
                      />
                   )}
-                  <div className="relative max-lg:order-1 max-lg:min-w-28 max-lg:flex-1 max-lg:basis-28">
+                  <div className="relative max-lg:order-1 max-lg:min-w-0 max-lg:flex-1 max-lg:basis-0">
                      <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
                      <Input data-testid="filter_input" className="h-8 w-full pl-8 lg:w-44" placeholder="Filter keywords..." value={filters.search} onChange={(event) => startTransition(() => setFilters({ ...filters, search: event.target.value }))} />
                   </div>
@@ -296,6 +289,9 @@ export function IdeasTable({
                existingLocations={existingLocations}
                allowsCity={allowsCity}
                isAdding={isAdding}
+               isLoadingExisting={isLoadingAddData}
+               existingLoadError={hasAddDataError}
+               onRetryExisting={retryAddData}
                onConfirm={submitToTracker}
                onClose={() => setShowAddStep(false)}
             />

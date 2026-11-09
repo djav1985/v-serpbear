@@ -1,20 +1,20 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { ExternalLink, Loader2, Search } from 'lucide-react';
+import { useMemo, ViewTransition } from 'react';
+import dynamic from 'next/dynamic';
+import { ExternalLink, Search } from 'lucide-react';
 import { Button } from 'components/ui/button';
 import {
    Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
 } from 'components/ui/sheet';
-import { cn } from 'lib/utils';
 import { getAppTimezone } from 'utils/client/appTimezone';
 import { formattedNum } from 'utils/client/helpers';
-import { safeHttpUrl } from 'utils/client/safeUrl';
 import countries from 'utils/countries';
 import { formatInZone } from 'utils/timezone';
-import { VolumeChart } from '../volume-chart';
-import { fetchSearchResults } from './ideas-queries';
+
+const VolumeChart = dynamic(() => import('../volume-chart').then((module) => module.VolumeChart), {
+   loading: () => <div aria-hidden="true" className="h-64 w-full" />,
+});
 
 // "january-2025" becomes "Jan, 25".
 const monthLabel = (dateKey: string): string => {
@@ -23,24 +23,12 @@ const monthLabel = (dateKey: string): string => {
 };
 
 export function IdeaDetails({ idea, onClose }: { idea: IdeaKeyword; onClose: () => void }) {
-   const foundRef = useRef<HTMLDivElement>(null);
    const updated = idea.updated ? formatInZone(idea.updated, { month: 'long', day: 'numeric', year: 'numeric' }, getAppTimezone()) : '';
-
-   // The live Google search costs a request, so it only runs when the user asks for it.
-   const search = useQuery({
-      queryKey: ['idea-search', idea.uid] as const,
-      queryFn: () => fetchSearchResults({ keyword: idea.keyword, country: idea.country, device: 'desktop' }),
-      enabled: false,
-      refetchOnWindowFocus: false,
-   });
-   const results = useMemo(() => search.data?.searchResult?.results ?? [], [search.data]);
 
    const chart = useMemo(() => {
       const keys = Object.keys(idea.monthlySearchVolumes ?? {});
       return { labels: keys.map(monthLabel), series: keys.map((key) => parseInt(idea.monthlySearchVolumes[key], 10)) };
    }, [idea.monthlySearchVolumes]);
-
-   useEffect(() => { foundRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, [results]);
 
    return (
       <Sheet open onOpenChange={(open) => { if (!open) { onClose(); } }}>
@@ -57,7 +45,9 @@ export function IdeaDetails({ idea, onClose }: { idea: IdeaKeyword; onClose: () 
             <div className="flex flex-col gap-8 p-4">
                <section>
                   <h3 className="mb-4 text-lg font-bold">Search Volume Trend</h3>
-                  <VolumeChart className="h-64" labels={chart.labels} series={chart.series} />
+                  <ViewTransition default="none">
+                     <VolumeChart className="h-64 animate-in fade-in-0 duration-1000 motion-reduce:animate-none" labels={chart.labels} series={chart.series} />
+                  </ViewTransition>
                </section>
 
                <section>
@@ -71,27 +61,15 @@ export function IdeaDetails({ idea, onClose }: { idea: IdeaKeyword; onClose: () 
                      <span className="text-muted-foreground text-xs">{updated}</span>
                   </div>
 
-                  {!search.data && (
-                     <div className="flex flex-col items-center gap-3 py-8 text-center text-sm font-medium">
-                        <p>View Google search results for &quot;{idea.keyword}&quot;</p>
-                        <Button onClick={() => search.refetch()} disabled={search.isFetching}>
-                           {search.isFetching ? <Loader2 className="animate-spin" /> : <Search />}
-                           {search.isFetching ? 'Performing Google search' : 'Perform Google Search'}
-                        </Button>
-                        {search.isError && <p role="alert" className="text-destructive text-xs">Could not run the search. Try again.</p>}
-                     </div>
-                  )}
-
-                  {results.map((item, index) => {
-                     const url = safeHttpUrl(item.url);
-                     const isOwn = idea.position > 0 && idea.position < 100 && index === idea.position - 1;
-                     return (
-                        <div key={`${item.url}${item.position}`} ref={isOwn ? foundRef : null} className={cn('mb-3 rounded-md p-3 text-sm break-all', isOwn && 'border border-amber-200 bg-amber-50')}>
-                           <h4 className="text-primary font-semibold">{url ? <a href={url} target="_blank" rel="noreferrer">{`${index + 1}. ${item.title}`}</a> : `${index + 1}. ${item.title}`}</h4>
-                           {url ? <a className="text-muted-foreground" href={url} target="_blank" rel="noreferrer">{item.url}</a> : <span className="text-muted-foreground">{item.url}</span>}
-                        </div>
-                     );
-                  })}
+                  <div className="flex flex-col items-center gap-3 py-8 text-center text-sm font-medium">
+                     <p>View Google search results for &quot;{idea.keyword}&quot;</p>
+                     <Button asChild>
+                        <a href={`https://www.google.com/search?q=${encodeURIComponent(idea.keyword)}`} target="_blank" rel="noreferrer">
+                           <Search />
+                           Perform Google Search
+                        </a>
+                     </Button>
+                  </div>
                </section>
             </div>
          </SheetContent>

@@ -9,9 +9,11 @@ import { RefreshCw } from 'lucide-react';
 import { Card } from 'components/ui/card';
 import { Switch } from 'components/ui/switch';
 import { cn } from 'lib/utils';
+import { useNearViewport } from 'hooks/use-near-viewport';
 import { formatAveragePosition, roundAveragePosition } from 'utils/averagePosition';
 import { formatInZone } from 'utils/timezone';
 import type { DomainCardData } from './domain-card-data';
+import type { DomainSummary } from '../../_components/shell-context';
 
 dayjs.extend(relativeTime);
 
@@ -54,11 +56,15 @@ type StatProps = { label: string; children: React.ReactNode };
 
 function Stat({ label, children }: StatProps) {
    return (
-      <div className="flex-1 text-center">
-         <span className="text-muted-foreground mb-1 block text-xs font-normal">{label}</span>
-         <span className="text-2xl font-semibold">{children}</span>
+      <div className="min-w-0 flex-1 text-center">
+         <span className="text-muted-foreground mb-1 block text-xs leading-4 font-normal">{label}</span>
+         <span className="flex h-8 items-center justify-center overflow-hidden text-xl leading-none font-semibold whitespace-nowrap sm:text-2xl">{children}</span>
       </div>
    );
+}
+
+function StatPlaceholder({ loading }: { loading: boolean }) {
+   return loading ? <span className="block h-7 w-12" aria-label="Loading statistics" /> : <span aria-label="Statistics not loaded">—</span>;
 }
 
 function CompactMetric({ value }: { value: number }) {
@@ -71,30 +77,45 @@ function CompactMetric({ value }: { value: number }) {
    );
 }
 
+function AnimatedStatValue({ children }: { children: React.ReactNode }) {
+   return <span className="animate-in fade-in-0 duration-1000 motion-reduce:animate-none">{children}</span>;
+}
+
 type DomainCardProps = {
-   domain: DomainCardData;
+   domain: DomainSummary;
+   stats?: DomainCardData;
+   statsLoading: boolean;
+   statsError: boolean;
    consoleIntegrated: boolean;
    thumb?: string;
    showMapPackStat: boolean;
    timezone: string;
    toggling: boolean;
    onToggle: (next: boolean) => void;
+   onNearViewport: (domain: string) => void;
    onRefreshThumb: () => void;
+   onRetryStats: () => void;
 };
 
 export function DomainCard({
-   domain, consoleIntegrated, thumb, showMapPackStat, timezone, toggling, onToggle, onRefreshThumb,
+   domain, stats, statsLoading, statsError, consoleIntegrated, thumb, showMapPackStat, timezone, toggling, onToggle, onNearViewport, onRefreshThumb, onRetryStats,
 }: DomainCardProps) {
    const router = useRouter();
+   const [imageRef, imagesNear] = useNearViewport<HTMLDivElement>();
    // The favicon stays hidden for 500 ms. A screenshot that is ready by then replaces it before it is ever shown.
    const [faviconReady, setFaviconReady] = useState(false);
    useEffect(() => {
       const timer = setTimeout(() => setFaviconReady(true), 500);
       return () => clearTimeout(timer);
    }, []);
-   const avgPosition = roundAveragePosition(domain.avgPosition);
-   const prevAvgPosition = domain.prevAvgPosition === null ? null : roundAveragePosition(domain.prevAvgPosition);
+   useEffect(() => {
+      if (imagesNear) { onNearViewport(domain.domain); }
+   }, [imagesNear, domain.domain, onNearViewport]);
+   const avgPosition = roundAveragePosition(stats?.avgPosition ?? 0);
+   const prevAvgPosition = stats?.prevAvgPosition == null ? null : roundAveragePosition(stats.prevAvgPosition);
    const href = `/domain/${domain.slug}`;
+   const updated = stats?.keywordsUpdated;
+   const prefetchTrackerPage = () => router.prefetch(href);
 
    return (
       <Card
@@ -108,7 +129,7 @@ export function DomainCard({
       >
          <div className="flex flex-col lg:flex-row">
             <div className={cn('flex flex-1 gap-4 p-5', !consoleIntegrated && 'lg:basis-1/3')}>
-               <div className="group bg-muted relative flex size-28 shrink-0 items-center justify-center overflow-hidden rounded-md border">
+               <div ref={imageRef} className="group bg-muted relative flex size-28 shrink-0 items-center justify-center overflow-hidden rounded-md border">
                   <button
                      type="button"
                      className="text-muted-foreground hover:text-foreground absolute top-0 right-1 z-10 p-1 opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
@@ -118,32 +139,36 @@ export function DomainCard({
                   >
                      <RefreshCw className="size-3" />
                   </button>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                     key={thumb ? 'screenshot' : 'favicon'}
-                     className={cn(thumb ? 'size-full object-cover object-top animate-in fade-in-0 duration-500' : 'max-w-[50px]', !thumb && !faviconReady && 'invisible')}
-                     src={thumb || `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain.domain)}&sz=128`}
-                     alt={domain.domain}
-                  />
+                  {imagesNear && (
+                     // eslint-disable-next-line @next/next/no-img-element
+                     <img
+                        key={thumb ? 'screenshot' : 'favicon'}
+                        className={cn(thumb ? 'size-full object-cover object-top animate-in fade-in-0 duration-1000 motion-reduce:animate-none' : 'max-w-[50px]', !thumb && !faviconReady && 'invisible')}
+                        src={thumb || `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain.domain)}&sz=128`}
+                        alt={domain.domain}
+                     />
+                  )}
                </div>
                <div className="min-w-0 flex-1">
                   <h3 className="mb-2 truncate text-base font-semibold" title={domain.domain}>
-                     <Link href={href} className="hover:underline">{domain.domain}</Link>
+                     <Link href={href} prefetch={false} onPointerEnter={prefetchTrackerPage} onFocus={prefetchTrackerPage} className="hover:underline">{domain.domain}</Link>
                   </h3>
-                  <div className="text-muted-foreground flex items-center justify-between gap-3 text-xs">
-                     {domain.keywordsUpdated ? (
-                        <span suppressHydrationWarning title={formatInZone(domain.keywordsUpdated, UPDATED_TITLE_FORMAT, timezone)}>
-                           Updated {dayjs(domain.keywordsUpdated).fromNow()}
+                  <div className="text-muted-foreground flex min-h-4 items-center justify-between gap-3 text-xs">
+                     {!stats && !statsError ? <span aria-hidden="true" className="block h-3 w-32" /> : updated ? (
+                        <span className="animate-in fade-in-0 duration-1000 motion-reduce:animate-none" suppressHydrationWarning title={formatInZone(updated, UPDATED_TITLE_FORMAT, timezone)}>
+                           Updated {dayjs(updated).fromNow()}
                         </span>
-                     ) : (
-                        <span>Not updated yet</span>
+                     ) : stats ? (
+                        <span className="animate-in fade-in-0 duration-1000 motion-reduce:animate-none">Not updated yet</span>
+                     ) : null}
+                  </div>
+                  <div className="text-muted-foreground mt-1 min-h-4 text-xs">
+                     {!stats && !statsError ? <span aria-hidden="true" className="block h-3 w-40" /> : stats?.creditsRemaining !== null && stats?.creditsRemaining !== undefined && (
+                        <span className="animate-in fade-in-0 duration-1000 motion-reduce:animate-none" data-testid="dom_credits">
+                           Credits remaining: {formatCredits(stats.creditsRemaining, stats.creditsUnit)}
+                        </span>
                      )}
                   </div>
-                  {domain.creditsRemaining !== null && (
-                     <div className="text-muted-foreground mt-1 text-xs" data-testid="dom_credits">
-                        Credits remaining: {formatCredits(domain.creditsRemaining, domain.creditsUnit)}
-                     </div>
-                  )}
                </div>
             </div>
 
@@ -163,17 +188,20 @@ export function DomainCard({
                </div>
                <div className="bg-accent/70 border-primary/15 flex flex-1 items-center rounded-md border p-4" data-testid="dom_stats">
                   <Stat label="Keywords">
-                     {domain.keywordsTracked}
-                     <Trend current={domain.keywordsTracked} previous={domain.prevKeywordsTracked} />
+                     {stats ? (
+                        <AnimatedStatValue>{stats.keywordsTracked}<Trend current={stats.keywordsTracked} previous={stats.prevKeywordsTracked} /></AnimatedStatValue>
+                     ) : statsError ? <button type="button" className="text-destructive text-xs underline" onClick={onRetryStats}>Retry</button> : <StatPlaceholder loading={statsLoading} />}
                   </Stat>
                   <Stat label="Avg position">
-                     {formatAveragePosition(avgPosition)}
-                     <Trend current={avgPosition} previous={prevAvgPosition} lowerIsBetter />
+                     {stats ? (
+                        <AnimatedStatValue>{formatAveragePosition(avgPosition)}<Trend current={avgPosition} previous={prevAvgPosition} lowerIsBetter /></AnimatedStatValue>
+                     ) : <StatPlaceholder loading={statsLoading} />}
                   </Stat>
-                  {showMapPackStat && (
+                  {(showMapPackStat || (stats?.mapPackKeywords ?? 0) > 0) && (
                      <Stat label="Map Pack">
-                        {domain.mapPackKeywords}
-                        <Trend current={domain.mapPackKeywords} previous={domain.prevMapPackKeywords} />
+                        {stats ? (
+                           <AnimatedStatValue>{stats.mapPackKeywords}<Trend current={stats.mapPackKeywords} previous={stats.prevMapPackKeywords} /></AnimatedStatValue>
+                        ) : <StatPlaceholder loading={statsLoading} />}
                      </Stat>
                   )}
                </div>
@@ -181,19 +209,22 @@ export function DomainCard({
 
             {consoleIntegrated && (
                <div className="flex min-w-0 flex-1 flex-col p-4 lg:basis-0">
-                  <p className="text-primary mb-2 text-xs font-medium">Search Console (7d)</p>
+                  <p className="text-primary mb-1 text-xs font-medium">Search Console (7d)</p>
                   <div className="bg-accent/70 border-primary/15 flex flex-1 items-center rounded-md border p-4" data-testid="dom_sc_stats">
                      <Stat label="Visits">
-                        <CompactMetric value={domain.scVisits} />
-                        <Trend current={domain.scVisits} previous={domain.scVisitsPrev} />
+                        {stats ? (
+                           <AnimatedStatValue><CompactMetric value={stats.scVisits} /><Trend current={stats.scVisits} previous={stats.scVisitsPrev} /></AnimatedStatValue>
+                        ) : <StatPlaceholder loading={statsLoading} />}
                      </Stat>
                      <Stat label="Impressions">
-                        <CompactMetric value={domain.scImpressions} />
-                        <Trend current={domain.scImpressions} previous={domain.scImpressionsPrev} />
+                        {stats ? (
+                           <AnimatedStatValue><CompactMetric value={stats.scImpressions} /><Trend current={stats.scImpressions} previous={stats.scImpressionsPrev} /></AnimatedStatValue>
+                        ) : <StatPlaceholder loading={statsLoading} />}
                      </Stat>
                      <Stat label="Avg position">
-                        {domain.scPosition}
-                        <Trend current={domain.scPosition} previous={domain.scPositionPrev} lowerIsBetter />
+                        {stats ? (
+                           <AnimatedStatValue>{stats.scPosition}<Trend current={stats.scPosition} previous={stats.scPositionPrev} lowerIsBetter /></AnimatedStatValue>
+                        ) : <StatPlaceholder loading={statsLoading} />}
                      </Stat>
                   </div>
                </div>

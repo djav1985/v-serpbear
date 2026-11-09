@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file. Releases now follow the conventional commits format but are managed with lightweight project scripts instead of `standard-version`.
 
+## [Unreleased]
+
+### Changed
+
+- Domain cards render from the dashboard's domain list, then load card stats in batches as they approach the viewport; favicons and screenshots use the same viewport signal. Charts and Tracker keywords load on demand. Discover, Ideas, and Research fetch tracked keywords and scraper city support only when the add dialog opens, then check duplicates using the selected location and device. Main-menu navigation links do not prefetch routes.
+- Domain subpages load only the selected domain alongside app settings. Hovering or focusing a domain name warms its Tracker page, and hovering or focusing any domain tab warms that page. Mobile stacked tables clip the desktop grid during the first paint until hydration switches to the mobile layout.
+- Mobile keyword search fields stay in the top-right toolbar slot; country and group filters occupy separate grid slots below, avoiding overlap at narrow widths. This covers Tracker, Discover, Ideas, Research, and the Keywords section in Insight.
+- The Tracker Search Console period selector shares a row with sorting and column controls on mobile.
+- Discover’s mobile device tabs collapse to icons with counts so their labels cannot intrude into the keyword search field.
+- Discover keyword details mirror the Ideas side panel, with a 30/7/3-day comparison chart for average daily clicks, average daily impressions, and average position, plus the Google Search results action. The chart placeholder reserves space for the plot, legend, and caption to prevent a layout shift when it loads.
+- Ideas detail charts mount with the side panel, matching the other keyword panels and avoiding a second delayed update during its opening animation.
+- Table rows, empty states, and charts in keyword detail panels fade in over one second when loaded, replacing visible loading skeletons with transparent space. Insight and keyword detail charts keep their space without visible loading blocks.
+- Insight tables use the same viewport-based desktop height as Tracker and Ideas tables.
+- Domain cards reserve space for update-time, credit values, and stats while loading, then fade in the fetched values over one second. Stat value rows keep a fixed height and do not wrap, preventing card layout shifts when values arrive on desktop and mobile. The screenshot transition and Domains page total keyword count also fade in over one second when ready.
+- Domain card Search Console stats align vertically with Tracker stats on desktop.
+
 ## [6.0.0] (2026-11-08)
 
 ### Added

@@ -20,10 +20,9 @@ const MAX_SEED_KEYWORDS = 20;
 
 type ResearchViewProps = {
    adwordsConnected: boolean;
-   allowsCity: boolean;
 };
 
-export function ResearchView({ adwordsConnected, allowsCity }: ResearchViewProps) {
+export function ResearchView({ adwordsConnected }: ResearchViewProps) {
    const { domains } = useShell();
    const [showFavorites, setShowFavorites] = useState(false);
    const [language, setLanguage] = useState('1000');
@@ -125,7 +124,6 @@ export function ResearchView({ adwordsConnected, allowsCity }: ResearchViewProps
                showFavorites={showFavorites}
                onShowFavorites={(show) => startTransition(() => setShowFavorites(show))}
                domains={domains}
-               allowsCity={allowsCity}
             />
          </div>
       </div>

@@ -18,7 +18,7 @@ export function InsightChart({ stats }: { stats: SearchAnalyticsStat[] }) {
       impressions: item.impressions,
    }));
    return (
-      <ChartContainer config={CONFIG} className="aspect-auto h-72 w-full">
+      <ChartContainer config={CONFIG} className="aspect-auto h-72 w-full animate-in fade-in-0 duration-1000 motion-reduce:animate-none">
          <LineChart data={data} margin={{ left: 0, right: 0, top: 8, bottom: 0 }}>
             <CartesianGrid vertical={false} />
             <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={24} />

@@ -2,6 +2,7 @@
 // that would otherwise have loaded it first.
 import '../database/database';
 import Cryptr from 'cryptr';
+import { Op } from 'sequelize';
 import Domain from '../database/models/domain';
 import getdomainStats from './domains';
 import { maskSearchConsole } from './maskSearchConsole';
@@ -16,8 +17,27 @@ import { creditKey, creditsUnitFor, readScraperCredits, resolveCreditSource, sup
  * Shared by the API handler and by server components so both see identical data.
  * Pass `withStats` to attach keyword counts and Search Console totals.
  */
-export const loadDomains = async (withStats = false): Promise<DomainType[]> => {
-   const allDomains: Domain[] = await Domain.findAll();
+const formatDomainPlain = (domainPlain: Record<string, any>): DomainType => {
+   const searchConsoleData = maskSearchConsole(domainPlain?.search_console, String(domainPlain?.domain ?? domainPlain?.ID ?? ''));
+   const persistedScraperSettings = parseDomainScraperSettings(domainPlain?.scraper_settings);
+   const maskedDomain = {
+      ...domainPlain,
+      search_console: JSON.stringify(searchConsoleData),
+      scraper_settings: maskDomainScraperSettings(persistedScraperSettings),
+   } as DomainType;
+   return normalizeDomainBooleans(maskedDomain);
+};
+
+const formatDomain = (el: Domain): DomainType => formatDomainPlain(el.get({ plain: true }) as Record<string, any>);
+
+/** Reads one domain by its route slug, with the same credential masking as the domain list. */
+export const loadDomainBySlug = async (slug: string): Promise<DomainType | null> => {
+   const domain = await Domain.findOne({ where: { slug } });
+   return domain ? formatDomain(domain) : null;
+};
+
+export const loadDomains = async (withStats = false, selectedDomains?: string[]): Promise<DomainType[]> => {
+   const allDomains: Domain[] = await Domain.findAll(selectedDomains ? { where: { domain: { [Op.in]: selectedDomains } } } : undefined);
    // Saved scraper balances, only needed for the cards. A failure here just leaves the credits line out.
    let credits: { settings: SettingsType, saved: Awaited<ReturnType<typeof readScraperCredits>>, cryptr: Cryptr | null } | null = null;
    if (withStats) {
@@ -30,22 +50,16 @@ export const loadDomains = async (withStats = false): Promise<DomainType[]> => {
    }
    const formattedDomains: DomainType[] = allDomains.map((el) => {
       const domainPlain = el.get({ plain: true }) as any;
-      const searchConsoleData = maskSearchConsole(domainPlain?.search_console, String(domainPlain?.domain ?? domainPlain?.ID ?? ''));
-      const persistedScraperSettings = parseDomainScraperSettings(domainPlain?.scraper_settings);
-      const maskedDomain = {
-         ...domainPlain,
-         search_console: JSON.stringify(searchConsoleData),
-         scraper_settings: maskDomainScraperSettings(persistedScraperSettings),
-      } as DomainType;
+      const formatted = formatDomainPlain(domainPlain);
       if (credits) {
          const source = resolveCreditSource(domainPlain, credits.settings, credits.cryptr);
          const entry = source.apiKey && supportsCredits(source.scraperId) ? credits.saved[creditKey(source.scraperId, source.apiKey)] : undefined;
          if (entry && typeof entry.remaining === 'number') {
-            maskedDomain.creditsRemaining = entry.remaining;
-            maskedDomain.creditsUnit = creditsUnitFor(source.scraperId);
+            formatted.creditsRemaining = entry.remaining;
+            formatted.creditsUnit = creditsUnitFor(source.scraperId);
          }
       }
-      return normalizeDomainBooleans(maskedDomain);
+      return formatted;
    });
    return withStats ? getdomainStats(formattedDomains) : formattedDomains;
 };

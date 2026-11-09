@@ -4,7 +4,6 @@ import { startTransition, useLayoutEffect, useRef, useState, type CSSProperties,
 import type { ReactTable, Row, RowData } from '@tanstack/react-table';
 import { useVirtualizer, useWindowVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react';
-import { Skeleton } from 'components/ui/skeleton';
 import { useIsMobile } from 'hooks/use-mobile';
 import { cn } from 'lib/utils';
 import './column-meta';
@@ -20,7 +19,7 @@ type DataTableProps<TData extends RowData> = {
    estimateStackedHeight?: number;
    /** When set, narrow screens show this card per row instead of the grid. */
    renderStackedRow?: (row: Row<DataTableFeatures, TData>) => ReactNode;
-   /** True while the first load is in flight. Shows skeletons only when there are no rows yet. */
+   /** True while the first load is in flight. */
    isLoading?: boolean;
    /** Shown when loading has finished and no row matches. */
    emptyMessage?: ReactNode;
@@ -109,6 +108,9 @@ export function DataTable<TData extends RowData>({
    });
 
    const activeVirtualizer = stacked ? windowVirtualizer : virtualizer;
+   const loadingPlaceholderCount = stacked && isLoading
+      ? Math.ceil((window.innerHeight - (scrollRef.current?.getBoundingClientRect().top ?? 0)) / estimateStackedHeight)
+      : 0;
 
    const firstRowSize = activeVirtualizer.getVirtualItems()[0]?.size;
    useLayoutEffect(() => {
@@ -126,7 +128,6 @@ export function DataTable<TData extends RowData>({
       return () => observer.disconnect();
    }, [stacked, firstRowSize, estimateRowHeight]);
 
-   const showSkeleton = isLoading && rows.length === 0;
    const showEmpty = !isLoading && rows.length === 0;
 
    return (
@@ -139,7 +140,13 @@ export function DataTable<TData extends RowData>({
             aria-label={label}
             aria-rowcount={rows.length}
             aria-busy={isLoading}
-            className={cn('relative w-full', stacked ? 'overflow-visible' : 'overflow-auto', !stacked && !snappedHeight && className)}
+            className={cn(
+               'relative w-full',
+               stacked ? 'overflow-visible' : 'overflow-auto',
+               // The server snapshot is desktop. Clip its wide grid on mobile until hydration switches to stacked rows.
+               renderStackedRow && !stacked && 'max-[767px]:overflow-clip',
+               !stacked && !snappedHeight && className,
+            )}
             style={snappedHeight ? { height: snappedHeight } : undefined}
          >
          {!stacked && (
@@ -176,16 +183,18 @@ export function DataTable<TData extends RowData>({
             </div>
          )}
 
-         {showSkeleton && (
-            <div className="flex flex-col gap-2 p-4" aria-label="Loading">
-               {Array.from({ length: 6 }, (_, index) => <Skeleton key={index} className="h-12 w-full" />)}
+         {showEmpty && <div className="text-muted-foreground animate-in fade-in-0 p-10 text-center text-sm duration-1000 motion-reduce:animate-none">{emptyMessage}</div>}
+
+         {loadingPlaceholderCount > 0 && (
+            <div aria-hidden="true" className="invisible" style={{ height: loadingPlaceholderCount * estimateStackedHeight }}>
+               {Array.from({ length: loadingPlaceholderCount }, (_, index) => (
+                  <div key={index} style={{ height: estimateStackedHeight }} />
+               ))}
             </div>
          )}
 
-         {showEmpty && <div className="text-muted-foreground p-10 text-center text-sm">{emptyMessage}</div>}
-
          {rows.length > 0 && (
-            <div role="rowgroup" className="relative" style={{ height: activeVirtualizer.getTotalSize(), minWidth: stacked ? undefined : minWidth }}>
+            <div role="rowgroup" className="relative animate-in fade-in-0 duration-1000 motion-reduce:animate-none" style={{ height: activeVirtualizer.getTotalSize(), minWidth: stacked ? undefined : minWidth }}>
                {activeVirtualizer.getVirtualItems().map((virtualRow) => {
                   const row = rows[virtualRow.index];
                   return (

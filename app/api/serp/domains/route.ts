@@ -93,7 +93,9 @@ const retryOtherDomainCleanup = async (domain: string, keywordIds: Set<number>):
 };
 
 const getDomains = async (req: Request, ctx: ApiContext) => {
-   const withStatsParam = getQuery(req).withstats;
+   const query = getQuery(req);
+   const withStatsParam = query.withstats;
+   const selectedDomainsParam = query.domains;
    let withStats = false;
    if (withStatsParam !== undefined) {
       const parsed = parseStrictBooleanQueryParam(withStatsParam);
@@ -102,10 +104,19 @@ const getDomains = async (req: Request, ctx: ApiContext) => {
       }
       withStats = parsed.value;
    }
+
+   let selectedDomains: string[] | undefined;
+   if (selectedDomainsParam !== undefined) {
+      const rawDomainParams = Array.isArray(selectedDomainsParam) ? selectedDomainsParam : [selectedDomainsParam];
+      selectedDomains = [...new Set(rawDomainParams.flatMap((domains) => domains.split(',')).map((domain) => domain.trim()).filter(Boolean))];
+      if (!withStats || selectedDomains.length === 0 || selectedDomains.length > 8 || selectedDomains.some((domain) => !validateHostname(domain).isValid)) {
+         return fail(400, 'BAD_REQUEST', 'The domains parameter requires withstats=true and between 1 and 8 valid domain names.', ctx);
+      }
+   }
    
    try {
       
-      const theDomains: DomainType[] = await loadDomains(withStats);
+      const theDomains: DomainType[] = await loadDomains(withStats, selectedDomains);
       return json({ domains: theDomains });
    } catch (error) {
       logger.error('Getting Domains.', error instanceof Error ? error : new Error(String(error)));

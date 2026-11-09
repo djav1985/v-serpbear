@@ -8,11 +8,12 @@ import { settingsKey } from '../../domain/_components/keyword-queries';
 /** The server's own message when it sent one (it says what to fix), otherwise the fallback. */
 const errorText = (error: unknown, fallback: string) => (error instanceof Error && error.message && !error.message.startsWith('Server error (') ? error.message : fallback);
 
-export function useAppSettings(enabled: boolean) {
+export function useAppSettings(enabled: boolean, refetchWhenEnabled = false) {
    return useQuery({
       queryKey: settingsKey,
       queryFn: async () => (await apiGet<{ settings: SettingsType }>('/api/app/settings')).settings,
       enabled,
+      staleTime: refetchWhenEnabled ? 0 : undefined,
    });
 }
 

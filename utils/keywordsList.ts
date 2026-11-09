@@ -69,7 +69,10 @@ export const loadDomainKeywords = async (domain: string): Promise<{ keywords: Ke
    const backfill = () => {
       if (backfillQueue.length === 0) { return; }
       backfillQueue.reduce<Promise<void>>(
-         (chain, { id, history7d, source }) => chain.then(() => Keyword.update({ history7d }, { where: { ID: id, history: source.history ?? null, history7d: source.history7d ?? null } }).then(() => undefined))
+         (chain, { id, history7d, source }) => chain.then(() => Keyword.update(
+            { history7d },
+            { where: { ID: id, history: source.history ?? null, history7d: source.history7d ?? null } },
+         ).then(() => undefined))
             .catch((err: unknown) => {
                logger.error('Failed to backfill history7d', err instanceof Error ? err : new Error(String(err)), { keywordId: id });
             }),

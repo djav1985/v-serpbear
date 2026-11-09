@@ -15,12 +15,11 @@ type IdeasViewProps = {
    domain: DomainType;
    adwordsConnected: boolean;
    searchConsoleConnected: boolean;
-   allowsCity: boolean;
    availableScrapers: Scraper[];
    systemScraperType: string;
 };
 
-export function IdeasView({ domain, adwordsConnected, searchConsoleConnected, allowsCity, availableScrapers, systemScraperType }: IdeasViewProps) {
+export function IdeasView({ domain, adwordsConnected, searchConsoleConnected, availableScrapers, systemScraperType }: IdeasViewProps) {
    const { domains } = useShell();
    const [showFavorites, setShowFavorites] = useState(false);
    const [loadOpen, setLoadOpen] = useState(false);
@@ -34,6 +33,8 @@ export function IdeasView({ domain, adwordsConnected, searchConsoleConnected, al
       <div className="flex flex-col gap-4">
          <DomainHeader
             domain={domain}
+            searchConsoleConnected={searchConsoleConnected}
+            adwordsConnected={adwordsConnected}
             onOpenSettings={() => setSettingsOpen(true)}
             onExport={() => exportKeywordIdeas(showFavorites ? favorites : ideas, domain.domain)}
             onLoadIdeas={() => setLoadOpen(true)}
@@ -48,7 +49,7 @@ export function IdeasView({ domain, adwordsConnected, searchConsoleConnected, al
             showFavorites={showFavorites}
             onShowFavorites={(show) => startTransition(() => setShowFavorites(show))}
             domains={domains}
-            allowsCity={allowsCity}
+            domainScraperType={domain.scraper_settings?.scraper_type}
          />
          <LoadIdeasDialog
             open={loadOpen}
