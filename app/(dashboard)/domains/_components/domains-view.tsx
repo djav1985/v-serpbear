@@ -40,6 +40,7 @@ export function DomainsView({ scraperConfigured, searchConsoleIntegrated, showMa
    const statsStatusRef = useRef<Record<string, StatsStatus>>({});
    const statsQueueRef = useRef<string[]>([]);
    const statsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+   const flushStatsRef = useRef<() => Promise<void>>(async () => {});
 
    const flushStats = useCallback(async () => {
       statsTimerRef.current = null;
@@ -66,7 +67,7 @@ export function DomainsView({ scraperConfigured, searchConsoleIntegrated, showMa
       }
 
       if (statsQueueRef.current.length > 0 && statsTimerRef.current === null) {
-         statsTimerRef.current = setTimeout(() => { void flushStats(); }, 0);
+         statsTimerRef.current = setTimeout(() => { void flushStatsRef.current(); }, 0);
       }
    }, []);
 
@@ -79,6 +80,8 @@ export function DomainsView({ scraperConfigured, searchConsoleIntegrated, showMa
          statsTimerRef.current = setTimeout(() => { void flushStats(); }, STATS_BATCH_DELAY_MS);
       }
    }, [flushStats]);
+
+   useEffect(() => { flushStatsRef.current = flushStats; }, [flushStats]);
 
    useEffect(() => () => {
       if (statsTimerRef.current !== null) { clearTimeout(statsTimerRef.current); }

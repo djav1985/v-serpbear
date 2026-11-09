@@ -203,7 +203,9 @@ export function DomainCard({
                         {stats ? <><CompactMetric value={stats.scVisits} /><Trend current={stats.scVisits} previous={stats.scVisitsPrev} /></> : <StatPlaceholder loading={statsLoading} />}
                      </Stat>
                      <Stat label="Impressions">
-                        {stats ? <><CompactMetric value={stats.scImpressions} /><Trend current={stats.scImpressions} previous={stats.scImpressionsPrev} /></> : <StatPlaceholder loading={statsLoading} />}
+                        {stats ? (
+                           <><CompactMetric value={stats.scImpressions} /><Trend current={stats.scImpressions} previous={stats.scImpressionsPrev} /></>
+                        ) : <StatPlaceholder loading={statsLoading} />}
                      </Stat>
                      <Stat label="Avg position">
                         {stats ? <>{stats.scPosition}<Trend current={stats.scPosition} previous={stats.scPositionPrev} lowerIsBetter /></> : <StatPlaceholder loading={statsLoading} />}

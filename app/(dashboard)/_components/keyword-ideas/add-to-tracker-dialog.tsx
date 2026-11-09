@@ -51,10 +51,10 @@ export function AddToTrackerDialog({
                sectionLabels
                defaultCountry="US"
             />
-            {isLoadingExisting && <p role="status" className="text-muted-foreground text-sm">Loading tracker data…</p>}
+            {isLoadingExisting && <p role="status" className="text-muted-foreground text-sm">Loading tracked keywords and location settings…</p>}
             {existingLoadError && (
                <div role="alert" className="text-destructive flex items-center justify-between gap-3 text-sm">
-                  <span>Could not load tracker data needed to add these keywords.</span>
+                  <span>Could not load tracked keywords or location settings needed to add these keywords.</span>
                   {onRetryExisting && <Button variant="outline" size="sm" onClick={onRetryExisting}>Retry</Button>}
                </div>
             )}
@@ -63,7 +63,7 @@ export function AddToTrackerDialog({
                <Button disabled={isAdding || isLoadingExisting || existingLoadError} onClick={() => {
                   if (!isAdding && !isLoadingExisting && !existingLoadError) { onConfirm({ tags: parseTags(tagInput), location: selection?.location ?? '', country: selection?.country ?? '' }); }
                }}>
-                  {isAdding ? 'Adding…' : isLoadingExisting ? 'Loading…' : 'Track'}
+                  {isAdding ? 'Adding…' : isLoadingExisting ? 'Loading keywords…' : 'Track'}
                </Button>
             </DialogFooter>
          </DialogContent>
