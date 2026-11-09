@@ -2,7 +2,7 @@
 
 import { startTransition, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { ReactTable, Row, RowData } from '@tanstack/react-table';
-import { useVirtualizer } from '@tanstack/react-virtual';
+import { useVirtualizer, useWindowVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react';
 import { Skeleton } from 'components/ui/skeleton';
 import { useIsMobile } from 'hooks/use-mobile';
@@ -24,7 +24,7 @@ type DataTableProps<TData extends RowData> = {
    isLoading?: boolean;
    /** Shown when loading has finished and no row matches. */
    emptyMessage?: ReactNode;
-   /** Classes for the scroll area. Give it a height, for example 'h-[65vh]'. */
+   /** Classes for the desktop scroll area. Give it a height, for example 'h-[65vh]'. */
    className?: string;
    /** The narrowest the grid may get before the area scrolls sideways. Set it to what the columns need. */
    minWidth?: string;
@@ -55,6 +55,7 @@ export function DataTable<TData extends RowData>({
    const headRef = useRef<HTMLDivElement>(null);
    // Height that fits a whole number of rows, so the last visible row is never cut off by the bottom edge.
    const [snappedHeight, setSnappedHeight] = useState<number | undefined>();
+   const [scrollMargin, setScrollMargin] = useState(0);
    const isMobile = useIsMobile();
    const stacked = isMobile && !!renderStackedRow;
    const rows = table.getRowModel().rows;
@@ -62,6 +63,30 @@ export function DataTable<TData extends RowData>({
    const gridStyle: CSSProperties = {
       gridTemplateColumns: columns.map((column) => column.columnDef.meta?.width ?? DEFAULT_TRACK).join(' '),
    };
+
+   useLayoutEffect(() => {
+      if (!stacked) {
+         setScrollMargin(0);
+         return undefined;
+      }
+
+      const updateScrollMargin = () => {
+         const element = scrollRef.current;
+         if (!element) return;
+         const nextMargin = element.getBoundingClientRect().top + window.scrollY;
+         setScrollMargin((current) => (current === nextMargin ? current : nextMargin));
+      };
+
+      updateScrollMargin();
+      const observer = new ResizeObserver(updateScrollMargin);
+      const main = scrollRef.current?.closest('main');
+      if (main) observer.observe(main);
+      window.addEventListener('resize', updateScrollMargin);
+      return () => {
+         observer.disconnect();
+         window.removeEventListener('resize', updateScrollMargin);
+      };
+   }, [stacked]);
 
    // TanStack Virtual returns functions that the React Compiler cannot memoize; the compiler skips this component, which is the intended outcome.
    // eslint-disable-next-line react-hooks/incompatible-library
@@ -71,9 +96,21 @@ export function DataTable<TData extends RowData>({
       estimateSize: () => (stacked ? estimateStackedHeight : estimateRowHeight),
       getItemKey: (index) => rows[index]?.id ?? index,
       overscan: 8,
+      enabled: !stacked,
    });
 
-   const firstRowSize = virtualizer.getVirtualItems()[0]?.size;
+   const windowVirtualizer = useWindowVirtualizer({
+      count: rows.length,
+      estimateSize: () => estimateStackedHeight,
+      getItemKey: (index) => rows[index]?.id ?? index,
+      overscan: 8,
+      scrollMargin,
+      enabled: stacked,
+   });
+
+   const activeVirtualizer = stacked ? windowVirtualizer : virtualizer;
+
+   const firstRowSize = activeVirtualizer.getVirtualItems()[0]?.size;
    useLayoutEffect(() => {
       const frame = frameRef.current;
       if (!frame || stacked) { setSnappedHeight(undefined); return undefined; }
@@ -102,7 +139,7 @@ export function DataTable<TData extends RowData>({
             aria-label={label}
             aria-rowcount={rows.length}
             aria-busy={isLoading}
-            className={cn('relative w-full overflow-auto', !snappedHeight && className)}
+            className={cn('relative w-full', stacked ? 'overflow-visible' : 'overflow-auto', !stacked && !snappedHeight && className)}
             style={snappedHeight ? { height: snappedHeight } : undefined}
          >
          {!stacked && (
@@ -148,13 +185,13 @@ export function DataTable<TData extends RowData>({
          {showEmpty && <div className="text-muted-foreground p-10 text-center text-sm">{emptyMessage}</div>}
 
          {rows.length > 0 && (
-            <div role="rowgroup" className="relative" style={{ height: virtualizer.getTotalSize(), minWidth: stacked ? undefined : minWidth }}>
-               {virtualizer.getVirtualItems().map((virtualRow) => {
+            <div role="rowgroup" className="relative" style={{ height: activeVirtualizer.getTotalSize(), minWidth: stacked ? undefined : minWidth }}>
+               {activeVirtualizer.getVirtualItems().map((virtualRow) => {
                   const row = rows[virtualRow.index];
                   return (
                      <div
                         key={row.id}
-                        ref={virtualizer.measureElement}
+                        ref={activeVirtualizer.measureElement}
                         data-index={virtualRow.index}
                         data-state={row.getIsSelected() ? 'selected' : undefined}
                         role="row"
@@ -165,7 +202,7 @@ export function DataTable<TData extends RowData>({
                            row.getIsSelected() && 'bg-accent/50',
                            onRowClick && 'cursor-pointer',
                         )}
-                        style={{ transform: `translateY(${virtualRow.start}px)` }}
+                        style={{ transform: `translateY(${virtualRow.start - (stacked ? scrollMargin : 0)}px)` }}
                         onClick={onRowClick ? () => onRowClick(row) : undefined}
                      >
                         {stacked ? renderStackedRow(row) : (
