@@ -4,9 +4,11 @@ import { startTransition, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useQuery } from '@tanstack/react-query';
 import { useTable, type ColumnDef } from '@tanstack/react-table';
+import { Search } from 'lucide-react';
 import { DataTable } from 'app/(dashboard)/_components/data-table/data-table';
 import { dataTableFeatures, type DataTableFeatures } from 'app/(dashboard)/_components/data-table/features';
 import { Card, CardContent } from 'components/ui/card';
+import { Input } from 'components/ui/input';
 import {
    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from 'components/ui/select';
@@ -97,6 +99,7 @@ type InsightViewProps = {
 
 export function InsightView({ domain, searchConsoleConnected, adwordsConnected, availableScrapers, systemScraperType }: InsightViewProps) {
    const [tab, setTab] = useState<Tab>('stats');
+   const [keywordSearch, setKeywordSearch] = useState('');
    const [settingsOpen, setSettingsOpen] = useState(false);
 
    const { data, isLoading, isError } = useQuery({
@@ -116,8 +119,13 @@ export function InsightView({ domain, searchConsoleConnected, adwordsConnected, 
    // The daily list reads newest first; the other lists read by visits.
    const rows = useMemo<SCInsightItem[]>(() => {
       if (tab === 'stats') { return [...stats].reverse(); }
-      return sortInsightItems(insight[tab] ?? []);
-   }, [tab, stats, insight]);
+      const items = insight[tab] ?? [];
+      if (tab === 'keywords' && keywordSearch.trim()) {
+         const query = keywordSearch.trim().toLocaleLowerCase();
+         return sortInsightItems(items.filter((item) => item.keyword?.toLocaleLowerCase().includes(query)));
+      }
+      return sortInsightItems(items);
+   }, [tab, stats, insight, keywordSearch]);
    const columns = useMemo(() => columnsFor(tab, domain.domain), [tab, domain.domain]);
 
    const table = useTable({ features: dataTableFeatures, data: rows, columns });
@@ -133,7 +141,7 @@ export function InsightView({ domain, searchConsoleConnected, adwordsConnected, 
          <DomainHeader domain={domain} searchConsoleConnected={searchConsoleConnected} adwordsConnected={adwordsConnected} onOpenSettings={() => setSettingsOpen(true)} />
 
          <div className="bg-card rounded-xl border shadow-sm" data-testid="domKeywords">
-            <div className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-wrap items-center gap-3 p-4 lg:flex-row lg:justify-between">
                <div className="hidden items-center gap-1 lg:flex" role="tablist" aria-label="Insight sections">
                   {TABS.map((value) => (
                      <button
@@ -149,12 +157,24 @@ export function InsightView({ domain, searchConsoleConnected, adwordsConnected, 
                      </button>
                   ))}
                </div>
-               <div className="lg:hidden">
+               <div className="min-w-0 flex-1 lg:hidden">
                   <Select value={tab} onValueChange={(value) => startTransition(() => setTab(value as Tab))}>
                      <SelectTrigger className="w-full capitalize" aria-label="Insight section"><SelectValue /></SelectTrigger>
                      <SelectContent>{TABS.map((value) => <SelectItem key={value} value={value} className="capitalize">{value}</SelectItem>)}</SelectContent>
                   </Select>
                </div>
+               {tab === 'keywords' && (
+                  <div className="relative min-w-0 flex-1 basis-0 lg:w-44 lg:flex-none">
+                     <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
+                     <Input
+                        data-testid="filter_input"
+                        className="h-8 w-full pl-8"
+                        placeholder="Filter keywords..."
+                        value={keywordSearch}
+                        onChange={(event) => setKeywordSearch(event.target.value)}
+                     />
+                  </div>
+               )}
                {searchConsoleConnected && startDate && endDate && (
                   <p className="text-muted-foreground text-sm">
                      {formatDateKey(startDate, { dateStyle: 'medium' })} - {formatDateKey(endDate, { dateStyle: 'medium' })} (Last 30 Days)
@@ -179,7 +199,7 @@ export function InsightView({ domain, searchConsoleConnected, adwordsConnected, 
             <DataTable
                table={table}
                label={`Search Console ${tab}`}
-               className={cn('min-h-80', tab === 'stats' ? 'h-96' : 'h-[calc(100dvh-24rem)]')}
+               className="h-[calc(100dvh-26rem)] min-h-80"
                minWidth="40rem"
                isLoading={searchConsoleConnected && isLoading}
                emptyMessage={emptyMessage}

@@ -23,7 +23,6 @@ const loadSidebarDomains = async (): Promise<{ domains: DomainSummary[]; failed:
                domain: item.domain,
                slug: item.slug,
                scrapeEnabled: Boolean(item.scrapeEnabled),
-               keywordsUpdated: item.lastUpdated ? String(item.lastUpdated) : null,
                hasOwnSearchConsole: !!(searchConsole?.client_email && searchConsole?.private_key),
             };
          }),

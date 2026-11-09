@@ -239,7 +239,7 @@ export function IdeasTable({
                         emptyMessage="No groups found"
                      />
                   )}
-                  <div className="relative max-lg:order-1 max-lg:min-w-28 max-lg:flex-1 max-lg:basis-28">
+                  <div className="relative max-lg:order-1 max-lg:min-w-0 max-lg:flex-1 max-lg:basis-0">
                      <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
                      <Input data-testid="filter_input" className="h-8 w-full pl-8 lg:w-44" placeholder="Filter keywords..." value={filters.search} onChange={(event) => startTransition(() => setFilters({ ...filters, search: event.target.value }))} />
                   </div>

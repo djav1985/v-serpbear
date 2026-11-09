@@ -8,6 +8,10 @@ All notable changes to this project will be documented in this file. Releases no
 
 - Domain cards render from the dashboard's domain list, then load card stats in batches as they approach the viewport; favicons and screenshots use the same viewport signal. Charts and Tracker keywords load on demand. Discover, Ideas, and Research fetch tracked keywords and scraper city support only when the add dialog opens, then check duplicates using the selected location and device. Main-menu navigation links do not prefetch routes.
 - Domain subpages load only the selected domain alongside app settings. Their table data is prefetched when a destination is hovered or focused, and mobile stacked tables avoid a desktop overflow area during the first paint.
+- Mobile keyword search fields stay beside the first row of controls and shrink to fit when the available width is tight. This covers Tracker, Discover, Ideas, Research, and the Keywords section in Insight.
+- Insight tables use the same viewport-based desktop height as Tracker and Ideas tables.
+- Domain cards reserve space for update-time, credit values, and stats while loading, then fade in the fetched values over one second. Stats use invisible placeholders to prevent layout shifts. The screenshot transition and Domains page total keyword count also fade in over one second when ready.
+- Domain card Search Console stats align vertically with Tracker stats on desktop.
 
 ## [6.0.0] (2026-11-08)
 

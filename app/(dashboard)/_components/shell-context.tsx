@@ -11,7 +11,6 @@ export type DomainSummary = {
    domain: string;
    slug: string;
    scrapeEnabled: boolean;
-   keywordsUpdated: string | null;
    hasOwnSearchConsole: boolean;
 };
 

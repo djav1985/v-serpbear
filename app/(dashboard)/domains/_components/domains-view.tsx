@@ -180,7 +180,7 @@ export function DomainsView({ scraperConfigured, searchConsoleIntegrated, showMa
                <h1 className="sr-only">Domains</h1>
                <p className="text-muted-foreground text-sm">
                   {domains.length} Domains
-                  {allStatsLoaded && <><span className="mx-2 opacity-40">|</span>{totalKeywords} keywords</>}
+                  {allStatsLoaded && <><span className="mx-2 opacity-40">|</span><span className="animate-in fade-in-0 duration-1000 motion-reduce:animate-none">{totalKeywords} keywords</span></>}
                </p>
                <Button data-testid="addDomainButton" onClick={openAddDomain}><Plus />Add Domain</Button>
             </div>
