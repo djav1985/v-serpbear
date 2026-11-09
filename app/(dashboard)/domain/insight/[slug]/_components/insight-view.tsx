@@ -199,7 +199,7 @@ export function InsightView({ domain, searchConsoleConnected, adwordsConnected, 
             <DataTable
                table={table}
                label={`Search Console ${tab}`}
-               className="h-[calc(100dvh-26rem)] min-h-80"
+               className={tab === 'stats' ? 'h-[calc(100dvh-52rem)] min-h-48' : 'h-[calc(100dvh-26rem)] min-h-80'}
                minWidth="40rem"
                isLoading={searchConsoleConnected && isLoading}
                emptyMessage={emptyMessage}
