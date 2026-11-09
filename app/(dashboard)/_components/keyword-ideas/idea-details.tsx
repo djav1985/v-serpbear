@@ -61,7 +61,7 @@ export function IdeaDetails({ idea, onClose }: { idea: IdeaKeyword; onClose: () 
                      <span className="text-muted-foreground text-xs">{updated}</span>
                   </div>
 
-                  <Button asChild>
+                  <Button asChild className="h-auto w-full min-w-0 justify-start whitespace-normal py-2 text-left">
                      <a href={`https://www.google.com/search?q=${encodeURIComponent(idea.keyword)}`} target="_blank" rel="noreferrer">
                         <Search />
                         View Google search results for &quot;{idea.keyword}&quot;
