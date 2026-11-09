@@ -68,7 +68,7 @@
     "@types/react-window": "^1.8.5",
     "@typescript-eslint/eslint-plugin": "^8.71.1",
     "@typescript-eslint/parser": "^8.72.1",
-    "autoprefixer": "^10.5.0",
+    "autoprefixer": "^10.6.2",
     "browserslist": "^4.28.7",
     "concurrently": "^7.6.0",
     "esbuild": "^0.28.1",
