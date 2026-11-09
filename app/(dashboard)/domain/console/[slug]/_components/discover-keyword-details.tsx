@@ -3,6 +3,7 @@
 import { useMemo, ViewTransition } from 'react';
 import dynamic from 'next/dynamic';
 import { ExternalLink, Search } from 'lucide-react';
+import { Button } from 'components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from 'components/ui/sheet';
 import countries from 'utils/countries';
 import { formatInZone } from 'utils/timezone';
@@ -87,10 +88,12 @@ export function DiscoverKeywordDetails({ keyword, periodRows, lastFetched, onClo
                      <span className="text-muted-foreground text-xs">{updated}</span>
                   </div>
 
-                  <a className="text-primary inline-flex items-center gap-2 py-4 font-medium hover:underline" href={`https://www.google.com/search?q=${encodeURIComponent(keyword.keyword)}`} target="_blank" rel="noreferrer">
-                     <Search className="size-4" />
-                     View Google search results for &quot;{keyword.keyword}&quot;
-                  </a>
+                  <Button asChild>
+                     <a href={`https://www.google.com/search?q=${encodeURIComponent(keyword.keyword)}`} target="_blank" rel="noreferrer">
+                        <Search />
+                        View Google search results for &quot;{keyword.keyword}&quot;
+                     </a>
+                  </Button>
                </section>
             </div>
          </SheetContent>
