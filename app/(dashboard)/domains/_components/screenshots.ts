@@ -1,7 +1,7 @@
 type ThumbEntry = { data: string; ts: number };
 
 const STORAGE_KEY = 'domainThumbs';
-const THUMB_TTL_MS = 24 * 60 * 60 * 1000;
+const THUMB_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 const isThumbEntry = (value: unknown): value is ThumbEntry => (
    typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -26,7 +26,7 @@ const readCache = (): Record<string, ThumbEntry> => {
 };
 
 /**
- * Returns a cached website screenshot (data URL) for the domain, fetching a new one when the cache is older than 24 hours
+ * Returns a cached website screenshot (data URL) for the domain, fetching a new one when the cache is older than seven days
  * or `forceFetch` is set. Same cache key and lifetime as the legacy screen, so existing thumbnails keep working.
  * Returns false when no screenshot is available.
  */

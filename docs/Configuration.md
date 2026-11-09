@@ -54,7 +54,7 @@ Manage these in the Settings UI or at `/api/app/settings`.
 
 ## White labelling
 
-Set `NEXT_PUBLIC_WHITE_LABEL=true` for a custom name, logo and tab icon. Put `logo.png` and `favicon.png` in the data folder (`/app/data`). Logo and favicon file changes apply on the next request, so refresh the browser. Environment value changes need a restart (`docker compose up -d`). Neither needs a rebuild.
+Set `NEXT_PUBLIC_WHITE_LABEL=true` for a custom name, logo and tab icon. Put `logo.png` and `favicon.png` in the data folder (`/app/data`). Logo responses are cached for one year; favicon responses and domain screenshot thumbnails are cached for one week, so the browser may keep an old favicon or thumbnail until its cache expires. Environment value changes need a restart (`docker compose up -d`). Neither needs a rebuild.
 
 ## YAML notes for docker-compose.yml
 

@@ -314,7 +314,7 @@ describe('Domain screenshots', () => {
      });
 
      it('refetches when entry is stale (older than TTL)', async () => {
-        const staleTs = Date.now() - 25 * 60 * 60 * 1000;
+        const staleTs = Date.now() - 8 * 24 * 60 * 60 * 1000;
         const staleCache = {
            'example.com': { data: 'data:image/png;base64,staledata', ts: staleTs }
         };

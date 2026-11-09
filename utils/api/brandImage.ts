@@ -33,9 +33,8 @@ export const serveBrandImage = async (fileName: 'logo.png' | 'favicon.png'): Pro
       headers: {
          'Content-Type': LOGO_MIME_TYPE,
          'Content-Length': file.length.toString(),
-         // No `immutable`: the file keeps its name when a new image is uploaded. The default is cached for less time,
-         // so an image added later is picked up quickly.
-         'Cache-Control': custom ? 'public, max-age=3600' : 'public, max-age=300',
+         // Logo URLs cache for one year; favicons refresh after one week.
+         'Cache-Control': fileName === 'favicon.png' ? 'public, max-age=604800' : 'public, max-age=31536000',
       },
    });
 };

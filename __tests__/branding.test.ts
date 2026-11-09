@@ -187,7 +187,7 @@ describe('logo route', () => {
 
         expect(res.setHeader).toHaveBeenCalledWith('content-type', 'image/png');
         expect(res.setHeader).toHaveBeenCalledWith('content-length', '2048');
-        expect(res.setHeader).toHaveBeenCalledWith('cache-control', 'public, max-age=3600');
+        expect(res.setHeader).toHaveBeenCalledWith('cache-control', 'public, max-age=31536000');
         expect(res.status).toHaveBeenCalledWith(200);
      });
 
@@ -200,7 +200,7 @@ describe('logo route', () => {
 
         expect(readFileMock).not.toHaveBeenCalledWith(CUSTOM_LOGO);
         expect(res.setHeader).toHaveBeenCalledWith('content-length', '99');
-        expect(res.setHeader).toHaveBeenCalledWith('cache-control', 'public, max-age=300');
+        expect(res.setHeader).toHaveBeenCalledWith('cache-control', 'public, max-age=31536000');
         expect(res.status).toHaveBeenCalledWith(200);
      });
 
@@ -272,6 +272,7 @@ describe('favicon route', () => {
 
      expect(res.setHeader).toHaveBeenCalledWith('content-length', '64');
      expect(res.setHeader).toHaveBeenCalledWith('content-type', 'image/png');
+     expect(res.setHeader).toHaveBeenCalledWith('cache-control', 'public, max-age=604800');
      expect(res.status).toHaveBeenCalledWith(200);
   });
 
@@ -280,6 +281,7 @@ describe('favicon route', () => {
      const missing = createMockResponse();
      await faviconHandler(createMockRequest({ method: 'GET' }), missing);
      expect(missing.setHeader).toHaveBeenCalledWith('content-length', '99');
+     expect(missing.setHeader).toHaveBeenCalledWith('cache-control', 'public, max-age=604800');
 
      process.env.NEXT_PUBLIC_WHITE_LABEL = 'false';
      readFileMock.mockClear();
