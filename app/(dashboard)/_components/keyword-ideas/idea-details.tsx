@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { useQuery } from '@tanstack/react-query';
 import { ExternalLink, Loader2, Search } from 'lucide-react';
@@ -28,14 +28,7 @@ const monthLabel = (dateKey: string): string => {
 
 export function IdeaDetails({ idea, onClose }: { idea: IdeaKeyword; onClose: () => void }) {
    const foundRef = useRef<HTMLDivElement>(null);
-   const [chartReady, setChartReady] = useState(false);
    const updated = idea.updated ? formatInZone(idea.updated, { month: 'long', day: 'numeric', year: 'numeric' }, getAppTimezone()) : '';
-
-   useEffect(() => {
-      // Mount the responsive chart after the sheet's 400 ms slide has settled.
-      const timer = window.setTimeout(() => setChartReady(true), 450);
-      return () => window.clearTimeout(timer);
-   }, []);
 
    // The live Google search costs a request, so it only runs when the user asks for it.
    const search = useQuery({
@@ -68,9 +61,7 @@ export function IdeaDetails({ idea, onClose }: { idea: IdeaKeyword; onClose: () 
             <div className="flex flex-col gap-8 p-4">
                <section>
                   <h3 className="mb-4 text-lg font-bold">Search Volume Trend</h3>
-                  <div className="h-64 w-full">
-                     {chartReady && <VolumeChart className="h-full w-full animate-in fade-in-0 duration-1000 motion-reduce:animate-none" labels={chart.labels} series={chart.series} />}
-                  </div>
+                  <VolumeChart className="h-64 animate-in fade-in-0 duration-1000 motion-reduce:animate-none" labels={chart.labels} series={chart.series} />
                </section>
 
                <section>

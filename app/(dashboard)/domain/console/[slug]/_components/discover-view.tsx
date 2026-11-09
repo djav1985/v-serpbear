@@ -3,7 +3,7 @@
 import { startTransition, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTable, type ColumnDef, type RowSelectionState } from '@tanstack/react-table';
-import { CalendarDays, Search } from 'lucide-react';
+import { CalendarDays, Monitor, Search, Smartphone } from 'lucide-react';
 import { toast } from 'sonner';
 import { AddToTrackerBar } from 'app/(dashboard)/_components/keyword-ideas/add-to-tracker-bar';
 import { AddToTrackerDialog } from 'app/(dashboard)/_components/keyword-ideas/add-to-tracker-dialog';
@@ -196,7 +196,7 @@ export function DiscoverView({ domain, searchConsoleConnected, adwordsConnected,
                />
             ) : (
                <div className="grid grid-cols-2 items-center gap-2 p-4 lg:flex lg:flex-row lg:flex-wrap lg:justify-between lg:gap-3">
-                  <div className="flex items-center gap-1" role="tablist" aria-label="Device">
+                  <div className="flex min-w-0 items-center gap-1" role="tablist" aria-label="Device">
                      {(['desktop', 'mobile'] as const).map((value) => (
                         <button
                            key={value}
@@ -204,11 +204,13 @@ export function DiscoverView({ domain, searchConsoleConnected, adwordsConnected,
                            role="tab"
                            aria-selected={device === value}
                            data-testid={`${value}_tab`}
-                           className={cn('rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap capitalize transition-colors', device === value ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted')}
+                           aria-label={`${value} keywords`}
+                           className={cn('flex min-w-0 items-center gap-1.5 rounded-full px-2 py-1.5 text-xs font-medium whitespace-nowrap transition-colors sm:px-3', device === value ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted')}
                            onClick={() => startTransition(() => { setDevice(value); setPickedCountries([]); setRowSelection({}); })}
                         >
-                           {value}
-                           <span className="bg-background ml-1.5 rounded-full px-1.5 text-[0.7rem] font-semibold">{grouped.filter((r) => r.device === value).length}</span>
+                           {value === 'desktop' ? <Monitor className="size-4 shrink-0" /> : <Smartphone className="size-4 shrink-0" />}
+                           <span className="hidden sm:inline capitalize">{value}</span>
+                           <span className="bg-background shrink-0 rounded-full px-1.5 text-[0.7rem] font-semibold" aria-hidden="true">{grouped.filter((r) => r.device === value).length}</span>
                         </button>
                      ))}
                   </div>
@@ -223,7 +225,7 @@ export function DiscoverView({ domain, searchConsoleConnected, adwordsConnected,
                         onChange={(next) => startTransition(() => setPickedCountries(next))}
                         emptyMessage="No countries found"
                      />
-                     <div className="relative max-lg:order-1 max-lg:min-w-0 max-lg:flex-1 max-lg:basis-0">
+                     <div className="relative max-lg:order-1 max-lg:min-w-0 max-lg:w-full">
                         <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
                         <Input data-testid="filter_input" className="h-8 w-full pl-8 lg:w-44" placeholder="Filter keywords..." value={search} onChange={(event) => startTransition(() => setSearch(event.target.value))} />
                      </div>
@@ -301,7 +303,12 @@ export function DiscoverView({ domain, searchConsoleConnected, adwordsConnected,
          {detailsKeyword && (
             <DiscoverKeywordDetails
                keyword={detailsKeyword}
-               sevenDayRows={scData?.sevenDays ?? []}
+               periodRows={{
+                  threeDays: scData?.threeDays ?? [],
+                  sevenDays: scData?.sevenDays ?? [],
+                  thirtyDays: scData?.thirtyDays ?? [],
+               }}
+               lastFetched={scData?.lastFetched}
                onClose={() => setDetailsKeyword(null)}
             />
          )}
