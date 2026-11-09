@@ -51,7 +51,7 @@ export function TrackerToolbar({
    const sortChoices = SORT_CHOICES.filter((choice) => !choice.searchConsoleOnly || searchConsoleConnected);
 
    return (
-      <div className="flex flex-wrap items-center gap-2 p-4 lg:flex-row lg:justify-between lg:gap-3">
+      <div className="grid grid-cols-2 items-center gap-2 p-4 lg:flex lg:flex-row lg:flex-wrap lg:justify-between lg:gap-3">
          <div className="flex items-center gap-1" role="tablist" aria-label="Device">
             {DEVICE_TABS.map(({ value, label, icon: Icon }) => (
                <button
@@ -105,7 +105,7 @@ export function TrackerToolbar({
                   onChange={(event) => onSearchChange(event.target.value)}
                />
             </div>
-            <div className="flex w-full gap-2 max-lg:order-3 lg:contents">
+            <div className="flex w-full gap-2 max-lg:col-span-2 max-lg:order-3 lg:contents">
             <Select value={sortChoice || undefined} onValueChange={onSortChange}>
                <SelectTrigger size="sm" className="w-full lg:w-48" data-testid="sort_button" aria-label="Sort keywords">
                   <SelectValue placeholder="Sorted by column" />

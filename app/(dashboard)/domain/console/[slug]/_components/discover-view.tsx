@@ -29,6 +29,7 @@ import { useAddKeywords, useTrackedKeywordsForAdd } from '../../../_components/k
 import { buildAddKeywordPayloads } from '../../../../_components/keyword-ideas/add-to-tracker-state';
 import { useAppSettings } from '../../../../_components/settings/settings-queries';
 import { Rank } from '../../../[slug]/_components/tracker-cells';
+import { DiscoverKeywordDetails } from './discover-keyword-details';
 import { useScKeywords } from './sc-queries';
 import { SC_PERIODS, SC_SORT_CHOICES, aggregateSCKeywords, summarizeSC } from './sc-state';
 
@@ -47,7 +48,7 @@ const percent = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maxim
 
 type SCColumn = ColumnDef<DataTableFeatures, SearchAnalyticsItem>;
 
-const COLUMNS: SCColumn[] = [
+const getColumns = (onOpenDetails: (keyword: SearchAnalyticsItem) => void): SCColumn[] => [
    {
       id: 'select',
       enableSorting: false,
@@ -81,7 +82,7 @@ const COLUMNS: SCColumn[] = [
       cell: ({ row }) => (
          <div className="flex min-w-0 items-center gap-2">
             <span className={`fflag fflag-${row.original.country} h-[12px] w-[18px] shrink-0`} title={countries[row.original.country]?.[0] ?? row.original.country} />
-            <span className="truncate font-medium" title={row.original.keyword}>{row.original.keyword}</span>
+            <button type="button" className="min-w-0 truncate text-left font-medium hover:underline" title={row.original.keyword} onClick={() => onOpenDetails(row.original)}>{row.original.keyword}</button>
          </div>
       ),
    },
@@ -102,6 +103,7 @@ export function DiscoverView({ domain, searchConsoleConnected, adwordsConnected,
    const [addDevices, setAddDevices] = useState<TrackerDevice[]>(['desktop']);
    const [showAddStep, setShowAddStep] = useState(false);
    const [settingsOpen, setSettingsOpen] = useState(false);
+   const [detailsKeyword, setDetailsKeyword] = useState<SearchAnalyticsItem | null>(null);
 
    const { data: scData, isLoading, isError } = useScKeywords(domain.domain, searchConsoleConnected);
 
@@ -124,11 +126,12 @@ export function DiscoverView({ domain, searchConsoleConnected, adwordsConnected,
       return SCsortKeywords(filtered, sortBy);
    }, [forDevice, pickedCountries, search, sortBy]);
    const summary = useMemo(() => summarizeSC(rows), [rows]);
+   const columns = useMemo(() => getColumns(setDetailsKeyword), []);
 
    const table = useTable({
       features: dataTableFeatures,
       data: rows,
-      columns: COLUMNS,
+      columns,
       getRowId: (row) => row.uid,
       state: { rowSelection },
       onRowSelectionChange: setRowSelection,
@@ -192,7 +195,7 @@ export function DiscoverView({ domain, searchConsoleConnected, adwordsConnected,
                   onClear={() => setRowSelection({})}
                />
             ) : (
-               <div className="flex flex-wrap items-center gap-2 p-4 lg:flex-row lg:justify-between lg:gap-3">
+               <div className="grid grid-cols-2 items-center gap-2 p-4 lg:flex lg:flex-row lg:flex-wrap lg:justify-between lg:gap-3">
                   <div className="flex items-center gap-1" role="tablist" aria-label="Device">
                      {(['desktop', 'mobile'] as const).map((value) => (
                         <button
@@ -250,7 +253,7 @@ export function DiscoverView({ domain, searchConsoleConnected, adwordsConnected,
                            onCheckedChange={(value) => row.toggleSelected(value === true)}
                         />
                         <span className={`fflag fflag-${row.original.country} mt-1 h-[12px] w-[18px] shrink-0`} />
-                        <span className="min-w-0 flex-1 font-medium break-words">{row.original.keyword}</span>
+                        <button type="button" className="min-w-0 flex-1 text-left font-medium break-words" onClick={() => setDetailsKeyword(row.original)}>{row.original.keyword}</button>
                         <span className="font-semibold"><Rank position={row.original.position} /></span>
                      </div>
                      <div className="text-muted-foreground flex gap-5 pl-7 text-xs">
@@ -295,6 +298,13 @@ export function DiscoverView({ domain, searchConsoleConnected, adwordsConnected,
             availableScrapers={availableScrapers}
             systemScraperType={systemScraperType}
          />
+         {detailsKeyword && (
+            <DiscoverKeywordDetails
+               keyword={detailsKeyword}
+               sevenDayRows={scData?.sevenDays ?? []}
+               onClose={() => setDetailsKeyword(null)}
+            />
+         )}
       </div>
    );
 }

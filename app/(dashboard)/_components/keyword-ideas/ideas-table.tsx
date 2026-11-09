@@ -206,7 +206,7 @@ export function IdeasTable({
                )}
             </AddToTrackerBar>
          ) : (
-            <div className="flex flex-wrap items-center gap-2 p-4 lg:flex-row lg:justify-between lg:gap-3">
+            <div className="grid grid-cols-2 items-center gap-2 p-4 lg:flex lg:flex-row lg:flex-wrap lg:justify-between lg:gap-3">
                <div className="flex items-center gap-1" role="tablist" aria-label="Keyword ideas">
                   {([['all', 'All Keywords', Tags, ideas.length], ['favorites', 'Favorites', Star, favorites.length]] as const).map(([value, label, Icon, count]) => {
                      const active = (value === 'favorites') === showFavorites;
