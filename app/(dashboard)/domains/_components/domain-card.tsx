@@ -7,12 +7,14 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { RefreshCw } from 'lucide-react';
 import { Card } from 'components/ui/card';
+import { Skeleton } from 'components/ui/skeleton';
 import { Switch } from 'components/ui/switch';
 import { cn } from 'lib/utils';
 import { useNearViewport } from 'hooks/use-near-viewport';
 import { formatAveragePosition, roundAveragePosition } from 'utils/averagePosition';
 import { formatInZone } from 'utils/timezone';
 import type { DomainCardData } from './domain-card-data';
+import type { DomainSummary } from '../../_components/shell-context';
 
 dayjs.extend(relativeTime);
 
@@ -62,6 +64,10 @@ function Stat({ label, children }: StatProps) {
    );
 }
 
+function StatPlaceholder({ loading }: { loading: boolean }) {
+   return loading ? <Skeleton className="mx-auto h-7 w-12" /> : <span aria-label="Statistics not loaded">—</span>;
+}
+
 function CompactMetric({ value }: { value: number }) {
    const { numeric, unit } = formatCompactNumber(value);
    return (
@@ -73,7 +79,10 @@ function CompactMetric({ value }: { value: number }) {
 }
 
 type DomainCardProps = {
-   domain: DomainCardData;
+   domain: DomainSummary;
+   stats?: DomainCardData;
+   statsLoading: boolean;
+   statsError: boolean;
    consoleIntegrated: boolean;
    thumb?: string;
    showMapPackStat: boolean;
@@ -82,10 +91,11 @@ type DomainCardProps = {
    onToggle: (next: boolean) => void;
    onNearViewport: (domain: string) => void;
    onRefreshThumb: () => void;
+   onRetryStats: () => void;
 };
 
 export function DomainCard({
-   domain, consoleIntegrated, thumb, showMapPackStat, timezone, toggling, onToggle, onNearViewport, onRefreshThumb,
+   domain, stats, statsLoading, statsError, consoleIntegrated, thumb, showMapPackStat, timezone, toggling, onToggle, onNearViewport, onRefreshThumb, onRetryStats,
 }: DomainCardProps) {
    const router = useRouter();
    const [imageRef, imagesNear] = useNearViewport<HTMLDivElement>();
@@ -98,9 +108,10 @@ export function DomainCard({
    useEffect(() => {
       if (imagesNear) { onNearViewport(domain.domain); }
    }, [imagesNear, domain.domain, onNearViewport]);
-   const avgPosition = roundAveragePosition(domain.avgPosition);
-   const prevAvgPosition = domain.prevAvgPosition === null ? null : roundAveragePosition(domain.prevAvgPosition);
+   const avgPosition = roundAveragePosition(stats?.avgPosition ?? 0);
+   const prevAvgPosition = stats?.prevAvgPosition == null ? null : roundAveragePosition(stats.prevAvgPosition);
    const href = `/domain/${domain.slug}`;
+   const updated = stats?.keywordsUpdated ?? domain.keywordsUpdated;
 
    return (
       <Card
@@ -139,17 +150,17 @@ export function DomainCard({
                      <Link href={href} className="hover:underline">{domain.domain}</Link>
                   </h3>
                   <div className="text-muted-foreground flex items-center justify-between gap-3 text-xs">
-                     {domain.keywordsUpdated ? (
-                        <span suppressHydrationWarning title={formatInZone(domain.keywordsUpdated, UPDATED_TITLE_FORMAT, timezone)}>
-                           Updated {dayjs(domain.keywordsUpdated).fromNow()}
+                     {updated ? (
+                        <span suppressHydrationWarning title={formatInZone(updated, UPDATED_TITLE_FORMAT, timezone)}>
+                           Updated {dayjs(updated).fromNow()}
                         </span>
                      ) : (
                         <span>Not updated yet</span>
                      )}
                   </div>
-                  {domain.creditsRemaining !== null && (
+                  {stats?.creditsRemaining !== null && stats?.creditsRemaining !== undefined && (
                      <div className="text-muted-foreground mt-1 text-xs" data-testid="dom_credits">
-                        Credits remaining: {formatCredits(domain.creditsRemaining, domain.creditsUnit)}
+                        Credits remaining: {formatCredits(stats.creditsRemaining, stats.creditsUnit)}
                      </div>
                   )}
                </div>
@@ -171,17 +182,14 @@ export function DomainCard({
                </div>
                <div className="bg-accent/70 border-primary/15 flex flex-1 items-center rounded-md border p-4" data-testid="dom_stats">
                   <Stat label="Keywords">
-                     {domain.keywordsTracked}
-                     <Trend current={domain.keywordsTracked} previous={domain.prevKeywordsTracked} />
+                     {stats ? <>{stats.keywordsTracked}<Trend current={stats.keywordsTracked} previous={stats.prevKeywordsTracked} /></> : statsError ? <button type="button" className="text-destructive text-xs underline" onClick={onRetryStats}>Retry</button> : <StatPlaceholder loading={statsLoading} />}
                   </Stat>
                   <Stat label="Avg position">
-                     {formatAveragePosition(avgPosition)}
-                     <Trend current={avgPosition} previous={prevAvgPosition} lowerIsBetter />
+                     {stats ? <>{formatAveragePosition(avgPosition)}<Trend current={avgPosition} previous={prevAvgPosition} lowerIsBetter /></> : <StatPlaceholder loading={statsLoading} />}
                   </Stat>
-                  {showMapPackStat && (
+                  {(showMapPackStat || (stats?.mapPackKeywords ?? 0) > 0) && (
                      <Stat label="Map Pack">
-                        {domain.mapPackKeywords}
-                        <Trend current={domain.mapPackKeywords} previous={domain.prevMapPackKeywords} />
+                        {stats ? <>{stats.mapPackKeywords}<Trend current={stats.mapPackKeywords} previous={stats.prevMapPackKeywords} /></> : <StatPlaceholder loading={statsLoading} />}
                      </Stat>
                   )}
                </div>
@@ -192,16 +200,13 @@ export function DomainCard({
                   <p className="text-primary mb-2 text-xs font-medium">Search Console (7d)</p>
                   <div className="bg-accent/70 border-primary/15 flex flex-1 items-center rounded-md border p-4" data-testid="dom_sc_stats">
                      <Stat label="Visits">
-                        <CompactMetric value={domain.scVisits} />
-                        <Trend current={domain.scVisits} previous={domain.scVisitsPrev} />
+                        {stats ? <><CompactMetric value={stats.scVisits} /><Trend current={stats.scVisits} previous={stats.scVisitsPrev} /></> : <StatPlaceholder loading={statsLoading} />}
                      </Stat>
                      <Stat label="Impressions">
-                        <CompactMetric value={domain.scImpressions} />
-                        <Trend current={domain.scImpressions} previous={domain.scImpressionsPrev} />
+                        {stats ? <><CompactMetric value={stats.scImpressions} /><Trend current={stats.scImpressions} previous={stats.scImpressionsPrev} /></> : <StatPlaceholder loading={statsLoading} />}
                      </Stat>
                      <Stat label="Avg position">
-                        {domain.scPosition}
-                        <Trend current={domain.scPosition} previous={domain.scPositionPrev} lowerIsBetter />
+                        {stats ? <>{stats.scPosition}<Trend current={stats.scPosition} previous={stats.scPositionPrev} lowerIsBetter /></> : <StatPlaceholder loading={statsLoading} />}
                      </Stat>
                   </div>
                </div>

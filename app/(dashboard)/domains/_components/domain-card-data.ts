@@ -35,7 +35,7 @@ const toPrevious = (value: unknown): number | null => (
    typeof value === 'number' && Number.isFinite(value) ? value : null
 );
 
-/** Maps the `/api/serp/domains?withstats=true` shape to what the card needs. Used on the server and after a refetch. */
+/** Maps a domain returned by the stats-enabled `/api/serp/domains` request to the details shown on its card. */
 export const toDomainCardData = (domain: DomainType): DomainCardData => {
    const searchConsole = safeJsonParse<DomainSearchConsole | null>(domain?.search_console, null, { context: `domain ${domain?.domain ?? ''} search_console` });
    return {

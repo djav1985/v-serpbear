@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file. Releases no
 
 ### Changed
 
-- Domain cards load favicons and screenshots only as they approach the viewport; charts and Tracker keywords load on demand. Discover, Ideas, and Research fetch tracked keywords and scraper city support only when the add dialog opens, then check duplicates using the selected location and device. Main-menu navigation links do not prefetch routes.
+- Domain cards render from the dashboard's domain list, then load card stats in batches as they approach the viewport; favicons and screenshots use the same viewport signal. Charts and Tracker keywords load on demand. Discover, Ideas, and Research fetch tracked keywords and scraper city support only when the add dialog opens, then check duplicates using the selected location and device. Main-menu navigation links do not prefetch routes.
 
 ## [6.0.0] (2026-11-08)
 

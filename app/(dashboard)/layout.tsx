@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { getBranding } from 'utils/branding';
 import { loadDomains } from 'utils/domainsList';
+import { safeJsonParse } from 'utils/safeJsonParse';
 import { logger } from 'utils/logger';
 import { requireSession } from 'utils/serverSession';
 import { APP_TIMEZONE } from 'utils/timezone';
@@ -14,7 +15,20 @@ import { TopBar } from './_components/top-bar';
 const loadSidebarDomains = async (): Promise<{ domains: DomainSummary[]; failed: boolean }> => {
    try {
       const domains = await loadDomains();
-      return { domains: domains.map(({ domain, slug }) => ({ domain, slug })), failed: false };
+      return {
+         domains: domains.map((item) => {
+            const searchConsole = safeJsonParse<DomainSearchConsole | null>(item.search_console, null, { context: `domain ${item.domain} search_console` });
+            return {
+               id: item.ID,
+               domain: item.domain,
+               slug: item.slug,
+               scrapeEnabled: Boolean(item.scrapeEnabled),
+               keywordsUpdated: item.lastUpdated ? String(item.lastUpdated) : null,
+               hasOwnSearchConsole: !!(searchConsole?.client_email && searchConsole?.private_key),
+            };
+         }),
+         failed: false,
+      };
    } catch (error) {
       logger.error('Loading domains for the dashboard shell', error instanceof Error ? error : new Error(String(error)));
       return { domains: [], failed: true };

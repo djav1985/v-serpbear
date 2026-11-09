@@ -2,6 +2,7 @@
 // that would otherwise have loaded it first.
 import '../database/database';
 import Cryptr from 'cryptr';
+import { Op } from 'sequelize';
 import Domain from '../database/models/domain';
 import getdomainStats from './domains';
 import { maskSearchConsole } from './maskSearchConsole';
@@ -16,8 +17,8 @@ import { creditKey, creditsUnitFor, readScraperCredits, resolveCreditSource, sup
  * Shared by the API handler and by server components so both see identical data.
  * Pass `withStats` to attach keyword counts and Search Console totals.
  */
-export const loadDomains = async (withStats = false): Promise<DomainType[]> => {
-   const allDomains: Domain[] = await Domain.findAll();
+export const loadDomains = async (withStats = false, selectedDomains?: string[]): Promise<DomainType[]> => {
+   const allDomains: Domain[] = await Domain.findAll(selectedDomains ? { where: { domain: { [Op.in]: selectedDomains } } } : undefined);
    // Saved scraper balances, only needed for the cards. A failure here just leaves the credits line out.
    let credits: { settings: SettingsType, saved: Awaited<ReturnType<typeof readScraperCredits>>, cryptr: Cryptr | null } | null = null;
    if (withStats) {
