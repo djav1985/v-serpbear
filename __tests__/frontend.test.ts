@@ -1,4 +1,6 @@
-import { renderHook } from '@testing-library/react';
+import { act, render, renderHook, waitFor } from '@testing-library/react';
+import React from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ColumnFiltersState, useTable } from '@tanstack/react-table';
 import { dataTableFeatures } from 'app/(dashboard)/_components/data-table/features';
 import { createTrackerColumns } from 'app/(dashboard)/domain/[slug]/_components/tracker-columns';
@@ -6,6 +8,120 @@ import { DEFAULT_FILTERS, SORT_CHOICES, STICKY_FIRST, TrackerFilters, choiceForS
 import { NO_TAGS_FILTER } from 'utils/client/sortFilter';
 import { createIdeaColumns } from 'app/(dashboard)/_components/keyword-ideas/ideas-columns';
 import { DEFAULT_IDEA_SORT, IDEA_SORT_CHOICES, IdeaRow, buildIdeaGroups, ideaChoiceFor, ideaSortingFor } from 'app/(dashboard)/_components/keyword-ideas/ideas-state';
+import { useNearViewport } from 'hooks/use-near-viewport';
+import { buildAddKeywordPayloads } from 'app/(dashboard)/_components/keyword-ideas/add-to-tracker-state';
+import { useTrackedKeywordsForAdd } from 'app/(dashboard)/domain/_components/keyword-queries';
+import { useAppSettings } from 'app/(dashboard)/_components/settings/settings-queries';
+import * as apiClient from 'utils/client/apiClient';
+
+jest.mock('utils/client/apiClient', () => ({
+   ...jest.requireActual('utils/client/apiClient'),
+   apiGet: jest.fn(),
+}));
+
+describe('useNearViewport', () => {
+   const originalObserver = globalThis.IntersectionObserver;
+   let callback: IntersectionObserverCallback;
+   let observed: Element | undefined;
+   let observerOptions: IntersectionObserverInit | undefined;
+   let disconnect: jest.Mock;
+
+   beforeEach(() => {
+      disconnect = jest.fn();
+      class MockIntersectionObserver {
+         constructor(cb: IntersectionObserverCallback, options?: IntersectionObserverInit) {
+            callback = cb;
+            observerOptions = options;
+         }
+         // eslint-disable-next-line class-methods-use-this
+         observe(element: Element) { observed = element; }
+         // eslint-disable-next-line class-methods-use-this
+         unobserve() {}
+         disconnect = disconnect;
+         // eslint-disable-next-line class-methods-use-this
+         takeRecords() { return []; }
+      }
+      Object.defineProperty(globalThis, 'IntersectionObserver', { configurable: true, value: MockIntersectionObserver });
+   });
+
+   afterEach(() => {
+      Object.defineProperty(globalThis, 'IntersectionObserver', { configurable: true, value: originalObserver });
+   });
+
+   it('does not report near until the observer intersects, then disconnects', () => {
+      const Probe = () => {
+         const [ref, near] = useNearViewport<HTMLDivElement>();
+         return React.createElement('div', { ref, 'data-near': String(near) });
+      };
+      const { container } = render(React.createElement(Probe));
+      const observer = {} as IntersectionObserver;
+
+      expect(container.firstElementChild?.getAttribute('data-near')).toBe('false');
+      expect(observerOptions?.rootMargin).toBe('300px');
+      expect(observed).toBe(container.firstElementChild);
+
+      act(() => callback([{ isIntersecting: true, target: observed! } as IntersectionObserverEntry], observer));
+
+      expect(container.firstElementChild?.getAttribute('data-near')).toBe('true');
+      expect(disconnect).toHaveBeenCalled();
+   });
+});
+
+describe('Discover add-time duplicate checks', () => {
+   it('skips only the same keyword, device, country, and selected location', () => {
+      const tracked = [{ keyword: 'plumber', country: 'US', device: 'desktop', location: 'Austin,TX,US' }];
+      const common = { items: [{ keyword: 'plumber', country: 'US' }], domain: 'example.com', devices: ['desktop' as const], tags: [], country: 'US', tracked };
+
+      const sameLocation = buildAddKeywordPayloads({ ...common, location: 'Austin,TX,US' });
+      const otherLocation = buildAddKeywordPayloads({ ...common, location: 'Dallas,TX,US' });
+      const countryOnly = buildAddKeywordPayloads({ ...common, location: '' });
+
+      expect(sameLocation.payloads).toHaveLength(0);
+      expect(sameLocation.skipped).toEqual(['plumber (desktop)']);
+      expect(otherLocation.payloads).toHaveLength(1);
+      expect(countryOnly.payloads).toHaveLength(1);
+   });
+});
+
+describe('tracked keyword fetch for add flows', () => {
+   it('waits until enabled and then refreshes even a cached keyword list', async () => {
+      const apiGet = apiClient.apiGet as jest.Mock;
+      apiGet.mockResolvedValue({ keywords: [] });
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      const key = ['keywords', 'example.com'] as const;
+      queryClient.setQueryData(key, []);
+      const wrapper = ({ children }: { children: React.ReactNode }) => React.createElement(QueryClientProvider, { client: queryClient }, children);
+      const { rerender } = renderHook(({ enabled }) => useTrackedKeywordsForAdd('example.com', enabled), {
+         initialProps: { enabled: false }, wrapper,
+      });
+
+      expect(apiGet).not.toHaveBeenCalled();
+      rerender({ enabled: true });
+      await waitFor(() => expect(apiGet).toHaveBeenCalledWith('/api/serp/keywords?domain=example.com'));
+      apiGet.mockReset();
+      queryClient.clear();
+   });
+});
+
+describe('app settings fetch for add dialogs', () => {
+   it('waits until enabled and refreshes settings when the add dialog opens', async () => {
+      const apiGet = apiClient.apiGet as jest.Mock;
+      apiGet.mockResolvedValue({ settings: { scraper_type: 'scrapingant' } });
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      queryClient.setQueryData(['settings'], { scraper_type: 'old-value' });
+      const wrapper = ({ children }: { children: React.ReactNode }) => React.createElement(QueryClientProvider, { client: queryClient }, children);
+      const { rerender } = renderHook(({ enabled }) => useAppSettings(enabled, true), {
+         initialProps: { enabled: false }, wrapper,
+      });
+
+      expect(apiGet).not.toHaveBeenCalled();
+      rerender({ enabled: true });
+      await waitFor(() => expect(apiGet).toHaveBeenCalledWith('/api/app/settings'));
+      await waitFor(() => expect(apiGet).toHaveBeenCalledTimes(1));
+      apiGet.mockReset();
+      queryClient.clear();
+   });
+});
 
 describe('Tracker table', () => {
   // The Tracker's sort and filter rules live in its column definitions. These tests drive the real columns through a real
@@ -122,8 +238,8 @@ describe('Ideas table', () => {
   // The Ideas table is used by the Research page and by each domain's Ideas page. These tests drive its real columns.
 
   const noop = () => undefined;
-  const idea = (uid: string, keywordText: string, avgMonthlySearches: number, competitionIndex = 0, isTracked = false): IdeaRow => ({
-     uid, keyword: keywordText, country: 'US', avgMonthlySearches, competitionIndex, competition: 'LOW', monthlySearchVolumes: {}, isTracked,
+  const idea = (uid: string, keywordText: string, avgMonthlySearches: number, competitionIndex = 0): IdeaRow => ({
+     uid, keyword: keywordText, country: 'US', avgMonthlySearches, competitionIndex, competition: 'LOW', monthlySearchVolumes: {},
   } as unknown as IdeaRow);
 
   const idsFor = (data: IdeaRow[], sort: string, columnFilters: ColumnFiltersState = []): string[] => {
@@ -175,6 +291,18 @@ describe('Ideas table', () => {
 
         expect(groups).toEqual(['tattoo removal (3)']);
         expect(idsFor(many, 'vol_desc', [{ id: 'groups', value: groups }])).toHaveLength(3);
+     });
+
+     it('keeps every idea selectable until a location is chosen in the add dialog', () => {
+        const row = idea('already-tracked', 'plumber', 100);
+        const { result } = renderHook(() => useTable({
+           features: dataTableFeatures,
+           data: [row],
+           columns: createIdeaColumns({ favoriteIds: new Set<string>(), onOpenDetails: noop, onToggleFavorite: noop }),
+           getRowId: (item) => item.uid,
+        }));
+
+        expect(result.current.getRowModel().rows[0].getCanSelect()).toBe(true);
      });
   });
 });

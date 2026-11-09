@@ -5,7 +5,6 @@ import * as lockfile from 'proper-lockfile';
 import Cryptr from 'cryptr';
 import { TTLCache } from '@isaacs/ttlcache';
 import { setTimeout as sleep } from 'timers/promises';
-import { Op } from 'sequelize';
 import Keyword from '../database/models/keyword';
 import parseKeywords from './parseKeywords';
 import countries from './countries';

@@ -44,6 +44,17 @@ export function useKeywords(domain: string, initialKeywords: KeywordType[] | und
    return query;
 }
 
+/** Tracked targets needed only after someone starts an add-to-tracker flow. */
+export function useTrackedKeywordsForAdd(domain: string, enabled: boolean) {
+   return useQuery({
+      queryKey: keywordsKey(domain),
+      queryFn: () => fetchKeywords(domain),
+      enabled: enabled && !!domain,
+      staleTime: 0,
+      retry: false,
+   });
+}
+
 const useKeywordsInvalidator = () => {
    const queryClient = useQueryClient();
    return () => queryClient.invalidateQueries({ queryKey: ['keywords'] });

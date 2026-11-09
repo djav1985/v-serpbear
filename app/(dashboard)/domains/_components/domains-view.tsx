@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
@@ -16,7 +16,6 @@ import { fetchDomainScreenshot } from './screenshots';
 
 // The server seeds this exact key, so the first render needs no request.
 const DOMAINS_KEY = ['domains', { withStats: true }] as const;
-const SCREENSHOT_CONCURRENCY = 3;
 const ADS_PARAMS = ['ads', 'status', 'detail'] as const;
 
 type DomainsViewProps = {
@@ -43,6 +42,7 @@ export function DomainsView({
    const { openAddDomain, openSettings } = useShell();
    const [thumbs, setThumbs] = useState<Record<string, string>>({});
    const adsHandledRef = useRef(false);
+   const requestedScreenshotsRef = useRef(new Set<string>());
 
    const { data: domains, isPending, isError, refetch } = useQuery({
       queryKey: DOMAINS_KEY,
@@ -96,22 +96,13 @@ export function DomainsView({
       router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
    }, [searchString, pathname, router]);
 
-   // Fetch website screenshots a few at a time. A domain without one keeps its favicon.
-   useEffect(() => {
-      if (!domains || domains.length === 0) { return undefined; }
-      let cancelled = false;
-      let next = 0;
-      const worker = async () => {
-         while (!cancelled && next < domains.length) {
-            const { domain } = domains[next];
-            next += 1;
-            const thumb = await fetchDomainScreenshot(domain);
-            if (thumb && !cancelled) { setThumbs((current) => ({ ...current, [domain]: thumb })); }
-         }
-      };
-      Array.from({ length: Math.min(SCREENSHOT_CONCURRENCY, domains.length) }, worker);
-      return () => { cancelled = true; };
-   }, [domains]);
+   // Each card starts its image requests only inside the viewport's prefetch margin.
+   const requestScreenshot = useCallback(async (domain: string) => {
+      if (requestedScreenshotsRef.current.has(domain)) { return; }
+      requestedScreenshotsRef.current.add(domain);
+      const thumb = await fetchDomainScreenshot(domain);
+      if (thumb) { setThumbs((current) => ({ ...current, [domain]: thumb })); }
+   }, []);
 
    const refreshThumb = async (domain: string) => {
       const thumb = await fetchDomainScreenshot(domain, true);
@@ -179,6 +170,7 @@ export function DomainsView({
                      timezone={timezone}
                      toggling={toggleActive.isPending && toggleActive.variables?.domain === domain.domain}
                      onToggle={(scrapeEnabled) => toggleActive.mutate({ domain: domain.domain, scrapeEnabled })}
+                     onNearViewport={requestScreenshot}
                      onRefreshThumb={() => refreshThumb(domain.domain)}
                   />
                ))}

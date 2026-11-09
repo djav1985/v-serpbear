@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getAppSettings } from 'utils/appSettings';
 import { loadDomains } from 'utils/domainsList';
-import { scraperAllowsCity } from 'utils/keywordMeta';
 import { requireSession } from 'utils/serverSession';
 import { safeJsonParse } from 'utils/safeJsonParse';
 import { IdeasView } from './_components/ideas-view';
@@ -24,7 +23,6 @@ export default async function DomainIdeasPage({ params }: PageProps) {
    const settings = await getAppSettings();
    const domainSearchConsole = safeJsonParse<DomainSearchConsole | null>(domain.search_console, null);
    const domainHasOwnSearchConsole = !!(domainSearchConsole?.client_email && domainSearchConsole?.private_key);
-   const domainScraper = domain.scraper_settings?.scraper_type || null;
    const { scraper_type: globalScraper = '', available_scapers: availableScrapers = [] } = settings;
 
    // Only the values this screen needs are handed to the browser, never the stored Google Ads tokens.
@@ -33,7 +31,6 @@ export default async function DomainIdeasPage({ params }: PageProps) {
          domain={domain}
          adwordsConnected={Boolean(settings.adwords_refresh_token && settings.adwords_developer_token && settings.adwords_account_id)}
          searchConsoleConnected={!!settings.search_console_integrated || domainHasOwnSearchConsole}
-         allowsCity={scraperAllowsCity(settings, domainScraper)}
          availableScrapers={availableScrapers}
          systemScraperType={globalScraper}
       />

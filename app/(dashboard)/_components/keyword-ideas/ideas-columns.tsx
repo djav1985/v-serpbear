@@ -61,12 +61,9 @@ export function CompetitionBadge({ idea }: { idea: IdeaKeyword }) {
 }
 
 export function IdeaSelectCheckbox({ row }: { row: R }) {
-   const tracked = row.original.isTracked;
    return (
       <Checkbox
-         aria-label={tracked ? 'Keyword already tracked' : `Select ${row.original.keyword}`}
-         title={tracked ? 'Already in Tracker' : undefined}
-         disabled={tracked}
+         aria-label={`Select ${row.original.keyword}`}
          checked={row.getIsSelected()}
          onCheckedChange={(value) => row.toggleSelected(value === true)}
          onClick={(event) => event.stopPropagation()}
@@ -102,15 +99,14 @@ export const createIdeaColumns = (config: IdeaColumnConfig): IdeaColumn[] => [
       enableHiding: false,
       meta: { width: '1.5rem' },
       header: ({ table }) => {
-         // Only ideas that are not tracked yet can be selected, so select-all covers exactly those that match the filters.
-         const addable = table.getFilteredRowModel().rows.filter((row) => !row.original.isTracked);
-         const selected = addable.filter((row) => row.getIsSelected()).length;
+         const visibleRows = table.getFilteredRowModel().rows;
+         const selected = visibleRows.filter((row) => row.getIsSelected()).length;
          return (
             <Checkbox
-               aria-label="Select all keyword ideas that can be added"
-               disabled={addable.length === 0}
-               checked={addable.length > 0 && selected === addable.length ? true : (selected > 0 ? 'indeterminate' : false)}
-               onCheckedChange={(value) => table.setRowSelection(value === true ? Object.fromEntries(addable.map((row) => [row.id, true])) : {})}
+               aria-label="Select all keyword ideas"
+               disabled={visibleRows.length === 0}
+               checked={visibleRows.length > 0 && selected === visibleRows.length ? true : (selected > 0 ? 'indeterminate' : false)}
+               onCheckedChange={(value) => table.setRowSelection(value === true ? Object.fromEntries(visibleRows.map((row) => [row.id, true])) : {})}
             />
          );
       },

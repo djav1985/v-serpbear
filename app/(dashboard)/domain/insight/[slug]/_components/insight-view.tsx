@@ -1,6 +1,7 @@
 'use client';
 
 import { startTransition, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useQuery } from '@tanstack/react-query';
 import { useTable, type ColumnDef } from '@tanstack/react-table';
 import { DataTable } from 'app/(dashboard)/_components/data-table/data-table';
@@ -17,7 +18,6 @@ import { sortInsightItems } from 'utils/insight';
 import { formatDateKey } from 'utils/timezone';
 import { DomainHeader } from '../../../_components/domain-header';
 import { DomainSettingsDialog } from '../../../_components/domain-settings-dialog';
-import { InsightChart } from './insight-chart';
 
 type Scraper = NonNullable<SettingsType['available_scapers']>[number];
 type Tab = 'stats' | 'keywords' | 'countries' | 'pages';
@@ -27,6 +27,9 @@ const EMPTY: InsightDataType = { stats: null, keywords: [], countries: [], pages
 
 const percent = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const compact = new Intl.NumberFormat('en-US', { notation: 'compact', compactDisplay: 'short' });
+const InsightChart = dynamic(() => import('./insight-chart').then((module) => module.InsightChart), {
+   loading: () => <div role="status" aria-label="Loading chart" className="h-72 w-full animate-pulse motion-reduce:animate-none rounded-md bg-muted" />,
+});
 
 type InsightColumn = ColumnDef<DataTableFeatures, SCInsightItem>;
 const center = { cellClassName: 'justify-center text-center' };

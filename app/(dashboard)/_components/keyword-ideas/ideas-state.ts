@@ -1,7 +1,7 @@
 import type { SortingState } from '@tanstack/react-table';
 import { matchesIdeaTags } from 'utils/client/sortFilter';
 
-export type IdeaRow = IdeaKeyword & { isTracked: boolean };
+export type IdeaRow = IdeaKeyword;
 
 export type IdeaFilters = { search: string; groups: string[] };
 export const DEFAULT_IDEA_FILTERS: IdeaFilters = { search: '', groups: [] };

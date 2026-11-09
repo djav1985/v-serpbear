@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import { useQuery } from '@tanstack/react-query';
 import { ExternalLink, Loader2, Search } from 'lucide-react';
 import { Button } from 'components/ui/button';
@@ -13,8 +14,11 @@ import { formattedNum } from 'utils/client/helpers';
 import { safeHttpUrl } from 'utils/client/safeUrl';
 import countries from 'utils/countries';
 import { formatInZone } from 'utils/timezone';
-import { VolumeChart } from '../volume-chart';
 import { fetchSearchResults } from './ideas-queries';
+
+const VolumeChart = dynamic(() => import('../volume-chart').then((module) => module.VolumeChart), {
+   loading: () => <div role="status" aria-label="Loading chart" className="h-64 w-full animate-pulse motion-reduce:animate-none rounded-md bg-muted" />,
+});
 
 // "january-2025" becomes "Jan, 25".
 const monthLabel = (dateKey: string): string => {

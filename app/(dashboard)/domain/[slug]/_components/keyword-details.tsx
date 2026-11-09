@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { ExternalLink } from 'lucide-react';
-import { PositionChart } from 'app/(dashboard)/_components/position-chart';
 import {
    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from 'components/ui/select';
@@ -16,6 +16,10 @@ import { safeHttpUrl } from 'utils/client/safeUrl';
 import countries from 'utils/countries';
 import { formatInZone } from 'utils/timezone';
 import { useKeywordDetails } from '../../_components/keyword-queries';
+
+const PositionChart = dynamic(() => import('app/(dashboard)/_components/position-chart').then((module) => module.PositionChart), {
+   loading: () => <div role="status" aria-label="Loading chart" className="h-64 w-full animate-pulse motion-reduce:animate-none rounded-md bg-muted" />,
+});
 
 const RANGE_OPTIONS = [
    { label: 'Last 7 Days', value: '7' },

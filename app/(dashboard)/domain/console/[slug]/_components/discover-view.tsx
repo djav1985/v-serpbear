@@ -2,7 +2,6 @@
 
 import { startTransition, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
 import { useTable, type ColumnDef, type RowSelectionState } from '@tanstack/react-table';
 import { CalendarDays, Search } from 'lucide-react';
 import { toast } from 'sonner';
@@ -22,12 +21,13 @@ import { formattedNum } from 'utils/client/helpers';
 import { SCfilterKeywords, SCsortKeywords } from 'utils/client/sortFilter';
 import countries from 'utils/countries';
 import {
-   buildKeywordAddPayloads, getDomainLocations, getDomainTags, splitAlreadyTrackedByLocation, trackedTargetKey, type TrackerDevice,
+   getDomainLocations, getDomainTags, scraperAllowsCity, type TrackerDevice,
 } from 'utils/keywordMeta';
-import { isCountryOnlyLocation } from 'utils/location';
 import { DomainHeader } from '../../../_components/domain-header';
 import { DomainSettingsDialog } from '../../../_components/domain-settings-dialog';
-import { fetchKeywords, keywordsKey, useAddKeywords } from '../../../_components/keyword-queries';
+import { useAddKeywords, useTrackedKeywordsForAdd } from '../../../_components/keyword-queries';
+import { buildAddKeywordPayloads } from '../../../../_components/keyword-ideas/add-to-tracker-state';
+import { useAppSettings } from '../../../../_components/settings/settings-queries';
 import { Rank } from '../../../[slug]/_components/tracker-cells';
 import { useScKeywords } from './sc-queries';
 import { SC_PERIODS, SC_SORT_CHOICES, aggregateSCKeywords, summarizeSC } from './sc-state';
@@ -37,7 +37,6 @@ type Scraper = NonNullable<SettingsType['available_scapers']>[number];
 type DiscoverViewProps = {
    domain: DomainType;
    searchConsoleConnected: boolean;
-   allowsCity: boolean;
    availableScrapers: Scraper[];
    systemScraperType: string;
 };
@@ -45,10 +44,7 @@ type DiscoverViewProps = {
 const DOCS_URL = 'https://github.com/djav1985/v-serpbear/wiki/Google-Integrations';
 const percent = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-// Search Console rows are country level, so a row counts as tracked only when it is tracked without a city location.
-const countryOnly = (location?: string | null) => isCountryOnlyLocation((location || '').trim());
-
-type SCColumn = ColumnDef<DataTableFeatures, SearchAnalyticsItem & { isTracked: boolean }>;
+type SCColumn = ColumnDef<DataTableFeatures, SearchAnalyticsItem>;
 
 const COLUMNS: SCColumn[] = [
    {
@@ -56,22 +52,20 @@ const COLUMNS: SCColumn[] = [
       enableSorting: false,
       meta: { width: '1.5rem' },
       header: ({ table }) => {
-         const addable = table.getRowModel().rows.filter((row) => !row.original.isTracked);
-         const selected = addable.filter((row) => row.getIsSelected()).length;
+         const rows = table.getRowModel().rows;
+         const selected = rows.filter((row) => row.getIsSelected()).length;
          return (
             <Checkbox
-               aria-label="Select all keywords that can be added"
-               disabled={addable.length === 0}
-               checked={addable.length > 0 && selected === addable.length ? true : (selected > 0 ? 'indeterminate' : false)}
-               onCheckedChange={(value) => table.setRowSelection(value === true ? Object.fromEntries(addable.map((row) => [row.id, true])) : {})}
+               aria-label="Select all keywords"
+               disabled={rows.length === 0}
+               checked={rows.length > 0 && selected === rows.length ? true : (selected > 0 ? 'indeterminate' : false)}
+               onCheckedChange={(value) => table.setRowSelection(value === true ? Object.fromEntries(rows.map((row) => [row.id, true])) : {})}
             />
          );
       },
       cell: ({ row }) => (
          <Checkbox
-            aria-label={row.original.isTracked ? 'Keyword already tracked' : `Select ${row.original.keyword}`}
-            title={row.original.isTracked ? 'Already in Tracker' : undefined}
-            disabled={row.original.isTracked}
+            aria-label={`Select ${row.original.keyword}`}
             checked={row.getIsSelected()}
             onCheckedChange={(value) => row.toggleSelected(value === true)}
          />
@@ -96,7 +90,7 @@ const COLUMNS: SCColumn[] = [
    { id: 'ctr', header: 'CTR', enableSorting: false, meta: { width: '6rem', cellClassName: 'justify-center' }, cell: ({ row }) => `${percent.format(row.original.ctr)}%` },
 ];
 
-export function DiscoverView({ domain, searchConsoleConnected, allowsCity, availableScrapers, systemScraperType }: DiscoverViewProps) {
+export function DiscoverView({ domain, searchConsoleConnected, availableScrapers, systemScraperType }: DiscoverViewProps) {
    const router = useRouter();
    const [period, setPeriod] = useState<string>('thirtyDays');
    const [device, setDevice] = useState<'desktop' | 'mobile'>('desktop');
@@ -115,26 +109,19 @@ export function DiscoverView({ domain, searchConsoleConnected, allowsCity, avail
       return aggregateSCKeywords(periodRows);
    }, [scData, period]);
 
-   const { data: trackedData } = useQuery({ queryKey: keywordsKey(domain.domain), queryFn: () => fetchKeywords(domain.domain) });
+   const trackedQuery = useTrackedKeywordsForAdd(domain.domain, showAddStep);
+   const settingsQuery = useAppSettings(showAddStep, true);
+   const allowsCity = scraperAllowsCity(settingsQuery.data, domain.scraper_settings?.scraper_type);
+   const trackedData = trackedQuery.data;
    const tracked = useMemo(() => trackedData ?? [], [trackedData]);
-   const trackedCountryLevel = useMemo(() => {
-      const lookup = new Set<string>();
-      tracked.forEach((k) => { if (k.keyword && k.country && k.device && countryOnly(k.location)) { lookup.add(`${k.keyword}:${k.country}:${k.device}`); } });
-      return lookup;
-   }, [tracked]);
-   const trackedLookup = useMemo(() => {
-      const lookup: Record<string, boolean> = {};
-      tracked.forEach((k) => { if (k.keyword && k.country && k.device) { lookup[trackedTargetKey(k.keyword, k.country, k.device, k.location ?? '')] = true; } });
-      return lookup;
-   }, [tracked]);
 
    const forDevice = useMemo(() => grouped.filter((row) => row.device === device), [grouped, device]);
    const countryOptions = useMemo(() => [...new Set(forDevice.map((row) => row.country))].map((code) => ({ label: countries[code]?.[0] ?? code, value: code })), [forDevice]);
 
    const rows = useMemo(() => {
       const filtered = SCfilterKeywords(forDevice, { countries: pickedCountries, tags: [], search });
-      return SCsortKeywords(filtered, sortBy).map((row) => ({ ...row, isTracked: trackedCountryLevel.has(`${row.keyword}:${row.country}:${row.device}`) }));
-   }, [forDevice, pickedCountries, search, sortBy, trackedCountryLevel]);
+      return SCsortKeywords(filtered, sortBy);
+   }, [forDevice, pickedCountries, search, sortBy]);
    const summary = useMemo(() => summarizeSC(rows), [rows]);
 
    const table = useTable({
@@ -143,7 +130,6 @@ export function DiscoverView({ domain, searchConsoleConnected, allowsCity, avail
       columns: COLUMNS,
       getRowId: (row) => row.uid,
       state: { rowSelection },
-      enableRowSelection: (row) => !row.original.isTracked,
       onRowSelectionChange: setRowSelection,
    });
 
@@ -152,8 +138,8 @@ export function DiscoverView({ domain, searchConsoleConnected, allowsCity, avail
    if (checked.rows !== rows || checked.rowSelection !== rowSelection) {
       setChecked({ rows, rowSelection });
       const selected = Object.keys(rowSelection);
-      const addable = new Set(rows.filter((row) => !row.isTracked).map((row) => row.uid));
-      const kept = selected.filter((id) => addable.has(id));
+      const visible = new Set(rows.map((row) => row.uid));
+      const kept = selected.filter((id) => visible.has(id));
       if (kept.length !== selected.length) { setRowSelection(Object.fromEntries(kept.map((id) => [id, true]))); }
    }
 
@@ -161,11 +147,11 @@ export function DiscoverView({ domain, searchConsoleConnected, allowsCity, avail
    const { mutate: addKeywords, isPending: isAdding } = useAddKeywords(() => { router.push(`/domain/${domain.slug}`); });
 
    const submit = ({ tags, location, country }: { tags: string[]; location: string; country: string }) => {
-      if (isAdding) { return; }
+      if (isAdding || trackedQuery.isFetching || trackedQuery.isError || !trackedData || settingsQuery.isFetching || settingsQuery.isError || !settingsQuery.data) { return; }
       const items = rows.filter((row) => rowSelection[row.uid]).map(({ keyword, country: itemCountry }) => ({ keyword, country: itemCountry }));
-      const { payloads, skipped } = splitAlreadyTrackedByLocation(buildKeywordAddPayloads({
-         items, domain: domain.domain, devices: addDevices, tags, location, country,
-      }), trackedLookup);
+      const { payloads, skipped } = buildAddKeywordPayloads({
+         items, domain: domain.domain, devices: addDevices, tags, location, country, tracked,
+      });
       addKeywords({ payloads, skipped });
       setRowSelection({});
       setShowAddStep(false);
@@ -256,8 +242,7 @@ export function DiscoverView({ domain, searchConsoleConnected, allowsCity, avail
                      <div className="flex items-start gap-2">
                         <Checkbox
                            className="mt-0.5"
-                           aria-label={row.original.isTracked ? 'Keyword already tracked' : `Select ${row.original.keyword}`}
-                           disabled={row.original.isTracked}
+                           aria-label={`Select ${row.original.keyword}`}
                            checked={row.getIsSelected()}
                            onCheckedChange={(value) => row.toggleSelected(value === true)}
                         />
@@ -293,6 +278,9 @@ export function DiscoverView({ domain, searchConsoleConnected, allowsCity, avail
                existingLocations={existingLocations}
                allowsCity={allowsCity}
                isAdding={isAdding}
+               isLoadingExisting={trackedQuery.isPending || trackedQuery.isFetching || settingsQuery.isPending || settingsQuery.isFetching}
+               existingLoadError={trackedQuery.isError || settingsQuery.isError}
+               onRetryExisting={() => { void Promise.all([trackedQuery.refetch(), settingsQuery.refetch()]); }}
                onConfirm={submit}
                onClose={() => setShowAddStep(false)}
             />

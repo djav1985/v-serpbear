@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { getAppSettings } from 'utils/appSettings';
-import { scraperAllowsCity } from 'utils/keywordMeta';
 import { requireSession } from 'utils/serverSession';
 import { ResearchView } from './_components/research-view';
 
@@ -12,5 +11,5 @@ export default async function ResearchPage() {
 
    // Only these two facts reach the browser, never the stored Google Ads tokens.
    const adwordsConnected = Boolean(settings.adwords_refresh_token && settings.adwords_developer_token && settings.adwords_account_id);
-   return <ResearchView adwordsConnected={adwordsConnected} allowsCity={scraperAllowsCity(settings)} />;
+   return <ResearchView adwordsConnected={adwordsConnected} />;
 }

@@ -46,12 +46,12 @@ export function TopBar({ branding }: { branding: BrandingConfig }) {
       <header className="bg-card/90 sticky top-0 z-40 border-b shadow-sm backdrop-blur-md" data-testid="topbar">
          <div className="mx-auto flex h-16 w-full max-w-screen-2xl items-center justify-between gap-3 px-4 md:px-6">
             <div className="flex min-w-0 items-center gap-2">
-               <Link href="/domains" className="text-primary flex items-center text-base font-bold" aria-label="Home">
+               <Link href="/domains" prefetch={false} className="text-primary flex items-center text-base font-bold" aria-label="Home">
                   <Brand branding={branding} markSize={32} />
                </Link>
                {!onDomainsPage && (
                   <Button asChild variant="ghost" size="icon-sm" className="bg-accent text-accent-foreground ml-1 rounded-full">
-                     <Link href="/domains" aria-label="Back to domains" title="Back to domains"><ChevronLeft /></Link>
+                     <Link href="/domains" prefetch={false} aria-label="Back to domains" title="Back to domains"><ChevronLeft /></Link>
                   </Button>
                )}
             </div>
@@ -59,7 +59,7 @@ export function TopBar({ branding }: { branding: BrandingConfig }) {
             <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
                {NAV.map(({ href, label, icon: Icon }) => (
                   <Button key={href} asChild variant="ghost" size="sm" className={cn(pathname === href && 'bg-accent text-accent-foreground')}>
-                     <Link href={href} aria-current={pathname === href ? 'page' : undefined}><Icon />{label}</Link>
+                     <Link href={href} prefetch={false} aria-current={pathname === href ? 'page' : undefined}><Icon />{label}</Link>
                   </Button>
                ))}
                <Button variant="ghost" size="sm" onClick={openSettings}><Settings />Settings</Button>
@@ -75,7 +75,7 @@ export function TopBar({ branding }: { branding: BrandingConfig }) {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-44">
                      {NAV.map(({ href, label, icon: Icon }) => (
-                        <DropdownMenuItem key={href} asChild><Link href={href}><Icon />{label}</Link></DropdownMenuItem>
+                        <DropdownMenuItem key={href} asChild><Link href={href} prefetch={false}><Icon />{label}</Link></DropdownMenuItem>
                      ))}
                      <DropdownMenuItem onSelect={openSettings}><Settings />Settings</DropdownMenuItem>
                      <DropdownMenuItem asChild><a href={DOCS_URL} target="_blank" rel="noreferrer"><CircleHelp />Help</a></DropdownMenuItem>

@@ -9,6 +9,7 @@ import { RefreshCw } from 'lucide-react';
 import { Card } from 'components/ui/card';
 import { Switch } from 'components/ui/switch';
 import { cn } from 'lib/utils';
+import { useNearViewport } from 'hooks/use-near-viewport';
 import { formatAveragePosition, roundAveragePosition } from 'utils/averagePosition';
 import { formatInZone } from 'utils/timezone';
 import type { DomainCardData } from './domain-card-data';
@@ -79,19 +80,24 @@ type DomainCardProps = {
    timezone: string;
    toggling: boolean;
    onToggle: (next: boolean) => void;
+   onNearViewport: (domain: string) => void;
    onRefreshThumb: () => void;
 };
 
 export function DomainCard({
-   domain, consoleIntegrated, thumb, showMapPackStat, timezone, toggling, onToggle, onRefreshThumb,
+   domain, consoleIntegrated, thumb, showMapPackStat, timezone, toggling, onToggle, onNearViewport, onRefreshThumb,
 }: DomainCardProps) {
    const router = useRouter();
+   const [imageRef, imagesNear] = useNearViewport<HTMLDivElement>();
    // The favicon stays hidden for 500 ms. A screenshot that is ready by then replaces it before it is ever shown.
    const [faviconReady, setFaviconReady] = useState(false);
    useEffect(() => {
       const timer = setTimeout(() => setFaviconReady(true), 500);
       return () => clearTimeout(timer);
    }, []);
+   useEffect(() => {
+      if (imagesNear) { onNearViewport(domain.domain); }
+   }, [imagesNear, domain.domain, onNearViewport]);
    const avgPosition = roundAveragePosition(domain.avgPosition);
    const prevAvgPosition = domain.prevAvgPosition === null ? null : roundAveragePosition(domain.prevAvgPosition);
    const href = `/domain/${domain.slug}`;
@@ -108,7 +114,7 @@ export function DomainCard({
       >
          <div className="flex flex-col lg:flex-row">
             <div className={cn('flex flex-1 gap-4 p-5', !consoleIntegrated && 'lg:basis-1/3')}>
-               <div className="group bg-muted relative flex size-28 shrink-0 items-center justify-center overflow-hidden rounded-md border">
+               <div ref={imageRef} className="group bg-muted relative flex size-28 shrink-0 items-center justify-center overflow-hidden rounded-md border">
                   <button
                      type="button"
                      className="text-muted-foreground hover:text-foreground absolute top-0 right-1 z-10 p-1 opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
@@ -118,13 +124,15 @@ export function DomainCard({
                   >
                      <RefreshCw className="size-3" />
                   </button>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                     key={thumb ? 'screenshot' : 'favicon'}
-                     className={cn(thumb ? 'size-full object-cover object-top animate-in fade-in-0 duration-500' : 'max-w-[50px]', !thumb && !faviconReady && 'invisible')}
-                     src={thumb || `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain.domain)}&sz=128`}
-                     alt={domain.domain}
-                  />
+                  {imagesNear && (
+                     // eslint-disable-next-line @next/next/no-img-element
+                     <img
+                        key={thumb ? 'screenshot' : 'favicon'}
+                        className={cn(thumb ? 'size-full object-cover object-top animate-in fade-in-0 duration-500 motion-reduce:animate-none' : 'max-w-[50px]', !thumb && !faviconReady && 'invisible')}
+                        src={thumb || `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain.domain)}&sz=128`}
+                        alt={domain.domain}
+                     />
+                  )}
                </div>
                <div className="min-w-0 flex-1">
                   <h3 className="mb-2 truncate text-base font-semibold" title={domain.domain}>

@@ -14,6 +14,9 @@ type AddToTrackerDialogProps = {
    existingLocations: string[];
    allowsCity: boolean;
    isAdding?: boolean;
+   isLoadingExisting?: boolean;
+   existingLoadError?: boolean;
+   onRetryExisting?: () => void;
    onConfirm: (details: { tags: string[]; location: string; country: string }) => void;
    onClose: () => void;
 };
@@ -21,7 +24,10 @@ type AddToTrackerDialogProps = {
 const parseTags = (input: string): string[] => [...new Set(input.split(',').map((tag) => tag.trim()).filter((tag) => tag.length > 0))];
 
 /** The step between picking ideas and tracking them: choose tags and a location. */
-export function AddToTrackerDialog({ selectedCount, existingTags, existingLocations, allowsCity, isAdding = false, onConfirm, onClose }: AddToTrackerDialogProps) {
+export function AddToTrackerDialog({
+   selectedCount, existingTags, existingLocations, allowsCity, isAdding = false, isLoadingExisting = false,
+   existingLoadError = false, onRetryExisting, onConfirm, onClose,
+}: AddToTrackerDialogProps) {
    const [tagInput, setTagInput] = useState('');
    // Nothing is picked until the user chooses a location or adds a country-only choice.
    const [selection, setSelection] = useState<{ location: string; country: string } | null>(null);
@@ -45,10 +51,19 @@ export function AddToTrackerDialog({ selectedCount, existingTags, existingLocati
                sectionLabels
                defaultCountry="US"
             />
+            {isLoadingExisting && <p role="status" className="text-muted-foreground text-sm">Loading tracker data…</p>}
+            {existingLoadError && (
+               <div role="alert" className="text-destructive flex items-center justify-between gap-3 text-sm">
+                  <span>Could not load tracker data needed to add these keywords.</span>
+                  {onRetryExisting && <Button variant="outline" size="sm" onClick={onRetryExisting}>Retry</Button>}
+               </div>
+            )}
             <DialogFooter>
                <Button variant="outline" onClick={onClose}>Cancel</Button>
-               <Button disabled={isAdding} onClick={() => { if (!isAdding) { onConfirm({ tags: parseTags(tagInput), location: selection?.location ?? '', country: selection?.country ?? '' }); } }}>
-                  {isAdding ? 'Adding…' : 'Track'}
+               <Button disabled={isAdding || isLoadingExisting || existingLoadError} onClick={() => {
+                  if (!isAdding && !isLoadingExisting && !existingLoadError) { onConfirm({ tags: parseTags(tagInput), location: selection?.location ?? '', country: selection?.country ?? '' }); }
+               }}>
+                  {isAdding ? 'Adding…' : isLoadingExisting ? 'Loading…' : 'Track'}
                </Button>
             </DialogFooter>
          </DialogContent>

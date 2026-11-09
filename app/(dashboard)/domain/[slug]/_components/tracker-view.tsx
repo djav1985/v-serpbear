@@ -34,8 +34,6 @@ type Scraper = NonNullable<SettingsType['available_scapers']>[number];
 type TrackerViewProps = {
    /** The domain, with credentials masked, as the domain settings dialog needs it. */
    domain: DomainType;
-   /** null when the server could not read the keywords, so the browser tries again and the error stays visible if it fails. */
-   initialKeywords: KeywordType[] | null;
    /** The optional columns switched on (settings.keywordsColumns). */
    initialColumns: string[];
    scraperConfigured: boolean;
@@ -51,11 +49,11 @@ type TrackerViewProps = {
 const stripSticky = (sorting: SortingState): SortingState => sorting.filter((entry) => entry.id !== STICKY_FIRST.id);
 
 export function TrackerView({
-   domain, initialKeywords, initialColumns, scraperConfigured, searchConsoleConnected, allowsCity, scraperName, scraperCountries,
+   domain, initialColumns, scraperConfigured, searchConsoleConnected, allowsCity, scraperName, scraperCountries,
    availableScrapers, systemScraperType,
 }: TrackerViewProps) {
    const { openSettings } = useShell();
-   const keywordsQuery = useKeywords(domain.domain, initialKeywords ?? undefined);
+   const keywordsQuery = useKeywords(domain.domain, undefined);
    const keywords = useMemo(() => keywordsQuery.data ?? [], [keywordsQuery.data]);
 
    // ── Table state ───────────────────────────────────────────────────────────
