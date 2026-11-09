@@ -2,13 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from 'components/ui/button';
 import { apiGet, apiPut } from 'utils/client/apiClient';
 import { useShell } from '../../_components/shell-context';
-import { keywordsQueryOptions } from '../../domain/_components/keyword-queries';
 import { DomainCard } from './domain-card';
 import { DomainsSidebar } from './domains-sidebar';
 import { toDomainCardData, type DomainCardData } from './domain-card-data';
@@ -30,7 +29,6 @@ export function DomainsView({ scraperConfigured, searchConsoleIntegrated, showMa
    const router = useRouter();
    const pathname = usePathname() ?? '/domains';
    const searchString = useSearchParams()?.toString() ?? '';
-   const queryClient = useQueryClient();
    const { domains, domainsFailed, openAddDomain, openSettings } = useShell();
    const [thumbs, setThumbs] = useState<Record<string, string>>({});
    const [statsByDomain, setStatsByDomain] = useState<Record<string, DomainCardData>>({});
@@ -147,10 +145,6 @@ export function DomainsView({ scraperConfigured, searchConsoleIntegrated, showMa
       void requestScreenshot(domain);
    }, [requestScreenshot, requestStats]);
 
-   const prefetchDomainKeywords = useCallback((domain: string) => {
-      void queryClient.prefetchQuery(keywordsQueryOptions(domain));
-   }, [queryClient]);
-
    const refreshThumb = async (domain: string) => {
       const thumb = await fetchDomainScreenshot(domain, true);
       if (thumb) {
@@ -214,7 +208,6 @@ export function DomainsView({ scraperConfigured, searchConsoleIntegrated, showMa
                         onNearViewport={requestCardData}
                         onRefreshThumb={() => refreshThumb(domain.domain)}
                         onRetryStats={() => requestStats(domain.domain)}
-                        onPrefetchDomain={() => prefetchDomainKeywords(domain.domain)}
                      />
                   ))}
                </div>

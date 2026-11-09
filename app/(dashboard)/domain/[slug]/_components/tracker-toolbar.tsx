@@ -107,13 +107,21 @@ export function TrackerToolbar({
             </div>
             <div className="flex w-full gap-2 max-lg:col-span-2 max-lg:order-3 lg:contents">
             <Select value={sortChoice || undefined} onValueChange={onSortChange}>
-               <SelectTrigger size="sm" className="w-full lg:w-48" data-testid="sort_button" aria-label="Sort keywords">
+               <SelectTrigger size="sm" className="min-w-0 flex-1 lg:w-48 lg:flex-none" data-testid="sort_button" aria-label="Sort keywords">
                   <SelectValue placeholder="Sorted by column" />
                </SelectTrigger>
                <SelectContent align="end">
                   {sortChoices.map((choice) => <SelectItem key={choice.value} value={choice.value}>{choice.label}</SelectItem>)}
                </SelectContent>
             </Select>
+            {showScPeriod && (
+               <Select value={scPeriod} onValueChange={onScPeriodChange}>
+                  <SelectTrigger size="sm" className="min-w-0 flex-1 lg:w-52 lg:flex-none" data-testid="sc_period" aria-label="Search Console period"><SelectValue /></SelectTrigger>
+                  <SelectContent align="end">
+                     {SC_PERIODS.map((period) => <SelectItem key={period.value} value={period.value}>{`Search Console: ${period.label}`}</SelectItem>)}
+                  </SelectContent>
+               </Select>
+            )}
             <DropdownMenu>
                <DropdownMenuTrigger asChild>
                   <Button
@@ -148,14 +156,6 @@ export function TrackerToolbar({
                </DropdownMenuContent>
             </DropdownMenu>
             </div>
-            {showScPeriod && (
-               <Select value={scPeriod} onValueChange={onScPeriodChange}>
-                  <SelectTrigger size="sm" className="w-full max-lg:order-4 lg:w-52" data-testid="sc_period" aria-label="Search Console period"><SelectValue /></SelectTrigger>
-                  <SelectContent align="end">
-                     {SC_PERIODS.map((period) => <SelectItem key={period.value} value={period.value}>{`Search Console: ${period.label}`}</SelectItem>)}
-                  </SelectContent>
-               </Select>
-            )}
          </div>
       </div>
    );

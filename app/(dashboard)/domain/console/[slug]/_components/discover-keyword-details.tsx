@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import dynamic from 'next/dynamic';
+import { ExternalLink } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from 'components/ui/sheet';
 import { formattedNum } from 'utils/client/helpers';
 import countries from 'utils/countries';
@@ -18,8 +19,13 @@ type DiscoverKeywordDetailsProps = {
 };
 
 export function DiscoverKeywordDetails({ keyword, sevenDayRows, onClose }: DiscoverKeywordDetailsProps) {
-   const { days, pages, totals } = useMemo(() => {
-      const matchingRows = sevenDayRows.filter((row) => row.keyword === keyword.keyword && row.country === keyword.country && row.device === keyword.device);
+   const { hasKeywordData, days, pages, totals } = useMemo(() => {
+      const normalize = (value: string) => value.trim().toLocaleLowerCase();
+      const matchingRows = sevenDayRows.filter((row) => row.uid === keyword.uid || (
+         normalize(row.keyword) === normalize(keyword.keyword)
+         && normalize(row.country) === normalize(keyword.country)
+         && normalize(row.device) === normalize(keyword.device)
+      ));
       const daily = new Map<string, { clicks: number; impressions: number; weightedPosition: number; positionSum: number; count: number }>();
       const pageTotals = new Map<string, { clicks: number; impressions: number }>();
 
@@ -54,6 +60,7 @@ export function DiscoverKeywordDetails({ keyword, sevenDayRows, onClose }: Disco
       const pages = [...pageTotals.entries()].map(([page, value]) => ({ page, ...value })).sort((left, right) => right.clicks - left.clicks).slice(0, 5);
 
       return {
+         hasKeywordData: matchingRows.length > 0,
          days,
          pages,
          totals: {
@@ -76,10 +83,25 @@ export function DiscoverKeywordDetails({ keyword, sevenDayRows, onClose }: Disco
                <SheetDescription>Google Search Console performance for the last 7 days · {keyword.device}</SheetDescription>
             </SheetHeader>
 
-            {days.length === 0 ? (
+            {!hasKeywordData ? (
                <p className="text-muted-foreground p-4 text-sm">No daily Search Console details are available for this keyword.</p>
             ) : (
                <div className="flex flex-col gap-6 p-4">
+                  <section>
+                     <div className="flex items-center gap-1 border-b pb-3">
+                        <h3 className="font-bold">Google Search</h3>
+                        <a
+                           className="text-muted-foreground hover:text-foreground px-1"
+                           aria-label={`Search Google for ${keyword.keyword}`}
+                           href={`https://www.google.com/search?q=${encodeURIComponent(keyword.keyword)}`}
+                           target="_blank"
+                           rel="noreferrer"
+                        >
+                           <ExternalLink className="size-3.5" />
+                        </a>
+                     </div>
+                  </section>
+
                   <section>
                      <h3 className="mb-3 font-semibold">7-day performance</h3>
                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -97,32 +119,36 @@ export function DiscoverKeywordDetails({ keyword, sevenDayRows, onClose }: Disco
                      </div>
                   </section>
 
-                  <section>
-                     <h3 className="mb-3 font-semibold">Daily Search Console trend</h3>
-                     <InsightChart stats={days} />
-                  </section>
+                  {days.length > 0 && (
+                     <>
+                        <section>
+                           <h3 className="mb-3 font-semibold">7-day Search Console trend</h3>
+                           <InsightChart stats={days} />
+                        </section>
 
-                  <section>
-                     <h3 className="mb-3 font-semibold">Daily performance</h3>
-                     <div className="overflow-x-auto rounded-md border">
-                        <table className="w-full text-left text-sm">
-                           <thead className="bg-muted/60 text-muted-foreground text-xs">
-                              <tr><th className="px-3 py-2">Date</th><th className="px-3 py-2 text-right">Clicks</th><th className="px-3 py-2 text-right">Impressions</th><th className="px-3 py-2 text-right">CTR</th><th className="px-3 py-2 text-right">Position</th></tr>
-                           </thead>
-                           <tbody>
-                              {days.map((day) => (
-                                 <tr key={day.date} className="border-t">
-                                    <td className="px-3 py-2 whitespace-nowrap">{formatDateKey(day.date, { month: 'short', day: 'numeric' })}</td>
-                                    <td className="px-3 py-2 text-right">{formattedNum(day.clicks)}</td>
-                                    <td className="px-3 py-2 text-right">{formattedNum(day.impressions)}</td>
-                                    <td className="px-3 py-2 text-right">{day.ctr.toFixed(2)}%</td>
-                                    <td className="px-3 py-2 text-right">{day.position.toFixed(1)}</td>
-                                 </tr>
-                              ))}
-                           </tbody>
-                        </table>
-                     </div>
-                  </section>
+                        <section>
+                           <h3 className="mb-3 font-semibold">Daily performance</h3>
+                           <div className="overflow-x-auto rounded-md border">
+                              <table className="w-full text-left text-sm">
+                                 <thead className="bg-muted/60 text-muted-foreground text-xs">
+                                    <tr><th className="px-3 py-2">Date</th><th className="px-3 py-2 text-right">Clicks</th><th className="px-3 py-2 text-right">Impressions</th><th className="px-3 py-2 text-right">CTR</th><th className="px-3 py-2 text-right">Position</th></tr>
+                                 </thead>
+                                 <tbody>
+                                    {days.map((day) => (
+                                       <tr key={day.date} className="border-t">
+                                          <td className="px-3 py-2 whitespace-nowrap">{formatDateKey(day.date, { month: 'short', day: 'numeric' })}</td>
+                                          <td className="px-3 py-2 text-right">{formattedNum(day.clicks)}</td>
+                                          <td className="px-3 py-2 text-right">{formattedNum(day.impressions)}</td>
+                                          <td className="px-3 py-2 text-right">{day.ctr.toFixed(2)}%</td>
+                                          <td className="px-3 py-2 text-right">{day.position.toFixed(1)}</td>
+                                       </tr>
+                                    ))}
+                                 </tbody>
+                              </table>
+                           </div>
+                        </section>
+                     </>
+                  )}
 
                   {pages.length > 0 && (
                      <section>

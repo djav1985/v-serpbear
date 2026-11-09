@@ -95,11 +95,10 @@ type DomainCardProps = {
    onNearViewport: (domain: string) => void;
    onRefreshThumb: () => void;
    onRetryStats: () => void;
-   onPrefetchDomain: () => void;
 };
 
 export function DomainCard({
-   domain, stats, statsLoading, statsError, consoleIntegrated, thumb, showMapPackStat, timezone, toggling, onToggle, onNearViewport, onRefreshThumb, onRetryStats, onPrefetchDomain,
+   domain, stats, statsLoading, statsError, consoleIntegrated, thumb, showMapPackStat, timezone, toggling, onToggle, onNearViewport, onRefreshThumb, onRetryStats,
 }: DomainCardProps) {
    const router = useRouter();
    const [imageRef, imagesNear] = useNearViewport<HTMLDivElement>();
@@ -116,12 +115,12 @@ export function DomainCard({
    const prevAvgPosition = stats?.prevAvgPosition == null ? null : roundAveragePosition(stats.prevAvgPosition);
    const href = `/domain/${domain.slug}`;
    const updated = stats?.keywordsUpdated;
+   const prefetchTrackerPage = () => router.prefetch(href);
 
    return (
       <Card
          className={cn('hover:ring-primary/30 cursor-pointer gap-0 p-0 transition-[box-shadow,filter] duration-300 hover:shadow-md', !domain.scrapeEnabled && 'grayscale')}
          data-testid="domain-card"
-         onMouseEnter={onPrefetchDomain}
          onClick={(event) => {
             // The name is a real link and the switch is a control, so only clicks elsewhere on the card navigate.
             if ((event.target as HTMLElement).closest('a, button, label, input, [role="switch"]')) { return; }
@@ -152,7 +151,7 @@ export function DomainCard({
                </div>
                <div className="min-w-0 flex-1">
                   <h3 className="mb-2 truncate text-base font-semibold" title={domain.domain}>
-                     <Link href={href} prefetch={false} onFocus={onPrefetchDomain} className="hover:underline">{domain.domain}</Link>
+                     <Link href={href} prefetch={false} onPointerEnter={prefetchTrackerPage} onFocus={prefetchTrackerPage} className="hover:underline">{domain.domain}</Link>
                   </h3>
                   <div className="text-muted-foreground flex min-h-4 items-center justify-between gap-3 text-xs">
                      {!stats && !statsError ? <span aria-hidden="true" className="block h-3 w-32" /> : updated ? (

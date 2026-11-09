@@ -2,11 +2,10 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { Globe, Plus } from 'lucide-react';
 import { Button } from 'components/ui/button';
 import { useShell } from '../../_components/shell-context';
-import { keywordsQueryOptions } from '../../domain/_components/keyword-queries';
 
 /** The site's favicon, with a globe in the same space when it cannot be loaded, so the names always line up. */
 function SiteIcon({ domain }: { domain: string }) {
@@ -28,7 +27,7 @@ function SiteIcon({ domain }: { domain: string }) {
 /** The domain list beside the Domains screen, with the Add Domain action. Shown on large screens only. */
 export function DomainsSidebar() {
    const { domains, domainsFailed, openAddDomain } = useShell();
-   const queryClient = useQueryClient();
+   const router = useRouter();
    return (
       <aside className="hidden lg:block" data-testid="sidebar" aria-label="Your domains">
          <div className="sticky top-24 flex flex-col gap-2">
@@ -41,8 +40,8 @@ export function DomainsSidebar() {
                      <Link
                         href={`/domain/${d.slug}`}
                         prefetch={false}
-                        onMouseEnter={() => { void queryClient.prefetchQuery(keywordsQueryOptions(d.domain)); }}
-                        onFocus={() => { void queryClient.prefetchQuery(keywordsQueryOptions(d.domain)); }}
+                        onPointerEnter={() => router.prefetch(`/domain/${d.slug}`)}
+                        onFocus={() => router.prefetch(`/domain/${d.slug}`)}
                         className="hover:bg-accent flex items-center gap-2 truncate rounded-md px-2 py-2"
                      >
                         <SiteIcon domain={d.domain} />

@@ -3,7 +3,6 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useQueryClient } from '@tanstack/react-query';
 import { Download, Lightbulb, LineChart, Plus, RefreshCw, Search, Settings } from 'lucide-react';
 import { Button } from 'components/ui/button';
 import {
@@ -11,10 +10,6 @@ import {
 } from 'components/ui/select';
 import { cn } from 'lib/utils';
 import { useShell } from '../../_components/shell-context';
-import { keywordsQueryOptions } from './keyword-queries';
-import { ideasQueryOptions } from '../../_components/keyword-ideas/ideas-queries';
-import { scKeywordsQueryOptions } from '../console/[slug]/_components/sc-queries';
-import { insightQueryOptions } from '../insight/[slug]/_components/insight-queries';
 
 type DomainHeaderProps = {
    domain: { domain: string; slug: string };
@@ -40,14 +35,11 @@ const TABS = [
 export function DomainHeader({ domain, searchConsoleConnected, adwordsConnected, onOpenSettings, onExport, onReloadAll, onAddKeyword, onLoadIdeas, children }: DomainHeaderProps) {
    const pathname = usePathname() ?? '';
    const router = useRouter();
-   const queryClient = useQueryClient();
    const { domains } = useShell();
 
-   const prefetchTab = (base: typeof TABS[number]['base']) => {
-      if (base === '/domain') { void queryClient.prefetchQuery(keywordsQueryOptions(domain.domain)); }
-      if (base === '/domain/console' && searchConsoleConnected) { void queryClient.prefetchQuery(scKeywordsQueryOptions(domain.domain)); }
-      if (base === '/domain/insight' && searchConsoleConnected) { void queryClient.prefetchQuery(insightQueryOptions(domain.domain)); }
-      if (base === '/domain/ideas' && adwordsConnected) { void queryClient.prefetchQuery(ideasQueryOptions(domain.domain)); }
+   const prefetchTab = (href: string) => {
+      if (pathname === href) { return; }
+      router.prefetch(href);
    };
 
    const switchDomain = (slug: string) => {
@@ -76,8 +68,8 @@ export function DomainHeader({ domain, searchConsoleConnected, adwordsConnected,
                         key={label}
                         href={href}
                         prefetch={false}
-                        onMouseEnter={() => prefetchTab(base)}
-                        onFocus={() => prefetchTab(base)}
+                        onPointerEnter={() => prefetchTab(href)}
+                        onFocus={() => prefetchTab(href)}
                         title={hint}
                         aria-current={active ? 'page' : undefined}
                         className={cn(
