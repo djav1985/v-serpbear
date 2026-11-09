@@ -88,12 +88,15 @@ export function DiscoverKeywordDetails({ keyword, periodRows, lastFetched, onClo
                      <span className="text-muted-foreground text-xs">{updated}</span>
                   </div>
 
-                  <Button asChild className="h-auto w-full min-w-0 justify-start whitespace-normal py-2 text-left">
-                     <a href={`https://www.google.com/search?q=${encodeURIComponent(keyword.keyword)}`} target="_blank" rel="noreferrer">
-                        <Search />
-                        View Google search results for &quot;{keyword.keyword}&quot;
-                     </a>
-                  </Button>
+                  <div className="flex flex-col items-center gap-3 py-8 text-center text-sm font-medium">
+                     <p>View Google search results for &quot;{keyword.keyword}&quot;</p>
+                     <Button asChild>
+                        <a href={`https://www.google.com/search?q=${encodeURIComponent(keyword.keyword)}`} target="_blank" rel="noreferrer">
+                           <Search />
+                           Perform Google Search
+                        </a>
+                     </Button>
+                  </div>
                </section>
             </div>
          </SheetContent>
