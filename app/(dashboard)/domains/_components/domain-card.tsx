@@ -92,10 +92,11 @@ type DomainCardProps = {
    onNearViewport: (domain: string) => void;
    onRefreshThumb: () => void;
    onRetryStats: () => void;
+   onPrefetchDomain: () => void;
 };
 
 export function DomainCard({
-   domain, stats, statsLoading, statsError, consoleIntegrated, thumb, showMapPackStat, timezone, toggling, onToggle, onNearViewport, onRefreshThumb, onRetryStats,
+   domain, stats, statsLoading, statsError, consoleIntegrated, thumb, showMapPackStat, timezone, toggling, onToggle, onNearViewport, onRefreshThumb, onRetryStats, onPrefetchDomain,
 }: DomainCardProps) {
    const router = useRouter();
    const [imageRef, imagesNear] = useNearViewport<HTMLDivElement>();
@@ -117,6 +118,7 @@ export function DomainCard({
       <Card
          className={cn('hover:ring-primary/30 cursor-pointer gap-0 p-0 transition-[box-shadow,filter] duration-300 hover:shadow-md', !domain.scrapeEnabled && 'grayscale')}
          data-testid="domain-card"
+         onMouseEnter={onPrefetchDomain}
          onClick={(event) => {
             // The name is a real link and the switch is a control, so only clicks elsewhere on the card navigate.
             if ((event.target as HTMLElement).closest('a, button, label, input, [role="switch"]')) { return; }
@@ -147,7 +149,7 @@ export function DomainCard({
                </div>
                <div className="min-w-0 flex-1">
                   <h3 className="mb-2 truncate text-base font-semibold" title={domain.domain}>
-                     <Link href={href} className="hover:underline">{domain.domain}</Link>
+                     <Link href={href} prefetch={false} onFocus={onPrefetchDomain} className="hover:underline">{domain.domain}</Link>
                   </h3>
                   <div className="text-muted-foreground flex items-center justify-between gap-3 text-xs">
                      {updated ? (

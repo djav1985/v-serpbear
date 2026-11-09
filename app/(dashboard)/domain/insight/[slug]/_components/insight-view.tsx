@@ -11,13 +11,13 @@ import {
    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from 'components/ui/select';
 import { cn } from 'lib/utils';
-import { apiGet } from 'utils/client/apiClient';
 import { formattedNum } from 'utils/client/helpers';
 import countries from 'utils/countries';
 import { sortInsightItems } from 'utils/insight';
 import { formatDateKey } from 'utils/timezone';
 import { DomainHeader } from '../../../_components/domain-header';
 import { DomainSettingsDialog } from '../../../_components/domain-settings-dialog';
+import { insightQueryOptions } from './insight-queries';
 
 type Scraper = NonNullable<SettingsType['available_scapers']>[number];
 type Tab = 'stats' | 'keywords' | 'countries' | 'pages';
@@ -90,19 +90,18 @@ function StatCard({ label, value, title, className }: { label: string; value: st
 type InsightViewProps = {
    domain: DomainType;
    searchConsoleConnected: boolean;
+   adwordsConnected: boolean;
    availableScrapers: Scraper[];
    systemScraperType: string;
 };
 
-export function InsightView({ domain, searchConsoleConnected, availableScrapers, systemScraperType }: InsightViewProps) {
+export function InsightView({ domain, searchConsoleConnected, adwordsConnected, availableScrapers, systemScraperType }: InsightViewProps) {
    const [tab, setTab] = useState<Tab>('stats');
    const [settingsOpen, setSettingsOpen] = useState(false);
 
    const { data, isLoading, isError } = useQuery({
-      queryKey: ['sc-insight', domain.domain],
-      queryFn: async () => (await apiGet<{ data: InsightDataType }>(`/api/google/insight?domain=${encodeURIComponent(domain.domain)}`)).data,
+      ...insightQueryOptions(domain.domain),
       enabled: searchConsoleConnected,
-      retry: false,
    });
    const insight = data ?? EMPTY;
    const stats = useMemo(() => insight.stats ?? [], [insight.stats]);
@@ -131,7 +130,7 @@ export function InsightView({ domain, searchConsoleConnected, availableScrapers,
 
    return (
       <div className="flex flex-col gap-4">
-         <DomainHeader domain={domain} onOpenSettings={() => setSettingsOpen(true)} />
+         <DomainHeader domain={domain} searchConsoleConnected={searchConsoleConnected} adwordsConnected={adwordsConnected} onOpenSettings={() => setSettingsOpen(true)} />
 
          <div className="bg-card rounded-xl border shadow-sm" data-testid="domKeywords">
             <div className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">

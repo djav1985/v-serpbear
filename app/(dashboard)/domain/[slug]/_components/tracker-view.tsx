@@ -37,6 +37,7 @@ type TrackerViewProps = {
    /** The optional columns switched on (settings.keywordsColumns). */
    initialColumns: string[];
    scraperConfigured: boolean;
+   adwordsConnected: boolean;
    /** The global Search Console integration, or this domain's own credentials. */
    searchConsoleConnected: boolean;
    allowsCity: boolean;
@@ -49,7 +50,7 @@ type TrackerViewProps = {
 const stripSticky = (sorting: SortingState): SortingState => sorting.filter((entry) => entry.id !== STICKY_FIRST.id);
 
 export function TrackerView({
-   domain, initialColumns, scraperConfigured, searchConsoleConnected, allowsCity, scraperName, scraperCountries,
+   domain, initialColumns, scraperConfigured, adwordsConnected, searchConsoleConnected, allowsCity, scraperName, scraperCountries,
    availableScrapers, systemScraperType,
 }: TrackerViewProps) {
    const { openSettings } = useShell();
@@ -171,6 +172,8 @@ export function TrackerView({
 
          <DomainHeader
             domain={domain}
+            searchConsoleConnected={searchConsoleConnected}
+            adwordsConnected={adwordsConnected}
             onOpenSettings={() => setDomainSettingsOpen(true)}
             // The export covers every keyword of the domain, on both devices, whatever the filters or selection are.
             onExport={() => exportCSV(keywords, domain.domain)}

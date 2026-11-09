@@ -37,6 +37,7 @@ type Scraper = NonNullable<SettingsType['available_scapers']>[number];
 type DiscoverViewProps = {
    domain: DomainType;
    searchConsoleConnected: boolean;
+   adwordsConnected: boolean;
    availableScrapers: Scraper[];
    systemScraperType: string;
 };
@@ -90,7 +91,7 @@ const COLUMNS: SCColumn[] = [
    { id: 'ctr', header: 'CTR', enableSorting: false, meta: { width: '6rem', cellClassName: 'justify-center' }, cell: ({ row }) => `${percent.format(row.original.ctr)}%` },
 ];
 
-export function DiscoverView({ domain, searchConsoleConnected, availableScrapers, systemScraperType }: DiscoverViewProps) {
+export function DiscoverView({ domain, searchConsoleConnected, adwordsConnected, availableScrapers, systemScraperType }: DiscoverViewProps) {
    const router = useRouter();
    const [period, setPeriod] = useState<string>('thirtyDays');
    const [device, setDevice] = useState<'desktop' | 'mobile'>('desktop');
@@ -169,6 +170,8 @@ export function DiscoverView({ domain, searchConsoleConnected, availableScrapers
       <div className="flex flex-col gap-4">
          <DomainHeader
             domain={domain}
+            searchConsoleConnected={searchConsoleConnected}
+            adwordsConnected={adwordsConnected}
             onOpenSettings={() => setSettingsOpen(true)}
             onExport={() => exportCSV(grouped, domain.domain, period)}
          >

@@ -33,6 +33,8 @@ export function IdeasView({ domain, adwordsConnected, searchConsoleConnected, av
       <div className="flex flex-col gap-4">
          <DomainHeader
             domain={domain}
+            searchConsoleConnected={searchConsoleConnected}
+            adwordsConnected={adwordsConnected}
             onOpenSettings={() => setSettingsOpen(true)}
             onExport={() => exportKeywordIdeas(showFavorites ? favorites : ideas, domain.domain)}
             onLoadIdeas={() => setLoadOpen(true)}

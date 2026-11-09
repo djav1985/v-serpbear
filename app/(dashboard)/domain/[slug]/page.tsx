@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getAppSettings } from 'utils/appSettings';
-import { loadDomains } from 'utils/domainsList';
+import { loadDomainBySlug } from 'utils/domainsList';
 import { scraperAllowsCity } from 'utils/keywordMeta';
 import { requireSession } from 'utils/serverSession';
 import { safeJsonParse } from 'utils/safeJsonParse';
@@ -20,11 +20,9 @@ export default async function TrackerPage({ params }: PageProps) {
    await requireSession();
    const { slug } = await params;
 
-   const domains = await loadDomains();
-   const domain = domains.find((d) => d.slug === slug);
+   const [domain, settings] = await Promise.all([loadDomainBySlug(slug), getAppSettings()]);
    if (!domain) { notFound(); }
 
-   const settings = await getAppSettings();
    const { scraper_type: globalScraper = '', available_scapers: availableScrapers = [] } = settings;
    const domainScraper = domain.scraper_settings?.scraper_type || null;
    const activeScraper = availableScrapers.find((scraper) => scraper.value === (domainScraper || globalScraper));
@@ -37,6 +35,7 @@ export default async function TrackerPage({ params }: PageProps) {
          domain={domain}
          initialColumns={settings.keywordsColumns ?? DEFAULT_COLUMNS}
          scraperConfigured={globalScraper !== 'none'}
+         adwordsConnected={Boolean(settings.adwords_refresh_token && settings.adwords_developer_token && settings.adwords_account_id)}
          searchConsoleConnected={!!settings.search_console_integrated || domainHasOwnSearchConsole}
          allowsCity={scraperAllowsCity(settings, domainScraper)}
          scraperName={activeScraper?.label ?? ''}

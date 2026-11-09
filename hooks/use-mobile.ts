@@ -10,6 +10,7 @@ const subscribe = (onChange: () => void) => {
 };
 
 export function useIsMobile() {
-  // Reads the media query directly, so there is no extra render after mount. The server always renders the wide layout.
+  // Reads the media query directly, so there is no extra render after mount. The server always renders the wide layout;
+  // responsive CSS must keep mobile-only layouts safe until hydration reads the actual viewport.
   return React.useSyncExternalStore(subscribe, () => window.innerWidth < MOBILE_BREAKPOINT, () => false);
 }

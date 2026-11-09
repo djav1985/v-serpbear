@@ -16,12 +16,16 @@ export const fetchIdeas = (domain?: string | null) => (
    apiGet<IdeasResponse>(domain ? `/api/google/ideas?domain=${encodeURIComponent(domain)}` : '/api/google/ideas')
 );
 
+export const ideasQueryOptions = (domain?: string | null) => ({
+   queryKey: ideasKey(domain),
+   queryFn: () => fetchIdeas(domain),
+   retry: false as const,
+});
+
 export function useIdeas(domain: string | null | undefined, enabled: boolean) {
    return useQuery({
-      queryKey: ideasKey(domain),
-      queryFn: () => fetchIdeas(domain),
+      ...ideasQueryOptions(domain),
       enabled,
-      retry: false,
    });
 }
 

@@ -139,7 +139,13 @@ export function DataTable<TData extends RowData>({
             aria-label={label}
             aria-rowcount={rows.length}
             aria-busy={isLoading}
-            className={cn('relative w-full', stacked ? 'overflow-visible' : 'overflow-auto', !stacked && !snappedHeight && className)}
+            className={cn(
+               'relative w-full',
+               stacked ? 'overflow-visible' : 'overflow-auto',
+               // The server snapshot is desktop. Keep stacked tables from trapping page scroll on mobile before hydration.
+               renderStackedRow && 'max-[767px]:overflow-visible',
+               !stacked && !snappedHeight && className,
+            )}
             style={snappedHeight ? { height: snappedHeight } : undefined}
          >
          {!stacked && (

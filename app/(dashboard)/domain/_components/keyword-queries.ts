@@ -20,14 +20,18 @@ export const fetchKeywords = async (domain: string): Promise<KeywordType[]> => {
    return Array.isArray(data?.keywords) ? data.keywords.map(normalizeKeyword) : [];
 };
 
+export const keywordsQueryOptions = (domain: string) => ({
+   queryKey: keywordsKey(domain),
+   queryFn: () => fetchKeywords(domain),
+});
+
 /**
  * The domain's keywords. While any keyword is still being refreshed by the server the list is re-read every
  * 5 seconds, and a toast says so once the last one finishes.
  */
 export function useKeywords(domain: string, initialKeywords: KeywordType[] | undefined) {
    const query = useQuery({
-      queryKey: keywordsKey(domain),
-      queryFn: () => fetchKeywords(domain),
+      ...keywordsQueryOptions(domain),
       initialData: initialKeywords,
       enabled: !!domain,
       refetchInterval: (current) => (current.state.data?.some((k) => k.updating) ? POLL_WHILE_UPDATING_MS : false),
@@ -47,8 +51,7 @@ export function useKeywords(domain: string, initialKeywords: KeywordType[] | und
 /** Tracked targets needed only after someone starts an add-to-tracker flow. */
 export function useTrackedKeywordsForAdd(domain: string, enabled: boolean) {
    return useQuery({
-      queryKey: keywordsKey(domain),
-      queryFn: () => fetchKeywords(domain),
+      ...keywordsQueryOptions(domain),
       enabled: enabled && !!domain,
       staleTime: 0,
       retry: false,
