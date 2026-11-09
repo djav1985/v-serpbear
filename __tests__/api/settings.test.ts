@@ -266,7 +266,7 @@ describe('GET /api/app/settings and configuration requirements', () => {
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       settings: expect.objectContaining({
-        version: '5.0.0',
+        version: '6.0.0',
       }),
     });
   });

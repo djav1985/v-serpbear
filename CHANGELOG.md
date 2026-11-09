@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file. Releases now follow the conventional commits format but are managed with lightweight project scripts instead of `standard-version`.
 
-## [Unreleased]
+## [6.0.0] (2026-11-08)
 
 ### Added
 

@@ -14,7 +14,7 @@ SerpBear is a full-stack Next.js application that tracks where your pages rank o
 
 ## Contents
 
-- [What's new in 5.0.0](#whats-new-in-500)
+- [What's new in 6.0.0](#whats-new-in-600)
 - [Features](#features)
 - [Getting started](#getting-started)
 - [Supported SERP data providers](#supported-serp-data-providers)
@@ -30,12 +30,13 @@ SerpBear is a full-stack Next.js application that tracks where your pages rank o
 
 ---
 
-## What's new in 5.0.0
+## What's new in 6.0.0
 
-- **Real links for Google redirects.** Results that come back as `google.com/goto` links are resolved to the real page URL, so your domain is matched correctly. It uses Serper's free `/resolve` endpoint: add a free [Serper](https://serper.dev) key as `SERPER_API_KEY` and it works for every scraper. See [the settings table](#settings-configured-in-docker-composeyml-envs).
-- **A clearer average position.** One whole number, the same on the dashboard card and in the email. Keywords that failed their last scrape are left out, a keyword that ranked before and fell out of the results counts at 10 × pages scraped, and map pack keywords count at their best spot. See [How the average position is calculated](#how-the-average-position-is-calculated).
-- **A new interface.** The front end is rebuilt on the Next.js App Router with a top menu bar, a shared table that stays fast on thousands of keywords, and layouts that work on phones. Settings open in a side panel. Domain thumbnails come from a screenshot service and fall back to the site's favicon, so the `SCREENSHOTS` setting is gone.
-- **Smarter keyword adding.** Discover and Ideas share one add-to-tracker bar with a Desktop/Mobile toggle, tags and a location picker. Keywords that are already tracked are skipped, and the Tracking tab can change the location of many keywords at once.
+- **SerpBase support and credit balances.** SerpBase joins the supported providers, and domain cards show remaining credits for providers that report them. Balances are stored per scraper and API key. See [supported SERP data providers](#supported-serp-data-providers) and [Credits remaining](https://github.com/djav1985/v-serpbear/wiki/Scrapers#credits-remaining).
+- **Safer refreshes and keyword edits.** Refreshes, deletes, and location changes now coordinate per domain. Location changes clear the old ranking data before scraping again, and queued refreshes use the keywords' current state when they start.
+- **Tighter request security.** Browser-triggered searches require a same-origin login session, request bodies have size limits, and requests from clients with unknown addresses no longer share a lockout bucket.
+- **Smoother page changes.** Page transitions and panels now animate, with motion disabled for users who prefer reduced motion.
+- **Updated runtime and dependencies.** The Docker image uses Node.js 26, and the project dependencies and tooling have been updated.
 
 The full list of changes is in the [changelog](./CHANGELOG.md). See [Update SerpBear](#update-serpbear) before you upgrade.
 
@@ -97,7 +98,7 @@ docker compose up -d
 
 The checked-in Compose file sets these values directly under `environment:`, so edit that file before starting the container. `.env` values are not automatically passed through by this Compose configuration.
 
-The image is published on [Docker Hub](https://hub.docker.com/r/vontainment/v-serpbear) as `vontainment/v-serpbear`: `latest` is the newest stable release, a version number such as `5.0.0` pins a release, and `beta` is the opt-in beta build.
+The image is published on [Docker Hub](https://hub.docker.com/r/vontainment/v-serpbear) as `vontainment/v-serpbear`: `latest` is the newest stable release, a version number such as `6.0.0` pins a release, and `beta` is the opt-in beta build.
 
 The app is served at <http://localhost:3030> (compose maps host port 3030 to container port 3000). Sign in with `USER_NAME` (or `USER`) and `PASSWORD`, add a domain, then open **Settings → Scraper** to choose a provider and enter its API key.
 
