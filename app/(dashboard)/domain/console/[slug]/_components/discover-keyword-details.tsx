@@ -14,7 +14,7 @@ import { fetchSearchResults } from 'app/(dashboard)/_components/keyword-ideas/id
 import type { DiscoverPeriodPoint } from './discover-period-chart';
 
 const DiscoverPeriodChart = dynamic(() => import('./discover-period-chart').then((module) => module.DiscoverPeriodChart), {
-   loading: () => <div aria-hidden="true" className="h-64 w-full" />,
+   loading: () => <div aria-hidden="true" className="h-[21rem] w-full sm:h-80" />,
 });
 
 const WINDOWS = [

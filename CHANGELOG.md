@@ -11,7 +11,7 @@ All notable changes to this project will be documented in this file. Releases no
 - Mobile keyword search fields stay in the top-right toolbar slot; country and group filters occupy separate grid slots below, avoiding overlap at narrow widths. This covers Tracker, Discover, Ideas, Research, and the Keywords section in Insight.
 - The Tracker Search Console period selector shares a row with sorting and column controls on mobile.
 - Discover’s mobile device tabs collapse to icons with counts so their labels cannot intrude into the keyword search field.
-- Discover keyword details mirror the Ideas side panel, with a 30/7/3-day comparison chart for average daily clicks, average daily impressions, and average position, plus the Google Search results action.
+- Discover keyword details mirror the Ideas side panel, with a 30/7/3-day comparison chart for average daily clicks, average daily impressions, and average position, plus the Google Search results action. The chart placeholder reserves space for the plot, legend, and caption to prevent a layout shift when it loads.
 - Ideas detail charts mount with the side panel, matching the other keyword panels and avoiding a second delayed update during its opening animation.
 - Table rows, empty states, and charts in keyword detail panels fade in over one second when loaded, replacing visible loading skeletons with transparent space. Insight and keyword detail charts keep their space without visible loading blocks.
 - Insight tables use the same viewport-based desktop height as Tracker and Ideas tables.

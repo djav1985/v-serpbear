@@ -11,16 +11,16 @@ export type DiscoverPeriodPoint = {
 };
 
 const CONFIG = {
-   clicksPerDay: { label: 'Average clicks / day', color: 'var(--chart-1)' },
-   impressionsPerDay: { label: 'Average impressions / day', color: 'var(--chart-2)' },
-   position: { label: 'Average position', color: 'var(--chart-3)' },
+   clicksPerDay: { label: 'Avg. clicks / day', color: 'var(--chart-1)' },
+   impressionsPerDay: { label: 'Avg. impressions / day', color: 'var(--chart-2)' },
+   position: { label: 'Avg. position', color: 'var(--chart-3)' },
 } satisfies ChartConfig;
 
 /** Compares the keyword's cached averages for the 30-, 7-, and 3-day windows. */
 export function DiscoverPeriodChart({ points }: { points: DiscoverPeriodPoint[] }) {
    return (
-      <div className="space-y-2">
-         <ChartContainer config={CONFIG} className="aspect-auto h-64 w-full animate-in fade-in-0 duration-1000 motion-reduce:animate-none">
+      <div className="flex h-[21rem] flex-col gap-2 sm:h-80">
+         <ChartContainer config={CONFIG} className="aspect-auto h-64 w-full shrink-0 animate-in fade-in-0 duration-1000 motion-reduce:animate-none">
             <LineChart data={points} margin={{ left: 4, right: 4, top: 8, bottom: 0 }}>
                <CartesianGrid vertical={false} />
                <XAxis dataKey="period" tickLine={false} axisLine={false} />
@@ -33,15 +33,15 @@ export function DiscoverPeriodChart({ points }: { points: DiscoverPeriodPoint[] 
                <Line yAxisId="position" dataKey="position" type="monotone" stroke="var(--color-position)" strokeWidth={2} dot={{ r: 3 }} connectNulls={false} isAnimationActive={false} />
             </LineChart>
          </ChartContainer>
-         <div className="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 text-xs">
+         <div className="text-muted-foreground grid h-12 shrink-0 grid-cols-2 items-center gap-x-3 text-xs sm:flex sm:h-8 sm:flex-wrap sm:gap-x-4">
             {Object.entries(CONFIG).map(([key, value]) => (
-               <span key={key} className="flex items-center gap-1.5">
+               <span key={key} className="flex items-center gap-1.5 whitespace-nowrap">
                   <span className="size-2 rounded-full" style={{ backgroundColor: value.color }} aria-hidden="true" />
                   {value.label}
                </span>
             ))}
          </div>
-         <p className="text-muted-foreground text-xs">Each line uses its own scale. Hover for the actual average values.</p>
+         <p className="text-muted-foreground h-4 shrink-0 truncate text-xs leading-4">Each line uses its own scale. Hover for actual averages.</p>
       </div>
    );
 }
