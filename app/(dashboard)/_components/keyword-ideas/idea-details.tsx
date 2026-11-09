@@ -17,7 +17,7 @@ import { formatInZone } from 'utils/timezone';
 import { fetchSearchResults } from './ideas-queries';
 
 const VolumeChart = dynamic(() => import('../volume-chart').then((module) => module.VolumeChart), {
-   loading: () => <div role="status" aria-label="Loading chart" className="h-64 w-full animate-pulse motion-reduce:animate-none rounded-md bg-muted" />,
+   loading: () => <div aria-hidden="true" className="h-64 w-full" />,
 });
 
 // "january-2025" becomes "Jan, 25".
@@ -61,7 +61,7 @@ export function IdeaDetails({ idea, onClose }: { idea: IdeaKeyword; onClose: () 
             <div className="flex flex-col gap-8 p-4">
                <section>
                   <h3 className="mb-4 text-lg font-bold">Search Volume Trend</h3>
-                  <VolumeChart className="h-64" labels={chart.labels} series={chart.series} />
+                  <VolumeChart className="h-64 animate-in fade-in-0 duration-1000 motion-reduce:animate-none" labels={chart.labels} series={chart.series} />
                </section>
 
                <section>

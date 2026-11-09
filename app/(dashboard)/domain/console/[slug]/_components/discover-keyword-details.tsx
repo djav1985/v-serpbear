@@ -1,10 +1,15 @@
 'use client';
 
 import { useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from 'components/ui/sheet';
 import { formattedNum } from 'utils/client/helpers';
 import countries from 'utils/countries';
 import { formatDateKey } from 'utils/timezone';
+
+const InsightChart = dynamic(() => import('../../../insight/[slug]/_components/insight-chart').then((module) => module.InsightChart), {
+   loading: () => <div aria-hidden="true" className="h-72 w-full" />,
+});
 
 type DiscoverKeywordDetailsProps = {
    keyword: SearchAnalyticsItem;
@@ -90,6 +95,11 @@ export function DiscoverKeywordDetails({ keyword, sevenDayRows, onClose }: Disco
                            </div>
                         ))}
                      </div>
+                  </section>
+
+                  <section>
+                     <h3 className="mb-3 font-semibold">Daily Search Console trend</h3>
+                     <InsightChart stats={days} />
                   </section>
 
                   <section>

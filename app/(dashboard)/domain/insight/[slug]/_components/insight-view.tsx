@@ -30,7 +30,7 @@ const EMPTY: InsightDataType = { stats: null, keywords: [], countries: [], pages
 const percent = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const compact = new Intl.NumberFormat('en-US', { notation: 'compact', compactDisplay: 'short' });
 const InsightChart = dynamic(() => import('./insight-chart').then((module) => module.InsightChart), {
-   loading: () => <div role="status" aria-label="Loading chart" className="h-72 w-full animate-pulse motion-reduce:animate-none rounded-md bg-muted" />,
+   loading: () => <div aria-hidden="true" className="h-72 w-full" />,
 });
 
 type InsightColumn = ColumnDef<DataTableFeatures, SCInsightItem>;

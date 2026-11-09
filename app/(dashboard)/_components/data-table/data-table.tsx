@@ -4,7 +4,6 @@ import { startTransition, useLayoutEffect, useRef, useState, type CSSProperties,
 import type { ReactTable, Row, RowData } from '@tanstack/react-table';
 import { useVirtualizer, useWindowVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react';
-import { Skeleton } from 'components/ui/skeleton';
 import { useIsMobile } from 'hooks/use-mobile';
 import { cn } from 'lib/utils';
 import './column-meta';
@@ -20,7 +19,7 @@ type DataTableProps<TData extends RowData> = {
    estimateStackedHeight?: number;
    /** When set, narrow screens show this card per row instead of the grid. */
    renderStackedRow?: (row: Row<DataTableFeatures, TData>) => ReactNode;
-   /** True while the first load is in flight. Shows skeletons only when there are no rows yet. */
+   /** True while the first load is in flight. */
    isLoading?: boolean;
    /** Shown when loading has finished and no row matches. */
    emptyMessage?: ReactNode;
@@ -126,7 +125,6 @@ export function DataTable<TData extends RowData>({
       return () => observer.disconnect();
    }, [stacked, firstRowSize, estimateRowHeight]);
 
-   const showSkeleton = isLoading && rows.length === 0;
    const showEmpty = !isLoading && rows.length === 0;
 
    return (
@@ -182,16 +180,10 @@ export function DataTable<TData extends RowData>({
             </div>
          )}
 
-         {showSkeleton && (
-            <div className="flex flex-col gap-2 p-4" aria-label="Loading">
-               {Array.from({ length: 6 }, (_, index) => <Skeleton key={index} className="h-12 w-full" />)}
-            </div>
-         )}
-
-         {showEmpty && <div className="text-muted-foreground p-10 text-center text-sm">{emptyMessage}</div>}
+         {showEmpty && <div className="text-muted-foreground animate-in fade-in-0 p-10 text-center text-sm duration-1000 motion-reduce:animate-none">{emptyMessage}</div>}
 
          {rows.length > 0 && (
-            <div role="rowgroup" className="relative" style={{ height: activeVirtualizer.getTotalSize(), minWidth: stacked ? undefined : minWidth }}>
+            <div role="rowgroup" className="relative animate-in fade-in-0 duration-1000 motion-reduce:animate-none" style={{ height: activeVirtualizer.getTotalSize(), minWidth: stacked ? undefined : minWidth }}>
                {activeVirtualizer.getVirtualItems().map((virtualRow) => {
                   const row = rows[virtualRow.index];
                   return (

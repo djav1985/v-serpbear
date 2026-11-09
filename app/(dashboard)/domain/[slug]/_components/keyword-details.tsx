@@ -18,7 +18,7 @@ import { formatInZone } from 'utils/timezone';
 import { useKeywordDetails } from '../../_components/keyword-queries';
 
 const PositionChart = dynamic(() => import('app/(dashboard)/_components/position-chart').then((module) => module.PositionChart), {
-   loading: () => <div role="status" aria-label="Loading chart" className="h-64 w-full animate-pulse motion-reduce:animate-none rounded-md bg-muted" />,
+   loading: () => <div aria-hidden="true" className="h-64 w-full" />,
 });
 
 const RANGE_OPTIONS = [
@@ -98,7 +98,7 @@ export function KeywordDetails({ keyword, onClose }: KeywordDetailsProps) {
                         <SelectContent>{RANGE_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
                      </Select>
                   </div>
-                  <PositionChart className="h-64" labels={chart.labels} series={chart.series} />
+                  <PositionChart className="h-64 animate-in fade-in-0 duration-1000 motion-reduce:animate-none" labels={chart.labels} series={chart.series} />
                </section>
 
                <section>
