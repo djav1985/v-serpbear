@@ -142,8 +142,8 @@ export function DataTable<TData extends RowData>({
             className={cn(
                'relative w-full',
                stacked ? 'overflow-visible' : 'overflow-auto',
-               // The server snapshot is desktop. Keep stacked tables from trapping page scroll on mobile before hydration.
-               renderStackedRow && 'max-[767px]:overflow-visible',
+               // The server snapshot is desktop. Clip its wide grid on mobile until hydration switches to stacked rows.
+               renderStackedRow && !stacked && 'max-[767px]:overflow-clip',
                !stacked && !snappedHeight && className,
             )}
             style={snappedHeight ? { height: snappedHeight } : undefined}

@@ -56,15 +56,15 @@ type StatProps = { label: string; children: React.ReactNode };
 
 function Stat({ label, children }: StatProps) {
    return (
-      <div className="flex-1 text-center">
-         <span className="text-muted-foreground mb-1 block text-xs font-normal">{label}</span>
-         <span className="text-2xl font-semibold">{children}</span>
+      <div className="min-w-0 flex-1 text-center">
+         <span className="text-muted-foreground mb-1 block text-xs leading-4 font-normal">{label}</span>
+         <span className="flex h-8 items-center justify-center overflow-hidden text-xl leading-none font-semibold whitespace-nowrap sm:text-2xl">{children}</span>
       </div>
    );
 }
 
 function StatPlaceholder({ loading }: { loading: boolean }) {
-   return loading ? <span className="mx-auto block h-7 w-12" aria-label="Loading statistics" /> : <span aria-label="Statistics not loaded">—</span>;
+   return loading ? <span className="block h-7 w-12" aria-label="Loading statistics" /> : <span aria-label="Statistics not loaded">—</span>;
 }
 
 function CompactMetric({ value }: { value: number }) {
