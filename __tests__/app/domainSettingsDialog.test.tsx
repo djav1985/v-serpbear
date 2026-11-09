@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { DomainSettingsDialog } from 'app/(dashboard)/domain/_components/domain-settings-dialog';
 import TrackerPage from 'app/(dashboard)/domain/[slug]/page';
-import { loadDomains } from 'utils/domainsList';
+import { loadDomainBySlug } from 'utils/domainsList';
 import { getAppSettings } from 'utils/appSettings';
 import { loadDomainKeywords } from 'utils/keywordsList';
 import { requireSession } from 'utils/serverSession';
@@ -16,7 +16,7 @@ jest.mock('utils/client/apiClient', () => ({
    apiPut: jest.fn(),
    apiDelete: jest.fn(),
 }));
-jest.mock('utils/domainsList', () => ({ loadDomains: jest.fn(async () => [{ ID: 1, domain: 'example.com', slug: 'example-com', search_console: '{}' }]) }));
+jest.mock('utils/domainsList', () => ({ loadDomainBySlug: jest.fn(async () => ({ ID: 1, domain: 'example.com', slug: 'example-com', search_console: '{}' })) }));
 jest.mock('utils/appSettings', () => ({ getAppSettings: jest.fn(async () => ({ scraper_type: 'none', available_scapers: [], keywordsColumns: ['Best'] })) }));
 jest.mock('utils/keywordsList', () => ({ loadDomainKeywords: jest.fn(async () => ({ keywords: [], backfill: jest.fn() })) }));
 jest.mock('utils/serverSession', () => ({ requireSession: jest.fn() }));
@@ -63,7 +63,7 @@ describe('Tracker page initial load', () => {
       const page = await TrackerPage({ params: Promise.resolve({ slug: 'example-com' }) });
 
       expect(requireSession).toHaveBeenCalled();
-      expect(loadDomains).toHaveBeenCalled();
+      expect(loadDomainBySlug).toHaveBeenCalledWith('example-com');
       expect(getAppSettings).toHaveBeenCalled();
       expect(loadDomainKeywords).not.toHaveBeenCalled();
       expect(page.type).toBe(TrackerView);
