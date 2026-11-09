@@ -1,16 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useRef, ViewTransition } from 'react';
+import { useMemo, ViewTransition } from 'react';
 import dynamic from 'next/dynamic';
-import { useQuery } from '@tanstack/react-query';
-import { ExternalLink, Loader2, Search } from 'lucide-react';
-import { Button } from 'components/ui/button';
+import { ExternalLink, Search } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from 'components/ui/sheet';
-import { safeHttpUrl } from 'utils/client/safeUrl';
 import countries from 'utils/countries';
 import { formatInZone } from 'utils/timezone';
 import { getAppTimezone } from 'utils/client/appTimezone';
-import { fetchSearchResults } from 'app/(dashboard)/_components/keyword-ideas/ideas-queries';
 import type { DiscoverPeriodPoint } from './discover-period-chart';
 
 const DiscoverPeriodChart = dynamic(() => import('./discover-period-chart').then((module) => module.DiscoverPeriodChart), {
@@ -33,15 +29,6 @@ type DiscoverKeywordDetailsProps = {
 const normalize = (value: string) => value.trim().toLocaleLowerCase();
 
 export function DiscoverKeywordDetails({ keyword, periodRows, lastFetched, onClose }: DiscoverKeywordDetailsProps) {
-   const foundRef = useRef<HTMLDivElement>(null);
-   const search = useQuery({
-      queryKey: ['discover-keyword-search', keyword.uid, keyword.device] as const,
-      queryFn: () => fetchSearchResults({ keyword: keyword.keyword, country: keyword.country, device: keyword.device }),
-      enabled: false,
-      refetchOnWindowFocus: false,
-   });
-   const results = useMemo(() => search.data?.searchResult?.results ?? [], [search.data]);
-
    const chartPoints = useMemo(() => WINDOWS.map(({ key, days, label }) => {
       const matches = periodRows[key].filter((row) => row.uid === keyword.uid || (
          normalize(row.keyword) === normalize(keyword.keyword)
@@ -64,8 +51,6 @@ export function DiscoverKeywordDetails({ keyword, periodRows, lastFetched, onClo
          position: Math.round((impressions > 0 ? weightedPosition / impressions : positionSum / matches.length) * 100) / 100,
       } satisfies DiscoverPeriodPoint;
    }), [keyword, periodRows]);
-
-   useEffect(() => { foundRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, [results]);
 
    const updated = lastFetched
       ? formatInZone(lastFetched, { month: 'long', day: 'numeric', year: 'numeric' }, getAppTimezone())
@@ -102,26 +87,10 @@ export function DiscoverKeywordDetails({ keyword, periodRows, lastFetched, onClo
                      <span className="text-muted-foreground text-xs">{updated}</span>
                   </div>
 
-                  {!search.data && (
-                     <div className="flex flex-col items-center gap-3 py-8 text-center text-sm font-medium">
-                        <p>View Google search results for &quot;{keyword.keyword}&quot;</p>
-                        <Button onClick={() => search.refetch()} disabled={search.isFetching}>
-                           {search.isFetching ? <Loader2 className="animate-spin" /> : <Search />}
-                           {search.isFetching ? 'Performing Google search' : 'Perform Google Search'}
-                        </Button>
-                        {search.isError && <p role="alert" className="text-destructive text-xs">Could not run the search. Try again.</p>}
-                     </div>
-                  )}
-
-                  {results.map((item, index) => {
-                     const url = safeHttpUrl(item.url);
-                     return (
-                        <div key={`${item.url}${item.position}`} ref={index === 0 ? foundRef : null} className="mb-3 rounded-md p-3 text-sm break-all">
-                           <h4 className="text-primary font-semibold">{url ? <a href={url} target="_blank" rel="noreferrer">{`${index + 1}. ${item.title}`}</a> : `${index + 1}. ${item.title}`}</h4>
-                           {url ? <a className="text-muted-foreground" href={url} target="_blank" rel="noreferrer">{item.url}</a> : <span className="text-muted-foreground">{item.url}</span>}
-                        </div>
-                     );
-                  })}
+                  <a className="text-primary inline-flex items-center gap-2 py-4 font-medium hover:underline" href={`https://www.google.com/search?q=${encodeURIComponent(keyword.keyword)}`} target="_blank" rel="noreferrer">
+                     <Search className="size-4" />
+                     View Google search results for &quot;{keyword.keyword}&quot;
+                  </a>
                </section>
             </div>
          </SheetContent>

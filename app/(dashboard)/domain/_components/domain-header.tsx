@@ -32,7 +32,7 @@ const TABS = [
 ] as const;
 
 /** The domain name, the four view tabs and the actions every domain view shares. */
-export function DomainHeader({ domain, searchConsoleConnected, adwordsConnected, onOpenSettings, onExport, onReloadAll, onAddKeyword, onLoadIdeas, children }: DomainHeaderProps) {
+export function DomainHeader({ domain, onOpenSettings, onExport, onReloadAll, onAddKeyword, onLoadIdeas, children }: DomainHeaderProps) {
    const pathname = usePathname() ?? '';
    const router = useRouter();
    const { domains } = useShell();

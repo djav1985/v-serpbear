@@ -108,6 +108,9 @@ export function DataTable<TData extends RowData>({
    });
 
    const activeVirtualizer = stacked ? windowVirtualizer : virtualizer;
+   const loadingPlaceholderCount = stacked && isLoading
+      ? Math.ceil((window.innerHeight - (scrollRef.current?.getBoundingClientRect().top ?? 0)) / estimateStackedHeight)
+      : 0;
 
    const firstRowSize = activeVirtualizer.getVirtualItems()[0]?.size;
    useLayoutEffect(() => {
@@ -181,6 +184,14 @@ export function DataTable<TData extends RowData>({
          )}
 
          {showEmpty && <div className="text-muted-foreground animate-in fade-in-0 p-10 text-center text-sm duration-1000 motion-reduce:animate-none">{emptyMessage}</div>}
+
+         {loadingPlaceholderCount > 0 && (
+            <div aria-hidden="true" className="invisible" style={{ height: loadingPlaceholderCount * estimateStackedHeight }}>
+               {Array.from({ length: loadingPlaceholderCount }, (_, index) => (
+                  <div key={index} style={{ height: estimateStackedHeight }} />
+               ))}
+            </div>
+         )}
 
          {rows.length > 0 && (
             <div role="rowgroup" className="relative animate-in fade-in-0 duration-1000 motion-reduce:animate-none" style={{ height: activeVirtualizer.getTotalSize(), minWidth: stacked ? undefined : minWidth }}>
