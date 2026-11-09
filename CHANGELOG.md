@@ -21,6 +21,7 @@ All notable changes to this project will be documented in this file. Releases no
 ### Changed
 
 - Node.js is now 26.13.0 (the current long-term release) in the Docker image and `.nvmrc`, and `package.json` declares `engines.node >=22`.
+- Mobile tables now scroll with the page while keeping rows virtualized, instead of using a separate table scroll area.
 
 ### Fixed
 
