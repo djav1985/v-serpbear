@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, ViewTransition } from 'react';
 import dynamic from 'next/dynamic';
 import { ExternalLink } from 'lucide-react';
 import {
@@ -98,7 +98,9 @@ export function KeywordDetails({ keyword, onClose }: KeywordDetailsProps) {
                         <SelectContent>{RANGE_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
                      </Select>
                   </div>
-                  <PositionChart className="h-64 animate-in fade-in-0 duration-1000 motion-reduce:animate-none" labels={chart.labels} series={chart.series} />
+                  <ViewTransition default="none">
+                     <PositionChart className="h-64 animate-in fade-in-0 duration-1000 motion-reduce:animate-none" labels={chart.labels} series={chart.series} />
+                  </ViewTransition>
                </section>
 
                <section>

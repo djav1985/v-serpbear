@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, ViewTransition } from 'react';
 import dynamic from 'next/dynamic';
 import { useQuery } from '@tanstack/react-query';
 import { ExternalLink, Loader2, Search } from 'lucide-react';
@@ -86,7 +86,9 @@ export function DiscoverKeywordDetails({ keyword, periodRows, lastFetched, onClo
             <div className="flex flex-col gap-8 p-4">
                <section>
                   <h3 className="mb-4 text-lg font-bold">Search Console Performance</h3>
-                  <DiscoverPeriodChart points={chartPoints} />
+                  <ViewTransition default="none">
+                     <DiscoverPeriodChart points={chartPoints} />
+                  </ViewTransition>
                </section>
 
                <section>

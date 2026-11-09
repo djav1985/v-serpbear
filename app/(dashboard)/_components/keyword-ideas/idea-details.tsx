@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, ViewTransition } from 'react';
 import dynamic from 'next/dynamic';
 import { useQuery } from '@tanstack/react-query';
 import { ExternalLink, Loader2, Search } from 'lucide-react';
@@ -61,7 +61,9 @@ export function IdeaDetails({ idea, onClose }: { idea: IdeaKeyword; onClose: () 
             <div className="flex flex-col gap-8 p-4">
                <section>
                   <h3 className="mb-4 text-lg font-bold">Search Volume Trend</h3>
-                  <VolumeChart className="h-64 animate-in fade-in-0 duration-1000 motion-reduce:animate-none" labels={chart.labels} series={chart.series} />
+                  <ViewTransition default="none">
+                     <VolumeChart className="h-64 animate-in fade-in-0 duration-1000 motion-reduce:animate-none" labels={chart.labels} series={chart.series} />
+                  </ViewTransition>
                </section>
 
                <section>
