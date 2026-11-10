@@ -11,9 +11,64 @@ import { toHistoryDateKey } from '../../utils/historyDateKey';
 import { generateTheChartData } from '../../utils/client/generateChartData';
 
 const mockOrigin = 'http://localhost:3000';
+const createSCKeyword = (overrides: Partial<SCKeywordType> = {}): SCKeywordType => ({
+  uid: 'fixture-keyword',
+  keyword: 'term',
+  country: 'US',
+  device: 'desktop',
+  position: 10,
+  impressions: 10,
+  clicks: 1,
+  ctr: 0.1,
+  page: '/test',
+  ...overrides,
+});
+
 jest.mock('../../utils/client/origin', () => ({
    getClientOrigin: () => mockOrigin,
 }));
+
+describe('getClientOrigin', () => {
+   const getClientOrigin = jest.requireActual<typeof import('../../utils/client/origin')>(
+      '../../utils/client/origin',
+   ).getClientOrigin;
+
+   const withServerEnvironment = (env: { NEXT_PUBLIC_APP_URL?: string; APP_URL?: string }, run: () => void) => {
+      const windowDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'window');
+      const originalNextPublicUrl = process.env.NEXT_PUBLIC_APP_URL;
+      const originalAppUrl = process.env.APP_URL;
+      Object.defineProperty(globalThis, 'window', { configurable: true, value: undefined });
+      if (env.NEXT_PUBLIC_APP_URL === undefined) delete process.env.NEXT_PUBLIC_APP_URL;
+      else process.env.NEXT_PUBLIC_APP_URL = env.NEXT_PUBLIC_APP_URL;
+      if (env.APP_URL === undefined) delete process.env.APP_URL;
+      else process.env.APP_URL = env.APP_URL;
+
+      try {
+         run();
+      } finally {
+         if (windowDescriptor) Object.defineProperty(globalThis, 'window', windowDescriptor);
+         else Reflect.deleteProperty(globalThis, 'window');
+         if (originalNextPublicUrl === undefined) delete process.env.NEXT_PUBLIC_APP_URL;
+         else process.env.NEXT_PUBLIC_APP_URL = originalNextPublicUrl;
+         if (originalAppUrl === undefined) delete process.env.APP_URL;
+         else process.env.APP_URL = originalAppUrl;
+      }
+   };
+
+   it('prefers the public app URL and removes trailing slashes without a browser window', () => {
+      withServerEnvironment(
+         { NEXT_PUBLIC_APP_URL: 'https://public.example///', APP_URL: 'https://server.example' },
+         () => expect(getClientOrigin()).toBe('https://public.example'),
+      );
+   });
+
+   it.each([
+      ['server app URL', { APP_URL: 'https://server.example/' }, 'https://server.example'],
+      ['local fallback', {}, 'http://localhost:3000'],
+   ] as const)('uses the %s when no browser window or public URL is available', (_label, env, expected) => {
+      withServerEnvironment(env, () => expect(getClientOrigin()).toBe(expected));
+   });
+});
 
 describe('api client', () => {
   describe('ApiError', () => {
@@ -85,13 +140,7 @@ describe('api client', () => {
      it('propagates X-Request-Id from response headers into ApiError', async () => {
         mockFetch(500, { error: { code: 'SERVER_ERROR', message: 'Boom' } }, { 'content-type': 'application/json', 'X-Request-Id': 'req-xyz' });
 
-        let caughtError: ApiError | undefined;
-        try {
-           await apiFetch('/api/fail');
-        } catch (e) {
-           caughtError = e as ApiError;
-        }
-        expect(caughtError?.requestId).toBe('req-xyz');
+        await expect(apiFetch('/api/fail')).rejects.toMatchObject<ApiError>({ requestId: 'req-xyz' });
      });
 
      it('falls back to generic message for non-JSON error response', async () => {
@@ -583,23 +632,10 @@ describe('sort and filter', () => {
 
 describe('search console sort and filter', () => {
   describe('SCsortKeywords', () => {
-     const createKeyword = (overrides: Partial<SCKeywordType>): SCKeywordType => ({
-        uid: `${Math.random()}`,
-        keyword: 'term',
-        country: 'US',
-        device: 'desktop',
-        position: 10,
-        impressions: 10,
-        clicks: 1,
-        ctr: 0.1,
-        page: '/test',
-        ...overrides,
-     });
-
      it('sorts impression metrics asc/desc correctly', () => {
         const keywords = [
-           createKeyword({ uid: 'a', impressions: 100 }),
-           createKeyword({ uid: 'b', impressions: 10 }),
+           createSCKeyword({ uid: 'a', impressions: 100 }),
+           createSCKeyword({ uid: 'b', impressions: 10 }),
         ];
         expect(SCsortKeywords(keywords, 'imp_asc').map((k) => k.uid)).toEqual(['b', 'a']);
         expect(SCsortKeywords(keywords, 'imp_desc').map((k) => k.uid)).toEqual(['a', 'b']);
@@ -607,8 +643,8 @@ describe('search console sort and filter', () => {
 
      it('sorts visits asc/desc correctly', () => {
         const keywords = [
-           createKeyword({ uid: 'a', clicks: 5 }),
-           createKeyword({ uid: 'b', clicks: 20 }),
+           createSCKeyword({ uid: 'a', clicks: 5 }),
+           createSCKeyword({ uid: 'b', clicks: 20 }),
         ];
         expect(SCsortKeywords(keywords, 'visits_asc').map((k) => k.uid)).toEqual(['a', 'b']);
         expect(SCsortKeywords(keywords, 'visits_desc').map((k) => k.uid)).toEqual(['b', 'a']);
@@ -616,8 +652,8 @@ describe('search console sort and filter', () => {
 
      it('sorts ctr asc/desc correctly', () => {
         const keywords = [
-           createKeyword({ uid: 'a', ctr: 0.05 }),
-           createKeyword({ uid: 'b', ctr: 0.25 }),
+           createSCKeyword({ uid: 'a', ctr: 0.05 }),
+           createSCKeyword({ uid: 'b', ctr: 0.25 }),
         ];
         expect(SCsortKeywords(keywords, 'ctr_asc').map((k) => k.uid)).toEqual(['a', 'b']);
         expect(SCsortKeywords(keywords, 'ctr_desc').map((k) => k.uid)).toEqual(['b', 'a']);
@@ -625,9 +661,9 @@ describe('search console sort and filter', () => {
 
      it('sorts position asc/desc handling zero position gracefully', () => {
         const keywords = [
-           createKeyword({ uid: 'a', position: 0 }),
-           createKeyword({ uid: 'b', position: 3 }),
-           createKeyword({ uid: 'c', position: 12 }),
+           createSCKeyword({ uid: 'a', position: 0 }),
+           createSCKeyword({ uid: 'b', position: 3 }),
+           createSCKeyword({ uid: 'c', position: 12 }),
         ];
         expect(SCsortKeywords(keywords, 'pos_asc').map((k) => k.uid)).toEqual(['b', 'c', 'a']);
         expect(SCsortKeywords(keywords, 'pos_desc').map((k) => k.uid)).toEqual(['a', 'c', 'b']);
@@ -635,8 +671,8 @@ describe('search console sort and filter', () => {
 
      it('sorts alphabetically', () => {
         const keywords = [
-           createKeyword({ uid: 'a', keyword: 'zeta' }),
-           createKeyword({ uid: 'b', keyword: 'alpha' }),
+           createSCKeyword({ uid: 'a', keyword: 'zeta' }),
+           createSCKeyword({ uid: 'b', keyword: 'alpha' }),
         ];
         expect(SCsortKeywords(keywords, 'alpha_asc').map((k) => k.uid)).toEqual(['b', 'a']);
         expect(SCsortKeywords(keywords, 'alpha_desc').map((k) => k.uid)).toEqual(['a', 'b']);
@@ -644,24 +680,11 @@ describe('search console sort and filter', () => {
   });
 
   describe('SCfilterKeywords', () => {
-     const createKeyword = (overrides: Partial<SCKeywordType>): SCKeywordType => ({
-        uid: `${Math.random()}`,
-        keyword: 'Term',
-        country: 'US',
-        device: 'desktop',
-        position: 10,
-        impressions: 10,
-        clicks: 1,
-        ctr: 0.1,
-        page: '/test',
-        ...overrides,
-     });
-
      it('filters by country and case-insensitive search text', () => {
         const keywords = [
-           createKeyword({ uid: 'a', keyword: 'Alpha', country: 'US' }),
-           createKeyword({ uid: 'b', keyword: 'alpha', country: 'GB' }),
-           createKeyword({ uid: 'c', keyword: 'Beta', country: 'US' }),
+           createSCKeyword({ uid: 'a', keyword: 'Alpha', country: 'US' }),
+           createSCKeyword({ uid: 'b', keyword: 'alpha', country: 'GB' }),
+           createSCKeyword({ uid: 'c', keyword: 'Beta', country: 'US' }),
         ];
 
         const filtered = SCfilterKeywords(keywords, {
@@ -675,8 +698,8 @@ describe('search console sort and filter', () => {
 
      it('matches search text regardless of case and surrounding whitespace', () => {
         const keywords = [
-           createKeyword({ uid: 'a', keyword: 'Coffee Shops', country: 'US' }),
-           createKeyword({ uid: 'b', keyword: 'tea', country: 'US' }),
+           createSCKeyword({ uid: 'a', keyword: 'Coffee Shops', country: 'US' }),
+           createSCKeyword({ uid: 'b', keyword: 'tea', country: 'US' }),
         ];
 
         const filtered = SCfilterKeywords(keywords, {

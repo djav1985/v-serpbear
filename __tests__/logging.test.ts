@@ -1,5 +1,6 @@
 import { getClientIp } from '../utils/api/clientIp';
 import { redactSecrets, redactUrl } from '../utils/logRedaction';
+import { buildRequest } from './__helpers__/routeAdapter';
 
 jest.mock('../utils/logger', () => ({
   logger: {
@@ -240,7 +241,7 @@ describe('api logging', () => {
 
       const response = await GET(request());
 
-      expect(seen).toBeTruthy();
+      expect(seen).toEqual(expect.stringMatching(/^\d+-[a-z0-9]+$/));
       expect(response.headers.get('X-Request-Id')).toBe(seen);
     });
 
@@ -382,7 +383,6 @@ describe('api logging', () => {
   });
 
   describe('getClientIp', () => {
-    const makeReq = (headers: Record<string, string>) => new Request('http://localhost/api/test', { headers });
     let originalEnv: NodeJS.ProcessEnv;
 
     beforeEach(() => {
@@ -394,26 +394,26 @@ describe('api logging', () => {
 
     it('ignores a forwarded header unless a proxy is configured, because a client can send it itself', () => {
       delete process.env.TRUST_PROXY;
-      expect(getClientIp(makeReq({ 'x-forwarded-for': '1.2.3.4' }))).toBe('unknown');
+      expect(getClientIp(buildRequest({ headers: { 'x-forwarded-for': '1.2.3.4' } }))).toBe('unknown');
     });
 
     it('reads the entry one hop from the right when TRUST_PROXY=true', () => {
       process.env.TRUST_PROXY = 'true';
       // the client-supplied first entry is ignored; our proxy appended the last one
-      expect(getClientIp(makeReq({ 'x-forwarded-for': '6.6.6.6, 203.0.113.5' }))).toBe('203.0.113.5');
+      expect(getClientIp(buildRequest({ headers: { 'x-forwarded-for': '6.6.6.6, 203.0.113.5' } }))).toBe('203.0.113.5');
     });
 
     it('honours a hop count', () => {
       process.env.TRUST_PROXY = '2';
-      expect(getClientIp(makeReq({ 'x-forwarded-for': '6.6.6.6, 203.0.113.5, 172.16.0.1' }))).toBe('203.0.113.5');
+      expect(getClientIp(buildRequest({ headers: { 'x-forwarded-for': '6.6.6.6, 203.0.113.5, 172.16.0.1' } }))).toBe('203.0.113.5');
     });
 
     it('returns unknown when the entry is missing or not an IP', () => {
       process.env.TRUST_PROXY = '1';
-      expect(getClientIp(makeReq({}))).toBe('unknown');
-      expect(getClientIp(makeReq({ 'x-forwarded-for': 'not-an-ip' }))).toBe('unknown');
+      expect(getClientIp(buildRequest())).toBe('unknown');
+      expect(getClientIp(buildRequest({ headers: { 'x-forwarded-for': 'not-an-ip' } }))).toBe('unknown');
       process.env.TRUST_PROXY = '3';
-      expect(getClientIp(makeReq({ 'x-forwarded-for': '203.0.113.5' }))).toBe('unknown');
+      expect(getClientIp(buildRequest({ headers: { 'x-forwarded-for': '203.0.113.5' } }))).toBe('unknown');
     });
   });
 });

@@ -17,6 +17,13 @@ test is checking.
   behavior; `logging.test.ts` covers the real wrapper.
 - `runScraperURLContracts(config)` registers URL contract tests shared by
   scraper providers. Keep provider-specific behavior in the provider suite.
+- `createTestQueryClient()`, `createQueryClientWrapper()`, and
+  `renderWithQueryClient()` give React Query tests a fresh client with retries
+  disabled; use them only in suites that need the provider.
+- `buildKeywordRow(overrides?)` builds a serialized database keyword row for
+  parser and route tests; keep per-test values in the override object.
+- `createTempAppDataDir(prefix)` creates a temporary working directory with a
+  `data` folder and a `process.cwd()` spy. Call its `cleanup()` in `afterEach`.
 
 ## Usage
 

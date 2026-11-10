@@ -1,6 +1,7 @@
  
 import { NextApiRequest, NextApiResponse } from 'next';
 import { asHandler } from '../__helpers__/routeAdapter';
+import { createMockResponse } from '../__helpers__';
 import * as handlerRoute from '../../app/api/google/searchconsole/route';
 import * as insightHandlerRoute from '../../app/api/google/insight/route';
 import { fetchDomainSCData, getSearchConsoleApiInfo, readLocalSCData } from '../../utils/searchConsole';
@@ -441,21 +442,13 @@ describe('Search Console, Volume and AdWords routes', () => {
           jest.clearAllMocks();
        });
 
-       const createResponse = () => {
-          const res = {
-             status: jest.fn().mockReturnThis(),
-             json: jest.fn(),
-          } as unknown as NextApiResponse;
-          return res;
-       };
-
        it('returns computed volumes when update flag is false', async () => {
           const req = {
              method: 'POST',
              body: { keywords: [1], update: false },
              headers: {},
           } as unknown as NextApiRequest;
-          const res = createResponse();
+          const res = createMockResponse();
 
           await handler(req, res);
 
@@ -479,7 +472,7 @@ describe('Search Console, Volume and AdWords routes', () => {
              body: { keywords: [1], update: true },
              headers: {},
           } as unknown as NextApiRequest;
-          const res = createResponse();
+          const res = createMockResponse();
 
           await handler(req, res);
 
@@ -507,7 +500,7 @@ describe('Search Console, Volume and AdWords routes', () => {
              body: { keywords: [1], domain: 'example.com', update: false },
              headers: {},
           } as unknown as NextApiRequest;
-          const res = createResponse();
+          const res = createMockResponse();
 
           await handler(req, res);
 
@@ -528,7 +521,7 @@ describe('Search Console, Volume and AdWords routes', () => {
 
        it('returns 400 when a keyword ID is not a positive integer, without querying', async () => {
           const req = { method: 'POST', body: { keywords: [1, 'abc'] }, headers: {} } as unknown as NextApiRequest;
-          const res = createResponse();
+          const res = createMockResponse();
 
           await handler(req, res);
 
@@ -538,7 +531,7 @@ describe('Search Console, Volume and AdWords routes', () => {
 
        it('returns 400 when domain is not a string', async () => {
           const req = { method: 'POST', body: { keywords: [], domain: { $ne: '' } }, headers: {} } as unknown as NextApiRequest;
-          const res = createResponse();
+          const res = createMockResponse();
 
           await handler(req, res);
 
@@ -551,7 +544,7 @@ describe('Search Console, Volume and AdWords routes', () => {
           resetRateLimits();
           const run = async () => {
              const req = { method: 'POST', body: { domain: 'all', update: false }, headers: {}, socket: { remoteAddress: '192.0.2.5' } } as unknown as NextApiRequest;
-             const res = createResponse();
+             const res = createMockResponse();
              await handler(req, res);
              return res;
           };
@@ -567,7 +560,7 @@ describe('Search Console, Volume and AdWords routes', () => {
        it('answers 500 when saving the volumes fails', async () => {
           updateKeywordsVolumeDataMock.mockRejectedValue(new Error('db failure'));
           const req = { method: 'POST', body: { keywords: [1] }, headers: {} } as unknown as NextApiRequest;
-          const res = createResponse();
+          const res = createMockResponse();
 
           await handler(req, res);
 

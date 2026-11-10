@@ -6,6 +6,12 @@ All notable changes to this project will be documented in this file. Releases no
 
 ### Changed
 
+- Replace ineffective async `resolves.not.toThrow()` migration assertions with direct awaits so rejected migrations fail clearly.
+- Cover client-origin selection in browser-free tests, including public/server URL precedence, trailing-slash normalization, and the localhost fallback.
+- Remove a duplicate branding URL test and make the tracking-seed ordering test assert its resolved result instead of swallowing arbitrary errors.
+- Remove duplicate keyword-coercion integration coverage and cover parsing structured keyword update errors; use explicit Jest rejection and value assertions.
+- Add shared React Query, serialized keyword-row, and temporary app-data test helpers; reuse the existing response and request helpers across suites.
+- Consolidate add-flow query hook tests and use accessible asynchronous queries for dialog fields.
 - Dashboard pages use private browser caching for 60 seconds with revalidation after expiration; login pages are not stored, API responses use `no-cache, no-store`, and domain screenshots ask thum.io to cache for seven days.
 - Add `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, and `X-Frame-Options: DENY` response headers.
 - Add a Content Security Policy for local app resources, inline scripts/styles, Google favicons, and thum.io screenshots.

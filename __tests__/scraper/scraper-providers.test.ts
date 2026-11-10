@@ -12,6 +12,9 @@ import searchapi from '../../scrapers/services/searchapi';
 import { runScraperURLContracts } from '../__helpers__/scraperContract';
 import { computeMapPackTop3 } from '../../utils/mapPack';
 
+const buildKeyword = (overrides: Partial<KeywordType> = {}) =>
+  ({ keyword: 'plumbers', country: 'US', device: 'desktop', location: '', domain: 'plumbers.example', ...overrides } as KeywordType);
+
 jest.mock('../../utils/logger', () => ({
   logger: {
     debug: jest.fn(),
@@ -324,9 +327,6 @@ describe('prismcrawl', () => {
 
   const settings = { scraping_api: 'prism-test-key' } as SettingsType;
 
-  const buildKeyword = (overrides: Partial<KeywordType> = {}) =>
-    ({ keyword: 'plumbers', country: 'US', device: 'desktop', location: '', domain: 'plumbers.example', ...overrides } as KeywordType);
-
   describe('prismcrawl scraper', () => {
     afterEach(() => {
       jest.restoreAllMocks();
@@ -530,9 +530,6 @@ describe('dataforseo', () => {
   } as any;
 
   const settings = { scraping_api: 'login@example.com:secret' } as SettingsType;
-
-  const buildKeyword = (overrides: Partial<KeywordType> = {}) =>
-    ({ keyword: 'plumbers', country: 'US', device: 'desktop', location: '', domain: 'plumbers.example', ...overrides } as KeywordType);
 
   const organic = (rank: number, host = `site${rank}.example`) => ({
     type: 'organic',

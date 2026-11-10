@@ -1,7 +1,8 @@
  
-import type { NextApiRequest, NextApiResponse } from 'next';
+import type { NextApiRequest } from 'next';
 import verifyUser, { checkApiKey } from '../utils/verifyUser';
 import { buildRequest } from './__helpers__/routeAdapter';
+import { createMockResponse } from './__helpers__';
 import jwt from 'jsonwebtoken';
 import { getApiKeyAttemptKeys } from '../utils/apiKeyThrottle';
 import { clearLoginFailures, isLoginLocked, recordLoginFailure, resetLoginThrottle } from '../utils/loginThrottle';
@@ -563,12 +564,6 @@ describe('session check route', () => {
   let cookieToken: string | undefined;
   const jwtVerifyMock = verifySessionToken as unknown as jest.Mock;
 
-  const createRes = () => ({
-    status: jest.fn().mockReturnThis(),
-    json: jest.fn(),
-    setHeader: jest.fn(),
-  } as unknown as NextApiResponse);
-
   describe('GET /api/auth/check', () => {
     const originalSecret = process.env.SECRET;
 
@@ -588,7 +583,7 @@ describe('session check route', () => {
     it('returns 405 for non-GET requests', async () => {
       (verifyUser as jest.Mock).mockReturnValue('authorized');
       const req = { method: 'POST' } as NextApiRequest;
-      const res = createRes();
+      const res = createMockResponse();
 
       await handler(req, res);
 
@@ -601,7 +596,7 @@ describe('session check route', () => {
     it('returns 401 when verifyUser rejects', async () => {
       (verifyUser as jest.Mock).mockReturnValue('not authorized');
       const req = { method: 'GET', cookies: cookieToken ? { token: cookieToken } : {} } as unknown as NextApiRequest;
-      const res = createRes();
+      const res = createMockResponse();
 
       await handler(req, res);
 
@@ -619,7 +614,7 @@ describe('session check route', () => {
       jwtVerifyMock.mockReturnValue({ user: 'admin' });
 
       const req = { method: 'GET', cookies: cookieToken ? { token: cookieToken } : {} } as unknown as NextApiRequest;
-      const res = createRes();
+      const res = createMockResponse();
 
       await handler(req, res);
 
@@ -632,7 +627,7 @@ describe('session check route', () => {
       cookieToken = undefined;
 
       const req = { method: 'GET', cookies: cookieToken ? { token: cookieToken } : {} } as unknown as NextApiRequest;
-      const res = createRes();
+      const res = createMockResponse();
 
       await handler(req, res);
 
@@ -648,7 +643,7 @@ describe('session check route', () => {
       jwtVerifyMock.mockImplementation(() => { throw new Error('invalid token'); });
 
       const req = { method: 'GET', cookies: cookieToken ? { token: cookieToken } : {} } as unknown as NextApiRequest;
-      const res = createRes();
+      const res = createMockResponse();
 
       await handler(req, res);
 

@@ -1,9 +1,8 @@
 /// <reference path="../../types.d.ts" />
 /* eslint-disable security/detect-non-literal-fs-filename -- the paths are a temp directory this test creates */
 
-import os from 'os';
 import path from 'path';
-import { mkdtempSync, mkdirSync, existsSync, writeFileSync, rmSync } from 'fs';
+import { existsSync, writeFileSync } from 'fs';
 import allScrapers from '../../scrapers/index';
 import {
    collectInUseCreditKeys,
@@ -17,6 +16,7 @@ import {
    withScraperCreditBatch,
 } from '../../utils/scraperCredits';
 import { toDomainCardData } from '../../app/(dashboard)/domains/_components/domain-card-data';
+import { createTempAppDataDir } from '../__helpers__';
 
 const scraper = (id: string): ScraperSettings => allScrapers.find((s: ScraperSettings) => s.id === id) as ScraperSettings;
 const settingsFor = (scraping_api: string, scraper_type = 'serpapi') => ({ scraper_type, scraping_api } as SettingsType);
@@ -124,20 +124,18 @@ describe('credit keys and sources', () => {
 
 describe('tracking and saving balances', () => {
    let dir: string;
-   let cwdSpy: jest.SpyInstance;
+   let tempData: ReturnType<typeof createTempAppDataDir>;
    const file = () => path.join(dir, 'data', 'scraper_credits.json');
 
    const creditTest = (name: string, run: () => Promise<void>) => it(name, () => withScraperCreditBatch(run));
 
    beforeEach(() => {
-      dir = mkdtempSync(path.join(os.tmpdir(), 'serpbear-credits-'));
-      mkdirSync(path.join(dir, 'data'));
-      cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue(dir);
+      tempData = createTempAppDataDir('serpbear-credits-');
+      dir = tempData.dir;
    });
    afterEach(async () => {
       await flushScraperCredits();
-      cwdSpy.mockRestore();
-      rmSync(dir, { recursive: true, force: true });
+      tempData.cleanup();
       jest.restoreAllMocks();
    });
 

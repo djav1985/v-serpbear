@@ -827,7 +827,7 @@ describe('failure keeps position', () => {
         await jest.runAllTimersAsync();
         const result = (await pending) as Exclude<Awaited<typeof pending>, false>;
 
-        expect(result.error).toBeTruthy();
+        expect(result.error).toBe('This operation was aborted');
         expect(result.position).toBe(7);
         expect(result.position).not.toBe(0);
       });

@@ -5,10 +5,11 @@ import refreshAndUpdateKeywords, { updateKeywordPosition } from '../../utils/ref
 import { type RefreshResult, removeFromRetryQueue, retryScrape, scrapeKeywordWithStrategy } from '../../utils/scraper';
 import { toDbBool } from '../../utils/dbBooleans';
 import { refreshQueue } from '../../utils/refreshQueue';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
 import { readSettingsFile, withSettingsLock } from '../../utils/settingsFile';
+import { createTempAppDataDir } from '../__helpers__';
 
 jest.mock('../../database/models/domain');
 jest.mock('../../database/models/keyword');
@@ -1627,17 +1628,15 @@ describe('settings file lock', () => {
 
   describe('withSettingsLock', () => {
     let dir: string;
-    let cwdSpy: jest.SpyInstance;
+    let tempData: ReturnType<typeof createTempAppDataDir>;
 
     beforeEach(() => {
-      dir = mkdtempSync(path.join(os.tmpdir(), 'serpbear-lock-'));
-      mkdirSync(path.join(dir, 'data'));
-      cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue(dir);
+      tempData = createTempAppDataDir('serpbear-lock-');
+      dir = tempData.dir;
     });
 
     afterEach(() => {
-      cwdSpy.mockRestore();
-      rmSync(dir, { recursive: true, force: true });
+      tempData.cleanup();
     });
 
     it('creates settings.json as {} when it is missing', async () => {

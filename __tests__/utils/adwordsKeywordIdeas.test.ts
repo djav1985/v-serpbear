@@ -595,8 +595,7 @@ describe('Adwords Seed Functions', () => {
           headers: { get: jest.fn().mockReturnValue('application/json') },
         });
 
-      try {
-        await adwordsFunction(
+      await expect(adwordsFunction(
           mockCredentials,
           { 
             country: 'US', 
@@ -605,11 +604,7 @@ describe('Adwords Seed Functions', () => {
             seedType: 'tracking'
           },
           true,
-        );
-      } catch (_error) {
-        // We expect it to potentially throw since we're mocking minimal responses
-        // The important part is that findAll was called with the correct order
-      }
+        )).resolves.toEqual([]);
 
       // Verify that findAll was called with ORDER BY volume DESC
       expect(mockFindAll).toHaveBeenCalledWith({

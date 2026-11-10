@@ -1,6 +1,6 @@
 import { act, render, renderHook, waitFor } from '@testing-library/react';
 import React from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { createQueryClientWrapper } from './__helpers__';
 import { ColumnFiltersState, useTable } from '@tanstack/react-table';
 import { dataTableFeatures } from 'app/(dashboard)/_components/data-table/features';
 import { createTrackerColumns } from 'app/(dashboard)/domain/[slug]/_components/tracker-columns';
@@ -83,43 +83,37 @@ describe('Discover add-time duplicate checks', () => {
    });
 });
 
-describe('tracked keyword fetch for add flows', () => {
-   it('waits until enabled and then refreshes even a cached keyword list', async () => {
+describe('add-flow query loading', () => {
+   it('waits until enabled and refreshes cached add-flow data', async () => {
       const apiGet = apiClient.apiGet as jest.Mock;
-      apiGet.mockResolvedValue({ keywords: [] });
-      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-      const key = ['keywords', 'example.com'] as const;
-      queryClient.setQueryData(key, []);
-      const wrapper = ({ children }: { children: React.ReactNode }) => React.createElement(QueryClientProvider, { client: queryClient }, children);
-      const { rerender } = renderHook(({ enabled }) => useTrackedKeywordsForAdd('example.com', enabled), {
-         initialProps: { enabled: false }, wrapper,
-      });
-
-      expect(apiGet).not.toHaveBeenCalled();
-      rerender({ enabled: true });
-      await waitFor(() => expect(apiGet).toHaveBeenCalledWith('/api/serp/keywords?domain=example.com'));
-      apiGet.mockReset();
-      queryClient.clear();
-   });
-});
-
-describe('app settings fetch for add dialogs', () => {
-   it('waits until enabled and refreshes settings when the add dialog opens', async () => {
-      const apiGet = apiClient.apiGet as jest.Mock;
-      apiGet.mockResolvedValue({ settings: { scraper_type: 'scrapingant' } });
-      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      apiGet.mockImplementation(async (url: string) => (
+         url === '/api/app/settings'
+            ? { settings: { scraper_type: 'scrapingant' } }
+            : { keywords: [] }
+      ));
+      const { client: queryClient, wrapper } = createQueryClientWrapper();
+      queryClient.setQueryData(['keywords', 'example.com'], []);
       queryClient.setQueryData(['settings'], { scraper_type: 'old-value' });
-      const wrapper = ({ children }: { children: React.ReactNode }) => React.createElement(QueryClientProvider, { client: queryClient }, children);
-      const { rerender } = renderHook(({ enabled }) => useAppSettings(enabled, true), {
-         initialProps: { enabled: false }, wrapper,
-      });
+      const { result, rerender } = renderHook(({ enabled }) => ({
+         keywords: useTrackedKeywordsForAdd('example.com', enabled),
+         settings: useAppSettings(enabled, true),
+      }), { initialProps: { enabled: false }, wrapper });
 
       expect(apiGet).not.toHaveBeenCalled();
       rerender({ enabled: true });
-      await waitFor(() => expect(apiGet).toHaveBeenCalledWith('/api/app/settings'));
-      await waitFor(() => expect(apiGet).toHaveBeenCalledTimes(1));
-      apiGet.mockReset();
+      await waitFor(() => expect(apiGet).toHaveBeenCalledTimes(2));
+      expect(apiGet).toHaveBeenCalledWith('/api/serp/keywords?domain=example.com');
+      expect(apiGet).toHaveBeenCalledWith('/api/app/settings');
+      await waitFor(() => expect(result.current.settings.data).toMatchObject({ scraper_type: 'scrapingant' }));
       queryClient.clear();
+
+      apiGet.mockClear();
+      const { client: settingsClient, wrapper: settingsWrapper } = createQueryClientWrapper();
+      const { result: defaultSettings } = renderHook(() => useAppSettings(true), { wrapper: settingsWrapper });
+      await waitFor(() => expect(defaultSettings.current.data).toMatchObject({ scraper_type: 'scrapingant' }));
+      expect(apiGet).toHaveBeenCalledTimes(1);
+      settingsClient.clear();
+      apiGet.mockReset();
    });
 });
 

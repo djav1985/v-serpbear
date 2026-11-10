@@ -13,6 +13,7 @@ import isRequestSecure from '../../utils/api/isRequestSecure';
 import { parseStrictBooleanQueryParam } from '../../utils/api/queryBoolean';
 import { errorResponse } from '../../utils/api/response';
 import normalizeOrigin from '../../utils/normalizeOrigin';
+import { buildKeywordRow } from '../__helpers__/keywordRow';
 
 describe('location', () => {
   describe('getLocationCountry', () => {
@@ -307,44 +308,10 @@ describe('dbBooleans', () => {
     });
 
     describe('normalizeToBoolean integration (parseKeywords DB coercion)', () => {
-      const buildKeyword = (overrides: Partial<Record<string, any>> = {}) => ({
-        ID: 1,
-        keyword: 'example keyword',
-        device: 'desktop',
-        country: 'US',
-        domain: 'example.com',
-        lastUpdated: '2025-01-01T00:00:00.000Z',
-        added: '2025-01-01T00:00:00.000Z',
-        position: 5,
-        volume: 100,
-        sticky: 1,
-        history: JSON.stringify({ '2025-01-01': 5 }),
-        lastResult: JSON.stringify([]),
-        url: 'https://example.com/page',
-        tags: JSON.stringify(['tag']),
-        updating: 0,
-        lastUpdateError: 'false',
-        mapPackTop3: 0,
-        ...overrides,
-      });
-
-      it('maps integer 1 to true and integer 0 to false', () => {
-        const cases: Array<[number, boolean]> = [[1, true], [0, false]];
-        for (const [value, expected] of cases) {
-          const [k1] = parseKeywords([buildKeyword({ updating: value }) as any]);
-          const [k2] = parseKeywords([buildKeyword({ sticky: value }) as any]);
-          const [k3] = parseKeywords([buildKeyword({ mapPackTop3: value }) as any]);
-          expect(k1.updating).toBe(expected);
-          expect(k2.sticky).toBe(expected);
-          expect(k3.mapPackTop3).toBe(expected);
-        }
-      });
-
-
       it('coerces non-numeric values to false (default)', () => {
-        const [k1] = parseKeywords([buildKeyword({ updating: 'API Error: Invalid request' }) as any]);
-        const [k2] = parseKeywords([buildKeyword({ sticky: 'Server error occurred' }) as any]);
-        const [k3] = parseKeywords([buildKeyword({ mapPackTop3: 'timeout' }) as any]);
+        const [k1] = parseKeywords([buildKeywordRow({ updating: 'API Error: Invalid request' }) as any]);
+        const [k2] = parseKeywords([buildKeywordRow({ sticky: 'Server error occurred' }) as any]);
+        const [k3] = parseKeywords([buildKeywordRow({ mapPackTop3: 'timeout' }) as any]);
         expect(k1.updating).toBe(false);
         expect(k2.sticky).toBe(false);
         expect(k3.mapPackTop3).toBe(false);

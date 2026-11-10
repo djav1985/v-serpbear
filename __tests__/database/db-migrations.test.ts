@@ -1,7 +1,7 @@
 /** @jest-environment node */
 
 import { execFileSync } from 'child_process';
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'fs';
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
 import { Sequelize } from 'sequelize';
@@ -18,6 +18,7 @@ import dropDomainTagsMigration from '../../database/migrations/1790000000002-dro
 import { backupDatabaseFile } from '../../database/backupDatabase';
 import migration from '../../database/migrations/1779000000000-replace-smart-scrape-strategy.js';
 import dropMigration from '../../database/migrations/1781000000000-drop-removed-settings-keys.js';
+import { createTempAppDataDir } from '../__helpers__';
 
 jest.mock('../../database/migrationLogger', () => ({
   logger: {
@@ -64,17 +65,15 @@ describe('migrations', () => {
   describe('ideas-slug.migration.test.ts', () => {
     describe('ideas-file slug migration', () => {
       let dir: string;
-      let cwdSpy: jest.SpyInstance;
+      let tempData: ReturnType<typeof createTempAppDataDir>;
 
       beforeEach(() => {
-        dir = mkdtempSync(path.join(os.tmpdir(), 'serpbear-ideas-'));
-        mkdirSync(path.join(dir, 'data'));
-        cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue(dir);
+        tempData = createTempAppDataDir('serpbear-ideas-');
+        dir = tempData.dir;
       });
 
       afterEach(() => {
-        cwdSpy.mockRestore();
-        rmSync(dir, { recursive: true, force: true });
+        tempData.cleanup();
       });
 
       it('writes the same domainSlug as the app for each domain', async () => {
@@ -140,7 +139,7 @@ describe('migrations', () => {
         };
 
         // This should complete successfully
-        await expect(migration.up({ context: mockQueryInterface }, { DataTypes })).resolves.not.toThrow();
+        await migration.up({ context: mockQueryInterface }, { DataTypes });
 
         // Verify the column is added as nullable first
         expect(mockQueryInterface.addColumn).toHaveBeenCalledWith(
@@ -182,7 +181,7 @@ describe('migrations', () => {
           }),
           removeColumn: jest.fn().mockResolvedValue(undefined),
         };
-        await expect(migration.down({ context: rollbackInterface })).resolves.not.toThrow();
+        await migration.down({ context: rollbackInterface });
         expect(rollbackInterface.removeColumn).toHaveBeenCalledWith('keyword', 'mapPackTop3', {
           transaction: { transaction: 'mock' },
         });
@@ -208,7 +207,7 @@ describe('migrations', () => {
         };
 
         // This should complete successfully without adding column
-        await expect(migration.up({ context: mockQueryInterface }, { DataTypes })).resolves.not.toThrow();
+        await migration.up({ context: mockQueryInterface }, { DataTypes });
 
         // Verify no operations are performed when column already exists
         expect(mockQueryInterface.addColumn).not.toHaveBeenCalled();
@@ -228,7 +227,7 @@ describe('migrations', () => {
         };
 
         // Migration should complete without throwing
-        await expect(migration.up({ context: mockQueryInterface })).resolves.not.toThrow();
+        await migration.up({ context: mockQueryInterface });
 
         // Verify skip message was logged via logger.info (not console.log)
         expect(logger.info).toHaveBeenCalledWith('[MIGRATION] Skipping migration - keyword table does not exist yet');
@@ -271,10 +270,10 @@ describe('migrations', () => {
           describeTable: jest.fn().mockRejectedValue(new Error('Table does not exist')),
         };
 
-        await expect(migration.up({ context: missingTable })).resolves.not.toThrow();
+        await migration.up({ context: missingTable });
         expect(logger.info).toHaveBeenCalledWith('[MIGRATION] Skipping migration - keyword table does not exist yet');
 
-        await expect(migration.down({ context: missingTable })).resolves.not.toThrow();
+        await migration.down({ context: missingTable });
         expect(logger.info).toHaveBeenCalledWith('[MIGRATION] Skipping rollback - keyword table does not exist');
 
         // Table present without the field: up completes without throwing
@@ -289,7 +288,7 @@ describe('migrations', () => {
           addColumn: jest.fn().mockResolvedValue(undefined),
         };
 
-        await expect(migration.up({ context: presentTable }, { DataTypes })).resolves.not.toThrow();
+        await migration.up({ context: presentTable }, { DataTypes });
       });
 
       test('migration down function should also re-throw errors', async () => {
@@ -304,15 +303,9 @@ describe('migrations', () => {
           removeIndex: jest.fn().mockRejectedValue(new Error('Index removal failed')),
         };
 
-        try {
-          await migration.down({ context: mockQueryInterface });
-          throw new Error('Expected migration to throw error but it did not');
-        } catch (error) {
-          expect(error).toBeInstanceOf(Error);
-          expect((error as Error).message).toBe('Index removal failed');
-          // Error is now routed through logger.error, not console.error
-          expect(logger.error).toHaveBeenCalledWith('Migration rollback error', expect.any(Error));
-        }
+        await expect(migration.down({ context: mockQueryInterface })).rejects.toThrow('Index removal failed');
+        // Error is now routed through logger.error, not console.error
+        expect(logger.error).toHaveBeenCalledWith('Migration rollback error', expect.any(Error));
       });
 
     });
@@ -347,20 +340,18 @@ describe('migrations', () => {
       };
 
       let dir: string;
-      let cwdSpy: jest.SpyInstance;
+      let tempData: ReturnType<typeof createTempAppDataDir>;
 
       const writeSettings = (settings: Record<string, unknown>) => writeFileSync(path.join(dir, 'data', 'settings.json'), JSON.stringify(settings));
       const updates = (calls: QueryCall[]) => calls.filter((call) => call.sql.startsWith('UPDATE domain'));
 
       beforeEach(() => {
-        dir = mkdtempSync(path.join(os.tmpdir(), 'serpbear-notify-'));
-        mkdirSync(path.join(dir, 'data'));
-        cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue(dir);
+        tempData = createTempAppDataDir('serpbear-notify-');
+        dir = tempData.dir;
       });
 
       afterEach(() => {
-        cwdSpy.mockRestore();
-        rmSync(dir, { recursive: true, force: true });
+        tempData.cleanup();
       });
 
       it('copies the trimmed global address onto domains that have none, never overwriting existing ones', async () => {
@@ -519,7 +510,7 @@ describe('migrations', () => {
           describeTable: jest.fn().mockResolvedValue({ scraper_settings: { type: 'TEXT' } }),
         };
 
-        await expect(migration.up({ context: mockQueryInterface })).resolves.not.toThrow();
+        await migration.up({ context: mockQueryInterface });
 
         expect(query).toHaveBeenCalledWith(
           'SELECT ID, scraper_settings FROM domain WHERE scraper_settings IS NOT NULL',
@@ -548,7 +539,7 @@ describe('migrations', () => {
           describeTable: jest.fn().mockResolvedValue({ scraper_settings: { type: 'TEXT' } }),
         };
 
-        await expect(migration.up({ context: rerunInterface })).resolves.not.toThrow();
+        await migration.up({ context: rerunInterface });
         expect(rerunQuery).toHaveBeenCalledTimes(1);
       });
 
@@ -560,7 +551,7 @@ describe('migrations', () => {
           describeTable: jest.fn().mockRejectedValue(new Error('Table does not exist')),
         };
 
-        await expect(migration.up({ context: mockQueryInterface })).resolves.not.toThrow();
+        await migration.up({ context: mockQueryInterface });
         expect(logger.info).toHaveBeenCalledWith('[MIGRATION] Skipping remove-legacy-scraper-overrides - domain table does not exist yet');
       });
     });
@@ -962,20 +953,18 @@ describe('replace smart strategy', () => {
 
   describe('replace-smart-scrape-strategy.migration', () => {
     let dir: string;
-    let cwdSpy: jest.SpyInstance;
+    let tempData: ReturnType<typeof createTempAppDataDir>;
 
     const writeSettings = (value: unknown) => writeFileSync(path.join(dir, 'data', 'settings.json'), JSON.stringify(value), 'utf-8');
     const readSettings = () => JSON.parse(readFileSync(path.join(dir, 'data', 'settings.json'), 'utf-8'));
 
     beforeEach(() => {
-      dir = mkdtempSync(path.join(os.tmpdir(), 'smart-strategy-'));
-      mkdirSync(path.join(dir, 'data'));
-      cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue(dir);
+      tempData = createTempAppDataDir('smart-strategy-');
+      dir = tempData.dir;
     });
 
     afterEach(() => {
-      cwdSpy.mockRestore();
-      rmSync(dir, { recursive: true, force: true });
+      tempData.cleanup();
     });
 
     it('sets only smart domains to basic', async () => {

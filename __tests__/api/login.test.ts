@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { asHandler } from '../__helpers__/routeAdapter';
+import { createMockResponse } from '../__helpers__';
 import * as loginHandlerRoute from '../../app/api/auth/login/route';
 import * as logoutHandlerRoute from '../../app/api/auth/logout/route';
 import verifyUser from '../../utils/verifyUser';
@@ -43,15 +44,6 @@ jest.mock('../../utils/verifyUser', () => ({
 describe('Authentication cookie handling', () => {
    const originalEnv = process.env;
 
-   const createResponse = () => {
-      const res = {
-         status: jest.fn().mockReturnThis(),
-         json: jest.fn(),
-         setHeader: jest.fn(),
-      } as unknown as NextApiResponse;
-      return res;
-   };
-
    beforeEach(() => {
       (process.env as MutableEnv) = { ...originalEnv };
       (process.env as MutableEnv).USER = 'admin';
@@ -79,7 +71,7 @@ describe('Authentication cookie handling', () => {
          body: { username: 'admin', password: 'password' },
       } as Partial<NextApiRequest>;
 
-      const res = createResponse();
+      const res = createMockResponse();
 
       await loginHandler(req as NextApiRequest, res);
 
@@ -109,7 +101,7 @@ describe('Authentication cookie handling', () => {
          body: { username: 'admin', password: 'password' },
       } as Partial<NextApiRequest>;
 
-      const res = createResponse();
+      const res = createMockResponse();
 
       await loginHandler(req as NextApiRequest, res);
 
@@ -127,7 +119,7 @@ describe('Authentication cookie handling', () => {
          },
       } as Partial<NextApiRequest>;
 
-      const res = createResponse();
+      const res = createMockResponse();
 
       await logoutHandler(req as NextApiRequest, res);
 
@@ -158,7 +150,7 @@ describe('Authentication cookie handling', () => {
          body: { username: 'admin', password: 'password' },
       } as Partial<NextApiRequest>;
 
-      const loginRes = createResponse();
+      const loginRes = createMockResponse();
 
       await loginHandler(loginReq as NextApiRequest, loginRes);
 
@@ -173,7 +165,7 @@ describe('Authentication cookie handling', () => {
          },
       } as Partial<NextApiRequest>;
 
-      const logoutRes = createResponse();
+      const logoutRes = createMockResponse();
 
       await logoutHandler(logoutReq as NextApiRequest, logoutRes);
 
@@ -184,14 +176,14 @@ describe('Authentication cookie handling', () => {
       (process.env as MutableEnv).USER = 'a'.repeat(256) + 'expected';
       (process.env as MutableEnv).PASSWORD = 'b'.repeat(256) + 'expected';
       const req = { method: 'POST', headers: {}, body: { username: 'a'.repeat(256) + 'different', password: 'b'.repeat(256) + 'different' } } as unknown as NextApiRequest;
-      const res = createResponse(); await loginHandler(req, res);
+      const res = createMockResponse(); await loginHandler(req, res);
       expect(res.status).toHaveBeenCalledWith(401);
       expect(setCookieHeader(res)).toBeUndefined();
    });
 
    it.each([{ username: {}, password: 'password' }, { username: 'admin', password: 123 }, { username: ['admin'], password: 'password' }])('returns a client error for malformed credentials', async (body) => {
       const req = { method: 'POST', headers: {}, body } as unknown as NextApiRequest;
-      const res = createResponse(); await loginHandler(req, res);
+      const res = createMockResponse(); await loginHandler(req, res);
       expect(res.status).toHaveBeenCalledWith(401);
    });
 
@@ -204,7 +196,7 @@ describe('Authentication cookie handling', () => {
          },
       } as Partial<NextApiRequest>;
 
-      const res = createResponse();
+      const res = createMockResponse();
 
       await loginHandler(req as NextApiRequest, res);
 

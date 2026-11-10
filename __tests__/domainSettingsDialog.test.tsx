@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { renderWithQueryClient } from './__helpers__/queryClient';
 import { DomainSettingsDialog } from 'app/(dashboard)/domain/_components/domain-settings-dialog';
 import TrackerPage from 'app/(dashboard)/domain/[slug]/page';
 import { loadDomainBySlug } from 'utils/domainsList';
@@ -29,27 +29,27 @@ const domain = { ID: 1, domain: 'example.com', slug: 'example-com', notification
 function Page() {
    const [open, setOpen] = useState(true);
    return (
-      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-         <button onClick={() => setOpen(!open)}>toggle</button>
-         <DomainSettingsDialog open={open} onOpenChange={setOpen} domain={domain} />
-      </QueryClientProvider>
+      <div>
+      <button onClick={() => setOpen(!open)}>toggle</button>
+      <DomainSettingsDialog open={open} onOpenChange={setOpen} domain={domain} />
+      </div>
    );
 }
 
 describe('DomainSettingsDialog', () => {
    it('starts from the stored settings every time it opens, so an abandoned edit is never saved later', async () => {
-      render(<Page />);
-      const emails = () => screen.getByPlaceholderText('Your emails') as HTMLInputElement;
-      await waitFor(() => expect(emails().value).toBe('saved@example.com'));
+      renderWithQueryClient(<Page />);
+      const emails = () => screen.getByRole('textbox', { name: 'Notification emails' }) as HTMLInputElement;
+      expect((await screen.findByRole('textbox', { name: 'Notification emails' })).value).toBe('saved@example.com');
 
       fireEvent.change(emails(), { target: { value: 'typed-then-abandoned@example.com' } });
       expect(emails().value).toBe('typed-then-abandoned@example.com');
 
-      fireEvent.click(screen.getByText('toggle')); // close without saving
-      await waitFor(() => expect(screen.queryByPlaceholderText('Your emails')).toBeNull());
-      fireEvent.click(screen.getByText('toggle')); // open again
+      fireEvent.click(screen.getByRole('button', { name: 'Close' })); // close without saving
+      expect(screen.queryByRole('textbox', { name: 'Notification emails' })).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'toggle' })); // open again
 
-      await waitFor(() => expect(emails().value).toBe('saved@example.com'));
+      expect((await screen.findByRole('textbox', { name: 'Notification emails' })).value).toBe('saved@example.com');
    });
 });
 

@@ -61,17 +61,6 @@ describe('branding', () => {
            expect(buildLogoUrl('https://example.com')).toBe('https://example.com/api/images/logo.png');
         });
 
-        it('builds correct URL when white-label is enabled with valid logo file', () => {
-           process.env = { 
-              ...ORIGINAL_ENV, 
-              NEXT_PUBLIC_WHITE_LABEL: 'true',
-              NEXT_PUBLIC_APP_URL: 'https://example.com' 
-           };
-         
-           const logoUrl = buildLogoUrl('https://example.com');
-           expect(logoUrl).toBe('https://example.com/api/images/logo.png');
-        });
-
         it('strips trailing slashes from origin', () => {
            process.env = { 
               ...ORIGINAL_ENV, 
@@ -95,9 +84,6 @@ describe('branding', () => {
         });
      });
 
-     describe('email branding integration', () => {
-
-     });
   });
 });
 
