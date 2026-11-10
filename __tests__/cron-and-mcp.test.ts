@@ -178,7 +178,7 @@ describe('cron worker', () => {
       await fsPromises.writeFile(settingsPath, '{not-json', { encoding: 'utf-8' });
       const { getAppSettings } = require('../cron.js');
 
-      await expect(getAppSettings({ strict: true })).rejects.toThrow();
+      await expect(getAppSettings({ strict: true })).rejects.toThrow(SyntaxError);
     });
 
     it('logs a clear message when SECRET is not set', async () => {

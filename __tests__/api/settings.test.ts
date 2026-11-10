@@ -557,6 +557,12 @@ describe('GET /api/app/settings session checks', () => {
 
   beforeAll(() => {
     jest.resetModules();
+    jest.doMock('cryptr', () => ({
+      __esModule: true,
+      default: jest.fn().mockImplementation(() => ({
+        decrypt: (value: string) => `decrypted:${value}`,
+      })),
+    }));
     jest.doMock('../../utils/verifyUser', () => ({
       __esModule: true,
       default: jest.fn(),
@@ -618,7 +624,8 @@ describe('GET /api/app/settings session checks', () => {
     const settings = await run();
 
     expect(verifySessionMock).toHaveBeenCalledWith('copied-token');
-    expect(settings.smtp_password).toBeDefined();
+    expect(settings.smtp_password).toBe('decrypted:hunter2');
+    expect(settings.scraping_api).toBe('decrypted:key');
     expect(settings.branding).toEqual(expect.objectContaining({ logoApiPath: '/api/images/logo.png' }));
   });
 });

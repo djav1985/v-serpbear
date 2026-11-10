@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file. Releases no
 
 ### Changed
 
+- Assert the decrypted secret values in authenticated settings tests and verify strict cron settings reads reject malformed JSON with a `SyntaxError`.
 - Replace ineffective async `resolves.not.toThrow()` migration assertions with direct awaits so rejected migrations fail clearly.
 - Cover client-origin selection in browser-free tests, including public/server URL precedence, trailing-slash normalization, and the localhost fallback.
 - Remove a duplicate branding URL test and make the tracking-seed ordering test assert its resolved result instead of swallowing arbitrary errors.
