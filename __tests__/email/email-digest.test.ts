@@ -56,6 +56,16 @@ describe('email digest', () => {
     let sendMailMock: jest.Mock;
 
     beforeEach(() => {
+      (nodeMailer.createTransport as jest.Mock).mockReset();
+      (db.sync as jest.Mock).mockReset();
+      (Domain.findAll as jest.Mock).mockReset();
+      (Domain.findOne as jest.Mock).mockReset();
+      (Keyword.findAll as jest.Mock).mockReset();
+      (verifyUser as jest.Mock).mockReset();
+      (parseKeywords as jest.Mock).mockReset();
+      (generateEmail as jest.Mock).mockReset();
+      (getAppSettings as jest.Mock).mockReset();
+      (reserveEmailSend as jest.Mock).mockReset();
       req = {
         method: 'POST',
         query: { type: 'digest' },
@@ -70,8 +80,13 @@ describe('email digest', () => {
       sendMailMock = jest.fn().mockResolvedValue(undefined);
       (nodeMailer.createTransport as jest.Mock).mockReturnValue({ sendMail: sendMailMock });
       (db.sync as jest.Mock).mockResolvedValue(undefined);
+      (Domain.findAll as jest.Mock).mockResolvedValue([]);
+      (Domain.findOne as jest.Mock).mockResolvedValue(null);
+      (Keyword.findAll as jest.Mock).mockResolvedValue([]);
+      (verifyUser as jest.Mock).mockReturnValue('authorized');
       (parseKeywords as jest.Mock).mockImplementation((keywords) => keywords);
       (generateEmail as jest.Mock).mockResolvedValue('<html></html>');
+      (reserveEmailSend as jest.Mock).mockResolvedValue({ reserved: true, release: jest.fn(() => Promise.resolve()) });
       (getAppSettings as jest.Mock).mockResolvedValue({
         smtp_server: 'smtp.test',
         smtp_port: '587',

@@ -1,4 +1,4 @@
-import { ApiError, apiDelete, apiFetch, apiGet, apiPost, apiPut } from '../../utils/client/apiClient';
+import { ApiError, apiFetch, apiPost, apiPut } from '../../utils/client/apiClient';
 import { calculateChartBounds } from '../../utils/client/chartBounds';
 import { isValidEmail } from '../../utils/client/validators';
 import { formattedNum, getSelectedUntrackedKeywords } from '../../utils/client/helpers';

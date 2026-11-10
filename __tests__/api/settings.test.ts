@@ -10,6 +10,7 @@ import { createMockResponse } from '../__helpers__';
 
 const { platformName } = getBranding();
 import verifyUser from '../../utils/verifyUser';
+import { retryQueueManager } from '../../utils/retryQueueManager';
 const handler = asHandler(handlerRoute);
 const clearFailedHandler = asHandler(clearFailedHandlerRoute);
 
@@ -420,7 +421,6 @@ describe('/api/serp/clearfailed', () => {
       } as unknown as NextApiResponse;
 
       (verifyUser as jest.Mock).mockReturnValue('authorized');
-      const { retryQueueManager } = require('../../utils/retryQueueManager');
       (retryQueueManager.clearQueue as jest.Mock).mockResolvedValue(undefined);
    });
 
@@ -429,7 +429,6 @@ describe('/api/serp/clearfailed', () => {
    });
 
    it('responds with error status when clearing the queue fails', async () => {
-      const { retryQueueManager } = require('../../utils/retryQueueManager');
       (retryQueueManager.clearQueue as jest.Mock).mockRejectedValue(new Error('disk full'));
 
       await clearFailedHandler(req, res);

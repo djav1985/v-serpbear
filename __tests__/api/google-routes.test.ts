@@ -71,6 +71,7 @@ describe('Search Console, Volume and AdWords routes', () => {
       let res: MockedResponse;
 
       beforeEach(() => {
+        mockGetSearchConsoleApiInfo.mockReset();
         req = {
           method: 'POST',
           headers: {
@@ -300,14 +301,31 @@ describe('Search Console, Volume and AdWords routes', () => {
         );
       });
 
-      it('returns 400 for a domain that is not a real domain name', async () => {
-        req.query = { domain: '../../etc/passwd' };
+      it('rejects invalid domains in both GET routes before querying', async () => {
+        const invalidDomainRequests = [
+          { route: handler, domain: '../../etc/passwd' },
+          { route: insightHandler, domain: 'bad/domain' },
+        ];
 
-        await handler(req as NextApiRequest, res as NextApiResponse);
+        await Promise.all(invalidDomainRequests.map(async ({ route, domain }) => {
+          const invalidReq = {
+            method: 'GET',
+            query: { domain },
+            headers: { authorization: 'Bearer test-api-key' },
+          } as unknown as NextApiRequest;
+          const invalidRes = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
+
+          await route(invalidReq, invalidRes);
+
+          expect(invalidRes.status).toHaveBeenCalledWith(400);
+          expect(invalidRes.json).toHaveBeenCalledWith(
+            expect.objectContaining({ error: expect.objectContaining({ code: 'BAD_REQUEST', message: 'Domain is Missing.' }) }),
+          );
+        }));
 
         expect(mockDomainFindOne).not.toHaveBeenCalled();
-        expect(res.status).toHaveBeenCalledWith(400);
       });
+
     });
 
     describe('GET /api/google/insight', () => {
@@ -348,18 +366,8 @@ describe('Search Console, Volume and AdWords routes', () => {
         );
       });
 
-      it('returns 400 for a domain that is not a real domain name', async () => {
-        req.query = { domain: 'bad/domain' };
-
-        await insightHandler(req as NextApiRequest, res as NextApiResponse);
-
-        expect(mockDomainFindOne).not.toHaveBeenCalled();
-        expect(res.status).toHaveBeenCalledWith(400);
-        expect(res.json).toHaveBeenCalledWith(
-          expect.objectContaining({ error: expect.objectContaining({ code: 'BAD_REQUEST', message: 'Domain is Missing.' }) }),
-        );
-      });
     });
+
   });
 
   describe('volume', () => {

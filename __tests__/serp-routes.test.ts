@@ -1,6 +1,6 @@
  
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { buildKeywordAddPayloads, getAddKeywordsMessage, getDomainLocations, getDomainTags, getLocationUpdateMessage, planLocationUpdate, scraperAllowsCity, splitAlreadyTracked } from '../utils/keywordMeta';
+import { buildKeywordAddPayloads, getAddKeywordsMessage, getDomainLocations, getDomainTags, planLocationUpdate, scraperAllowsCity, splitAlreadyTracked } from '../utils/keywordMeta';
 
 describe('domains route', () => {
   let Cryptr: any;

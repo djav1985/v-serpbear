@@ -29,6 +29,14 @@ jest.mock('../../utils/updateDomainStats', () => ({
   updateDomainStats: jest.fn().mockResolvedValue(undefined),
 }));
 
+const deferred = () => {
+  let resolve!: () => void;
+  const promise = new Promise<void>((done) => { resolve = done; });
+  return { promise, resolve };
+};
+
+const yieldToQueue = () => new Promise<void>((resolve) => setImmediate(resolve));
+
 describe('refresh core', () => {
   // Mock the dependencies
   // Mock retryQueueManager
@@ -1422,144 +1430,141 @@ describe('refresh queue', () => {
 
     it('processes tasks in parallel up to maxConcurrency', async () => {
       const executionOrder: number[] = [];
-      let task1Started = false;
-      let task2Started = false;
-      let task3Started = false;
+      const releases = Array.from({ length: 4 }, deferred);
+      const fourthStarted = deferred();
+      const tasks = releases.map((release, index) => jest.fn(async () => {
+        executionOrder.push(index + 1);
+        if (index === 3) fourthStarted.resolve();
+        await release.promise;
+      }));
 
-      const task1 = jest.fn(async () => {
-        task1Started = true;
-        executionOrder.push(1);
-        await new Promise(resolve => setTimeout(resolve, 50));
-      });
-      const task2 = jest.fn(async () => {
-        task2Started = true;
-        executionOrder.push(2);
-        await new Promise(resolve => setTimeout(resolve, 50));
-      });
-      const task3 = jest.fn(async () => {
-        task3Started = true;
-        executionOrder.push(3);
-        await new Promise(resolve => setTimeout(resolve, 50));
-      });
+      for (const [index, task] of tasks.entries()) {
+        await refreshQueue.enqueue(`task${index + 1}`, task);
+      }
 
-      await refreshQueue.enqueue('task1', task1);
-      await refreshQueue.enqueue('task2', task2);
-      await refreshQueue.enqueue('task3', task3);
-
-      // All 3 should start immediately (within maxConcurrency of 3)
-      await new Promise(resolve => setTimeout(resolve, 10));
-      expect(task1Started).toBe(true);
-      expect(task2Started).toBe(true);
-      expect(task3Started).toBe(true);
-
-      // Wait for all tasks to complete
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      expect(task1).toHaveBeenCalledTimes(1);
-      expect(task2).toHaveBeenCalledTimes(1);
-      expect(task3).toHaveBeenCalledTimes(1);
+      try {
+        expect(executionOrder).toEqual([1, 2, 3]);
+        expect(tasks[3]).not.toHaveBeenCalled();
+        releases[0].resolve();
+        await fourthStarted.promise;
+        expect(executionOrder).toEqual([1, 2, 3, 4]);
+      } finally {
+        releases.forEach((release) => release.resolve());
+        await yieldToQueue();
+      }
+      tasks.forEach((task) => expect(task).toHaveBeenCalledTimes(1));
     });
 
     it('respects per-domain locking', async () => {
       const executionOrder: string[] = [];
-
+      const releaseFirst = deferred();
+      const secondStarted = deferred();
       const domainATask1 = jest.fn(async () => {
         executionOrder.push('A1-start');
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await releaseFirst.promise;
         executionOrder.push('A1-end');
       });
-
       const domainATask2 = jest.fn(async () => {
         executionOrder.push('A2-start');
-        await new Promise(resolve => setTimeout(resolve, 20));
-        executionOrder.push('A2-end');
+        secondStarted.resolve();
       });
-
       const domainBTask = jest.fn(async () => {
         executionOrder.push('B-start');
-        await new Promise(resolve => setTimeout(resolve, 30));
-        executionOrder.push('B-end');
       });
 
       await refreshQueue.enqueue('task-a1', domainATask1, ['domainA']);
       await refreshQueue.enqueue('task-a2', domainATask2, ['domainA']);
       await refreshQueue.enqueue('task-b', domainBTask, ['domainB']);
 
-      // Wait for all tasks to complete
-      await new Promise(resolve => setTimeout(resolve, 150));
-
+      try {
+        expect(executionOrder).toEqual(['A1-start', 'B-start']);
+        expect(domainATask2).not.toHaveBeenCalled();
+        releaseFirst.resolve();
+        await secondStarted.promise;
+        const a1EndIndex = executionOrder.indexOf('A1-end');
+        const a2StartIndex = executionOrder.indexOf('A2-start');
+        expect(a2StartIndex).toBeGreaterThan(a1EndIndex);
+        const bStartIndex = executionOrder.indexOf('B-start');
+        expect(bStartIndex).toBeLessThan(a1EndIndex);
+      } finally {
+        releaseFirst.resolve();
+        await yieldToQueue();
+      }
       expect(domainATask1).toHaveBeenCalledTimes(1);
       expect(domainATask2).toHaveBeenCalledTimes(1);
       expect(domainBTask).toHaveBeenCalledTimes(1);
-
-      // A2 should start after A1 ends
-      const a1EndIndex = executionOrder.indexOf('A1-end');
-      const a2StartIndex = executionOrder.indexOf('A2-start');
-      expect(a2StartIndex).toBeGreaterThan(a1EndIndex);
-
-      // B can start before A1 ends (parallel processing)
-      const bStartIndex = executionOrder.indexOf('B-start');
-      expect(bStartIndex).toBeLessThan(a1EndIndex);
     });
 
 
 
     it('atomically locks every domain in a task while allowing unrelated work', async () => {
       const order: string[] = [];
-      let release!: () => void;
-      const gate = new Promise<void>((resolve) => { release = resolve; });
+      const gate = deferred();
+      const aStarted = deferred();
+      const bStarted = deferred();
 
-      await refreshQueue.enqueue('multi', async () => { order.push('AB-start'); await gate; order.push('AB-end'); }, ['A', 'B', 'a', '']);
-      await refreshQueue.enqueue('only-a', async () => { order.push('A-start'); }, ['A']);
-      await refreshQueue.enqueue('only-b', async () => { order.push('B-start'); }, ['B']);
+      await refreshQueue.enqueue('multi', async () => { order.push('AB-start'); await gate.promise; order.push('AB-end'); }, ['A', 'B', 'a', '']);
+      await refreshQueue.enqueue('only-a', async () => { order.push('A-start'); aStarted.resolve(); }, ['A']);
+      await refreshQueue.enqueue('only-b', async () => { order.push('B-start'); bStarted.resolve(); }, ['B']);
       await refreshQueue.enqueue('only-c', async () => { order.push('C-start'); }, ['C']);
 
-      await new Promise(resolve => setTimeout(resolve, 10));
-      expect(refreshQueue.isDomainLocked('A')).toBe(true);
-      expect(refreshQueue.isDomainLocked('B')).toBe(true);
-      expect(order).toContain('C-start');
-      expect(order).not.toContain('A-start');
-      expect(order).not.toContain('B-start');
-
-      release();
-      await new Promise(resolve => setTimeout(resolve, 20));
-      expect(order.indexOf('A-start')).toBeGreaterThan(order.indexOf('AB-end'));
-      expect(order.indexOf('B-start')).toBeGreaterThan(order.indexOf('AB-end'));
+      try {
+        expect(refreshQueue.isDomainLocked('A')).toBe(true);
+        expect(refreshQueue.isDomainLocked('B')).toBe(true);
+        expect(order).toContain('C-start');
+        expect(order).not.toContain('A-start');
+        expect(order).not.toContain('B-start');
+        gate.resolve();
+        await Promise.all([aStarted.promise, bStarted.promise]);
+        expect(order.indexOf('A-start')).toBeGreaterThan(order.indexOf('AB-end'));
+        expect(order.indexOf('B-start')).toBeGreaterThan(order.indexOf('AB-end'));
+      } finally {
+        gate.resolve();
+        await yieldToQueue();
+      }
     });
 
     it('continues processing after task failure', async () => {
       const executionOrder: number[] = [];
-      const task1 = jest.fn(async () => { executionOrder.push(1); });
+      const releaseFirst = deferred();
+      const thirdStarted = deferred();
+      refreshQueue.setMaxConcurrency(1);
+      const task1 = jest.fn(async () => { executionOrder.push(1); await releaseFirst.promise; });
       const task2 = jest.fn(async () => {
         executionOrder.push(2);
         throw new Error('Task 2 failed');
       });
-      const task3 = jest.fn(async () => { executionOrder.push(3); });
+      const task3 = jest.fn(async () => { executionOrder.push(3); thirdStarted.resolve(); });
 
-      await refreshQueue.enqueue('task1', task1);
-      await refreshQueue.enqueue('task2', task2);
-      await refreshQueue.enqueue('task3', task3);
+      try {
+        await refreshQueue.enqueue('task1', task1);
+        await refreshQueue.enqueue('task2', task2);
+        await refreshQueue.enqueue('task3', task3);
+        expect(executionOrder).toEqual([1]);
 
-      // Wait for all tasks to complete
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Verify all tasks executed despite failure
-      expect(executionOrder).toEqual([1, 2, 3]);
-      expect(task1).toHaveBeenCalledTimes(1);
-      expect(task2).toHaveBeenCalledTimes(1);
-      expect(task3).toHaveBeenCalledTimes(1);
+        releaseFirst.resolve();
+        await thirdStarted.promise;
+        expect(executionOrder).toEqual([1, 2, 3]);
+        expect(task1).toHaveBeenCalledTimes(1);
+        expect(task2).toHaveBeenCalledTimes(1);
+        expect(task3).toHaveBeenCalledTimes(1);
+      } finally {
+        releaseFirst.resolve();
+        refreshQueue.setMaxConcurrency(3);
+        await yieldToQueue();
+      }
     });
 
     it('returns correct queue status', async () => {
-      const longRunningTask = jest.fn(async () => {
-        await new Promise(resolve => setTimeout(resolve, 50));
-      });
+      const gate = deferred();
+      const taskStarted = deferred();
+      const longRunningTask = jest.fn(async () => { taskStarted.resolve(); await gate.promise; });
 
       await refreshQueue.enqueue('long-task', longRunningTask, ['testDomain']);
-
-      // Check status immediately (should be processing)
-      await new Promise(resolve => setTimeout(resolve, 5));
+      await taskStarted.promise;
       const status = refreshQueue.getStatus();
+      gate.resolve();
+      await yieldToQueue();
 
       expect(status.activeProcesses).toBeGreaterThan(0);
       expect(status.activeDomains).toContain('testdomain');
@@ -1640,17 +1645,29 @@ describe('settings file lock', () => {
     it('runs overlapping critical sections one after the other', async () => {
       writeFileSync(path.join(dir, 'data', 'settings.json'), '{}');
       const order: string[] = [];
+      const releaseFirst = deferred();
+      const firstStarted = deferred();
       const section = (name: string) => withSettingsLock(async () => {
         order.push(`${name}:start`);
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        if (name === 'a') {
+          firstStarted.resolve();
+          await releaseFirst.promise;
+        }
         order.push(`${name}:end`);
       });
 
-      await Promise.all([section('a'), section('b')]);
-
-      // Whichever section starts first must also finish before the other one starts
-      const first = order[0].split(':')[0];
-      expect(order).toEqual([`${first}:start`, `${first}:end`, `${first === 'a' ? 'b' : 'a'}:start`, `${first === 'a' ? 'b' : 'a'}:end`]);
+      const first = section('a');
+      await firstStarted.promise;
+      const second = section('b');
+      try {
+        expect(order).toEqual(['a:start']);
+        releaseFirst.resolve();
+        await Promise.all([first, second]);
+        expect(order).toEqual(['a:start', 'a:end', 'b:start', 'b:end']);
+      } finally {
+        releaseFirst.resolve();
+        await Promise.all([first, second]);
+      }
     });
 
     it('releases the lock when the section throws', async () => {

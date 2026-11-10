@@ -754,6 +754,8 @@ describe('keywords', () => {
       (refreshQueue as any).reserveDomains.mockReturnValueOnce(release);
       const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { location: 'Miami,Florida,United States' } });
       const res = createMockResponse();
+      const settings = { scraper_type: 'serpapi' };
+      getAppSettingsMock.mockResolvedValue(settings);
 
       await handler(req, res);
 
@@ -768,7 +770,7 @@ describe('keywords', () => {
       expect(refreshQueueMock.enqueue).toHaveBeenCalledWith(expect.stringMatching(/^location-refresh-1-/), expect.any(Function), ['example.com'], { reservations: [release] });
       expect(release).not.toHaveBeenCalled();
       await (refreshQueueMock.enqueue.mock.calls[0][1] as () => Promise<void>)();
-      expect(refreshKeywordsByIds).toHaveBeenCalledWith([1], expect.anything());
+      expect(refreshKeywordsByIds).toHaveBeenCalledWith([1], settings);
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ updatedCount: 1 }));
     });
 

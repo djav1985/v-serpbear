@@ -98,15 +98,16 @@ describe('init', () => {
         expect(isDatabaseInitialized()).toBe(true);
      });
 
-     it('should return same promise for concurrent calls', async () => {
-        (db.sync as jest.Mock).mockImplementation(() => 
-           new Promise(resolve => setTimeout(resolve, 100))
-        );
+     it('shares one initialization while concurrent calls are pending', async () => {
+        let finishSync!: () => void;
+        (db.sync as jest.Mock).mockReturnValue(new Promise<void>((resolve) => { finishSync = resolve; }));
 
         const promise1 = initializeDatabase();
         const promise2 = initializeDatabase();
         const promise3 = initializeDatabase();
 
+        expect(db.sync).toHaveBeenCalledTimes(1);
+        finishSync();
         await Promise.all([promise1, promise2, promise3]);
 
         expect(db.sync).toHaveBeenCalledTimes(1);
