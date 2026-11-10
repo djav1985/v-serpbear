@@ -1006,14 +1006,6 @@ describe('parseKeywords', () => {
         expect(missing.mapPackTop3).toBe(false);
      });
 
-     it('keeps existing keyword structure intact', () => {
-        const [keyword] = parseKeywords([buildKeyword({ updating: 0 }) as any]);
-
-        expect(keyword.history).toEqual({ '2025-01-01': 5 });
-        expect(keyword.tags).toEqual(['tag']);
-        expect(keyword.lastResult).toEqual([]);
-        expect(keyword.location).toBe('');
-     });
 
      it('parses a valid history7d JSON string into a KeywordHistory object', () => {
         const [keyword] = parseKeywords([

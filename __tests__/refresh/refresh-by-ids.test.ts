@@ -1,10 +1,10 @@
-/// <reference path="../types.d.ts" />
-import Keyword from '../database/models/keyword';
-import { refreshKeywordsByIds } from '../utils/refresh';
+/// <reference path="../../types.d.ts" />
+import Keyword from '../../database/models/keyword';
+import { refreshKeywordsByIds } from '../../utils/refresh';
 
-jest.mock('../database/models/keyword', () => ({ __esModule: true, default: { findAll: jest.fn() } }));
-jest.mock('../database/models/domain', () => ({ __esModule: true, default: { findAll: jest.fn() } }));
-jest.mock('../utils/logger', () => ({ logger: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() } }));
+jest.mock('../../database/models/keyword', () => ({ __esModule: true, default: { findAll: jest.fn() } }));
+jest.mock('../../database/models/domain', () => ({ __esModule: true, default: { findAll: jest.fn() } }));
+jest.mock('../../utils/logger', () => ({ logger: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() } }));
 
 describe('refreshKeywordsByIds', () => {
   const findAll = Keyword.findAll as unknown as jest.Mock;

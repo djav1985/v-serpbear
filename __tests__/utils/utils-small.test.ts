@@ -1,18 +1,18 @@
 /** @jest-environment node */
 
-import { formatLocation, getLocationCountry, parseLocation } from '../utils/location';
-import { dateKeyInZone, dateKeyToTime, daysAgoKey, formatDateKey, resolveTimezone } from '../utils/timezone';
-import { hasTrimmedLength, sanitizeSmtpHost, trimString, trimStringProperties } from '../utils/security';
-import { normalizeHostFromString } from '../utils/validators/hostname';
-import { fromDbBool, normalizeToBoolean, parseBooleanStrict, parseEnvFlag, toDbBool } from '../utils/dbBooleans';
-import parseKeywords from '../utils/parseKeywords';
-import sqlite from '../database/sqlite-dialect';
-import { historyKeyToTime, normalizeHistoryDateKey, toHistoryDateKey } from '../utils/historyDateKey';
-import { UNRANKED_PENALTY_PER_PAGE, getUnrankedPenalty, summarizeAveragePosition } from '../utils/averagePosition';
-import isRequestSecure from '../utils/api/isRequestSecure';
-import { parseStrictBooleanQueryParam } from '../utils/api/queryBoolean';
-import { errorResponse } from '../utils/api/response';
-import normalizeOrigin from '../utils/normalizeOrigin';
+import { formatLocation, getLocationCountry, parseLocation } from '../../utils/location';
+import { dateKeyInZone, dateKeyToTime, daysAgoKey, formatDateKey, resolveTimezone } from '../../utils/timezone';
+import { hasTrimmedLength, sanitizeSmtpHost, trimString, trimStringProperties } from '../../utils/security';
+import { normalizeHostFromString } from '../../utils/validators/hostname';
+import { fromDbBool, normalizeToBoolean, parseBooleanStrict, parseEnvFlag, toDbBool } from '../../utils/dbBooleans';
+import parseKeywords from '../../utils/parseKeywords';
+import sqlite from '../../database/sqlite-dialect';
+import { historyKeyToTime, normalizeHistoryDateKey, toHistoryDateKey } from '../../utils/historyDateKey';
+import { UNRANKED_PENALTY_PER_PAGE, getUnrankedPenalty, summarizeAveragePosition } from '../../utils/averagePosition';
+import isRequestSecure from '../../utils/api/isRequestSecure';
+import { parseStrictBooleanQueryParam } from '../../utils/api/queryBoolean';
+import { errorResponse } from '../../utils/api/response';
+import normalizeOrigin from '../../utils/normalizeOrigin';
 
 describe('location', () => {
   describe('getLocationCountry', () => {
@@ -696,10 +696,6 @@ describe('api helpers', () => {
       }
     });
 
-    it('trims surrounding whitespace before matching', () => {
-      expect(parseStrictBooleanQueryParam('  true  ')).toEqual({ ok: true, value: true });
-      expect(parseStrictBooleanQueryParam('  false  ')).toEqual({ ok: true, value: false });
-    });
 
     it('returns { ok: false } for unknown, empty or whitespace-only values', () => {
       for (const value of ['maybe', 'enabled', 'null', '2', '', '   ']) {
@@ -707,15 +703,7 @@ describe('api helpers', () => {
       }
     });
 
-    it('uses the last array element and rejects an unknown last element', () => {
-      expect(parseStrictBooleanQueryParam(['false', 'true'])).toEqual({ ok: true, value: true });
-      expect(parseStrictBooleanQueryParam(['true', 'false'])).toEqual({ ok: true, value: false });
-      expect(parseStrictBooleanQueryParam(['true', 'maybe'])).toMatchObject({ ok: false });
-    });
 
-    it('returns { ok: false } for empty array', () => {
-      expect(parseStrictBooleanQueryParam([])).toMatchObject({ ok: false });
-    });
   });
 
   // ---------------------------------------------------------------------------

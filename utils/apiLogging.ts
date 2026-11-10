@@ -34,11 +34,13 @@ export const requireAuth = (req: Request, ctx: ApiContext): Response | null => {
 const withRequestId = (response: Response, requestId: string): Response => {
    try {
       response.headers.set('X-Request-Id', requestId);
+      response.headers.set('Cache-Control', 'no-cache, no-store');
       return response;
    } catch (_error) {
       // Some responses (redirects, fetched responses) have immutable headers
       const copy = new Response(response.body, response);
       copy.headers.set('X-Request-Id', requestId);
+      copy.headers.set('Cache-Control', 'no-cache, no-store');
       return copy;
    }
 };

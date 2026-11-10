@@ -1,12 +1,12 @@
-/// <reference path="../types.d.ts" />
-import Domain from '../database/models/domain';
-import Keyword from '../database/models/keyword';
-import { updateDomainStats } from '../utils/updateDomainStats';
+/// <reference path="../../types.d.ts" />
+import Domain from '../../database/models/domain';
+import Keyword from '../../database/models/keyword';
+import { updateDomainStats } from '../../utils/updateDomainStats';
 
-jest.mock('../database/models/keyword');
-jest.mock('../database/models/domain');
-jest.mock('../utils/appSettings', () => ({ getAppSettings: jest.fn().mockResolvedValue({}) }));
-jest.mock('../utils/logger', () => ({ logger: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() } }));
+jest.mock('../../database/models/keyword');
+jest.mock('../../database/models/domain');
+jest.mock('../../utils/appSettings', () => ({ getAppSettings: jest.fn().mockResolvedValue({}) }));
+jest.mock('../../utils/logger', () => ({ logger: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() } }));
 
 const flush = () => new Promise<void>((resolve) => { setImmediate(resolve); });
 

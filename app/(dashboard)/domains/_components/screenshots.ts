@@ -37,7 +37,7 @@ export async function fetchDomainScreenshot(domain: string, forceFetch = false):
    if (existing && !forceFetch && Date.now() - existing.ts < THUMB_TTL_MS) { return existing.data; }
 
    try {
-      const response = await fetch(`https://image.thum.io/get/maxAge/96/width/200/https://${domain}`);
+      const response = await fetch(`https://image.thum.io/get/maxAge/168/width/200/https://${domain}`);
       if (response.status !== 200) { return false; }
       const blob = await response.blob();
       const data = await new Promise<string>((resolve, reject) => {

@@ -1,34 +1,34 @@
  
 import { NextApiRequest, NextApiResponse } from 'next';
-import { asHandler } from './__helpers__/routeAdapter';
-import * as handlerRoute from '../app/api/google/searchconsole/route';
-import * as insightHandlerRoute from '../app/api/google/insight/route';
-import { fetchDomainSCData, getSearchConsoleApiInfo, readLocalSCData } from '../utils/searchConsole';
-import Domain from '../database/models/domain';
-import verifyUser from '../utils/verifyUser';
+import { asHandler } from '../__helpers__/routeAdapter';
+import * as handlerRoute from '../../app/api/google/searchconsole/route';
+import * as insightHandlerRoute from '../../app/api/google/insight/route';
+import { fetchDomainSCData, getSearchConsoleApiInfo, readLocalSCData } from '../../utils/searchConsole';
+import Domain from '../../database/models/domain';
+import verifyUser from '../../utils/verifyUser';
 import { readFile, writeFile } from 'fs/promises';
-import { type KeywordIdeasDatabase, getLocalKeywordIdeas, updateLocalKeywordIdeas } from '../utils/adwords';
-import { getCountryInsight, getKeywordsInsight, getPagesInsight, sortInsightItems } from '../utils/insight';
+import { type KeywordIdeasDatabase, getLocalKeywordIdeas, updateLocalKeywordIdeas } from '../../utils/adwords';
+import { getCountryInsight, getKeywordsInsight, getPagesInsight, sortInsightItems } from '../../utils/insight';
 const handler = asHandler(handlerRoute);
 const insightHandler = asHandler(insightHandlerRoute);
 
-jest.mock('../utils/searchConsole');
-jest.mock('../database/models/domain', () => ({
+jest.mock('../../utils/searchConsole');
+jest.mock('../../database/models/domain', () => ({
   __esModule: true,
   default: { findAll: jest.fn(), findOne: jest.fn() },
 }));
-jest.mock('../database/database', () => ({
+jest.mock('../../database/database', () => ({
   __esModule: true,
   default: { sync: jest.fn() },
 }));
-jest.mock('../utils/verifyUser');
-jest.mock('../utils/apiLogging', () => require('./__helpers__/apiLoggingMock').apiLoggingMock());
+jest.mock('../../utils/verifyUser');
+jest.mock('../../utils/apiLogging', () => require('../__helpers__/apiLoggingMock').apiLoggingMock());
 jest.mock('fs/promises', () => ({
   __esModule: true,
   readFile: jest.fn(),
   writeFile: jest.fn(),
 }));
-jest.mock('../database/models/keyword', () => ({
+jest.mock('../../database/models/keyword', () => ({
   __esModule: true,
   default: { findAll: jest.fn() },
 }));
@@ -301,7 +301,7 @@ describe('Search Console, Volume and AdWords routes', () => {
       });
 
       it('returns 400 for a domain that is not a real domain name', async () => {
-        req.query = { domain: '../etc/passwd' };
+        req.query = { domain: '../../etc/passwd' };
 
         await handler(req as NextApiRequest, res as NextApiResponse);
 
@@ -371,41 +371,41 @@ describe('Search Console, Volume and AdWords routes', () => {
     let getKeywordsVolume: any;
     let updateKeywordsVolumeData: any;
     jest.isolateModules(() => {
-      jest.doMock('../database/database', () => ({
+      jest.doMock('../../database/database', () => ({
          __esModule: true,
          default: { sync: jest.fn() },
       }));
-      jest.doMock('../database/models/keyword', () => ({
+      jest.doMock('../../database/models/keyword', () => ({
          __esModule: true,
          default: {
             findAll: jest.fn(),
          },
       }));
-      jest.doMock('../utils/verifyUser', () => ({
+      jest.doMock('../../utils/verifyUser', () => ({
          __esModule: true,
          default: jest.fn(),
       }));
-      jest.doMock('../utils/parseKeywords', () => ({
+      jest.doMock('../../utils/parseKeywords', () => ({
          __esModule: true,
          default: jest.fn(),
       }));
-      jest.doMock('../utils/adwords', () => ({
+      jest.doMock('../../utils/adwords', () => ({
          __esModule: true,
          getKeywordsVolume: jest.fn(),
          updateKeywordsVolumeData: jest.fn(),
       }));
-      jest.doMock('../utils/apiLogging', () => require('./__helpers__/apiLoggingMock').apiLoggingMock());
-      const m0 = require('./__helpers__/routeAdapter').asModule(require('../app/api/google/volume/route'));
+      jest.doMock('../../utils/apiLogging', () => require('../__helpers__/apiLoggingMock').apiLoggingMock());
+      const m0 = require('../__helpers__/routeAdapter').asModule(require('../../app/api/google/volume/route'));
       handler = m0 && m0.__esModule ? m0.default : m0;
-      const m1 = require('../database/database');
+      const m1 = require('../../database/database');
       db = m1 && m1.__esModule ? m1.default : m1;
-      const m2 = require('../database/models/keyword');
+      const m2 = require('../../database/models/keyword');
       Keyword = m2 && m2.__esModule ? m2.default : m2;
-      const m3 = require('../utils/verifyUser');
+      const m3 = require('../../utils/verifyUser');
       verifyUser = m3 && m3.__esModule ? m3.default : m3;
-      const m4 = require('../utils/parseKeywords');
+      const m4 = require('../../utils/parseKeywords');
       parseKeywords = m4 && m4.__esModule ? m4.default : m4;
-      const m5 = require('../utils/adwords');
+      const m5 = require('../../utils/adwords');
       getKeywordsVolume = m5.getKeywordsVolume;
       updateKeywordsVolumeData = m5.updateKeywordsVolumeData;
     });
@@ -539,7 +539,7 @@ describe('Search Console, Volume and AdWords routes', () => {
        });
 
        it('limits how often domain=all can start paid lookups', async () => {
-          const { resetRateLimits } = jest.requireActual('../utils/rateLimit');
+          const { resetRateLimits } = jest.requireActual('../../utils/rateLimit');
           resetRateLimits();
           const run = async () => {
              const req = { method: 'POST', body: { domain: 'all', update: false }, headers: {}, socket: { remoteAddress: '192.0.2.5' } } as unknown as NextApiRequest;
@@ -579,28 +579,28 @@ describe('Search Console, Volume and AdWords routes', () => {
     let createMockRequest: any;
     let createMockResponse: any;
     jest.isolateModules(() => {
-      jest.doMock('../utils/verifyUser', () => ({ __esModule: true, default: jest.fn() }));
+      jest.doMock('../../utils/verifyUser', () => ({ __esModule: true, default: jest.fn() }));
       jest.doMock('fs/promises', () => ({ readFile: jest.fn() }));
-      jest.doMock('../utils/atomicWrite', () => ({ atomicWriteFile: jest.fn() }));
-      jest.doMock('../utils/settingsFile', () => ({ ...jest.requireActual('../utils/settingsFile'), withSettingsLock: (section: () => Promise<unknown>) => section() }));
+      jest.doMock('../../utils/atomicWrite', () => ({ atomicWriteFile: jest.fn() }));
+      jest.doMock('../../utils/settingsFile', () => ({ ...jest.requireActual('../../utils/settingsFile'), withSettingsLock: (section: () => Promise<unknown>) => section() }));
       jest.doMock('cryptr', () => ({ __esModule: true, default: jest.fn(() => ({ decrypt: decryptMock, encrypt: encryptMock })) }));
       jest.doMock('google-auth-library', () => ({ OAuth2Client: jest.fn(() => ({ getToken: getTokenMock })) }));
-      jest.doMock('../utils/adwords', () => ({ getAdwordsCredentials: jest.fn(), getAdwordsKeywordIdeas: jest.fn() }));
-      jest.doMock('../utils/apiLogging', () => require('./__helpers__/apiLoggingMock').apiLoggingMock());
+      jest.doMock('../../utils/adwords', () => ({ getAdwordsCredentials: jest.fn(), getAdwordsKeywordIdeas: jest.fn() }));
+      jest.doMock('../../utils/apiLogging', () => require('../__helpers__/apiLoggingMock').apiLoggingMock());
       const m0 = require('google-auth-library');
       OAuth2Client = m0.OAuth2Client;
       const m1 = require('fs/promises');
       readFile = m1.readFile;
-      const m2 = require('./__helpers__/routeAdapter').asModule(require('../app/api/adwords/route'));
+      const m2 = require('../__helpers__/routeAdapter').asModule(require('../../app/api/adwords/route'));
       handler = m2 && m2.__esModule ? m2.default : m2;
-      const m3 = require('../utils/verifyUser');
+      const m3 = require('../../utils/verifyUser');
       verifyUser = m3 && m3.__esModule ? m3.default : m3;
-      const m4 = require('../utils/atomicWrite');
+      const m4 = require('../../utils/atomicWrite');
       atomicWriteFile = m4.atomicWriteFile;
-      const m5 = require('../utils/adwords');
+      const m5 = require('../../utils/adwords');
       getAdwordsCredentials = m5.getAdwordsCredentials;
       getAdwordsKeywordIdeas = m5.getAdwordsKeywordIdeas;
-      const m6 = require('./__helpers__');
+      const m6 = require('../__helpers__');
       createMockRequest = m6.createMockRequest;
       createMockResponse = m6.createMockResponse;
     });
@@ -791,13 +791,13 @@ describe('Search Console, Volume and AdWords routes', () => {
         jest.clearAllMocks();
       });
 
-      it.each(['../settings', 'example/../../x', 'my_site-com.com', 'a b', '%2e%2e', ''])('refuses to read for %p without touching the file system', async (domain) => {
+      it.each(['../../settings', 'example/../../x', 'my_site-com.com', 'a b', '%2e%2e', ''])('refuses to read for %p without touching the file system', async (domain) => {
         await expect(getLocalKeywordIdeas(domain)).resolves.toBe(false);
         expect(readMock).not.toHaveBeenCalled();
       });
 
       it('refuses to write for a path-like domain', async () => {
-        await expect(updateLocalKeywordIdeas('../settings', { favorites: [] })).resolves.toBe(false);
+        await expect(updateLocalKeywordIdeas('../../settings', { favorites: [] })).resolves.toBe(false);
         expect(writeMock).not.toHaveBeenCalled();
       });
 
@@ -1066,20 +1066,20 @@ describe('ideas route', () => {
   let createMockRequest: any;
   let createMockResponse: any;
   jest.isolateModules(() => {
-    jest.doMock('../database/database', () => ({
+    jest.doMock('../../database/database', () => ({
       __esModule: true,
       default: { sync: jest.fn() },
     }));
-    jest.doMock('../utils/verifyUser', () => ({ __esModule: true, default: jest.fn() }));
-    jest.doMock('../utils/adwords', () => ({
+    jest.doMock('../../utils/verifyUser', () => ({ __esModule: true, default: jest.fn() }));
+    jest.doMock('../../utils/adwords', () => ({
       __esModule: true,
-      ...jest.requireActual('../utils/adwords'),
+      ...jest.requireActual('../../utils/adwords'),
       getAdwordsCredentials: jest.fn(),
       getAdwordsKeywordIdeas: jest.fn(),
       // The file lock needs a real file on disk; the test only checks the read-modify-write itself
       withIdeasLock: (_domain: string, fn: () => Promise<unknown>) => fn(),
     }));
-    jest.doMock('../utils/atomicWrite', () => ({
+    jest.doMock('../../utils/atomicWrite', () => ({
       // eslint-disable-next-line security/detect-non-literal-fs-filename -- forwards the temp path the route computed in tests
       atomicWriteFile: (filePath: string, data: string, encoding: string) => require('fs/promises').writeFile(filePath, data, encoding),
     }));
@@ -1088,8 +1088,8 @@ describe('ideas route', () => {
       readFile: jest.fn(),
       writeFile: jest.fn(),
     }));
-    jest.doMock('../utils/apiLogging', () => require('./__helpers__/apiLoggingMock').apiLoggingMock());
-    jest.doMock('../utils/logger', () => ({
+    jest.doMock('../../utils/apiLogging', () => require('../__helpers__/apiLoggingMock').apiLoggingMock());
+    jest.doMock('../../utils/logger', () => ({
       logger: {
         debug: jest.fn(),
         info: jest.fn(),
@@ -1102,16 +1102,16 @@ describe('ideas route', () => {
     const m0 = require('fs/promises');
     readFile = m0.readFile;
     writeFile = m0.writeFile;
-    const m1 = require('../database/database');
+    const m1 = require('../../database/database');
     db = m1 && m1.__esModule ? m1.default : m1;
-    const m2 = require('./__helpers__/routeAdapter').asModule(require('../app/api/google/ideas/route'));
+    const m2 = require('../__helpers__/routeAdapter').asModule(require('../../app/api/google/ideas/route'));
     handler = m2 && m2.__esModule ? m2.default : m2;
-    const m3 = require('../utils/verifyUser');
+    const m3 = require('../../utils/verifyUser');
     verifyUser = m3 && m3.__esModule ? m3.default : m3;
-    const m4 = require('../utils/adwords');
+    const m4 = require('../../utils/adwords');
     getAdwordsCredentials = m4.getAdwordsCredentials;
     getAdwordsKeywordIdeas = m4.getAdwordsKeywordIdeas;
-    const m5 = require('./__helpers__');
+    const m5 = require('../__helpers__');
     createMockRequest = m5.createMockRequest;
     createMockResponse = m5.createMockResponse;
   });
@@ -1137,7 +1137,7 @@ describe('ideas route', () => {
     });
 
     it.each([
-      ['a domain that could leave the data folder', { domain: '../../etc/passwd' }],
+      ['a domain that could leave the data folder', { domain: '../../../etc/passwd' }],
       ['a domain that is not a string', { domain: ['a'] }],
       ['a domain without a dot', { domain: 'localhost' }],
       ['an auto seed without a domain', { seedType: 'auto', domain: undefined }],

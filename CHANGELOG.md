@@ -6,6 +6,12 @@ All notable changes to this project will be documented in this file. Releases no
 
 ### Changed
 
+- Dashboard pages use private browser caching for 60 seconds with revalidation after expiration; login pages are not stored, API responses use `no-cache, no-store`, and domain screenshots ask thum.io to cache for seven days.
+- Add `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, and `X-Frame-Options: DENY` response headers.
+- Add a Content Security Policy for local app resources, inline scripts/styles, Google favicons, and thum.io screenshots.
+- Organize related Jest suites into API, database, email, refresh, scraper and utility folders without changing test coverage.
+- Remove duplicate country and search predicate cases from client utility tests.
+- Remove 21 low-value tests that repeated wrapper behavior, equivalent malformed-input cases, or copy-only output checks.
 - Domain cards render from the dashboard's domain list, then load card stats in batches as they approach the viewport; favicons and screenshots use the same viewport signal. Charts and Tracker keywords load on demand. Discover, Ideas, and Research fetch tracked keywords and scraper city support only when the add dialog opens, then check duplicates using the selected location and device. Main-menu navigation links do not prefetch routes.
 - Domain subpages load only the selected domain alongside app settings. Hovering or focusing a domain name warms its Tracker page, and hovering or focusing any domain tab warms that page. Mobile stacked tables clip the desktop grid during the first paint until hydration switches to the mobile layout.
 - Mobile keyword search fields stay in the top-right toolbar slot; country and group filters occupy separate grid slots below, avoiding overlap at narrow widths. This covers Tracker, Discover, Ideas, Research, and the Keywords section in Insight.

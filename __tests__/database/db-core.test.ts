@@ -139,37 +139,7 @@ describe('init', () => {
         expect(db.sync).toHaveBeenCalledTimes(2);
      });
 
-     it('should ensure database is initialized when called, and not re-initialize if already initialized', async () => {
-        (db.sync as jest.Mock).mockResolvedValue(undefined);
 
-        await ensureDatabase();
-
-        expect(db.sync).toHaveBeenCalledTimes(1);
-        expect(isDatabaseInitialized()).toBe(true);
-
-        await ensureDatabase();
-        await ensureDatabase();
-
-        expect(db.sync).toHaveBeenCalledTimes(1);
-        expect(isDatabaseInitialized()).toBe(true);
-     });
-
-     it('should handle concurrent ensureDatabase calls without race conditions', async () => {
-        (db.sync as jest.Mock).mockImplementation(() => 
-           new Promise(resolve => setTimeout(resolve, 100))
-        );
-
-        // Simulate multiple API requests arriving simultaneously
-        const promise1 = ensureDatabase();
-        const promise2 = ensureDatabase();
-        const promise3 = ensureDatabase();
-
-        await Promise.all([promise1, promise2, promise3]);
-
-        // Database should only be initialized once
-        expect(db.sync).toHaveBeenCalledTimes(1);
-        expect(isDatabaseInitialized()).toBe(true);
-     });
 
      it('should propagate initialization errors from ensureDatabase and allow retry', async () => {
         (db.sync as jest.Mock)

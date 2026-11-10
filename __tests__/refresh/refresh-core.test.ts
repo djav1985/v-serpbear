@@ -1,23 +1,23 @@
 import Cryptr from 'cryptr';
-import Domain from '../database/models/domain';
-import Keyword from '../database/models/keyword';
-import refreshAndUpdateKeywords, { updateKeywordPosition } from '../utils/refresh';
-import { type RefreshResult, removeFromRetryQueue, retryScrape, scrapeKeywordWithStrategy } from '../utils/scraper';
-import { toDbBool } from '../utils/dbBooleans';
-import { refreshQueue } from '../utils/refreshQueue';
+import Domain from '../../database/models/domain';
+import Keyword from '../../database/models/keyword';
+import refreshAndUpdateKeywords, { updateKeywordPosition } from '../../utils/refresh';
+import { type RefreshResult, removeFromRetryQueue, retryScrape, scrapeKeywordWithStrategy } from '../../utils/scraper';
+import { toDbBool } from '../../utils/dbBooleans';
+import { refreshQueue } from '../../utils/refreshQueue';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
-import { readSettingsFile, withSettingsLock } from '../utils/settingsFile';
+import { readSettingsFile, withSettingsLock } from '../../utils/settingsFile';
 
-jest.mock('../database/models/domain');
-jest.mock('../database/models/keyword');
-jest.mock('../utils/scraper', () => ({
+jest.mock('../../database/models/domain');
+jest.mock('../../database/models/keyword');
+jest.mock('../../utils/scraper', () => ({
   removeFromRetryQueue: jest.fn(),
   retryScrape: jest.fn(),
   scrapeKeywordWithStrategy: jest.fn(),
 }));
-jest.mock('../utils/retryQueueManager', () => ({
+jest.mock('../../utils/retryQueueManager', () => ({
   retryQueueManager: {
     addToQueue: jest.fn().mockResolvedValue(undefined),
     getAttempts: jest.fn().mockResolvedValue(0),
@@ -25,7 +25,7 @@ jest.mock('../utils/retryQueueManager', () => ({
     removeBatch: jest.fn().mockResolvedValue(undefined),
   },
 }));
-jest.mock('../utils/updateDomainStats', () => ({
+jest.mock('../../utils/updateDomainStats', () => ({
   updateDomainStats: jest.fn().mockResolvedValue(undefined),
 }));
 
@@ -184,7 +184,7 @@ describe('refresh core', () => {
 
     it('retries a failed sequential scrape until the keyword has used its retries, then drops it from the queue', async () => {
       // MAX_RETRY_ATTEMPTS is 3: a keyword already re-queued 3 times is dropped instead of queued again
-      const { retryQueueManager } = require('../utils/retryQueueManager');
+      const { retryQueueManager } = require('../../utils/retryQueueManager');
       const cases = [
         { ID: 41, attempts: 0, shouldRetry: true },
         { ID: 43, attempts: 3, shouldRetry: false },
@@ -454,7 +454,7 @@ describe('refresh core', () => {
         { get: () => ({ domain: 'disabled3.com', scrapeEnabled: 0 }) },
       ]);
 
-      const { retryQueueManager } = require('../utils/retryQueueManager');
+      const { retryQueueManager } = require('../../utils/retryQueueManager');
 
       // Execute the function
       await refreshAndUpdateKeywords(mockKeywords as unknown as Keyword[], mockSettings);
@@ -901,7 +901,7 @@ describe('refresh core', () => {
       } as SettingsType;
 
       // The refresh mode is reported in a debug message. Spy on the logger, because debug messages are not printed by default.
-      const { logger } = require('../utils/logger');
+      const { logger } = require('../../utils/logger');
       const debugSpy = jest.spyOn(logger, 'debug').mockImplementation();
 
       await refreshAndUpdateKeywords([keywordModel1, keywordModel2], settings);
@@ -1015,7 +1015,7 @@ describe('refresh core', () => {
       } as SettingsType;
 
       // The refresh mode is reported in a debug message. Spy on the logger, because debug messages are not printed by default.
-      const { logger } = require('../utils/logger');
+      const { logger } = require('../../utils/logger');
       const debugSpy = jest.spyOn(logger, 'debug').mockImplementation();
 
       await refreshAndUpdateKeywords([keywordModel1, keywordModel2], settings);
@@ -1311,33 +1311,33 @@ describe('refresh core', () => {
 
     beforeAll(() => {
       jest.resetModules();
-      jest.doMock('../utils/scraper', () => ({
+      jest.doMock('../../utils/scraper', () => ({
         __esModule: true,
         RefreshResult: undefined,
         removeFromRetryQueue: jest.fn().mockResolvedValue(undefined),
         retryScrape: jest.fn().mockResolvedValue(undefined),
         scrapeKeywordWithStrategy: jest.fn(),
       }));
-      jest.doMock('../utils/updateDomainStats', () => ({
+      jest.doMock('../../utils/updateDomainStats', () => ({
         __esModule: true,
         updateDomainStats: jest.fn().mockResolvedValue(undefined),
       }));
-      jest.doMock('../utils/retryQueueManager', () => ({
+      jest.doMock('../../utils/retryQueueManager', () => ({
         __esModule: true,
         retryQueueManager: { removeBatch: jest.fn().mockResolvedValue(undefined), getAttempts: jest.fn().mockResolvedValue(0) },
       }));
-      jest.doMock('../database/models/keyword', () => ({
+      jest.doMock('../../database/models/keyword', () => ({
         __esModule: true,
         default: { findAll: jest.fn(), update: jest.fn() },
       }));
-      jest.doMock('../database/models/domain', () => ({
+      jest.doMock('../../database/models/domain', () => ({
         __esModule: true,
         default: { findAll: jest.fn() },
       }));
       jest.isolateModules(() => {
-        isoRefresh = require('../utils/refresh').default;
-        scrapeMock = require('../utils/scraper').scrapeKeywordWithStrategy;
-        queueMock = require('../utils/retryQueueManager').retryQueueManager;
+        isoRefresh = require('../../utils/refresh').default;
+        scrapeMock = require('../../utils/scraper').scrapeKeywordWithStrategy;
+        queueMock = require('../../utils/retryQueueManager').retryQueueManager;
       });
     });
 
@@ -1586,7 +1586,7 @@ describe('refresh queue', () => {
     it('should use default concurrency of 3 when env var not set', () => {
       delete process.env.REFRESH_QUEUE_CONCURRENCY;
 
-      const { refreshQueue: q } = require('../utils/refreshQueue');
+      const { refreshQueue: q } = require('../../utils/refreshQueue');
       expect(q.getStatus().maxConcurrency).toBe(3);
     });
 
@@ -1595,7 +1595,7 @@ describe('refresh queue', () => {
         jest.resetModules();
         process.env.REFRESH_QUEUE_CONCURRENCY = value;
 
-        const { refreshQueue: q } = require('../utils/refreshQueue');
+        const { refreshQueue: q } = require('../../utils/refreshQueue');
         expect(q.getStatus().maxConcurrency).toBe(expected);
       }
     });
@@ -1605,7 +1605,7 @@ describe('refresh queue', () => {
         jest.resetModules();
         process.env.REFRESH_QUEUE_CONCURRENCY = value;
 
-        const { refreshQueue: q } = require('../utils/refreshQueue');
+        const { refreshQueue: q } = require('../../utils/refreshQueue');
         expect(q.getStatus().maxConcurrency).toBe(3);
       }
     });

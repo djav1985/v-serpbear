@@ -1,10 +1,10 @@
-/// <reference path="../types.d.ts" />
+/// <reference path="../../types.d.ts" />
 /* eslint-disable security/detect-non-literal-fs-filename -- the paths are a temp directory this test creates */
 
 import os from 'os';
 import path from 'path';
 import { mkdtempSync, mkdirSync, existsSync, writeFileSync, rmSync } from 'fs';
-import allScrapers from '../scrapers/index';
+import allScrapers from '../../scrapers/index';
 import {
    collectInUseCreditKeys,
    creditKey,
@@ -15,8 +15,8 @@ import {
    supportsCredits,
    trackScrapeCredits,
    withScraperCreditBatch,
-} from '../utils/scraperCredits';
-import { toDomainCardData } from '../app/(dashboard)/domains/_components/domain-card-data';
+} from '../../utils/scraperCredits';
+import { toDomainCardData } from '../../app/(dashboard)/domains/_components/domain-card-data';
 
 const scraper = (id: string): ScraperSettings => allScrapers.find((s: ScraperSettings) => s.id === id) as ScraperSettings;
 const settingsFor = (scraping_api: string, scraper_type = 'serpapi') => ({ scraper_type, scraping_api } as SettingsType);

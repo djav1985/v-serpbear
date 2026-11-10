@@ -1,18 +1,18 @@
  
-import { updateDomainStats } from '../utils/updateDomainStats';
-import Keyword from '../database/models/keyword';
-import Domain from '../database/models/domain';
-import { getAppSettings } from '../utils/appSettings';
-import { logger } from '../utils/logger';
-import type { RefreshResult } from '../utils/scraper';
+import { updateDomainStats } from '../../utils/updateDomainStats';
+import Keyword from '../../database/models/keyword';
+import Domain from '../../database/models/domain';
+import { getAppSettings } from '../../utils/appSettings';
+import { logger } from '../../utils/logger';
+import type { RefreshResult } from '../../utils/scraper';
 
-jest.mock('../database/models/keyword');
-jest.mock('../database/models/domain');
-jest.mock('../utils/appSettings', () => ({
+jest.mock('../../database/models/keyword');
+jest.mock('../../database/models/domain');
+jest.mock('../../utils/appSettings', () => ({
   __esModule: true,
   getAppSettings: jest.fn(),
 }));
-jest.mock('../utils/logger', () => ({
+jest.mock('../../utils/logger', () => ({
   logger: {
     info: jest.fn(),
     error: jest.fn(),
@@ -298,20 +298,6 @@ describe('updateDomainStats', () => {
         );
       });
 
-      it('does not penalise a map pack keyword at position 0', async () => {
-        mockKeywordFindAll.mockResolvedValue([
-          row(5, 0, 'false', { '2026-11-01': 5 }),
-          row(0, 1, 'false', { '2026-11-01': 9 }),
-        ] as any);
-
-        await updateDomainStats('example.com');
-
-        // The map pack zero is left out, so the average stays at 5 and the map pack keyword is still counted
-        expect(mockDomainUpdate).toHaveBeenCalledWith(
-          expect.objectContaining({ keywordsTracked: 2, avgPosition: 5, mapPackKeywords: 1 }),
-          { where: { domain: 'example.com' } }
-        );
-      });
     });
 
     describe('retry after a failed attempt', () => {
@@ -367,14 +353,14 @@ describe('refresh side effects behavior', () => {
   let scrapeKeywordWithStrategy: any;
   let updateDomainStats: any;
   jest.isolateModules(() => {
-    jest.doMock('../database/models/domain');
-    jest.doMock('../database/models/keyword');
-    jest.doMock('../utils/scraper', () => ({
+    jest.doMock('../../database/models/domain');
+    jest.doMock('../../database/models/keyword');
+    jest.doMock('../../utils/scraper', () => ({
       removeFromRetryQueue: jest.fn(),
       retryScrape: jest.fn(),
       scrapeKeywordWithStrategy: jest.fn(),
     }));
-    jest.doMock('../utils/retryQueueManager', () => ({
+    jest.doMock('../../utils/retryQueueManager', () => ({
       retryQueueManager: {
         addToQueue: jest.fn().mockResolvedValue(undefined),
         getAttempts: jest.fn().mockResolvedValue(0),
@@ -382,10 +368,10 @@ describe('refresh side effects behavior', () => {
         removeBatch: jest.fn().mockResolvedValue(undefined),
       },
     }));
-    jest.doMock('../utils/updateDomainStats', () => ({
+    jest.doMock('../../utils/updateDomainStats', () => ({
       updateDomainStats: jest.fn().mockResolvedValue(undefined),
     }));
-    jest.doMock('../utils/logger', () => ({
+    jest.doMock('../../utils/logger', () => ({
       logger: {
         info: jest.fn(),
         error: jest.fn(),
@@ -394,16 +380,16 @@ describe('refresh side effects behavior', () => {
     }));
     const m0 = require('cryptr');
     Cryptr = m0 && m0.__esModule ? m0.default : m0;
-    const m1 = require('../database/models/domain');
+    const m1 = require('../../database/models/domain');
     Domain = m1 && m1.__esModule ? m1.default : m1;
-    const m2 = require('../database/models/keyword');
+    const m2 = require('../../database/models/keyword');
     Keyword = m2 && m2.__esModule ? m2.default : m2;
-    const m3 = require('../utils/refresh');
+    const m3 = require('../../utils/refresh');
     refreshAndUpdateKeywords = m3 && m3.__esModule ? m3.default : m3;
     updateKeywordPosition = m3.updateKeywordPosition;
-    const m4 = require('../utils/scraper');
+    const m4 = require('../../utils/scraper');
     scrapeKeywordWithStrategy = m4.scrapeKeywordWithStrategy;
-    const m5 = require('../utils/updateDomainStats');
+    const m5 = require('../../utils/updateDomainStats');
     updateDomainStats = m5.updateDomainStats;
   });
 

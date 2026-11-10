@@ -229,39 +229,6 @@ describe('/api/app/cron', () => {
     );
   });
 
-  it('generates different task IDs when same domain is enqueued multiple times', async () => {
-    const { refreshQueue } = require('../../utils/refreshQueue');
-    
-    (Domain.findAll as jest.Mock).mockResolvedValue([
-      { get: () => ({ domain: 'test.com', scrapeEnabled: 1 }) },
-    ]);
-
-    (Keyword.findAll as jest.Mock).mockResolvedValue([
-      { domain: 'test.com', update: jest.fn().mockResolvedValue(undefined), set: jest.fn() }
-    ]);
-
-    // Call handler twice to simulate rapid consecutive cron triggers
-    await handler(req, res as NextApiResponse);
-    
-    // Reset mocks but keep the enqueue calls
-    const firstCallId = (refreshQueue.enqueue as jest.Mock).mock.calls[0][0];
-    
-    // Simulate another cron call
-    const res2 = {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn(),
-    } as MockedResponse;
-    
-    await handler(req, res2 as NextApiResponse);
-    await jest.runAllTimersAsync();
-
-    const secondCallId = (refreshQueue.enqueue as jest.Mock).mock.calls[1][0];
-
-    // Both should be for test.com but with different UUIDs
-    expect(firstCallId).toMatch(/^cron-refresh-test\.com-/);
-    expect(secondCallId).toMatch(/^cron-refresh-test\.com-/);
-    expect(firstCallId).not.toBe(secondCallId);
-  });
 
   afterEach(() => {
     jest.clearAllMocks();

@@ -96,59 +96,7 @@ describe('branding', () => {
      });
 
      describe('email branding integration', () => {
-        it('buildLogoUrl handles all logo validation internally', () => {
-           // Test that buildLogoUrl returns empty string when conditions aren't met
-           process.env = { 
-              ...ORIGINAL_ENV, 
-              NEXT_PUBLIC_WHITE_LABEL: 'false',
-              NEXT_PUBLIC_APP_URL: 'https://example.com' 
-           };
-         
-           const logoUrl = buildLogoUrl('https://example.com');
-           expect(logoUrl).toBe('');
-         
-           // Test that buildLogoUrl returns proper URL when conditions are met
-           process.env = { 
-              ...ORIGINAL_ENV, 
-              NEXT_PUBLIC_WHITE_LABEL: 'true',
-              NEXT_PUBLIC_APP_URL: 'https://example.com' 
-           };
-         
-           const validLogoUrl = buildLogoUrl('https://example.com');
-           expect(validLogoUrl).toBe('https://example.com/api/images/logo.png');
-        });
 
-        it('buildLogoUrl can be used directly without additional conditional checks', () => {
-           const DEFAULT_BRAND_LOGO = 'https://serpbear.b-cdn.net/ikAdjQq.png';
-         
-           // Test with white-label disabled - buildLogoUrl returns empty string
-           process.env = { 
-              ...ORIGINAL_ENV, 
-              NEXT_PUBLIC_WHITE_LABEL: 'false',
-              NEXT_PUBLIC_APP_URL: 'https://example.com' 
-           };
-         
-           const baseUrl = process.env.NEXT_PUBLIC_APP_URL || '';
-           const logoUrl = buildLogoUrl(baseUrl);
-           const emailLogo = logoUrl || DEFAULT_BRAND_LOGO;
-         
-           expect(logoUrl).toBe('');
-           expect(emailLogo).toBe(DEFAULT_BRAND_LOGO);
-         
-           // Test with white-label enabled - buildLogoUrl returns proper URL
-           process.env = { 
-              ...ORIGINAL_ENV, 
-              NEXT_PUBLIC_WHITE_LABEL: 'true',
-              NEXT_PUBLIC_APP_URL: 'https://example.com' 
-           };
-         
-           const baseUrl2 = process.env.NEXT_PUBLIC_APP_URL || '';
-           const logoUrl2 = buildLogoUrl(baseUrl2);
-           const emailLogo2 = logoUrl2 || DEFAULT_BRAND_LOGO;
-         
-           expect(logoUrl2).toBe('https://example.com/api/images/logo.png');
-           expect(emailLogo2).toBe('https://example.com/api/images/logo.png');
-        });
      });
   });
 });

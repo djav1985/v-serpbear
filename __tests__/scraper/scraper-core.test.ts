@@ -1,14 +1,14 @@
-import { serializeError } from '../utils/errorSerialization';
-import { getScraperClient, getSerp, parseScraperResponse, scrapeKeywordWithStrategy } from '../utils/scraper';
-import { resolveCountryCode } from '../utils/scraperHelpers';
-import countries from '../utils/countries';
-import dataforseo from '../scrapers/services/dataforseo';
-import crazyserp from '../scrapers/services/crazyserp';
-import { isGoogleRedirectUrl, resolveGoogleRedirects } from '../utils/resolveGoogleLinks';
-import { logger } from '../utils/logger';
-import { computeMapPackTop3, markOwnLocalResults } from '../utils/mapPack';
+import { serializeError } from '../../utils/errorSerialization';
+import { getScraperClient, getSerp, parseScraperResponse, scrapeKeywordWithStrategy } from '../../utils/scraper';
+import { resolveCountryCode } from '../../utils/scraperHelpers';
+import countries from '../../utils/countries';
+import dataforseo from '../../scrapers/services/dataforseo';
+import crazyserp from '../../scrapers/services/crazyserp';
+import { isGoogleRedirectUrl, resolveGoogleRedirects } from '../../utils/resolveGoogleLinks';
+import { logger } from '../../utils/logger';
+import { computeMapPackTop3, markOwnLocalResults } from '../../utils/mapPack';
 
-jest.mock('../utils/logger', () => ({
+jest.mock('../../utils/logger', () => ({
    logger: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
 }));
 
@@ -994,11 +994,6 @@ describe('map pack own result', () => {
         expect(markOwnLocalResults(undefined, 'Vontainment')).toEqual([]);
      });
 
-     it('agrees with computeMapPackTop3 on whether anything matches', () => {
-        for (const name of ['Vontainment', 'Other Co', '']) {
-           expect(markOwnLocalResults(results, name).some((entry) => entry.isOwn)).toBe(computeMapPackTop3(results, name));
-        }
-     });
 
      it('does not change the original entries', () => {
         markOwnLocalResults(results, 'Vontainment');

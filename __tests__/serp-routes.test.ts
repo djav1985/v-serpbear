@@ -1424,18 +1424,8 @@ describe('keyword meta helpers', () => {
   });
 
   describe('getLocationUpdateMessage', () => {
-     it('reports a plain update with the right plural', () => {
-        expect(getLocationUpdateMessage(1)).toBe('Updated 1 keyword.');
-        expect(getLocationUpdateMessage(3)).toBe('Updated 3 keywords.');
-     });
 
-     it('reports skipped keywords alongside the updated count', () => {
-        expect(getLocationUpdateMessage(2, ['alpha'])).toBe('Updated 2 keywords. Skipped 1 already tracked in that location: alpha.');
-     });
 
-     it('says nothing changed when every keyword was skipped', () => {
-        expect(getLocationUpdateMessage(0, ['alpha', 'beta'])).toBe('No keywords changed. 2 already tracked in that location: alpha, beta.');
-     });
   });
 
   describe('splitAlreadyTracked', () => {

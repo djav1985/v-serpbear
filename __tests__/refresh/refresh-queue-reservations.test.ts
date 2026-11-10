@@ -1,6 +1,6 @@
-/// <reference path="../types.d.ts" />
+/// <reference path="../../types.d.ts" />
 
-jest.mock('../utils/logger', () => ({
+jest.mock('../../utils/logger', () => ({
   logger: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
 }));
 
@@ -15,8 +15,8 @@ const flush = () => new Promise<void>((resolve) => { setImmediate(resolve); });
 
 const freshQueue = (concurrency = '3') => {
   process.env.REFRESH_QUEUE_CONCURRENCY = concurrency;
-  let queue!: typeof import('../utils/refreshQueue').refreshQueue;
-  jest.isolateModules(() => { queue = require('../utils/refreshQueue').refreshQueue; });
+  let queue!: typeof import('../../utils/refreshQueue').refreshQueue;
+  jest.isolateModules(() => { queue = require('../../utils/refreshQueue').refreshQueue; });
   return queue;
 };
 

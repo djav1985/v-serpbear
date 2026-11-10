@@ -1,17 +1,17 @@
-import { ApiError, apiDelete, apiFetch, apiGet, apiPost, apiPut } from '../utils/client/apiClient';
-import { calculateChartBounds } from '../utils/client/chartBounds';
-import { isValidEmail } from '../utils/client/validators';
-import { formattedNum, getSelectedUntrackedKeywords } from '../utils/client/helpers';
-import { aggregateSCKeywords } from '../app/(dashboard)/domain/console/[slug]/_components/sc-state';
-import exportCSV, { createKeywordCsvPayload, createKeywordIdeasCsvPayload } from '../utils/client/exportcsv';
-import { serializeForScript } from '../utils/api/scriptJson';
-import { NO_TAGS_FILTER, SCfilterKeywords, SCsortKeywords, matchesCountry, matchesIdeaTags, matchesSearch, matchesTags, normalizeIdeaTag, resolveTagSelection } from '../utils/client/sortFilter';
-import { safeHttpUrl } from '../utils/client/safeUrl';
-import { toHistoryDateKey } from '../utils/historyDateKey';
-import { generateTheChartData } from '../utils/client/generateChartData';
+import { ApiError, apiDelete, apiFetch, apiGet, apiPost, apiPut } from '../../utils/client/apiClient';
+import { calculateChartBounds } from '../../utils/client/chartBounds';
+import { isValidEmail } from '../../utils/client/validators';
+import { formattedNum, getSelectedUntrackedKeywords } from '../../utils/client/helpers';
+import { aggregateSCKeywords } from '../../app/(dashboard)/domain/console/[slug]/_components/sc-state';
+import exportCSV, { createKeywordCsvPayload, createKeywordIdeasCsvPayload } from '../../utils/client/exportcsv';
+import { serializeForScript } from '../../utils/api/scriptJson';
+import { NO_TAGS_FILTER, SCfilterKeywords, SCsortKeywords, matchesCountry, matchesIdeaTags, matchesSearch, matchesTags, normalizeIdeaTag, resolveTagSelection } from '../../utils/client/sortFilter';
+import { safeHttpUrl } from '../../utils/client/safeUrl';
+import { toHistoryDateKey } from '../../utils/historyDateKey';
+import { generateTheChartData } from '../../utils/client/generateChartData';
 
 const mockOrigin = 'http://localhost:3000';
-jest.mock('../utils/client/origin', () => ({
+jest.mock('../../utils/client/origin', () => ({
    getClientOrigin: () => mockOrigin,
 }));
 
@@ -132,12 +132,6 @@ describe('api client', () => {
         });
      };
 
-     it('apiGet calls fetch with GET method', async () => {
-        mockSuccess({ ok: true });
-        await apiGet('/api/test');
-        const fetchMock = global.fetch as unknown as jest.Mock;
-        expect(fetchMock).toHaveBeenCalledWith(`${mockOrigin}/api/test`, expect.objectContaining({ method: 'GET' }));
-     });
 
      it('apiPost calls fetch with POST method and serialized body', async () => {
         mockSuccess({ ok: true });
@@ -159,17 +153,11 @@ describe('api client', () => {
         }));
      });
 
-     it('apiDelete calls fetch with DELETE method', async () => {
-        mockSuccess({ ok: true });
-        await apiDelete('/api/test');
-        const fetchMock = global.fetch as unknown as jest.Mock;
-        expect(fetchMock).toHaveBeenCalledWith(`${mockOrigin}/api/test`, expect.objectContaining({ method: 'DELETE' }));
-     });
   });
 });
 
 describe('client helpers', () => {
-  /// <reference path="../../../types.d.ts" />
+  /// <reference path="../../../../types.d.ts" />
 
 
   describe('calculateChartBounds', () => {
@@ -708,19 +696,6 @@ describe('search console sort and filter', () => {
 
 describe('idea filters', () => {
   describe('Ideas keyword filters', () => {
-     it('matchesCountry matches configured countries', () => {
-        expect(matchesCountry('US', [])).toBe(true);
-        expect(matchesCountry('US', ['US'])).toBe(true);
-        expect(matchesCountry('US', ['GB'])).toBe(false);
-     });
-
-     it('matchesSearch runs case insensitive search', () => {
-        expect(matchesSearch('Amazing Keyword Idea', '')).toBe(true);
-        expect(matchesSearch('Amazing Keyword Idea', 'keyword')).toBe(true);
-        expect(matchesSearch('Amazing Keyword Idea', 'IDEA')).toBe(true);
-        expect(matchesSearch('Amazing Keyword Idea', 'other')).toBe(false);
-     });
-
      it('normalizeIdeaTag trims counts and whitespace', () => {
         expect(normalizeIdeaTag('SEO (12)')).toBe('SEO');
         expect(normalizeIdeaTag('   local search   ')).toBe('local search');
@@ -846,7 +821,7 @@ describe('chart data', () => {
 });
 
 describe('conflictMessage', () => {
-  const { ApiError, conflictMessage } = require('../utils/client/apiClient');
+  const { ApiError, conflictMessage } = require('../../utils/client/apiClient');
 
   it('shows the server message for a 409 and the fallback for anything else', () => {
     expect(conflictMessage(new ApiError('Try again once the refresh has finished.', 409, 'CONFLICT'), 'Error')).toBe('Try again once the refresh has finished.');

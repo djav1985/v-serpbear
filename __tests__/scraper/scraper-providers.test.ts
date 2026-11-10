@@ -1,18 +1,18 @@
-import crazyserp from '../scrapers/services/crazyserp';
-import prismcrawl from '../scrapers/services/prismcrawl';
-import { getScraperClient } from '../utils/scraper';
-import dataforseo from '../scrapers/services/dataforseo';
-import serpbase from '../scrapers/services/serpbase';
-import valueSerp from '../scrapers/services/valueserp';
-import hasdata from '../scrapers/services/hasdata';
-import serper from '../scrapers/services/serper';
-import serpapi from '../scrapers/services/serpapi';
-import serply from '../scrapers/services/serply';
-import searchapi from '../scrapers/services/searchapi';
-import { runScraperURLContracts } from './__helpers__/scraperContract';
-import { computeMapPackTop3 } from '../utils/mapPack';
+import crazyserp from '../../scrapers/services/crazyserp';
+import prismcrawl from '../../scrapers/services/prismcrawl';
+import { getScraperClient } from '../../utils/scraper';
+import dataforseo from '../../scrapers/services/dataforseo';
+import serpbase from '../../scrapers/services/serpbase';
+import valueSerp from '../../scrapers/services/valueserp';
+import hasdata from '../../scrapers/services/hasdata';
+import serper from '../../scrapers/services/serper';
+import serpapi from '../../scrapers/services/serpapi';
+import serply from '../../scrapers/services/serply';
+import searchapi from '../../scrapers/services/searchapi';
+import { runScraperURLContracts } from '../__helpers__/scraperContract';
+import { computeMapPackTop3 } from '../../utils/mapPack';
 
-jest.mock('../utils/logger', () => ({
+jest.mock('../../utils/logger', () => ({
   logger: {
     debug: jest.fn(),
     info: jest.fn(),
@@ -1257,7 +1257,7 @@ describe('providers matrix', () => {
     });
 
     it('warns for every mobile keyword that Serper cannot return mobile results for', () => {
-      const { logger } = require('../utils/logger');
+      const { logger } = require('../../utils/logger');
       const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
       serper.scrapeURL!(kw, { scraping_api: 'x' } as any, {} as any);
       serper.scrapeURL!(kw, { scraping_api: 'x' } as any, {} as any);

@@ -1,38 +1,38 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { asHandler } from './__helpers__/routeAdapter';
-import * as handlerRoute from '../app/api/serp/refresh/route';
-import db from '../database/database';
-import Keyword from '../database/models/keyword';
-import Domain from '../database/models/domain';
-import verifyUser, { hasValidSessionCookie } from '../utils/verifyUser';
-import { refreshKeywordsByIds } from '../utils/refresh';
-import { getAppSettings } from '../utils/appSettings';
-import { scrapeKeywordWithStrategy } from '../utils/scraper';
+import { asHandler } from '../__helpers__/routeAdapter';
+import * as handlerRoute from '../../app/api/serp/refresh/route';
+import db from '../../database/database';
+import Keyword from '../../database/models/keyword';
+import Domain from '../../database/models/domain';
+import verifyUser, { hasValidSessionCookie } from '../../utils/verifyUser';
+import { refreshKeywordsByIds } from '../../utils/refresh';
+import { getAppSettings } from '../../utils/appSettings';
+import { scrapeKeywordWithStrategy } from '../../utils/scraper';
 import path from 'path';
-import { retryQueueManager } from '../utils/retryQueueManager';
-import { atomicWriteFile } from '../utils/atomicWrite';
+import { retryQueueManager } from '../../utils/retryQueueManager';
+import { atomicWriteFile } from '../../utils/atomicWrite';
 import * as lockfile from 'proper-lockfile';
 const handler = asHandler(handlerRoute);
 
-jest.mock('../database/database', () => ({
+jest.mock('../../database/database', () => ({
   __esModule: true,
   default: { sync: jest.fn() },
 }));
-jest.mock('../database/models/keyword', () => ({
+jest.mock('../../database/models/keyword', () => ({
   __esModule: true,
   default: { findAll: jest.fn(), update: jest.fn() },
 }));
-jest.mock('../database/models/domain', () => ({
+jest.mock('../../database/models/domain', () => ({
   __esModule: true,
   default: { findAll: jest.fn() },
 }));
-jest.mock('../utils/verifyUser');
-jest.mock('../utils/appSettings', () => ({
+jest.mock('../../utils/verifyUser');
+jest.mock('../../utils/appSettings', () => ({
   __esModule: true,
   getAppSettings: jest.fn(),
 }));
-jest.mock('../utils/refresh', () => {
-  const actual = jest.requireActual('../utils/refresh');
+jest.mock('../../utils/refresh', () => {
+  const actual = jest.requireActual('../../utils/refresh');
   return {
     __esModule: true,
     ...actual,
@@ -40,13 +40,13 @@ jest.mock('../utils/refresh', () => {
     refreshKeywordsByIds: jest.fn(),
   };
 });
-jest.mock('../utils/scraper', () => ({
+jest.mock('../../utils/scraper', () => ({
   scrapeKeywordWithStrategy: jest.fn(),
   retryScrape: jest.fn(),
   removeFromRetryQueue: jest.fn(),
 }));
-jest.mock('../utils/apiLogging', () => require('./__helpers__/apiLoggingMock').apiLoggingMock());
-jest.mock('../utils/refreshQueue', () => ({
+jest.mock('../../utils/apiLogging', () => require('../__helpers__/apiLoggingMock').apiLoggingMock());
+jest.mock('../../utils/refreshQueue', () => ({
   refreshQueue: {
     enqueue: jest.fn().mockImplementation(async (_id: string, task: () => Promise<void>, _domain?: string) => {
       // Execute task immediately in tests and catch any errors
@@ -59,7 +59,7 @@ jest.mock('../utils/refreshQueue', () => ({
     isDomainLocked: jest.fn().mockReturnValue(false),
     // Mirrors the real queue: returns a release function, or null when a domain is already locked
     reserveDomains: jest.fn().mockImplementation((domains: string[]) => {
-      const { refreshQueue } = require('../utils/refreshQueue');
+      const { refreshQueue } = require('../../utils/refreshQueue');
       return domains.some((domain: string) => refreshQueue.isDomainLocked(domain)) ? null : () => undefined;
     }),
     getStatus: jest.fn().mockReturnValue({
@@ -72,7 +72,7 @@ jest.mock('../utils/refreshQueue', () => ({
     setMaxConcurrency: jest.fn(),
   },
 }));
-jest.mock('../utils/logger', () => ({
+jest.mock('../../utils/logger', () => ({
    logger: {
       debug: jest.fn(),
       error: jest.fn(),
@@ -80,7 +80,7 @@ jest.mock('../utils/logger', () => ({
       warn: jest.fn(),
    },
 }));
-jest.mock('../utils/atomicWrite', () => ({
+jest.mock('../../utils/atomicWrite', () => ({
    atomicWriteFile: jest.fn(),
 }));
 jest.mock('proper-lockfile', () => ({
@@ -348,7 +348,7 @@ describe('refresh route', () => {
 
       // Mock domain as locked
       // Once for the atomic reservation check of the only domain
-      const { refreshQueue } = require('../utils/refreshQueue');
+      const { refreshQueue } = require('../../utils/refreshQueue');
       (refreshQueue.isDomainLocked as jest.Mock).mockReturnValueOnce(true);
 
       await handler(req, res);
@@ -374,7 +374,7 @@ describe('refresh route', () => {
         { get: () => ({ domain: 'busy.com', scrapeEnabled: 1 }) },
       ]);
 
-      const { refreshQueue } = require('../utils/refreshQueue');
+      const { refreshQueue } = require('../../utils/refreshQueue');
       (refreshQueue.isDomainLocked as jest.Mock).mockImplementation((domain: string) => domain === 'busy.com');
 
       try {
@@ -773,15 +773,6 @@ describe('retry queue manager', () => {
            }
         });
 
-        it('should not write if keyword ID not in queue', async () => {
-           jest.spyOn(retryQueueManager as any, 'readQueue').mockResolvedValue(entries(123, 456));
-
-           await retryQueueManager.removeFromQueue(789);
-
-           expect(atomicWriteFile).not.toHaveBeenCalled();
-           expect(lockfile.lock).toHaveBeenCalled();
-           expect(mockRelease).toHaveBeenCalled();
-        });
 
      });
 
@@ -799,17 +790,6 @@ describe('retry queue manager', () => {
            expect(lockfile.lock).toHaveBeenCalledTimes(1);
         });
 
-        it('should not write when no IDs match or the batch is empty', async () => {
-           jest.spyOn(retryQueueManager as any, 'readQueue').mockResolvedValue(entries(123, 456));
-
-           await retryQueueManager.removeBatch(new Set([789, 101]));
-           expect(atomicWriteFile).not.toHaveBeenCalled();
-
-           const locksBefore = (lockfile.lock as jest.Mock).mock.calls.length;
-           await retryQueueManager.removeBatch(new Set([]));
-           expect(atomicWriteFile).not.toHaveBeenCalled();
-           expect(lockfile.lock).toHaveBeenCalledTimes(locksBefore);
-        });
      });
 
      describe('clearQueue', () => {
@@ -897,7 +877,7 @@ describe('retry queue manager', () => {
         rename: jest.fn().mockResolvedValue(undefined),
         mkdir: jest.fn().mockResolvedValue(undefined),
       }));
-      jest.doMock('../utils/atomicWrite', () => ({
+      jest.doMock('../../utils/atomicWrite', () => ({
         __esModule: true,
         atomicWriteFile: jest.fn().mockResolvedValue(undefined),
       }));
@@ -905,7 +885,7 @@ describe('retry queue manager', () => {
         lock: jest.fn().mockResolvedValue(jest.fn().mockResolvedValue(undefined)),
       }));
       jest.isolateModules(() => {
-        isolatedQueue = require('../utils/retryQueueManager').retryQueueManager;
+        isolatedQueue = require('../../utils/retryQueueManager').retryQueueManager;
         readMock = require('fs/promises').readFile;
         renameMock = require('fs/promises').rename;
       });

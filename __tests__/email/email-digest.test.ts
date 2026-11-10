@@ -1,46 +1,46 @@
  
 import { NextApiRequest, NextApiResponse } from 'next';
 import nodeMailer from 'nodemailer';
-import { asHandler } from './__helpers__/routeAdapter';
-import * as handlerRoute from '../app/api/app/email/route';
-import db from '../database/database';
-import Domain from '../database/models/domain';
-import Keyword from '../database/models/keyword';
-import verifyUser from '../utils/verifyUser';
-import parseKeywords from '../utils/parseKeywords';
-import generateEmail from '../utils/generateEmail';
-import { getAppSettings } from '../utils/appSettings';
-import { getBranding } from '../utils/branding';
-import { reserveEmailSend } from '../utils/emailThrottle';
+import { asHandler } from '../__helpers__/routeAdapter';
+import * as handlerRoute from '../../app/api/app/email/route';
+import db from '../../database/database';
+import Domain from '../../database/models/domain';
+import Keyword from '../../database/models/keyword';
+import verifyUser from '../../utils/verifyUser';
+import parseKeywords from '../../utils/parseKeywords';
+import generateEmail from '../../utils/generateEmail';
+import { getAppSettings } from '../../utils/appSettings';
+import { getBranding } from '../../utils/branding';
+import { reserveEmailSend } from '../../utils/emailThrottle';
 const handler = asHandler(handlerRoute);
 
-jest.mock('../database/database', () => ({
+jest.mock('../../database/database', () => ({
   __esModule: true,
   default: { sync: jest.fn() },
 }));
-jest.mock('../database/models/domain', () => ({
+jest.mock('../../database/models/domain', () => ({
   __esModule: true,
   default: { findAll: jest.fn(), findOne: jest.fn() },
 }));
-jest.mock('../database/models/keyword', () => ({
+jest.mock('../../database/models/keyword', () => ({
   __esModule: true,
   default: { findAll: jest.fn() },
 }));
-jest.mock('../utils/verifyUser');
-jest.mock('../utils/parseKeywords');
-jest.mock('../utils/generateEmail');
-jest.mock('../utils/emailThrottle', () => ({
+jest.mock('../../utils/verifyUser');
+jest.mock('../../utils/parseKeywords');
+jest.mock('../../utils/generateEmail');
+jest.mock('../../utils/emailThrottle', () => ({
   reserveEmailSend: jest.fn(() => Promise.resolve({ reserved: true, release: jest.fn(() => Promise.resolve()) })),
 }));
 jest.mock('nodemailer', () => ({
   __esModule: true,
   default: { createTransport: jest.fn() },
 }));
-jest.mock('../utils/appSettings', () => ({
+jest.mock('../../utils/appSettings', () => ({
   __esModule: true,
   getAppSettings: jest.fn(),
 }));
-jest.mock('../utils/apiLogging', () => require('./__helpers__/apiLoggingMock').apiLoggingMock());
+jest.mock('../../utils/apiLogging', () => require('../__helpers__/apiLoggingMock').apiLoggingMock());
 
 describe('email digest', () => {
   const { platformName } = getBranding();
@@ -586,18 +586,18 @@ describe('email routing', () => {
   let sendDigestEmails: any;
   let sendIdeasEmail: any;
   jest.isolateModules(() => {
-    jest.doMock('../utils/verifyUser');
-    jest.doMock('../utils/apiLogging', () => require('./__helpers__/apiLoggingMock').apiLoggingMock());
-    jest.doMock('../utils/api/emailDigest', () => ({ sendDigestEmails: jest.fn(async () => Response.json({ success: true })) }));
-    jest.doMock('../utils/api/emailIdeas', () => ({ sendIdeasEmail: jest.fn(async () => Response.json({ success: true })) }));
-    const m0 = require('./__helpers__/routeAdapter').asModule(require('../app/api/app/email/route'));
+    jest.doMock('../../utils/verifyUser');
+    jest.doMock('../../utils/apiLogging', () => require('../__helpers__/apiLoggingMock').apiLoggingMock());
+    jest.doMock('../../utils/api/emailDigest', () => ({ sendDigestEmails: jest.fn(async () => Response.json({ success: true })) }));
+    jest.doMock('../../utils/api/emailIdeas', () => ({ sendIdeasEmail: jest.fn(async () => Response.json({ success: true })) }));
+    const m0 = require('../__helpers__/routeAdapter').asModule(require('../../app/api/app/email/route'));
     handler = m0 && m0.__esModule ? m0.default : m0;
-    const m1 = require('../utils/verifyUser');
+    const m1 = require('../../utils/verifyUser');
     verifyUser = m1 && m1.__esModule ? m1.default : m1;
     hasValidSessionCookie = m1.hasValidSessionCookie;
-    const m2 = require('../utils/api/emailDigest');
+    const m2 = require('../../utils/api/emailDigest');
     sendDigestEmails = m2.sendDigestEmails;
-    const m3 = require('../utils/api/emailIdeas');
+    const m3 = require('../../utils/api/emailIdeas');
     sendIdeasEmail = m3.sendIdeasEmail;
   });
 
