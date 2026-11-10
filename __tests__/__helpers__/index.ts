@@ -6,22 +6,5 @@
 export { createMockResponse } from './mockResponse';
 export { createMockRequest } from './mockRequest';
 export { asHandler, buildRequest } from './routeAdapter';
-export {
-  mockDatabase,
-  mockVerifyUser,
-  mockApiLogging,
-  mockScrapers,
-  mockLogger,
-  mockRefresh,
-  mockDomainModel,
-  mockKeywordModel,
-} from './commonMocks';
-export {
-  assertUnauthorized,
-  assertMethodNotAllowed,
-  assertErrorShape,
-  assertBadRequest,
-  assertNotFound,
-} from './apiTestHarness';
 export type { ScraperContractConfig } from './scraperContract';
 export { runScraperURLContracts } from './scraperContract';

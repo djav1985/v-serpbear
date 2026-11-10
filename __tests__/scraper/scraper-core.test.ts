@@ -751,6 +751,10 @@ describe('offset pagination', () => {
   });
 
   describe('scrapeKeywordWithStrategy with an offset-based scraper', () => {
+     afterEach(() => {
+        jest.restoreAllMocks();
+     });
+
      it('starts each page after the results already returned', async () => {
         const pages = [pageOf(2, 'a'), pageOf(5, 'b'), pageOf(3, 'c')];
         const fetchSpy = jest.spyOn(global, 'fetch').mockImplementation(async () => ({
@@ -764,7 +768,6 @@ describe('offset pagination', () => {
         const starts = fetchSpy.mock.calls.map(([, init]) => JSON.parse((init as RequestInit).body as string).start);
         expect(starts).toEqual([0, 2, 7]);
         expect(result.result).toHaveLength(10);
-        fetchSpy.mockRestore();
      });
   });
 });
@@ -805,11 +808,9 @@ describe('failure keeps position', () => {
   } as unknown as SettingsType;
 
   describe('scrapeKeywordWithStrategy when every request fails', () => {
-     let fetchSpy: jest.SpyInstance;
-
      beforeEach(() => {
         jest.useFakeTimers();
-        fetchSpy = jest.spyOn(global, 'fetch').mockImplementation(() => {
+        jest.spyOn(global, 'fetch').mockImplementation(() => {
            const err = new Error('This operation was aborted');
            err.name = 'AbortError';
            return Promise.reject(err);
@@ -817,7 +818,7 @@ describe('failure keeps position', () => {
      });
 
      afterEach(() => {
-        fetchSpy.mockRestore();
+        jest.restoreAllMocks();
         jest.useRealTimers();
      });
 
@@ -866,7 +867,7 @@ describe('google links', () => {
      });
 
      afterEach(() => {
-        fetchSpy.mockRestore();
+        jest.restoreAllMocks();
         jest.useRealTimers();
      });
 
@@ -920,7 +921,6 @@ describe('google links', () => {
         fetchSpy.mockResolvedValue(jsonResponse({ organic: [{ link: 'https://a.example/' }] }));
         await resolveGoogleRedirects([{ title: 'A', url: GOTO_A }], 'key');
         expect(timeoutSpy).toHaveBeenCalledWith(30000);
-        timeoutSpy.mockRestore();
      });
 
      it('tries a timed out call once more, then gives up without throwing', async () => {

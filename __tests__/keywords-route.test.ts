@@ -963,6 +963,10 @@ describe('keywords', () => {
 });
 
 describe('parseKeywords', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   describe('parseKeywords', () => {
      const buildKeyword = (overrides: Partial<Record<string, any>> = {}) => ({
         ID: 1,

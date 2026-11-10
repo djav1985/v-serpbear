@@ -38,6 +38,10 @@ const deferred = () => {
 const yieldToQueue = () => new Promise<void>((resolve) => setImmediate(resolve));
 
 describe('refresh core', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   // Mock the dependencies
   // Mock retryQueueManager
   // Mock updateDomainStats so it doesn't require real DB access

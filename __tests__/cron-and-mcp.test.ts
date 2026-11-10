@@ -99,13 +99,14 @@ describe('cron worker', () => {
       scrape_interval: '',
     };
     const originalCwd = process.cwd();
-    const originalSecret = process.env.SECRET;
+    let originalEnv: NodeJS.ProcessEnv;
     let workDir: string;
     let settingsPath: string;
 
     // getAppSettings reads `${process.cwd()}/data/settings.json`. Each case runs in its own temp working
     // directory so it never touches the real data/settings.json, which other Jest workers also read and write.
     beforeEach(async () => {
+      originalEnv = { ...process.env };
       workDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'serpbear-cron-settings-'));
       await fsPromises.mkdir(path.join(workDir, 'data'));
       settingsPath = path.join(workDir, 'data', 'settings.json');
@@ -114,11 +115,7 @@ describe('cron worker', () => {
 
     afterEach(async () => {
       process.chdir(originalCwd);
-      if (originalSecret === undefined) {
-        delete process.env.SECRET;
-      } else {
-        process.env.SECRET = originalSecret;
-      }
+      process.env = { ...originalEnv };
       jest.unmock('cryptr');
       jest.resetModules();
       jest.restoreAllMocks();

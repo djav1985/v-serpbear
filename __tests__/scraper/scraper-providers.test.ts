@@ -483,9 +483,12 @@ describe('prismcrawl', () => {
   });
 
   describe('getScraperClient with a POST scraper', () => {
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
     it('sends a POST with the JSON body for POST scrapers, and GET with no body for scrapers without a method', async () => {
-      const fetchMock = jest.fn().mockResolvedValue({ ok: true });
-      global.fetch = fetchMock as any;
+      const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue({ ok: true } as Response);
 
       const keyword = buildKeyword({ location: 'Port Charlotte,FL,United States' });
       await getScraperClient(keyword, settings as SettingsType, prismcrawl, 0, { start: 10, num: 10, page: 2 });

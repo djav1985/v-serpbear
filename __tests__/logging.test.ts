@@ -17,19 +17,20 @@ jest.mock('../database/init', () => ({
 describe('logger', () => {
   // utils/logger is mocked for the API logging tests below; these tests need the real class.
   const { Logger } = jest.requireActual('../utils/logger') as typeof import('../utils/logger');
-  // Mock console.log to prevent output during tests
-  const mockConsoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
-
   describe('Logger', () => {
     let originalEnv: NodeJS.ProcessEnv;
+    let mockConsoleLog: jest.SpyInstance;
 
     beforeEach(() => {
-      originalEnv = process.env;
+      originalEnv = { ...process.env };
+      process.env = { ...originalEnv };
+      mockConsoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
       mockConsoleLog.mockClear();
     });
 
     afterEach(() => {
-      process.env = originalEnv;
+      process.env = { ...originalEnv };
+      mockConsoleLog.mockRestore();
     });
 
     describe('LOG_LEVEL configuration', () => {
@@ -191,14 +192,17 @@ describe('api logging', () => {
       new Request(init.url ?? 'http://localhost:3000/api/test', { method: init.method ?? 'GET', headers: init.headers })
     );
     const ok = async () => Response.json({ ok: true });
+    let originalEnv: NodeJS.ProcessEnv;
 
     beforeEach(() => {
+      originalEnv = { ...process.env };
+      process.env = { ...originalEnv };
       jest.clearAllMocks();
       delete process.env.LOG_LEVEL;
     });
 
     afterEach(() => {
-      delete process.env.LOG_LEVEL;
+      process.env = { ...originalEnv };
     });
 
     it('logs request details at debug level only when LOG_LEVEL is DEBUG (case-insensitive)', async () => {
@@ -379,10 +383,13 @@ describe('api logging', () => {
 
   describe('getClientIp', () => {
     const makeReq = (headers: Record<string, string>) => new Request('http://localhost/api/test', { headers });
+    let originalEnv: NodeJS.ProcessEnv;
 
-    const original = process.env.TRUST_PROXY;
+    beforeEach(() => {
+      originalEnv = { ...process.env };
+    });
     afterEach(() => {
-      if (original === undefined) { delete process.env.TRUST_PROXY; } else { process.env.TRUST_PROXY = original; }
+      process.env = { ...originalEnv };
     });
 
     it('ignores a forwarded header unless a proxy is configured, because a client can send it itself', () => {
