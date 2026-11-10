@@ -113,6 +113,13 @@ describe('POST /api/serp/keywords', () => {
 beforeEach(() => {
       jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] }).setSystemTime(new Date('2024-06-01T12:00:00.000Z'));
       jest.clearAllMocks();
+      keywordMock.findAll.mockReset().mockResolvedValue([]);
+      keywordMock.bulkCreate.mockReset();
+      keywordMock.update.mockReset();
+      keywordMock.destroy.mockReset();
+      DomainMock.findAll.mockReset().mockImplementation(({ where }: { where: { domain: string[] } }) => (
+        Promise.resolve(where.domain.map((domain) => ({ get: () => ({ domain }) })))
+      ));
       dbMock.sync.mockResolvedValue(undefined);
       verifyUserMock.mockReturnValue('authorized');
       getAppSettingsMock.mockResolvedValue({
@@ -123,6 +130,11 @@ beforeEach(() => {
       });
       getKeywordsVolumeMock.mockResolvedValue({ volumes: false });
       updateKeywordsVolumeDataMock.mockResolvedValue(true);
+      refreshQueueMock.enqueue.mockReset().mockResolvedValue(undefined);
+      refreshQueueMock.isDomainLocked.mockReset().mockReturnValue(false);
+      refreshQueueMock.reserveDomains.mockReset().mockImplementation((domains: string[]) => (
+        domains.some((domain) => refreshQueueMock.isDomainLocked(domain)) ? null : jest.fn()
+      ));
     });
 
 describe('stored location on add', () => {

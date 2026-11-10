@@ -6,6 +6,9 @@ All notable changes to this project will be documented in this file. Releases no
 
 ### Changed
 
+- Strengthen SQLite binding assertions by matching each recorded callback invocation's SQL, method, and arguments together.
+- Reset stateful JWT, domain/refresh queue, and Search Console mocks between randomized cases to prevent order dependent results.
+
 - Split SERP API route tests by method, merge keyword integrity cases by operation, and remove duplicate sticky validation coverage.
 
 - Move settings-file and retry-queue tests into utility suites, merge domain-stats ordering coverage, and restore the refresh tests' SECRET environment value after each test.

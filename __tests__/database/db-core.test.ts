@@ -733,20 +733,29 @@ describe('sqlite dialect', () => {
               const runCall = recordedCalls.find(
                 (call) => call.method === 'run' && call.sql === insertSql,
               );
-              expect(runCall).toBeDefined();
-              expect(runCall?.args).toEqual([{ name: sentinelValue }]);
+              expect(runCall).toEqual({
+                sql: insertSql,
+                method: 'run',
+                args: [{ name: sentinelValue }],
+              });
 
               const getCall = recordedCalls.find(
                 (call) => call.method === 'get' && call.sql === getSql,
               );
-              expect(getCall).toBeDefined();
-              expect(getCall?.args).toEqual([{ name: sentinelValue }]);
+              expect(getCall).toEqual({
+                sql: getSql,
+                method: 'get',
+                args: [{ name: sentinelValue }],
+              });
 
               const allCall = recordedCalls.find(
                 (call) => call.method === 'all' && call.sql === allSql,
               );
-              expect(allCall).toBeDefined();
-              expect(allCall?.args).toEqual([sentinelValue]);
+              expect(allCall).toEqual({
+                sql: allSql,
+                method: 'all',
+                args: [sentinelValue],
+              });
 
               db.close((closeErr) => {
                 if (closeErr) {

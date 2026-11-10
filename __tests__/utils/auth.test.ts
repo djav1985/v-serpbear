@@ -41,10 +41,12 @@ describe('verifyUser, login throttle, session store', () => {
   describe('verifyUser', () => {
     describe('verifyUser', () => {
        let req: Partial<NextApiRequest> & { cookies?: Record<string, string> };
-       const originalEnv = process.env;
+       const originalEnv = { ...process.env };
 
        beforeEach(() => {
           jest.clearAllMocks();
+          (jwt.verify as jest.Mock).mockReset();
+          (getSessionVersion as jest.Mock).mockReset().mockReturnValue(0);
           process.env = { ...originalEnv };
           // The client address comes from X-Forwarded-For, which is read only behind a configured proxy
           process.env.TRUST_PROXY = '1';
@@ -58,7 +60,7 @@ describe('verifyUser, login throttle, session store', () => {
        });
 
        afterEach(() => {
-          process.env = originalEnv;
+          process.env = { ...originalEnv };
        });
 
        describe('Bearer token validation', () => {

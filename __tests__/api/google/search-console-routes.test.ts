@@ -278,6 +278,9 @@ describe('searchconsole', () => {
         jest.clearAllMocks();
         (verifyUser as jest.Mock).mockReturnValue('authorized');
         mockReadLocalSCData.mockResolvedValue(false);
+        mockGetSearchConsoleApiInfo.mockReset();
+        mockFetchDomainSCData.mockReset();
+        mockGetSearchConsoleApiInfo.mockResolvedValue({ client_email: 'client', private_key: 'key' } as any);
       });
 
       it('looks the domain up by its real name, including hyphens, and returns 404 when it is unknown', async () => {
@@ -418,6 +421,8 @@ describe('searchconsole', () => {
         };
         (verifyUser as jest.Mock).mockReturnValue('authorized');
         mockReadLocalSCData.mockResolvedValue(false);
+        mockGetSearchConsoleApiInfo.mockReset();
+        mockFetchDomainSCData.mockReset();
         mockGetSearchConsoleApiInfo.mockResolvedValue({ client_email: 'client', private_key: 'key' });
       });
 
