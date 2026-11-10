@@ -1012,12 +1012,14 @@ describe('keyword route', () => {
       verifyUserMock.mockReturnValue('authorized');
     });
 
-    it.each(['12abc', '1.5', '-3', '0', '1e2', ' '])('rejects the malformed id %p with 400', async (id) => {
-      const res = createMockResponse();
-      await handler({ method: 'GET', query: { id }, headers: {} } as unknown as NextApiRequest, res);
+    it('rejects malformed IDs with 400', async () => {
+      for (const id of ['12abc', '1.5', '-3', '0', '1e2', ' ']) {
+        const res = createMockResponse();
+        await handler({ method: 'GET', query: { id }, headers: {} } as unknown as NextApiRequest, res);
 
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(KeywordMock.findOne).not.toHaveBeenCalled();
+        expect(res.status).toHaveBeenCalledWith(400);
+        expect(KeywordMock.findOne).not.toHaveBeenCalled();
+      }
     });
 
     it('looks up a plain integer id', async () => {

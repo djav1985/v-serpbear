@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file. Releases no
 - Organize related Jest suites into API, database, email, refresh, scraper and utility folders without changing test coverage.
 - Remove duplicate country and search predicate cases from client utility tests.
 - Clean up Jest isolation and setup: replace sleep-based queue and lock tests with deferred promises, restore screenshot spies after every test, and combine the duplicate invalid-domain route checks.
+- Consolidate repeated scraper URL checks and equivalent malformed-input cases; cover accepted same-origin refresh requests.
 - Remove 21 low-value tests that repeated wrapper behavior, equivalent malformed-input cases, or copy-only output checks.
 - Domain cards render from the dashboard's domain list, then load card stats in batches as they approach the viewport; favicons and screenshots use the same viewport signal. Charts and Tracker keywords load on demand. Discover, Ideas, and Research fetch tracked keywords and scraper city support only when the add dialog opens, then check duplicates using the selected location and device. Main-menu navigation links do not prefetch routes.
 - Domain subpages load only the selected domain alongside app settings. Hovering or focusing a domain name warms its Tracker page, and hovering or focusing any domain tab warms that page. Mobile stacked tables clip the desktop grid during the first paint until hydration switches to the mobile layout.

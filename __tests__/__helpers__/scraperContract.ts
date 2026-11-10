@@ -69,21 +69,6 @@ export function runScraperURLContracts(config: ScraperContractConfig): void {
   const settings = settingsFactory() as SettingsType;
   const countryData = countryDataFactory ? countryDataFactory() : DEFAULT_COUNTRY_DATA;
 
-  it('does not write to console.log when generating a URL', () => {
-    const spy = jest.spyOn(console, 'log').mockImplementation(() => {});
-    try {
-      const keyword = {
-        keyword: 'coffee',
-        country: 'US',
-        device: 'desktop',
-      } as KeywordType;
-      scrapeURL(keyword, settings, countryData);
-      expect(spy).not.toHaveBeenCalled();
-    } finally {
-      spy.mockRestore();
-    }
-  });
-
   if (keywordWithSpaces) {
     it('encodes spaces in the keyword as + (application/x-www-form-urlencoded) not %2B', () => {
       const url = scrapeURL(keywordWithSpaces as KeywordType, settings, countryData);

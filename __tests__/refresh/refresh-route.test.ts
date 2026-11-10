@@ -12,6 +12,7 @@ import path from 'path';
 import { retryQueueManager } from '../../utils/retryQueueManager';
 import { atomicWriteFile } from '../../utils/atomicWrite';
 import * as lockfile from 'proper-lockfile';
+import { isSameOriginRequest } from '../../utils/api/sameOrigin';
 const handler = asHandler(handlerRoute);
 
 jest.mock('../../database/database', () => ({
@@ -114,6 +115,9 @@ describe('refresh route', () => {
     });
 
     it('refuses a refresh started from another site', async () => {
+      expect(isSameOriginRequest(new Request('https://app.example/api/serp/refresh', { headers: { origin: 'https://app.example', 'sec-fetch-site': 'same-origin' } }))).toBe(true);
+      expect(isSameOriginRequest(new Request('http://internal/api/serp/refresh', { headers: { origin: 'https://public.example', 'x-forwarded-host': 'public.example', 'x-forwarded-proto': 'https' } }))).toBe(true);
+
       jest.clearAllMocks();
       const crossSiteReq = {
         method: 'POST',

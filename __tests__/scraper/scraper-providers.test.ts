@@ -1311,31 +1311,22 @@ describe('map pack absent', () => {
     it('matches the business name against the top three local results', () => {
       expect(computeMapPackTop3(locals, 'Acme Plumbing')).toBe(true);
       expect(computeMapPackTop3(locals, 'Third Ltd')).toBe(true);
-    });
-
-    it('ignores case and surrounding whitespace in the name', () => {
       expect(computeMapPackTop3(locals, '  acme PLUMBING ')).toBe(true);
     });
 
     it('does not match a business ranked below third', () => {
       expect(computeMapPackTop3(locals, 'Fourth Inc')).toBe(false);
-    });
-
-    it('returns false without a business name, or with no local results', () => {
-      expect(computeMapPackTop3(locals, null)).toBe(false);
-      expect(computeMapPackTop3([], 'Acme Plumbing')).toBe(false);
-      expect(computeMapPackTop3(undefined, 'Acme Plumbing')).toBe(false);
-    });
-
-    it('does not use URLs for matching', () => {
       const withUrl = [{ position: 1, title: 'Other Co', url: 'https://example.com' }];
       expect(computeMapPackTop3(withUrl, 'Acme Plumbing')).toBe(false);
     });
 
-    it('returns false when the business name is only whitespace', () => {
-      const singleLocal = [{ position: 1, title: 'Some Business' }];
-      expect(computeMapPackTop3(singleLocal, '   ')).toBe(false);
+    it('returns false without a valid business name or local results', () => {
+      expect(computeMapPackTop3(locals, null)).toBe(false);
+      expect(computeMapPackTop3(locals, '   ')).toBe(false);
+      expect(computeMapPackTop3([], 'Acme Plumbing')).toBe(false);
+      expect(computeMapPackTop3(undefined, 'Acme Plumbing')).toBe(false);
     });
+
   });
 });
 
