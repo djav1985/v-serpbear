@@ -1,7 +1,7 @@
 import Cryptr from 'cryptr';
 import Domain from '../../database/models/domain';
 import Keyword from '../../database/models/keyword';
-import refreshAndUpdateKeywords, { updateKeywordPosition } from '../../utils/refresh';
+import refreshAndUpdateKeywords, { clearKeywordUpdatingFlags, markKeywordsAsUpdating, partitionKeywordsByDomainStatus, updateKeywordPosition } from '../../utils/refresh';
 import { type RefreshResult, removeFromRetryQueue, retryScrape, scrapeKeywordWithStrategy } from '../../utils/scraper';
 import { toDbBool } from '../../utils/dbBooleans';
 import { refreshQueue } from '../../utils/refreshQueue';
@@ -37,6 +37,62 @@ const deferred = () => {
 };
 
 const yieldToQueue = () => new Promise<void>((resolve) => setImmediate(resolve));
+
+describe('refresh state helpers', () => {
+  it('partitions enabled, disabled, and missing domains using the preloaded domain set', async () => {
+    const keywords = [
+      { ID: 1, domain: 'enabled.com' },
+      { ID: 2, domain: 'paused.com' },
+      { ID: 3, domain: 'missing.com' },
+    ] as Keyword[];
+    const domains = [
+      { get: () => ({ domain: 'enabled.com', scrapeEnabled: 1 }) },
+      { get: () => ({ domain: 'paused.com', scrapeEnabled: 0 }) },
+      { get: () => ({ domain: 'unrelated.com', scrapeEnabled: 1 }) },
+    ] as unknown as Domain[];
+
+    const result = await partitionKeywordsByDomainStatus(keywords, domains);
+
+    expect(result.keywordsToRefresh.map((keyword) => keyword.ID)).toEqual([1]);
+    expect(result.skippedKeywords.map((keyword) => keyword.ID)).toEqual([2]);
+    expect(result.missingDomainKeywords.map((keyword) => keyword.ID)).toEqual([3]);
+    expect(Domain.findAll).not.toHaveBeenCalled();
+  });
+
+  it('returns empty partitions without querying domains when no keywords were loaded', async () => {
+    await expect(partitionKeywordsByDomainStatus([])).resolves.toEqual({
+      keywordsToRefresh: [], skippedKeywords: [], missingDomainKeywords: [], scrapeEnabledMap: new Map(),
+    });
+    expect(Domain.findAll).not.toHaveBeenCalled();
+  });
+
+  it('clears only active update flags when requested and leaves inactive rows untouched', async () => {
+    const inactive = { ID: 1, updating: 0, update: jest.fn() } as unknown as Keyword;
+    const active = { ID: 2, updating: 1, update: jest.fn().mockResolvedValue(undefined) } as unknown as Keyword;
+
+    await clearKeywordUpdatingFlags([], 'empty refresh');
+    await clearKeywordUpdatingFlags([inactive, active], 'after refresh', undefined, true);
+
+    expect(inactive.update).not.toHaveBeenCalled();
+    expect(active.update).toHaveBeenCalledWith({ updating: 0, updatingStartedAt: null });
+  });
+
+  it('settles every updating-flag write even when one keyword update rejects', async () => {
+    const first = { ID: 1, update: jest.fn().mockRejectedValue(new Error('write failed')) } as unknown as Keyword;
+    const second = { ID: 2, update: jest.fn().mockResolvedValue(undefined) } as unknown as Keyword;
+    const { logger } = require('../../utils/logger');
+    const errorSpy = jest.spyOn(logger, 'error').mockImplementation();
+
+    try {
+      await expect(markKeywordsAsUpdating([first, second], 'before retry')).resolves.toBeUndefined();
+      expect(first.update).toHaveBeenCalledWith(expect.objectContaining({ updating: 1 }));
+      expect(second.update).toHaveBeenCalledWith(expect.objectContaining({ updating: 1 }));
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Failed to set updating flags'), expect.any(Error), expect.objectContaining({ keywordId: 1 }));
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+});
 
 describe('refresh core', () => {
   afterEach(() => {
@@ -1383,6 +1439,20 @@ describe('refresh core', () => {
       expect(queueMock.removeBatch).toHaveBeenCalledWith(new Set([1, 2]));
     });
 
+    it.each([
+      [false, 'Scraper returned no data'],
+      [undefined, 'Unknown scraper response'],
+    ])('records the distinct failure reason when a parallel scraper returns %s', async (result, expectedError) => {
+      scrapeMock.mockResolvedValueOnce(result as any);
+      const keyword = makeKeyword(21);
+
+      const refreshed = await isoRefresh([keyword] as any, { scraper_type: 'serpapi', scraping_api: 'k' } as any, [makeDomain(null)] as any);
+
+      expect(keyword.update).toHaveBeenCalledWith(expect.objectContaining({ updating: 0, updatingStartedAt: null }));
+      expect(JSON.parse(keyword.update.mock.calls[0][0].lastUpdateError).error).toBe(expectedError);
+      expect(refreshed[0].lastUpdateError).toBeTruthy();
+    });
+
     it('spaces parallel-path requests of a domain by scrape_delay', async () => {
       const domain = makeDomain(null);
       const starts: number[] = [];
@@ -1395,6 +1465,45 @@ describe('refresh core', () => {
 
       expect(starts).toHaveLength(3);
       expect(starts[2] - starts[0]).toBeGreaterThanOrEqual(180);
+    });
+
+    it('falls back to the safe parallel-refresh concurrency when the environment value is invalid', async () => {
+      const previousConcurrency = process.env.PARALLEL_REFRESH_CONCURRENCY;
+      process.env.PARALLEL_REFRESH_CONCURRENCY = 'not-a-number';
+      const fullWave = deferred();
+      const eleventhStarted = deferred();
+      const releases = new Map<number, ReturnType<typeof deferred>>();
+      let active = 0;
+      let peak = 0;
+      const domain = makeDomain(null);
+      scrapeMock.mockImplementation(async (kw: any) => {
+        active += 1;
+        peak = Math.max(peak, active);
+        if (active === 10) fullWave.resolve();
+        if (kw.ID === 11) eleventhStarted.resolve();
+        await releases.get(kw.ID)!.promise;
+        active -= 1;
+        return { ID: kw.ID, keyword: kw.keyword, position: 4, url: '', result: [], mapPackTop3: false, error: false };
+      });
+      const keywords = Array.from({ length: 12 }, (_, index) => makeKeyword(index + 1));
+      keywords.forEach((keyword) => releases.set(keyword.ID, deferred()));
+
+      const refresh = isoRefresh(keywords as any, { scraper_type: 'serpapi', scraping_api: 'k' } as any, [domain] as any);
+      try {
+        await fullWave.promise;
+        expect(scrapeMock).toHaveBeenCalledTimes(10);
+        releases.get(1)!.resolve();
+        await eleventhStarted.promise;
+        expect(peak).toBe(10);
+        expect(scrapeMock).toHaveBeenCalledTimes(11);
+        releases.forEach((release) => release.resolve());
+        await refresh;
+      } finally {
+        releases.forEach((release) => release.resolve());
+        await refresh.catch(() => undefined);
+        if (previousConcurrency === undefined) delete process.env.PARALLEL_REFRESH_CONCURRENCY;
+        else process.env.PARALLEL_REFRESH_CONCURRENCY = previousConcurrency;
+      }
     });
 
     it('only sends the global key to a same-provider override or a domain without one; a keyless override of another provider gets an empty key', async () => {

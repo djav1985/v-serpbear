@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { asHandler } from '../__helpers__/routeAdapter';
-import { createMockResponse } from '../__helpers__';
+import { createMockResponse, createTempAppDataDir } from '../__helpers__';
 import * as loginHandlerRoute from '../../app/api/auth/login/route';
 import * as logoutHandlerRoute from '../../app/api/auth/logout/route';
 import verifyUser from '../../utils/verifyUser';
@@ -133,6 +133,65 @@ describe('Authentication cookie handling', () => {
       expect(cookie).not.toContain('Secure');
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({ success: true });
+   });
+
+   it('uses the signed-in user from a valid logout token and revokes sessions in the app data directory', async () => {
+      const originalSecret = process.env.SECRET;
+      const tempData = createTempAppDataDir('serpbear-logout-');
+      process.env.SECRET = 'logout-test-secret';
+      const jwt = require('jsonwebtoken');
+      const token = jwt.sign({ user: 'alice' }, process.env.SECRET);
+      const req = { method: 'POST', headers: { 'user-agent': 'logout-test-agent' }, cookies: { token } } as Partial<NextApiRequest>;
+      const res = createMockResponse();
+
+      try {
+         await logoutHandler(req as NextApiRequest, res);
+
+         expect(res.status).toHaveBeenCalledWith(200);
+         expect(res.json).toHaveBeenCalledWith({ success: true });
+         expect(setCookieHeader(res)).toContain('Max-Age=0');
+      } finally {
+         tempData.cleanup();
+         if (originalSecret === undefined) delete process.env.SECRET;
+         else process.env.SECRET = originalSecret;
+      }
+   });
+
+   it('still logs out when a supplied token cannot be decoded', async () => {
+      const originalSecret = process.env.SECRET;
+      const tempData = createTempAppDataDir('serpbear-logout-invalid-token-');
+      process.env.SECRET = 'logout-test-secret';
+      const req = { method: 'POST', headers: {}, cookies: { token: 'not-a-jwt' } } as Partial<NextApiRequest>;
+      const res = createMockResponse();
+
+      try {
+         await logoutHandler(req as NextApiRequest, res);
+         expect(res.status).toHaveBeenCalledWith(200);
+         expect(res.json).toHaveBeenCalledWith({ success: true });
+         expect(setCookieHeader(res)).toContain('Max-Age=0');
+      } finally {
+         tempData.cleanup();
+         if (originalSecret === undefined) delete process.env.SECRET;
+         else process.env.SECRET = originalSecret;
+      }
+   });
+
+   it('clears a present token cookie without decoding it when the signing secret is unset', async () => {
+      const originalSecret = process.env.SECRET;
+      const tempData = createTempAppDataDir('serpbear-logout-no-secret-');
+      delete process.env.SECRET;
+      const req = { method: 'POST', headers: {}, cookies: { token: 'old-token' } } as Partial<NextApiRequest>;
+      const res = createMockResponse();
+
+      try {
+         await logoutHandler(req as NextApiRequest, res);
+         expect(res.status).toHaveBeenCalledWith(200);
+         expect(setCookieHeader(res)).toContain('Max-Age=0');
+      } finally {
+         tempData.cleanup();
+         if (originalSecret === undefined) delete process.env.SECRET;
+         else process.env.SECRET = originalSecret;
+      }
    });
 
    it('sets secure cookies when requests are served over HTTPS', async () => {

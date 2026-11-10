@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file. Releases no
 
 ### Changed
 
+- Stub the browser anchor click in the CSV export test and assert the download is initiated without triggering Happy DOM navigation.
 - Assert the decrypted secret values in authenticated settings tests and verify strict cron settings reads reject malformed JSON with a `SyntaxError`.
 - Replace ineffective async `resolves.not.toThrow()` migration assertions with direct awaits so rejected migrations fail clearly.
 - Cover client-origin selection in browser-free tests, including public/server URL precedence, trailing-slash normalization, and the localhost fallback.
@@ -22,6 +23,7 @@ All notable changes to this project will be documented in this file. Releases no
 - Consolidate repeated scraper URL checks and equivalent malformed-input cases; cover accepted same-origin refresh requests.
 - Remove unused API assertion and mock helpers, and document the active Jest helpers with their intended usage.
 - Isolate logger environment changes and restore fetch, console, and logger spies reliably between Jest tests.
+- Extend existing refresh, API and scraper-provider suites with cache/fallback, malformed-input, cleanup, concurrency, and provider-response cases to improve branch coverage without adding suites.
 - Remove 21 low-value tests that repeated wrapper behavior, equivalent malformed-input cases, or copy-only output checks.
 - Domain cards render from the dashboard's domain list, then load card stats in batches as they approach the viewport; favicons and screenshots use the same viewport signal. Charts and Tracker keywords load on demand. Discover, Ideas, and Research fetch tracked keywords and scraper city support only when the add dialog opens, then check duplicates using the selected location and device. Main-menu navigation links do not prefetch routes.
 - Domain subpages load only the selected domain alongside app settings. Hovering or focusing a domain name warms its Tracker page, and hovering or focusing any domain tab warms that page. Mobile stacked tables clip the desktop grid during the first paint until hydration switches to the mobile layout.

@@ -272,6 +272,21 @@ describe('GET /api/app/settings and configuration requirements', () => {
     });
   });
 
+  it('supplies public defaults when optional public settings are empty', async () => {
+    readFileMock.mockResolvedValueOnce(JSON.stringify({ scraper_type: '', available_scapers: null, search_console_integrated: false })).mockResolvedValueOnce(JSON.stringify([]));
+    const req = { method: 'GET', headers: {}, query: {} } as unknown as NextApiRequest;
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect((res.json as jest.Mock).mock.calls[0][0].settings).toEqual(expect.objectContaining({
+      scraper_type: 'none',
+      available_scapers: [],
+      search_console_integrated: false,
+    }));
+  });
+
   it('returns settings successfully', async () => {
     readFileMock.mockResolvedValueOnce(JSON.stringify({})).mockResolvedValueOnce(JSON.stringify([]));
 
@@ -437,6 +452,23 @@ describe('/api/serp/clearfailed', () => {
       expect(res.json).toHaveBeenCalledWith(
          expect.objectContaining({ error: expect.objectContaining({ code: 'INTERNAL_SERVER_ERROR', message: 'disk full' }) }),
       );
+   });
+
+   it('clears the retry queue and reports success', async () => {
+      await clearFailedHandler(req, res);
+
+      expect(retryQueueManager.clearQueue).toHaveBeenCalledTimes(1);
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({ cleared: true });
+   });
+
+   it('uses a safe fallback message for a non-Error queue failure', async () => {
+      (retryQueueManager.clearQueue as jest.Mock).mockRejectedValue('disk failure');
+
+      await clearFailedHandler(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ message: 'Error Clearing Failed Queue!' }) }));
    });
 });
 

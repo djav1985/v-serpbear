@@ -7,9 +7,26 @@ import * as handlerRoute from '../app/api/mcp/route';
 import { createMockRequest, createMockResponse } from './__helpers__';
 const handler = asHandler(handlerRoute);
 
+const mockToolHandlers = new Map<string, (input: any) => Promise<unknown>>();
+const mockTransportHandleRequest = jest.fn();
+const mockTransportClose = jest.fn();
+const mockServerClose = jest.fn();
+const mockServerConnect = jest.fn();
+
 jest.mock('../utils/apiLogging', () => require('./__helpers__/apiLoggingMock').apiLoggingMock());
-jest.mock('@modelcontextprotocol/sdk/server/mcp.js', () => ({ McpServer: jest.fn() }));
-jest.mock('@modelcontextprotocol/sdk/server/streamableHttp.js', () => ({ StreamableHTTPServerTransport: jest.fn() }));
+jest.mock('@modelcontextprotocol/sdk/server/mcp.js', () => ({
+  McpServer: jest.fn().mockImplementation(() => ({
+    registerTool: (name: string, _config: unknown, handler: (input: any) => Promise<unknown>) => mockToolHandlers.set(name, handler),
+    connect: mockServerConnect,
+    close: mockServerClose,
+  })),
+}));
+jest.mock('@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js', () => ({
+  WebStandardStreamableHTTPServerTransport: jest.fn().mockImplementation(() => ({
+    handleRequest: mockTransportHandleRequest,
+    close: mockTransportClose,
+  })),
+}));
 
 describe('cron worker', () => {
   /* eslint-disable security/detect-non-literal-fs-filename -- writes only to a temp directory created by the test */
@@ -286,6 +303,7 @@ describe('cron worker', () => {
 
 describe('MCP route', () => {
   const originalApiKey = process.env.APIKEY;
+  const originalPort = process.env.PORT;
 
   const call = async (method: string, headers: Record<string, string> = { authorization: 'Bearer test-key' }) => {
     const req = createMockRequest({
@@ -302,7 +320,9 @@ describe('MCP route', () => {
   describe('/api/mcp', () => {
     beforeEach(() => {
       jest.clearAllMocks();
+      mockToolHandlers.clear();
       process.env.APIKEY = 'test-key';
+      process.env.PORT = '3200';
     });
 
     afterEach(() => {
@@ -311,6 +331,8 @@ describe('MCP route', () => {
       } else {
         process.env.APIKEY = originalApiKey;
       }
+      if (originalPort === undefined) delete process.env.PORT;
+      else process.env.PORT = originalPort;
     });
 
     it('returns 405 for a GET request', async () => {
@@ -335,6 +357,68 @@ describe('MCP route', () => {
       const res = await call('POST');
 
       expect(res.status).toHaveBeenCalledWith(500);
+    });
+
+    it('registers the public tools and routes a tool call to the matching local API with the bearer key', async () => {
+      const previousFetch = global.fetch;
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({ keywords: [{ ID: 7 }] }),
+      }) as unknown as typeof fetch;
+      mockTransportHandleRequest.mockResolvedValue(new Response(JSON.stringify({ jsonrpc: '2.0', result: {} }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+
+      try {
+        const res = await call('POST');
+        expect(res.status).toHaveBeenCalledWith(200);
+        expect(mockToolHandlers.size).toBe(6);
+        const reply = await mockToolHandlers.get('list_keywords')!({ domain: 'example.com' });
+        await mockToolHandlers.get('get_keyword')!({ id: '7' });
+        await mockToolHandlers.get('list_domains')!({ withstats: true });
+        await mockToolHandlers.get('get_searchconsole')!({ domain: 'example.com' });
+        await mockToolHandlers.get('get_insight')!({ domain: 'example.com' });
+        await mockToolHandlers.get('get_keyword_ideas')!({ domain: 'example.com' });
+        await mockToolHandlers.get('get_keyword_ideas')!({});
+
+        const calls = (global.fetch as jest.Mock).mock.calls;
+        const urls = calls.map(([url]) => String(url));
+        expect(urls).toEqual([
+          'http://127.0.0.1:3200/api/serp/keywords?domain=example.com',
+          'http://127.0.0.1:3200/api/serp/keyword?id=7',
+          'http://127.0.0.1:3200/api/serp/domains?withstats=true',
+          'http://127.0.0.1:3200/api/google/searchconsole?domain=example.com',
+          'http://127.0.0.1:3200/api/google/insight?domain=example.com',
+          'http://127.0.0.1:3200/api/google/ideas?domain=example.com',
+          'http://127.0.0.1:3200/api/google/ideas',
+        ]);
+        const options = calls[0][1];
+        expect(options).toEqual({ method: 'GET', headers: { Authorization: 'Bearer test-key', Accept: 'application/json' }, body: undefined });
+        expect(reply).toEqual({ isError: false, content: [{ type: 'text', text: '{\n  "keywords": [\n    {\n      "ID": 7\n    }\n  ]\n}' }] });
+        expect(mockServerConnect).toHaveBeenCalledTimes(1);
+        await Promise.resolve();
+        expect(mockTransportClose).toHaveBeenCalledTimes(1);
+        expect(mockServerClose).toHaveBeenCalledTimes(1);
+      } finally {
+        global.fetch = previousFetch;
+      }
+    });
+
+    it('marks failed local API calls as tool errors and preserves non-JSON response text', async () => {
+      const previousFetch = global.fetch;
+      global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 502, text: async () => 'upstream unavailable' }) as unknown as typeof fetch;
+      mockTransportHandleRequest.mockResolvedValue(new Response('', { status: 200 }));
+
+      try {
+        await call('POST');
+        const reply = await mockToolHandlers.get('list_domains')!({ withstats: false });
+
+        const [url, options] = (global.fetch as jest.Mock).mock.calls[0];
+        expect(String(url)).toBe('http://127.0.0.1:3200/api/serp/domains');
+        expect(options.method).toBe('GET');
+        expect(reply).toEqual({ isError: true, content: [{ type: 'text', text: '"upstream unavailable"' }] });
+      } finally {
+        global.fetch = previousFetch;
+      }
     });
   });
 });

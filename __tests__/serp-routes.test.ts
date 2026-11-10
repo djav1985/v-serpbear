@@ -99,6 +99,34 @@ describe('domains route', () => {
       dbMock.sync.mockResolvedValue(undefined);
     });
 
+     it.each([
+       [{ withstats: 'sometimes' }, 'Invalid boolean value'],
+       [{ domains: 'example.com' }, 'The domains parameter requires withstats=true'],
+       [{ withstats: 'true', domains: '' }, 'between 1 and 8 valid domain names'],
+       [{ withstats: 'true', domains: 'bad host' }, 'between 1 and 8 valid domain names'],
+       [{ withstats: 'true', domains: 'a.com,b.com,c.com,d.com,e.com,f.com,g.com,h.com,i.com' }, 'between 1 and 8 valid domain names'],
+     ])('rejects invalid domain-list query values before loading domains (%p)', async (query, message) => {
+       const req = { method: 'GET', headers: {}, query } as unknown as NextApiRequest;
+       const res = createMockResponse();
+
+       await handler(req, res);
+
+       expect(res.status).toHaveBeenCalledWith(400);
+       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ message: expect.stringContaining(message) }) }));
+       expect(DomainMock.findAll).not.toHaveBeenCalled();
+     });
+
+     it('returns 500 when loading the domain list fails', async () => {
+       DomainMock.findAll.mockRejectedValue(new Error('database unavailable'));
+       const req = { method: 'GET', headers: {}, query: {} } as unknown as NextApiRequest;
+       const res = createMockResponse();
+
+       await handler(req, res);
+
+       expect(res.status).toHaveBeenCalledWith(500);
+       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ code: 'INTERNAL_SERVER_ERROR' }) }));
+     });
+
      it('masks scraper overrides when returning the domain list', async () => {
       DomainMock.findAll.mockResolvedValue([
         {
@@ -165,6 +193,21 @@ describe('domains route', () => {
       expect(DomainMock.bulkCreate).not.toHaveBeenCalled();
     });
 
+    it.each([
+      [{ domains: [] }, 'Necessary data missing.'],
+      [{ domains: 'example.com' }, 'Necessary data missing.'],
+      [{ domains: [123] }, 'Invalid domain(s): blank domain'],
+    ])('rejects empty or malformed domain lists before database writes (%p)', async (body, message) => {
+      const req = { method: 'POST', body, headers: {} } as unknown as NextApiRequest;
+      const res = createMockResponse();
+
+      await handler(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ message }) }));
+      expect(DomainMock.bulkCreate).not.toHaveBeenCalled();
+    });
+
     it('rejects invalid or blank hostnames', async () => {
       const req = {
         method: 'POST',
@@ -213,6 +256,43 @@ describe('domains route', () => {
         { domain: 'sub.domain.com', slug: 'sub-domain-com', scrapeEnabled: true },
       ]);
     });
+
+    it('reports already tracked domains without attempting a duplicate insert', async () => {
+      DomainMock.findAll.mockResolvedValue([{ get: () => ({ domain: 'example.com' }) }] as any);
+      const req = { method: 'POST', body: { domains: ['example.com'] }, headers: {} } as unknown as NextApiRequest;
+      const res = createMockResponse();
+
+      await handler(req, res);
+
+      expect(DomainMock.bulkCreate).not.toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(409);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ message: 'Already tracked: example.com' }) }));
+    });
+
+    it('reports a concurrent duplicate insert as a conflict', async () => {
+      DomainMock.findAll.mockResolvedValue([]);
+      const duplicate = Object.assign(new Error('unique constraint'), { name: 'SequelizeUniqueConstraintError' });
+      DomainMock.bulkCreate.mockRejectedValue(duplicate);
+      const req = { method: 'POST', body: { domains: ['example.com'] }, headers: {} } as unknown as NextApiRequest;
+      const res = createMockResponse();
+
+      await handler(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(409);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ code: 'CONFLICT', message: expect.stringContaining('another request') }) }));
+    });
+
+    it('returns 500 when the domain insert fails for a non-duplicate reason', async () => {
+      DomainMock.findAll.mockResolvedValue([]);
+      DomainMock.bulkCreate.mockRejectedValue(new Error('database unavailable'));
+      const req = { method: 'POST', body: { domains: ['example.com'] }, headers: {} } as unknown as NextApiRequest;
+      const res = createMockResponse();
+
+      await handler(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ code: 'INTERNAL_SERVER_ERROR' }) }));
+    });
   });
 
   describe('PUT /api/serp/domains', () => {
@@ -258,6 +338,21 @@ describe('domains route', () => {
       };
 
       DomainMock.findOne.mockResolvedValue(domainInstance);
+    });
+
+    it.each([
+      [{}, null, 'Domain is Required!'],
+      [{ domain: 'example.com' }, [], 'Request body must be a JSON object.'],
+      [{ domain: 'example.com' }, null, 'Request body must be a JSON object.'],
+    ])('rejects missing domain or non-object payloads before reading the row (%p)', async (query, body, message) => {
+      const req = { method: 'PUT', query, body, headers: {} } as unknown as NextApiRequest;
+      const res = createMockResponse();
+
+      await handler(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ message }) }));
+      expect(DomainMock.findOne).not.toHaveBeenCalled();
     });
 
      it('persists scrapeEnabled toggles', async () => {
@@ -460,6 +555,29 @@ describe('domains route', () => {
       const bothUpdate = domainInstance.set.mock.calls[domainInstance.set.mock.calls.length - 1][0];
       expect(bothUpdate.business_name).toBe('My Business');
       expect(bothUpdate.scraper_settings).toEqual(expect.any(String));
+    });
+
+    it.each([
+      ['custom', 5, 'custom', 5, true],
+      ['unknown', 99, '', 10, true],
+      ['', -3, '', 0, true],
+      ['basic', '5', 'basic', undefined, false],
+    ])('normalizes scrape strategy and pagination options (%p, %p)', async (strategy, limit, expectedStrategy, expectedLimit, writesLimit) => {
+      const req = {
+        method: 'PUT',
+        query: { domain: domainState.domain },
+        body: { scrape_strategy: strategy, scrape_pagination_limit: limit },
+        headers: {},
+      } as unknown as NextApiRequest;
+      const res = createMockResponse();
+
+      await handler(req, res);
+
+      const update = domainInstance.set.mock.calls[domainInstance.set.mock.calls.length - 1][0];
+      expect(update.scrape_strategy).toBe(expectedStrategy);
+      if (writesLimit) expect(update.scrape_pagination_limit).toBe(expectedLimit);
+      else expect(update).not.toHaveProperty('scrape_pagination_limit');
+      expect(res.status).toHaveBeenCalledWith(200);
     });
 
     it('returns 500 when SECRET is missing and search_console or scraper_settings are provided', async () => {
@@ -881,6 +999,30 @@ describe('domain route', () => {
     });
 
     describe('GET /api/serp/domain', () => {
+      it.each([
+        [{}, 400],
+        [{ domain: 'example.com' }, 404],
+      ])('validates a domain lookup before returning a row (%p)', async (query, status) => {
+        isoDomainModel.findOne.mockResolvedValue(null);
+        const req = { method: 'GET', query, headers: {} } as unknown as NextApiRequest;
+        const res = createMockResponse();
+
+        await isoDomainHandler(req, res);
+
+        expect(res.status).toHaveBeenCalledWith(status);
+        if (status === 404) expect(isoDomainModel.findOne).toHaveBeenCalledWith({ where: { domain: 'example.com' } });
+      });
+
+      it('returns a server error when the domain lookup fails', async () => {
+        isoDomainModel.findOne.mockRejectedValue(new Error('database unavailable'));
+        const req = { method: 'GET', query: { domain: 'example.com' }, headers: {} } as unknown as NextApiRequest;
+        const res = createMockResponse();
+
+        await isoDomainHandler(req, res);
+
+        expect(res.status).toHaveBeenCalledWith(500);
+      });
+
       it('masks saved credentials instead of returning the decrypted key', async () => {
         const stored = {
           domain: 'example.com',
@@ -1029,6 +1171,41 @@ describe('keyword route', () => {
 
       expect(KeywordMock.findOne).toHaveBeenCalledWith({ where: { ID: 12 } });
       expect(res.status).toHaveBeenCalledWith(200);
+    });
+
+    it('returns the parsed keyword when the ID is tracked', async () => {
+      const keyword = {
+        ID: 12,
+        keyword: 'coffee shops',
+        country: 'US',
+        device: 'desktop',
+        domain: 'example.com',
+        get: () => ({ ID: 12, keyword: 'coffee shops', country: 'US', device: 'desktop', domain: 'example.com' }),
+      };
+      KeywordMock.findOne.mockResolvedValue(keyword);
+      const res = createMockResponse();
+
+      await handler({ method: 'GET', query: { id: '12' }, headers: {} } as unknown as NextApiRequest, res);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ keyword: expect.objectContaining({ ID: 12, keyword: 'coffee shops' }) }));
+    });
+
+    it.each([
+      [{}, 400],
+      [{ id: '9007199254740992' }, 400],
+    ])('rejects missing or unsafe keyword IDs (%p)', async (query, status) => {
+      const res = createMockResponse();
+      await handler({ method: 'GET', query, headers: {} } as unknown as NextApiRequest, res);
+      expect(res.status).toHaveBeenCalledWith(status);
+      expect(KeywordMock.findOne).not.toHaveBeenCalled();
+    });
+
+    it('returns a server error when the keyword lookup fails', async () => {
+      KeywordMock.findOne.mockRejectedValue(new Error('database unavailable'));
+      const res = createMockResponse();
+      await handler({ method: 'GET', query: { id: '12' }, headers: {} } as unknown as NextApiRequest, res);
+      expect(res.status).toHaveBeenCalledWith(500);
     });
   });
 });

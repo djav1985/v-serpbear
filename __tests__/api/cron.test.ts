@@ -140,6 +140,25 @@ describe('/api/app/cron', () => {
     expect(res.json).toHaveBeenCalledWith({ started: false, error: 'No domains have scraping enabled.' });
   });
 
+  it('leaves keywords alone when a live refresh already owns them', async () => {
+    const domain = { domain: 'busy.example', scrapeEnabled: 1 };
+    (Domain.findAll as jest.Mock).mockResolvedValue([{ get: () => domain }]);
+    (Keyword.findAll as jest.Mock).mockResolvedValue([{
+      ID: 41,
+      domain: domain.domain,
+      updating: 1,
+      updatingStartedAt: '2024-06-01T11:59:00.000Z',
+      scrapeEnabled: 1,
+    }]);
+
+    await handler(req, res as NextApiResponse);
+    await jest.runAllTimersAsync();
+
+    expect(refreshAndUpdateKeywords).not.toHaveBeenCalled();
+    expect(refreshQueue.enqueue).toHaveBeenCalledTimes(1);
+    expect(res.json).toHaveBeenCalledWith({ started: true });
+  });
+
   it('processes multiple domains sequentially', async () => {
     (Domain.findAll as jest.Mock).mockResolvedValue([
       { get: () => ({ domain: 'first.com', scrapeEnabled: 1 }) },
@@ -264,5 +283,36 @@ describe('/api/app/cron', () => {
     expect(res.json).toHaveBeenCalledWith({ started: false, skipped: { domains: ['busy.com'] } });
     expect(refreshQueue.enqueue).not.toHaveBeenCalled();
     (refreshQueue.reserveDomains as jest.Mock).mockImplementation(() => jest.fn());
+  });
+
+  it.each([undefined, { scraper_type: 'none' }])('skips a cron refresh when scraper settings are not configured (%p)', async (settings) => {
+    (getAppSettings as jest.Mock).mockResolvedValue(settings);
+
+    await handler(req, res as NextApiResponse);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(Domain.findAll).not.toHaveBeenCalled();
+    expect(refreshQueue.enqueue).not.toHaveBeenCalled();
+  });
+
+  it('returns an internal error when the enabled-domain lookup fails', async () => {
+    (Domain.findAll as jest.Mock).mockRejectedValue(new Error('database unavailable'));
+
+    await handler(req, res as NextApiResponse);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ code: 'INTERNAL_SERVER_ERROR' }) }));
+  });
+
+  it('still reports the cron run as started when queue insertion fails asynchronously', async () => {
+    (Domain.findAll as jest.Mock).mockResolvedValue([{ get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) }]);
+    (refreshQueue.reserveDomains as jest.Mock).mockReturnValue(jest.fn());
+    (refreshQueue.enqueue as jest.Mock).mockRejectedValue(new Error('queue unavailable'));
+
+    await handler(req, res as NextApiResponse);
+    await Promise.resolve();
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ started: true });
   });
 });

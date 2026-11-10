@@ -622,6 +622,60 @@ describe('session check route', () => {
       expect(res.json).toHaveBeenCalledWith({ authenticated: true, user: 'admin', timezone: expect.any(String) });
     });
 
+    it('falls back to the default identity when a decoded token omits its user claim', async () => {
+      (verifyUser as jest.Mock).mockReturnValue('authorized');
+      cookieToken = 'valid-token-without-user';
+      process.env.SECRET = 'test-secret';
+      jwtVerifyMock.mockReturnValue({});
+      const req = { method: 'GET', cookies: { token: cookieToken } } as unknown as NextApiRequest;
+      const res = createMockResponse();
+
+      await handler(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({ authenticated: true, user: 'authenticated_user', timezone: expect.any(String) });
+    });
+
+    it('skips token decoding when the signing secret is not configured', async () => {
+      (verifyUser as jest.Mock).mockReturnValue('authorized');
+      cookieToken = 'old-token';
+      delete process.env.SECRET;
+      const req = { method: 'GET', cookies: { token: cookieToken } } as unknown as NextApiRequest;
+      const res = createMockResponse();
+
+      await handler(req, res);
+
+      expect(jwtVerifyMock).not.toHaveBeenCalled();
+      expect(res.json).toHaveBeenCalledWith({ authenticated: true, user: 'authenticated_user', timezone: expect.any(String) });
+    });
+
+    it('uses the default authenticated user when a valid token has no user claim', async () => {
+      (verifyUser as jest.Mock).mockReturnValue('authorized');
+      cookieToken = 'token-without-user';
+      process.env.SECRET = 'test-secret';
+      jwtVerifyMock.mockReturnValue({});
+      const req = { method: 'GET', cookies: { token: cookieToken } } as unknown as NextApiRequest;
+      const res = createMockResponse();
+
+      await handler(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({ authenticated: true, user: 'authenticated_user', timezone: expect.any(String) });
+    });
+
+    it('does not decode a token when the server secret is absent', async () => {
+      (verifyUser as jest.Mock).mockReturnValue('authorized');
+      cookieToken = 'old-token';
+      delete process.env.SECRET;
+      const req = { method: 'GET', cookies: { token: cookieToken } } as unknown as NextApiRequest;
+      const res = createMockResponse();
+
+      await handler(req, res);
+
+      expect(jwtVerifyMock).not.toHaveBeenCalled();
+      expect(res.json).toHaveBeenCalledWith({ authenticated: true, user: 'authenticated_user', timezone: expect.any(String) });
+    });
+
     it('falls back to authenticated_user when no token is present', async () => {
       (verifyUser as jest.Mock).mockReturnValue('authorized');
       cookieToken = undefined;

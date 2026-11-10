@@ -13,6 +13,7 @@ import { retryQueueManager } from '../../utils/retryQueueManager';
 import { atomicWriteFile } from '../../utils/atomicWrite';
 import * as lockfile from 'proper-lockfile';
 import { isSameOriginRequest } from '../../utils/api/sameOrigin';
+import { resetRateLimits } from '../../utils/rateLimit';
 const handler = asHandler(handlerRoute);
 
 jest.mock('../../database/database', () => ({
@@ -177,6 +178,30 @@ describe('refresh route', () => {
       });
     });
 
+    it('requires IDs and rejects malformed IDs when reading retry status', async () => {
+      for (const query of [{ status: 'retry' }, { status: 'retry', id: '0,11' }]) {
+        req.method = 'GET';
+        req.query = query;
+        const statusRes = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
+
+        await handler(req, statusRes);
+
+        expect(statusRes.status).toHaveBeenCalledWith(400);
+        expect(Keyword.findAll).not.toHaveBeenCalled();
+      }
+    });
+
+    it('returns an internal error when retry status cannot be read from storage', async () => {
+      req.method = 'GET';
+      req.query = { status: 'retry', id: '11' };
+      (Keyword.findAll as jest.Mock).mockRejectedValue(new Error('database unavailable'));
+
+      await handler(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ code: 'INTERNAL_SERVER_ERROR' }) }));
+    });
+
     it('rejects requests with no valid keyword IDs', async () => {
       req.query = { id: 'abc,NaN' };
 
@@ -187,6 +212,44 @@ describe('refresh route', () => {
         error: expect.objectContaining({ message: 'No valid keyword IDs provided' }),
       }));
       expect(Keyword.findAll).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['ids is not an array', { ids: '11' }],
+      ['ids contains a non-positive value', { ids: [11, 0] }],
+    ])('rejects a malformed JSON ID list when %s', async (_label, body) => {
+      const malformedReq = { method: 'POST', body, headers: {} } as unknown as NextApiRequest;
+      const malformedRes = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
+
+      await handler(malformedReq, malformedRes);
+
+      expect(malformedRes.status).toHaveBeenCalledWith(400);
+      expect(malformedRes.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ message: 'No valid keyword IDs provided' }) }));
+      expect(Keyword.findAll).not.toHaveBeenCalled();
+    });
+
+    it('requires a domain for an all-keywords refresh and reports an unconfigured scraper', async () => {
+      const allWithoutDomain = { method: 'POST', query: { id: 'all' }, headers: {} } as unknown as NextApiRequest;
+      const missingDomainRes = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
+      await handler(allWithoutDomain, missingDomainRes);
+      expect(missingDomainRes.status).toHaveBeenCalledWith(400);
+
+      (getAppSettings as jest.Mock).mockResolvedValue({ scraper_type: 'none' });
+      const regularReq = { method: 'POST', query: { id: '11' }, headers: {} } as unknown as NextApiRequest;
+      const unconfiguredRes = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
+      await handler(regularReq, unconfiguredRes);
+      expect(unconfiguredRes.status).toHaveBeenCalledWith(400);
+      expect(Keyword.findAll).not.toHaveBeenCalled();
+    });
+
+    it('rejects GET requests that do not ask for retry status', async () => {
+      req.method = 'GET';
+      req.query = {};
+
+      await handler(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(405);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ code: 'METHOD_NOT_ALLOWED' }) }));
     });
 
     it('starts refresh in background and returns 202 immediately', async () => {
@@ -339,6 +402,54 @@ describe('refresh route', () => {
       expect(scrapeKeywordWithStrategy).toHaveBeenCalledWith(expect.objectContaining({ device: expectedDevice, position: 0 }), { scraper_type: 'serpapi' });
       expect(previewRes.status).toHaveBeenCalledWith(200);
       expect(previewRes.json).toHaveBeenCalledWith({ searchResult: expect.objectContaining({ device: expectedDevice }) });
+    });
+
+    it('validates preview input and reports an upstream scrape failure', async () => {
+      const invalidReq = { method: 'POST', body: { keyword: '', country: 'US' }, headers: {} } as unknown as NextApiRequest;
+      const invalidRes = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
+      await handler(invalidReq, invalidRes);
+      expect(invalidRes.status).toHaveBeenCalledWith(400);
+      expect(scrapeKeywordWithStrategy).not.toHaveBeenCalled();
+
+      const failedReq = { method: 'POST', body: { keyword: 'widgets', country: 'US' }, headers: {} } as unknown as NextApiRequest;
+      const failedRes = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
+      (scrapeKeywordWithStrategy as jest.Mock).mockResolvedValue({ error: 'provider unavailable' });
+      await handler(failedReq, failedRes);
+      expect(failedRes.status).toHaveBeenCalledWith(502);
+      expect(failedRes.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ code: 'BAD_GATEWAY' }) }));
+    });
+
+    it('returns 500 when the preview provider rejects its request', async () => {
+      (scrapeKeywordWithStrategy as jest.Mock).mockRejectedValue(new Error('provider request failed'));
+      const previewReq = { method: 'POST', body: { keyword: 'widgets', country: 'US' }, headers: {} } as unknown as NextApiRequest;
+      const previewRes = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
+
+      await handler(previewReq, previewRes);
+
+      expect(previewRes.status).toHaveBeenCalledWith(500);
+      expect(previewRes.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ code: 'INTERNAL_SERVER_ERROR' }) }));
+    });
+
+    it('rate-limits paid keyword previews after twenty requests from the same client', async () => {
+      resetRateLimits();
+      (scrapeKeywordWithStrategy as jest.Mock).mockResolvedValue({ keyword: 'widgets', position: 1, result: [], error: false });
+      try {
+        for (let index = 0; index < 20; index += 1) {
+          const previewReq = { method: 'POST', body: { keyword: 'widgets', country: 'US' }, headers: {} } as unknown as NextApiRequest;
+          const previewRes = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
+          await handler(previewReq, previewRes);
+          expect(previewRes.status).toHaveBeenCalledWith(200);
+        }
+        const limitedReq = { method: 'POST', body: { keyword: 'widgets', country: 'US' }, headers: {} } as unknown as NextApiRequest;
+        const limitedRes = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
+        await handler(limitedReq, limitedRes);
+
+        expect(limitedRes.status).toHaveBeenCalledWith(429);
+        expect(limitedRes.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ code: 'TOO_MANY_REQUESTS' }) }));
+        expect(scrapeKeywordWithStrategy).toHaveBeenCalledTimes(20);
+      } finally {
+        resetRateLimits();
+      }
     });
 
     it('rejects manual refresh when domain is already locked', async () => {

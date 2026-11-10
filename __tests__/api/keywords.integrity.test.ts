@@ -235,6 +235,61 @@ describe('/api/serp/keywords data rules', () => {
     }
     expect(KeywordMock.findAll).not.toHaveBeenCalled();
   });
+
+  it.each([
+    [{ sticky: 'true' }, 'sticky must be true or false.'],
+    [{ tags: [] }, 'Invalid Payload!'],
+    [{ tags: { 1: Array.from({ length: 21 }, (_, index) => `tag-${index}`) } }, 'A keyword can have at most'],
+    [{}, 'Keyword update payload is required.'],
+  ])('rejects malformed keyword update payloads before writing (%p)', async (body, message) => {
+    const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body });
+    const res = createMockResponse();
+
+    await handler(req as unknown as NextApiRequest, res as unknown as NextApiResponse);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ message: expect.stringContaining(message) }) }));
+    expect(KeywordMock.update).not.toHaveBeenCalled();
+  });
+
+  it('treats an empty tag map as a successful no-op', async () => {
+    const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { tags: {} } });
+    const res = createMockResponse();
+
+    await handler(req as unknown as NextApiRequest, res as unknown as NextApiResponse);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ keywords: [] });
+    expect(KeywordMock.findAll).not.toHaveBeenCalled();
+    expect(KeywordMock.update).not.toHaveBeenCalled();
+  });
+
+  it('sanitizes and persists tags for the matching tracked keyword', async () => {
+    const updated = jest.fn().mockResolvedValue(undefined);
+    const row = { ID: 1, keyword: 'alpha', domain: 'example.com', update: updated, get: () => ({ ID: 1, keyword: 'alpha', domain: 'example.com', tags: '["seo"]' }) };
+    KeywordMock.findAll.mockResolvedValueOnce([row]).mockResolvedValueOnce([row]);
+    const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { tags: { 1: [' seo ', 'seo', '', 'content'] } } });
+    const res = createMockResponse();
+
+    await handler(req as unknown as NextApiRequest, res as unknown as NextApiResponse);
+
+    expect(updated).toHaveBeenCalledWith({ tags: '["content","seo"]' });
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it.each([
+    [{ location: 'Austin' }, 'Country is required!'],
+    [{ location: 'Austin', country: 'US' }, 'City and state must be provided together.'],
+  ])('rejects a location change that does not identify a complete target (%p)', async (body, message) => {
+    const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body });
+    const res = createMockResponse();
+
+    await handler(req as unknown as NextApiRequest, res as unknown as NextApiResponse);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ message: expect.stringContaining(message) }) }));
+    expect(KeywordMock.update).not.toHaveBeenCalled();
+  });
 });
 
 describe('/api/serp/keywords concurrent duplicate insert', () => {

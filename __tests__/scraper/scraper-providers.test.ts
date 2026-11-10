@@ -1111,6 +1111,23 @@ describe('providers delta', () => {
       expect(parsed.searchParams.get('api_key')).toBe('searchapi-key');
     });
 
+    it('adds later-page pagination, omits city targeting, and falls back to the standard Google domain', () => {
+      const url = searchapi.scrapeURL!(
+        buildKeyword({ country: 'AI', device: 'desktop', location: '' }),
+        {} as SettingsType,
+        { AI: ['Anguilla', "Saint John's", 'en', 0] } as any,
+        { start: 10, num: 10, page: 2 },
+      );
+      const parsed = new URL(url);
+
+      expect(parsed.searchParams.get('page')).toBe('2');
+      expect(parsed.searchParams.get('gl')).toBe('ai');
+      expect(parsed.searchParams.has('location')).toBe(false);
+      expect(parsed.searchParams.has('device')).toBe(false);
+      expect(parsed.searchParams.get('google_domain')).toBe('google.com');
+      expect(parsed.searchParams.get('api_key')).toBe('');
+    });
+
     it('extracts organic results and map pack coverage from the API response', () => {
       const keyword = {
         ID: 1,
@@ -1159,6 +1176,71 @@ describe('providers delta', () => {
         { position: 1, title: 'Example Maps', url: 'https://www.google.com/searchviewer/10?svid=1' },
       ]);
     });
+
+    it('parses a serialized organic-results payload and tolerates absent local results', () => {
+      const extraction = searchapi.serpExtractor({
+        keyword: buildKeyword(),
+        response: {},
+        result: JSON.stringify([{ title: 'Example', link: 'https://example.com', position: 1 }]),
+        settings: {} as SettingsType,
+      });
+
+      expect(extraction.organic).toEqual([{ title: 'Example', url: 'https://example.com', position: 1 }]);
+      expect(extraction.localResults).toEqual([]);
+      expect(extraction.mapPackTop3).toBe(false);
+    });
+  });
+
+  describe('provider response fallback contracts', () => {
+    const extractors = [
+      { name: 'HasData', service: hasdata, responseKey: 'organicResults', positionKey: 'position' },
+      { name: 'SearchApi.io', service: searchapi, responseKey: 'organic_results', positionKey: 'position' },
+      { name: 'Serply', service: serply, responseKey: 'result', positionKey: 'realPosition' },
+      { name: 'SerpApi.com', service: serpapi, responseKey: 'organic_results', positionKey: 'position' },
+      { name: 'Serper.dev', service: serper, responseKey: 'organic', positionKey: 'position' },
+      { name: 'Value Serp', service: valueSerp, responseKey: 'organic_results', positionKey: 'position' },
+    ];
+
+    it.each(extractors)('$name extracts its documented response field when result is absent and skips incomplete rows', ({ service, responseKey, positionKey }) => {
+      const rows = [
+        { title: 'Coffee guide', link: 'https://example.com/coffee', [positionKey]: 2 },
+        { title: 'Missing destination', [positionKey]: 3 },
+        { link: 'https://example.com/no-title', [positionKey]: 4 },
+      ];
+      const output = service.serpExtractor!({
+        keyword: buildKeyword(),
+        response: { [responseKey]: rows },
+        result: undefined,
+        settings: {} as SettingsType,
+      } as any);
+
+      expect(output.organic).toEqual([{ title: 'Coffee guide', url: 'https://example.com/coffee', position: 2 }]);
+      if ('mapPackTop3' in output) {
+        expect(output.mapPackTop3).toBe(false);
+        expect(output.localResults).toEqual([]);
+      }
+    });
+
+    it.each(extractors)('$name rejects malformed JSON instead of silently returning empty rankings', ({ name, service }) => {
+      expect(() => service.serpExtractor!({ keyword: buildKeyword(), response: {}, result: '{broken', settings: {} as SettingsType } as any))
+        .toThrow(`Invalid JSON response for ${name}`);
+    });
+  });
+});
+
+describe('provider URL locale and device fallbacks', () => {
+  it.each([
+    { name: 'HasData', service: hasdata, country: 'ZZ' },
+    { name: 'SearchApi.io', service: searchapi, country: 'ZZ' },
+    { name: 'Serply', service: serply, country: 'ZZ' },
+  ])('$name uses a safe language default when country metadata is absent', ({ name, service, country }) => {
+    const url = service.scrapeURL!(buildKeyword({ country, device: undefined as any }), {} as SettingsType, {} as any);
+    const parsed = new URL(url);
+
+    expect(parsed.searchParams.get('hl')).toBe('en');
+    if (name === 'HasData') expect(parsed.searchParams.get('deviceType')).toBe('desktop');
+    if (name === 'SearchApi.io') expect(parsed.searchParams.has('device')).toBe(false);
+    if (name === 'Serply') expect(service.headers!(buildKeyword({ country }), {} as SettingsType)['X-Proxy-Location']).toBe('US');
   });
 });
 
@@ -1390,6 +1472,20 @@ describe('serpbase', () => {
   it('keeps the redirect link when there is no usable display_link', () => {
     const out = extract({ organic: [{ title: 'X', link: 'https://www.google.com/goto?url=zzz', rank: 1 }] });
     expect(out.organic[0].url).toBe('https://www.google.com/goto?url=zzz');
+  });
+
+  it('uses the response organic list when no result payload is supplied and skips incomplete rows', () => {
+    const out = serpbase.serpExtractor({
+      keyword: keyword(),
+      response: { organic: [
+        { title: 'Valid result', url: 'https://example.com', rank: 2 },
+        { title: 'Missing URL' },
+        { url: 'https://missing-title.example' },
+      ] },
+      settings,
+    } as any);
+
+    expect(out.organic).toEqual([{ title: 'Valid result', url: 'https://example.com', position: 2 }]);
   });
 
   it('reads the map pack and flags the business when it is in the top three', () => {

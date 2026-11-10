@@ -302,6 +302,86 @@ describe('Search Console, Volume and AdWords routes', () => {
         );
       });
 
+      it('reuses a fresh cached result even when all Search Console windows are empty', async () => {
+        const cachedData = {
+          threeDays: [], sevenDays: [], thirtyDays: [], stats: [],
+          lastFetched: new Date().toISOString(), lastFetchError: '',
+        };
+        mockDomainFindOne.mockResolvedValue({ get: () => ({ domain: 'my-site.com' }) } as any);
+        mockReadLocalSCData.mockResolvedValue(cachedData as any);
+
+        await handler(req as NextApiRequest, res as NextApiResponse);
+
+        expect(mockFetchDomainSCData).not.toHaveBeenCalled();
+        expect(res.status).toHaveBeenCalledWith(200);
+        expect(res.json).toHaveBeenCalledWith({ data: cachedData });
+      });
+
+      it('fetches stale Search Console data using the domain credentials', async () => {
+        const domain = { domain: 'my-site.com', search_console: '{"client_email":"site@example.com"}' };
+        const fetchedData = { threeDays: [], sevenDays: [], thirtyDays: [{ keyword: 'coffee' }], stats: [], lastFetched: new Date().toISOString() };
+        mockDomainFindOne.mockResolvedValue({ get: () => domain } as any);
+        mockReadLocalSCData.mockResolvedValue({ threeDays: [], sevenDays: [], thirtyDays: [], lastFetched: '2020-01-01T00:00:00.000Z' } as any);
+        mockGetSearchConsoleApiInfo
+          .mockResolvedValueOnce({ client_email: 'site@example.com', private_key: 'site-key' } as any)
+          .mockResolvedValueOnce({ client_email: '', private_key: '' } as any);
+        mockFetchDomainSCData.mockResolvedValue(fetchedData as any);
+
+        await handler(req as NextApiRequest, res as NextApiResponse);
+
+        expect(mockFetchDomainSCData).toHaveBeenCalledWith(domain, { client_email: 'site@example.com', private_key: 'site-key' }, { client_email: '', private_key: '' });
+        expect(res.status).toHaveBeenCalledWith(200);
+        expect(res.json).toHaveBeenCalledWith({ data: fetchedData });
+      });
+
+      it('uses global credentials when local Search Console credentials are absent', async () => {
+        const domain = { domain: 'my-site.com' };
+        const fetchedData = { threeDays: [], sevenDays: [], thirtyDays: [{ keyword: 'coffee' }], stats: [] };
+        mockDomainFindOne.mockResolvedValue({ get: () => domain } as any);
+        mockGetSearchConsoleApiInfo.mockResolvedValue({ client_email: 'global@example.com', private_key: 'global-key' } as any);
+        mockFetchDomainSCData.mockResolvedValue(fetchedData as any);
+
+        await handler(req as NextApiRequest, res as NextApiResponse);
+
+        expect(mockGetSearchConsoleApiInfo).toHaveBeenCalledWith({});
+        expect(mockFetchDomainSCData).toHaveBeenCalledWith(domain, { client_email: '', private_key: '' }, { client_email: 'global@example.com', private_key: 'global-key' });
+        expect(res.status).toHaveBeenCalledWith(200);
+        expect(res.json).toHaveBeenCalledWith({ data: fetchedData });
+      });
+
+      it('keeps the route successful when Search Console is not integrated', async () => {
+        mockDomainFindOne.mockResolvedValue({ get: () => ({ domain: 'my-site.com' }) } as any);
+        mockGetSearchConsoleApiInfo.mockResolvedValue({ client_email: '', private_key: '' } as any);
+
+        await handler(req as NextApiRequest, res as NextApiResponse);
+
+        expect(mockFetchDomainSCData).not.toHaveBeenCalled();
+        expect(res.status).toHaveBeenCalledWith(200);
+        expect(res.json).toHaveBeenCalledWith({ data: null, error: 'Google Search Console is not Integrated.' });
+      });
+
+      it('returns a gateway error when a successful Search Console request has no 30-day rows', async () => {
+        mockDomainFindOne.mockResolvedValue({ get: () => ({ domain: 'my-site.com', search_console: '{}' }) } as any);
+        mockGetSearchConsoleApiInfo.mockResolvedValue({ client_email: 'client', private_key: 'key' } as any);
+        mockFetchDomainSCData.mockResolvedValue({ threeDays: [], sevenDays: [], thirtyDays: [], stats: [] } as any);
+
+        await handler(req as NextApiRequest, res as NextApiResponse);
+
+        expect(res.status).toHaveBeenCalledWith(502);
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ code: 'BAD_GATEWAY' }) }));
+      });
+
+      it('maps a Search Console fetch exception to a gateway error', async () => {
+        mockDomainFindOne.mockResolvedValue({ get: () => ({ domain: 'my-site.com', search_console: '{}' }) } as any);
+        mockGetSearchConsoleApiInfo.mockResolvedValue({ client_email: 'client', private_key: 'key' } as any);
+        mockFetchDomainSCData.mockRejectedValue(new Error('Google unavailable'));
+
+        await handler(req as NextApiRequest, res as NextApiResponse);
+
+        expect(res.status).toHaveBeenCalledWith(502);
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ code: 'BAD_GATEWAY' }) }));
+      });
+
       it('rejects invalid domains in both GET routes before querying', async () => {
         const invalidDomainRequests = [
           { route: handler, domain: '../../etc/passwd' },
@@ -365,6 +445,78 @@ describe('Search Console, Volume and AdWords routes', () => {
         expect(res.json).toHaveBeenCalledWith(
           expect.objectContaining({ error: expect.objectContaining({ code: 'NOT_FOUND', message: 'Domain not found.' }) }),
         );
+      });
+
+      it('serves a recent local insight snapshot without contacting Google', async () => {
+        const cachedData = {
+          threeDays: [{ keyword: 'coffee', uid: 'us:desktop:coffee', device: 'desktop', country: 'US', clicks: 4, impressions: 20, ctr: 20, position: 2, page: '/coffee' }],
+          sevenDays: [],
+          thirtyDays: [],
+          lastFetched: new Date().toISOString(),
+          stats: [{ date: '2026-11-10', clicks: 4 }],
+        };
+        mockDomainFindOne.mockResolvedValue({ get: () => ({ domain: 'my-site.com' }) } as any);
+        mockReadLocalSCData.mockResolvedValue(cachedData as any);
+
+        await insightHandler(req as NextApiRequest, res as NextApiResponse);
+
+        expect(mockGetSearchConsoleApiInfo).not.toHaveBeenCalled();
+        expect(mockFetchDomainSCData).not.toHaveBeenCalled();
+        expect(res.status).toHaveBeenCalledWith(200);
+        expect(res.json).toHaveBeenCalledWith({ data: expect.objectContaining({ stats: cachedData.stats, keywords: expect.any(Array), pages: expect.any(Array), countries: expect.any(Array) }) });
+      });
+
+      it('uses global Search Console credentials when the local snapshot is stale and the domain has no credentials', async () => {
+        const domain = { domain: 'my-site.com' };
+        const freshData = {
+          threeDays: [], sevenDays: [],
+          thirtyDays: [{ keyword: 'coffee', uid: 'us:desktop:coffee', device: 'desktop', country: 'US', clicks: 4, impressions: 20, ctr: 20, position: 2, page: '/coffee' }],
+          lastFetched: new Date().toISOString(), stats: [],
+        };
+        mockDomainFindOne.mockResolvedValue({ get: () => domain } as any);
+        mockReadLocalSCData.mockResolvedValue({ threeDays: [], sevenDays: [], thirtyDays: [], lastFetched: '2020-01-01T00:00:00.000Z' } as any);
+        mockGetSearchConsoleApiInfo.mockResolvedValueOnce({ client_email: 'global@example.com', private_key: 'global-key' } as any);
+        mockFetchDomainSCData.mockResolvedValue(freshData as any);
+
+        await insightHandler(req as NextApiRequest, res as NextApiResponse);
+
+        expect(mockGetSearchConsoleApiInfo).toHaveBeenCalledTimes(1);
+        expect(mockGetSearchConsoleApiInfo).toHaveBeenCalledWith({});
+        expect(mockFetchDomainSCData).toHaveBeenCalledWith(domain, { client_email: '', private_key: '' }, { client_email: 'global@example.com', private_key: 'global-key' });
+        expect(res.status).toHaveBeenCalledWith(200);
+        expect(res.json).toHaveBeenCalledWith({ data: expect.objectContaining({ stats: [], keywords: expect.any(Array) }) });
+      });
+
+      it('returns a normal not-integrated response when neither domain nor global credentials are configured', async () => {
+        mockDomainFindOne.mockResolvedValue({ get: () => ({ domain: 'my-site.com' }) } as any);
+        mockGetSearchConsoleApiInfo.mockResolvedValue({ client_email: '', private_key: '' } as any);
+
+        await insightHandler(req as NextApiRequest, res as NextApiResponse);
+
+        expect(mockFetchDomainSCData).not.toHaveBeenCalled();
+        expect(res.status).toHaveBeenCalledWith(200);
+        expect(res.json).toHaveBeenCalledWith({ data: null, error: 'Google Search Console is not Integrated.' });
+      });
+
+      it('reports an upstream failure when Google returns no 30-day insight rows', async () => {
+        mockDomainFindOne.mockResolvedValue({ get: () => ({ domain: 'my-site.com', search_console: '{}' }) } as any);
+        mockFetchDomainSCData.mockResolvedValue({ threeDays: [], sevenDays: [], thirtyDays: [], stats: [] } as any);
+
+        await insightHandler(req as NextApiRequest, res as NextApiResponse);
+
+        expect(mockFetchDomainSCData).toHaveBeenCalledTimes(1);
+        expect(res.status).toHaveBeenCalledWith(502);
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ code: 'BAD_GATEWAY' }) }));
+      });
+
+      it('returns an internal error when the insight fetch rejects', async () => {
+        mockDomainFindOne.mockResolvedValue({ get: () => ({ domain: 'my-site.com', search_console: '{}' }) } as any);
+        mockFetchDomainSCData.mockRejectedValue(new Error('Google unavailable'));
+
+        await insightHandler(req as NextApiRequest, res as NextApiResponse);
+
+        expect(res.status).toHaveBeenCalledWith(500);
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ code: 'INTERNAL_SERVER_ERROR' }) }));
       });
 
     });
@@ -1129,6 +1281,48 @@ describe('ideas route', () => {
     return res;
   };
 
+  const get = async (query: Record<string, unknown> = {}) => {
+    const req = createMockRequest({ method: 'GET', query });
+    const res = createMockResponse();
+    await handler(req as unknown as NextApiRequest, res as unknown as NextApiResponse);
+    return res;
+  };
+
+  describe('GET /api/google/ideas', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+      (verifyUser as jest.Mock).mockReturnValue('authorized');
+    });
+
+    it('loads the research ideas list when no domain is provided', async () => {
+      const saved = { keywords: [{ uid: 'idea-1', keyword: 'shoes' }], favorites: [] };
+      (readFile as jest.Mock).mockResolvedValue(JSON.stringify(saved));
+
+      const res = await get();
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({ data: saved });
+      expect(readFile).toHaveBeenCalledWith(expect.stringMatching(/IDEAS_research\.json$/), { encoding: 'utf-8' });
+    });
+
+    it('rejects an invalid domain before reading the ideas file', async () => {
+      const res = await get({ domain: '../../settings' });
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ message: 'Invalid domain' }) }));
+      expect(readFile).not.toHaveBeenCalled();
+    });
+
+    it('reports a missing ideas file as a client-readable load error', async () => {
+      (readFile as jest.Mock).mockRejectedValue(Object.assign(new Error('missing'), { code: 'ENOENT' }));
+
+      const res = await get({ domain: 'example.com' });
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ message: 'Error Loading Keyword Ideas.' }) }));
+    });
+  });
+
   describe('POST /api/google/ideas input validation', () => {
     beforeEach(() => {
       jest.clearAllMocks();
@@ -1189,6 +1383,46 @@ describe('ideas route', () => {
       expect(res.status).toHaveBeenCalledWith(200);
       expect(getAdwordsKeywordIdeas).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ domain: '' }));
     });
+
+    it.each([
+      [{ ...valid, seedType: undefined }, 'Missing seedType'],
+      [{ ...valid, seedType: 'unsupported' }, 'Invalid seedType'],
+      [{ ...valid, seedType: 'custom', keywords: [] }, 'Please Provide one of these'],
+    ])('rejects a missing, unsupported or empty custom seed (%p)', async (body, message) => {
+      const res = await post(body as Record<string, unknown>);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ message: expect.stringContaining(message) }) }));
+      expect(getAdwordsKeywordIdeas).not.toHaveBeenCalled();
+    });
+
+    it('returns a setup error when Google Ads credentials are incomplete', async () => {
+      (getAdwordsCredentials as jest.Mock).mockResolvedValue({ client_id: 'a', client_secret: 'b' });
+
+      const res = await post(valid);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ message: 'Google Ads credentials not configured' }) }));
+      expect(getAdwordsKeywordIdeas).not.toHaveBeenCalled();
+    });
+
+    it('returns not found when Google Ads responds with no ideas', async () => {
+      (getAdwordsKeywordIdeas as jest.Mock).mockResolvedValue([]);
+
+      const res = await post(valid);
+
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ code: 'NOT_FOUND' }) }));
+    });
+
+    it('turns a missing seed-keyword error into a request error', async () => {
+      (getAdwordsKeywordIdeas as jest.Mock).mockRejectedValue(new Error('No tracked keywords found for this domain'));
+
+      const res = await post({ ...valid, keywords: [], seedCurrentKeywords: true });
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ message: 'No tracked keywords found for this domain' }) }));
+    });
   });
 
   describe('PUT /api/google/ideas favorites persistence', () => {
@@ -1231,6 +1465,33 @@ describe('ideas route', () => {
         const [, contents] = (writeFile as jest.Mock).mock.calls[0];
         const saved = JSON.parse(contents as string) as KeywordIdeasDatabase;
         expect(saved.favorites).toEqual([]);
+     });
+
+     it('adds a matching idea to favorites and leaves saved ideas intact', async () => {
+        const keyword = { uid: 'kw-2', keyword: 'coffee beans' } as any;
+        const storedDatabase = { keywords: [keyword], favorites: [], settings: { seedType: 'custom' }, updated: Date.now() } as KeywordIdeasDatabase;
+        (readFile as jest.Mock).mockResolvedValue(JSON.stringify(storedDatabase));
+        const req = createMockRequest({ method: 'PUT', body: { keywordID: 'kw-2', domain: 'example.com' } });
+        const res = createMockResponse();
+
+        await handler(req as unknown as NextApiRequest, res as unknown as NextApiResponse);
+
+        expect(res.status).toHaveBeenCalledWith(200);
+        expect(res.json).toHaveBeenCalledWith({ keywords: [keyword], error: '' });
+        const [, contents] = (writeFile as jest.Mock).mock.calls[0];
+        expect((JSON.parse(contents as string) as KeywordIdeasDatabase).keywords).toEqual([keyword]);
+        expect((JSON.parse(contents as string) as KeywordIdeasDatabase).favorites).toEqual([keyword]);
+     });
+
+     it('rejects a favorite request without a keyword ID before reading storage', async () => {
+        const req = createMockRequest({ method: 'PUT', body: { domain: 'example.com' } });
+        const res = createMockResponse();
+
+        await handler(req as unknown as NextApiRequest, res as unknown as NextApiResponse);
+
+        expect(res.status).toHaveBeenCalledWith(400);
+        expect(readFile).not.toHaveBeenCalled();
+        expect(writeFile).not.toHaveBeenCalled();
      });
   });
 });

@@ -479,6 +479,7 @@ describe('client helpers', () => {
         }
       };
       jest.spyOn(URL, 'createObjectURL').mockReturnValue('mock-url');
+      jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
     });
 
     afterEach(() => {
@@ -502,6 +503,7 @@ describe('client helpers', () => {
       ];
 
       expect(() => exportCSV(keywords, 'example.com')).not.toThrow();
+      expect(HTMLAnchorElement.prototype.click).toHaveBeenCalledTimes(1);
       expect(blobParts).toHaveLength(1);
       const csvContent = String(blobParts[0][0]);
       expect(csvContent).toMatch(/,"Unknown",/);
