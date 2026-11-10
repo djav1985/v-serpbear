@@ -3,16 +3,20 @@ import { fireEvent, render, renderHook, screen, waitFor } from '@testing-library
 import { createQueryClientWrapper } from '../__helpers__';
 import { buildAddKeywordPayloads } from 'app/(dashboard)/_components/keyword-ideas/add-to-tracker-state';
 import { AddToTrackerDialog } from 'app/(dashboard)/_components/keyword-ideas/add-to-tracker-dialog';
-import { useTrackedKeywordsForAdd } from 'app/(dashboard)/domain/_components/keyword-queries';
+import { useAddKeywords, useDeleteKeywords, useTrackedKeywordsForAdd } from 'app/(dashboard)/domain/_components/keyword-queries';
 import { useAppSettings } from 'app/(dashboard)/_components/settings/settings-queries';
 import * as apiClient from 'utils/client/apiClient';
 
 jest.mock('utils/client/apiClient', () => ({
    ...jest.requireActual('utils/client/apiClient'),
    apiGet: jest.fn(),
+   apiPost: jest.fn(),
+   apiFetch: jest.fn(),
 }));
 
 const apiGet = apiClient.apiGet as jest.Mock;
+const apiPost = apiClient.apiPost as jest.Mock;
+const apiFetch = apiClient.apiFetch as jest.Mock;
 afterEach(() => apiGet.mockReset());
 
 describe('Discover add-time duplicate checks', () => {
@@ -28,6 +32,37 @@ describe('Discover add-time duplicate checks', () => {
       expect(sameLocation.skipped).toEqual(['plumber (desktop)']);
       expect(otherLocation.payloads).toHaveLength(1);
       expect(countryOnly.payloads).toHaveLength(1);
+   });
+});
+
+describe('keyword mutation hooks', () => {
+   beforeEach(() => { apiPost.mockReset(); apiFetch.mockReset(); });
+
+   it('skips the add request when every item was already tracked, while completing the flow', async () => {
+      const done = jest.fn();
+      const { client, wrapper } = createQueryClientWrapper();
+      const invalidate = jest.spyOn(client, 'invalidateQueries');
+      const { result } = renderHook(() => useAddKeywords(done), { wrapper });
+
+      await result.current.mutateAsync({ payloads: [], skipped: ['plumber (desktop)'] });
+
+      expect(apiPost).not.toHaveBeenCalled();
+      expect(done).toHaveBeenCalledTimes(1);
+      expect(invalidate).toHaveBeenCalledWith({ queryKey: ['keywords'] });
+      client.clear();
+   });
+
+   it('deletes selected keywords using a JSON request body and completes the flow', async () => {
+      apiFetch.mockResolvedValue({});
+      const done = jest.fn();
+      const { client, wrapper } = createQueryClientWrapper();
+      const { result } = renderHook(() => useDeleteKeywords(done), { wrapper });
+
+      await result.current.mutateAsync([7, 8]);
+
+      expect(apiFetch).toHaveBeenCalledWith('/api/serp/keywords', { method: 'DELETE', body: JSON.stringify({ ids: [7, 8] }) });
+      expect(done).toHaveBeenCalledTimes(1);
+      client.clear();
    });
 });
 

@@ -13,6 +13,7 @@ jest.mock('utils/client/apiClient', () => ({
 jest.mock('utils/keywordMeta', () => ({ scraperAllowsCity: jest.fn(() => false) }));
 
 const apiGet = apiClient.apiGet as jest.Mock;
+const apiPut = apiClient.apiPut as jest.Mock;
 
 const domain = { ID: 1, domain: 'example.com', slug: 'example-com', notification_emails: 'saved@example.com', scrapeEnabled: true, search_console: '{}' } as unknown as DomainType;
 
@@ -28,6 +29,8 @@ function Page() {
 }
 
 describe('DomainSettingsDialog', () => {
+   beforeEach(() => { apiPut.mockReset(); });
+
    it('starts from the stored settings every time it opens, so an abandoned edit is never saved later', async () => {
       let resolveDomain!: (value: unknown) => void;
       apiGet.mockImplementationOnce(() => new Promise((resolve) => { resolveDomain = resolve; }));
@@ -45,5 +48,15 @@ describe('DomainSettingsDialog', () => {
       fireEvent.click(screen.getByRole('button', { name: 'toggle' })); // open again
 
       expect((await screen.findByRole('textbox', { name: 'Notification emails' })).value).toBe('saved@example.com');
+   });
+
+   it('rejects malformed notification addresses without saving', async () => {
+      renderWithQueryClient(<Page />);
+      const emails = await screen.findByRole('textbox', { name: 'Notification emails' });
+      fireEvent.change(emails, { target: { value: 'valid@example.com, bad-address' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Update Settings' }));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Invalid Email');
+      expect(apiPut).not.toHaveBeenCalled();
    });
 });

@@ -1,7 +1,7 @@
-import { renderHook } from '@testing-library/react';
+import { fireEvent, render, renderHook, screen } from '@testing-library/react';
 import { ColumnFiltersState, useTable } from '@tanstack/react-table';
 import { dataTableFeatures } from 'app/(dashboard)/_components/data-table/features';
-import { createIdeaColumns } from 'app/(dashboard)/_components/keyword-ideas/ideas-columns';
+import { CompetitionBadge, IdeaKeywordCell, VolumeSparkline, createIdeaColumns } from 'app/(dashboard)/_components/keyword-ideas/ideas-columns';
 import { DEFAULT_IDEA_SORT, IDEA_SORT_CHOICES, IdeaRow, buildIdeaGroups, ideaChoiceFor, ideaSortingFor } from 'app/(dashboard)/_components/keyword-ideas/ideas-state';
 
 // The Ideas table is used by the Research page and by each domain's Ideas page. These tests drive its real columns.
@@ -72,5 +72,33 @@ describe('Ideas table', () => {
       }));
 
       expect(result.current.getRowModel().rows[0].getCanSelect()).toBe(true);
+   });
+
+   it('opens idea details, toggles favorites, and opens a populated search trend', () => {
+      const row = idea('a', 'tattoo removal cost', 500, 80);
+      const onOpenDetails = jest.fn();
+      const onToggleFavorite = jest.fn();
+      const config = { favoriteIds: new Set<string>(), onOpenDetails, onToggleFavorite };
+      const { rerender } = render(<IdeaKeywordCell idea={row} favorite={false} config={config} />);
+      fireEvent.click(screen.getByRole('button', { name: row.keyword }));
+      fireEvent.click(screen.getByRole('button', { name: 'Favorite keyword idea' }));
+      expect(onOpenDetails).toHaveBeenCalledWith(row);
+      expect(onToggleFavorite).toHaveBeenCalledWith(row);
+      rerender(<IdeaKeywordCell idea={row} favorite config={config} />);
+      expect(screen.getByRole('button', { name: 'Unfavorite keyword idea' })).toBeInTheDocument();
+
+      const openTrend = jest.fn();
+      const { container } = render(<VolumeSparkline volumes={{ jan: '10', feb: '30' }} onClick={openTrend} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Open the search volume trend' }));
+      expect(openTrend).toHaveBeenCalledTimes(1);
+      expect(container.querySelector('polyline')?.getAttribute('points')).toContain('3.0,21.0');
+   });
+
+   it('omits an empty trend and displays the competition score and category', () => {
+      const { container } = render(<VolumeSparkline volumes={{ jan: 'not-a-number' }} />);
+      expect(container.firstChild).toBeNull();
+      render(<CompetitionBadge idea={idea('a', 'tattoo removal cost', 500, 80)} />);
+      expect(screen.getByText('80/100')).toBeInTheDocument();
+      expect(screen.getByText('LOW')).toBeInTheDocument();
    });
 });

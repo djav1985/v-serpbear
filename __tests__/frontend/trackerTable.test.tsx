@@ -1,9 +1,10 @@
-import { renderHook } from '@testing-library/react';
+import { render, renderHook, screen } from '@testing-library/react';
 import { useTable } from '@tanstack/react-table';
 import { dataTableFeatures } from 'app/(dashboard)/_components/data-table/features';
 import { createTrackerColumns } from 'app/(dashboard)/domain/[slug]/_components/tracker-columns';
 import { DEFAULT_FILTERS, SORT_CHOICES, STICKY_FIRST, TrackerFilters, choiceForSorting, sortingForChoice, toColumnFilters } from 'app/(dashboard)/domain/[slug]/_components/tracker-state';
 import { NO_TAGS_FILTER } from 'utils/client/sortFilter';
+import { Rank, UrlCell } from 'app/(dashboard)/domain/[slug]/_components/tracker-cells';
 
 describe('Tracker table', () => {
   // The Tracker's sort and filter rules live in its column definitions. These tests drive the real columns through a real
@@ -113,5 +114,25 @@ describe('Tracker table', () => {
         expect(idsFor(data, { filters: { search: 'maple' } })).toEqual([3]);
         expect(idsFor(data, { filters: { search: 'nothing like this' } })).toEqual([]);
      });
+  });
+
+  describe('Tracker cells', () => {
+    it('distinguishes updating, unranked, and ranked positions', () => {
+      const { rerender } = render(<Rank position={0} />);
+      expect(screen.getByTitle('No results')).toHaveTextContent('-');
+      rerender(<Rank position={12.4} />);
+      expect(screen.getByText('12')).toBeInTheDocument();
+      rerender(<Rank position={12} updating />);
+      expect(screen.getByLabelText('Updating keyword position')).toBeInTheDocument();
+    });
+
+    it('only links result URLs using HTTP(S)', () => {
+      const base = { domain: 'example.com' } as KeywordType;
+      const { rerender } = render(<UrlCell keyword={{ ...base, url: 'https://example.com/path' } as KeywordType} />);
+      expect(screen.getByRole('link', { name: '/path' })).toHaveAttribute('href', 'https://example.com/path');
+      rerender(<UrlCell keyword={{ ...base, url: 'javascript:alert(1)' } as KeywordType} />);
+      expect(screen.queryByRole('link')).not.toBeInTheDocument();
+      expect(screen.getByText('javascript:alert(1)')).toBeInTheDocument();
+    });
   });
 });
