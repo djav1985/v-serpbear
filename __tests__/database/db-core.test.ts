@@ -353,6 +353,13 @@ describe('sqlite dialect', () => {
     });
 
   describe('sqlite dialect wrapper', () => {
+    const openMemoryDatabase = async () => new Promise<any>((resolve, reject) => {
+      const database = new sqlite.Database(':memory:', sqlite.OPEN_READWRITE + sqlite.OPEN_CREATE, (error: Error | null) => {
+        if (error) reject(error);
+        else resolve(database);
+      });
+    });
+
     it('runs basic statements and exposes sqlite-style metadata', async () => {
       await new Promise<void>((resolve, reject) => {
         const sqliteFlags = sqlite.OPEN_READWRITE + sqlite.OPEN_CREATE;
@@ -411,6 +418,56 @@ describe('sqlite dialect', () => {
           });
         });
       });
+    });
+
+    it('falls back to run when SQLite requires it for get or all statements', async () => {
+      const database = await openMemoryDatabase();
+      const statement = {
+        get: () => { throw new Error('Use run() instead'); },
+        all: () => { throw new Error('Use run() instead'); },
+        run: jest.fn(() => ({ lastInsertRowid: 41, changes: 2 })),
+      };
+      const prepareSpy = jest.spyOn(database.driver, 'prepare').mockReturnValue(statement as any);
+
+      try {
+        const getResult = await new Promise<any>((resolve, reject) => {
+          database.get('SELECT 1', function getCallback(error: Error | null, result: unknown) {
+            if (error) return reject(error);
+            resolve({ result, lastID: this.lastID, changes: this.changes });
+          });
+        });
+        expect(getResult).toEqual({ result: undefined, lastID: 41, changes: 2 });
+
+        const allResult = await new Promise<any>((resolve, reject) => {
+          database.all('SELECT 1', function allCallback(error: Error | null, rows: unknown[]) {
+            if (error) return reject(error);
+            resolve({ rows, lastID: this.lastID, changes: this.changes });
+          });
+        });
+        expect(allResult).toEqual({ rows: [], lastID: 41, changes: 2 });
+        expect(statement.run).toHaveBeenCalledTimes(2);
+      } finally {
+        prepareSpy.mockRestore();
+        await new Promise<void>((resolve, reject) => database.close((error: Error | null) => error ? reject(error) : resolve()));
+      }
+    });
+
+    it('returns ordinary statement errors through the callback without attempting the fallback', async () => {
+      const database = await openMemoryDatabase();
+      const statement = { get: () => { throw new Error('SQL syntax error'); }, run: jest.fn() };
+      const prepareSpy = jest.spyOn(database.driver, 'prepare').mockReturnValue(statement as any);
+
+      try {
+        const result = await new Promise<{ error: Error | null; row: unknown }>((resolve) => {
+          database.get('SELECT broken', (error: Error | null, row: unknown) => resolve({ error, row }));
+        });
+        expect(result.error).toEqual(expect.objectContaining({ message: 'SQL syntax error' }));
+        expect(result.row).toBeUndefined();
+        expect(statement.run).not.toHaveBeenCalled();
+      } finally {
+        prepareSpy.mockRestore();
+        await new Promise<void>((resolve, reject) => database.close((error: Error | null) => error ? reject(error) : resolve()));
+      }
     });
 
     it('preserves positional bindings for single placeholder statements', async () => {

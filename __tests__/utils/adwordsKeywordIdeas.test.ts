@@ -155,6 +155,56 @@ describe('getAdwordsKeywordIdeas', () => {
   });
 });
 
+describe('getAdwordsAccessToken response handling', () => {
+  const originalFetch = global.fetch;
+  const { getAdwordsAccessToken: getRealAdwordsAccessToken } = jest.requireActual('../../utils/adwords');
+  const credentials = { client_id: 'client', client_secret: 'secret', refresh_token: 'refresh' } as any;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    jest.restoreAllMocks();
+  });
+
+  it('returns the access token from a JSON response', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      status: 200,
+      headers: { get: jest.fn().mockReturnValue('application/json') },
+      json: async () => ({ access_token: 'fresh-token' }),
+    }) as any;
+
+    await expect(getRealAdwordsAccessToken(credentials)).resolves.toBe('fresh-token');
+  });
+
+  it('returns an empty token for non-JSON, malformed JSON, and rejected requests', async () => {
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        status: 502,
+        headers: { get: jest.fn().mockReturnValue('text/html') },
+        text: async () => '<html>gateway failure</html>',
+      })
+      .mockResolvedValueOnce({
+        status: 200,
+        headers: { get: jest.fn().mockReturnValue('application/json') },
+        json: async () => { throw new Error('invalid JSON'); },
+      })
+      .mockRejectedValueOnce(new Error('network unavailable')) as any;
+
+    await expect(getRealAdwordsAccessToken(credentials)).resolves.toBe('');
+    await expect(getRealAdwordsAccessToken(credentials)).resolves.toBe('');
+    await expect(getRealAdwordsAccessToken(credentials)).resolves.toBe('');
+  });
+
+  it('returns an empty token when Google returns an OAuth error payload', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      status: 400,
+      headers: { get: jest.fn().mockReturnValue('application/json') },
+      json: async () => ({ error: 'invalid_grant', error_description: 'refresh token expired' }),
+    }) as any;
+
+    await expect(getRealAdwordsAccessToken(credentials)).resolves.toBe('');
+  });
+});
+
 describe('getKeywordsVolume', () => {
   const originalFetch = global.fetch;
   const mockedGetAdwordsCredentials = adwordsUtils.getAdwordsCredentials as jest.MockedFunction<typeof adwordsUtils.getAdwordsCredentials>;

@@ -378,6 +378,20 @@ it('recalculates the domain stats after keywords are added', async () => {
     expect(updateDomainStats).toHaveBeenCalledWith('example.com');
   });
 
+it('keeps a successful add response when the non-critical stats refresh fails', async () => {
+    KeywordMock.bulkCreate.mockResolvedValue([{ ID: 53, keyword: 'alpha' }]);
+    KeywordMock.findAll.mockResolvedValueOnce([]).mockResolvedValueOnce([
+      storedRow({ ID: 53, keyword: 'alpha', domain: 'example.com', device: 'desktop', country: 'US' }),
+    ]);
+    (updateDomainStats as jest.Mock).mockRejectedValue(new Error('stats database unavailable'));
+
+    const res = await postKeywords([newKeyword]);
+
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(KeywordMock.bulkCreate).toHaveBeenCalledTimes(1);
+    expect(updateDomainStats).toHaveBeenCalledWith('example.com');
+  });
+
 it('rejects keywords for a domain that is not tracked', async () => {
     DomainMock.findAll.mockResolvedValue([]);
 

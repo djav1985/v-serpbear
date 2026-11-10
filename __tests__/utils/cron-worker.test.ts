@@ -72,9 +72,50 @@ describe('cron worker', () => {
       );
     });
 
+    it('logs an HTTP error response with its status and body without rejecting the caller', async () => {
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: false,
+        status: 503,
+        text: async () => 'upstream unavailable',
+      });
+
+      await expect(makeCronApiCall('secret', 'http://localhost:3000', '/api/app/cron', 'unused')).resolves.toBeUndefined();
+
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('HTTP 503: upstream unavailable'));
+    });
+
+    it('logs a successful empty non-JSON response without including a response body', async () => {
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        status: 204,
+        headers: { get: jest.fn().mockReturnValue('text/plain') },
+        text: async () => '',
+      });
+
+      await makeCronApiCall('secret', 'http://localhost:3000', '/api/app/email', 'email task completed');
+
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('email task completed'));
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"status":204'));
+      expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('"response"'));
+    });
+
+    it('contains a rejected fetch and records which endpoint failed', async () => {
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      (global.fetch as jest.Mock).mockRejectedValue(new Error('network unavailable'));
+
+      await makeCronApiCall('secret', 'http://localhost:3000', '/api/google/searchconsole', 'unused');
+
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Error making API call'));
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('/api/google/searchconsole'));
+    });
+
     it('falls back when falsy non-string values are provided', () => {
       expect(normalizeValue(false, '0 0 0 * * *')).toBe('0 0 0 * * *');
       expect(normalizeValue(0, '0 0 0 * * *')).toBe('0 0 0 * * *');
+      expect(normalizeValue('  "15:30"  ', '00:00')).toBe('15:30');
+      expect(normalizeValue('   ', '00:00')).toBe('00:00');
     });
   });
 

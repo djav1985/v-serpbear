@@ -398,6 +398,27 @@ describe('domains route', () => {
       expect(domainInstance.save).toHaveBeenCalled();
     });
 
+    it('returns a stable server error when persisting an otherwise valid update fails', async () => {
+      domainInstance.save.mockRejectedValue(new Error('database unavailable'));
+      const req = {
+        method: 'PUT',
+        query: { domain: domainState.domain },
+        body: { notification_emails: 'alerts@example.com' },
+        headers: {},
+      } as unknown as NextApiRequest;
+      const res = createMockResponse();
+
+      await handler(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+        error: expect.objectContaining({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Error Updating Domain. An Unknown Error Occurred.',
+        }),
+      }));
+    });
+
     it('rejects partial Search Console updates with only one of client_email or private_key', async () => {
       const partials = [{ client_email: 'test@example.com' }, { private_key: 'test-key' }];
       for (const search_console of partials) {

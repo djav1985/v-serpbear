@@ -297,6 +297,47 @@ describe('Search Console utilities', () => {
       expect(mockSCQuery.mock.calls[1][0].requestBody.rowLimit).toBe(25000);
       expect(res).toHaveLength(25001);
     });
+
+    it('returns clear errors before calling Google when the domain or credentials are missing', async () => {
+      await expect(realFetchSearchConsoleData(null as any, 3, undefined, mockApiForSC)).resolves.toEqual({
+        error: true,
+        errorMsg: 'Domain Not Provided!',
+      });
+      await expect(realFetchSearchConsoleData(mockDomainForSC, 3, undefined, undefined)).resolves.toEqual({
+        error: true,
+        errorMsg: 'Search Console API data is not available.',
+      });
+      expect(mockSCQuery).not.toHaveBeenCalled();
+    });
+
+    it('uses a URL property and converts stat CTR values to percentages', async () => {
+      mockSCQuery.mockResolvedValueOnce({
+        data: { rows: [{ keys: ['2026-11-09'], clicks: 4, impressions: 20, ctr: 0.2, position: 3 }] },
+      });
+
+      const result = await realFetchSearchConsoleData({
+        ...mockDomainForSC,
+        search_console: JSON.stringify({ property_type: 'url', url: 'https://www.example.com/' }),
+      }, 30, 'stat', mockApiForSC);
+
+      expect(mockSCQuery).toHaveBeenCalledWith(expect.objectContaining({
+        siteUrl: 'https://www.example.com/',
+        requestBody: expect.objectContaining({ dimensions: ['date'] }),
+      }));
+      expect(result).toEqual([{ date: '2026-11-09', clicks: 4, impressions: 20, ctr: 20, position: 3 }]);
+    });
+
+    it('returns the provider status details when Search Console rejects a request', async () => {
+      mockSCQuery.mockRejectedValueOnce({
+        response: { status: 403, statusText: 'Forbidden', data: { error_description: 'insufficient permissions' } },
+      });
+
+      await expect(realFetchSearchConsoleData(mockDomainForSC, 3, undefined, mockApiForSC)).resolves.toEqual({
+        error: true,
+        errorMsg: 'Forbidden. insufficient permissions',
+      });
+    });
+
   });
 
   describe('fetchSearchConsoleData error logging', () => {

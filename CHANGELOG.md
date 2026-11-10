@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file. Releases no
 
 ### Changed
 
+- Extend critical Jest coverage for SQLite fallback/errors, refresh and scraper edge cases, SERP persistence errors, cron API failures, and Google Ads/Search Console response handling.
+
 - Strengthen SQLite binding assertions by matching each recorded callback invocation's SQL, method, and arguments together.
 - Reset stateful JWT, domain/refresh queue, and Search Console mocks between randomized cases to prevent order dependent results.
 

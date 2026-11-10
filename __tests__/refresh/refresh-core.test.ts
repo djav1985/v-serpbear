@@ -109,6 +109,11 @@ describe('refresh core', () => {
       process.env.SECRET = 'test-secret';
     });
 
+    it('returns an empty result for an empty refresh request', async () => {
+      await expect(refreshAndUpdateKeywords([], mockSettings)).resolves.toEqual([]);
+      expect(scrapeKeywordWithStrategy).not.toHaveBeenCalled();
+    });
+
     it('limits sequential scraper concurrency per domain, with desktop and mobile keywords in one pass', async () => {
       const previousConcurrency = process.env.PARALLEL_SCRAPE_CONCURRENCY;
       process.env.PARALLEL_SCRAPE_CONCURRENCY = '3';

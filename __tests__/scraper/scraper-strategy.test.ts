@@ -1,4 +1,4 @@
-import { scrapeKeywordWithStrategy } from '../../utils/scraper';
+import { getScraperClient, scrapeKeywordWithStrategy } from '../../utils/scraper';
 
 describe('strategy', () => {
   /**
@@ -73,6 +73,21 @@ describe('strategy', () => {
      scrape_strategy: 'basic',
      scrape_pagination_limit: 5,
   } as unknown as SettingsType;
+
+  it('does not make a request when a provider cannot build its URL', () => {
+     const fetchSpy = jest.spyOn(global, 'fetch');
+     const client = getScraperClient(baseKeyword, baseSettings, {
+        method: 'GET',
+        scrapeURL: () => null,
+     } as any);
+
+     try {
+        expect(client).toBe(false);
+        expect(fetchSpy).not.toHaveBeenCalled();
+     } finally {
+        fetchSpy.mockRestore();
+     }
+  });
 
   /** Returns the unique page numbers from all fetch calls in ascending order. */
   function capturedPages(fetchSpy: jest.SpyInstance): number[] {
