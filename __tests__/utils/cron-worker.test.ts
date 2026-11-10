@@ -1,32 +1,6 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
-import type { NextApiRequest, NextApiResponse } from 'next';
-import { asHandler } from './__helpers__/routeAdapter';
-import * as handlerRoute from '../app/api/mcp/route';
-import { createMockRequest, createMockResponse } from './__helpers__';
-const handler = asHandler(handlerRoute);
-
-const mockToolHandlers = new Map<string, (input: any) => Promise<unknown>>();
-const mockTransportHandleRequest = jest.fn();
-const mockTransportClose = jest.fn();
-const mockServerClose = jest.fn();
-const mockServerConnect = jest.fn();
-
-jest.mock('../utils/apiLogging', () => require('./__helpers__/apiLoggingMock').apiLoggingMock());
-jest.mock('@modelcontextprotocol/sdk/server/mcp.js', () => ({
-  McpServer: jest.fn().mockImplementation(() => ({
-    registerTool: (name: string, _config: unknown, handler: (input: any) => Promise<unknown>) => mockToolHandlers.set(name, handler),
-    connect: mockServerConnect,
-    close: mockServerClose,
-  })),
-}));
-jest.mock('@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js', () => ({
-  WebStandardStreamableHTTPServerTransport: jest.fn().mockImplementation(() => ({
-    handleRequest: mockTransportHandleRequest,
-    close: mockTransportClose,
-  })),
-}));
 
 describe('cron worker', () => {
   /* eslint-disable security/detect-non-literal-fs-filename -- writes only to a temp directory created by the test */
@@ -39,7 +13,7 @@ describe('cron worker', () => {
     beforeEach(async () => {
       jest.resetModules();
       global.fetch = jest.fn();
-      const cronModule = require('../cron.js');
+      const cronModule = require('../../cron.js');
       makeCronApiCall = cronModule.makeCronApiCall;
       normalizeValue = cronModule.normalizeValue;
     });
@@ -153,7 +127,7 @@ describe('cron worker', () => {
       }));
 
       delete process.env.SECRET;
-      const { getAppSettings } = require('../cron.js');
+      const { getAppSettings } = require('../../cron.js');
       const settings = await getAppSettings();
 
       expect(settings).toEqual(expect.objectContaining({
@@ -169,7 +143,7 @@ describe('cron worker', () => {
       await fsPromises.writeFile(settingsPath, invalidContent, { encoding: 'utf-8' });
 
       const writeSpy = jest.spyOn(fsPromises, 'writeFile');
-      const { getAppSettings } = require('../cron.js');
+      const { getAppSettings } = require('../../cron.js');
       const settings = await getAppSettings();
       const updatedContent = await fsPromises.readFile(settingsPath, { encoding: 'utf-8' });
 
@@ -180,7 +154,7 @@ describe('cron worker', () => {
     });
 
     it('returns defaults without creating the settings file when it is missing (ENOENT)', async () => {
-      const { getAppSettings } = require('../cron.js');
+      const { getAppSettings } = require('../../cron.js');
 
       // The temp data/ directory starts empty, so settings.json does not exist yet
       await expect(fsPromises.access(settingsPath)).rejects.toMatchObject({ code: 'ENOENT' });
@@ -193,7 +167,7 @@ describe('cron worker', () => {
 
     it('throws on invalid JSON in strict mode so the caller can keep its schedule', async () => {
       await fsPromises.writeFile(settingsPath, '{not-json', { encoding: 'utf-8' });
-      const { getAppSettings } = require('../cron.js');
+      const { getAppSettings } = require('../../cron.js');
 
       await expect(getAppSettings({ strict: true })).rejects.toThrow(SyntaxError);
     });
@@ -203,7 +177,7 @@ describe('cron worker', () => {
       delete process.env.SECRET;
       await fsPromises.writeFile(settingsPath, JSON.stringify({ scraper_type: 'serpapi', scraping_api: 'x' }), { encoding: 'utf-8' });
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-      const { getAppSettings } = require('../cron.js');
+      const { getAppSettings } = require('../../cron.js');
 
       const settings = await getAppSettings();
 
@@ -215,7 +189,7 @@ describe('cron worker', () => {
 
     it('runs the other_day schedule on odd days with no gap longer than 2 days', () => {
       const { Cron } = require('croner');
-      const { CRON_INTERVAL_MAP } = require('../cron.js');
+      const { CRON_INTERVAL_MAP } = require('../../cron.js');
       const runs = new Cron(CRON_INTERVAL_MAP.other_day, { timezone: 'UTC' }).nextRuns(200, new Date('2027-01-01T00:00:00Z')) as Date[];
       for (let i = 1; i < runs.length; i += 1) {
         const gapDays = Math.round((runs[i].getTime() - runs[i - 1].getTime()) / 86400000);
@@ -230,7 +204,7 @@ describe('cron worker', () => {
       process.env.CRON_EMAIL_SCHEDULE = '0 0 6 * * *';
       jest.resetModules();
       jest.spyOn(console, 'log').mockImplementation();
-      const timed = require('../cron.js');
+      const timed = require('../../cron.js');
       expect(timed.CRON_INTERVAL_MAP).toMatchObject({
         daily: '0 30 2 * * *', other_day: '0 30 2 1-31/2 * *', weekly: '0 30 2 * * 1', monthly: '0 30 2 1 * *',
       });
@@ -253,7 +227,7 @@ describe('cron worker', () => {
       keys.forEach((key) => { delete process.env[key]; });
       dir = mkdtempSync(path.join(os.tmpdir(), 'serpbear-env-'));
       jest.resetModules();
-      ({ loadEnvFiles } = require('../cron.js'));
+      ({ loadEnvFiles } = require('../../cron.js'));
     });
 
     afterEach(() => {
@@ -297,128 +271,6 @@ describe('cron worker', () => {
 
     it('does not fail when neither env file exists', () => {
       expect(() => loadEnvFiles(dir)).not.toThrow();
-    });
-  });
-});
-
-describe('MCP route', () => {
-  const originalApiKey = process.env.APIKEY;
-  const originalPort = process.env.PORT;
-
-  const call = async (method: string, headers: Record<string, string> = { authorization: 'Bearer test-key' }) => {
-    const req = createMockRequest({
-      method,
-      body: {},
-      headers,
-      socket: { localPort: 3000 },
-    } as unknown as Partial<NextApiRequest>);
-    const res = createMockResponse();
-    await handler(req as unknown as NextApiRequest, res as unknown as NextApiResponse);
-    return res;
-  };
-
-  describe('/api/mcp', () => {
-    beforeEach(() => {
-      jest.clearAllMocks();
-      mockToolHandlers.clear();
-      process.env.APIKEY = 'test-key';
-      process.env.PORT = '3200';
-    });
-
-    afterEach(() => {
-      if (originalApiKey === undefined) {
-        delete process.env.APIKEY;
-      } else {
-        process.env.APIKEY = originalApiKey;
-      }
-      if (originalPort === undefined) delete process.env.PORT;
-      else process.env.PORT = originalPort;
-    });
-
-    it('returns 405 for a GET request', async () => {
-      const res = await call('GET');
-
-      expect(res.status).toHaveBeenCalledWith(405);
-    });
-
-    it.each([
-      ['no Authorization header', { cookie: 'token=anything' }],
-      ['a wrong Bearer key', { authorization: 'Bearer wrong-key' }],
-      ['a non-Bearer scheme', { authorization: 'Basic test-key' }],
-    ])('returns 401 when the request has %s, even with a session cookie', async (_name, headers) => {
-      const res = await call('POST', headers as Record<string, string>);
-
-      expect(res.status).toHaveBeenCalledWith(401);
-    });
-
-    it('returns 500 for an authorized POST when APIKEY is unset', async () => {
-      delete process.env.APIKEY;
-
-      const res = await call('POST');
-
-      expect(res.status).toHaveBeenCalledWith(500);
-    });
-
-    it('registers the public tools and routes a tool call to the matching local API with the bearer key', async () => {
-      const previousFetch = global.fetch;
-      global.fetch = jest.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        text: async () => JSON.stringify({ keywords: [{ ID: 7 }] }),
-      }) as unknown as typeof fetch;
-      mockTransportHandleRequest.mockResolvedValue(new Response(JSON.stringify({ jsonrpc: '2.0', result: {} }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
-
-      try {
-        const res = await call('POST');
-        expect(res.status).toHaveBeenCalledWith(200);
-        expect(mockToolHandlers.size).toBe(6);
-        const reply = await mockToolHandlers.get('list_keywords')!({ domain: 'example.com' });
-        await mockToolHandlers.get('get_keyword')!({ id: '7' });
-        await mockToolHandlers.get('list_domains')!({ withstats: true });
-        await mockToolHandlers.get('get_searchconsole')!({ domain: 'example.com' });
-        await mockToolHandlers.get('get_insight')!({ domain: 'example.com' });
-        await mockToolHandlers.get('get_keyword_ideas')!({ domain: 'example.com' });
-        await mockToolHandlers.get('get_keyword_ideas')!({});
-
-        const calls = (global.fetch as jest.Mock).mock.calls;
-        const urls = calls.map(([url]) => String(url));
-        expect(urls).toEqual([
-          'http://127.0.0.1:3200/api/serp/keywords?domain=example.com',
-          'http://127.0.0.1:3200/api/serp/keyword?id=7',
-          'http://127.0.0.1:3200/api/serp/domains?withstats=true',
-          'http://127.0.0.1:3200/api/google/searchconsole?domain=example.com',
-          'http://127.0.0.1:3200/api/google/insight?domain=example.com',
-          'http://127.0.0.1:3200/api/google/ideas?domain=example.com',
-          'http://127.0.0.1:3200/api/google/ideas',
-        ]);
-        const options = calls[0][1];
-        expect(options).toEqual({ method: 'GET', headers: { Authorization: 'Bearer test-key', Accept: 'application/json' }, body: undefined });
-        expect(reply).toEqual({ isError: false, content: [{ type: 'text', text: '{\n  "keywords": [\n    {\n      "ID": 7\n    }\n  ]\n}' }] });
-        expect(mockServerConnect).toHaveBeenCalledTimes(1);
-        await Promise.resolve();
-        expect(mockTransportClose).toHaveBeenCalledTimes(1);
-        expect(mockServerClose).toHaveBeenCalledTimes(1);
-      } finally {
-        global.fetch = previousFetch;
-      }
-    });
-
-    it('marks failed local API calls as tool errors and preserves non-JSON response text', async () => {
-      const previousFetch = global.fetch;
-      global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 502, text: async () => 'upstream unavailable' }) as unknown as typeof fetch;
-      mockTransportHandleRequest.mockResolvedValue(new Response('', { status: 200 }));
-
-      try {
-        await call('POST');
-        const reply = await mockToolHandlers.get('list_domains')!({ withstats: false });
-
-        const [url, options] = (global.fetch as jest.Mock).mock.calls[0];
-        expect(String(url)).toBe('http://127.0.0.1:3200/api/serp/domains');
-        expect(options.method).toBe('GET');
-        expect(reply).toEqual({ isError: true, content: [{ type: 'text', text: '"upstream unavailable"' }] });
-      } finally {
-        global.fetch = previousFetch;
-      }
     });
   });
 });

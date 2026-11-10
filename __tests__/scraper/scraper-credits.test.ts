@@ -40,6 +40,7 @@ describe('provider credit lookups', () => {
    it('SerpBase reads credits from /account/credits', async () => {
       const fetchMock = mockAccount({ status: 0, credits: 12345 });
       expect(await scraper('serpbase').fetchCredits?.(settingsFor('abc'))).toBe(12345);
+      expect(fetchMock.mock.calls[0][0]).toBe('https://api.serpbase.dev/account/credits');
       expect(fetchMock.mock.calls[0][1].headers['X-API-Key']).toBe('abc');
    });
 
@@ -83,6 +84,7 @@ describe('provider credit lookups', () => {
    it('returns null instead of throwing when the account call fails', async () => {
       mockAccount({}, false);
       expect(await scraper('serpapi').fetchCredits?.(settingsFor('abc'))).toBeNull();
+      expect(await scraper('serpbase').fetchCredits?.(settingsFor('abc'))).toBeNull();
       global.fetch = jest.fn().mockRejectedValue(new Error('network down')) as unknown as typeof fetch;
       expect(await scraper('hasdata').fetchCredits?.(settingsFor('abc'))).toBeNull();
    });

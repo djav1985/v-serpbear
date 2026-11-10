@@ -4,12 +4,6 @@ import Keyword from '../../database/models/keyword';
 import refreshAndUpdateKeywords, { clearKeywordUpdatingFlags, markKeywordsAsUpdating, partitionKeywordsByDomainStatus, updateKeywordPosition } from '../../utils/refresh';
 import { type RefreshResult, removeFromRetryQueue, retryScrape, scrapeKeywordWithStrategy } from '../../utils/scraper';
 import { toDbBool } from '../../utils/dbBooleans';
-import { refreshQueue } from '../../utils/refreshQueue';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
-import os from 'os';
-import path from 'path';
-import { readSettingsFile, withSettingsLock } from '../../utils/settingsFile';
-import { createTempAppDataDir } from '../__helpers__';
 
 jest.mock('../../database/models/domain');
 jest.mock('../../database/models/keyword');
@@ -35,8 +29,6 @@ const deferred = () => {
   const promise = new Promise<void>((done) => { resolve = done; });
   return { promise, resolve };
 };
-
-const yieldToQueue = () => new Promise<void>((resolve) => setImmediate(resolve));
 
 describe('refresh state helpers', () => {
   it('partitions enabled, disabled, and missing domains using the preloaded domain set', async () => {
@@ -95,7 +87,11 @@ describe('refresh state helpers', () => {
 });
 
 describe('refresh core', () => {
+  const originalSecret = process.env.SECRET;
+
   afterEach(() => {
+    if (originalSecret === undefined) delete process.env.SECRET;
+    else process.env.SECRET = originalSecret;
     jest.restoreAllMocks();
   });
 
@@ -1379,7 +1375,6 @@ describe('refresh core', () => {
     };
 
     beforeAll(() => {
-      jest.resetModules();
       jest.doMock('../../utils/scraper', () => ({
         __esModule: true,
         RefreshResult: undefined,
@@ -1522,307 +1517,6 @@ describe('refresh core', () => {
         expect(scrapeMock).toHaveBeenCalledTimes(1);
         expect(scrapeMock).toHaveBeenCalledWith(expect.anything(), expect.objectContaining(expected), expect.anything());
       }
-    });
-  });
-});
-
-describe('refresh queue', () => {
-  /**
-   * Behavior tests for RefreshQueue: concurrency, per-domain locking,
-   * error resilience, status reporting, and configurable concurrency.
-   */
-
-
-  // ---------------------------------------------------------------------------
-  // Queue behavior (enqueue / dequeue / concurrency / locking)
-  // ---------------------------------------------------------------------------
-
-  describe('RefreshQueue behavior', () => {
-    beforeEach(() => {
-      jest.clearAllMocks();
-    });
-
-    it('processes tasks in parallel up to maxConcurrency', async () => {
-      const executionOrder: number[] = [];
-      const releases = Array.from({ length: 4 }, deferred);
-      const fourthStarted = deferred();
-      const tasks = releases.map((release, index) => jest.fn(async () => {
-        executionOrder.push(index + 1);
-        if (index === 3) fourthStarted.resolve();
-        await release.promise;
-      }));
-
-      for (const [index, task] of tasks.entries()) {
-        await refreshQueue.enqueue(`task${index + 1}`, task);
-      }
-
-      try {
-        expect(executionOrder).toEqual([1, 2, 3]);
-        expect(tasks[3]).not.toHaveBeenCalled();
-        releases[0].resolve();
-        await fourthStarted.promise;
-        expect(executionOrder).toEqual([1, 2, 3, 4]);
-      } finally {
-        releases.forEach((release) => release.resolve());
-        await yieldToQueue();
-      }
-      tasks.forEach((task) => expect(task).toHaveBeenCalledTimes(1));
-    });
-
-    it('respects per-domain locking', async () => {
-      const executionOrder: string[] = [];
-      const releaseFirst = deferred();
-      const secondStarted = deferred();
-      const domainATask1 = jest.fn(async () => {
-        executionOrder.push('A1-start');
-        await releaseFirst.promise;
-        executionOrder.push('A1-end');
-      });
-      const domainATask2 = jest.fn(async () => {
-        executionOrder.push('A2-start');
-        secondStarted.resolve();
-      });
-      const domainBTask = jest.fn(async () => {
-        executionOrder.push('B-start');
-      });
-
-      await refreshQueue.enqueue('task-a1', domainATask1, ['domainA']);
-      await refreshQueue.enqueue('task-a2', domainATask2, ['domainA']);
-      await refreshQueue.enqueue('task-b', domainBTask, ['domainB']);
-
-      try {
-        expect(executionOrder).toEqual(['A1-start', 'B-start']);
-        expect(domainATask2).not.toHaveBeenCalled();
-        releaseFirst.resolve();
-        await secondStarted.promise;
-        const a1EndIndex = executionOrder.indexOf('A1-end');
-        const a2StartIndex = executionOrder.indexOf('A2-start');
-        expect(a2StartIndex).toBeGreaterThan(a1EndIndex);
-        const bStartIndex = executionOrder.indexOf('B-start');
-        expect(bStartIndex).toBeLessThan(a1EndIndex);
-      } finally {
-        releaseFirst.resolve();
-        await yieldToQueue();
-      }
-      expect(domainATask1).toHaveBeenCalledTimes(1);
-      expect(domainATask2).toHaveBeenCalledTimes(1);
-      expect(domainBTask).toHaveBeenCalledTimes(1);
-    });
-
-
-
-    it('atomically locks every domain in a task while allowing unrelated work', async () => {
-      const order: string[] = [];
-      const gate = deferred();
-      const aStarted = deferred();
-      const bStarted = deferred();
-
-      await refreshQueue.enqueue('multi', async () => { order.push('AB-start'); await gate.promise; order.push('AB-end'); }, ['A', 'B', 'a', '']);
-      await refreshQueue.enqueue('only-a', async () => { order.push('A-start'); aStarted.resolve(); }, ['A']);
-      await refreshQueue.enqueue('only-b', async () => { order.push('B-start'); bStarted.resolve(); }, ['B']);
-      await refreshQueue.enqueue('only-c', async () => { order.push('C-start'); }, ['C']);
-
-      try {
-        expect(refreshQueue.isDomainLocked('A')).toBe(true);
-        expect(refreshQueue.isDomainLocked('B')).toBe(true);
-        expect(order).toContain('C-start');
-        expect(order).not.toContain('A-start');
-        expect(order).not.toContain('B-start');
-        gate.resolve();
-        await Promise.all([aStarted.promise, bStarted.promise]);
-        expect(order.indexOf('A-start')).toBeGreaterThan(order.indexOf('AB-end'));
-        expect(order.indexOf('B-start')).toBeGreaterThan(order.indexOf('AB-end'));
-      } finally {
-        gate.resolve();
-        await yieldToQueue();
-      }
-    });
-
-    it('continues processing after task failure', async () => {
-      const executionOrder: number[] = [];
-      const releaseFirst = deferred();
-      const thirdStarted = deferred();
-      refreshQueue.setMaxConcurrency(1);
-      const task1 = jest.fn(async () => { executionOrder.push(1); await releaseFirst.promise; });
-      const task2 = jest.fn(async () => {
-        executionOrder.push(2);
-        throw new Error('Task 2 failed');
-      });
-      const task3 = jest.fn(async () => { executionOrder.push(3); thirdStarted.resolve(); });
-
-      try {
-        await refreshQueue.enqueue('task1', task1);
-        await refreshQueue.enqueue('task2', task2);
-        await refreshQueue.enqueue('task3', task3);
-        expect(executionOrder).toEqual([1]);
-
-        releaseFirst.resolve();
-        await thirdStarted.promise;
-        expect(executionOrder).toEqual([1, 2, 3]);
-        expect(task1).toHaveBeenCalledTimes(1);
-        expect(task2).toHaveBeenCalledTimes(1);
-        expect(task3).toHaveBeenCalledTimes(1);
-      } finally {
-        releaseFirst.resolve();
-        refreshQueue.setMaxConcurrency(3);
-        await yieldToQueue();
-      }
-    });
-
-    it('returns correct queue status', async () => {
-      const gate = deferred();
-      const taskStarted = deferred();
-      const longRunningTask = jest.fn(async () => { taskStarted.resolve(); await gate.promise; });
-
-      await refreshQueue.enqueue('long-task', longRunningTask, ['testDomain']);
-      await taskStarted.promise;
-      const status = refreshQueue.getStatus();
-      gate.resolve();
-      await yieldToQueue();
-
-      expect(status.activeProcesses).toBeGreaterThan(0);
-      expect(status.activeDomains).toContain('testdomain');
-      expect(status.maxConcurrency).toBe(3);
-    });
-  });
-
-  // ---------------------------------------------------------------------------
-  // Configurable concurrency (reads REFRESH_QUEUE_CONCURRENCY env var)
-  // ---------------------------------------------------------------------------
-
-  describe('RefreshQueue concurrency configuration', () => {
-    let originalEnv: NodeJS.ProcessEnv;
-
-    beforeEach(() => {
-      originalEnv = process.env;
-      jest.resetModules();
-    });
-
-    afterEach(() => {
-      process.env = originalEnv;
-    });
-
-    it('should use default concurrency of 3 when env var not set', () => {
-      delete process.env.REFRESH_QUEUE_CONCURRENCY;
-
-      const { refreshQueue: q } = require('../../utils/refreshQueue');
-      expect(q.getStatus().maxConcurrency).toBe(3);
-    });
-
-    it('reads valid positive integers from the env var', () => {
-      for (const [value, expected] of [['1', 1], ['5', 5], ['10', 10]] as const) {
-        jest.resetModules();
-        process.env.REFRESH_QUEUE_CONCURRENCY = value;
-
-        const { refreshQueue: q } = require('../../utils/refreshQueue');
-        expect(q.getStatus().maxConcurrency).toBe(expected);
-      }
-    });
-
-    it('falls back to the default of 3 when the env var is invalid, zero or negative', () => {
-      for (const value of ['invalid', '0', '-1']) {
-        jest.resetModules();
-        process.env.REFRESH_QUEUE_CONCURRENCY = value;
-
-        const { refreshQueue: q } = require('../../utils/refreshQueue');
-        expect(q.getStatus().maxConcurrency).toBe(3);
-      }
-    });
-  });
-});
-
-describe('settings file lock', () => {
-  /* eslint-disable security/detect-non-literal-fs-filename -- writes only to a temp directory created by the test */
-
-
-  describe('withSettingsLock', () => {
-    let dir: string;
-    let tempData: ReturnType<typeof createTempAppDataDir>;
-
-    beforeEach(() => {
-      tempData = createTempAppDataDir('serpbear-lock-');
-      dir = tempData.dir;
-    });
-
-    afterEach(() => {
-      tempData.cleanup();
-    });
-
-    it('creates settings.json as {} when it is missing', async () => {
-      await withSettingsLock(async () => undefined);
-
-      expect(readFileSync(path.join(dir, 'data', 'settings.json'), 'utf-8')).toBe('{}');
-    });
-
-    it('runs overlapping critical sections one after the other', async () => {
-      writeFileSync(path.join(dir, 'data', 'settings.json'), '{}');
-      const order: string[] = [];
-      const releaseFirst = deferred();
-      const firstStarted = deferred();
-      const section = (name: string) => withSettingsLock(async () => {
-        order.push(`${name}:start`);
-        if (name === 'a') {
-          firstStarted.resolve();
-          await releaseFirst.promise;
-        }
-        order.push(`${name}:end`);
-      });
-
-      const first = section('a');
-      await firstStarted.promise;
-      const second = section('b');
-      try {
-        expect(order).toEqual(['a:start']);
-        releaseFirst.resolve();
-        await Promise.all([first, second]);
-        expect(order).toEqual(['a:start', 'a:end', 'b:start', 'b:end']);
-      } finally {
-        releaseFirst.resolve();
-        await Promise.all([first, second]);
-      }
-    });
-
-    it('releases the lock when the section throws', async () => {
-      writeFileSync(path.join(dir, 'data', 'settings.json'), '{}');
-
-      await expect(withSettingsLock(async () => { throw new Error('boom'); })).rejects.toThrow('boom');
-      await expect(withSettingsLock(async () => 'next')).resolves.toBe('next');
-      expect(existsSync(path.join(dir, 'data', 'settings.json'))).toBe(true);
-    });
-  });
-
-  describe('readSettingsFile', () => {
-    let dir: string;
-
-    beforeEach(() => {
-      dir = mkdtempSync(path.join(os.tmpdir(), 'serpbear-read-'));
-    });
-
-    afterEach(() => {
-      rmSync(dir, { recursive: true, force: true });
-    });
-
-    it('reads a missing, empty or whitespace-only file as {}', async () => {
-      const file = path.join(dir, 'settings.json');
-      await expect(readSettingsFile(file)).resolves.toEqual({});
-      writeFileSync(file, '');
-      await expect(readSettingsFile(file)).resolves.toEqual({});
-      writeFileSync(file, '   ');
-      await expect(readSettingsFile(file)).resolves.toEqual({});
-    });
-
-    it('throws for non-empty invalid JSON instead of reading it as {}', async () => {
-      const file = path.join(dir, 'settings.json');
-      writeFileSync(file, '{"scraping_api": "enc", ');
-      await expect(readSettingsFile(file)).rejects.toThrow(/not valid JSON/);
-      writeFileSync(file, '[1,2]');
-      await expect(readSettingsFile(file)).rejects.toThrow(/JSON object/);
-    });
-
-    it('returns the stored settings', async () => {
-      const file = path.join(dir, 'settings.json');
-      writeFileSync(file, '{"scraper_type":"none"}');
-      await expect(readSettingsFile(file)).resolves.toEqual({ scraper_type: 'none' });
     });
   });
 });

@@ -1,21 +1,20 @@
- 
+
 import type { NextApiRequest } from 'next';
-import verifyUser, { checkApiKey } from '../utils/verifyUser';
-import { buildRequest } from './__helpers__/routeAdapter';
-import { createMockResponse } from './__helpers__';
+import verifyUser, { checkApiKey } from '../../utils/verifyUser';
+import { buildRequest } from '../__helpers__/routeAdapter';
 import jwt from 'jsonwebtoken';
-import { getApiKeyAttemptKeys } from '../utils/apiKeyThrottle';
-import { clearLoginFailures, isLoginLocked, recordLoginFailure, resetLoginThrottle } from '../utils/loginThrottle';
-import { resetRateLimits, takeRateLimitToken } from '../utils/rateLimit';
+import { getApiKeyAttemptKeys } from '../../utils/apiKeyThrottle';
+import { clearLoginFailures, isLoginLocked, recordLoginFailure, resetLoginThrottle } from '../../utils/loginThrottle';
+import { resetRateLimits, takeRateLimitToken } from '../../utils/rateLimit';
 import { readFileSync, writeFileSync } from 'fs';
-import { atomicWriteFile } from '../utils/atomicWrite';
-import { getSessionVersion } from '../utils/sessionStore';
+import { atomicWriteFile } from '../../utils/atomicWrite';
+import { getSessionVersion } from '../../utils/sessionStore';
 
 jest.mock('jsonwebtoken');
-jest.mock('../utils/sessionStore', () => ({
+jest.mock('../../utils/sessionStore', () => ({
    getSessionVersion: jest.fn(() => 0),
 }));
-jest.mock('../utils/logger', () => ({
+jest.mock('../../utils/logger', () => ({
    logger: {
       authEvent: jest.fn(),
       debug: jest.fn(),
@@ -33,7 +32,7 @@ jest.mock('fs/promises', () => ({
   __esModule: true,
   mkdir: jest.fn().mockResolvedValue(undefined),
 }));
-jest.mock('../utils/atomicWrite', () => ({
+jest.mock('../../utils/atomicWrite', () => ({
   __esModule: true,
   atomicWriteFile: jest.fn().mockResolvedValue(undefined),
 }));
@@ -49,7 +48,7 @@ describe('verifyUser, login throttle, session store', () => {
           process.env = { ...originalEnv };
           // The client address comes from X-Forwarded-For, which is read only behind a configured proxy
           process.env.TRUST_PROXY = '1';
-      
+
           req = {
              method: 'GET',
              url: '/api/serp/domains',
@@ -162,9 +161,9 @@ describe('verifyUser, login throttle, session store', () => {
        describe('JWT token validation', () => {
           it('should authorize valid JWT token synchronously', () => {
              process.env.SECRET = 'test-secret';
-         
+
              req.cookies = { token: 'valid-jwt-token' };
-         
+
              (jwt.verify as jest.Mock).mockReturnValue({ user: 'testuser' });
 
              const result = verifyUser(buildRequest(req));
@@ -175,9 +174,9 @@ describe('verifyUser, login throttle, session store', () => {
 
           it('should reject invalid JWT token synchronously', () => {
              process.env.SECRET = 'test-secret';
-         
+
              req.cookies = { token: 'invalid-jwt-token' };
-         
+
              (jwt.verify as jest.Mock).mockImplementation(() => {
                 throw new Error('Invalid token');
              });
@@ -452,7 +451,7 @@ describe('verifyUser, login throttle, session store', () => {
 
   describe('session store', () => {
     // verifyUser's tests above replace utils/sessionStore with a mock; these tests need the real one.
-    const { getSessionVersion, resetSessionVersionCache, revokeAllSessions } = jest.requireActual('../utils/sessionStore') as typeof import('../utils/sessionStore');
+    const { getSessionVersion, resetSessionVersionCache, revokeAllSessions } = jest.requireActual('../../utils/sessionStore') as typeof import('../../utils/sessionStore');
     const readMock = readFileSync as unknown as jest.Mock;
     const writeSyncMock = writeFileSync as unknown as jest.Mock;
     const writeMock = atomicWriteFile as unknown as jest.Mock;
@@ -529,180 +528,6 @@ describe('verifyUser, login throttle, session store', () => {
 
         await expect(revokeAllSessions()).resolves.toBe(first + 1);
       });
-    });
-  });
-});
-
-describe('session check route', () => {
-  let handler: any;
-  let verifyUser: any;
-  let verifySessionToken: any;
-  jest.isolateModules(() => {
-    jest.doMock('../utils/logger', () => ({
-      logger: {
-        error: jest.fn(),
-        warn: jest.fn(),
-        info: jest.fn(),
-        debug: jest.fn(),
-        verbose: jest.fn(),
-        isSuccessLoggingEnabled: jest.fn(() => true),
-      },
-    }));
-    jest.doMock('../utils/apiLogging', () => require('./__helpers__/apiLoggingMock').apiLoggingMock());
-    jest.doMock('../utils/verifyUser', () => ({
-      __esModule: true,
-      default: jest.fn(),
-      verifySessionToken: jest.fn(),
-    }));
-    const m0 = require('./__helpers__/routeAdapter').asModule(require('../app/api/auth/check/route'));
-    handler = m0 && m0.__esModule ? m0.default : m0;
-    const m1 = require('../utils/verifyUser');
-    verifyUser = m1 && m1.__esModule ? m1.default : m1;
-    verifySessionToken = m1.verifySessionToken;
-  });
-
-  let cookieToken: string | undefined;
-  const jwtVerifyMock = verifySessionToken as unknown as jest.Mock;
-
-  describe('GET /api/auth/check', () => {
-    const originalSecret = process.env.SECRET;
-
-    beforeEach(() => {
-      jest.clearAllMocks();
-      cookieToken = undefined;
-    });
-
-    afterEach(() => {
-      if (originalSecret === undefined) {
-        delete process.env.SECRET;
-      } else {
-        process.env.SECRET = originalSecret;
-      }
-    });
-
-    it('returns 405 for non-GET requests', async () => {
-      (verifyUser as jest.Mock).mockReturnValue('authorized');
-      const req = { method: 'POST' } as NextApiRequest;
-      const res = createMockResponse();
-
-      await handler(req, res);
-
-      expect(res.status).toHaveBeenCalledWith(405);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-        error: expect.objectContaining({ code: 'METHOD_NOT_ALLOWED', message: 'Method not allowed' }),
-      }));
-    });
-
-    it('returns 401 when verifyUser rejects', async () => {
-      (verifyUser as jest.Mock).mockReturnValue('not authorized');
-      const req = { method: 'GET', cookies: cookieToken ? { token: cookieToken } : {} } as unknown as NextApiRequest;
-      const res = createMockResponse();
-
-      await handler(req, res);
-
-      expect(res.status).toHaveBeenCalledWith(401);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-        error: expect.objectContaining({ code: 'UNAUTHORIZED', message: 'not authorized' }),
-      }));
-    });
-
-    it('returns 200 with decoded user when token is valid', async () => {
-      (verifyUser as jest.Mock).mockReturnValue('authorized');
-      cookieToken = 'valid-token';
-      process.env.SECRET = 'test-secret';
-
-      jwtVerifyMock.mockReturnValue({ user: 'admin' });
-
-      const req = { method: 'GET', cookies: cookieToken ? { token: cookieToken } : {} } as unknown as NextApiRequest;
-      const res = createMockResponse();
-
-      await handler(req, res);
-
-      expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({ authenticated: true, user: 'admin', timezone: expect.any(String) });
-    });
-
-    it('falls back to the default identity when a decoded token omits its user claim', async () => {
-      (verifyUser as jest.Mock).mockReturnValue('authorized');
-      cookieToken = 'valid-token-without-user';
-      process.env.SECRET = 'test-secret';
-      jwtVerifyMock.mockReturnValue({});
-      const req = { method: 'GET', cookies: { token: cookieToken } } as unknown as NextApiRequest;
-      const res = createMockResponse();
-
-      await handler(req, res);
-
-      expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({ authenticated: true, user: 'authenticated_user', timezone: expect.any(String) });
-    });
-
-    it('skips token decoding when the signing secret is not configured', async () => {
-      (verifyUser as jest.Mock).mockReturnValue('authorized');
-      cookieToken = 'old-token';
-      delete process.env.SECRET;
-      const req = { method: 'GET', cookies: { token: cookieToken } } as unknown as NextApiRequest;
-      const res = createMockResponse();
-
-      await handler(req, res);
-
-      expect(jwtVerifyMock).not.toHaveBeenCalled();
-      expect(res.json).toHaveBeenCalledWith({ authenticated: true, user: 'authenticated_user', timezone: expect.any(String) });
-    });
-
-    it('uses the default authenticated user when a valid token has no user claim', async () => {
-      (verifyUser as jest.Mock).mockReturnValue('authorized');
-      cookieToken = 'token-without-user';
-      process.env.SECRET = 'test-secret';
-      jwtVerifyMock.mockReturnValue({});
-      const req = { method: 'GET', cookies: { token: cookieToken } } as unknown as NextApiRequest;
-      const res = createMockResponse();
-
-      await handler(req, res);
-
-      expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({ authenticated: true, user: 'authenticated_user', timezone: expect.any(String) });
-    });
-
-    it('does not decode a token when the server secret is absent', async () => {
-      (verifyUser as jest.Mock).mockReturnValue('authorized');
-      cookieToken = 'old-token';
-      delete process.env.SECRET;
-      const req = { method: 'GET', cookies: { token: cookieToken } } as unknown as NextApiRequest;
-      const res = createMockResponse();
-
-      await handler(req, res);
-
-      expect(jwtVerifyMock).not.toHaveBeenCalled();
-      expect(res.json).toHaveBeenCalledWith({ authenticated: true, user: 'authenticated_user', timezone: expect.any(String) });
-    });
-
-    it('falls back to authenticated_user when no token is present', async () => {
-      (verifyUser as jest.Mock).mockReturnValue('authorized');
-      cookieToken = undefined;
-
-      const req = { method: 'GET', cookies: cookieToken ? { token: cookieToken } : {} } as unknown as NextApiRequest;
-      const res = createMockResponse();
-
-      await handler(req, res);
-
-      expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({ authenticated: true, user: 'authenticated_user', timezone: expect.any(String) });
-    });
-
-    it('falls back to authenticated_user when jwt.verify throws', async () => {
-      (verifyUser as jest.Mock).mockReturnValue('authorized');
-      cookieToken = 'bad-token';
-      process.env.SECRET = 'test-secret';
-
-      jwtVerifyMock.mockImplementation(() => { throw new Error('invalid token'); });
-
-      const req = { method: 'GET', cookies: cookieToken ? { token: cookieToken } : {} } as unknown as NextApiRequest;
-      const res = createMockResponse();
-
-      await handler(req, res);
-
-      expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({ authenticated: true, user: 'authenticated_user', timezone: expect.any(String) });
     });
   });
 });

@@ -4,6 +4,7 @@ import { ensureDatabase, initializeDatabase, isDatabaseInitialized, resetDatabas
 import db from '../../database/database';
 import Keyword from '../../database/models/keyword';
 import sqlite from '../../database/sqlite-dialect';
+import { fromDbBool, normalizeToBoolean, parseBooleanStrict, parseEnvFlag, toDbBool } from '../../utils/dbBooleans';
 
 jest.mock('../../database/database', () => ({
    __esModule: true,
@@ -163,7 +164,7 @@ describe('sqlite dialect', () => {
   // Common test constants to reduce string duplication
   const TABLE_NAMES = {
     SAMPLE: 'sample',
-    SAMPLE_SINGLE: 'sample_single', 
+    SAMPLE_SINGLE: 'sample_single',
     SAMPLE_VARIADIC: 'sample_variadic',
     SAMPLE_NULL: 'sample_null',
     SAMPLE_OPTIONAL: 'sample_optional',
@@ -172,7 +173,7 @@ describe('sqlite dialect', () => {
   const COMMON_COLUMNS = {
     ID_PRIMARY_KEY: 'id INTEGER PRIMARY KEY',
     NAME_TEXT: 'name TEXT',
-    VALUE_TEXT: 'value TEXT', 
+    VALUE_TEXT: 'value TEXT',
     SCORE_INTEGER: 'score INTEGER',
   } as const;
 
@@ -185,10 +186,171 @@ describe('sqlite dialect', () => {
 
   const TEST_VALUES = {
     SENTINEL: 'test-entry',
-    SINGLE_PLACEHOLDER: 'single-placeholder-entry', 
+    SINGLE_PLACEHOLDER: 'single-placeholder-entry',
     VARIADIC_ENTRY: 'variadic-entry',
     OPTIONAL_CALLBACK: 'optional-callback-row',
   } as const;
+
+  describe('Boolean coercion in sqlite dialect', () => {
+      it('binds positional true and false values as SQLite integers', async () => {
+        await new Promise<void>((resolve, reject) => {
+          const sqliteFlags = sqlite.OPEN_READWRITE + sqlite.OPEN_CREATE;
+          const db = new sqlite.Database(':memory:', sqliteFlags, (err) => {
+            if (err) {
+              reject(err instanceof Error ? err : new Error(String(err)));
+              return;
+            }
+
+            db.serialize(async () => {
+              try {
+                // Create a test table
+                await new Promise<void>((res, rej) => {
+                  db.run('CREATE TABLE test (id INTEGER PRIMARY KEY, flag INTEGER)', (createErr) => {
+                    if (createErr) {
+                      rej(createErr instanceof Error ? createErr : new Error(String(createErr)));
+                      return;
+                    }
+                    res();
+                  });
+                });
+
+                // Test with boolean values
+                await new Promise<void>((res, rej) => {
+                  db.run(
+                    'INSERT INTO test (flag) VALUES (?)',
+                    true,
+                    function insertCallback(insertErr) {
+                      if (insertErr) {
+                        rej(insertErr instanceof Error ? insertErr : new Error(String(insertErr)));
+                        return;
+                      }
+                      expect(this.lastID).toBe(1);
+                      expect(this.changes).toBe(1);
+                      res();
+                    }
+                  );
+                });
+
+                await new Promise<void>((res, rej) => {
+                  db.run(
+                    'INSERT INTO test (flag) VALUES (?)',
+                    false,
+                    function insertCallback(insertErr) {
+                      if (insertErr) {
+                        rej(insertErr instanceof Error ? insertErr : new Error(String(insertErr)));
+                        return;
+                      }
+                      expect(this.lastID).toBe(2);
+                      expect(this.changes).toBe(1);
+                      res();
+                    }
+                  );
+                });
+
+                // Verify the values
+                await new Promise<void>((res, rej) => {
+                  db.all<{ id: number; flag: number }>(
+                    'SELECT * FROM test ORDER BY id',
+                    (queryErr, rows) => {
+                      if (queryErr) {
+                        rej(queryErr instanceof Error ? queryErr : new Error(String(queryErr)));
+                        return;
+                      }
+                      expect(rows).toEqual([
+                        { id: 1, flag: 1 },  // true -> 1
+                        { id: 2, flag: 0 }   // false -> 0
+                      ]);
+                      res();
+                    }
+                  );
+                });
+
+                db.close((closeErr) => {
+                  if (closeErr) {
+                    reject(closeErr instanceof Error ? closeErr : new Error(String(closeErr)));
+                    return;
+                  }
+                  resolve();
+                });
+              } catch (error) {
+                const wrappedError = error instanceof Error ? error : new Error(String(error));
+                reject(wrappedError);
+              }
+            });
+          });
+        });
+      });
+
+      it('binds named true values as SQLite integers', async () => {
+        await new Promise<void>((resolve, reject) => {
+          const sqliteFlags = sqlite.OPEN_READWRITE + sqlite.OPEN_CREATE;
+          const db = new sqlite.Database(':memory:', sqliteFlags, (err) => {
+            if (err) {
+              reject(err instanceof Error ? err : new Error(String(err)));
+              return;
+            }
+
+            db.serialize(async () => {
+              try {
+                // Create a test table
+                await new Promise<void>((res, rej) => {
+                  db.run('CREATE TABLE test2 (id INTEGER PRIMARY KEY, flag INTEGER)', (createErr) => {
+                    if (createErr) {
+                      rej(createErr instanceof Error ? createErr : new Error(String(createErr)));
+                      return;
+                    }
+                    res();
+                  });
+                });
+
+                // Test with named boolean parameter
+                await new Promise<void>((res, rej) => {
+                  db.run(
+                    'INSERT INTO test2 (flag) VALUES ($flag)',
+                    { $flag: true },
+                    function insertCallback(insertErr) {
+                      if (insertErr) {
+                        rej(insertErr instanceof Error ? insertErr : new Error(String(insertErr)));
+                        return;
+                      }
+                      expect(this.lastID).toBe(1);
+                      expect(this.changes).toBe(1);
+                      res();
+                    }
+                  );
+                });
+
+                // Verify the value
+                await new Promise<void>((res, rej) => {
+                  db.get<{ flag: number }>(
+                    'SELECT flag FROM test2 WHERE id = 1',
+                    (queryErr, row) => {
+                      if (queryErr) {
+                        rej(queryErr instanceof Error ? queryErr : new Error(String(queryErr)));
+                        return;
+                      }
+                      expect(row).toEqual({ flag: 1 }); // true -> 1
+                      res();
+                    }
+                  );
+                });
+
+                db.close((closeErr) => {
+                  if (closeErr) {
+                    reject(closeErr instanceof Error ? closeErr : new Error(String(closeErr)));
+                    return;
+                  }
+                  resolve();
+                });
+              } catch (error) {
+                const wrappedError = error instanceof Error ? error : new Error(String(error));
+                reject(wrappedError);
+              }
+            });
+          });
+        });
+      });
+    });
 
   describe('sqlite dialect wrapper', () => {
     it('runs basic statements and exposes sqlite-style metadata', async () => {
@@ -604,4 +766,97 @@ describe('sqlite dialect', () => {
       });
     });
   });
+});
+
+describe('dbBooleans', () => {
+  describe('db boolean helpers', () => {
+    it('maps values to sqlite integer booleans and sqlite integers back to booleans', () => {
+      expect(toDbBool(true)).toBe(1);
+      expect(toDbBool(false)).toBe(0);
+      expect(toDbBool(1)).toBe(1);
+      expect(toDbBool(0)).toBe(0);
+      expect(toDbBool(null)).toBe(0);
+      expect(toDbBool(undefined)).toBe(0);
+      expect(toDbBool('false')).toBe(0);
+      expect(toDbBool('yes')).toBe(1);
+
+      expect(fromDbBool(1)).toBe(true);
+      expect(fromDbBool(0)).toBe(false);
+      expect(fromDbBool(null)).toBe(false);
+      expect(fromDbBool(undefined)).toBe(false);
+    });
+
+    it('parses strict query values and env flags with one shared rule set', () => {
+      expect(['true', ' ON ', 'Yes', '1'].map(parseBooleanStrict)).toEqual([true, true, true, true]);
+      expect(['false', 'off', 'NO', '0'].map(parseBooleanStrict)).toEqual([false, false, false, false]);
+      expect(['', 'maybe', '2'].map(parseBooleanStrict)).toEqual([null, null, null]);
+      expect(parseEnvFlag(undefined)).toBe(true);
+      expect(parseEnvFlag('')).toBe(true);
+      expect(parseEnvFlag('disabled')).toBe(false);
+      expect(parseEnvFlag(' Off ')).toBe(false);
+      expect(parseEnvFlag('garbage')).toBe(true);
+      expect(parseEnvFlag(undefined, false)).toBe(false);
+    });
+
+    describe('normalizeToBoolean', () => {
+      it('handles numeric values (DB integers)', () => {
+        expect(normalizeToBoolean(1)).toBe(true);
+        expect(normalizeToBoolean(0)).toBe(false);
+        expect(normalizeToBoolean(42)).toBe(true);
+        expect(normalizeToBoolean(-1)).toBe(true);
+      });
+
+      it('handles string values (API responses), including values with surrounding whitespace', () => {
+        expect(normalizeToBoolean('true')).toBe(true);
+        expect(normalizeToBoolean('True')).toBe(true);
+        expect(normalizeToBoolean('TRUE')).toBe(true);
+        expect(normalizeToBoolean('1')).toBe(true);
+
+        expect(normalizeToBoolean('false')).toBe(false);
+        expect(normalizeToBoolean('False')).toBe(false);
+        expect(normalizeToBoolean('FALSE')).toBe(false);
+        expect(normalizeToBoolean('0')).toBe(false);
+        expect(normalizeToBoolean('')).toBe(false);
+
+        expect(normalizeToBoolean('  true  ')).toBe(true);
+        expect(normalizeToBoolean('  TRUE  ')).toBe(true);
+        expect(normalizeToBoolean('  1  ')).toBe(true);
+        expect(normalizeToBoolean('  false  ')).toBe(false);
+        expect(normalizeToBoolean('  FALSE  ')).toBe(false);
+        expect(normalizeToBoolean('  0  ')).toBe(false);
+        expect(normalizeToBoolean('   ')).toBe(false);
+      });
+
+      it('uses conservative approach for unrecognized values (returns false), including null and undefined', () => {
+        expect(normalizeToBoolean(null)).toBe(false);
+        expect(normalizeToBoolean(undefined)).toBe(false);
+
+        // Unrecognized strings should be treated as false for safety
+        expect(normalizeToBoolean('error')).toBe(false);
+        expect(normalizeToBoolean('timeout')).toBe(false);
+        expect(normalizeToBoolean('API Error')).toBe(false);
+        expect(normalizeToBoolean('null')).toBe(false);
+        expect(normalizeToBoolean('undefined')).toBe(false);
+        expect(normalizeToBoolean('2')).toBe(false);
+        // Objects and arrays should also be false
+        expect(normalizeToBoolean([])).toBe(false);
+        expect(normalizeToBoolean({})).toBe(false);
+      });
+
+      it('maps recognized synonyms: yes/on to true, off/no to false', () => {
+        expect(normalizeToBoolean('yes')).toBe(true);
+        expect(normalizeToBoolean('YES')).toBe(true);
+        expect(normalizeToBoolean('on')).toBe(true);
+        expect(normalizeToBoolean('ON')).toBe(true);
+        expect(normalizeToBoolean('off')).toBe(false);
+        expect(normalizeToBoolean('OFF')).toBe(false);
+        expect(normalizeToBoolean('no')).toBe(false);
+        expect(normalizeToBoolean('NO')).toBe(false);
+      });
+
+    });
+
+
+  });
+
 });
