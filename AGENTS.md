@@ -7,8 +7,7 @@ This document defines baseline expectations for all contributors to maintain cod
 
 ## Quick Reference
 
-- Keep the total number of test suites at 30 or fewer and the total number of tests below 1,000.
-- Add tests to an applicable existing suite. If a change would exceed either limit, remove redundant tests or consolidate smaller tests to make room.
+- Add tests to an applicable existing suite when practical.
 ---
 
 ## Final Touches Guidelines
