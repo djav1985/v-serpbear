@@ -22,12 +22,19 @@ Set `USER_NAME`, `PASSWORD` and `SECRET` in the `environment:` section of `docke
 
 - Check that `APIKEY` is set. When it is unset, scheduled jobs are skipped with a warning.
 - Check that a scraper is chosen in **Settings → Scraper**, and that `scrape_interval` is not `never`.
-- `CRON_*` and `TZ` are read at startup. Restart the container after changing them.
+- `CRON_*` and `CRON_TIMEZONE` are read at startup. Restart the container after changing them.
 - An old cron expression in `CRON_MAIN_SCHEDULE` or `CRON_EMAIL_SCHEDULE` is ignored with a warning. They must be `HH:MM`.
+
+## MCP reports a server configuration error
+
+- OAuth approval uses `USER_NAME` (or `USER`) and `PASSWORD`, or an existing valid login cookie. `MCP_APIKEY` is optional and only used for direct MCP bearer access.
+- Keep `APIKEY` set as well; MCP uses it internally to call SerpBear's existing REST routes.
+- Set `NEXT_PUBLIC_APP_URL` to the public HTTPS origin used to build OAuth issuer and redirect URLs, then restart the app. This does not replace the missing well-known discovery routes noted below.
+- This checkout does not implement standard `/.well-known/oauth-authorization-server` or `/.well-known/oauth-protected-resource` handlers. If ChatGPT rejects the server during automatic setup, that missing discovery support is a code limitation; changing the URL or API key alone will not add those endpoints.
 
 ## Run times are off by a few hours
 
-Check `TZ`. It sets both the schedule and the container clock. Without it the container runs in UTC.
+Check `CRON_TIMEZONE`. It sets both the schedule and the container clock. Without it the container runs in UTC.
 
 ## Keywords show no position or an error
 

@@ -69,7 +69,7 @@ There are three ways to give SerpBear the credentials. They are read in this ord
 
 ![The Insight screen](images/insight.png)
 
-Cached data is refetched when a dashboard or API read finds it more than 24 hours old, and by the cron at the `CRON_MAIN_SCHEDULE` time. Search Console days follow Pacific Time (`America/Los_Angeles`) whatever `TZ` is. Results are read in pages of up to 25,000 rows.
+Cached data is refetched when a dashboard or API read finds it more than 24 hours old, and by the cron at the `CRON_MAIN_SCHEDULE` time. Search Console days follow Pacific Time (`America/Los_Angeles`) whatever `CRON_TIMEZONE` is. Results are read in pages of up to 25,000 rows.
 
 ---
 
@@ -86,7 +86,7 @@ There are no Google Ads environment variables. Everything is set in the Settings
 ### Prerequisites
 
 - SerpBear must be reachable at a public URL (not `localhost` or a `.local` name) if you set up the OAuth sign-in from another machine. Google's redirect needs a valid, routable address.
-- Set `NEXT_PUBLIC_APP_URL` (or `APP_URL`) to the full external URL of SerpBear, for example `https://serpbear.yourdomain.com`. It builds the OAuth redirect address, especially behind a reverse proxy.
+- Set `NEXT_PUBLIC_APP_URL` (or, if it is unset, `APP_URL`) to the full external origin of SerpBear, for example `https://serpbear.yourdomain.com`. It builds the Google Ads OAuth redirect address, especially behind a reverse proxy.
 
 ### Step 1: Create a Google Cloud project
 

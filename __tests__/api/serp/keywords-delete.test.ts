@@ -89,14 +89,14 @@ const verifyUserMock = verifyUser as unknown as jest.Mock;
 
 
 describe('DELETE /api/serp/keywords retry queue cleanup', () => {
-    it('removes deleted keyword IDs from the query or the JSON body from the retry queue, and rejects non-integer body IDs', async () => {
+    it('removes deleted keyword IDs from the JSON body and rejects non-integer IDs', async () => {
       const { retryQueueManager } = require('../../../utils/retryQueueManager');
       (updateDomainStats as jest.Mock).mockClear();
       verifyUserMock.mockReturnValue('authorized');
       keywordMock.findAll.mockResolvedValue([{ ID: 1, domain: 'example.com' }, { ID: 2, domain: 'example.com' }]);
       keywordMock.destroy.mockResolvedValue(2);
 
-      const req = { method: 'DELETE', query: { id: '1,2' }, headers: {} } as unknown as NextApiRequest;
+      const req = { method: 'DELETE', query: {}, body: { ids: [1, 2] }, headers: {} } as unknown as NextApiRequest;
       const res = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
 
       await handler(req, res);
@@ -130,7 +130,7 @@ describe('DELETE /api/serp/keywords retry queue cleanup', () => {
       keywordMock.findAll.mockResolvedValue([{ ID: 1, domain: 'a.com' }, { ID: 2, domain: 'b.com' }, { ID: 3, domain: 'a.com' }]);
       keywordMock.destroy.mockResolvedValue(3);
 
-      const req = { method: 'DELETE', query: { id: '1,2,3' }, headers: {} } as unknown as NextApiRequest;
+      const req = { method: 'DELETE', query: {}, body: { ids: [1, 2, 3] }, headers: {} } as unknown as NextApiRequest;
       const res = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
       await handler(req, res);
 
@@ -147,7 +147,7 @@ describe('DELETE /api/serp/keywords retry queue cleanup', () => {
       keywordMock.findAll.mockResolvedValue([{ ID: 9, domain: 'example.com' }]);
       keywordMock.destroy.mockResolvedValue(1);
 
-      const req = { method: 'DELETE', query: { id: '9' }, headers: {} } as unknown as NextApiRequest;
+      const req = { method: 'DELETE', query: {}, body: { ids: [9] }, headers: {} } as unknown as NextApiRequest;
       const res = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
       await handler(req, res);
 

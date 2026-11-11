@@ -36,27 +36,17 @@ const readBody = async (req: Request): Promise<Record<string, any>> => {
    return body && typeof body === 'object' && !Array.isArray(body) ? body as Record<string, any> : {};
 };
 
-/** True when a bulk request names keywords, in the JSON body `ids` array or the legacy comma-separated `id` query. */
-const hasKeywordIdInput = async (req: Request): Promise<boolean> => (
-   (await readBody(req)).ids !== undefined || (getParam(req, 'id') ?? '').length > 0
-);
+/** True when a bulk request names keyword IDs in its JSON body. */
+const hasKeywordIdInput = async (req: Request): Promise<boolean> => (await readBody(req)).ids !== undefined;
 
 /**
- * Keyword IDs for a bulk request. The body `ids` array wins; it returns null when any item is not a positive
- * integer. The legacy `id` query is strict too: any item that is not a plain positive integer (such as "12abc") gives null.
+ * Keyword IDs for a bulk request. It returns null when any item is not a positive integer.
  */
 const readKeywordIds = async (req: Request): Promise<number[] | null> => {
    const body = await readBody(req);
-   if (body.ids !== undefined) {
-      const ids: unknown = body.ids;
-      const valid = Array.isArray(ids) && ids.every((id) => Number.isSafeInteger(id) && id > 0);
-      return valid ? Array.from(new Set(ids as number[])) : null;
-   }
-   const raw = getParam(req, 'id') ?? '';
-   const items = raw.split(',').map((item) => item.trim());
-   if (items.some((item) => !/^\d+$/.test(item))) { return null; }
-   const ids = Array.from(new Set(items.map((item) => Number(item))));
-   return ids.every((id) => Number.isSafeInteger(id) && id > 0) ? ids : null;
+   const ids: unknown = body.ids;
+   const valid = Array.isArray(ids) && ids.every((id) => Number.isSafeInteger(id) && id > 0);
+   return valid ? Array.from(new Set(ids as number[])) : null;
 };
 
 /**
@@ -360,7 +350,7 @@ const deleteKeywords = async (req: Request, ctx: ApiContext) => {
    if (!(await hasKeywordIdInput(req))) {
       return fail(400, 'BAD_REQUEST', 'keyword ID is Required!', ctx);
    }
-   logger.debug('[SCRAPER] keyword IDs: ', { data: (await readBody(req)).ids ?? getParam(req, 'id') });
+   logger.debug('[SCRAPER] keyword IDs: ', { data: (await readBody(req)).ids });
 
    try {
       const keywordsToRemove = (await readKeywordIds(req)) ?? [];

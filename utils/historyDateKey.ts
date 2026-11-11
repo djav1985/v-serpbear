@@ -1,7 +1,7 @@
 import { APP_TIMEZONE, dateKeyInZone, dateKeyToTime } from './timezone';
 
 /**
- * Date key for a keyword's position history, e.g. "2026-01-05": the calendar date in TZ, zero-padded.
+ * Date key for a keyword's position history, e.g. "2026-01-05": the calendar date in CRON_TIMEZONE, zero-padded.
  * Zero padding makes every key parse the same way and sort correctly as text. The history migration
  * (database/migrations/1773000000000-pad-history-date-keys.js) rewrites older unpadded keys ("2026-1-5") and
  * repeats this rule, because migrations run as plain Node without TypeScript; a test keeps the two in step.

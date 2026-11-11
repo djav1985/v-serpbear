@@ -65,8 +65,8 @@ describe('email ideas', () => {
         resetRateLimits();
         req = {
            method: 'POST',
-           query: { type: 'ideas' },
-           body: { domain: 'example.com', keywords: [keywordPayload] },
+           query: {},
+           body: { type: 'ideas', domain: 'example.com', keywords: [keywordPayload] },
            headers: {},
         } as Partial<NextApiRequest>;
 

@@ -58,6 +58,7 @@ The full list of changes is in the [changelog](./CHANGELOG.md). See [Update Serp
 - **Idea emails and richer digests.** Email selected keyword ideas and see a tracker summary with average position and map pack counts in digest emails.
 - **Flexible schedules.** Choose the time and timezone for scheduled scrapes, failed-scrape retries, Search Console refreshes, and email digests.
 - **Read-only MCP server.** AI assistants can read rankings, Search Console data, and keyword ideas through MCP.
+- **MCP OAuth flow.** Includes PKCE authorization, standard well-known discovery routes, a themed approval screen and token handling. OAuth approval uses the configured SerpBear username and password, or an existing login cookie. Cookie-based approval accepts only same-origin form submissions. `MCP_APIKEY` is for direct bearer access.
 - **White-label branding.** Apply a custom app and email name and logo without rebuilding the app.
 - **A rebuilt responsive interface.** The fork replaces the older pages with a responsive dashboard, shared data tables, settings panels, and transitions that respect reduced-motion preferences.
 
@@ -75,15 +76,6 @@ The full list of changes is in the [changelog](./CHANGELOG.md). See [Update Serp
 
 <br><br>
 
-**Feature roadmap**
-
-- [ ] **Not Started** Multi-user support with domain-specific users: More than one login, and you choose which domains each user can see.
-- [ ] **Currently Working On** New UI: the current UI doesn't work very well on mobile it feels very claustrophobic. so I'm moving this to a new UI.
-- [ ] **Currently Working On** Move to app router: I'll take in the back end to use app router instead of page router.
-- [ ] **Currently Working On** Updated packages: Updating all packages to the newest possible version.
-      
-<br><br>
-
 <br><br>
 
 ---
@@ -95,7 +87,7 @@ The full list of changes is in the [changelog](./CHANGELOG.md). See [Update Serp
 ```bash
 git clone https://github.com/djav1985/v-serpbear.git
 cd v-serpbear
-# edit docker-compose.yml: replace PASSWORD, SECRET and APIKEY, and set NEXT_PUBLIC_APP_URL
+# edit docker-compose.yml: replace PASSWORD, SECRET, APIKEY and MCP_APIKEY, and set NEXT_PUBLIC_APP_URL
 docker compose up -d
 ```
 
@@ -152,11 +144,14 @@ Behaviour is controlled by environment variables inside docker compose as well a
 | `USER_NAME` | — | No | Takes precedence over `USER` when set. |
 | `PASSWORD` | — | Yes | Dashboard password. Replace the `change-me` placeholder. |
 | `SECRET` | — | Yes | Signs the session JWT stored in the `token` cookie and encrypts stored keys. Login returns 500 when it is unset. Changing it signs everyone out and makes stored encrypted keys unreadable, so they must be re-entered. Use a unique value per deployment (`openssl rand -hex 32`). |
-| `APIKEY` | — | Yes | Key for REST and MCP clients, and for the cron worker's scheduled calls. When unset, scheduled jobs are skipped with a warning and MCP returns 500. Use `openssl rand -hex 32`. |
+| `APIKEY` | — | Yes | Key for REST clients and cron worker calls; MCP uses it internally for REST calls. Use `openssl rand -hex 32`. |
+| `MCP_APIKEY` | — | For direct MCP access | Optional key for direct `Authorization: Bearer` access to `/api/mcp`. OAuth approval uses the configured SerpBear username and password, or an existing login cookie. Keep this key separate from `APIKEY`. |
+| `MCP_ENABLED` | `true` | No | Master switch for MCP. Set to `false` to disable the MCP endpoint and OAuth protocol handlers. Also accepts `0`, `no` or `off`. |
+| `MCP_OAUTH` | `false` | No | Set to `true` to enable OAuth registration, authorization, token and revocation handlers while MCP is enabled. Standard root and MCP-path-scoped discovery routes are served when `NEXT_PUBLIC_APP_URL` is configured. When false, direct MCP API-key access remains available. Also accepts `1`, `yes` or `on`. |
 | `SESSION_DURATION` | `24` | No | Session lifetime in hours. Empty, zero, negative or non-numeric values use 24. |
 | `TRUST_PROXY` | `0` | No | Number of reverse proxies in front of the app. `true` means 1, values above 10 are capped at 10, and invalid values mean 0. Login lockouts, API-key lockouts and the keyword-search and volume rate limits then use the `X-Forwarded-For` entry that many hops from the right. Without it, every client shares one address, so five wrong logins or API keys from anyone lock everyone out for 15 minutes. The app cannot see the connection's own address, and a client can send its own `X-Forwarded-For`, so the header is trusted only when you say how many proxies are in front. It also controls whether `X-Forwarded-Proto`, `X-Forwarded-Protocol` and `X-Forwarded-Ssl` set the `Secure` cookie flag; without it only the request's own `https://` URL does. |
-| `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | No | Public URL of the deployment, used for the Google Ads OAuth return origin, email links and logo, and as the cron worker's fallback origin. Set it for real deployments. |
-| `APP_URL` | — | No | Server-side origin for the cron worker's own calls to the app. It takes precedence over `NEXT_PUBLIC_APP_URL` for those calls, which helps in Docker when the public URL is not reachable from inside the container. Google Ads uses it only when `NEXT_PUBLIC_APP_URL` is unset. Email links ignore it. |
+| `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | No | Public app origin used for Google Ads OAuth redirects, MCP OAuth issuer/endpoint URL construction, email links and branding, and as the cron worker's fallback origin. Set it to the HTTPS origin in production; OAuth URLs must not include a path, query or fragment. |
+| `APP_URL` | — | No | Server-side origin for the cron worker's own calls to the app. It takes precedence over `NEXT_PUBLIC_APP_URL` for those calls, which helps in Docker when the public URL is not reachable from inside the container. Google Ads and MCP OAuth use it only if `NEXT_PUBLIC_APP_URL` is unset. Email links ignore it. |
 | `NEXT_PUBLIC_WHITE_LABEL` | `false` | No | Enables white-label branding (name and logo). The logo is always the file `logo.png` in `/app/data` (PNG, recommended size 96×96 px), served without login at `/api/images/logo.png`. The browser tab icon is the file `favicon.png` in the same folder, served at `/api/images/favicon.png`. When white-label is off or a file is missing, that URL serves the built-in default icon instead, so both always return an image. |
 | `NEXT_PUBLIC_PLATFORM_NAME` | `SerpBear` | No | App and email name. Used only in white-label mode. |
 | `SEARCH_CONSOLE_CLIENT_EMAIL` | — | No | Service account email with access to your Search Console properties. |
@@ -166,7 +161,7 @@ Behaviour is controlled by environment variables inside docker compose as well a
 | `PARALLEL_SCRAPE_CONCURRENCY` | `3` | No | Keywords scraped at once per domain on the sequential path, which is used for every other provider. Positive integer. |
 | `SERPER_API_KEY` | empty | No | Free [Serper](https://serper.dev) key. When set, organic `google.com/goto` links are resolved to real URLs through Serper's `/resolve` endpoint, for every provider. Each SERP page makes one batched request with a 30 s timeout. A failed or timed-out call is tried once more, and links still unresolved are sent once more after the `retryAfter` seconds Serper reports. Anything still unresolved keeps the Google link and is logged as a warning. Without a key, those links stay as they are. |
 | `LOG_LEVEL` | `info` | No | `error`, `warn`, `info` or `debug`. `off`, `none`, `false` or `0` disables logging. Logs are JSON on stdout, so use `docker logs -f <container>`. |
-| `TZ` | `America/New_York` | No | IANA timezone (the standard container variable) for scheduled jobs, for "today" in results and emails, and for history date keys. An unknown name falls back to the default. Changing it later does not re-key existing history. |
+| `CRON_TIMEZONE` | `America/New_York` | No | IANA timezone for scheduled jobs, "today" in results and emails, and history date keys. The entrypoint exports it as `TZ` for Node.js and child processes. An unknown name falls back to the default. Changing it later does not re-key existing history. |
 | `CRON_MAIN_SCHEDULE` | `00:00` | No | Time of day (`HH:MM`, 24 hour) of every scheduled scrape and of the Search Console refresh. `scrape_interval` picks the days. |
 | `CRON_FAILED_SCHEDULE` | `hourly` | No | How often failed scrapes are retried: `hourly`, `daily` (at the `CRON_MAIN_SCHEDULE` time) or `never`. |
 | `CRON_EMAIL_SCHEDULE` | `06:00` | No | Time of day (`HH:MM`, 24 hour) of every email digest. `notification_interval` picks the days. |
@@ -281,7 +276,7 @@ The Keywords and Map Pack counts include every keyword, whether or not it is in 
 ### Google Search Console
 
 - Add a service account to show impressions, clicks and CTR next to each keyword. Credentials are read from the domain's own settings first, then the Settings panel, then `SEARCH_CONSOLE_CLIENT_EMAIL` and `SEARCH_CONSOLE_PRIVATE_KEY`.
-- Cached data is refetched when a dashboard or API read finds it more than 24 hours old, and by the cron at the `CRON_MAIN_SCHEDULE` time. Search Console days follow Pacific Time (`America/Los_Angeles`) whatever `TZ` is.
+- Cached data is refetched when a dashboard or API read finds it more than 24 hours old, and by the cron at the `CRON_MAIN_SCHEDULE` time. Search Console days follow Pacific Time (`America/Los_Angeles`) whatever `CRON_TIMEZONE` is.
 - The Discover tab disables keywords that are already tracked, and "select all" skips them.
 - It is optional. Without credentials the dashboard card is hidden and the Insight tab shows a message.
 
@@ -297,7 +292,7 @@ The Keywords and Map Pack counts include every keyword, whether or not it is in 
 - Digests summarise gains and losses, top movers and, when available, Search Console traffic, opening with a tracker summary.
 - SMTP (server, port, username, password, sender, display name and TLS server name) is set in the Notification settings modal, not in environment variables. The port is required. The sender defaults to `no-reply@serpbear.com`.
 - Recipients are set per domain, in the domain's settings. There is no global recipient. Clearing the SMTP settings makes scheduled sends fail with `400`.
-- Each domain gets at most one digest per hour and five per calendar day in `TZ`.
+- Each domain gets at most one digest per hour and five per calendar day in `CRON_TIMEZONE`.
 - **Send Notifications Now** in the Notification modal sends a digest for every domain with scraping enabled. Domains without a notification address, or held back by the throttle, are reported as skipped.
 
 ### White labelling
@@ -306,7 +301,7 @@ Set `NEXT_PUBLIC_WHITE_LABEL=true` for a custom name and logo. Logo and favicon 
 
 ### Settings and data
 
-Settings are stored in `data/settings.json`, with secrets encrypted using `SECRET`. `GET /api/app/settings` is public and returns only `scraper_type`, `available_scapers`, `search_console_integrated`, `version`, `timezone` and a read-only `branding` object (name and logo, which the login page uses) without a session. `PUT /api/app/settings` needs a login session (an API key is not accepted). It merges the payload: keys left out keep their stored values, and a secret sent empty is cleared.
+Settings are stored in `data/settings.json`, with secrets encrypted using `SECRET`. `GET /api/app/settings` is public and returns only `scraper_type`, `available_scapers`, `search_console_integrated`, `version`, `timezone` and a read-only `branding` object (name and logo, used by the login and OAuth approval pages) without a session. `PUT /api/app/settings` needs a login session (an API key is not accepted). It merges the payload: keys left out keep their stored values, and a secret sent empty is cleared.
 
 Docker Compose stores data in a named volume (`data`) mounted at `/app/data`, prefixed with the project name (for example `v-serpbear_data`; find it with `docker volume ls`). It holds the SQLite database, `settings.json`, Search Console exports (`SC_<domain>.json`), keyword ideas (`IDEAS_*.json`), `session.json`, `email-throttle.json`, `failed_queue.json` and any white-label logo.
 
@@ -316,16 +311,17 @@ Docker Compose stores data in a named volume (`data`) mounted at `/app/data`, pr
 
 ## API and MCP server
 
-Both use the same credential: the `APIKEY` environment variable, sent as `Authorization: Bearer <APIKEY>`. Domains are always real domain names such as `example.com`.
+The REST API uses `APIKEY`; MCP has a separate `MCP_APIKEY`. Domains are always real domain names such as `example.com`.
 
 <br><br>
 
 ### MCP server
 
-A read-only [Model Context Protocol](https://modelcontextprotocol.io) server for AI assistants. Any MCP client that accepts a remote URL and a header can connect.
+A read-only [Model Context Protocol](https://modelcontextprotocol.io) server for AI assistants, with direct-key and OAuth connection options.
 
 - **URL:** `https://<your-host>/api/mcp` (Streamable HTTP, `POST` only). Use HTTPS, because the key is sent on every request.
-- **Key:** header `Authorization: Bearer <APIKEY>`. Cookies and login sessions are not accepted.
+- **Direct key:** header `Authorization: Bearer <MCP_APIKEY>`. Cookies and login sessions are not accepted.
+- **OAuth:** set `MCP_OAUTH=true`; the approval page is `/api/oauth/approve`, while the authorization handler is `/api/oauth/authorize`. Approve with the configured `USER_NAME` (or `USER`) and `PASSWORD`, or use an existing valid login cookie. Cookie-based approval accepts only same-origin form submissions. Entering credentials approves this request without creating a login cookie. Read-only access can be selected. Incorrect credentials are limited to 10 attempts per detected IP per 15 minutes; when the IP is unknown, failed attempts share a fallback bucket, but correct credentials remain accepted after the limit is reached. OAuth client and token state is stored in `data/mcp_oauth.json`. When OAuth is enabled and `NEXT_PUBLIC_APP_URL` is configured, authorization-server metadata is served at `/.well-known/oauth-authorization-server` and `/.well-known/oauth-authorization-server/api/mcp`; protected-resource metadata is served at `/.well-known/oauth-protected-resource` and `/.well-known/oauth-protected-resource/api/mcp`. When `MCP_OAUTH` is unset or false, OAuth endpoints return 404 and the MCP challenge is `WWW-Authenticate: Bearer`. Set `MCP_ENABLED=false` to return 404 from direct MCP access and OAuth endpoints.
 
 | Tool | Returns |
 | --- | --- |
@@ -343,6 +339,7 @@ Tools that start scrapes, send email or spend Google Ads quota are not exposed; 
 ### External API
 
 A REST API for scripts and automation. Send `Authorization: Bearer <APIKEY>`. After 5 wrong keys from one address within 15 minutes, that address gets `429` for 15 minutes. Routes not listed below need a logged-in session.
+Protected pages and API routes validate the login session directly; there is no separate session-check endpoint.
 
 ```bash
 export APIKEY=your-api-key
@@ -356,10 +353,16 @@ The example uses port 3000 (Node.js). Docker Compose serves the app on port 3030
 | GET | `/api/serp/keyword?id=` | One keyword with its position history |
 | GET | `/api/serp/keywords?domain=` | All tracked keywords of a domain |
 | GET | `/api/serp/domains` | All tracked domains (`withstats=true` adds keyword statistics) |
-| POST | `/api/serp/refresh` | Refresh chosen keywords: body `ids`, or query `id` (comma-separated, or `all` with `domain`). Body `{ keyword, country, device }` runs a one-off keyword search (login session only, not an API key). Requests from a login session must come from this site |
+| POST | `/api/serp/refresh` | JSON body `{ ids }` refreshes selected keywords; `{ scope: "domain", domain }` refreshes one domain; `{ scope: "enabled-domains" }` runs the scheduled refresh; `{ keyword, country, device }` runs a one-off keyword search (login session only, not an API key). Requests from a login session must come from this site |
 | GET | `/api/serp/refresh?status=retry&id=…` | Read which keywords are still updating (read-only) |
-| POST | `/api/app/cron` | Run the scheduled refresh for every domain with scraping enabled |
-| POST | `/api/app/email?type=digest` | Send the email digest for one domain (`domain=`) or all |
+| PUT | `/api/serp/keywords` | Update keywords: JSON body `ids` plus `sticky` (boolean), `tags` (ID-to-tag-list object), or `location` (string; include `country` if the location does not name one) |
+| DELETE | `/api/serp/keywords` | Delete keywords: JSON body `ids` array |
+| PUT | `/api/serp/domains` | Update a domain: JSON body `domain` plus any of `notification_emails`, `search_console`, `scrapeEnabled`, `scraper_settings`, `business_name`, `scrape_strategy`, or `scrape_pagination_limit` |
+| DELETE | `/api/serp/domains` | Delete a domain: JSON body `domain` |
+| PUT | `/api/app/settings` | Save app settings: JSON body `settings` object (login session required) |
+| PUT | `/api/google/ideas` | Toggle an idea favorite: JSON body `keywordID`, optional `domain` |
+| PUT | `/api/serp/clearfailed` | Clear the failed retry queue; no arguments |
+| POST | `/api/app/email` | JSON body `{ type: "digest", domain? }` sends the digest for one domain or all; `{ type: "ideas", domain, keywords }` emails selected keyword ideas |
 | GET | `/api/google/searchconsole?domain=` | Search Console data of a domain |
 | POST | `/api/google/searchconsole` | Refresh Search Console data for all domains |
 | GET | `/api/google/insight?domain=` | Search Console insight: top pages, keywords, countries and stats |
@@ -375,7 +378,7 @@ The example uses port 3000 (Node.js). Docker Compose serves the app on port 3030
 | Path | Contents |
 | --- | --- |
 | `app/` | The App Router front end. `(auth)/login`, and `(dashboard)/` with `domains`, `domain/[slug]` (Tracking), `domain/console`, `domain/insight`, `domain/ideas` and `research`. Each route keeps its own parts in a private `_components/` folder. |
-| `app/api/` | The JSON and MCP routes (App Router route handlers) |
+| `app/api/` | JSON, MCP, OAuth protocol and OAuth approval-page routes (App Router route handlers/pages) |
 | `components/ui/` | shadcn/ui building blocks (buttons, dialogs, selects, charts) |
 | `hooks/`, `lib/` | Small shared helpers for the front end |
 | `utils/` | Server and shared helpers: refresh pipeline, average position, email throttle, rate limits, Search Console, timezone |

@@ -5,7 +5,7 @@ import db from '../../database/database';
 import Keyword from '../../database/models/keyword';
 import Domain from '../../database/models/domain';
 import verifyUser, { hasValidSessionCookie } from '../../utils/verifyUser';
-import { refreshKeywordsByIds } from '../../utils/refresh';
+import refreshAndUpdateKeywords, { refreshKeywordsByIds } from '../../utils/refresh';
 import { getAppSettings } from '../../utils/appSettings';
 import { scrapeKeywordWithStrategy } from '../../utils/scraper';
 import { isSameOriginRequest } from '../../utils/api/sameOrigin';
@@ -93,6 +93,7 @@ describe('refresh route', () => {
       jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] }).setSystemTime(new Date('2024-06-01T12:00:00.000Z'));
       req.method = 'POST';
       req.query = {};
+      req.body = undefined;
       res = {
         status: jest.fn().mockReturnThis(),
         json: jest.fn(),
@@ -193,7 +194,7 @@ describe('refresh route', () => {
     });
 
     it('rejects requests with no valid keyword IDs', async () => {
-      req.query = { id: 'abc,NaN' };
+      req.body = { ids: ['abc', 'NaN'] };
 
       await handler(req, res);
 
@@ -219,16 +220,61 @@ describe('refresh route', () => {
     });
 
     it('requires a domain for an all-keywords refresh and reports an unconfigured scraper', async () => {
-      const allWithoutDomain = { method: 'POST', query: { id: 'all' }, headers: {} } as unknown as NextApiRequest;
+      const allWithoutDomain = { method: 'POST', body: { scope: 'domain' }, headers: {} } as unknown as NextApiRequest;
       const missingDomainRes = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
       await handler(allWithoutDomain, missingDomainRes);
       expect(missingDomainRes.status).toHaveBeenCalledWith(400);
 
       (getAppSettings as jest.Mock).mockResolvedValue({ scraper_type: 'none' });
-      const regularReq = { method: 'POST', query: { id: '11' }, headers: {} } as unknown as NextApiRequest;
+      const regularReq = { method: 'POST', body: { ids: [11] }, headers: {} } as unknown as NextApiRequest;
       const unconfiguredRes = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
       await handler(regularReq, unconfiguredRes);
       expect(unconfiguredRes.status).toHaveBeenCalledWith(400);
+      expect(Keyword.findAll).not.toHaveBeenCalled();
+    });
+
+    it('starts the scheduled refresh for enabled domains through the refresh route', async () => {
+      req.body = { scope: 'enabled-domains' };
+      (Domain.findAll as jest.Mock).mockResolvedValue([
+        { get: () => ({ domain: 'enabled.com', scrapeEnabled: 1 }) },
+        { get: () => ({ domain: 'disabled.com', scrapeEnabled: 0 }) },
+      ]);
+      const keyword = {
+        ID: 21,
+        domain: 'enabled.com',
+        updating: 0,
+        update: jest.fn().mockImplementation(function(this: any, values: Record<string, unknown>) {
+          Object.assign(this, values);
+          return Promise.resolve(undefined);
+        }),
+        set: jest.fn(),
+      };
+      (Keyword.findAll as jest.Mock).mockResolvedValue([keyword]);
+
+      await handler(req, res);
+      await jest.runAllTimersAsync();
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({ started: true });
+      expect(Domain.findAll).toHaveBeenCalledTimes(1);
+      expect(Keyword.findAll).toHaveBeenCalledWith({ where: { domain: 'enabled.com' } });
+      expect(keyword.update).toHaveBeenCalledWith(expect.objectContaining({ updating: 1 }));
+      expect(refreshAndUpdateKeywords).toHaveBeenCalledWith([keyword], { scraper_type: 'serpapi' }, expect.any(Array));
+    });
+
+    it('rejects an unknown refresh scope and conflicting selection filters', async () => {
+      for (const query of [
+        { scope: 'unknown' },
+        { scope: 'enabled-domains', id: '12' },
+      ]) {
+        const invalidReq = { method: 'POST', query, headers: {} } as unknown as NextApiRequest;
+        const invalidRes = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
+
+        await handler(invalidReq, invalidRes);
+
+        expect(invalidRes.status).toHaveBeenCalledWith(400);
+      }
+      expect(Domain.findAll).not.toHaveBeenCalled();
       expect(Keyword.findAll).not.toHaveBeenCalled();
     });
 
@@ -243,7 +289,7 @@ describe('refresh route', () => {
     });
 
     it('starts refresh in background and returns 202 immediately', async () => {
-      req.query = { id: '1', domain: 'example.com' };
+      req.body = { ids: [1] };
 
       const keywordRecord = {
         ID: 1,
@@ -291,7 +337,7 @@ describe('refresh route', () => {
     });
 
     it('starts bulk refresh in background and returns 202', async () => {
-      req.query = { id: '1,2', domain: 'example.com' };
+      req.body = { ids: [1, 2] };
 
       const createKeywordRecord = (id: number, overrides: Record<string, any> = {}) => {
         const baseRecord = {
@@ -443,7 +489,7 @@ describe('refresh route', () => {
     });
 
     it('rejects manual refresh when domain is already locked', async () => {
-      req.query = { id: '1', domain: 'example.com' };
+      req.body = { ids: [1] };
 
       const keywordRecord = { ID: 1, domain: 'example.com', update: jest.fn().mockResolvedValue(undefined), set: jest.fn() };
       (Keyword.findAll as jest.Mock).mockResolvedValue([keywordRecord]);
@@ -470,7 +516,7 @@ describe('refresh route', () => {
     });
 
     it('starts the unlocked domain, skips the locked one, and reports what was skipped', async () => {
-      req.query = { id: '1,2' };
+      req.body = { ids: [1, 2] };
       const freeKeyword = { ID: 1, domain: 'free.com', updating: 0, update: jest.fn().mockResolvedValue(undefined), set: jest.fn() };
       const busyKeyword = { ID: 2, domain: 'busy.com', updating: 0, update: jest.fn().mockResolvedValue(undefined), set: jest.fn() };
       (Keyword.findAll as jest.Mock).mockResolvedValue([freeKeyword, busyKeyword]);
@@ -499,7 +545,7 @@ describe('refresh route', () => {
     });
 
     it('restarts a keyword whose updating flag is stale, but skips one that is still live', async () => {
-      req.query = { id: '1,2', domain: 'example.com' };
+      req.body = { ids: [1, 2] };
       // Fake clock is 12:00. Live: flagged 10 minutes ago. Stale: flagged 2 hours ago by a run that crashed.
       const liveKeyword = {
         ID: 1, domain: 'example.com', updating: 1, updatingStartedAt: '2024-06-01T11:50:00.000Z',
@@ -527,7 +573,7 @@ describe('refresh route', () => {
     });
 
     it('handles keywords with domains missing from Domain table', async () => {
-      req.query = { id: '1,2', domain: 'missing-domain.com' };
+      req.body = { ids: [1, 2] };
 
       const keywordRecord1 = {
         ID: 1,
@@ -575,7 +621,7 @@ describe('refresh route', () => {
     });
 
     it('handles mixed scenario with some domains missing and some present', async () => {
-      req.query = { id: '1,2,3' };
+      req.body = { ids: [1, 2, 3] };
 
       const keywordRecord1 = {
         ID: 1,
@@ -637,7 +683,7 @@ describe('refresh route', () => {
     });
 
     it('handles partial failures when clearing flags for some keywords', async () => {
-      req.query = { id: '1,2,3', domain: 'example.com' };
+      req.body = { ids: [1, 2, 3] };
 
       let keywordRecord2UpdateCallCount = 0;
       const keywordRecord1 = {
@@ -722,7 +768,7 @@ describe('refresh route', () => {
     });
 
     it('handles skipped keywords with disabled scraping', async () => {
-      req.query = { id: '1,2', domain: 'example.com' };
+      req.body = { ids: [1, 2] };
 
       const keywordRecord1 = {
         ID: 1,

@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useMutation } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button } from 'components/ui/button';
+import { Button, ButtonLabel } from 'components/ui/button';
 import { apiGet, apiPut } from 'utils/client/apiClient';
 import { useShell } from '../../_components/shell-context';
 import { DomainCard } from './domain-card';
@@ -89,7 +89,7 @@ export function DomainsView({ scraperConfigured, searchConsoleIntegrated, showMa
 
    const toggleActive = useMutation({
       mutationFn: ({ domain, scrapeEnabled }: { domain: string; scrapeEnabled: boolean }) => (
-         apiPut(`/api/serp/domains?domain=${encodeURIComponent(domain)}`, { scrapeEnabled })
+         apiPut('/api/serp/domains', { domain, scrapeEnabled })
       ),
       onMutate: ({ domain, scrapeEnabled }) => {
          setActiveOverrides((current) => ({ ...current, [domain]: scrapeEnabled }));
@@ -176,7 +176,7 @@ export function DomainsView({ scraperConfigured, searchConsoleIntegrated, showMa
                   {domains.length} Domains
                   {allStatsLoaded && <><span className="mx-2 opacity-40">|</span><span className="animate-in fade-in-0 duration-1000 motion-reduce:animate-none">{totalKeywords} keywords</span></>}
                </p>
-               <Button data-testid="addDomainButton" onClick={openAddDomain}><Plus />Add Domain</Button>
+               <Button variant="primaryAction" data-testid="addDomainButton" onClick={openAddDomain}><Plus /><ButtonLabel>Add Domain</ButtonLabel></Button>
             </div>
 
             {domainsFailed && (

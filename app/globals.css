@@ -124,3 +124,23 @@
       animation: none !important;
    }
 }
+
+.settings-tabs-list {
+   height: 2.5rem;
+}
+
+.settings-tabs-trigger,
+.settings-tabs-trigger:hover {
+   color: #4b5161;
+}
+
+.settings-tabs-trigger[data-active],
+.settings-tabs-trigger[data-state="active"] {
+   background-color: #0366d6;
+   color: #fff;
+}
+
+.settings-tabs-trigger[data-active]:hover,
+.settings-tabs-trigger[data-state="active"]:hover {
+   color: #fff;
+}

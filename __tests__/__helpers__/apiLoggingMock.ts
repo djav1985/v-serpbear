@@ -22,21 +22,31 @@ export const apiLoggingMock = () => {
 
   const createRoute = (def: Record<string, any>) => {
     const entry = (method: string) => async (req: Request) => {
+      let response: Response | undefined;
       try {
         if (def.auth !== false) {
           const denied = requireAuth(req, ctx);
-          if (denied) { return denied; }
+          if (denied) { response = denied; }
         }
-        const handler = def[method];
-        if (!handler) {
-          const allowed = HTTP_METHODS.filter((m) => def[m]).join(', ');
-          return http.fail(405, 'METHOD_NOT_ALLOWED', 'Method not allowed', ctx, undefined, { Allow: allowed });
+        if (response === undefined) {
+          const handler = def[method];
+          if (!handler) {
+            const allowed = HTTP_METHODS.filter((m) => def[m]).join(', ');
+            response = http.fail(405, 'METHOD_NOT_ALLOWED', 'Method not allowed', ctx, undefined, { Allow: allowed });
+          } else {
+            response = await handler(req, ctx);
+          }
         }
-        return await handler(req, ctx);
       } catch (error: any) {
-        if (error instanceof http.ApiError) { return http.fail(error.status, error.code, error.message, ctx); }
-        return http.fail(500, 'INTERNAL_SERVER_ERROR', 'Internal server error', ctx);
+        if (error instanceof http.ApiError) { response = http.fail(error.status, error.code, error.message, ctx); }
+        else { response = http.fail(500, 'INTERNAL_SERVER_ERROR', 'Internal server error', ctx); }
       }
+      if (def.cors && response!.headers.get('content-type')?.includes('application/json')) {
+        const headers = new Headers(response!.headers);
+        new Headers(def.cors).forEach((value, key) => headers.set(key, value));
+        response = new Response(response!.body, { status: response!.status, statusText: response!.statusText, headers });
+      }
+      return response!;
     };
     return { GET: entry('GET'), POST: entry('POST'), PUT: entry('PUT'), PATCH: entry('PATCH'), DELETE: entry('DELETE') };
   };

@@ -21,6 +21,7 @@ jest.mock('../../database/models/keyword', () => ({
 }));
 jest.mock('../../utils/logger', () => ({
    logger: {
+      debug: jest.fn(),
       info: jest.fn(),
       error: jest.fn(),
    },
@@ -431,7 +432,7 @@ describe('sqlite dialect', () => {
 
       try {
         const getResult = await new Promise<any>((resolve, reject) => {
-          database.get('SELECT 1', function getCallback(error: Error | null, result: unknown) {
+          database.get('SELECT 1', function getCallback(this: { lastID: number; changes: number }, error: Error | null, result: unknown) {
             if (error) return reject(error);
             resolve({ result, lastID: this.lastID, changes: this.changes });
           });
@@ -439,7 +440,7 @@ describe('sqlite dialect', () => {
         expect(getResult).toEqual({ result: undefined, lastID: 41, changes: 2 });
 
         const allResult = await new Promise<any>((resolve, reject) => {
-          database.all('SELECT 1', function allCallback(error: Error | null, rows: unknown[]) {
+          database.all('SELECT 1', function allCallback(this: { lastID: number; changes: number }, error: Error | null, rows: unknown[]) {
             if (error) return reject(error);
             resolve({ rows, lastID: this.lastID, changes: this.changes });
           });

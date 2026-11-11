@@ -50,10 +50,7 @@ export function DataTable<TData extends RowData>({
    onRowClick,
 }: DataTableProps<TData>) {
    const scrollRef = useRef<HTMLDivElement>(null);
-   const frameRef = useRef<HTMLDivElement>(null);
    const headRef = useRef<HTMLDivElement>(null);
-   // Height that fits a whole number of rows, so the last visible row is never cut off by the bottom edge.
-   const [snappedHeight, setSnappedHeight] = useState<number | undefined>();
    const [scrollMargin, setScrollMargin] = useState(0);
    const isMobile = useIsMobile();
    const stacked = isMobile && !!renderStackedRow;
@@ -112,28 +109,10 @@ export function DataTable<TData extends RowData>({
       ? Math.ceil((window.innerHeight - (scrollRef.current?.getBoundingClientRect().top ?? 0)) / estimateStackedHeight)
       : 0;
 
-   const firstRowSize = activeVirtualizer.getVirtualItems()[0]?.size;
-   useLayoutEffect(() => {
-      const frame = frameRef.current;
-      if (!frame || stacked) { setSnappedHeight(undefined); return undefined; }
-      const fit = () => {
-         const rowSize = firstRowSize ?? estimateRowHeight;
-         const headSize = headRef.current?.offsetHeight ?? 0;
-         const whole = Math.floor((frame.clientHeight - headSize) / rowSize);
-         setSnappedHeight(whole >= 1 ? headSize + whole * rowSize : undefined);
-      };
-      fit();
-      const observer = new ResizeObserver(fit);
-      observer.observe(frame);
-      return () => observer.disconnect();
-   }, [stacked, firstRowSize, estimateRowHeight]);
-
    const showEmpty = !isLoading && rows.length === 0;
 
    return (
       <div className="relative">
-         {/* Invisible copy of the requested height, used only to measure how many whole rows fit. */}
-         <div ref={frameRef} aria-hidden className={cn('pointer-events-none invisible absolute inset-x-0 top-0', className)} />
          <div
             ref={scrollRef}
             role="table"
@@ -145,9 +124,8 @@ export function DataTable<TData extends RowData>({
                stacked ? 'overflow-visible' : 'overflow-auto',
                // The server snapshot is desktop. Clip its wide grid on mobile until hydration switches to stacked rows.
                renderStackedRow && !stacked && 'max-[767px]:overflow-clip',
-               !stacked && !snappedHeight && className,
+               !stacked && className,
             )}
-            style={snappedHeight ? { height: snappedHeight } : undefined}
          >
          {!stacked && (
             <div ref={headRef} role="rowgroup" className="bg-card sticky top-0 z-10 border-y" style={{ minWidth }}>

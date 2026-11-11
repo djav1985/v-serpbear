@@ -61,7 +61,7 @@ type EmailIdeaPayload = {
 
 export function useEmailIdeas(onDone: () => void) {
    return useMutation({
-      mutationFn: (payload: EmailIdeaPayload) => apiPost<{ success?: boolean; error?: string | null }>('/api/app/email?type=ideas', payload),
+      mutationFn: (payload: EmailIdeaPayload) => apiPost<{ success?: boolean; error?: string | null }>('/api/app/email', { ...payload, type: 'ideas' }),
       onSuccess: () => { toast.success('Keyword ideas emailed successfully!'); onDone(); },
       onError: (error) => { toast.error(error instanceof Error && error.message ? error.message : 'Error emailing keyword ideas.'); },
    });

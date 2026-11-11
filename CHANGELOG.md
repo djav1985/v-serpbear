@@ -2,14 +2,85 @@
 
 All notable changes to this project will be documented in this file. Releases now follow the conventional commits format but are managed with lightweight project scripts instead of `standard-version`.
 
-## [Unreleased]
-
+## [6.0.0] (2026-11-08)
 ### Fixed
 
+- Correct the Swiss flag sprite mapping so it uses its Europe entry instead of Algeria's sprite position.
+- Keep the domain settings dialog height stable across tabs, place its mobile shortcut at the far right of the tabs row aligned with the tab labels, and reduce the gap above domain tables.
+- Remove the development-only Discover sample rows and notice so no placeholder content adds space above the table.
+- Match the Discover table height to Tracking so both tabs use the same available viewport height.
+- Set the Insight Keywords, Countries and Pages tables to the same 24rem minimum height as the other table tabs.
+- Reserve each domain tab's bold label width so changing the active tab weight does not shift its neighbors.
+- Use the shared `DataTable` minimum width across Tracking, Discover, Insight and Ideas.
+- Keep desktop data-table containers at their configured CSS height instead of resizing them after rows are measured; retain invisible mobile loading space.
+
+- Build OAuth approval redirects from the configured public app URL instead of the incoming request host.
+- Serve the OAuth approval screen at `/api/oauth/approve` and redirect consent flows there.
+- Remove the Content Security Policy from the OAuth approval page only, so the consent form is not blocked by form-action restrictions.
+- Check the configured public origin before approving an MCP request with an existing login cookie.
+- Allow valid OAuth approval credentials through even when the shared unknown-address failure bucket is throttled.
+- Retain rotated refresh-token records until expiry so replay detection and revocation still identify the grant.
+- Document the root and MCP-path-scoped OAuth discovery routes in the README and API/MCP guide.
+- Update the OAuth approval test path and test type annotations for the moved page and current response contracts.
+- Build protected-resource metadata for the root URL and retain the resource-path-specific URL in the metadata helper.
+- Apply the same app-wide security headers to MCP and OAuth routes as other app routes.
+- Reduce routine OAuth and MCP logs to debug, keeping one info entry for a completed authorization-code exchange and one error entry for a rejected request.
+- Point MCP authentication challenges at the root protected-resource metadata URL for client compatibility while keeping OAuth protocol endpoints under `/api/oauth`. The metadata URL is advertised, but this checkout has no route serving the metadata document.
+- Add CORS headers and preflight handling to OAuth discovery, registration, authorization, and token endpoints.
+- Define reference-compatible `google-seo-mcp` OAuth metadata fields and response bodies, and implement matching protocol headers, code/token prefixes, and authorization-page behavior while using `MCP_API_KEY` and JSON-file persistence.
+- Advertise `mcp:full` and `mcp:read` in OAuth metadata and dynamic registration, and return the granted scope from token exchanges.
+- Match MCP OAuth interoperability with `mcp:full` and `mcp:read` scopes, reference-compatible redirect and registration validation, root metadata challenges, CORS behavior, and `/api/oauth/revoke` grant revocation.
+- Ignore unknown requested OAuth scopes when choosing between the supported full and read scopes.
+- Log OAuth endpoint failures and MCP OAuth authentication failures at error level with diagnostic codes while keeping bearer tokens and authorization codes out of logs.
+- Log successful OAuth discovery, registration, approval and token exchanges at info level without logging credentials.
+- Add OAuth decision reason logs for registration, authorization, consent and token exchange, plus successful MCP authentication and request handling, without logging secrets.
+- Preserve an explicitly empty `client_name` in OAuth dynamic-registration responses and coerce `redirect_uris` entries to strings before validation to match the reference server.
+- Make MCP OAuth opt-in through `MCP_OAUTH`; disable OAuth handlers and use a plain Bearer challenge when off, and include a resource-metadata URL in the challenge when enabled.
 - Avoid blocking request handling while cancelling an oversized debug logging stream.
 - Load the settings editor through an explicitly authenticated full-settings request, and show an error instead of empty fields if the session is invalid.
 
+- Guarded keyword history and search volume writes after location changes, isolated scraper credit tracking by refresh, and made refresh startup and keyword creation safe when requests overlap.
+- Scraper credit balances are saved in the order they were read. Overlapping refreshes (up to three domains run at once) could finish in a different order than they started, so a slow account lookup or an older header reading could overwrite a newer balance. Each reading now carries the time it was taken (when a lookup started, or when the response arrived) and the save, under the existing file lock, only replaces an entry that was read earlier. A newer balance can still be higher, for example after a top-up. Entries saved before this change count as oldest.
+- Domain stats are saved one update at a time per domain. Adding keywords while a refresh finishes on the same domain could make both updates read the same "previous" numbers and overwrite each other's up and down arrows. Each update now reads the current data after it gets its turn. Different domains still update in parallel.
+- Changing a keyword's location no longer races a refresh. The edit claims the domain first, like a delete does, and answers `409` with a message telling you to try again once the refresh has finished when one is running or queued. Only keywords whose location or country really changed are touched: in one transaction they lose their old position, history, ranked URL, saved results, map pack data and refresh status, then a fresh scrape runs with the new location. If that scrape fails the keyword stays empty instead of showing another city's rankings.
+- Queued refreshes now wait while a delete or location edit holds their domain, and start when it is released. A request that queues its own refresh hands its claim to that task, so nothing can slip in between. Refresh tasks (manual, cron-style, after adding keywords, after a location change) load their keywords by ID when they start, so a keyword deleted while the task waited is skipped and a moved one is scraped with its current location.
+- The toast for a blocked keyword delete, location change or domain delete now shows the server's message ("try again once the refresh has finished"). Other errors keep the generic text.
+- The screens no longer set state inside effects (the `use-mobile` hook, add-keywords dialog, research form, and the selection and tag-filter clean-ups), so `eslint-plugin-react-hooks` 7 passes with no errors.
+- Pinned the patched `minimatch`, `glob` and `uuid` versions for the packages that bundled old copies, so `npm audit` is down from 34 findings to 7 low ones (the remaining `deepmerge` finding has no fix). The `editorconfig` override no longer gets reset by `npm install`.
+
+- Settings toasts now show the server's own error text (for example the reason a Google Ads test failed) instead of a generic line, and failed form checks on Update Settings also show a toast.
+- Send Notifications Now reports how many emails went out, and shows a warning instead of a success when nothing was sent.
+
+### Added
+
+- Add MCP OAuth authorization for ChatGPT with PKCE, dynamic client registration, 24-hour access tokens, token rotation and a themed approval screen using `MCP_API_KEY`. OAuth state is stored in `data/mcp_oauth.json`.
+- Add `MCP_ENABLED` as a master switch for direct MCP access and all OAuth/discovery endpoints.
+- Rename the MCP operator key variable to `MCP_APIKEY` and use `CRON_TIMEZONE` for the application timezone.
+- Render MCP OAuth approval through the app page and shared stylesheet/components.
+- Restyle primary and secondary action buttons, enlarge login, OAuth and main Settings action buttons, and give OAuth Cancel a dedicated red style with white text.
+- Use the primary button style for Google Search actions in Ideas, Research and Discover detail panels.
+- Stretch the main Settings tab background across the menu width.
+- Centralize vertical alignment for Add Domain, Load Ideas and Perform Google Search labels; share the sized Settings tab styles across Settings and Domain Settings.
+- Load only `.env` in the cron worker.
+- Keep only the final cron-worker and database startup messages at info level; log preceding startup progress at debug level.
+
+- Credited the dashboard UI source and linked its MIT license in the README.
+- SerpBase (`serpbase`) scraper: Google search through `POST https://api.serpbase.dev/google/search` with the key in the `X-API-Key` header. City-level targeting through the `location` parameter, mobile and desktop, map pack from `local_results`, and organic results ranked by `rank`. When a result link is a `google.com/goto` redirect, the result's own domain is used instead. SerpBase also reports credits remaining through its free `/account/credits` endpoint.
+- Domain cards show `Credits remaining:` under the last-updated line for scrapers that report it: SerpApi, SearchApi, ValueSERP, HasData, CrazySERP, PrismCrawl, SerpBase and DataForSEO (a dollar balance). Serper and Serply have no way to look it up, so nothing shows. SerpApi, SearchApi, ValueSERP, HasData, CrazySERP, SerpBase and DataForSEO are asked once per API key at the end of a refresh run. PrismCrawl sends the balance in the `X-Credits-Remaining` header, so the lowest value seen in the run is kept. Balances are saved in `data/scraper_credits.json`, keyed by scraper and a keyed hash of the API key, so domains sharing a key share one entry. Entries no domain or the global setting uses anymore are dropped on each save.
+- Domain cards hold the favicon for 500 ms, so a cached screenshot replaces it without a flash, then the screenshot fades in over 500 ms. Settings and domain settings tabs fade their panels in over 1 s, and the domain settings dialog keeps a fixed desktop height and footer position across tabs.
+- Page changes cross-fade (400 ms), and the top bar stays still. Tracker and Discover filters, sorting and the Search Console period update inside transitions. Dialogs and sheets use a 400 ms fade. All motion is turned off for users who prefer reduced motion.
+
+- `GET /api/app/settings` returns a read-only `branding` object (`platformName`, `whiteLabelEnabled`, `hasCustomLogo`, `logoApiPath`, `defaultPlatformName`) in both the public and the signed-in response. A settings save never writes it.
+- `POST /api/app/email` sends both kinds of email, chosen by the JSON body `type`: `digest` accepts the API key or a login session, `ideas` needs a login session and answers `403` to an API key. A missing or unknown `type` is a `400`.
+- The web app manifest is generated at `/manifest.webmanifest`, so white-label installs use your name and logo. The apple touch icon follows the logo too.
+
 ### Changed
+
+- Use the configured SerpBear username and password on the OAuth approval page, or approve with an existing login cookie. Credential entry authorizes only that request without creating a login session; `MCP_APIKEY` remains for direct MCP bearer access.
+- Require JSON bodies for keyword and domain PUT/DELETE arguments; remove the legacy `id` and `domain` query forms and update the frontend API calls.
+- Move POST refresh and email arguments into JSON request bodies; update the frontend and cron worker callers. The scheduled refresh uses `{ scope: "enabled-domains" }` on `POST /api/serp/refresh`; remove `POST /api/app/cron`.
+- Remove the unused `GET /api/auth/check` endpoint; the app checks sessions in protected layouts and API routes.
+- Document `MCP_API_KEY` and MCP OAuth setup separately from the REST `APIKEY`.
 
 - Extend Important frontend coverage for domain settings validation, tracker and ideas cells, add/delete keyword mutations, and settings mutations.
 
@@ -64,94 +135,10 @@ All notable changes to this project will be documented in this file. Releases no
 - Domain cards reserve space for update-time, credit values, and stats while loading, then fade in the fetched values over one second. Stat value rows keep a fixed height and do not wrap, preventing card layout shifts when values arrive on desktop and mobile. The screenshot transition and Domains page total keyword count also fade in over one second when ready.
 - Domain card Search Console stats align vertically with Tracker stats on desktop.
 
-## [6.0.0] (2026-11-08)
-
-### Added
-
-- Credited the dashboard UI source and linked its MIT license in the README.
-- SerpBase (`serpbase`) scraper: Google search through `POST https://api.serpbase.dev/google/search` with the key in the `X-API-Key` header. City-level targeting through the `location` parameter, mobile and desktop, map pack from `local_results`, and organic results ranked by `rank`. When a result link is a `google.com/goto` redirect, the result's own domain is used instead. SerpBase also reports credits remaining through its free `/account/credits` endpoint.
-- Domain cards show `Credits remaining:` under the last-updated line for scrapers that report it: SerpApi, SearchApi, ValueSERP, HasData, CrazySERP, PrismCrawl, SerpBase and DataForSEO (a dollar balance). Serper and Serply have no way to look it up, so nothing shows. SerpApi, SearchApi, ValueSERP, HasData, CrazySERP, SerpBase and DataForSEO are asked once per API key at the end of a refresh run. PrismCrawl sends the balance in the `X-Credits-Remaining` header, so the lowest value seen in the run is kept. Balances are saved in `data/scraper_credits.json`, keyed by scraper and a keyed hash of the API key, so domains sharing a key share one entry. Entries no domain or the global setting uses anymore are dropped on each save.
-- Domain cards hold the favicon for 500 ms, so a cached screenshot replaces it without a flash, then the screenshot fades in over 500 ms. Settings and domain settings tabs fade their panels in over 1 s, and the domain settings dialog keeps a fixed height and footer position.
-- Page changes cross-fade (400 ms), and the top bar stays still. Tracker and Discover filters, sorting and the Search Console period update inside transitions. Dialogs and sheets use a 400 ms fade. All motion is turned off for users who prefer reduced motion.
-
-### Security
-
-- A failed login or API key from a client with no known address (`TRUST_PROXY` unset) no longer locks out the real user through a shared "unknown" bucket. Per-user caps still apply, and a correct password or API key is accepted while they are reached.
-- The one-off keyword search moved from `GET /api/serp/refresh` to `POST /api/serp/refresh` (body `keyword`, `country`, `device`). Only a logged-in session can run a search (an API key cannot), and requests from a login session must come from this site, so a link on another site can no longer start a refresh or spend provider quota. `GET` now only serves `?status=retry`.
-- Login bodies are capped at 4 KB and other JSON bodies at 1 MB, answering 413 when larger. Debug request logging reads at most 16 KB of a body and never buffers larger ones.
-
-### Changed
-
 - Node.js is now 26.13.0 (the current long-term release) in the Docker image and `.nvmrc`, and `package.json` declares `engines.node >=22`.
 - Mobile tables now scroll with the page while keeping rows virtualized, instead of using a separate table scroll area.
 - Logo endpoints cache custom and bundled images for one year; favicon responses and domain screenshot thumbnails cache for one week.
 
-### Fixed
-
-- Guarded keyword history and search volume writes after location changes, isolated scraper credit tracking by refresh, and made refresh startup and keyword creation safe when requests overlap.
-- Scraper credit balances are saved in the order they were read. Overlapping refreshes (up to three domains run at once) could finish in a different order than they started, so a slow account lookup or an older header reading could overwrite a newer balance. Each reading now carries the time it was taken (when a lookup started, or when the response arrived) and the save, under the existing file lock, only replaces an entry that was read earlier. A newer balance can still be higher, for example after a top-up. Entries saved before this change count as oldest.
-- Domain stats are saved one update at a time per domain. Adding keywords while a refresh finishes on the same domain could make both updates read the same "previous" numbers and overwrite each other's up and down arrows. Each update now reads the current data after it gets its turn. Different domains still update in parallel.
-- Changing a keyword's location no longer races a refresh. The edit claims the domain first, like a delete does, and answers `409` with a message telling you to try again once the refresh has finished when one is running or queued. Only keywords whose location or country really changed are touched: in one transaction they lose their old position, history, ranked URL, saved results, map pack data and refresh status, then a fresh scrape runs with the new location. If that scrape fails the keyword stays empty instead of showing another city's rankings.
-- Queued refreshes now wait while a delete or location edit holds their domain, and start when it is released. A request that queues its own refresh hands its claim to that task, so nothing can slip in between. Refresh tasks (manual, cron-style, after adding keywords, after a location change) load their keywords by ID when they start, so a keyword deleted while the task waited is skipped and a moved one is scraped with its current location.
-- The toast for a blocked keyword delete, location change or domain delete now shows the server's message ("try again once the refresh has finished"). Other errors keep the generic text.
-- The screens no longer set state inside effects (the `use-mobile` hook, add-keywords dialog, research form, and the selection and tag-filter clean-ups), so `eslint-plugin-react-hooks` 7 passes with no errors.
-- Pinned the patched `minimatch`, `glob` and `uuid` versions for the packages that bundled old copies, so `npm audit` is down from 34 findings to 7 low ones (the remaining `deepmerge` finding has no fix). The `editorconfig` override no longer gets reset by `npm install`.
-
-### Dependencies
-
-- Updated to the latest releases that work together: Jest 30, TypeScript 6, `better-sqlite3` 13, `croner` 11, `dotenv` 18, `google-auth-library` 11, `@googleapis/searchconsole` 11, `@isaacs/ttlcache` 2, `undici`, `uuid`, Testing Library and the type packages, plus all in-range updates (Next.js, nodemailer, dayjs, PostCSS and others).
-- Held back: ESLint 10 and its plugins, TypeScript 7 (typescript-eslint does not support it yet) and Stylelint 18 (its packages do not resolve together yet).
-- `tsconfig.json` uses `paths` instead of the removed `baseUrl`, and the Stylelint config allows Tailwind's `@apply`.
-
-### Removed
-
-- Unused dev dependencies (`msw`, `@types/cryptr`, `autoprefixer`, `js-yaml`, `postcss-selector-parser`, `source-map-js`, `browserslist`, `esbuild`, `shell-quote`, `ws`, `@babel/core`), the msw test shims, unused UI pieces (`badge`, `empty`, `separator`), the unused `screenshot.jpg`, and two unused constants.
-
-### Fixed
-
-- Settings toasts now show the server's own error text (for example the reason a Google Ads test failed) instead of a generic line, and failed form checks on Update Settings also show a toast.
-- Send Notifications Now reports how many emails went out, and shows a warning instead of a success when nothing was sent.
-
-### Documentation
-
-- The provider tables in the README and the Scrapers wiki page have a "Credits left" column showing which scrapers report the balance. The Scrapers page has a longer "Credits remaining" section: how each provider is asked, when the number updates, shared keys, the saved file and troubleshooting.
-- Added desktop screenshots to the wiki pages (in `docs/images/`), and a set of desktop and phone screenshots in `screenshots/`, all taken from demo data with example domains.
-- The Google guide links in the app now point to the wiki's Google Integrations page.
-
-### Upgrade notes (API routes)
-The API routes are regrouped. **There are no compatibility aliases: the old routes now return 404.** Update scripts, cron jobs, MCP clients and reverse-proxy rules that call them.
-
-| Old | New |
-| --- | --- |
-| `/api/settings` | `/api/app/settings` |
-| `/api/cron` | `/api/app/cron` |
-| `/api/notify` | `POST /api/app/email?type=digest` |
-| `/api/ideas/email` | `POST /api/app/email?type=ideas` |
-| `/api/login`, `/api/logout`, `/api/auth-check` | `/api/auth/login`, `/api/auth/logout`, `/api/auth/check` |
-| `/api/domains`, `/api/domain`, `/api/keywords`, `/api/keyword`, `/api/refresh`, `/api/clearfailed` | the same names under `/api/serp/` |
-| `/api/searchconsole`, `/api/insight`, `/api/ideas`, `/api/volume` | the same names under `/api/google/` |
-| `/api/branding/logo` | `/api/images/logo.png` |
-| `/api/branding/config` | removed (the name and logo are in `GET /api/app/settings` as `branding`) |
-
-`/api/adwords` and `/api/mcp` are unchanged. The Docker health check now calls `GET /api/app/settings`.
-
-### Added
-- `GET /api/app/settings` returns a read-only `branding` object (`platformName`, `whiteLabelEnabled`, `hasCustomLogo`, `logoApiPath`, `defaultPlatformName`) in both the public and the signed-in response. A settings save never writes it.
-- `POST /api/app/email` sends both kinds of email, chosen by `?type=`: `digest` accepts the API key or a login session, `ideas` needs a login session and answers `403` to an API key. A missing or unknown `type` is a `400`.
-- The web app manifest is generated at `/manifest.webmanifest`, so white-label installs use your name and logo. The apple touch icon follows the logo too.
-
-### Removed
-- The `setup:git` script (`scripts/set-default-branch.mjs`) and the unused test fixture `__mocks__/data.ts`.
-
-### Changed (API)
-- **The API runs on the App Router.** Every endpoint is now a route handler in `app/api/**/route.ts` that takes a standard `Request` and returns a standard `Response`; `pages/` is gone. URLs, methods, request bodies and response shapes are the same. A shared wrapper (`createRoute` in `utils/apiLogging`) adds the request id, logging, the database check, the login or API-key check and the `405` answer. A method a route does not offer answers `405` with an `Allow` header. The MCP route uses the SDK's web-standard transport, and the `cookies` package is no longer a dependency.
-- **`TRUST_PROXY` matters more.** A route handler cannot see the connection's address, and Next keeps a client-supplied `X-Forwarded-For` as it is, so the header is read only when `TRUST_PROXY` names the proxies in front of the app. Without it every client counts as one address: five wrong logins or API keys from anyone lock everyone out for 15 minutes. Set `TRUST_PROXY` when the app sits behind a reverse proxy.
-- The log line for a request shows the path and query, as before. Unauthenticated calls to a route that does not exist for that method now answer `401` before `405`.
-- `/api/images/favicon.png` serves `data/favicon.png` the same way (white-label on and the file exists, otherwise the built-in default), and the tab icon uses it when white-label is on. `/api/images/logo.png` stays the logo. Only these two file names exist.
-- `/api/images/logo.png` always returns an image: your `data/logo.png` when white-label is on and the file exists, otherwise the built-in default. It used to answer 404 in those cases. Only that one URL exists, so other file names return 404.
-- Server pages and utilities read the settings through `utils/appSettings` instead of importing from an API route.
-
-### Changed
 - **New front end:** the whole interface is rebuilt on the Next.js App Router (React 19, Tailwind CSS 4, shadcn/ui, TanStack Query, Table and Virtual, and Recharts). The URLs are the same: `/login`, `/domains`, `/domain/<slug>`, `/domain/console/<slug>` (Discover), `/domain/insight/<slug>`, `/domain/ideas/<slug>` and `/research`. `/` now redirects to `/domains`. The JSON API now lives in `app/api/` (see Changed (API)); its URLs, methods and bodies are the same.
 - **Layout:** a top bar with the logo on the left and the menu on the right replaces the sidebar. The domain list sits on the left only on the Domains page. Settings open in a side panel with the Scraper, Notification and Integrations tabs. Phones get a menu button, stacked rows and a compact filter bar.
 - **Tables:** Tracking, Discover, Insight and the keyword ideas tables share one virtualized table, so long keyword lists scroll smoothly. Row selection works on keyword IDs and ignores rows hidden by a filter. The column header stays solid while you scroll, and the table is sized to whole rows.
@@ -168,10 +155,63 @@ The API routes are regrouped. **There are no compatibility aliases: the old rout
 - The Map Pack figure on a domain card now also shows when any domain has map pack keywords, even if the active scraper does not report them.
 - **White-label logo file:** the logo is now always `data/logo.png` and `/api/branding/logo` serves only that file, as a PNG. The `WHITE_LABEL_LOGO_FILE` setting is removed and is ignored if still set. If you use white-label branding, rename your existing logo (by default `data/branding-logo.png`) to `data/logo.png`, and convert it to PNG if it was another format.
 
+### Security
+
+- A failed login or API key from a client with no known address (`TRUST_PROXY` unset) no longer locks out the real user through a shared "unknown" bucket. Per-user caps still apply, and a correct password or API key is accepted while they are reached.
+- The one-off keyword search moved from `GET /api/serp/refresh` to `POST /api/serp/refresh` (body `keyword`, `country`, `device`). Only a logged-in session can run a search (an API key cannot), and requests from a login session must come from this site, so a link on another site can no longer start a refresh or spend provider quota. `GET` now only serves `?status=retry`.
+- Login bodies are capped at 4 KB and other JSON bodies at 1 MB, answering 413 when larger. Debug request logging reads at most 16 KB of a body and never buffers larger ones.
+
+### Dependencies
+
+- Updated to the latest releases that work together: Jest 30, TypeScript 6, `better-sqlite3` 13, `croner` 11, `dotenv` 18, `google-auth-library` 11, `@googleapis/searchconsole` 11, `@isaacs/ttlcache` 2, `undici`, `uuid`, Testing Library and the type packages, plus all in-range updates (Next.js, nodemailer, dayjs, PostCSS and others).
+- Held back: ESLint 10 and its plugins, TypeScript 7 (typescript-eslint does not support it yet) and Stylelint 18 (its packages do not resolve together yet).
+- `tsconfig.json` uses `paths` instead of the removed `baseUrl`, and the Stylelint config allows Tailwind's `@apply`.
+
 ### Removed
+
+- Unused dev dependencies (`msw`, `@types/cryptr`, `autoprefixer`, `js-yaml`, `postcss-selector-parser`, `source-map-js`, `browserslist`, `esbuild`, `shell-quote`, `ws`, `@babel/core`), the msw test shims, unused UI pieces (`badge`, `empty`, `separator`), the unused `screenshot.jpg`, and two unused constants.
+
+- The `setup:git` script (`scripts/set-default-branch.mjs`) and the unused test fixture `__mocks__/data.ts`.
+
 - The `SCREENSHOTS` environment variable (and the earlier `NEXT_PUBLIC_SCREENSHOTS`). See the screenshots upgrade note under 5.0.0.
 - The old Pages Router screens, their React components, hooks, client services and tests, along with `styles/` and `tailwind.config.js`.
 - The `chart.js`, `react-chartjs-2`, `react-query` (v3), `react-hot-toast`, `react-timeago`, `react-transition-group`, `react-window` and `next-router-mock` packages.
+
+### Documentation
+
+- Update MCP OAuth setup guides and `.env.example` to describe username/password and existing-cookie approval, and document that this checkout is missing the standard root well-known discovery routes required by automatic OAuth client setup.
+- Remove completed work from the README roadmap.
+
+- The provider tables in the README and the Scrapers wiki page have a "Credits left" column showing which scrapers report the balance. The Scrapers page has a longer "Credits remaining" section: how each provider is asked, when the number updates, shared keys, the saved file and troubleshooting.
+- Added desktop screenshots to the wiki pages (in `docs/images/`), and a set of desktop and phone screenshots in `screenshots/`, all taken from demo data with example domains.
+- The Google guide links in the app now point to the wiki's Google Integrations page.
+
+### Upgrade notes (API routes)
+
+The API routes are regrouped. **There are no compatibility aliases: the old routes now return 404.** Update scripts, cron jobs, MCP clients and reverse-proxy rules that call them.
+
+| Old | New |
+| --- | --- |
+| `/api/settings` | `/api/app/settings` |
+| `/api/cron` | `/api/app/cron` |
+| `/api/notify` | `POST /api/app/email` with JSON body `{ type: "digest" }` |
+| `/api/ideas/email` | `POST /api/app/email` with JSON body `{ type: "ideas", ... }` |
+| `/api/login`, `/api/logout`, `/api/auth-check` | `/api/auth/login`, `/api/auth/logout`, `/api/auth/check` |
+| `/api/domains`, `/api/domain`, `/api/keywords`, `/api/keyword`, `/api/refresh`, `/api/clearfailed` | the same names under `/api/serp/` |
+| `/api/searchconsole`, `/api/insight`, `/api/ideas`, `/api/volume` | the same names under `/api/google/` |
+| `/api/branding/logo` | `/api/images/logo.png` |
+| `/api/branding/config` | removed (the name and logo are in `GET /api/app/settings` as `branding`) |
+
+`/api/adwords` and `/api/mcp` are unchanged. The Docker health check now calls `GET /api/app/settings`.
+
+### Changed (API)
+
+- **The API runs on the App Router.** Every endpoint is now a route handler in `app/api/**/route.ts` that takes a standard `Request` and returns a standard `Response`; `pages/` is gone. URLs, methods, request bodies and response shapes are the same. A shared wrapper (`createRoute` in `utils/apiLogging`) adds the request id, logging, the database check, the login or API-key check and the `405` answer. A method a route does not offer answers `405` with an `Allow` header. The MCP route uses the SDK's web-standard transport, and the `cookies` package is no longer a dependency.
+- **`TRUST_PROXY` matters more.** A route handler cannot see the connection's address, and Next keeps a client-supplied `X-Forwarded-For` as it is, so the header is read only when `TRUST_PROXY` names the proxies in front of the app. Without it every client counts as one address: five wrong logins or API keys from anyone lock everyone out for 15 minutes. Set `TRUST_PROXY` when the app sits behind a reverse proxy.
+- The log line for a request shows the path and query, as before. Unauthenticated calls to a route that does not exist for that method now answer `401` before `405`.
+- `/api/images/favicon.png` serves `data/favicon.png` the same way (white-label on and the file exists, otherwise the built-in default), and the tab icon uses it when white-label is on. `/api/images/logo.png` stays the logo. Only these two file names exist.
+- `/api/images/logo.png` always returns an image: your `data/logo.png` when white-label is on and the file exists, otherwise the built-in default. It used to answer 404 in those cases. Only that one URL exists, so other file names return 404.
+- Server pages and utilities read the settings through `utils/appSettings` instead of importing from an API route.
 
 ## [5.0.0] (2026-11-06)
 

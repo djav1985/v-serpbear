@@ -1,7 +1,7 @@
 /**
  * The app's time zone. Instants are stored and sent as UTC ISO strings; the time zone only decides which
  * calendar day an instant belongs to ("today" in results, emails, throttling and the UI) and when cron jobs fire.
- * It comes from TZ (an IANA name such as "America/New_York"); an unknown name falls back to the default.
+ * It comes from CRON_TIMEZONE (an IANA name such as "America/New_York"); an unknown name falls back to the default.
  */
 export const DEFAULT_TIMEZONE = 'America/New_York';
 
@@ -20,7 +20,7 @@ export const resolveTimezone = (timezone?: string | null): string => {
    return isValidTimezone(candidate) ? candidate : DEFAULT_TIMEZONE;
 };
 
-export const APP_TIMEZONE = resolveTimezone(typeof process !== 'undefined' ? process.env?.TZ : undefined);
+export const APP_TIMEZONE = resolveTimezone(typeof process !== 'undefined' ? process.env?.CRON_TIMEZONE : undefined);
 
 /** Google Search Console reports every day in Pacific Time; the zone cannot be changed. */
 export const SEARCH_CONSOLE_TIMEZONE = 'America/Los_Angeles';

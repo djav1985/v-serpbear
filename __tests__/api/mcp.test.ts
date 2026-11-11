@@ -27,7 +27,10 @@ jest.mock('@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js', () =>
 
 describe('MCP route', () => {
   const originalApiKey = process.env.APIKEY;
+  const originalMcpApiKey = process.env.MCP_APIKEY;
+  const originalMcpOAuth = process.env.MCP_OAUTH;
   const originalPort = process.env.PORT;
+  const originalAppUrl = process.env.NEXT_PUBLIC_APP_URL;
 
   const call = async (method: string, headers: Record<string, string> = { authorization: 'Bearer test-key' }) => {
     const req = createMockRequest({
@@ -46,7 +49,10 @@ describe('MCP route', () => {
       jest.clearAllMocks();
       mockToolHandlers.clear();
       process.env.APIKEY = 'test-key';
+      process.env.MCP_APIKEY = 'test-key';
+      process.env.MCP_OAUTH = 'true';
       process.env.PORT = '3200';
+      process.env.NEXT_PUBLIC_APP_URL = 'https://serpbear.example';
     });
 
     afterEach(() => {
@@ -55,8 +61,14 @@ describe('MCP route', () => {
       } else {
         process.env.APIKEY = originalApiKey;
       }
+      if (originalMcpApiKey === undefined) delete process.env.MCP_APIKEY;
+      else process.env.MCP_APIKEY = originalMcpApiKey;
+      if (originalMcpOAuth === undefined) delete process.env.MCP_OAUTH;
+      else process.env.MCP_OAUTH = originalMcpOAuth;
       if (originalPort === undefined) delete process.env.PORT;
       else process.env.PORT = originalPort;
+      if (originalAppUrl === undefined) delete process.env.NEXT_PUBLIC_APP_URL;
+      else process.env.NEXT_PUBLIC_APP_URL = originalAppUrl;
     });
 
     it('returns 405 for a GET request', async () => {
@@ -75,12 +87,37 @@ describe('MCP route', () => {
       expect(res.status).toHaveBeenCalledWith(401);
     });
 
+    it('challenges unauthenticated GET requests with root protected-resource metadata', async () => {
+      const res = await call('GET', {});
+
+      expect(res.status).toHaveBeenCalledWith(401);
+      expect(res.setHeader).toHaveBeenCalledWith('www-authenticate', 'Bearer resource_metadata="https://serpbear.example/.well-known/oauth-protected-resource"');
+    });
+
     it('returns 500 for an authorized POST when APIKEY is unset', async () => {
       delete process.env.APIKEY;
 
       const res = await call('POST');
 
       expect(res.status).toHaveBeenCalledWith(500);
+    });
+
+    it('matches the example challenge on unauthenticated OPTIONS and omits MCP CORS headers', async () => {
+      const response = await handlerRoute.OPTIONS(new Request('https://serpbear.example/api/mcp', { method: 'OPTIONS' }));
+
+      expect(response.status).toBe(401);
+      expect(response.headers.get('www-authenticate')).toBe('Bearer resource_metadata="https://serpbear.example/.well-known/oauth-protected-resource"');
+      expect(response.headers.get('access-control-allow-origin')).toBeNull();
+    });
+
+    it('returns 405 with Allow: POST for authenticated OPTIONS requests', async () => {
+      const response = await handlerRoute.OPTIONS(new Request('https://serpbear.example/api/mcp', {
+        method: 'OPTIONS', headers: { authorization: 'Bearer test-key' },
+      }));
+
+      expect(response.status).toBe(405);
+      expect(response.headers.get('allow')).toBe('POST');
+      expect(response.headers.get('access-control-allow-origin')).toBeNull();
     });
 
     it('registers the public tools and routes a tool call to the matching local API with the bearer key', async () => {

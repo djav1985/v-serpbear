@@ -30,7 +30,7 @@ export function IdeasView({ domain, adwordsConnected, searchConsoleConnected, av
    const favorites = useMemo(() => data?.data?.favorites ?? [], [data]);
 
    return (
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-2">
          <DomainHeader
             domain={domain}
             searchConsoleConnected={searchConsoleConnected}

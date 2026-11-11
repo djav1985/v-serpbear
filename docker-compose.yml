@@ -15,6 +15,11 @@ services:
       SECRET: change-me-to-a-long-random-string
       APIKEY: change-me-to-another-long-random-string
       SESSION_DURATION: 24
+
+      MCP_ENABLED: "${MCP_ENABLED:-true}"
+      MCP_OAUTH: "false"
+      MCP_APIKEY: change-me-to-a-separate-long-random-string
+
       # Number of reverse proxies in front of the app (see README). 0 uses the socket address.
       TRUST_PROXY: 0
 
@@ -32,7 +37,7 @@ services:
 
       # --- Scheduling ---
       # IANA timezone, for example Europe/London
-      TZ: America/New_York
+      CRON_TIMEZONE: America/New_York
       # Times of day (HH:MM, 24 hour) for the scrapes, and for the email digests
       CRON_MAIN_SCHEDULE: "00:00"
       CRON_EMAIL_SCHEDULE: "06:00"
@@ -42,6 +47,7 @@ services:
       # --- Scraping and performance ---
       REFRESH_QUEUE_CONCURRENCY: 3
       PARALLEL_SCRAPE_CONCURRENCY: 3
+
       # Optional. Free Serper API key used to turn google.com/goto result links into real URLs (serper.dev).
       SERPER_API_KEY: ""
 

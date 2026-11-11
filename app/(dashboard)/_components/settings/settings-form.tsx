@@ -121,10 +121,10 @@ export function SettingsForm({ platformName }: { platformName: string }) {
       <>
          {/* Tab changes run as a transition so the panel fades between tabs */}
          <Tabs value={tab} onValueChange={(value) => setTab(value)} className="flex min-h-0 flex-1 flex-col">
-            <TabsList className="mx-4 mb-4 self-start">
-               <TabsTrigger value="scraper">Scraper</TabsTrigger>
-               <TabsTrigger value="notification">Notification</TabsTrigger>
-               <TabsTrigger value="integrations">Integrations</TabsTrigger>
+            <TabsList className="settings-tabs-list mx-4 mb-4 w-[calc(100%-2rem)]">
+               <TabsTrigger value="scraper" className="settings-tabs-trigger">Scraper</TabsTrigger>
+               <TabsTrigger value="notification" className="settings-tabs-trigger">Notification</TabsTrigger>
+               <TabsTrigger value="integrations" className="settings-tabs-trigger">Integrations</TabsTrigger>
             </TabsList>
             <div className="relative min-h-0 flex-1 overflow-y-auto px-4 pb-4" data-loading={isLoading}>
                {isLoading && <Loader2 className="text-muted-foreground absolute top-6 left-1/2 size-5 animate-spin" />}
@@ -140,7 +140,7 @@ export function SettingsForm({ platformName }: { platformName: string }) {
          </Tabs>
          <div className="border-t p-4">
             {error?.msg && <p role="alert" className="bg-destructive/10 text-destructive mb-3 rounded-md p-2 text-center text-sm font-medium">{error.msg}</p>}
-            <Button className="w-full" disabled={isPending || isLoading || isError} onClick={() => { save(); }}>
+            <Button variant="primaryAction" className="h-10 w-full text-base leading-none pt-0" disabled={isPending || isLoading || isError} onClick={() => { save(); }}>
                {isPending && <Loader2 className="animate-spin" />}Update Settings
             </Button>
          </div>

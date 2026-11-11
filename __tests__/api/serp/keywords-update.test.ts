@@ -130,8 +130,8 @@ it('returns 500 when keyword update fails', async () => {
 
       const req = {
         method: 'PUT',
-        query: { id: '1' },
-        body: { sticky: true },
+        query: {},
+        body: { ids: [1],  sticky: true },
         headers: {},
       } as unknown as NextApiRequest;
 
@@ -162,7 +162,7 @@ describe('PUT /api/serp/keywords tags updates', () => {
 
     it('rejects more than 10 tags for a keyword with 400 before changing any keyword', async () => {
       const tags = Array.from({ length: 11 }, (_, index) => `tag-${index}`);
-      const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { tags: { 1: tags } } });
+      const req = createMockRequest({ method: 'PUT', query: {}, body: { ids: [1],  tags: { 1: tags } } });
       const res = createMockResponse();
 
       await handler(req, res);
@@ -219,8 +219,8 @@ describe('PUT /api/serp/keywords tags updates', () => {
       // For add mode, the client pre-merges existing + new tags before calling the API.
       const req = {
         method: 'PUT',
-        query: { id: '1,2' },
-        body: { tags: { 1: ['existing', 'new'], 2: ['second'] } },
+        query: {},
+        body: { ids: [1, 2],  tags: { 1: ['existing', 'new'], 2: ['second'] } },
         headers: {},
       } as unknown as NextApiRequest;
 
@@ -297,8 +297,8 @@ describe('PUT /api/serp/keywords tags updates', () => {
       // Keyword 3 had ['SEO', 'PPC'], keyword 4 had ['PPC', 'Content']. Removing 'PPC'.
       const req = {
         method: 'PUT',
-        query: { id: '3,4' },
-        body: { tags: { 3: ['SEO'], 4: ['Content'] } },
+        query: {},
+        body: { ids: [3, 4],  tags: { 3: ['SEO'], 4: ['Content'] } },
         headers: {},
       } as unknown as NextApiRequest;
 
@@ -324,8 +324,8 @@ describe('PUT /api/serp/keywords tags updates', () => {
     it('treats an empty tags object as a successful no-op', async () => {
       const req = {
         method: 'PUT',
-        query: { id: '1' },
-        body: { tags: {} },
+        query: {},
+        body: { ids: [1],  tags: {} },
         headers: {},
       } as unknown as NextApiRequest;
 
@@ -366,8 +366,8 @@ describe('PUT /api/serp/keywords tags updates', () => {
 
       const req = {
         method: 'PUT',
-        query: { id: '5' },
-        body: { tags: { 5: [] } },
+        query: {},
+        body: { ids: [5],  tags: { 5: [] } },
         headers: {},
       } as unknown as NextApiRequest;
 
@@ -437,8 +437,8 @@ describe('PUT /api/serp/keywords location updates', () => {
       mockLocationLookups([locationRow({ ID: 1 }), locationRow({ ID: 2, keyword: 'beta' })]);
       const req = createMockRequest({
         method: 'PUT',
-        query: { id: '1,2' },
-        body: { location: '  Austin,TX,United States  ', country: 'US' },
+        query: {},
+        body: { ids: [1, 2],  location: '  Austin,TX,United States  ', country: 'US' },
       });
       const res = createMockResponse();
 
@@ -455,7 +455,7 @@ describe('PUT /api/serp/keywords location updates', () => {
     it('saves a blank location for a country-only choice', async () => {
       keywordMock.update.mockResolvedValue([1]);
       mockLocationLookups([locationRow()]);
-      const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { location: '', country: 'DE' } });
+      const req = createMockRequest({ method: 'PUT', query: {}, body: { ids: [1],  location: '', country: 'DE' } });
       const res = createMockResponse();
 
       await handler(req, res);
@@ -476,7 +476,7 @@ describe('PUT /api/serp/keywords location updates', () => {
       mockLocationLookups([row]);
       const res = createMockResponse();
 
-      await handler(createMockRequest({ method: 'PUT', query: { id: '1' }, body: { location: '', country: 'DE' } }), res);
+      await handler(createMockRequest({ method: 'PUT', query: {}, body: { ids: [1],  location: '', country: 'DE' } }), res);
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(clearKeywordUpdatingFlags).toHaveBeenCalledWith([row], 'after location enqueue failure', { keywordIds: [1] }, true);
@@ -490,7 +490,7 @@ describe('PUT /api/serp/keywords location updates', () => {
       mockLocationLookups([locationRow({ ID: 1, domain: 'example.com' })]);
       const release = jest.fn();
       (refreshQueue as any).reserveDomains.mockReturnValueOnce(release);
-      const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { location: 'Miami,Florida,United States' } });
+      const req = createMockRequest({ method: 'PUT', query: {}, body: { ids: [1],  location: 'Miami,Florida,United States' } });
       const res = createMockResponse();
       const settings = { scraper_type: 'serpapi' };
       getAppSettingsMock.mockResolvedValue(settings);
@@ -516,7 +516,7 @@ describe('PUT /api/serp/keywords location updates', () => {
       const release = jest.fn();
       (refreshQueue as any).reserveDomains.mockReturnValueOnce(release);
       mockLocationLookups([locationRow({ ID: 1, location: 'Miami,Florida,United States', country: 'US' })]);
-      const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { location: 'Miami,Florida,United States' } });
+      const req = createMockRequest({ method: 'PUT', query: {}, body: { ids: [1],  location: 'Miami,Florida,United States' } });
       const res = createMockResponse();
 
       await handler(req, res);
@@ -531,7 +531,7 @@ describe('PUT /api/serp/keywords location updates', () => {
       refreshQueueMock.isDomainLocked.mockImplementation((domain?: string) => domain === 'example.com');
       (refreshQueue as any).reserveDomains.mockReturnValueOnce(null);
       keywordMock.findAll.mockResolvedValueOnce([locationRow({ ID: 1, domain: 'example.com' })]);
-      const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { location: 'Miami,Florida,United States' } });
+      const req = createMockRequest({ method: 'PUT', query: {}, body: { ids: [1],  location: 'Miami,Florida,United States' } });
       const res = createMockResponse();
 
       await handler(req, res);
@@ -545,7 +545,7 @@ describe('PUT /api/serp/keywords location updates', () => {
 
     it('returns 400 and changes nothing when no country can be determined from a blank location or from location alone', async () => {
       for (const body of [{ location: '   ' }, { location: 'Austin,TX' }]) {
-        const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body });
+        const req = createMockRequest({ method: 'PUT', query: {}, body: { ids: [1], ...body } });
         const res = createMockResponse();
 
         await handler(req, res);
@@ -558,7 +558,7 @@ describe('PUT /api/serp/keywords location updates', () => {
     it('returns 500 when the location update fails', async () => {
       keywordMock.update.mockRejectedValueOnce(new Error('db down'));
       mockLocationLookups([locationRow()]);
-      const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { location: 'US' } });
+      const req = createMockRequest({ method: 'PUT', query: {}, body: { ids: [1],  location: 'US' } });
       const res = createMockResponse();
 
       await handler(req, res);
@@ -569,7 +569,7 @@ describe('PUT /api/serp/keywords location updates', () => {
     it('sets the keyword country to the country of the chosen location', async () => {
       keywordMock.update.mockResolvedValue([1]);
       mockLocationLookups([locationRow()]);
-      const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { location: 'London,England,United Kingdom' } });
+      const req = createMockRequest({ method: 'PUT', query: {}, body: { ids: [1],  location: 'London,England,United Kingdom' } });
       const res = createMockResponse();
 
       await handler(req, res);
@@ -586,7 +586,7 @@ describe('PUT /api/serp/keywords location updates', () => {
         [locationRow({ ID: 1, keyword: 'alpha' }), locationRow({ ID: 2, keyword: 'beta' })],
         [locationRow({ ID: 9, keyword: 'alpha', country: 'GB', location: 'London,England,United Kingdom' })],
       );
-      const req = createMockRequest({ method: 'PUT', query: { id: '1,2' }, body: { location: 'London,England,United Kingdom' } });
+      const req = createMockRequest({ method: 'PUT', query: {}, body: { ids: [1, 2],  location: 'London,England,United Kingdom' } });
       const res = createMockResponse();
 
       await handler(req, res);
@@ -605,7 +605,7 @@ describe('PUT /api/serp/keywords location updates', () => {
         [locationRow({ ID: 1, keyword: 'alpha' })],
         [locationRow({ ID: 9, keyword: 'alpha', country: 'GB', location: 'London,England,United Kingdom' })],
       );
-      const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { location: 'London,England,GB' } });
+      const req = createMockRequest({ method: 'PUT', query: {}, body: { ids: [1],  location: 'London,England,GB' } });
       const res = createMockResponse();
 
       await handler(req, res);
@@ -620,7 +620,7 @@ describe('PUT /api/serp/keywords location updates', () => {
         [locationRow({ ID: 1, location: 'Miami,Florida,United States' })],
         [locationRow({ ID: 9, country: 'US', location: 'Orlando,Florida,United States' })],
       );
-      const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { location: 'Orlando,Florida,United States' } });
+      const req = createMockRequest({ method: 'PUT', query: {}, body: { ids: [1],  location: 'Orlando,Florida,United States' } });
       const res = createMockResponse();
 
       await handler(req, res);
@@ -652,7 +652,7 @@ beforeEach(() => {
   });
 
 it('rejects a sticky update whose IDs are all invalid, and never queries them', async () => {
-    const req = createMockRequest({ method: 'PUT', query: { id: 'abc,0,-3' }, body: { sticky: true } });
+    const req = createMockRequest({ method: 'PUT', query: {}, body: { ids: ['abc', 0, '-3'],  sticky: true } });
     const res = createMockResponse();
 
     await handler(req as unknown as NextApiRequest, res as unknown as NextApiResponse);
@@ -662,9 +662,9 @@ it('rejects a sticky update whose IDs are all invalid, and never queries them', 
     expect(refreshQueue.enqueue).not.toHaveBeenCalled();
   });
 
-it('rejects a legacy id query with a malformed item', async () => {
+it('rejects malformed keyword IDs in the JSON body', async () => {
     for (const id of ['abc,7', '12abc', '1.5', '1e3']) {
-      const req = createMockRequest({ method: 'PUT', query: { id }, body: { sticky: true } });
+      const req = createMockRequest({ method: 'PUT', query: {}, body: { ids: [id],  sticky: true } });
       const res = createMockResponse();
 
       await handler(req as unknown as NextApiRequest, res as unknown as NextApiResponse);
@@ -674,8 +674,8 @@ it('rejects a legacy id query with a malformed item', async () => {
     }
   });
 
-it('accepts a legacy id query made of plain positive integers', async () => {
-    const req = createMockRequest({ method: 'PUT', query: { id: '7,8' }, body: { sticky: true } });
+it('accepts keyword IDs in the JSON body', async () => {
+    const req = createMockRequest({ method: 'PUT', query: {}, body: { ids: [7, 8],  sticky: true } });
     const res = createMockResponse();
     KeywordMock.update.mockResolvedValue([1]);
     KeywordMock.findAll.mockResolvedValueOnce([]);
@@ -688,7 +688,7 @@ it('accepts a legacy id query made of plain positive integers', async () => {
 
 it('rejects tag keys that are not canonical integers', async () => {
     for (const key of ['1.0', '01', 'abc', '1e1']) {
-      const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { tags: { [key]: ['x'] } } });
+      const req = createMockRequest({ method: 'PUT', query: {}, body: { ids: [1],  tags: { [key]: ['x'] } } });
       const res = createMockResponse();
       await handler(req as unknown as NextApiRequest, res as unknown as NextApiResponse);
       expect(res.status).toHaveBeenCalledWith(400);
@@ -702,7 +702,7 @@ it.each([
     [{ tags: { 1: Array.from({ length: 21 }, (_, index) => `tag-${index}`) } }, 'A keyword can have at most'],
     [{}, 'Keyword update payload is required.'],
   ])('rejects malformed keyword update payloads before writing (%p)', async (body, message) => {
-    const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body });
+    const req = createMockRequest({ method: 'PUT', query: {}, body: { ids: [1], ...body } });
     const res = createMockResponse();
 
     await handler(req as unknown as NextApiRequest, res as unknown as NextApiResponse);
@@ -716,7 +716,7 @@ it('sanitizes and persists tags for the matching tracked keyword', async () => {
     const updated = jest.fn().mockResolvedValue(undefined);
     const row = { ID: 1, keyword: 'alpha', domain: 'example.com', update: updated, get: () => ({ ID: 1, keyword: 'alpha', domain: 'example.com', tags: '["seo"]' }) };
     KeywordMock.findAll.mockResolvedValueOnce([row]).mockResolvedValueOnce([row]);
-    const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body: { tags: { 1: [' seo ', 'seo', '', 'content'] } } });
+    const req = createMockRequest({ method: 'PUT', query: {}, body: { ids: [1],  tags: { 1: [' seo ', 'seo', '', 'content'] } } });
     const res = createMockResponse();
 
     await handler(req as unknown as NextApiRequest, res as unknown as NextApiResponse);
@@ -729,7 +729,7 @@ it.each([
     [{ location: 'Austin' }, 'Country is required!'],
     [{ location: 'Austin', country: 'US' }, 'City and state must be provided together.'],
   ])('rejects a location change that does not identify a complete target (%p)', async (body, message) => {
-    const req = createMockRequest({ method: 'PUT', query: { id: '1' }, body });
+    const req = createMockRequest({ method: 'PUT', query: {}, body: { ids: [1], ...body } });
     const res = createMockResponse();
 
     await handler(req as unknown as NextApiRequest, res as unknown as NextApiResponse);

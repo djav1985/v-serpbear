@@ -126,7 +126,7 @@ export function LocationPicker({
                   ))}
                </SelectContent>
             </Select>
-            <Button type="button" onClick={addNewLocation}>Add</Button>
+            <Button type="button" variant="primaryAction" onClick={addNewLocation}>Add</Button>
          </div>
          {error && <p role="alert" className="text-destructive text-sm">{error}</p>}
       </div>

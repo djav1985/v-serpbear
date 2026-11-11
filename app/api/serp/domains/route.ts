@@ -7,7 +7,7 @@ import { loadDomains } from '../../../../utils/domainsList';
 import { checkSearchConsoleIntegration, removeLocalSCData } from '../../../../utils/searchConsole';
 import { errorResponse } from '../../../../utils/api/response';
 import { parseStrictBooleanQueryParam } from '../../../../utils/api/queryBoolean';
-import { createRoute, fail, json, getParam, getQuery, readJson, type ApiContext } from '../../../../utils/apiLogging';
+import { createRoute, fail, json, getQuery, readJson, type ApiContext } from '../../../../utils/apiLogging';
 import { validateHostname } from '../../../../utils/validators/hostname';
 import { toDomainSlug } from '../../../../utils/domainSlug';
 import { logger } from '../../../../utils/logger';
@@ -185,15 +185,17 @@ const addDomain = async (req: Request, ctx: ApiContext) => {
 };
 
 const deleteDomain = async (req: Request, ctx: ApiContext) => {
-   if (!getParam(req, 'domain')) {
+   const requestBody = await readJson(req);
+   const domainValue = requestBody && typeof requestBody === 'object' && !Array.isArray(requestBody)
+      ? (requestBody as Record<string, unknown>).domain
+      : undefined;
+   if (typeof domainValue !== 'string' || !domainValue.trim()) {
       return fail(400, 'BAD_REQUEST', 'Domain is Required!', ctx);
    }
-   
-   const domain = getParam(req, 'domain') as string;
-   
+   const domain = domainValue;
+   const normalizedDomain = domain.trim().toLowerCase();
 
    try {
-      const normalizedDomain = domain.trim().toLowerCase();
       // Waiting in the queue behind a long refresh would leave this request hanging until it times out,
       // so reject it the same way deleting keywords does.
       // The claim also keeps new refreshes for this domain waiting until the delete task has started.
@@ -303,7 +305,7 @@ const deleteDomain = async (req: Request, ctx: ApiContext) => {
       const finalizedResponse = responsePayload as { status: number; body: unknown };
       return json(finalizedResponse.body, finalizedResponse.status);
    } catch (error) {
-      logger.error(`Error deleting domain: ${getParam(req, 'domain')}`, error instanceof Error ? error : new Error(String(error)));
+      logger.error(`Error deleting domain: ${normalizedDomain}`, error instanceof Error ? error : new Error(String(error)));
       return fail(500, 'INTERNAL_SERVER_ERROR', 'Error Deleting Domain.', ctx);
    }
 };
@@ -329,15 +331,16 @@ const applyScrapeOptionUpdates = (payload: Partial<DomainSettings>, updates: Par
 };
 
 const updateDomain = async (req: Request, ctx: ApiContext) => {
-   if (!getParam(req, 'domain')) {
-      return fail(400, 'BAD_REQUEST', 'Domain is Required!', ctx);
-   }
-   // Same normalisation as DELETE: domains are stored trimmed and lowercase
-   const domain = (getParam(req, 'domain') as string).trim().toLowerCase();
    const requestBody = await readJson(req);
    if (!requestBody || typeof requestBody !== 'object' || Array.isArray(requestBody)) {
       return fail(400, 'BAD_REQUEST', 'Request body must be a JSON object.', ctx);
    }
+   const body = requestBody as Record<string, unknown>;
+   if (typeof body.domain !== 'string' || !body.domain.trim()) {
+      return fail(400, 'BAD_REQUEST', 'Domain is Required!', ctx);
+   }
+   // Same normalisation as DELETE: domains are stored trimmed and lowercase
+   const domain = body.domain.trim().toLowerCase();
    const payload = requestBody as Partial<DomainSettings>;
    const {
       notification_emails,
@@ -439,7 +442,7 @@ const updateDomain = async (req: Request, ctx: ApiContext) => {
       } as DomainType;
       return json({ domain: normalizeDomainBooleans(maskedDomain) });
    } catch (error) {
-      logger.error('Updating Domain: ', error instanceof Error ? error : new Error(String(error)), { context: getParam(req, 'domain') });
+      logger.error('Updating Domain: ', error instanceof Error ? error : new Error(String(error)), { context: domain });
       return fail(500, 'INTERNAL_SERVER_ERROR', 'Error Updating Domain. An Unknown Error Occurred.', ctx);
    }
 };

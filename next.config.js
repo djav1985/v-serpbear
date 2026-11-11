@@ -27,23 +27,24 @@ const nextConfig = {
       { key: 'X-Content-Type-Options', value: 'nosniff' },
       { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
       { key: 'X-Frame-Options', value: 'DENY' },
-      {
-        key: 'Content-Security-Policy',
-        value: [
-          "default-src 'self'",
-          "script-src 'self' 'unsafe-inline'",
-          "style-src 'self' 'unsafe-inline'",
-          "img-src 'self' data: https://image.thum.io https://www.google.com",
-          "connect-src 'self' https://image.thum.io",
-          "object-src 'none'",
-          "base-uri 'self'",
-          "form-action 'self'",
-          "frame-ancestors 'none'",
-        ].join('; '),
-      },
     ];
+    const contentSecurityPolicy = {
+      key: 'Content-Security-Policy',
+      value: [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline'",
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' data: https://image.thum.io https://www.google.com",
+        "connect-src 'self' https://image.thum.io",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "frame-ancestors 'none'",
+      ].join('; '),
+    };
     return [
-      { source: '/:path*', headers: securityHeaders },
+      { source: '/((?!api/oauth/approve(?:/|$)).*)', headers: [...securityHeaders, contentSecurityPolicy] },
+      { source: '/api/oauth/approve', headers: securityHeaders },
       { source: '/login', headers: noStoreHeaders },
       { source: '/domains', headers: privatePageHeaders },
       { source: '/research', headers: privatePageHeaders },

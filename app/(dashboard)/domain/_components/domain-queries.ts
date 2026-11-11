@@ -25,7 +25,7 @@ export function useUpdateDomain(onDone: () => void) {
    const invalidate = useDomainsInvalidator();
    return useMutation({
       mutationFn: ({ domain, settings }: { domain: string; settings: Partial<DomainSettings> }) => (
-         apiPut<{ domain: DomainType | null }>(`/api/serp/domains?domain=${encodeURIComponent(domain)}`, settings)
+         apiPut<{ domain: DomainType | null }>('/api/serp/domains', { ...settings, domain })
       ),
       onSuccess: () => { toast.success('Settings updated!'); onDone(); invalidate(); },
       onError: () => { toast.error('Error updating domain settings'); },
@@ -35,7 +35,7 @@ export function useUpdateDomain(onDone: () => void) {
 export function useDeleteDomain(onDone: () => void) {
    const invalidate = useDomainsInvalidator();
    return useMutation({
-      mutationFn: (domain: string) => apiDelete(`/api/serp/domains?domain=${encodeURIComponent(domain)}`),
+      mutationFn: (domain: string) => apiDelete('/api/serp/domains', { domain }),
       onSuccess: () => { toast.success('Domain removed successfully!'); onDone(); invalidate(); },
       onError: (error) => { toast.error(conflictMessage(error, 'Error removing domain')); },
    });

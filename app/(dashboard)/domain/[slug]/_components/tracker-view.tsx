@@ -162,7 +162,7 @@ export function TrackerView({
    const loadFailed = keywordsQuery.isError && keywords.length === 0;
 
    return (
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-2">
          {!scraperConfigured && (
             <div role="alert" className="bg-destructive text-destructive-foreground flex flex-wrap items-center justify-center gap-2 rounded-md p-3 text-sm">
                A scraper has not been set up yet. Open Settings to configure it and start using the app.

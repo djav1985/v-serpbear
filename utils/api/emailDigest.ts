@@ -9,15 +9,19 @@ import { trimStringProperties, trimString, sanitizeSmtpHost } from '../security'
 import { buildMailer } from '../mailer';
 import { logger } from '../logger';
 import normalizeDomainBooleans from '../normalizeDomain';
-import { fail, json, getQuery, type ApiContext } from '../apiLogging';
+import { fail, json, readJson, type ApiContext } from '../apiLogging';
 
 export const sendDigestEmails = async (req: Request, ctx: ApiContext) => {
-   const rawDomain = getQuery(req).domain;
-   if (rawDomain !== undefined && typeof rawDomain !== 'string') {
+   const rawBody = await readJson(req);
+   const rawDomain = rawBody && typeof rawBody === 'object' && !Array.isArray(rawBody)
+      ? (rawBody as Record<string, unknown>).domain
+      : undefined;
+   const queryDomains = new URL(req.url).searchParams.getAll('domain');
+   if (queryDomains.length > 1 || (rawDomain !== undefined && typeof rawDomain !== 'string')) {
       return fail(400, 'BAD_REQUEST', 'domain must be a single domain name.', ctx);
    }
    // Domains are stored trimmed and lowercase
-   const reqDomain = (rawDomain || '').trim().toLowerCase();
+   const reqDomain = (typeof rawDomain === 'string' ? rawDomain : queryDomains[0] || '').trim().toLowerCase();
    try {
       const settings = await getAppSettings();
       const normalizedSettings: SettingsType = trimStringProperties({ ...settings });

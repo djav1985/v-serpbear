@@ -20,19 +20,20 @@ cd v-serpbear
 
 ## Step 3: Set the environment variables
 
-Create a `.env.local` file in the project folder:
+Create a `.env` file in the project folder:
 
 ```
 USER_NAME=admin
 PASSWORD=your_password_here
 SECRET=your_random_secret_here
 APIKEY=your_random_api_key_here
+MCP_APIKEY=your_separate_random_mcp_key_here
 SESSION_DURATION=24
 NEXT_PUBLIC_APP_URL=http://localhost:3000
-TZ=America/New_York
+CRON_TIMEZONE=America/New_York
 ```
 
-Replace the values. Use `https://serpbear.yourdomain.com` for `NEXT_PUBLIC_APP_URL` on a server. Every variable is described in [Configuration](Configuration). Both the web app and the cron worker read this file.
+Replace the values. `MCP_APIKEY` is optional and only used for direct MCP bearer access. OAuth approval uses the configured SerpBear username and password or an existing valid login cookie; entering credentials does not create a login cookie. Use `https://serpbear.yourdomain.com` for `NEXT_PUBLIC_APP_URL` on a server. Standard OAuth discovery routes are not present in this checkout, so clients that require automatic OAuth discovery cannot currently connect. Every variable is described in [Configuration](Configuration). Both the web app and the cron worker read this file.
 
 ## Step 4: Create the data folder
 

@@ -170,7 +170,7 @@ export function DiscoverView({ domain, searchConsoleConnected, adwordsConnected,
       : 'No keywords match these filters.';
 
    return (
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-2">
          <DomainHeader
             domain={domain}
             searchConsoleConnected={searchConsoleConnected}
@@ -240,8 +240,7 @@ export function DiscoverView({ domain, searchConsoleConnected, adwordsConnected,
             <DataTable
                table={table}
                label="Search Console keywords"
-               className="h-[calc(100dvh-30rem)] min-h-80"
-               minWidth="38rem"
+               className="h-[calc(100dvh-26rem)] min-h-96"
                isLoading={searchConsoleConnected && isLoading}
                emptyMessage={emptyMessage}
                estimateStackedHeight={110}

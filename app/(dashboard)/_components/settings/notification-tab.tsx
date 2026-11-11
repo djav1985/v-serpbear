@@ -54,7 +54,7 @@ export function NotificationTab({ settings, update, error, platformName }: Setti
                <TextField id="from-name" label="Email From Name" placeholder={platformName} value={settings.notification_email_from_name || platformName} onChange={(v) => update('notification_email_from_name', v)} />
                <div className="flex flex-col gap-2">
                   <p className="text-muted-foreground text-xs">Send a notification email immediately to confirm your SMTP credentials and each domain recipient list.</p>
-                  <Button disabled={!canSend || sending} aria-busy={sending} onClick={() => sendNow()}>
+                  <Button variant="secondary" className="h-10 text-base leading-none pt-0" disabled={!canSend || sending} aria-busy={sending} onClick={() => sendNow()}>
                      {sending && <Loader2 className="animate-spin" />}Send Notifications Now
                   </Button>
                   <p className="sr-only" aria-live="polite">

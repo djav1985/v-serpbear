@@ -242,9 +242,9 @@ describe('prismcrawl', () => {
           expect(fetchMock).toHaveBeenCalledTimes(1);
           const [url, init] = fetchMock.mock.calls[0];
           expect(url).toBe('https://api.prismcrawl.com/v1/google/search');
-          expect(init.method).toBe('POST');
-          expect(init.headers['x-api-key']).toBe('prism-test-key');
-          expect(JSON.parse(init.body)).toMatchObject({
+          expect(init?.method).toBe('POST');
+          expect(new Headers(init?.headers).get('x-api-key')).toBe('prism-test-key');
+          expect(JSON.parse(String(init?.body))).toMatchObject({
             query: 'plumbers',
             location: 'Port Charlotte,FL,United States',
             start: 10,
@@ -261,9 +261,9 @@ describe('prismcrawl', () => {
           fetchMock.mockClear();
           await getScraperClient(buildKeyword(), settings as SettingsType, getScraper, 0);
 
-          const [, getInit] = fetchMock.mock.calls[0];
-          expect(getInit.method).toBe('GET');
-          expect(getInit.body).toBeUndefined();
+          const getInit = fetchMock.mock.calls[0]?.[1];
+          expect(getInit?.method).toBe('GET');
+          expect(getInit?.body).toBeUndefined();
         });
   });
 });

@@ -6,7 +6,7 @@ describe('cron worker', () => {
   /* eslint-disable security/detect-non-literal-fs-filename -- writes only to a temp directory created by the test */
 
   describe('cron worker helpers', () => {
-    let makeCronApiCall: (apiKey: string | undefined | null, baseUrl: string, endpoint: string, successMessage: string) => Promise<void>;
+    let makeCronApiCall: (apiKey: string | undefined | null, baseUrl: string, endpoint: string, successMessage: string, body?: unknown) => Promise<void>;
     let normalizeValue: (value: unknown, fallback: string) => string;
     const originalFetch = global.fetch;
 
@@ -31,7 +31,7 @@ describe('cron worker', () => {
     it('skips API calls when the API key is missing', async () => {
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
-      await makeCronApiCall(undefined, 'http://localhost:3000', '/api/app/cron', 'ignored');
+      await makeCronApiCall(undefined, 'http://localhost:3000', '/api/serp/refresh', 'ignored', { scope: 'enabled-domains' });
 
       expect(global.fetch).not.toHaveBeenCalled();
       // logger.warn emits a JSON log entry via console.log
@@ -42,7 +42,7 @@ describe('cron worker', () => {
         expect.stringContaining('Skipping API call')
       );
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('"/api/app/cron"')
+        expect.stringContaining('"/api/serp/refresh"')
       );
     });
 
@@ -57,11 +57,12 @@ describe('cron worker', () => {
         json: () => Promise.resolve({ ok: true }),
       });
 
-      await makeCronApiCall('secret', 'http://localhost:3000', '/api/app/cron', '[CRON] Keyword Scraping Result');
+      await makeCronApiCall('secret', 'http://localhost:3000', '/api/serp/refresh', '[CRON] Keyword Scraping Result', { scope: 'enabled-domains' });
 
-      expect(global.fetch).toHaveBeenCalledWith('http://localhost:3000/api/app/cron', {
+      expect(global.fetch).toHaveBeenCalledWith('http://localhost:3000/api/serp/refresh', {
         method: 'POST',
-        headers: { Authorization: 'Bearer secret' },
+        headers: { Authorization: 'Bearer secret', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scope: 'enabled-domains' }),
       });
       // logger.info emits a JSON log entry via console.log
       expect(consoleSpy).toHaveBeenCalledWith(
@@ -80,7 +81,7 @@ describe('cron worker', () => {
         text: async () => 'upstream unavailable',
       });
 
-      await expect(makeCronApiCall('secret', 'http://localhost:3000', '/api/app/cron', 'unused')).resolves.toBeUndefined();
+      await expect(makeCronApiCall('secret', 'http://localhost:3000', '/api/serp/refresh', 'unused', { scope: 'enabled-domains' })).resolves.toBeUndefined();
 
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('HTTP 503: upstream unavailable'));
     });
@@ -290,19 +291,17 @@ describe('cron worker', () => {
       expect(process.env.CRON_ENV_TEST_ONLY_ENV).toBe('from-env');
     });
 
-    it('prefers .env.local over .env when both define a key', () => {
-      writeFileSync(path.join(dir, '.env.local'), 'CRON_ENV_TEST_LOCAL=from-local\nCRON_ENV_TEST_SHARED=local-wins\n');
-      writeFileSync(path.join(dir, '.env'), 'CRON_ENV_TEST_SHARED=env-file\nCRON_ENV_TEST_LOCAL=env-file\n');
+    it('loads variables from .env', () => {
+      writeFileSync(path.join(dir, '.env'), 'CRON_ENV_TEST_SHARED=env-file\nCRON_ENV_TEST_ONLY=from-env\n');
 
       loadEnvFiles(dir);
 
-      expect(process.env.CRON_ENV_TEST_SHARED).toBe('local-wins');
-      expect(process.env.CRON_ENV_TEST_LOCAL).toBe('from-local');
+      expect(process.env.CRON_ENV_TEST_SHARED).toBe('env-file');
+      expect(process.env.CRON_ENV_TEST_ONLY).toBe('from-env');
     });
 
     it('keeps variables already in the process environment (for example from docker compose)', () => {
       process.env.CRON_ENV_TEST_SHELL = 'from-shell';
-      writeFileSync(path.join(dir, '.env.local'), 'CRON_ENV_TEST_SHELL=from-local\n');
       writeFileSync(path.join(dir, '.env'), 'CRON_ENV_TEST_SHELL=from-env\n');
 
       loadEnvFiles(dir);
@@ -310,7 +309,7 @@ describe('cron worker', () => {
       expect(process.env.CRON_ENV_TEST_SHELL).toBe('from-shell');
     });
 
-    it('does not fail when neither env file exists', () => {
+    it('does not fail when .env does not exist', () => {
       expect(() => loadEnvFiles(dir)).not.toThrow();
     });
   });

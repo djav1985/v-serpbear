@@ -5,7 +5,7 @@ import { Download, Loader2 } from 'lucide-react';
 import { useShell } from 'app/(dashboard)/_components/shell-context';
 import { IdeasTable } from 'app/(dashboard)/_components/keyword-ideas/ideas-table';
 import { useIdeas, useLoadIdeas } from 'app/(dashboard)/_components/keyword-ideas/ideas-queries';
-import { Button } from 'components/ui/button';
+import { Button, ButtonLabel } from 'components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from 'components/ui/card';
 import { Label } from 'components/ui/label';
 import {
@@ -103,13 +103,14 @@ export function ResearchView({ adwordsConnected }: ResearchViewProps) {
                      </Select>
                   </div>
                   <Button
+                     variant="primaryAction"
                      data-testid="load_ideas"
                      disabled={!adwordsConnected || isLoadingIdeas}
                      title={!adwordsConnected ? 'Please connect your Google Ads account to generate keyword ideas.' : undefined}
                      onClick={submit}
                   >
                      {isLoadingIdeas ? <Loader2 className="animate-spin" /> : <Download />}
-                     {isLoadingIdeas ? 'Loading…' : 'Load Ideas'}
+                     <ButtonLabel>{isLoadingIdeas ? 'Loading…' : 'Load Ideas'}</ButtonLabel>
                   </Button>
                </CardContent>
             </Card>

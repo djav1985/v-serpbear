@@ -4,15 +4,17 @@ import { cn } from "lib/utils"
 import { Slot } from "radix-ui"
 
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center pt-px rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&>svg]:-translate-y-[0.5px] [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&>svg]:-translate-y-[0.5px] [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary/80",
+        primaryAction: "bg-[#0366d6] text-white hover:bg-[#0056b3] active:bg-[#004a99] focus-visible:border-[#0366d6] focus-visible:ring-[#0366d6]/40",
+        dangerAction: "bg-[#dc2626] text-white hover:bg-[#b91c1c] hover:text-white active:bg-[#991b1b] focus-visible:border-[#dc2626] focus-visible:ring-[#dc2626]/40",
         outline:
           "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
+          "bg-[#4b5161] text-white hover:bg-[#687080] hover:text-white active:bg-[#7a8291] focus-visible:border-[#4b5161] focus-visible:ring-[#4b5161]/40",
         ghost:
           "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
         destructive:
@@ -63,4 +65,8 @@ function Button({
   )
 }
 
-export { Button, buttonVariants }
+function ButtonLabel({ className, ...props }: React.ComponentProps<"span">) {
+  return <span className={cn("relative -top-px leading-none", className)} {...props} />
+}
+
+export { Button, ButtonLabel, buttonVariants }

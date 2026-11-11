@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Download, Lightbulb, LineChart, Plus, RefreshCw, Search, Settings } from 'lucide-react';
-import { Button } from 'components/ui/button';
+import { Button, ButtonLabel } from 'components/ui/button';
 import {
    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from 'components/ui/select';
@@ -58,8 +58,8 @@ export function DomainHeader({ domain, onOpenSettings, onExport, onReloadAll, on
             </Select>
          </div>
 
-         <div className="flex flex-wrap items-end justify-between gap-3 border-b">
-            <nav aria-label="Domain views" className="-mb-px flex max-w-full overflow-x-auto">
+         <div className="flex flex-wrap items-end justify-between gap-3 md:border-b">
+            <nav aria-label="Domain views" className="flex w-full max-w-full overflow-x-auto border-b md:-mb-px md:w-auto md:border-b-0">
                {TABS.map(({ label, base, icon: Icon, hint }) => {
                   const href = `${base}/${domain.slug}`;
                   const active = pathname === href;
@@ -74,14 +74,20 @@ export function DomainHeader({ domain, onOpenSettings, onExport, onReloadAll, on
                         aria-current={active ? 'page' : undefined}
                         className={cn(
                            'flex shrink-0 items-center gap-2 border-b-2 px-3 py-2 text-sm lg:px-4',
-                           active ? 'border-primary text-foreground font-semibold' : 'text-muted-foreground hover:text-foreground border-transparent',
+                           active ? 'border-primary text-foreground' : 'text-muted-foreground hover:text-foreground border-transparent',
                         )}
                      >
                         <Icon className="hidden size-4 lg:block" />
-                        {label}
+                        <span className="grid">
+                           <span aria-hidden="true" className="invisible col-start-1 row-start-1 font-semibold">{label}</span>
+                           <span className={cn('col-start-1 row-start-1', active && 'font-semibold')}>{label}</span>
+                        </span>
                      </Link>
                   );
                })}
+               <Button variant="ghost" size="icon-sm" className="ml-auto self-center md:hidden" aria-label="Domain settings" data-testid="show_domain_settings_mobile" onClick={onOpenSettings}>
+                  <Settings />
+               </Button>
             </nav>
 
             <div className="flex flex-wrap items-center gap-2 pb-1">
@@ -93,11 +99,11 @@ export function DomainHeader({ domain, onOpenSettings, onExport, onReloadAll, on
                   <Button variant="ghost" size="sm" data-testid="reload_all" onClick={onReloadAll}><RefreshCw /><span className="hidden lg:inline">Reload All SERPs</span></Button>
                )}
                {onLoadIdeas && (
-                  <Button size="sm" data-testid="load_ideas" onClick={onLoadIdeas}><Download />Load Ideas</Button>
+                  <Button variant="primaryAction" size="sm" data-testid="load_ideas" onClick={onLoadIdeas}><Download /><ButtonLabel>Load Ideas</ButtonLabel></Button>
                )}
-               <Button variant="ghost" size="sm" data-testid="show_domain_settings" onClick={onOpenSettings}><Settings /><span className="hidden lg:inline">Domain Settings</span></Button>
+               <Button variant="ghost" size="sm" className="hidden md:inline-flex" data-testid="show_domain_settings" onClick={onOpenSettings}><Settings /><span className="hidden lg:inline">Domain Settings</span></Button>
                {onAddKeyword && (
-                  <Button size="sm" data-testid="add_keyword" onClick={onAddKeyword}><Plus />Add Keyword</Button>
+                  <Button variant="primaryAction" size="sm" data-testid="add_keyword" onClick={onAddKeyword}><Plus />Add Keyword</Button>
                )}
             </div>
          </div>

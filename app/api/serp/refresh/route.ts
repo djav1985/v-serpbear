@@ -1,12 +1,14 @@
 import crypto from 'crypto';
 import { Op } from 'sequelize';
+import Domain from '../../../../database/models/domain';
 import Keyword from '../../../../database/models/keyword';
-import { refreshKeywordsByIds, clearKeywordUpdatingFlags, markKeywordsAsUpdating, partitionKeywordsByDomainStatus } from '../../../../utils/refresh';
+import refreshAndUpdateKeywords, { refreshKeywordsByIds, clearKeywordUpdatingFlags, markKeywordsAsUpdating, partitionKeywordsByDomainStatus, DOMAIN_REFRESH_ATTRIBUTES } from '../../../../utils/refresh';
 import { getAppSettings } from '../../../../utils/appSettings';
 import { scrapeKeywordWithStrategy } from '../../../../utils/scraper';
 import { serializeError } from '../../../../utils/errorSerialization';
 import { logger } from '../../../../utils/logger';
 import { createRoute, fail, json, getParam, readJson, type ApiContext } from '../../../../utils/apiLogging';
+import { fromDbBool } from '../../../../utils/dbBooleans';
 import { refreshQueue } from '../../../../utils/refreshQueue';
 import { takeRateLimitToken } from '../../../../utils/rateLimit';
 import { getClientIp } from '../../../../utils/api/clientIp';
@@ -62,19 +64,12 @@ const getRetryStatus = async (req: Request, ctx: ApiContext) => {
    }
 };
 
-/**
- * Keyword IDs to refresh: the JSON body `ids` array when sent (null if any item is not a positive integer),
- * otherwise the legacy comma-separated `id` query.
- */
+/** Keyword IDs to refresh from the JSON body; null if any item is not a positive integer. */
 const readKeywordIds = async (req: Request): Promise<number[] | null> => {
    const body = await readBody(req);
-   if (body.ids !== undefined) {
-      const ids: unknown = body.ids;
-      const valid = Array.isArray(ids) && ids.every((id) => Number.isSafeInteger(id) && id > 0);
-      return valid ? Array.from(new Set(ids as number[])) : null;
-   }
-   const idParam = getParam(req, 'id');
-   return idParam ? parseKeywordIds(idParam) : null;
+   const ids: unknown = body.ids;
+   const valid = Array.isArray(ids) && ids.every((id) => Number.isSafeInteger(id) && id > 0);
+   return valid ? Array.from(new Set(ids as number[])) : null;
 };
 
 /**
@@ -85,28 +80,151 @@ const isCrossSiteBrowserRequest = (req: Request): boolean => (
    !isBearerAuthorization(req.headers.get('authorization') ?? undefined) && !isSameOriginRequest(req)
 );
 
+/** Start the scheduled refresh for every domain with scraping enabled. */
+const startEnabledDomainRefresh = async (ctx: ApiContext): Promise<Response> => {
+   try {
+      const settings = await getAppSettings();
+      if (!settings || settings.scraper_type === 'none') {
+         logger.warn('Cron refresh skipped: Scraper not configured');
+         return fail(400, 'BAD_REQUEST', 'Scraper has not been set up yet.', ctx);
+      }
+
+      const domainRecords = await Domain.findAll({ attributes: DOMAIN_REFRESH_ATTRIBUTES });
+      const enabledDomains = domainRecords
+         .map((domain) => domain.get({ plain: true }))
+         .filter((domain) => fromDbBool(domain.scrapeEnabled))
+         .map((domain) => domain.domain);
+
+      if (enabledDomains.length === 0) {
+         logger.debug('[SCRAPER] Scheduled refresh skipped: No domains have scraping enabled');
+         return json({ started: false, error: 'No domains have scraping enabled.' });
+      }
+
+      const releases: Array<() => void> = [];
+      const skippedDomains: string[] = [];
+      const startedDomains: string[] = [];
+      try {
+         for (const domain of enabledDomains) {
+            const release = refreshQueue.reserveDomains([domain]);
+            if (!release) {
+               skippedDomains.push(domain);
+               continue;
+            }
+            releases.push(release);
+            startedDomains.push(domain);
+            const taskId = `cron-refresh-${domain}-${crypto.randomUUID()}`;
+            refreshQueue.enqueue(
+               taskId,
+               async () => { await processScheduledDomain(domain, settings, domainRecords); },
+               [domain],
+               { reservations: [release] }
+            ).catch((queueError) => {
+               logger.error(`[CRON] ERROR enqueueing refresh task for ${domain}: `, queueError instanceof Error ? queueError : new Error(String(queueError)));
+            });
+         }
+      } finally {
+         releases.forEach((release) => release());
+      }
+
+      if (skippedDomains.length > 0) {
+         logger.debug('[SCRAPER] Scheduled refresh skipped domains that are already being refreshed', { skippedDomains });
+      }
+      logger.info(`[SCRAPER] Scheduled refresh started for ${startedDomains.length} domains`);
+      return json(skippedDomains.length > 0
+         ? { started: startedDomains.length > 0, skipped: { domains: skippedDomains } }
+         : { started: true });
+   } catch (error) {
+      logger.error('Error starting scheduled refresh', error instanceof Error ? error : new Error(String(error)));
+      return fail(500, 'INTERNAL_SERVER_ERROR', 'Error Starting the Scheduled Refresh', ctx);
+   }
+};
+
+const processScheduledDomain = async (domain: string, settings: SettingsType, domainRecords: Domain[]): Promise<void> => {
+   let keywordsToRefresh: Keyword[] = [];
+   try {
+      logger.info(`[SCRAPER] Processing domain: ${domain}`);
+      const keywordQueries = await Keyword.findAll({ where: { domain } });
+      if (keywordQueries.length === 0) {
+         logger.debug(`[SCRAPER] No keywords found for domain: ${domain}`);
+         return;
+      }
+
+      const { keywordsToRefresh: eligibleKeywords, skippedKeywords, missingDomainKeywords } =
+         await partitionKeywordsByDomainStatus(keywordQueries, domainRecords);
+      keywordsToRefresh = eligibleKeywords.filter((keyword) => !isKeywordUpdating(keyword));
+
+      if (missingDomainKeywords.length > 0) {
+         await clearKeywordUpdatingFlags(missingDomainKeywords, 'for missing domains', {
+            domain,
+            keywordIds: missingDomainKeywords.map((keyword) => keyword.ID),
+         }, false, 'missing-domain');
+      }
+      if (skippedKeywords.length > 0) {
+         await clearKeywordUpdatingFlags(skippedKeywords, 'for skipped keywords', {
+            domain,
+            keywordIds: skippedKeywords.map((keyword) => keyword.ID),
+         }, false, 'scrape-disabled');
+      }
+      if (keywordsToRefresh.length === 0) {
+         logger.debug(`[SCRAPER] No eligible keywords found for domain: ${domain}`);
+         return;
+      }
+
+      await markKeywordsAsUpdating(keywordsToRefresh, 'before scheduled refresh', {
+         domain,
+         keywordIds: keywordsToRefresh.map((keyword) => keyword.ID),
+      });
+      logger.debug(`[SCRAPER] Processing ${keywordsToRefresh.length} keywords for domain: ${domain}`);
+      await refreshAndUpdateKeywords(keywordsToRefresh, settings, domainRecords);
+      logger.info(`[SCRAPER] Completed processing domain: ${domain}`);
+   } catch (error) {
+      logger.error(`Error processing domain: ${domain}`, error instanceof Error ? error : new Error(String(error)));
+      try {
+         await clearKeywordUpdatingFlags(keywordsToRefresh, 'after domain refresh error', {
+            domain,
+            keywordIds: keywordsToRefresh.map((keyword) => keyword.ID),
+         }, true, 'refresh-error');
+      } catch (updateError) {
+         logger.error(`Failed to clear updating flags for domain: ${domain}`, updateError instanceof Error ? updateError : new Error(String(updateError)));
+      }
+      throw error;
+   }
+};
+
 const refreshTheKeywords = async (req: Request, ctx: ApiContext) => {
    if (isCrossSiteBrowserRequest(req)) {
       return fail(403, 'FORBIDDEN', 'Refreshes must be started from this site.', ctx);
    }
    const body = await readBody(req);
+   const scope = body.scope;
+   if (scope !== undefined) {
+      if (scope === 'enabled-domains') {
+         if (body.ids !== undefined || body.keyword !== undefined || body.domain !== undefined) {
+            return fail(400, 'BAD_REQUEST', 'The enabled-domains scope cannot be combined with keyword or domain filters.', ctx);
+         }
+         return startEnabledDomainRefresh(ctx);
+      }
+      if (scope !== 'domain') {
+         return fail(400, 'BAD_REQUEST', 'Invalid refresh scope.', ctx);
+      }
+   }
    // A body with a keyword is a one-off keyword search (see searchKeyword), not a refresh
    if (body.keyword !== undefined) {
       return searchKeyword(req, body, ctx);
    }
+   const refreshAll = scope === 'domain';
    const idsInBody = body.ids !== undefined;
-   if (!idsInBody && !getParam(req, 'id')) {
+   const domain = body.domain;
+   if (refreshAll && (idsInBody || typeof domain !== 'string' || !domain.trim())) {
+      return fail(400, 'BAD_REQUEST', 'The domain scope requires a domain and cannot be combined with keyword IDs.', ctx);
+   }
+   if (!refreshAll && domain !== undefined) {
+      return fail(400, 'BAD_REQUEST', 'A domain requires the domain refresh scope.', ctx);
+   }
+   if (!idsInBody && !refreshAll) {
       return fail(400, 'BAD_REQUEST', 'keyword ID is Required!', ctx);
    }
-   const refreshAll = !idsInBody && getParam(req, 'id') === 'all';
-   if (refreshAll && !getParam(req, 'domain')) {
-      return fail(400, 'BAD_REQUEST', 'When Refreshing all Keywords of a domian, the Domain name Must be provided.', ctx);
-   }
    const keywordIDs = refreshAll ? [] : await readKeywordIds(req);
-   const domain = getParam(req, 'domain');
-   if (domain !== undefined && typeof domain !== 'string') {
-      return fail(400, 'BAD_REQUEST', 'domain must be a single domain name.', ctx);
-   }
    logger.debug('[SCRAPER] keywordIDs: ', { data: keywordIDs });
 
    if (!refreshAll && (!keywordIDs || keywordIDs.length === 0)) {
