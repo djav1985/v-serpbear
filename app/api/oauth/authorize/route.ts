@@ -4,7 +4,7 @@ import { logger } from '../../../../utils/logger';
 import {
    constantTimeEqual, findActiveAuthorizationRequest, findCredential, getAuthorizationServerMetadata, getClientRedirectUris, getOAuthBaseUrl, hashSecret,
    getScopeFromRequest, MCP_SCOPE_FULL, MCP_SCOPE_READ, OAUTH_CODE_PREFIX, OAUTH_CODE_TTL_MS, oauthCorsHeaders, oauthError, oauthHtmlError,
-   oauthOptions, pruneExpiredOAuthCredentials, randomSecret, readClient, readOAuthForm, saveCredential, withOAuthStore,
+   oauthOptionsWhenEnabled, pruneExpiredOAuthCredentials, randomSecret, readClient, readOAuthForm, saveCredential, withOAuthStore,
 } from '../../../../utils/mcpOAuth';
 
 const MAX_APPROVAL_FAILURES = 10;
@@ -221,4 +221,4 @@ export const { GET, POST, PUT, PATCH, DELETE } = createRoute({
    name: 'oauth/authorize', auth: false, oauthProtocol: true, cors: oauthCorsHeaders,
    GET: authorize, POST: submitConsent, PUT: methodNotAllowed, PATCH: methodNotAllowed, DELETE: methodNotAllowed,
 });
-export const OPTIONS = oauthOptions;
+export const OPTIONS = oauthOptionsWhenEnabled;

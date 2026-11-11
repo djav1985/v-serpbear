@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file. Releases no
 ### Fixed
 
 - Serve protected-resource metadata at the domain-root well-known URL as a compatibility fallback while retaining the resource-path-specific URL.
+- Omit the app-wide security headers from OAuth discovery responses so their application headers match the reference server.
 - Point MCP authentication challenges to root protected-resource metadata for ChatGPT client compatibility while keeping OAuth endpoints under `/api/oauth`.
 - Add CORS headers and preflight handling to OAuth discovery, registration, authorization, and token endpoints.
 - Match the `google-seo-mcp` OAuth metadata fields, response bodies, protocol headers, code/token prefixes, and authorization-page behavior while using `MCP_API_KEY` and JSON-file persistence.
@@ -27,7 +28,8 @@ All notable changes to this project will be documented in this file. Releases no
 - Log OAuth endpoint failures and MCP OAuth authentication failures at error level with diagnostic codes while keeping bearer tokens and authorization codes out of logs.
 - Log successful OAuth discovery, registration, approval and token exchanges at info level without logging credentials.
 - Add OAuth decision reason logs for registration, authorization, consent and token exchange, plus successful MCP authentication and request handling, without logging secrets.
-- Omit `client_name` from OAuth dynamic-registration responses when the client did not provide a name, rather than returning an invalid `null` value.
+- Preserve an explicitly empty `client_name` in OAuth dynamic-registration responses and coerce `redirect_uris` entries to strings before validation to match the reference server.
+- Make MCP OAuth opt-in through `MCP_OAUTH`; disable OAuth endpoints and use a plain Bearer challenge when off, and advertise protected-resource metadata when enabled.
 - Avoid blocking request handling while cancelling an oversized debug logging stream.
 - Load the settings editor through an explicitly authenticated full-settings request, and show an error instead of empty fields if the session is invalid.
 

@@ -8,7 +8,7 @@ import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/
 import { createRoute, fail, type ApiContext } from '../../../utils/apiLogging';
 import {
    bearerValue, constantTimeEqual, findCredential, getProtectedResourceMetadata, McpOAuthScope,
-   MCP_SCOPE_FULL, MCP_SCOPE_READ, OAuthCredential,
+   isMcpOAuthEnabled, MCP_SCOPE_FULL, MCP_SCOPE_READ, OAuthCredential,
 } from '../../../utils/mcpOAuth';
 
 type ApiResult = { ok: boolean, status: number, data: unknown };
@@ -84,7 +84,7 @@ const getMcpAuthState = async (req: Request): Promise<McpAuthState> => {
    const mcpApiKey = process.env.MCP_API_KEY;
    const bearer = bearerValue(req);
    const directKeyValid = bearer && mcpApiKey ? constantTimeEqual(bearer, mcpApiKey) : false;
-   const oauthCredential = bearer && !directKeyValid ? await findCredential(bearer, 'access_token') : null;
+   const oauthCredential = isMcpOAuthEnabled() && bearer && !directKeyValid ? await findCredential(bearer, 'access_token') : null;
    const oauthValid = !!oauthCredential && oauthCredential.revokedAt == null && oauthCredential.expiresAt > Date.now();
    const reason = !bearer ? 'missing_bearer_token' : oauthCredential?.expiresAt && oauthCredential.expiresAt <= Date.now()
          ? 'expired_oauth_access_token' : oauthCredential?.revokedAt != null
@@ -92,10 +92,28 @@ const getMcpAuthState = async (req: Request): Promise<McpAuthState> => {
    return { directKeyValid: !!directKeyValid, oauthCredential, valid: !!directKeyValid || oauthValid, reason };
 };
 
-const unauthorized = (): Response => {
+const unauthorized = (req: Request): Response => {
+   if (!isMcpOAuthEnabled()) { return Response.json({ error: 'unauthorized' }, { status: 401, headers: { 'WWW-Authenticate': 'Bearer' } }); }
    const metadata = getProtectedResourceMetadata();
-   const headers = metadata ? { 'WWW-Authenticate': `Bearer resource_metadata="${new URL('/.well-known/oauth-protected-resource', metadata.resource).toString()}"` } : undefined;
-   return Response.json({ error: 'unauthorized' }, { status: 401, headers });
+   let metadataUrl: string;
+   if (metadata) {
+      metadataUrl = new URL('/.well-known/oauth-protected-resource', metadata.resource).toString();
+   } else {
+      // Like the reference server, derive a discovery URL from the incoming request if no public URL is configured.
+      const first = (value: string | null): string => value?.split(',')[0].trim() ?? '';
+      const requestUrl = new URL(req.url);
+      const forwardedHost = first(req.headers.get('x-forwarded-host'));
+      const host = forwardedHost || requestUrl.host;
+      const forwardedProto = first(req.headers.get('x-forwarded-proto'));
+      const protocol = forwardedProto || requestUrl.protocol.replace(/:$/, '');
+      let origin = requestUrl.origin;
+      try {
+         const candidate = new URL(`${protocol}://${host}`);
+         if (['http:', 'https:'].includes(candidate.protocol) && !candidate.username && !candidate.password) { origin = candidate.origin; }
+      } catch (_error) { /* Ignore malformed proxy headers and use the request origin. */ }
+      metadataUrl = new URL('/.well-known/oauth-protected-resource', origin).toString();
+   }
+   return Response.json({ error: 'unauthorized' }, { status: 401, headers: { 'WWW-Authenticate': `Bearer resource_metadata="${metadataUrl}"` } });
 };
 
 const handleMcp = async (req: Request, ctx: ApiContext) => {
@@ -103,7 +121,7 @@ const handleMcp = async (req: Request, ctx: ApiContext) => {
    if (!auth.valid) {
       const { reason } = auth;
       logger.error('[OAuth] MCP request authentication failed.', undefined, { operation: 'mcp_authentication', reason });
-      return unauthorized();
+      return unauthorized(req);
    }
    if (req.method !== 'POST') { return Response.json({ error: 'method not allowed' }, { status: 405 }); }
    const internalApiKey = process.env.APIKEY;
@@ -126,7 +144,7 @@ const handleMcp = async (req: Request, ctx: ApiContext) => {
 
 const handleMcpOptions = async (req: Request): Promise<Response> => {
    const auth = await getMcpAuthState(req);
-   if (!auth.valid) { return unauthorized(); }
+   if (!auth.valid) { return unauthorized(req); }
    return Response.json({ error: 'method not allowed' }, { status: 405, headers: { Allow: 'POST' } });
 };
 

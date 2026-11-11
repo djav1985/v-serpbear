@@ -21,6 +21,13 @@ const MAX_REDIRECT_URIS = 8;
 const MAX_OAUTH_CLIENTS = 500;
 const UNUSED_CLIENT_TTL_MS = 24 * 60 * 60 * 1000;
 
+/** OAuth is opt-in, matching the reference server's default-off behavior. */
+export const isMcpOAuthEnabled = (): boolean => /^(1|true|yes|on)$/i.test(process.env.MCP_OAUTH?.trim() ?? '');
+export const oauthDisabledResponse = (): Response => Response.json({ error: 'not_found' }, { status: 404 });
+export const oauthOptionsWhenEnabled = (): Response => isMcpOAuthEnabled()
+   ? oauthOptions()
+   : oauthDisabledResponse();
+
 export type OAuthClient = {
    clientId: string;
    clientName: string | null;
@@ -252,7 +259,7 @@ export const parseRedirectUris = (value: unknown): string[] | null => {
 export const createClient = async (clientName: string | null, redirectUris: string[]): Promise<OAuthClient | null> => {
    const client: OAuthClient = {
       clientId: randomBytes(16).toString('hex'),
-      clientName: clientName?.slice(0, 80) || null,
+      clientName: clientName === null ? null : clientName.slice(0, 80),
       redirectUris,
       createdAt: Date.now(),
    };

@@ -5,6 +5,7 @@ import { redactSecrets, redactUrl } from './logRedaction';
 import { getClientIp } from './api/clientIp';
 import { isLoginLocked } from './loginThrottle';
 import { getApiKeyAttemptKeys } from './apiKeyThrottle';
+import { isMcpOAuthEnabled, oauthDisabledResponse } from './mcpOAuth';
 import verifyUser, { hasValidApiKey, hasValidSessionCookie, isBearerAuthorization } from './verifyUser';
 
 // Debug logging shows the body of small requests only. Larger ones are never read for the log.
@@ -60,6 +61,8 @@ const run = async (handler: ApiHandler | undefined, def: RouteDefinition, req: R
    const label = `${req.method} ${redactUrl(path)}${def.name ? ` [${def.name}]` : ''}`;
 
    logger.debug(`[API] ${label}`);
+
+   if (def.oauthProtocol && !isMcpOAuthEnabled()) { return oauthDisabledResponse(); }
 
    if (process.env.LOG_LEVEL?.toLowerCase() === 'debug') {
       // Read a bounded slice of a copy, so a large body is never buffered in full before authentication

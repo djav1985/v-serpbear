@@ -1,6 +1,6 @@
 import { createRoute, readJson } from '../../../../utils/apiLogging';
 import { logger } from '../../../../utils/logger';
-import { createClient, MCP_SCOPE_FULL, MCP_SCOPE_READ, oauthCorsHeaders, oauthError, oauthOptions, oauthSuccess, parseRedirectUris, pruneExpiredOAuthCredentials } from '../../../../utils/mcpOAuth';
+import { createClient, MCP_SCOPE_FULL, MCP_SCOPE_READ, oauthCorsHeaders, oauthError, oauthOptionsWhenEnabled, oauthSuccess, parseRedirectUris, pruneExpiredOAuthCredentials } from '../../../../utils/mcpOAuth';
 
 const registerClient = async (req: Request): Promise<Response> => {
    logger.info('[OAuth] Dynamic client registration request received.', { operation: 'client_registration' });
@@ -12,13 +12,18 @@ const registerClient = async (req: Request): Promise<Response> => {
       return oauthError('invalid_client_metadata', 400, 'body must be JSON of at most 16 KB');
    }
    const metadata = (body && typeof body === 'object' && !Array.isArray(body) ? body : {}) as Record<string, unknown>;
-   const redirectUris = parseRedirectUris(metadata.redirect_uris);
+   const redirectUriValues = Array.isArray(metadata.redirect_uris)
+      ? metadata.redirect_uris.map((uri) => String(uri))
+      : metadata.redirect_uris;
+   const redirectUris = parseRedirectUris(redirectUriValues);
    if (!redirectUris) {
       logger.error('[OAuth] Client registration rejected.', undefined, { operation: 'client_registration', reason: 'invalid_redirect_uris' });
       if (!Array.isArray(metadata.redirect_uris) || metadata.redirect_uris.length === 0 || metadata.redirect_uris.length > 8) {
          return oauthError('invalid_redirect_uri', 400, 'redirect_uris must hold 1 to 8 entries');
       }
-      const invalid = metadata.redirect_uris.filter((uri) => typeof uri !== 'string' || !parseRedirectUris([uri]));
+      const invalid = metadata.redirect_uris
+         .map((uri) => String(uri))
+         .filter((uri) => !parseRedirectUris([uri]));
       return oauthError('invalid_redirect_uri', 400, `not accepted: ${invalid.join(', ')} (https, http on loopback, or a private-use scheme)`);
    }
    try {
@@ -32,7 +37,7 @@ const registerClient = async (req: Request): Promise<Response> => {
       return oauthSuccess({
          client_id: client.clientId,
          client_id_issued_at: Math.floor(client.createdAt / 1000),
-         ...(client.clientName ? { client_name: client.clientName } : {}),
+         ...(client.clientName !== null ? { client_name: client.clientName } : {}),
          redirect_uris: redirectUris,
          grant_types: ['authorization_code', 'refresh_token'],
          response_types: ['code'],
@@ -51,4 +56,4 @@ export const { GET, POST, PUT, PATCH, DELETE } = createRoute({
    name: 'oauth/register', auth: false, oauthProtocol: true, cors: oauthCorsHeaders,
    GET: methodNotAllowed, POST: registerClient, PUT: methodNotAllowed, PATCH: methodNotAllowed, DELETE: methodNotAllowed,
 });
-export const OPTIONS = oauthOptions;
+export const OPTIONS = oauthOptionsWhenEnabled;

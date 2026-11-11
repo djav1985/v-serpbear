@@ -3,7 +3,7 @@ import { logger } from '../../../../utils/logger';
 import {
    McpOAuthScope, MCP_SCOPE_FULL, OAuthCredential, OAUTH_ACCESS_TOKEN_PREFIX, OAUTH_REFRESH_TOKEN_PREFIX,
    OAUTH_ACCESS_TTL_SECONDS, OAUTH_REFRESH_TTL_MS, hashSecret, oauthError, oauthSuccess,
-   oauthCorsHeaders, oauthOptions, randomIdentifier, randomSecret, readOAuthFormOrJson, verifyPkce, withOAuthStore,
+   oauthCorsHeaders, oauthOptionsWhenEnabled, randomIdentifier, randomSecret, readOAuthFormOrJson, verifyPkce, withOAuthStore,
 } from '../../../../utils/mcpOAuth';
 
 const invalidGrant = (description: string) => oauthError('invalid_grant', 400, description);
@@ -102,4 +102,4 @@ export const { GET, POST, PUT, PATCH, DELETE } = createRoute({
    name: 'oauth/token', auth: false, oauthProtocol: true, cors: oauthCorsHeaders,
    GET: methodNotAllowed, POST: handleToken, PUT: methodNotAllowed, PATCH: methodNotAllowed, DELETE: methodNotAllowed,
 });
-export const OPTIONS = oauthOptions;
+export const OPTIONS = oauthOptionsWhenEnabled;

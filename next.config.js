@@ -43,7 +43,8 @@ const nextConfig = {
       },
     ];
     return [
-      { source: '/:path*', headers: securityHeaders },
+      // Keep OAuth discovery responses' headers aligned with the reference server.
+      { source: '/((?!\\.well-known/oauth-protected-resource|\\.well-known/oauth-authorization-server).*)', headers: securityHeaders },
       { source: '/login', headers: noStoreHeaders },
       { source: '/domains', headers: privatePageHeaders },
       { source: '/research', headers: privatePageHeaders },
