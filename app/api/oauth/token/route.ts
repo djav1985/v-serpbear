@@ -67,17 +67,18 @@ const handleToken = async (req: Request): Promise<Response> => {
          const refreshHash = hashSecret(refreshToken);
          const stored = store.credentials.find((credential) => credential.tokenHash === refreshHash && credential.kind === 'refresh_token');
          if (!stored?.grantId) { return { kind: 'invalid' }; }
+         if (stored.expiresAt <= now || (clientId && stored.clientId !== clientId)) { return { kind: 'invalid' }; }
          if (stored.revokedAt != null) {
             store.credentials.forEach((credential) => {
                if (credential.grantId === stored.grantId && credential.revokedAt == null) { credential.revokedAt = now; }
             });
             return { kind: 'replay' };
          }
-         if (stored.expiresAt <= now || (clientId && stored.clientId !== clientId)) { return { kind: 'invalid' }; }
          stored.revokedAt = now;
          const scope = stored.scope ?? MCP_SCOPE_FULL;
-         store.credentials = store.credentials.filter((credential) => credential.grantId !== stored.grantId ||
-            (credential.kind !== 'access_token' && !(credential.kind === 'refresh_token' && credential.revokedAt != null && credential !== stored)));
+         // Keep every rotated refresh-token record until expiry so replaying any
+         // previous token can still identify and revoke the active grant.
+         store.credentials = store.credentials.filter((credential) => credential.grantId !== stored.grantId || credential.kind !== 'access_token');
          const common = { clientId: stored.clientId, grantId: stored.grantId, scope, createdAt: now };
          store.credentials.push(
             { ...common, tokenHash: hashSecret(accessToken), kind: 'access_token', expiresAt: now + OAUTH_ACCESS_TTL_SECONDS * 1000 },

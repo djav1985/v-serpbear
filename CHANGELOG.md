@@ -17,6 +17,10 @@ All notable changes to this project will be documented in this file. Releases no
 - Build OAuth approval redirects from the configured public app URL instead of the incoming request host.
 - Serve the OAuth approval screen at `/api/oauth/approve` and redirect consent flows there.
 - Remove the Content Security Policy from the OAuth approval page only, so the consent form is not blocked by form-action restrictions.
+- Check the configured public origin before approving an MCP request with an existing login cookie.
+- Allow valid OAuth approval credentials through even when the shared unknown-address failure bucket is throttled.
+- Retain rotated refresh-token records until expiry so replay detection and revocation still identify the grant.
+- Document the root and MCP-path-scoped OAuth discovery routes in the README and API/MCP guide.
 - Update the OAuth approval test path and test type annotations for the moved page and current response contracts.
 - Build protected-resource metadata for the root URL and retain the resource-path-specific URL in the metadata helper.
 - Apply the same app-wide security headers to MCP and OAuth routes as other app routes.

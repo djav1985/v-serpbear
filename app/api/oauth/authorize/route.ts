@@ -51,6 +51,12 @@ const redirectToApprovalPage = (baseUrl: string, requestId: string, error?: stri
    return new Response(null, { status: 303, headers: { Location: target.toString(), 'Cache-Control': 'no-store' } });
 };
 
+const isSameOrigin = (origin: string | null, expectedOrigin: string): boolean => {
+   if (!origin || origin === 'null') { return false; }
+   try { return new URL(origin).origin === expectedOrigin; }
+   catch (_error) { return false; }
+};
+
 const authorize = async (req: Request): Promise<Response> => {
    if (!isMcpOAuthEnabled()) { return oauthDisabledResponse(); }
    logger.debug('[OAuth] Authorization request received.', { operation: 'authorization_request' });
@@ -143,9 +149,9 @@ const submitConsent = async (req: Request): Promise<Response> => {
    }
    const sessionAuthorized = hasValidSessionCookie(req);
    const ip = getClientIp(req);
-   if (!sessionAuthorized && isApprovalIpThrottled(ip)) {
-      logger.debug('[OAuth] Approval request rate limited.', { operation: 'authorization_consent', reason: 'too_many_incorrect_credentials', ip });
-      return redirectToApprovalPage(base, requestId, 'too_many_attempts');
+   if (sessionAuthorized && !isSameOrigin(req.headers.get('origin'), base)) {
+      logger.debug('[OAuth] Cookie-based approval rejected.', { operation: 'authorization_consent', reason: 'origin_mismatch' });
+      return redirectToApprovalPage(base, requestId, 'invalid_origin');
    }
    const username = form.get('username') ?? '';
    const password = form.get('password') ?? '';
@@ -158,6 +164,10 @@ const submitConsent = async (req: Request): Promise<Response> => {
       return redirectToApprovalPage(base, requestId, 'credentials_unconfigured');
    }
    if (!sessionAuthorized && !credentialsValid) {
+      if (isApprovalIpThrottled(ip)) {
+         logger.debug('[OAuth] Approval request rate limited.', { operation: 'authorization_consent', reason: 'too_many_incorrect_credentials', ip });
+         return redirectToApprovalPage(base, requestId, 'too_many_attempts');
+      }
       countApprovalFailure(ip);
       logger.debug('[OAuth] Login credentials rejected on the approval page.', { operation: 'authorization_consent', reason: 'incorrect_credentials', ip });
       return redirectToApprovalPage(base, requestId, 'incorrect_credentials');

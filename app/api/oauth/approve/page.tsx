@@ -12,8 +12,9 @@ type PageProps = { searchParams: Promise<{ request?: string, error?: string }> }
 const approvalErrors: Record<string, string> = {
    incorrect_credentials: 'The username or password is incorrect.',
    credentials_unconfigured: 'The server username or password is not configured.',
-   too_many_attempts: 'Too many incorrect sign-in attempts from this address. Wait 15 minutes and try again.',
+   too_many_attempts: 'Too many incorrect sign-in attempts. Wait 15 minutes and try again.',
    invalid_decision: 'Choose approve or cancel.',
+   invalid_origin: 'For your security, approve this connection from the SerpBear approval page.',
 };
 
 export default async function OAuthApprovalPage({ searchParams }: PageProps) {

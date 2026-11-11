@@ -150,7 +150,7 @@ describe('OAuth routes', () => {
 
       const approved = await consent(formRequest(`${appUrl}/api/oauth/authorize`, {
          request: requestId, decision: 'approve', read_only: '1',
-      }, { Cookie: `token=${sessionToken}` }));
+      }, { Cookie: `token=${sessionToken}`, Origin: appUrl }));
 
       expect(approved.status).toBe(303);
       expect(new URL(approved.headers.get('location')!).searchParams.get('code')).toBeTruthy();
