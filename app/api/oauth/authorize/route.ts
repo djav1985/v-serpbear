@@ -2,7 +2,7 @@ import { hasValidSessionCookie } from '../../../../utils/verifyUser';
 import { createRoute } from '../../../../utils/apiLogging';
 import { logger } from '../../../../utils/logger';
 import {
-   constantTimeEqual, findActiveAuthorizationRequest, findCredential, getAuthorizationServerMetadata, getClientRedirectUris, getOAuthBaseUrl,
+   constantTimeEqual, findActiveAuthorizationRequest, findCredential, getAuthorizationServerMetadata, getClientRedirectUris, getOAuthBaseUrl, hashSecret,
    getScopeFromRequest, MCP_SCOPE_FULL, MCP_SCOPE_READ, OAUTH_CODE_PREFIX, OAUTH_CODE_TTL_MS, oauthCorsHeaders, oauthError, oauthHtmlError,
    oauthOptions, pruneExpiredOAuthCredentials, randomSecret, readClient, readOAuthForm, saveCredential, withOAuthStore,
 } from '../../../../utils/mcpOAuth';
