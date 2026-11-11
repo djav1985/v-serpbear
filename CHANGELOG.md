@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file. Releases no
 
 ### Changed
 
+- Move the scheduled refresh into `POST /api/serp/refresh?scope=enabled-domains` and remove `POST /api/app/cron`.
 - Document `MCP_API_KEY` and MCP OAuth setup separately from the REST `APIKEY`.
 
 ### Fixed

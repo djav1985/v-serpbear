@@ -5,7 +5,7 @@ import db from '../../database/database';
 import Keyword from '../../database/models/keyword';
 import Domain from '../../database/models/domain';
 import verifyUser, { hasValidSessionCookie } from '../../utils/verifyUser';
-import { refreshKeywordsByIds } from '../../utils/refresh';
+import refreshAndUpdateKeywords, { refreshKeywordsByIds } from '../../utils/refresh';
 import { getAppSettings } from '../../utils/appSettings';
 import { scrapeKeywordWithStrategy } from '../../utils/scraper';
 import { isSameOriginRequest } from '../../utils/api/sameOrigin';
@@ -229,6 +229,51 @@ describe('refresh route', () => {
       const unconfiguredRes = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
       await handler(regularReq, unconfiguredRes);
       expect(unconfiguredRes.status).toHaveBeenCalledWith(400);
+      expect(Keyword.findAll).not.toHaveBeenCalled();
+    });
+
+    it('starts the scheduled refresh for enabled domains through the refresh route', async () => {
+      req.query = { scope: 'enabled-domains' };
+      (Domain.findAll as jest.Mock).mockResolvedValue([
+        { get: () => ({ domain: 'enabled.com', scrapeEnabled: 1 }) },
+        { get: () => ({ domain: 'disabled.com', scrapeEnabled: 0 }) },
+      ]);
+      const keyword = {
+        ID: 21,
+        domain: 'enabled.com',
+        updating: 0,
+        update: jest.fn().mockImplementation(function(this: any, values: Record<string, unknown>) {
+          Object.assign(this, values);
+          return Promise.resolve(undefined);
+        }),
+        set: jest.fn(),
+      };
+      (Keyword.findAll as jest.Mock).mockResolvedValue([keyword]);
+
+      await handler(req, res);
+      await jest.runAllTimersAsync();
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({ started: true });
+      expect(Domain.findAll).toHaveBeenCalledTimes(1);
+      expect(Keyword.findAll).toHaveBeenCalledWith({ where: { domain: 'enabled.com' } });
+      expect(keyword.update).toHaveBeenCalledWith(expect.objectContaining({ updating: 1 }));
+      expect(refreshAndUpdateKeywords).toHaveBeenCalledWith([keyword], { scraper_type: 'serpapi' }, expect.any(Array));
+    });
+
+    it('rejects an unknown refresh scope and conflicting selection filters', async () => {
+      for (const query of [
+        { scope: 'unknown' },
+        { scope: 'enabled-domains', id: '12' },
+      ]) {
+        const invalidReq = { method: 'POST', query, headers: {} } as unknown as NextApiRequest;
+        const invalidRes = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
+
+        await handler(invalidReq, invalidRes);
+
+        expect(invalidRes.status).toHaveBeenCalledWith(400);
+      }
+      expect(Domain.findAll).not.toHaveBeenCalled();
       expect(Keyword.findAll).not.toHaveBeenCalled();
     });
 

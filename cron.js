@@ -300,7 +300,7 @@ const runAppCronJobs = () => {
       if (scrapeCronTime) {
          scrapeJob = scheduleJob('keyword scraping', scrapeCronTime, () => {
             logger.info('[CRON] Running Keyword Position Cron Job.');
-            makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/app/cron', '[CRON] Keyword Scraping Result');
+            makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/serp/refresh?scope=enabled-domains', '[CRON] Keyword Scraping Result');
          }, cronOptions);
       }
 

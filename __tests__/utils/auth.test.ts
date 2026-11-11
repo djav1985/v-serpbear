@@ -193,7 +193,7 @@ describe('verifyUser, login throttle, session store', () => {
           it('should allow API key access to allowed routes', () => {
              process.env.APIKEY = 'test-api-key';
              req.headers = { authorization: 'Bearer test-api-key' };
-             req.url = '/api/app/cron';
+             req.url = '/api/serp/refresh?scope=enabled-domains';
              req.method = 'POST';
 
              const result = verifyUser(buildRequest(req));

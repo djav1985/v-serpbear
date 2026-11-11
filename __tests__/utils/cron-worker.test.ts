@@ -31,7 +31,7 @@ describe('cron worker', () => {
     it('skips API calls when the API key is missing', async () => {
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
-      await makeCronApiCall(undefined, 'http://localhost:3000', '/api/app/cron', 'ignored');
+      await makeCronApiCall(undefined, 'http://localhost:3000', '/api/serp/refresh?scope=enabled-domains', 'ignored');
 
       expect(global.fetch).not.toHaveBeenCalled();
       // logger.warn emits a JSON log entry via console.log
@@ -42,7 +42,7 @@ describe('cron worker', () => {
         expect.stringContaining('Skipping API call')
       );
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('"/api/app/cron"')
+        expect.stringContaining('"/api/serp/refresh?scope=enabled-domains"')
       );
     });
 
@@ -57,9 +57,9 @@ describe('cron worker', () => {
         json: () => Promise.resolve({ ok: true }),
       });
 
-      await makeCronApiCall('secret', 'http://localhost:3000', '/api/app/cron', '[CRON] Keyword Scraping Result');
+      await makeCronApiCall('secret', 'http://localhost:3000', '/api/serp/refresh?scope=enabled-domains', '[CRON] Keyword Scraping Result');
 
-      expect(global.fetch).toHaveBeenCalledWith('http://localhost:3000/api/app/cron', {
+      expect(global.fetch).toHaveBeenCalledWith('http://localhost:3000/api/serp/refresh?scope=enabled-domains', {
         method: 'POST',
         headers: { Authorization: 'Bearer secret' },
       });
@@ -80,7 +80,7 @@ describe('cron worker', () => {
         text: async () => 'upstream unavailable',
       });
 
-      await expect(makeCronApiCall('secret', 'http://localhost:3000', '/api/app/cron', 'unused')).resolves.toBeUndefined();
+      await expect(makeCronApiCall('secret', 'http://localhost:3000', '/api/serp/refresh?scope=enabled-domains', 'unused')).resolves.toBeUndefined();
 
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('HTTP 503: upstream unavailable'));
     });

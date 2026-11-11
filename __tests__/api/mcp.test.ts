@@ -27,6 +27,7 @@ jest.mock('@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js', () =>
 
 describe('MCP route', () => {
   const originalApiKey = process.env.APIKEY;
+  const originalMcpApiKey = process.env.MCP_API_KEY;
   const originalPort = process.env.PORT;
 
   const call = async (method: string, headers: Record<string, string> = { authorization: 'Bearer test-key' }) => {
@@ -46,6 +47,7 @@ describe('MCP route', () => {
       jest.clearAllMocks();
       mockToolHandlers.clear();
       process.env.APIKEY = 'test-key';
+      process.env.MCP_API_KEY = 'test-key';
       process.env.PORT = '3200';
     });
 
@@ -55,6 +57,8 @@ describe('MCP route', () => {
       } else {
         process.env.APIKEY = originalApiKey;
       }
+      if (originalMcpApiKey === undefined) delete process.env.MCP_API_KEY;
+      else process.env.MCP_API_KEY = originalMcpApiKey;
       if (originalPort === undefined) delete process.env.PORT;
       else process.env.PORT = originalPort;
     });

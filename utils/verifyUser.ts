@@ -93,7 +93,6 @@ const verifyUser = (req: Request): string => {
       'GET:/api/serp/keywords',
       'GET:/api/serp/domains',
       'POST:/api/serp/refresh',
-      'POST:/api/app/cron',
       'POST:/api/app/email',
       'POST:/api/google/searchconsole',
       'GET:/api/google/searchconsole',
