@@ -25,6 +25,7 @@ const registerClient = async (req: Request, ctx: ApiContext): Promise<Response> 
    try {
       await pruneExpiredOAuthCredentials();
       const client = await createClient(typeof metadata.client_name === 'string' ? metadata.client_name : null, redirectUris);
+      logger.info('[OAuth] Registered an MCP OAuth client.', { operation: 'client_registration' });
       return json({
          client_id: client.clientId,
          client_id_issued_at: Math.floor(client.createdAt / 1000),

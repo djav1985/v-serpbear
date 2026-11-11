@@ -1,4 +1,5 @@
 import { createRoute, type ApiContext } from '../../../../utils/apiLogging';
+import { logger } from '../../../../utils/logger';
 import {
    OAuthCredential, OAUTH_ACCESS_TTL_SECONDS, OAUTH_REFRESH_TTL_MS, hashSecret, oauthError, oauthSuccess,
    randomIdentifier, randomSecret, readOAuthForm, verifyPkce, withOAuthStore,
@@ -41,6 +42,7 @@ const handleToken = async (req: Request, _ctx: ApiContext): Promise<Response> =>
          return true;
       });
       if (!result) { return invalidGrant(); }
+      logger.info('[OAuth] Authorization code exchanged for tokens.', { operation: 'token_exchange', grantType: 'authorization_code' });
       return oauthSuccess({ access_token: accessToken, token_type: 'Bearer', expires_in: OAUTH_ACCESS_TTL_SECONDS, refresh_token: refreshToken, scope: 'serpbear.read' });
    }
 
@@ -71,6 +73,7 @@ const handleToken = async (req: Request, _ctx: ApiContext): Promise<Response> =>
          return 'ok' as const;
       });
       if (result !== 'ok') { return invalidGrant(); }
+      logger.info('[OAuth] Refresh token exchanged for new tokens.', { operation: 'token_exchange', grantType: 'refresh_token' });
       return oauthSuccess({ access_token: accessToken, token_type: 'Bearer', expires_in: OAUTH_ACCESS_TTL_SECONDS, refresh_token: nextRefreshToken, scope: 'serpbear.read' });
    }
 

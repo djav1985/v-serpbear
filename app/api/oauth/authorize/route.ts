@@ -99,6 +99,7 @@ const authorize = async (req: Request, ctx: ApiContext): Promise<Response> => {
       tokenHash: hashSecret(requestId), kind: 'authorization_request', clientId, redirectUri, codeChallenge: challenge,
       state: state ?? null, resource: requestedResource ?? resource, expiresAt: Date.now() + 5 * 60 * 1000,
    });
+   logger.info('[OAuth] Authorization request is ready for account approval.', { operation: 'authorization_request' });
    return redirectToApproval(requestId, secure);
 };
 
@@ -131,6 +132,7 @@ const submitConsent = async (req: Request, ctx: ApiContext): Promise<Response> =
          return true;
       });
       if (!denied) { return fail(400, 'BAD_REQUEST', 'This approval request has already been used.', ctx); }
+      logger.info('[OAuth] User denied an MCP client authorization request.', { operation: 'authorization_denied' });
       return redirectToClient(pending.redirectUri, { error: 'access_denied', ...(pending.state ? { state: pending.state } : {}), iss: issuer }, secure);
    }
 
@@ -150,6 +152,7 @@ const submitConsent = async (req: Request, ctx: ApiContext): Promise<Response> =
    });
    if (!consumed) { return fail(400, 'BAD_REQUEST', 'This approval request has already been used.', ctx); }
 
+   logger.info('[OAuth] User approved an MCP client authorization request.', { operation: 'authorization_approved' });
    return redirectToClient(pending.redirectUri, { code, ...(pending.state ? { state: pending.state } : {}), iss: issuer }, secure);
 };
 
