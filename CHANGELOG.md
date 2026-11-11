@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file. Releases no
 
 ### Added
 
-- Add MCP OAuth authorization for ChatGPT with PKCE, dynamic client registration, 24-hour access tokens, token rotation and a themed approval screen using the normal SerpBear login. OAuth state is stored in `data/mcp_oauth.json`; direct MCP bearer access can use the separate `MCP_API_KEY`.
+- Add MCP OAuth authorization for ChatGPT with PKCE, dynamic client registration, 24-hour access tokens, token rotation and a themed approval screen using `MCP_API_KEY`. OAuth state is stored in `data/mcp_oauth.json`.
 
 ### Changed
 
@@ -20,7 +20,7 @@ All notable changes to this project will be documented in this file. Releases no
 - Serve protected-resource metadata at the domain-root well-known URL as a compatibility fallback while retaining the resource-path-specific URL.
 - Point MCP authentication challenges to root protected-resource metadata for ChatGPT client compatibility while keeping OAuth endpoints under `/api/oauth`.
 - Add CORS headers and preflight handling to OAuth discovery, registration, authorization, and token endpoints.
-- Match the `google-seo-mcp` OAuth metadata fields, response bodies, protocol headers, code/token prefixes, and authorization-page behavior while retaining SerpBear login and JSON-file persistence.
+- Match the `google-seo-mcp` OAuth metadata fields, response bodies, protocol headers, code/token prefixes, and authorization-page behavior while using `MCP_API_KEY` and JSON-file persistence.
 - Advertise `mcp:full` and `mcp:read` in OAuth metadata and dynamic registration, and return the granted scope from token exchanges.
 - Match MCP OAuth interoperability with `mcp:full` and `mcp:read` scopes, reference-compatible redirect and registration validation, root metadata challenges, CORS behavior, and `/api/oauth/revoke` grant revocation.
 - Ignore unknown requested OAuth scopes when choosing between the supported full and read scopes.

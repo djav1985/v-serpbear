@@ -7,7 +7,7 @@ import { loadDomains } from '../../../../utils/domainsList';
 import { checkSearchConsoleIntegration, removeLocalSCData } from '../../../../utils/searchConsole';
 import { errorResponse } from '../../../../utils/api/response';
 import { parseStrictBooleanQueryParam } from '../../../../utils/api/queryBoolean';
-import { createRoute, fail, json, getParam, getQuery, readJson, type ApiContext } from '../../../../utils/apiLogging';
+import { createRoute, fail, json, getQuery, readJson, type ApiContext } from '../../../../utils/apiLogging';
 import { validateHostname } from '../../../../utils/validators/hostname';
 import { toDomainSlug } from '../../../../utils/domainSlug';
 import { logger } from '../../../../utils/logger';

@@ -127,7 +127,7 @@ const handleMcp = async (req: Request, ctx: ApiContext) => {
 const handleMcpOptions = async (req: Request): Promise<Response> => {
    const auth = await getMcpAuthState(req);
    if (!auth.valid) { return unauthorized(); }
-   return Response.json({ error: 'method not allowed' }, { status: 405 });
+   return Response.json({ error: 'method not allowed' }, { status: 405, headers: { Allow: 'POST' } });
 };
 
 // Stateless Streamable HTTP: only POST carries requests; there is no server-initiated stream to open.

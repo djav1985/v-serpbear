@@ -1,4 +1,4 @@
-import { createRoute, fail, readJson, type ApiContext } from '../../../../utils/apiLogging';
+import { createRoute, fail, getQuery, readJson, type ApiContext } from '../../../../utils/apiLogging';
 import { hasValidSessionCookie } from '../../../../utils/verifyUser';
 import { sendDigestEmails } from '../../../../utils/api/emailDigest';
 import { sendIdeasEmail } from '../../../../utils/api/emailIdeas';
@@ -12,7 +12,9 @@ const sendEmail = async (req: Request, ctx: ApiContext) => {
    if (!rawBody || typeof rawBody !== 'object' || Array.isArray(rawBody)) {
       return fail(400, 'BAD_REQUEST', 'Request body must be a JSON object.', ctx);
    }
-   const { type } = rawBody as { type?: unknown };
+   const body = rawBody as { type?: unknown, keywords?: unknown };
+   const query = getQuery(req);
+   const type = body.type ?? query.type ?? (Array.isArray(body.keywords) ? 'ideas' : undefined);
    if (type === 'digest') {
       return sendDigestEmails(req, ctx);
    }

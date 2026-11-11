@@ -8,10 +8,10 @@ A read-only [Model Context Protocol](https://modelcontextprotocol.io) server for
 
 - **URL:** `https://<your-host>/api/mcp` (Streamable HTTP, `POST` only). Use HTTPS, because the key is sent on every request.
 - **Direct key:** set `MCP_API_KEY`, then send `Authorization: Bearer <MCP_API_KEY>`. Cookies and login sessions are not accepted.
-- **OAuth:** choose OAuth when connecting ChatGPT. The authorization endpoint serves the themed SerpBear consent screen directly after the normal username/password login. OAuth metadata, response fields, scopes, CORS, PKCE, refresh rotation and revocation follow the `google-seo-mcp` reference, with `/api` added to resource and OAuth endpoint paths. Protected-resource and authorization-server metadata are served at the root and MCP path-specific well-known URLs.
+- **OAuth:** choose OAuth when connecting ChatGPT. The authorization endpoint serves the themed SerpBear consent screen directly and asks for `MCP_API_KEY` to approve the connection. Incorrect keys are limited to 10 attempts per IP per 15 minutes. OAuth metadata, response fields, scopes, CORS, PKCE, refresh rotation and revocation follow the `google-seo-mcp` reference, with `/api` added to resource and OAuth endpoint paths. Protected-resource and authorization-server metadata are served at the root and MCP path-specific well-known URLs.
 - **Persistence:** keep `/app/data` on persistent storage. OAuth clients and hashed tokens are stored in `data/mcp_oauth.json`; no database schema changes are needed.
 
-`MCP_API_KEY` is optional and separate from `APIKEY`. It enables direct MCP bearer access. OAuth uses the normal SerpBear login. `APIKEY` remains the REST API credential used server-side when MCP calls SerpBear's existing REST routes.
+`MCP_API_KEY` is the operator key for direct MCP bearer access and OAuth consent. Configure it to use either access method. It is separate from `APIKEY`, which remains the REST API credential used server-side when MCP calls SerpBear's existing REST routes.
 
 | Tool | Returns |
 | --- | --- |

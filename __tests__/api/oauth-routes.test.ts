@@ -11,9 +11,8 @@ jest.mock('../../utils/logger', () => ({
    __esModule: true,
    logger: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
 }));
-jest.mock('../../utils/verifyUser', () => ({ hasValidSessionCookie: () => true }));
-
 const originalAppUrl = process.env.NEXT_PUBLIC_APP_URL;
+const originalMcpApiKey = process.env.MCP_API_KEY;
 
 const jsonRequest = (url: string, body: unknown) => new Request(url, {
    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
@@ -33,12 +32,15 @@ describe('OAuth routes', () => {
    beforeEach(() => {
       tempData = createTempAppDataDir('serpbear-oauth-routes-');
       process.env.NEXT_PUBLIC_APP_URL = appUrl;
+      process.env.MCP_API_KEY = 'operator-test-key';
    });
 
    afterEach(() => {
       tempData.cleanup();
       if (originalAppUrl === undefined) { delete process.env.NEXT_PUBLIC_APP_URL; }
       else { process.env.NEXT_PUBLIC_APP_URL = originalAppUrl; }
+      if (originalMcpApiKey === undefined) { delete process.env.MCP_API_KEY; }
+      else { process.env.MCP_API_KEY = originalMcpApiKey; }
    });
 
    it('accepts extra DCR metadata and advertises scopes and CORS', async () => {
@@ -76,12 +78,14 @@ describe('OAuth routes', () => {
          resource: `${appUrl}/api/mcp`,
       });
       const authorization = await authorize(new Request(`${appUrl}/api/oauth/authorize?${query}`));
-      expect(authorization.status).toBe(303);
-      const pendingRequest = new URL(authorization.headers.get('location')!).searchParams.get('request')!;
-      const pendingCookie = authorization.headers.get('set-cookie')!.split(';')[0];
+      expect(authorization.status).toBe(200);
+      expect(authorization.headers.get('content-type')).toContain('text/html');
+      const authorizationHtml = await authorization.text();
+      expect(authorizationHtml).toContain('name="token" type="password"');
+      const pendingRequest = authorizationHtml.match(/name="request" value="([^"]+)"/)![1];
       const approved = await consent(formRequest(`${appUrl}/api/oauth/authorize`, {
-         request: pendingRequest, decision: 'approve', read_only: '1',
-      }, { cookie: pendingCookie }));
+         request: pendingRequest, token: 'operator-test-key', decision: 'approve', read_only: '1',
+      }));
       expect(approved.status).toBe(303);
       const authorizationCode = new URL(approved.headers.get('location')!).searchParams.get('code')!;
 

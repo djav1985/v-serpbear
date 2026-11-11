@@ -1,6 +1,11 @@
 import '@testing-library/jest-dom';
 import { TextEncoder, TextDecoder } from 'util';
 
+// Jest isolates modules per test environment but shares the worker process. proper-lockfile's
+// signal-exit hook then adds another set of process signal listeners for each isolated import.
+// Tests release locks explicitly, so skip only the process-exit cleanup hook in Jest.
+jest.mock('signal-exit', () => jest.fn(() => jest.fn()));
+
 jest.mock('next/image', () => ({
   __esModule: true,
   default: ({ src, alt, width, height, unoptimized: _unoptimized, ...rest }) => {
