@@ -48,40 +48,6 @@ const percent = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maxim
 
 type SCColumn = ColumnDef<DataTableFeatures, SearchAnalyticsItem>;
 
-const makeSampleSearchRow = (
-   domain: string, keyword: string, device: 'desktop' | 'mobile', country: string,
-   clicks: number, impressions: number, position: number,
-): SearchAnalyticsItem => ({
-   keyword,
-   uid: `sample-${device}-${country}-${keyword.replace(/[^a-z0-9]+/gi, '-')}`,
-   device,
-   page: `https://${domain}/sample-page`,
-   country,
-   clicks,
-   impressions,
-   ctr: impressions ? Math.round((clicks / impressions) * 10000) / 100 : 0,
-   position,
-   date: '2026-11-10',
-});
-
-const createSampleSearchConsoleData = (domain: string): SCDomainDataType => {
-   const makePeriod = (multiplier: number) => [
-      makeSampleSearchRow(domain, 'local seo services', 'desktop', 'USA', 34 * multiplier, 1200 * multiplier, 4.8),
-      makeSampleSearchRow(domain, 'small business seo', 'desktop', 'USA', 21 * multiplier, 780 * multiplier, 6.2),
-      makeSampleSearchRow(domain, 'seo consultant near me', 'desktop', 'USA', 16 * multiplier, 540 * multiplier, 8.1),
-      makeSampleSearchRow(domain, 'local seo services', 'mobile', 'USA', 49 * multiplier, 1850 * multiplier, 5.3),
-      makeSampleSearchRow(domain, 'seo agency london', 'mobile', 'GBR', 12 * multiplier, 390 * multiplier, 7.6),
-      makeSampleSearchRow(domain, 'seo services toronto', 'desktop', 'CAN', 9 * multiplier, 275 * multiplier, 9.4),
-   ];
-
-   return {
-      threeDays: makePeriod(1),
-      sevenDays: makePeriod(2),
-      thirtyDays: makePeriod(5),
-      lastFetched: '2026-11-11T12:00:00.000Z',
-   };
-};
-
 const getColumns = (onOpenDetails: (keyword: SearchAnalyticsItem) => void): SCColumn[] => [
    {
       id: 'select',
@@ -140,16 +106,11 @@ export function DiscoverView({ domain, searchConsoleConnected, adwordsConnected,
    const [detailsKeyword, setDetailsKeyword] = useState<SearchAnalyticsItem | null>(null);
 
    const { data: scData, isLoading, isError } = useScKeywords(domain.domain, searchConsoleConnected);
-   const sampleData = useMemo(
-      () => process.env.NODE_ENV === 'development' && !scData && !isLoading ? createSampleSearchConsoleData(domain.domain) : null,
-      [domain.domain, scData, isLoading],
-   );
-   const visibleScData = scData ?? sampleData;
 
    const grouped = useMemo(() => {
-      const periodRows = (visibleScData as unknown as Record<string, SearchAnalyticsItem[]> | undefined)?.[period] ?? [];
+      const periodRows = (scData as unknown as Record<string, SearchAnalyticsItem[]> | undefined)?.[period] ?? [];
       return aggregateSCKeywords(periodRows);
-   }, [visibleScData, period]);
+   }, [scData, period]);
 
    const trackedQuery = useTrackedKeywordsForAdd(domain.domain, showAddStep);
    const settingsQuery = useAppSettings(showAddStep, true);
@@ -209,7 +170,7 @@ export function DiscoverView({ domain, searchConsoleConnected, adwordsConnected,
       : 'No keywords match these filters.';
 
    return (
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-2">
          <DomainHeader
             domain={domain}
             searchConsoleConnected={searchConsoleConnected}
@@ -222,12 +183,6 @@ export function DiscoverView({ domain, searchConsoleConnected, adwordsConnected,
                <SelectContent>{SC_PERIODS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
             </Select>
          </DomainHeader>
-
-         {sampleData && (
-            <p role="status" className="bg-muted/60 text-muted-foreground rounded-lg border px-3 py-2 text-xs">
-               Development preview: showing sample Search Console data, not live data.
-            </p>
-         )}
 
          <div className="bg-card rounded-xl border shadow-sm" data-testid="domKeywords">
             {selectedIds.length > 0 ? (
@@ -349,11 +304,11 @@ export function DiscoverView({ domain, searchConsoleConnected, adwordsConnected,
             <DiscoverKeywordDetails
                keyword={detailsKeyword}
                periodRows={{
-                  threeDays: visibleScData?.threeDays ?? [],
-                  sevenDays: visibleScData?.sevenDays ?? [],
-                  thirtyDays: visibleScData?.thirtyDays ?? [],
+                  threeDays: scData?.threeDays ?? [],
+                  sevenDays: scData?.sevenDays ?? [],
+                  thirtyDays: scData?.thirtyDays ?? [],
                }}
-               lastFetched={visibleScData?.lastFetched}
+               lastFetched={scData?.lastFetched}
                onClose={() => setDetailsKeyword(null)}
             />
          )}

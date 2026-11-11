@@ -137,7 +137,7 @@ export function InsightView({ domain, searchConsoleConnected, adwordsConnected, 
    ) : isError ? 'Could not load Search Console insights for this domain.' : 'No data yet.';
 
    return (
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-2">
          <DomainHeader domain={domain} searchConsoleConnected={searchConsoleConnected} adwordsConnected={adwordsConnected} onOpenSettings={() => setSettingsOpen(true)} />
 
          <div className="bg-card rounded-xl border shadow-sm" data-testid="domKeywords">

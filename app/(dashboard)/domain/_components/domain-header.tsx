@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Download, Lightbulb, LineChart, Plus, RefreshCw, Search, Settings } from 'lucide-react';
@@ -34,7 +34,6 @@ const TABS = [
 /** The domain name, the four view tabs and the actions every domain view shares. */
 export function DomainHeader({ domain, onOpenSettings, onExport, onReloadAll, onAddKeyword, onLoadIdeas, children }: DomainHeaderProps) {
    const pathname = usePathname() ?? '';
-   const isInsightPage = pathname === `/domain/insight/${domain.slug}`;
    const router = useRouter();
    const { domains } = useShell();
 
@@ -65,30 +64,27 @@ export function DomainHeader({ domain, onOpenSettings, onExport, onReloadAll, on
                   const href = `${base}/${domain.slug}`;
                   const active = pathname === href;
                   return (
-                     <Fragment key={label}>
-                        <Link
-                           href={href}
-                           prefetch={false}
-                           onPointerEnter={() => prefetchTab(href)}
-                           onFocus={() => prefetchTab(href)}
-                           title={hint}
-                           aria-current={active ? 'page' : undefined}
-                           className={cn(
-                              'flex shrink-0 items-center gap-2 border-b-2 px-3 py-2 text-sm lg:px-4',
-                              active ? 'border-primary text-foreground font-semibold' : 'text-muted-foreground hover:text-foreground border-transparent',
-                           )}
-                        >
-                           <Icon className="hidden size-4 lg:block" />
-                           {label}
-                        </Link>
-                        {label === 'Insight' && !isInsightPage && (
-                           <Button variant="ghost" size="icon-sm" className="md:hidden" aria-label="Domain settings" data-testid="show_domain_settings_mobile" onClick={onOpenSettings}>
-                              <Settings />
-                           </Button>
+                     <Link
+                        key={label}
+                        href={href}
+                        prefetch={false}
+                        onPointerEnter={() => prefetchTab(href)}
+                        onFocus={() => prefetchTab(href)}
+                        title={hint}
+                        aria-current={active ? 'page' : undefined}
+                        className={cn(
+                           'flex shrink-0 items-center gap-2 border-b-2 px-3 py-2 text-sm lg:px-4',
+                           active ? 'border-primary text-foreground font-semibold' : 'text-muted-foreground hover:text-foreground border-transparent',
                         )}
-                     </Fragment>
+                     >
+                        <Icon className="hidden size-4 lg:block" />
+                        {label}
+                     </Link>
                   );
                })}
+               <Button variant="ghost" size="icon-sm" className="ml-auto self-center md:hidden" aria-label="Domain settings" data-testid="show_domain_settings_mobile" onClick={onOpenSettings}>
+                  <Settings />
+               </Button>
             </nav>
 
             <div className="flex flex-wrap items-center gap-2 pb-1">
@@ -102,7 +98,7 @@ export function DomainHeader({ domain, onOpenSettings, onExport, onReloadAll, on
                {onLoadIdeas && (
                   <Button variant="primaryAction" size="sm" data-testid="load_ideas" onClick={onLoadIdeas}><Download /><ButtonLabel>Load Ideas</ButtonLabel></Button>
                )}
-               <Button variant="ghost" size="sm" className={cn(!isInsightPage && 'hidden md:inline-flex')} data-testid="show_domain_settings" onClick={onOpenSettings}><Settings /><span className="hidden lg:inline">Domain Settings</span></Button>
+               <Button variant="ghost" size="sm" className="hidden md:inline-flex" data-testid="show_domain_settings" onClick={onOpenSettings}><Settings /><span className="hidden lg:inline">Domain Settings</span></Button>
                {onAddKeyword && (
                   <Button variant="primaryAction" size="sm" data-testid="add_keyword" onClick={onAddKeyword}><Plus />Add Keyword</Button>
                )}

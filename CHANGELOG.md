@@ -7,7 +7,8 @@ All notable changes to this project will be documented in this file. Releases no
 ### Fixed
 
 - Correct the Swiss flag sprite mapping so it uses its Europe entry instead of Algeria's sprite position.
-- Keep the domain settings dialog height stable across tabs and place its mobile shortcut beside the Insight tab, with the divider below the tabs.
+- Keep the domain settings dialog height stable across tabs, place its mobile shortcut at the far right of the tabs row aligned with the tab labels, and reduce the gap above domain tables.
+- Remove the development-only Discover sample rows and notice so no placeholder content adds space above the table.
 
 ### Added
 
@@ -16,7 +17,6 @@ All notable changes to this project will be documented in this file. Releases no
 - Rename the MCP operator key variable to `MCP_APIKEY` and use `CRON_TIMEZONE` for the application timezone.
 - Render MCP OAuth approval through the app page and shared stylesheet/components.
 - Restyle primary and secondary action buttons, enlarge login, OAuth and main Settings action buttons, and make the OAuth cancel action red.
-- Show labeled sample Search Console rows in the Discover screen during development when no real data is available.
 - Use the primary button style for Google Search actions in Ideas, Research and Discover detail panels.
 - Stretch the main Settings tab background across the menu width.
 - Centralize vertical alignment for Add Domain, Load Ideas and Perform Google Search labels; share the sized Settings tab styles across Settings and Domain Settings.
