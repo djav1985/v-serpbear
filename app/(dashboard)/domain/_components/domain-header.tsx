@@ -74,11 +74,14 @@ export function DomainHeader({ domain, onOpenSettings, onExport, onReloadAll, on
                         aria-current={active ? 'page' : undefined}
                         className={cn(
                            'flex shrink-0 items-center gap-2 border-b-2 px-3 py-2 text-sm lg:px-4',
-                           active ? 'border-primary text-foreground font-semibold' : 'text-muted-foreground hover:text-foreground border-transparent',
+                           active ? 'border-primary text-foreground' : 'text-muted-foreground hover:text-foreground border-transparent',
                         )}
                      >
                         <Icon className="hidden size-4 lg:block" />
-                        {label}
+                        <span className="grid">
+                           <span aria-hidden="true" className="invisible col-start-1 row-start-1 font-semibold">{label}</span>
+                           <span className={cn('col-start-1 row-start-1', active && 'font-semibold')}>{label}</span>
+                        </span>
                      </Link>
                   );
                })}

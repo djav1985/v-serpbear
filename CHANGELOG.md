@@ -9,6 +9,10 @@ All notable changes to this project will be documented in this file. Releases no
 - Correct the Swiss flag sprite mapping so it uses its Europe entry instead of Algeria's sprite position.
 - Keep the domain settings dialog height stable across tabs, place its mobile shortcut at the far right of the tabs row aligned with the tab labels, and reduce the gap above domain tables.
 - Remove the development-only Discover sample rows and notice so no placeholder content adds space above the table.
+- Match the Discover table height to Tracking so both tabs use the same available viewport height.
+- Set the Insight Keywords, Countries and Pages tables to the same 24rem minimum height as the other table tabs.
+- Reserve each domain tab's bold label width so changing the active tab weight does not shift its neighbors.
+- Keep desktop data-table containers at their configured CSS height instead of resizing them after rows are measured; retain invisible mobile loading space.
 
 ### Added
 

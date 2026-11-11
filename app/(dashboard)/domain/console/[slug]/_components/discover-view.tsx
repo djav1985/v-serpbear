@@ -240,7 +240,7 @@ export function DiscoverView({ domain, searchConsoleConnected, adwordsConnected,
             <DataTable
                table={table}
                label="Search Console keywords"
-               className="h-[calc(100dvh-30rem)] min-h-80"
+               className="h-[calc(100dvh-26rem)] min-h-96"
                minWidth="38rem"
                isLoading={searchConsoleConnected && isLoading}
                emptyMessage={emptyMessage}
