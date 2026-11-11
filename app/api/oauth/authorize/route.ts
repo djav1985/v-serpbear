@@ -1,5 +1,6 @@
 import { hasValidSessionCookie } from '../../../../utils/verifyUser';
 import { createRoute, fail, type ApiContext } from '../../../../utils/apiLogging';
+import { logger } from '../../../../utils/logger';
 import {
    constantTimeEqual, findCredential, getAuthorizationServerMetadata, getClientRedirectUris, getMcpResourceUrl, getOAuthBaseUrl,
    hashSecret, oauthError, pruneExpiredOAuthCredentials, randomSecret, readClient, readOAuthForm, saveCredential, withOAuthStore,
@@ -67,11 +68,18 @@ const authorize = async (req: Request, ctx: ApiContext): Promise<Response> => {
    const knownRedirect = !!client && getClientRedirectUris(client).includes(redirectUri);
    if (!client || !knownRedirect) { return oauthError('invalid_request', 400, 'Unknown client or unregistered redirect URI.'); }
 
-   const failThroughClient = (error: string, description?: string) => redirectToClient(
-      redirectUri,
-      { error, ...(description ? { error_description: description } : {}), ...(state ? { state } : {}), iss: base },
-      secure,
-   );
+   const failThroughClient = (error: string, description?: string) => {
+      logger.error('[OAuth] Authorization request rejected.', undefined, {
+         operation: 'authorization',
+         oauthError: error,
+         ...(description ? { description: description.slice(0, 300) } : {}),
+      });
+      return redirectToClient(
+         redirectUri,
+         { error, ...(description ? { error_description: description } : {}), ...(state ? { state } : {}), iss: base },
+         secure,
+      );
+   };
 
    if (responseType !== 'code') { return failThroughClient('unsupported_response_type', 'Only response_type=code is supported.'); }
    if (!/^[A-Za-z0-9_-]{43}$/.test(challenge) || challengeMethod !== 'S256') {

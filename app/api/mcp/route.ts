@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { clearLoginFailures, recordLoginFailure, isLoginLocked } from '../../../utils/loginThrottle';
 import { getApiKeyAttemptKeys } from '../../../utils/apiKeyThrottle';
+import { logger } from '../../../utils/logger';
 // The SDK exposes these subpaths through a "./*" export pattern that ESLint's resolver cannot read (Node and tsc resolve them)
 // eslint-disable-next-line import/no-unresolved
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -95,6 +96,11 @@ const handleMcp = async (req: Request, ctx: ApiContext) => {
    const oauthValid = !!oauthCredential && oauthCredential.revokedAt == null && oauthCredential.expiresAt > Date.now() &&
       (!oauthCredential.resource || oauthCredential.resource === resource);
    if (!directKeyValid && !oauthValid) {
+      const reason = !bearer ? 'missing_bearer_token' : oauthCredential?.expiresAt && oauthCredential.expiresAt <= Date.now()
+         ? 'expired_oauth_access_token' : oauthCredential?.resource && oauthCredential.resource !== resource
+            ? 'oauth_resource_mismatch' : oauthCredential?.revokedAt != null
+               ? 'inactive_oauth_access_token' : 'invalid_or_unrecognized_bearer_token';
+      logger.error('[OAuth] MCP request authentication failed.', undefined, { operation: 'mcp_authentication', reason });
       if (isLoginLocked(attempts)) {
          return fail(429, 'TOO_MANY_ATTEMPTS', 'Too many failed MCP credentials. Try again in 15 minutes.', ctx, undefined, { 'Retry-After': '900' });
       }

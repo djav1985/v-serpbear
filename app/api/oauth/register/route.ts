@@ -1,4 +1,5 @@
 import { createRoute, fail, json, readJson, type ApiContext } from '../../../../utils/apiLogging';
+import { logger } from '../../../../utils/logger';
 import { createClient, oauthError, parseRedirectUris, pruneExpiredOAuthCredentials } from '../../../../utils/mcpOAuth';
 
 const registerClient = async (req: Request, ctx: ApiContext): Promise<Response> => {
@@ -27,13 +28,14 @@ const registerClient = async (req: Request, ctx: ApiContext): Promise<Response> 
       return json({
          client_id: client.clientId,
          client_id_issued_at: Math.floor(client.createdAt / 1000),
-         client_name: client.clientName,
+         ...(client.clientName ? { client_name: client.clientName } : {}),
          redirect_uris: redirectUris,
          grant_types: ['authorization_code', 'refresh_token'],
          response_types: ['code'],
          token_endpoint_auth_method: 'none',
       }, 201, { 'Cache-Control': 'no-store' });
-   } catch (_error) {
+   } catch (error) {
+      logger.error('[OAuth] Dynamic client registration failed while saving client state.', error instanceof Error ? error : new Error(String(error)), { operation: 'client_registration' });
       return fail(500, 'INTERNAL_SERVER_ERROR', 'Unable to register the OAuth client.', ctx);
    }
 };

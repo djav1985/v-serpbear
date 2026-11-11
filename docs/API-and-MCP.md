@@ -27,6 +27,7 @@ Tools that start scrapes, send email or spend Google Ads quota are not exposed; 
 ## External API
 
 A REST API for scripts and automation. Send `Authorization: Bearer <APIKEY>`. After 5 wrong keys from one address within 15 minutes, that address gets `429` for 15 minutes. Routes not listed below need a logged-in session.
+Protected pages and API routes validate the login session directly; there is no separate session-check endpoint.
 
 ```bash
 export APIKEY=your-api-key
@@ -42,6 +43,13 @@ The example uses port 3030, which Docker Compose maps to the app.
 | GET | `/api/serp/domains` | All tracked domains (`withstats=true` adds keyword statistics) |
 | POST | `/api/serp/refresh` | Refresh chosen keywords: body `ids`, query `id` (comma-separated, or `all` with `domain`), or `scope=enabled-domains` for the scheduled refresh. Body `{ keyword, country, device }` runs a one-off keyword search (login session only, not an API key). Requests from a login session must come from this site |
 | GET | `/api/serp/refresh?status=retry&id=…` | Read which keywords are still updating (read-only) |
+| PUT | `/api/serp/keywords` | Update keywords: JSON body `ids` plus `sticky` (boolean), `tags` (ID-to-tag-list object), or `location` (string; include `country` if the location does not name one) |
+| DELETE | `/api/serp/keywords` | Delete keywords: JSON body `ids` array |
+| PUT | `/api/serp/domains` | Update a domain: JSON body `domain` plus any of `notification_emails`, `search_console`, `scrapeEnabled`, `scraper_settings`, `business_name`, `scrape_strategy`, or `scrape_pagination_limit` |
+| DELETE | `/api/serp/domains` | Delete a domain: JSON body `domain` |
+| PUT | `/api/app/settings` | Save app settings: JSON body `settings` object (login session required) |
+| PUT | `/api/google/ideas` | Toggle an idea favorite: JSON body `keywordID`, optional `domain` |
+| PUT | `/api/serp/clearfailed` | Clear the failed retry queue; no arguments |
 | POST | `/api/app/email?type=digest` | Send the email digest for one domain (`domain=`) or all |
 | GET | `/api/google/searchconsole?domain=` | Search Console data of a domain |
 | POST | `/api/google/searchconsole` | Refresh Search Console data for all domains |

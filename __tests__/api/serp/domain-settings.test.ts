@@ -111,11 +111,12 @@ describe('domains route', () => {
     });
 
     it.each([
-      [{}, null, 'Domain is Required!'],
-      [{ domain: 'example.com' }, [], 'Request body must be a JSON object.'],
-      [{ domain: 'example.com' }, null, 'Request body must be a JSON object.'],
-    ])('rejects missing domain or non-object payloads before reading the row (%p)', async (query, body, message) => {
-      const req = { method: 'PUT', query, body, headers: {} } as unknown as NextApiRequest;
+      [null, 'Request body must be a JSON object.'],
+      [[], 'Request body must be a JSON object.'],
+      [{}, 'Domain is Required!'],
+      [{ scrapeEnabled: true }, 'Domain is Required!'],
+    ])('requires a JSON body containing the domain (%p)', async (body, message) => {
+      const req = { method: 'PUT', query: { domain: 'example.com' }, body, headers: {} } as unknown as NextApiRequest;
       const res = createMockResponse();
 
       await handler(req, res);
@@ -128,8 +129,8 @@ describe('domains route', () => {
      it('persists scrapeEnabled toggles', async () => {
       const disableReq = {
         method: 'PUT',
-        query: { domain: domainState.domain },
-        body: { scrapeEnabled: false },
+        query: {},
+        body: { domain: domainState.domain, scrapeEnabled: false },
         headers: {},
       } as unknown as NextApiRequest;
       const disableRes = createMockResponse();
@@ -151,8 +152,8 @@ describe('domains route', () => {
 
       const enableReq = {
         method: 'PUT',
-        query: { domain: domainState.domain },
-        body: { scrapeEnabled: true },
+        query: {},
+        body: { domain: domainState.domain, scrapeEnabled: true },
         headers: {},
       } as unknown as NextApiRequest;
       const enableRes = createMockResponse();
@@ -177,8 +178,8 @@ describe('domains route', () => {
 
       const req = {
         method: 'PUT',
-        query: { domain: 'missing.example.com' },
-        body: { scrapeEnabled: true },
+        query: {},
+        body: { domain: 'missing.example.com', scrapeEnabled: true },
         headers: {},
       } as unknown as NextApiRequest;
 
@@ -206,8 +207,8 @@ describe('domains route', () => {
 
       const req = {
         method: 'PUT',
-        query: { domain: domainState.domain },
-        body: { scrapeEnabled: true },
+        query: {},
+        body: { domain: domainState.domain, scrapeEnabled: true },
         headers: {},
       } as unknown as NextApiRequest;
 
@@ -233,8 +234,8 @@ describe('domains route', () => {
 
       const req = {
         method: 'PUT',
-        query: { domain: domainState.domain },
-        body: { scrapeEnabled: false },
+        query: {},
+        body: { domain: domainState.domain, scrapeEnabled: false },
         headers: {},
       } as unknown as NextApiRequest;
 
@@ -256,8 +257,8 @@ describe('domains route', () => {
 
       const req = {
         method: 'PUT',
-        query: { domain: domainState.domain },
-        body: { scraper_settings: { scraper_type: 'serpapi', scraping_api: 'new-key' } },
+        query: {},
+        body: { domain: domainState.domain, scraper_settings: { scraper_type: 'serpapi', scraping_api: 'new-key' } },
         headers: {},
       } as unknown as NextApiRequest;
 
@@ -279,8 +280,8 @@ describe('domains route', () => {
 
       const req = {
         method: 'PUT',
-        query: { domain: domainState.domain },
-        body: { scraper_settings: { scraper_type: null } },
+        query: {},
+        body: { domain: domainState.domain, scraper_settings: { scraper_type: null } },
         headers: {},
       } as unknown as NextApiRequest;
 
@@ -295,8 +296,8 @@ describe('domains route', () => {
     it('sets business_name independently of scraper settings, alone and alongside them', async () => {
       const alone = {
         method: 'PUT',
-        query: { domain: domainState.domain },
-        body: { business_name: 'Vontainment' },
+        query: {},
+        body: { domain: domainState.domain, business_name: 'Vontainment' },
         headers: {},
       } as unknown as NextApiRequest;
       const aloneRes = createMockResponse();
@@ -310,8 +311,8 @@ describe('domains route', () => {
 
       const both = {
         method: 'PUT',
-        query: { domain: domainState.domain },
-        body: {
+        query: {},
+        body: { domain: domainState.domain,
           business_name: 'My Business',
           scraper_settings: { scraper_type: 'serpapi', scraping_api: 'new-key' }
         },
@@ -335,8 +336,8 @@ describe('domains route', () => {
     ])('normalizes scrape strategy and pagination options (%p, %p)', async (strategy, limit, expectedStrategy, expectedLimit, writesLimit) => {
       const req = {
         method: 'PUT',
-        query: { domain: domainState.domain },
-        body: { scrape_strategy: strategy, scrape_pagination_limit: limit },
+        query: {},
+        body: { domain: domainState.domain, scrape_strategy: strategy, scrape_pagination_limit: limit },
         headers: {},
       } as unknown as NextApiRequest;
       const res = createMockResponse();
@@ -361,8 +362,8 @@ describe('domains route', () => {
 
         const req = {
           method: 'PUT',
-          query: { domain: domainState.domain },
-          body,
+          query: {},
+          body: { domain: domainState.domain, ...body },
           headers: {},
         } as unknown as NextApiRequest;
 
@@ -383,8 +384,8 @@ describe('domains route', () => {
 
       const req = {
         method: 'PUT',
-        query: { domain: domainState.domain },
-        body: {
+        query: {},
+        body: { domain: domainState.domain,
           notification_emails: 'test@example.com'
         },
         headers: {},
@@ -402,8 +403,8 @@ describe('domains route', () => {
       domainInstance.save.mockRejectedValue(new Error('database unavailable'));
       const req = {
         method: 'PUT',
-        query: { domain: domainState.domain },
-        body: { notification_emails: 'alerts@example.com' },
+        query: {},
+        body: { domain: domainState.domain, notification_emails: 'alerts@example.com' },
         headers: {},
       } as unknown as NextApiRequest;
       const res = createMockResponse();
@@ -426,8 +427,8 @@ describe('domains route', () => {
 
         const req = {
           method: 'PUT',
-          query: { domain: domainState.domain },
-          body: { search_console },
+          query: {},
+          body: { domain: domainState.domain, search_console },
           headers: {},
         } as unknown as NextApiRequest;
 
@@ -451,8 +452,8 @@ describe('domains route', () => {
 
         const req = {
           method: 'PUT',
-          query: { domain: domainState.domain },
-          body: { search_console: { client_email: clientEmail, private_key: privateKey } },
+          query: {},
+          body: { domain: domainState.domain, search_console: { client_email: clientEmail, private_key: privateKey } },
           headers: {},
         } as unknown as NextApiRequest;
 
@@ -615,8 +616,8 @@ describe('Search Console credentials stay on the server', () => {
         isoDomainModel.findOne.mockResolvedValue(instance);
         const req = {
           method: 'PUT',
-          query: { domain: 'example.com' },
-          body: { search_console: { property_type: 'url', url: 'https://example.com/', client_email: 'true', private_key: 'true' } },
+          query: {},
+          body: { domain: 'example.com', search_console: { property_type: 'url', url: 'https://example.com/', client_email: 'true', private_key: 'true' } },
           headers: {},
         } as unknown as NextApiRequest;
         const res = createMockResponse();
@@ -637,8 +638,8 @@ describe('Search Console credentials stay on the server', () => {
         isoDomainModel.findOne.mockResolvedValue(instance);
         const req = {
           method: 'PUT',
-          query: { domain: 'example.com' },
-          body: { search_console: { property_type: 'domain', url: '', client_email: 'new@example.com', private_key: 'true' } },
+          query: {},
+          body: { domain: 'example.com', search_console: { property_type: 'domain', url: '', client_email: 'new@example.com', private_key: 'true' } },
           headers: {},
         } as unknown as NextApiRequest;
         const res = createMockResponse();
@@ -796,8 +797,8 @@ describe('Search Console credentials stay on the server', () => {
         isoDomainModel.findOne.mockResolvedValue(instance);
         const req = {
           method: 'PUT',
-          query: { domain: 'example.com' },
-          body: { search_console: { property_type: 'url', url: 'https://example.com/', client_email: 'true', private_key: 'true' } },
+          query: {},
+          body: { domain: 'example.com', search_console: { property_type: 'url', url: 'https://example.com/', client_email: 'true', private_key: 'true' } },
           headers: {},
         } as unknown as NextApiRequest;
         const res = createMockResponse();
@@ -818,8 +819,8 @@ describe('Search Console credentials stay on the server', () => {
         isoDomainModel.findOne.mockResolvedValue(instance);
         const req = {
           method: 'PUT',
-          query: { domain: 'example.com' },
-          body: { search_console: { property_type: 'domain', url: '', client_email: 'new@example.com', private_key: 'true' } },
+          query: {},
+          body: { domain: 'example.com', search_console: { property_type: 'domain', url: '', client_email: 'new@example.com', private_key: 'true' } },
           headers: {},
         } as unknown as NextApiRequest;
         const res = createMockResponse();

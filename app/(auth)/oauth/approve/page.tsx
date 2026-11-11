@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getBranding } from 'utils/branding';
+import { logger } from 'utils/logger';
 import { Brand } from 'app/_components/brand';
 import { verifySessionToken } from 'utils/verifyUser';
 import { findActiveAuthorizationRequest, readClient } from 'utils/mcpOAuth';
@@ -27,18 +28,23 @@ export default async function OAuthApprovalPage({ searchParams }: PageProps) {
       } catch (_error) {
          redirect(`/login?next=${encodeURIComponent(`/oauth/approve?request=${request}`)}`);
       }
-      const pending = await findActiveAuthorizationRequest(request);
-      if (pending && pending.redirectUri) {
-         const client = await readClient(pending.clientId);
-         try {
-            callbackHost = new URL(pending.redirectUri).host;
-            clientName = client?.clientName || 'MCP client';
-            requestValid = !!client;
-         } catch (_error) {
-            requestValid = false;
+      try {
+         const pending = await findActiveAuthorizationRequest(request);
+         if (pending && pending.redirectUri) {
+            const client = await readClient(pending.clientId);
+            try {
+               callbackHost = new URL(pending.redirectUri).host;
+               clientName = client?.clientName || 'MCP client';
+               requestValid = !!client;
+            } catch (_error) {
+               requestValid = false;
+            }
          }
+      } catch (error) {
+         logger.error('[OAuth] Failed to read approval state from the OAuth data file.', error instanceof Error ? error : new Error(String(error)), { operation: 'authorization_approval' });
       }
    }
+   if (request && !requestValid) { logger.error('[OAuth] Approval page could not load the authorization request.', undefined, { operation: 'authorization_approval', reason: 'missing_or_expired_request' }); }
 
    const message = error === 'session_expired' ? 'Your login session expired. Sign in again to approve this connection.' : '';
 

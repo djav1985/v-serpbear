@@ -116,8 +116,27 @@ const run = async (handler: ApiHandler | undefined, def: RouteDefinition, req: R
 
    const statusCode = response.status;
    const duration = Date.now() - startTime;
-   if (statusCode >= 500) {
-      logger.error(`${label} - ${statusCode}`, undefined, { requestId, statusCode, duration });
+   const isOAuthRoute = def.name.startsWith('oauth/');
+   if (statusCode >= 500 || (isOAuthRoute && statusCode >= 400)) {
+      let oauthError: Record<string, string> = {};
+      if (isOAuthRoute) {
+         try {
+            const payload = await response.clone().json() as {
+               error?: string | { code?: string, message?: string },
+               error_description?: string,
+            };
+            if (typeof payload.error === 'string') {
+               oauthError.code = payload.error;
+               if (typeof payload.error_description === 'string') { oauthError.description = payload.error_description.slice(0, 300); }
+            } else if (payload.error && typeof payload.error === 'object') {
+               if (typeof payload.error.code === 'string') { oauthError.code = payload.error.code; }
+               if (typeof payload.error.message === 'string') { oauthError.description = payload.error.message.slice(0, 300); }
+            }
+         } catch (_error) {
+            // Keep logging the route and status even if a response is not JSON.
+         }
+      }
+      logger.error(`${label} - ${statusCode}`, undefined, { requestId, statusCode, duration, ...oauthError });
    } else if (statusCode >= 400) {
       logger.debug(`[API] ${label} - ${statusCode}`, { requestId, statusCode, duration });
    } else {

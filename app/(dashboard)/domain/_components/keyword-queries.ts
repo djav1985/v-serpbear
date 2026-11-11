@@ -94,7 +94,7 @@ export function useFavoriteKeyword() {
    const invalidate = useKeywordsInvalidator();
    return useMutation({
       mutationFn: ({ keywordID, sticky }: { keywordID: number; sticky: boolean }) => (
-         apiPut<{ keywords: KeywordType[] }>(`/api/serp/keywords?id=${keywordID}`, { sticky })
+         apiPut<{ keywords: KeywordType[] }>('/api/serp/keywords', { ids: [keywordID], sticky })
       ),
       onSuccess: (data) => {
          toast.success(data.keywords[0]?.sticky === true ? 'Keyword made favorite!' : 'Keyword unfavorited!');

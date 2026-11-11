@@ -88,7 +88,7 @@ describe('domains route', () => {
   const refreshQueueMock = refreshQueue as unknown as { enqueue: jest.Mock; isDomainLocked: jest.Mock; reserveDomains: jest.Mock };
 
   describe('DELETE /api/serp/domains', () => {
-    const request = (domain = 'example.com') => ({ method: 'DELETE', query: { domain }, headers: {} } as unknown as NextApiRequest);
+    const request = (domain = 'example.com') => ({ method: 'DELETE', query: {}, body: { domain }, headers: {} } as unknown as NextApiRequest);
     let cleanupState = '{}';
     beforeEach(() => {
       jest.clearAllMocks();

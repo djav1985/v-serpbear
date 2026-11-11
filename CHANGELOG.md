@@ -10,11 +10,15 @@ All notable changes to this project will be documented in this file. Releases no
 
 ### Changed
 
+- Require JSON bodies for keyword and domain PUT/DELETE arguments; remove the legacy `id` and `domain` query forms and update the frontend API calls.
 - Move the scheduled refresh into `POST /api/serp/refresh?scope=enabled-domains` and remove `POST /api/app/cron`.
+- Remove the unused `GET /api/auth/check` endpoint; the app checks sessions in protected layouts and API routes.
 - Document `MCP_API_KEY` and MCP OAuth setup separately from the REST `APIKEY`.
 
 ### Fixed
 
+- Log OAuth endpoint failures and MCP OAuth authentication failures at error level with diagnostic codes while keeping bearer tokens and authorization codes out of logs.
+- Omit `client_name` from OAuth dynamic-registration responses when the client did not provide a name, rather than returning an invalid `null` value.
 - Avoid blocking request handling while cancelling an oversized debug logging stream.
 - Load the settings editor through an explicitly authenticated full-settings request, and show an error instead of empty fields if the session is invalid.
 

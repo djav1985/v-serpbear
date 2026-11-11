@@ -133,7 +133,8 @@ export function apiPut<T = unknown>(
 /** DELETE request helper */
 export function apiDelete<T = unknown>(
    path: string,
+   body?: unknown,
    router?: Pick<NextRouter, 'push'>,
 ): Promise<T> {
-   return apiFetch<T>(path, { method: 'DELETE' }, router);
+   return apiFetch<T>(path, { method: 'DELETE', ...(body === undefined ? {} : { body: JSON.stringify(body) }) }, router);
 }

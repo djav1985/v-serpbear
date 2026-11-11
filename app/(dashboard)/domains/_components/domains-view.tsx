@@ -89,7 +89,7 @@ export function DomainsView({ scraperConfigured, searchConsoleIntegrated, showMa
 
    const toggleActive = useMutation({
       mutationFn: ({ domain, scrapeEnabled }: { domain: string; scrapeEnabled: boolean }) => (
-         apiPut(`/api/serp/domains?domain=${encodeURIComponent(domain)}`, { scrapeEnabled })
+         apiPut('/api/serp/domains', { domain, scrapeEnabled })
       ),
       onMutate: ({ domain, scrapeEnabled }) => {
          setActiveOverrides((current) => ({ ...current, [domain]: scrapeEnabled }));
