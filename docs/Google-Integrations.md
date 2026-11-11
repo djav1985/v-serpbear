@@ -1,6 +1,6 @@
 # Google Integrations
 
-Both integrations are optional. The setup steps follow the [original SerpBear documentation](https://docs.serpbear.com/).
+Both integrations are optional. The setup steps are written out below.
 
 - [Google Search Console](#google-search-console): real impressions, clicks and CTR next to your rankings
 - [Google Ads](#google-ads): keyword research and monthly search volumes
@@ -8,6 +8,8 @@ Both integrations are optional. The setup steps follow the [original SerpBear do
 ---
 
 ## Google Search Console
+
+![The Discover screen, fed by Search Console](images/discover.png)
 
 Once connected you can:
 
@@ -48,20 +50,24 @@ Repeat this for every domain you want to connect.
 
 ### Step 5: Connect it to SerpBear
 
+![Search Console settings for a domain](images/domain-settings-search-console.png)
+
 First check which property type your domain has in Search Console:
 
 - **Domain property** (`example.com`): covers all subdomains and protocols.
 - **URL-prefix property** (`https://example.com/`): covers only that prefix.
 
-In SerpBear's domain settings, the property type must match. Choose **Domain** for a domain property. Choose **URL** for a URL-prefix property, and enter the exact URL as shown in Search Console. A mismatch is the most common cause of "Forbidden" errors.
+In SerpBear's **Domain Settings → Search Console** tab, the property type must match. Choose **Domain** for a domain property. Choose **URL** for a URL-prefix property, and enter the exact URL as shown in Search Console. A mismatch is the most common cause of "Forbidden" errors.
 
 There are three ways to give SerpBear the credentials. They are read in this order:
 
-1. **Domain settings:** insert the `client_email` and `private_key` in a domain's settings. This uses that account for that domain only.
-2. **App settings:** open **Settings → Search Console** and insert the two values. They are used for every domain without its own.
+1. **Domain settings:** insert the `client_email` and `private_key` in a domain's **Domain Settings → Search Console** tab. This uses that account for that domain only.
+2. **App settings:** open **Settings → Integrations → Search Console** and insert the two values. They are used for every domain without its own.
 3. **Environment variables:** set `SEARCH_CONSOLE_CLIENT_EMAIL` and `SEARCH_CONSOLE_PRIVATE_KEY` in `docker-compose.yml`. Keep the newlines in the key escaped as `\n`. They are used for all domains, as long as the service account has access to each one.
 
 ### How the data is refreshed
+
+![The Insight screen](images/insight.png)
 
 Cached data is refetched when a dashboard or API read finds it more than 24 hours old, and by the cron at the `CRON_MAIN_SCHEDULE` time. Search Console days follow Pacific Time (`America/Los_Angeles`) whatever `TZ` is. Results are read in pages of up to 25,000 rows.
 
@@ -97,13 +103,13 @@ Go to **APIs & Services → Library**, search for "google ads" and enable the **
    - `http://localhost:3000` gives `http://localhost:3000/api/adwords`
    - `https://serpbear.yourdomain.com` gives `https://serpbear.yourdomain.com/api/adwords`
 3. `NEXT_PUBLIC_APP_URL` must match that address without the `/api/adwords` part.
-4. In SerpBear, open **Settings → Google Ads**, paste the client ID and client secret, and click **Authenticate Integration**. A Google page opens in a new window. Grant the access it asks for.
+4. In SerpBear, open **Settings → Integrations → Google Ads**, paste the client ID and client secret, and click **Authenticate Integration**. A Google page opens in a new window. Grant the access it asks for.
 
 ### Step 4: Create a Manager account and get the developer token
 
 1. Create a [Google Ads Manager account](https://ads.google.com/home/tools/manager-accounts/) (also called an MCC account). Use an email address that is not already attached to a Google Ads account.
 2. Click **Tools**, then **API Center**.
-3. Copy the **Developer Token** and paste it in the **Developer token** field in SerpBear.
+3. Copy the **Developer Token** and paste it in the **Developer Token** field in SerpBear.
 
 ### Step 5: Apply for Basic Access
 
@@ -123,6 +129,8 @@ You need a Google Ads customer account to send requests against.
 - **Option B, an existing account:** link your existing Google Ads account under the Manager account (it does not need to run campaigns) and use its account ID.
 
 ### Step 7: Test it
+
+![The Integrations tab in Settings](images/settings-integrations.png)
 
 Click **Test Google Ads Integration**. A success message means it is set up.
 
@@ -161,6 +169,10 @@ Click **Update Keyword Volume Data** once to fill in search volumes for keywords
 If it still fails, check the logs, click **Authenticate Integration** again for a fresh refresh token, and update SerpBear.
 
 ### Keyword ideas
+
+![Keyword ideas for a domain](images/ideas.png)
+
+![The Research page](images/research.png)
 
 - The seed type decides where suggestions come from: `auto` uses the domain as a site seed, `custom` your keyword list, `tracking` the domain's tracked keywords, and `searchconsole` its top 100 Search Console queries by impressions over the last 30 days.
 - An idea is disabled only when it is tracked for every selected device, so a partly tracked idea can still be added for the missing device.

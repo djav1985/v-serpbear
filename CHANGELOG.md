@@ -4,6 +4,175 @@ All notable changes to this project will be documented in this file. Releases no
 
 ## [Unreleased]
 
+### Fixed
+
+- Avoid blocking request handling while cancelling an oversized debug logging stream.
+- Load the settings editor through an explicitly authenticated full-settings request, and show an error instead of empty fields if the session is invalid.
+
+### Changed
+
+- Extend Important frontend coverage for domain settings validation, tracker and ideas cells, add/delete keyword mutations, and settings mutations.
+
+- Extend critical Jest coverage for SQLite fallback/errors, refresh and scraper edge cases, SERP persistence errors, cron API failures, and Google Ads/Search Console response handling.
+
+- Strengthen SQLite binding assertions by matching each recorded callback invocation's SQL, method, and arguments together.
+- Reset stateful JWT, domain/refresh queue, and Search Console mocks between randomized cases to prevent order dependent results.
+
+- Split SERP API route tests by method, merge keyword integrity cases by operation, and remove duplicate sticky validation coverage.
+
+- Move settings-file and retry-queue tests into utility suites, merge domain-stats ordering coverage, and restore the refresh tests' SECRET environment value after each test.
+- Split scraper strategy, Google link, and map-pack tests into focused suites; remove duplicate SerpBase city-location coverage.
+
+- Split the mixed frontend Jest suites by add flow, tables, page loading, dialogs, viewport hook, and screenshot cache behavior; reset the add-flow API mock after each test.
+
+- Split email route, dispatch, throttling, and HTML generation tests into focused suites; remove duplicate fallback coverage and isolate rate-limit state.
+- Stub the browser anchor click in the CSV export test and assert the download is initiated without triggering Happy DOM navigation.
+- Assert the decrypted secret values in authenticated settings tests and verify strict cron settings reads reject malformed JSON with a `SyntaxError`.
+- Replace ineffective async `resolves.not.toThrow()` migration assertions with direct awaits so rejected migrations fail clearly.
+- Cover client-origin selection in browser-free tests, including public/server URL precedence, trailing-slash normalization, and the localhost fallback.
+- Remove a duplicate branding URL test and make the tracking-seed ordering test assert its resolved result instead of swallowing arbitrary errors.
+- Remove duplicate keyword-coercion integration coverage and cover parsing structured keyword update errors; use explicit Jest rejection and value assertions.
+- Add shared React Query, serialized keyword-row, and temporary app-data test helpers; reuse the existing response and request helpers across suites.
+- Consolidate add-flow query hook tests and use accessible asynchronous queries for dialog fields.
+- Dashboard pages use private browser caching for 60 seconds with revalidation after expiration; login pages are not stored, API responses use `no-cache, no-store`, and domain screenshots ask thum.io to cache for seven days.
+- Add `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, and `X-Frame-Options: DENY` response headers.
+- Add a Content Security Policy for local app resources, inline scripts/styles, Google favicons, and thum.io screenshots.
+- Organize related Jest suites into API, database, email, refresh, scraper and utility folders without changing test coverage.
+- Reorganize root-level Jest tests by domain across API, utility, SERP and frontend suites while preserving their existing cases.
+- Split Google API, SERP API, and client utility tests into focused subdomain suites.
+- Split chart data, CSV export, and serialization/display tests into focused client utility suites; remove a wall-clock threshold from the large Search Console aggregation case.
+- Split scraper provider request and response contracts, and move remaining utility helpers into focused existing and new suites.
+- Refine API test isolation and request setup; remove duplicate auth-check fallback cases while retaining distinct token scenarios.
+- Clarify SQLite boolean-binding test names to state the adapter contract they verify.
+- Move keyword integrity API tests into the SERP API test folder.
+- Remove duplicate country and search predicate cases from client utility tests.
+- Clean up Jest isolation and setup: replace sleep-based queue and lock tests with deferred promises, restore screenshot spies after every test, and combine the duplicate invalid-domain route checks.
+- Consolidate repeated scraper URL checks and equivalent malformed-input cases; cover accepted same-origin refresh requests.
+- Remove unused API assertion and mock helpers, and document the active Jest helpers with their intended usage.
+- Isolate logger environment changes and restore fetch, console, and logger spies reliably between Jest tests.
+- Extend existing refresh, API and scraper-provider suites with cache/fallback, malformed-input, cleanup, concurrency, and provider-response cases to improve branch coverage without adding suites.
+- Remove 21 low-value tests that repeated wrapper behavior, equivalent malformed-input cases, or copy-only output checks.
+- Domain cards render from the dashboard's domain list, then load card stats in batches as they approach the viewport; favicons and screenshots use the same viewport signal. Charts and Tracker keywords load on demand. Discover, Ideas, and Research fetch tracked keywords and scraper city support only when the add dialog opens, then check duplicates using the selected location and device. Main-menu navigation links do not prefetch routes.
+- Domain subpages load only the selected domain alongside app settings. Hovering or focusing a domain name warms its Tracker page, and hovering or focusing any domain tab warms that page. Mobile stacked tables clip the desktop grid during the first paint until hydration switches to the mobile layout.
+- Mobile keyword search fields stay in the top-right toolbar slot; country and group filters occupy separate grid slots below, avoiding overlap at narrow widths. This covers Tracker, Discover, Ideas, Research, and the Keywords section in Insight.
+- The Tracker Search Console period selector shares a row with sorting and column controls on mobile.
+- Discover’s mobile device tabs collapse to icons with counts so their labels cannot intrude into the keyword search field.
+- Discover keyword details mirror the Ideas side panel, with a 30/7/3-day comparison chart for average daily clicks, average daily impressions, and average position, plus the Google Search results action. The chart placeholder reserves space for the plot, legend, and caption to prevent a layout shift when it loads.
+- Ideas detail charts mount with the side panel, matching the other keyword panels and avoiding a second delayed update during its opening animation.
+- Table rows, empty states, and charts in keyword detail panels fade in over one second when loaded, replacing visible loading skeletons with transparent space. Insight and keyword detail charts keep their space without visible loading blocks.
+- Insight tables use the same viewport-based desktop height as Tracker and Ideas tables.
+- Domain cards reserve space for update-time, credit values, and stats while loading, then fade in the fetched values over one second. Stat value rows keep a fixed height and do not wrap, preventing card layout shifts when values arrive on desktop and mobile. The screenshot transition and Domains page total keyword count also fade in over one second when ready.
+- Domain card Search Console stats align vertically with Tracker stats on desktop.
+
+## [6.0.0] (2026-11-08)
+
+### Added
+
+- Credited the dashboard UI source and linked its MIT license in the README.
+- SerpBase (`serpbase`) scraper: Google search through `POST https://api.serpbase.dev/google/search` with the key in the `X-API-Key` header. City-level targeting through the `location` parameter, mobile and desktop, map pack from `local_results`, and organic results ranked by `rank`. When a result link is a `google.com/goto` redirect, the result's own domain is used instead. SerpBase also reports credits remaining through its free `/account/credits` endpoint.
+- Domain cards show `Credits remaining:` under the last-updated line for scrapers that report it: SerpApi, SearchApi, ValueSERP, HasData, CrazySERP, PrismCrawl, SerpBase and DataForSEO (a dollar balance). Serper and Serply have no way to look it up, so nothing shows. SerpApi, SearchApi, ValueSERP, HasData, CrazySERP, SerpBase and DataForSEO are asked once per API key at the end of a refresh run. PrismCrawl sends the balance in the `X-Credits-Remaining` header, so the lowest value seen in the run is kept. Balances are saved in `data/scraper_credits.json`, keyed by scraper and a keyed hash of the API key, so domains sharing a key share one entry. Entries no domain or the global setting uses anymore are dropped on each save.
+- Domain cards hold the favicon for 500 ms, so a cached screenshot replaces it without a flash, then the screenshot fades in over 500 ms. Settings and domain settings tabs fade their panels in over 1 s, and the domain settings dialog keeps a fixed height and footer position.
+- Page changes cross-fade (400 ms), and the top bar stays still. Tracker and Discover filters, sorting and the Search Console period update inside transitions. Dialogs and sheets use a 400 ms fade. All motion is turned off for users who prefer reduced motion.
+
+### Security
+
+- A failed login or API key from a client with no known address (`TRUST_PROXY` unset) no longer locks out the real user through a shared "unknown" bucket. Per-user caps still apply, and a correct password or API key is accepted while they are reached.
+- The one-off keyword search moved from `GET /api/serp/refresh` to `POST /api/serp/refresh` (body `keyword`, `country`, `device`). Only a logged-in session can run a search (an API key cannot), and requests from a login session must come from this site, so a link on another site can no longer start a refresh or spend provider quota. `GET` now only serves `?status=retry`.
+- Login bodies are capped at 4 KB and other JSON bodies at 1 MB, answering 413 when larger. Debug request logging reads at most 16 KB of a body and never buffers larger ones.
+
+### Changed
+
+- Node.js is now 26.13.0 (the current long-term release) in the Docker image and `.nvmrc`, and `package.json` declares `engines.node >=22`.
+- Mobile tables now scroll with the page while keeping rows virtualized, instead of using a separate table scroll area.
+- Logo endpoints cache custom and bundled images for one year; favicon responses and domain screenshot thumbnails cache for one week.
+
+### Fixed
+
+- Guarded keyword history and search volume writes after location changes, isolated scraper credit tracking by refresh, and made refresh startup and keyword creation safe when requests overlap.
+- Scraper credit balances are saved in the order they were read. Overlapping refreshes (up to three domains run at once) could finish in a different order than they started, so a slow account lookup or an older header reading could overwrite a newer balance. Each reading now carries the time it was taken (when a lookup started, or when the response arrived) and the save, under the existing file lock, only replaces an entry that was read earlier. A newer balance can still be higher, for example after a top-up. Entries saved before this change count as oldest.
+- Domain stats are saved one update at a time per domain. Adding keywords while a refresh finishes on the same domain could make both updates read the same "previous" numbers and overwrite each other's up and down arrows. Each update now reads the current data after it gets its turn. Different domains still update in parallel.
+- Changing a keyword's location no longer races a refresh. The edit claims the domain first, like a delete does, and answers `409` with a message telling you to try again once the refresh has finished when one is running or queued. Only keywords whose location or country really changed are touched: in one transaction they lose their old position, history, ranked URL, saved results, map pack data and refresh status, then a fresh scrape runs with the new location. If that scrape fails the keyword stays empty instead of showing another city's rankings.
+- Queued refreshes now wait while a delete or location edit holds their domain, and start when it is released. A request that queues its own refresh hands its claim to that task, so nothing can slip in between. Refresh tasks (manual, cron-style, after adding keywords, after a location change) load their keywords by ID when they start, so a keyword deleted while the task waited is skipped and a moved one is scraped with its current location.
+- The toast for a blocked keyword delete, location change or domain delete now shows the server's message ("try again once the refresh has finished"). Other errors keep the generic text.
+- The screens no longer set state inside effects (the `use-mobile` hook, add-keywords dialog, research form, and the selection and tag-filter clean-ups), so `eslint-plugin-react-hooks` 7 passes with no errors.
+- Pinned the patched `minimatch`, `glob` and `uuid` versions for the packages that bundled old copies, so `npm audit` is down from 34 findings to 7 low ones (the remaining `deepmerge` finding has no fix). The `editorconfig` override no longer gets reset by `npm install`.
+
+### Dependencies
+
+- Updated to the latest releases that work together: Jest 30, TypeScript 6, `better-sqlite3` 13, `croner` 11, `dotenv` 18, `google-auth-library` 11, `@googleapis/searchconsole` 11, `@isaacs/ttlcache` 2, `undici`, `uuid`, Testing Library and the type packages, plus all in-range updates (Next.js, nodemailer, dayjs, PostCSS and others).
+- Held back: ESLint 10 and its plugins, TypeScript 7 (typescript-eslint does not support it yet) and Stylelint 18 (its packages do not resolve together yet).
+- `tsconfig.json` uses `paths` instead of the removed `baseUrl`, and the Stylelint config allows Tailwind's `@apply`.
+
+### Removed
+
+- Unused dev dependencies (`msw`, `@types/cryptr`, `autoprefixer`, `js-yaml`, `postcss-selector-parser`, `source-map-js`, `browserslist`, `esbuild`, `shell-quote`, `ws`, `@babel/core`), the msw test shims, unused UI pieces (`badge`, `empty`, `separator`), the unused `screenshot.jpg`, and two unused constants.
+
+### Fixed
+
+- Settings toasts now show the server's own error text (for example the reason a Google Ads test failed) instead of a generic line, and failed form checks on Update Settings also show a toast.
+- Send Notifications Now reports how many emails went out, and shows a warning instead of a success when nothing was sent.
+
+### Documentation
+
+- The provider tables in the README and the Scrapers wiki page have a "Credits left" column showing which scrapers report the balance. The Scrapers page has a longer "Credits remaining" section: how each provider is asked, when the number updates, shared keys, the saved file and troubleshooting.
+- Added desktop screenshots to the wiki pages (in `docs/images/`), and a set of desktop and phone screenshots in `screenshots/`, all taken from demo data with example domains.
+- The Google guide links in the app now point to the wiki's Google Integrations page.
+
+### Upgrade notes (API routes)
+The API routes are regrouped. **There are no compatibility aliases: the old routes now return 404.** Update scripts, cron jobs, MCP clients and reverse-proxy rules that call them.
+
+| Old | New |
+| --- | --- |
+| `/api/settings` | `/api/app/settings` |
+| `/api/cron` | `/api/app/cron` |
+| `/api/notify` | `POST /api/app/email?type=digest` |
+| `/api/ideas/email` | `POST /api/app/email?type=ideas` |
+| `/api/login`, `/api/logout`, `/api/auth-check` | `/api/auth/login`, `/api/auth/logout`, `/api/auth/check` |
+| `/api/domains`, `/api/domain`, `/api/keywords`, `/api/keyword`, `/api/refresh`, `/api/clearfailed` | the same names under `/api/serp/` |
+| `/api/searchconsole`, `/api/insight`, `/api/ideas`, `/api/volume` | the same names under `/api/google/` |
+| `/api/branding/logo` | `/api/images/logo.png` |
+| `/api/branding/config` | removed (the name and logo are in `GET /api/app/settings` as `branding`) |
+
+`/api/adwords` and `/api/mcp` are unchanged. The Docker health check now calls `GET /api/app/settings`.
+
+### Added
+- `GET /api/app/settings` returns a read-only `branding` object (`platformName`, `whiteLabelEnabled`, `hasCustomLogo`, `logoApiPath`, `defaultPlatformName`) in both the public and the signed-in response. A settings save never writes it.
+- `POST /api/app/email` sends both kinds of email, chosen by `?type=`: `digest` accepts the API key or a login session, `ideas` needs a login session and answers `403` to an API key. A missing or unknown `type` is a `400`.
+- The web app manifest is generated at `/manifest.webmanifest`, so white-label installs use your name and logo. The apple touch icon follows the logo too.
+
+### Removed
+- The `setup:git` script (`scripts/set-default-branch.mjs`) and the unused test fixture `__mocks__/data.ts`.
+
+### Changed (API)
+- **The API runs on the App Router.** Every endpoint is now a route handler in `app/api/**/route.ts` that takes a standard `Request` and returns a standard `Response`; `pages/` is gone. URLs, methods, request bodies and response shapes are the same. A shared wrapper (`createRoute` in `utils/apiLogging`) adds the request id, logging, the database check, the login or API-key check and the `405` answer. A method a route does not offer answers `405` with an `Allow` header. The MCP route uses the SDK's web-standard transport, and the `cookies` package is no longer a dependency.
+- **`TRUST_PROXY` matters more.** A route handler cannot see the connection's address, and Next keeps a client-supplied `X-Forwarded-For` as it is, so the header is read only when `TRUST_PROXY` names the proxies in front of the app. Without it every client counts as one address: five wrong logins or API keys from anyone lock everyone out for 15 minutes. Set `TRUST_PROXY` when the app sits behind a reverse proxy.
+- The log line for a request shows the path and query, as before. Unauthenticated calls to a route that does not exist for that method now answer `401` before `405`.
+- `/api/images/favicon.png` serves `data/favicon.png` the same way (white-label on and the file exists, otherwise the built-in default), and the tab icon uses it when white-label is on. `/api/images/logo.png` stays the logo. Only these two file names exist.
+- `/api/images/logo.png` always returns an image: your `data/logo.png` when white-label is on and the file exists, otherwise the built-in default. It used to answer 404 in those cases. Only that one URL exists, so other file names return 404.
+- Server pages and utilities read the settings through `utils/appSettings` instead of importing from an API route.
+
+### Changed
+- **New front end:** the whole interface is rebuilt on the Next.js App Router (React 19, Tailwind CSS 4, shadcn/ui, TanStack Query, Table and Virtual, and Recharts). The URLs are the same: `/login`, `/domains`, `/domain/<slug>`, `/domain/console/<slug>` (Discover), `/domain/insight/<slug>`, `/domain/ideas/<slug>` and `/research`. `/` now redirects to `/domains`. The JSON API now lives in `app/api/` (see Changed (API)); its URLs, methods and bodies are the same.
+- **Layout:** a top bar with the logo on the left and the menu on the right replaces the sidebar. The domain list sits on the left only on the Domains page. Settings open in a side panel with the Scraper, Notification and Integrations tabs. Phones get a menu button, stacked rows and a compact filter bar.
+- **Tables:** Tracking, Discover, Insight and the keyword ideas tables share one virtualized table, so long keyword lists scroll smoothly. Row selection works on keyword IDs and ignores rows hidden by a filter. The column header stays solid while you scroll, and the table is sized to whole rows.
+- **Tracking tab:** a single `Add/Edit Tags` action replaces the separate add and remove tag buttons.
+- **Help:** the Help button in the menu opens this project's wiki on GitHub instead of the upstream docs site.
+- **Look:** the accent colour is now green (`#33cc66`, with dark text on green buttons) in place of indigo. Cards and tables get a soft shadow, the top bar is solid white with a shadow, table headers and the domain-card stat boxes carry a light green tint, and the web app's theme colour matches.
+- **Page background:** a faint tiled texture (`public/body-texture.png`) sits behind every page. The top bar, cards and tables stay solid.
+- **Domain list:** each domain shows its site icon (a larger 32px copy for sharper rendering), and a globe takes its place when the icon cannot be loaded, so the names always line up.
+- **Buttons:** the label text is nudged down by half a pixel so it sits in the vertical centre of the button. It was drawn slightly high, because of how the font's line box is spaced. Icons stay where they were.
+- **Selection bar** (Discover, Ideas and Research): on phones the Desktop and Mobile buttons stretch to fill the bar, and on Research so does the domain picker, each running the full width. Desktop is unchanged.
+- **Research** now lives inside the same page frame as every other screen.
+- **Charts:** Chart.js is replaced by Recharts. The Insight chart plots visits and impressions on two axes.
+- **Domain thumbnails:** always loaded from the screenshot service and cached in the browser, with the site's favicon as the fallback.
+- The Map Pack figure on a domain card now also shows when any domain has map pack keywords, even if the active scraper does not report them.
+- **White-label logo file:** the logo is now always `data/logo.png` and `/api/branding/logo` serves only that file, as a PNG. The `WHITE_LABEL_LOGO_FILE` setting is removed and is ignored if still set. If you use white-label branding, rename your existing logo (by default `data/branding-logo.png`) to `data/logo.png`, and convert it to PNG if it was another format.
+
+### Removed
+- The `SCREENSHOTS` environment variable (and the earlier `NEXT_PUBLIC_SCREENSHOTS`). See the screenshots upgrade note under 5.0.0.
+- The old Pages Router screens, their React components, hooks, client services and tests, along with `styles/` and `tailwind.config.js`.
+- The `chart.js`, `react-chartjs-2`, `react-query` (v3), `react-hot-toast`, `react-timeago`, `react-transition-group`, `react-window` and `next-router-mock` packages.
+
 ## [5.0.0] (2026-11-06)
 
 ### Upgrade notes
@@ -11,7 +180,7 @@ All notable changes to this project will be documented in this file. Releases no
 2. **Runtime data files:** On `main`, `data/settings.json`, `data/failed_queue.json`, `data/session.json` and `data/SC_*.json` are tracked by git. This branch untracks them (`.gitignore` ignores `data/*` except `.gitkeep`), so pulling or merging it can delete your local copies. Back up `data/` before pulling. The database is also backed up to `<db>.bak-<date>` before duplicate keywords are removed.
 3. **Committed secrets:** Secrets that were committed in `data/settings.json` remain in git history. If this repository was ever shared or made public, rotate `SECRET`, `APIKEY`, login passwords, SMTP credentials, and Search Console and Google Ads keys.
 4. **Cron settings:** `CRON_MAIN_SCHEDULE` and `CRON_EMAIL_SCHEDULE` are now times of day (`HH:MM`, 24 hour, defaults `00:00` and `06:00`) instead of cron expressions, and `CRON_FAILED_SCHEDULE` is now `hourly` (default), `daily` or `never`. An old cron expression is ignored with a warning and the default is used, so update your `.env` and compose file.
-5. **Screenshots setting:** `NEXT_PUBLIC_SCREENSHOTS` is removed. Use `SCREENSHOTS` (default `true`; `false` shows favicons instead of thum.io thumbnails). If you set `NEXT_PUBLIC_SCREENSHOTS=false`, change it to `SCREENSHOTS=false`.
+5. **Screenshots setting:** `NEXT_PUBLIC_SCREENSHOTS` and `SCREENSHOTS` are both removed. Domain thumbnails always use the screenshot service and fall back to the site's favicon. You can delete either variable from your `.env` and compose file.
 6. **Timezone setting:** `CRON_TIMEZONE` is removed. The standard `TZ` variable now sets the timezone for the cron schedules, dates, history keys and the container clock (default `America/New_York`). If you set `CRON_TIMEZONE`, rename it to `TZ`.
 
 ### Added
@@ -189,104 +358,104 @@ All notable changes to this project will be documented in this file. Releases no
 # [3.0.0](https://github.com/djav1985/v-serpbear/compare/v2.0.7...v3.0.0) (2025-09-24)
 
 ### Features
-- Domains dashboard “Map Pack” tracker counter showing keywords in the local pack.  
-- Map-pack membership propagation through API, UI, and emails with stacked CSS badge (`map-pack.png`).  
-- Shortened map-pack email badge label from "MAP" → "MP".  
-- Manual “Send Notifications Now” action in Notification settings, with success/error toasts and ARIA support.  
-- Reusable page loader overlay and spinner placeholders across dashboard, domain, and research views.  
-- Optional SMTP TLS certificate hostname override to fix validation issues.  
-- SERP charts now auto-zoom with dynamic chart bounds.  
-- Configurable cron timezone and schedule environment variables.  
-- Unified Active/Deactive toggle replacing separate scrape/notify switches.  
-- Refreshed TopBar layout for mobile edge-to-edge.  
-- Replaced fixed 105 rem layout cap with responsive desktop-container utility.  
-- Returned HTML OAuth callback from `/api/adwords` that posts `adwordsIntegrated`.  
-- Centralised Google Ads API version behind `GOOGLE_ADS_API_VERSION`.  
-- Rebuilt multi-stage Dockerfile to preserve `/app/data` and simplify cron startup.  
-- Refreshed Docker Compose example with new defaults.  
-- Automatically refreshes Search Console data and fall back to global credentials when domain-specific credentials are unavailable.  
-- Added manual refresh button for Search Console data.  
-- Centralized `react-hot-toast` provider for consistent toast handling across the app.  
-- Added state-based location targeting feature.  
-- Added debugging logs to `getAdwordsKeywordIdeas` for improved keyword processing insight.  
+- Domains dashboard “Map Pack” tracker counter showing keywords in the local pack.
+- Map-pack membership propagation through API, UI, and emails with stacked CSS badge (`map-pack.png`).
+- Shortened map-pack email badge label from "MAP" → "MP".
+- Manual “Send Notifications Now” action in Notification settings, with success/error toasts and ARIA support.
+- Reusable page loader overlay and spinner placeholders across dashboard, domain, and research views.
+- Optional SMTP TLS certificate hostname override to fix validation issues.
+- SERP charts now auto-zoom with dynamic chart bounds.
+- Configurable cron timezone and schedule environment variables.
+- Unified Active/Deactive toggle replacing separate scrape/notify switches.
+- Refreshed TopBar layout for mobile edge-to-edge.
+- Replaced fixed 105 rem layout cap with responsive desktop-container utility.
+- Returned HTML OAuth callback from `/api/adwords` that posts `adwordsIntegrated`.
+- Centralised Google Ads API version behind `GOOGLE_ADS_API_VERSION`.
+- Rebuilt multi-stage Dockerfile to preserve `/app/data` and simplify cron startup.
+- Refreshed Docker Compose example with new defaults.
+- Automatically refreshes Search Console data and fall back to global credentials when domain-specific credentials are unavailable.
+- Added manual refresh button for Search Console data.
+- Centralized `react-hot-toast` provider for consistent toast handling across the app.
+- Added state-based location targeting feature.
+- Added debugging logs to `getAdwordsKeywordIdeas` for improved keyword processing insight.
 
 ### Bug Fixes
-- Treated empty Google Ads keyword-idea responses as 404s; bubbled errors and redirected on 401s.  
-- `/api/notify` now reserves 401 for auth failures, 400 for SMTP misconfig, 500 for delivery errors.  
-- Fixed keyword flag coercion so `'0'/'false'` values no longer lock spinners.  
-- Hardened domain screenshot caching against corrupted `domainThumbs`.  
-- Hardened `/api/refresh` error handling for empty IDs, scraper failures, and disabled domains.  
-- Normalised SQLite boolean bindings for domain toggles.  
-- Normalised keyword creation and history persistence (always JSON).  
-- Normalised Google SERP extraction (resolves `/url` and `/interstitial`).  
-- Hardened settings API for missing runtime config and default fallbacks.  
-- Domain validation regex fixes and extra test coverage.  
-- Domain settings now hydrate from canonical host; tolerate null domains.  
-- Removed redundant domain guards and client-side blank slug rejection.  
-- Fixed mistyped `RefreshResult` import.  
-- Search Console now caches daily summaries, tolerates missing/invalid data, and refetches on slug change.  
-- Updated Serply scraper to use query-string params.  
-- Updated ValueSerp scraper to drop hard-coded `num=100`.  
-- Encoded ScrapingRobot locale params.  
-- Ensured AdWords volume updates await DB writes and bubble errors.  
-- Updated API handlers to return proper HTTP error payloads.  
-- Fixed session cookie expiry handling so configured durations are respected and logout immediately clears authentication cookies.  
-- Hardened Google Ads refresh-token retrieval when error payloads omit an `error` string.  
-- Prevented Search Console cache filenames for hyphenated domains from colliding with dotted domains.  
-- Hardened API ID validation and corrected domain responses.  
-- Added default empty strings for domain-related model fields.  
-- Wrapped scraper and keyword JSON parsing with error handling.  
-- Removed stray console logs and simplified Jest polyfills.  
-- Fixed multiple React errors (#418, #423) by updating `Next.js` Link components and resolving SSR/hydration mismatches.  
-- Fixed TopBar back button vertical alignment issue.  
-- Fixed `[object Object]` error in Docker logs by improving error handling in cron and scraping functionality.  
-- Fixed domain slug conversion logic to ensure correct usage in database and Search Console queries.  
-- Fixed keyword loading bug causing Google Ads API requests to fail due to domain query mismatches.  
-- Fixed typo in `keywordPayload` and API logic for keyword ideas generation.  
-- Fixed keyword ideas API "invalid value" errors and improved handling of unused parameters.  
-- Fixed domain name handling in keyword ideas for Search Console and tracked keywords.  
-- Improved keyword idea error handling to prevent API failures.  
-- Fixed mobile menu behavior issues.  
-- Fixed anchor domain header dropdown positioning above selector.  
-- Refactored keyword location display for better readability.  
-- Fixed GitHub workflow permissions and patched XSS vulnerability in Adwords API.  
-- Multiple minor UI and accessibility fixes for domain header, menus, and forms.  
+- Treated empty Google Ads keyword-idea responses as 404s; bubbled errors and redirected on 401s.
+- `/api/notify` now reserves 401 for auth failures, 400 for SMTP misconfig, 500 for delivery errors.
+- Fixed keyword flag coercion so `'0'/'false'` values no longer lock spinners.
+- Hardened domain screenshot caching against corrupted `domainThumbs`.
+- Hardened `/api/refresh` error handling for empty IDs, scraper failures, and disabled domains.
+- Normalised SQLite boolean bindings for domain toggles.
+- Normalised keyword creation and history persistence (always JSON).
+- Normalised Google SERP extraction (resolves `/url` and `/interstitial`).
+- Hardened settings API for missing runtime config and default fallbacks.
+- Domain validation regex fixes and extra test coverage.
+- Domain settings now hydrate from canonical host; tolerate null domains.
+- Removed redundant domain guards and client-side blank slug rejection.
+- Fixed mistyped `RefreshResult` import.
+- Search Console now caches daily summaries, tolerates missing/invalid data, and refetches on slug change.
+- Updated Serply scraper to use query-string params.
+- Updated ValueSerp scraper to drop hard-coded `num=100`.
+- Encoded ScrapingRobot locale params.
+- Ensured AdWords volume updates await DB writes and bubble errors.
+- Updated API handlers to return proper HTTP error payloads.
+- Fixed session cookie expiry handling so configured durations are respected and logout immediately clears authentication cookies.
+- Hardened Google Ads refresh-token retrieval when error payloads omit an `error` string.
+- Prevented Search Console cache filenames for hyphenated domains from colliding with dotted domains.
+- Hardened API ID validation and corrected domain responses.
+- Added default empty strings for domain-related model fields.
+- Wrapped scraper and keyword JSON parsing with error handling.
+- Removed stray console logs and simplified Jest polyfills.
+- Fixed multiple React errors (#418, #423) by updating `Next.js` Link components and resolving SSR/hydration mismatches.
+- Fixed TopBar back button vertical alignment issue.
+- Fixed `[object Object]` error in Docker logs by improving error handling in cron and scraping functionality.
+- Fixed domain slug conversion logic to ensure correct usage in database and Search Console queries.
+- Fixed keyword loading bug causing Google Ads API requests to fail due to domain query mismatches.
+- Fixed typo in `keywordPayload` and API logic for keyword ideas generation.
+- Fixed keyword ideas API "invalid value" errors and improved handling of unused parameters.
+- Fixed domain name handling in keyword ideas for Search Console and tracked keywords.
+- Improved keyword idea error handling to prevent API failures.
+- Fixed mobile menu behavior issues.
+- Fixed anchor domain header dropdown positioning above selector.
+- Refactored keyword location display for better readability.
+- Fixed GitHub workflow permissions and patched XSS vulnerability in Adwords API.
+- Multiple minor UI and accessibility fixes for domain header, menus, and forms.
 
 ### Code Quality & Maintenance
-- Raised ESLint `max-len` to 200, relaxed complexity to warning at 60.  
-- Delegated unused-var checks to `@typescript-eslint`.  
-- Replaced Icon component’s 50-branch conditional with renderer map.  
-- Exported keyword filter predicates with Jest coverage.  
-- Removed trailing commas from configs/migrations.  
-- Removed unused `winston` dependency.  
-- Pinned stylelint and upgraded `stylelint-config-standard` to ^34.0.0.  
-- ESLint version shuffle: downgraded to ^8.57.1 for Airbnb base, later upgraded to v9 flat config.  
-- ESLint/Git attributes now ignore `.next` build artifacts.  
-- Removed deprecated `sqlite3`, added better-sqlite3 dialect wrapper.  
-- Enhanced mocked better-sqlite3 driver for positional params.  
-- Trimmed undefined/null args in SQLite shim.  
-- Updated custom SQLite dialect to call `run()` for non-reader statements.  
-- Consolidated scraper/refresh error serialization helper.  
-- Documented new env flags in `.env.example` and README.  
-- Restructured `README.md` with product overview, env refs, and provider comparison.  
-- Removed in-app changelog panel; footer now shows version only.  
-- Enabled GitHub Actions concurrency groups and Docker build cache exports.  
-- Removed package manifests and Docker health probe from runtime container.  
-- Added root `.editorconfig` for consistency.  
-- Added least-privilege CodeQL workflow for JS/TS.  
-- Added `npm run setup:git` helper for branch setup.  
-- Bundled `sequelize-cli` as prod dep; migrated Sequelize → Umzug v3.  
-- Preserved explicit SQLite null bindings.  
-- Jest stubs for `window.location`.  
-- Resolved all ESLint linting errors across the codebase.  
-- Enhanced code quality with comprehensive linting rules and security checks.  
-- Removed nested ternaries and improved code readability in keyword tables.  
-- Fixed trailing commas, stray quotes, typos, and minor formatting inconsistencies.  
-- Increased z-index for domain header action menu.  
-- Adjusted mobile responsiveness across components.  
-- Displayed keyword location in emailed reports.  
-- Adjusted daily email cron to run at 1 PM.  
-- Multiple dependency updates and security patches.  
+- Raised ESLint `max-len` to 200, relaxed complexity to warning at 60.
+- Delegated unused-var checks to `@typescript-eslint`.
+- Replaced Icon component’s 50-branch conditional with renderer map.
+- Exported keyword filter predicates with Jest coverage.
+- Removed trailing commas from configs/migrations.
+- Removed unused `winston` dependency.
+- Pinned stylelint and upgraded `stylelint-config-standard` to ^34.0.0.
+- ESLint version shuffle: downgraded to ^8.57.1 for Airbnb base, later upgraded to v9 flat config.
+- ESLint/Git attributes now ignore `.next` build artifacts.
+- Removed deprecated `sqlite3`, added better-sqlite3 dialect wrapper.
+- Enhanced mocked better-sqlite3 driver for positional params.
+- Trimmed undefined/null args in SQLite shim.
+- Updated custom SQLite dialect to call `run()` for non-reader statements.
+- Consolidated scraper/refresh error serialization helper.
+- Documented new env flags in `.env.example` and README.
+- Restructured `README.md` with product overview, env refs, and provider comparison.
+- Removed in-app changelog panel; footer now shows version only.
+- Enabled GitHub Actions concurrency groups and Docker build cache exports.
+- Removed package manifests and Docker health probe from runtime container.
+- Added root `.editorconfig` for consistency.
+- Added least-privilege CodeQL workflow for JS/TS.
+- Added `npm run setup:git` helper for branch setup.
+- Bundled `sequelize-cli` as prod dep; migrated Sequelize → Umzug v3.
+- Preserved explicit SQLite null bindings.
+- Jest stubs for `window.location`.
+- Resolved all ESLint linting errors across the codebase.
+- Enhanced code quality with comprehensive linting rules and security checks.
+- Removed nested ternaries and improved code readability in keyword tables.
+- Fixed trailing commas, stray quotes, typos, and minor formatting inconsistencies.
+- Increased z-index for domain header action menu.
+- Adjusted mobile responsiveness across components.
+- Displayed keyword location in emailed reports.
+- Adjusted daily email cron to run at 1 PM.
+- Multiple dependency updates and security patches.
 
 ### [2.0.7](https://github.com/towfiqi/serpbear/compare/v2.0.6...v2.0.7) (2025-02-23)
 

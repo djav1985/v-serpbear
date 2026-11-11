@@ -1,0 +1,126 @@
+/*
+ * App Router stylesheet. Neutral light tokens and the component layer come from
+ * Studio Admin (https://github.com/arhamkhnz/next-shadcn-admin-dashboard, MIT,
+ * Copyright (c) 2024 Mohammed Arham Khan). Primary and chart colors are SerpBear's indigo.
+ */
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "./flags.css";
+
+@source "../app";
+@source "../components";
+
+@theme inline {
+   --radius-sm: calc(var(--radius) - 4px);
+   --radius-md: calc(var(--radius) - 2px);
+   --radius-lg: var(--radius);
+   --radius-xl: calc(var(--radius) + 4px);
+   --radius-2xl: calc(var(--radius) + 8px);
+   --radius-3xl: calc(var(--radius) + 12px);
+   --radius-4xl: calc(var(--radius) + 16px);
+   --color-background: var(--background);
+   --color-foreground: var(--foreground);
+   --color-card: var(--card);
+   --color-card-foreground: var(--card-foreground);
+   --color-popover: var(--popover);
+   --color-popover-foreground: var(--popover-foreground);
+   --color-primary: var(--primary);
+   --color-primary-foreground: var(--primary-foreground);
+   --color-secondary: var(--secondary);
+   --color-secondary-foreground: var(--secondary-foreground);
+   --color-muted: var(--muted);
+   --color-muted-foreground: var(--muted-foreground);
+   --color-accent: var(--accent);
+   --color-accent-foreground: var(--accent-foreground);
+   --color-destructive: var(--destructive);
+   --color-border: var(--border);
+   --color-input: var(--input);
+   --color-ring: var(--ring);
+   --color-chart-1: var(--chart-1);
+   --color-chart-2: var(--chart-2);
+   --color-chart-3: var(--chart-3);
+   --color-chart-4: var(--chart-4);
+   --color-chart-5: var(--chart-5);
+   --color-sidebar: var(--sidebar);
+   --color-sidebar-foreground: var(--sidebar-foreground);
+   --color-sidebar-primary: var(--sidebar-primary);
+   --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+   --color-sidebar-accent: var(--sidebar-accent);
+   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+   --color-sidebar-border: var(--sidebar-border);
+   --color-sidebar-ring: var(--sidebar-ring);
+   --font-heading: var(--font-sans);
+}
+
+/* One light theme. The accent is #33cc66 (oklch 74.5% 0.19 150), with dark text on it for contrast. */
+:root {
+   --radius: 0.625rem;
+   --background: oklch(100% 0 0deg);
+   --foreground: oklch(14.5% 0 0deg);
+   --card: oklch(100% 0 0deg);
+   --card-foreground: oklch(14.5% 0 0deg);
+   --popover: oklch(100% 0 0deg);
+   --popover-foreground: oklch(14.5% 0 0deg);
+   --primary: oklch(74.5% 0.19 149.6deg);
+   --primary-foreground: oklch(18% 0.04 150deg);
+   --secondary: oklch(97% 0 0deg);
+   --secondary-foreground: oklch(20.5% 0 0deg);
+   --muted: oklch(97% 0 0deg);
+   --muted-foreground: oklch(55.6% 0 0deg);
+   --accent: oklch(96% 0.035 150deg);
+   --accent-foreground: oklch(32% 0.09 150deg);
+   --destructive: oklch(57.7% 0.245 27.325deg);
+   --border: oklch(92.2% 0 0deg);
+   --input: oklch(92.2% 0 0deg);
+   --ring: oklch(74.5% 0.19 149.6deg);
+   --chart-1: oklch(74.5% 0.19 149.6deg);
+   --chart-2: oklch(62% 0.17 150deg);
+   --chart-3: oklch(85% 0.12 150deg);
+   --chart-4: oklch(55.6% 0 0deg);
+   --chart-5: oklch(26.9% 0 0deg);
+   --sidebar: oklch(98.5% 0 0deg);
+   --sidebar-foreground: oklch(14.5% 0 0deg);
+   --sidebar-primary: oklch(74.5% 0.19 149.6deg);
+   --sidebar-primary-foreground: oklch(18% 0.04 150deg);
+   --sidebar-accent: oklch(96% 0.035 150deg);
+   --sidebar-accent-foreground: oklch(32% 0.09 150deg);
+   --sidebar-border: oklch(92.2% 0 0deg);
+   --sidebar-ring: oklch(74.5% 0.19 149.6deg);
+   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", roboto, "Helvetica Neue", arial, sans-serif;
+}
+
+@layer base {
+   * {
+      @apply border-border outline-ring/50;
+   }
+
+   body {
+      @apply bg-background text-foreground;
+
+      /* A faint tiled texture over the page background; cards and tables stay solid white */
+      background-image: url('/body-texture.png');
+      background-repeat: repeat;
+      font-family: var(--font-sans);
+   }
+}
+
+/* Page changes cross-fade (see app/_components/page-transition.tsx). The timing is short so navigation still feels quick. */
+::view-transition-old(root),
+::view-transition-new(root) {
+   animation-duration: 400ms;
+}
+
+/* Rows and panels that move or appear during a sort or filter use the same timing */
+::view-transition-group(*) {
+   animation-duration: 400ms;
+}
+
+/* People who ask for less motion get instant changes, for page changes and list moves alike */
+@media (prefers-reduced-motion: reduce) {
+   ::view-transition-group(*),
+   ::view-transition-old(*),
+   ::view-transition-new(*) {
+      animation: none !important;
+   }
+}

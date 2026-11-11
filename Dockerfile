@@ -1,4 +1,4 @@
-FROM node:24.22.1-alpine3.24 AS base
+FROM node:26.13.0-alpine3.24 AS base
 ENV NEXT_TELEMETRY_DISABLED=1 \
     NPM_VERSION=11.6.0
 WORKDIR /app
@@ -57,9 +57,9 @@ RUN mkdir -p /app/data && \
 USER nextjs
 EXPOSE 3000
 
-# Alpine ships busybox wget. /api/branding/config is an unauthenticated GET route that returns 200 when the app is up.
+# Alpine ships busybox wget. /api/app/settings is an unauthenticated GET route that returns 200 when the app is up.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD wget -q -O /dev/null "http://127.0.0.1:${PORT:-3000}/api/branding/config" || exit 1
+    CMD wget -q -O /dev/null "http://127.0.0.1:${PORT:-3000}/api/app/settings" || exit 1
 
 ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["node", "server.js"]

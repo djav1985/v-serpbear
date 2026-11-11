@@ -29,6 +29,14 @@ export class ApiError extends Error {
 }
 
 /**
+ * Toast text for a failed request. A 409 conflict carries a message written for the user (for example "try again
+ * once the refresh has finished"), so it is shown as is. Anything else gets the generic fallback.
+ */
+export function conflictMessage(error: unknown, fallback: string): string {
+   return error instanceof ApiError && error.statusCode === 409 && error.message.trim() ? error.message : fallback;
+}
+
+/**
  * Extracts an error message from a JSON error response body.
  * Handles both the structured failure envelope and legacy string-error shapes.
  */

@@ -45,7 +45,7 @@ module.exports = {
             { transaction }
          );
 
-         logger.info('Normalised keyword history defaults to empty objects.');
+         logger.info('[MIGRATION] Normalised keyword history defaults to empty objects.');
       });
    },
 
@@ -91,7 +91,7 @@ module.exports = {
             { transaction }
          );
 
-         logger.info('Reverted keyword history defaults to legacy empty arrays.');
+         logger.info('[MIGRATION] Reverted keyword history defaults to legacy empty arrays.');
       });
    }
 };

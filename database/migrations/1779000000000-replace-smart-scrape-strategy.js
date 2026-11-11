@@ -57,11 +57,11 @@ module.exports = {
             "UPDATE domain SET scrape_strategy = 'basic' WHERE scrape_strategy = 'smart'",
             { transaction }
          );
-         logger.info(`Replaced the smart scrape strategy with basic on ${rowsUpdated} domain(s).`);
+         logger.info(`[MIGRATION] Replaced the smart scrape strategy with basic on ${rowsUpdated} domain(s).`);
       });
 
       if (replaceGlobalSmartStrategy()) {
-         logger.info('Replaced the global smart scrape strategy in data/settings.json with basic.');
+         logger.info('[MIGRATION] Replaced the global smart scrape strategy in data/settings.json with basic.');
       }
    },
 

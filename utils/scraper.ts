@@ -6,6 +6,7 @@ import { logger } from './logger';
 import { retryQueueManager } from './retryQueueManager';
 import { markOwnLocalResults } from './mapPack';
 import { resolveGoogleRedirects } from './resolveGoogleLinks';
+import { trackScrapeCredits } from './scraperCredits';
 
 type SearchResult = {
    title: string,
@@ -95,7 +96,7 @@ export const getScraperClient = (
       }
    }
 
-   logger.debug('[SCRAPE] Request sent', {
+   logger.debug('[SCRAPER] Request sent', {
       keywordId: keyword?.ID,
       keyword: keyword?.keyword,
       device: keyword?.device,
@@ -174,7 +175,7 @@ export const parseScraperResponse = async (response: Response): Promise<any> => 
    // The body can only be read once, so read the text first and parse it, instead of trying json() and then text().
    const text = await withTimeout(response.text(), SCRAPER_BODY_TIMEOUT_MS, () => requestControllers.get(response)?.abort());
    // Providers can echo the API key back in their response (e.g. ValueSERP's json_url), so mask it here too
-   logger.debug('[SCRAPE] Raw response', { status: response.status, ok: response.ok, body: maskSecrets(text) });
+   logger.debug('[SCRAPER] Raw response', { status: response.status, ok: response.ok, body: maskSecrets(text) });
    try {
       const parsed = JSON.parse(text);
       if (parsed && typeof parsed === 'object') {
@@ -232,6 +233,7 @@ const scrapeSinglePage = async (
       try {
          const response = await scraperClient;
          const res = await parseScraperResponse(response);
+         trackScrapeCredits(scraperObj, settings, response, res);
          if (!res || typeof res !== 'object') {
             lastError = 'Provider returned an empty or invalid response';
             if (attempt < maxRetries) {
@@ -270,7 +272,7 @@ const scrapeSinglePage = async (
          }
       } catch (error:any) {
          lastError = serializeError(error);
-         logger.debug('[SCRAPE] Scraping page failed', { page: pagination.page, keyword: keyword.keyword, error: error?.message || '' });
+         logger.debug('[SCRAPER] Scraping page failed', { page: pagination.page, keyword: keyword.keyword, error: error?.message || '' });
          if (attempt < maxRetries) {
             await new Promise(resolve => setTimeout(resolve, getRetryDelay(attempt)));
             continue;
@@ -438,7 +440,7 @@ export const scrapeKeywordWithStrategy = async (
 
    const fullResults = buildFullResults(allScrapedResults);
 
-   logger.info('[SERP] Strategy scrape completed', { keyword: keyword.keyword, position: finalSerp.position, strategy });
+   logger.debug('[SCRAPER] Strategy scrape completed', { keyword: keyword.keyword, position: finalSerp.position, strategy });
    return {
       ID: keyword.ID,
       keyword: keyword.keyword,

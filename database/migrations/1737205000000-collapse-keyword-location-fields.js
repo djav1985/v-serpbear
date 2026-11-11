@@ -106,7 +106,7 @@ module.exports = {
             await queryInterface.removeColumn('keyword', 'settings', { transaction });
          }
 
-         logger.info('Collapsed keyword city/state metadata into location column.');
+         logger.info('[MIGRATION] Collapsed keyword city/state metadata into location column.');
       });
    },
 
@@ -190,7 +190,7 @@ module.exports = {
             }
          }
 
-         logger.info('Restored keyword city/state columns from location.');
+         logger.info('[MIGRATION] Restored keyword city/state columns from location.');
       });
    }
 };

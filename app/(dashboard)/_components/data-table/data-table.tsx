@@ -1,0 +1,236 @@
+'use client';
+
+import { startTransition, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import type { ReactTable, Row, RowData } from '@tanstack/react-table';
+import { useVirtualizer, useWindowVirtualizer } from '@tanstack/react-virtual';
+import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react';
+import { useIsMobile } from 'hooks/use-mobile';
+import { cn } from 'lib/utils';
+import './column-meta';
+import type { DataTableFeatures } from './features';
+
+type DataTableProps<TData extends RowData> = {
+   table: ReactTable<DataTableFeatures, TData>;
+   /** Accessible name of the table. */
+   label: string;
+   /** First-paint guess for a desktop row. Rows are measured after they render, so this only avoids a jump. */
+   estimateRowHeight?: number;
+   /** First-paint guess for a stacked (mobile) row. */
+   estimateStackedHeight?: number;
+   /** When set, narrow screens show this card per row instead of the grid. */
+   renderStackedRow?: (row: Row<DataTableFeatures, TData>) => ReactNode;
+   /** True while the first load is in flight. */
+   isLoading?: boolean;
+   /** Shown when loading has finished and no row matches. */
+   emptyMessage?: ReactNode;
+   /** Classes for the desktop scroll area. Give it a height, for example 'h-[65vh]'. */
+   className?: string;
+   /** The narrowest the grid may get before the area scrolls sideways. Set it to what the columns need. */
+   minWidth?: string;
+   onRowClick?: (row: Row<DataTableFeatures, TData>) => void;
+};
+
+const DEFAULT_TRACK = 'minmax(0, 1fr)';
+
+/**
+ * A grid table whose rows are virtualized, so a domain with thousands of keywords scrolls without rendering them all.
+ * Which rows exist, in what order, and which are selected comes from the TanStack table instance, so selection and
+ * bulk actions are tied to row IDs and never to what happens to be on screen.
+ */
+export function DataTable<TData extends RowData>({
+   table,
+   label,
+   estimateRowHeight = 57,
+   estimateStackedHeight = 150,
+   renderStackedRow,
+   isLoading = false,
+   emptyMessage = 'Nothing to show.',
+   className,
+   minWidth = '56rem',
+   onRowClick,
+}: DataTableProps<TData>) {
+   const scrollRef = useRef<HTMLDivElement>(null);
+   const frameRef = useRef<HTMLDivElement>(null);
+   const headRef = useRef<HTMLDivElement>(null);
+   // Height that fits a whole number of rows, so the last visible row is never cut off by the bottom edge.
+   const [snappedHeight, setSnappedHeight] = useState<number | undefined>();
+   const [scrollMargin, setScrollMargin] = useState(0);
+   const isMobile = useIsMobile();
+   const stacked = isMobile && !!renderStackedRow;
+   const rows = table.getRowModel().rows;
+   const columns = table.getVisibleLeafColumns();
+   const gridStyle: CSSProperties = {
+      gridTemplateColumns: columns.map((column) => column.columnDef.meta?.width ?? DEFAULT_TRACK).join(' '),
+   };
+
+   useLayoutEffect(() => {
+      if (!stacked) {
+         setScrollMargin(0);
+         return undefined;
+      }
+
+      const updateScrollMargin = () => {
+         const element = scrollRef.current;
+         if (!element) return;
+         const nextMargin = element.getBoundingClientRect().top + window.scrollY;
+         setScrollMargin((current) => (current === nextMargin ? current : nextMargin));
+      };
+
+      updateScrollMargin();
+      const observer = new ResizeObserver(updateScrollMargin);
+      const main = scrollRef.current?.closest('main');
+      if (main) observer.observe(main);
+      window.addEventListener('resize', updateScrollMargin);
+      return () => {
+         observer.disconnect();
+         window.removeEventListener('resize', updateScrollMargin);
+      };
+   }, [stacked]);
+
+   // TanStack Virtual returns functions that the React Compiler cannot memoize; the compiler skips this component, which is the intended outcome.
+   // eslint-disable-next-line react-hooks/incompatible-library
+   const virtualizer = useVirtualizer({
+      count: rows.length,
+      getScrollElement: () => scrollRef.current,
+      estimateSize: () => (stacked ? estimateStackedHeight : estimateRowHeight),
+      getItemKey: (index) => rows[index]?.id ?? index,
+      overscan: 8,
+      enabled: !stacked,
+   });
+
+   const windowVirtualizer = useWindowVirtualizer({
+      count: rows.length,
+      estimateSize: () => estimateStackedHeight,
+      getItemKey: (index) => rows[index]?.id ?? index,
+      overscan: 8,
+      scrollMargin,
+      enabled: stacked,
+   });
+
+   const activeVirtualizer = stacked ? windowVirtualizer : virtualizer;
+   const loadingPlaceholderCount = stacked && isLoading
+      ? Math.ceil((window.innerHeight - (scrollRef.current?.getBoundingClientRect().top ?? 0)) / estimateStackedHeight)
+      : 0;
+
+   const firstRowSize = activeVirtualizer.getVirtualItems()[0]?.size;
+   useLayoutEffect(() => {
+      const frame = frameRef.current;
+      if (!frame || stacked) { setSnappedHeight(undefined); return undefined; }
+      const fit = () => {
+         const rowSize = firstRowSize ?? estimateRowHeight;
+         const headSize = headRef.current?.offsetHeight ?? 0;
+         const whole = Math.floor((frame.clientHeight - headSize) / rowSize);
+         setSnappedHeight(whole >= 1 ? headSize + whole * rowSize : undefined);
+      };
+      fit();
+      const observer = new ResizeObserver(fit);
+      observer.observe(frame);
+      return () => observer.disconnect();
+   }, [stacked, firstRowSize, estimateRowHeight]);
+
+   const showEmpty = !isLoading && rows.length === 0;
+
+   return (
+      <div className="relative">
+         {/* Invisible copy of the requested height, used only to measure how many whole rows fit. */}
+         <div ref={frameRef} aria-hidden className={cn('pointer-events-none invisible absolute inset-x-0 top-0', className)} />
+         <div
+            ref={scrollRef}
+            role="table"
+            aria-label={label}
+            aria-rowcount={rows.length}
+            aria-busy={isLoading}
+            className={cn(
+               'relative w-full',
+               stacked ? 'overflow-visible' : 'overflow-auto',
+               // The server snapshot is desktop. Clip its wide grid on mobile until hydration switches to stacked rows.
+               renderStackedRow && !stacked && 'max-[767px]:overflow-clip',
+               !stacked && !snappedHeight && className,
+            )}
+            style={snappedHeight ? { height: snappedHeight } : undefined}
+         >
+         {!stacked && (
+            <div ref={headRef} role="rowgroup" className="bg-card sticky top-0 z-10 border-y" style={{ minWidth }}>
+               {table.getHeaderGroups().map((headerGroup) => (
+                  <div key={headerGroup.id} role="row" className="bg-accent/70 text-accent-foreground grid items-center gap-3 px-4 py-3 text-xs font-semibold" style={gridStyle}>
+                     {headerGroup.headers.map((header) => {
+                        const canSort = header.column.getCanSort();
+                        const sorted = header.column.getIsSorted();
+                        return (
+                           <div
+                              key={header.id}
+                              role="columnheader"
+                              aria-sort={sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : undefined}
+                              className={cn('flex min-w-0 items-center', header.column.columnDef.meta?.cellClassName)}
+                           >
+                              {header.isPlaceholder ? null : canSort ? (
+                                 <button
+                                    type="button"
+                                    className="hover:text-foreground flex items-center gap-1"
+                                    onClick={(event) => startTransition(() => header.column.getToggleSortingHandler()?.(event))}
+                                 >
+                                    <table.FlexRender header={header} />
+                                    {sorted === 'asc' ? <ArrowUp className="size-3" /> : sorted === 'desc' ? <ArrowDown className="size-3" /> : <ChevronsUpDown className="size-3 opacity-40" />}
+                                 </button>
+                              ) : (
+                                 <table.FlexRender header={header} />
+                              )}
+                           </div>
+                        );
+                     })}
+                  </div>
+               ))}
+            </div>
+         )}
+
+         {showEmpty && <div className="text-muted-foreground animate-in fade-in-0 p-10 text-center text-sm duration-1000 motion-reduce:animate-none">{emptyMessage}</div>}
+
+         {loadingPlaceholderCount > 0 && (
+            <div aria-hidden="true" className="invisible" style={{ height: loadingPlaceholderCount * estimateStackedHeight }}>
+               {Array.from({ length: loadingPlaceholderCount }, (_, index) => (
+                  <div key={index} style={{ height: estimateStackedHeight }} />
+               ))}
+            </div>
+         )}
+
+         {rows.length > 0 && (
+            <div role="rowgroup" className="relative animate-in fade-in-0 duration-1000 motion-reduce:animate-none" style={{ height: activeVirtualizer.getTotalSize(), minWidth: stacked ? undefined : minWidth }}>
+               {activeVirtualizer.getVirtualItems().map((virtualRow) => {
+                  const row = rows[virtualRow.index];
+                  return (
+                     <div
+                        key={row.id}
+                        ref={activeVirtualizer.measureElement}
+                        data-index={virtualRow.index}
+                        data-state={row.getIsSelected() ? 'selected' : undefined}
+                        role="row"
+                        aria-rowindex={virtualRow.index + 1}
+                        aria-selected={row.getIsSelected()}
+                        className={cn(
+                           'absolute top-0 left-0 w-full border-b',
+                           row.getIsSelected() && 'bg-accent/50',
+                           onRowClick && 'cursor-pointer',
+                        )}
+                        style={{ transform: `translateY(${virtualRow.start - (stacked ? scrollMargin : 0)}px)` }}
+                        onClick={onRowClick ? () => onRowClick(row) : undefined}
+                     >
+                        {stacked ? renderStackedRow(row) : (
+                           <div className="grid items-center gap-3 px-4 py-2" style={gridStyle}>
+                              {row.getAllCells()
+                                 .filter((cell) => cell.column.getIsVisible())
+                                 .map((cell) => (
+                                    <div key={cell.id} role="cell" className={cn('flex min-w-0 items-center', cell.column.columnDef.meta?.cellClassName)}>
+                                       <table.FlexRender cell={cell} />
+                                    </div>
+                                 ))}
+                           </div>
+                        )}
+                     </div>
+                  );
+               })}
+            </div>
+         )}
+         </div>
+      </div>
+   );
+}

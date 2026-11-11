@@ -1,6 +1,6 @@
 # SerpBear
 
-![Animated dashboard tour](https://serpbear.b-cdn.net/serpbear_readme_v2.gif "Animated dashboard tour")
+![Tracker showing map pack results](./serpbear_readme_v2.png "Tracker showing map pack results")
 
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/7e7a0030c3f84c6fb56a3ce6273fbc1d)](https://app.codacy.com/gh/djav1985/v-serpbear/dashboard) ![License](https://img.shields.io/github/license/djav1985/v-serpbear) ![Version](https://img.shields.io/github/package-json/v/djav1985/v-serpbear) ![Docker pulls](https://img.shields.io/docker/pulls/vontainment/v-serpbear)
 
@@ -14,7 +14,7 @@ SerpBear is a full-stack Next.js application that tracks where your pages rank o
 
 ## Contents
 
-- [What's new in 5.0.0](#whats-new-in-500)
+- [What's new in 6.0.0](#whats-new-in-600)
 - [Features](#features)
 - [Getting started](#getting-started)
 - [Supported SERP data providers](#supported-serp-data-providers)
@@ -30,11 +30,13 @@ SerpBear is a full-stack Next.js application that tracks where your pages rank o
 
 ---
 
-## What's new in 5.0.0
+## What's new in 6.0.0
 
-- **Real links for Google redirects.** Results that come back as `google.com/goto` links are resolved to the real page URL, so your domain is matched correctly. It uses Serper's free `/resolve` endpoint: add a free [Serper](https://serper.dev) key as `SERPER_API_KEY` and it works for every scraper. See [the settings table](#settings-configured-in-docker-composeyml-envs).
-- **A clearer average position.** One whole number, the same on the dashboard card and in the email. Keywords that failed their last scrape are left out, a keyword that ranked before and fell out of the results counts at 10 × pages scraped, and map pack keywords count at their best spot. See [How the average position is calculated](#how-the-average-position-is-calculated).
-- **Smarter keyword adding.** Discover and Ideas share one add-to-tracker bar with a Desktop/Mobile toggle, tags and a location picker. Keywords that are already tracked are skipped, and the Tracking tab can change the location of many keywords at once.
+- **SerpBase support and credit balances.** SerpBase joins the supported providers, and domain cards show remaining credits for providers that report them. Balances are stored per scraper and API key. See [supported SERP data providers](#supported-serp-data-providers) and [Credits remaining](https://github.com/djav1985/v-serpbear/wiki/Scrapers#credits-remaining).
+- **Safer refreshes and keyword edits.** Refreshes, deletes, and location changes now coordinate per domain. Location changes clear the old ranking data before scraping again, and queued refreshes use the keywords' current state when they start.
+- **Tighter request security.** Browser-triggered searches require a same-origin login session, request bodies have size limits, and requests from clients with unknown addresses no longer share a lockout bucket.
+- **Smoother page changes.** Page transitions and panels now animate, with motion disabled for users who prefer reduced motion.
+- **Updated runtime and dependencies.** The Docker image uses Node.js 26, and the project dependencies and tooling have been updated.
 
 The full list of changes is in the [changelog](./CHANGELOG.md). See [Update SerpBear](#update-serpbear) before you upgrade.
 
@@ -46,20 +48,30 @@ The full list of changes is in the [changelog](./CHANGELOG.md). See [Update Serp
 
 **What this fork adds over [upstream SerpBear](https://github.com/towfiqi/serpbear)**
 
-- **Map pack tracking.** Flags keywords where your business is in Google's local top three. See [Business name and map pack detection](#business-name-and-map-pack-detection).
-- **Per-domain scrapers.** Give each domain its own provider and API key, or use one global scraper. See [Per-domain scrapers](#per-domain-scrapers).
-- **Google redirect resolving.** `google.com/goto` result links become real URLs through Serper's free `/resolve` endpoint.
-- **More providers.** PrismCrawl and DataForSEO, on top of the ones upstream supports.
-- **Faster refreshes.** A parallel path for SerpApi and SearchApi, configurable concurrency limits and a per-domain refresh lock.
-- **Trend arrows.** Domain stats show up and down triangles against the previous refresh.
-- **Easier keyword adding.** One add-to-tracker bar for Discover and Ideas with a Desktop/Mobile toggle, tags and a location picker, plus a bulk Change Location action.
-- **Larger Search Console data.** Results are read in pages of up to 25,000 rows.
-- **Idea emails and digest throttling.** Email selected keyword ideas, with limits that keep digests and idea emails from flooding inboxes.
-- **Set the time of day.** Scrapes, retries and digests run at times you choose, in your own timezone.
-- **MCP server.** Read-only access to rankings, Search Console and ideas for AI assistants.
-- **White labelling.** Custom name and logo, applied without a rebuild.
-- **Security.** API-key and login lockouts, `TRUST_PROXY` support, encrypted stored keys and secrets redacted from logs.
-- **Database safety.** Migrations back up your database first, and a unique index on keywords merges duplicates.
+- **Map pack tracking.** Flags keywords where your business appears in Google's local top three, and shows map pack data in the tracker, domain stats, and digests. See [Business name and map pack detection](#business-name-and-map-pack-detection).
+- **Per-domain scraper settings.** Choose a provider and API key for each domain, or inherit the global scraper. Set a scrape strategy per domain too. See [Per-domain scrapers](#per-domain-scrapers).
+- **More scraper providers.** Adds PrismCrawl, DataForSEO and SerpBase to the seven providers shared with upstream. The fork removes the older SpaceSerp, ScrapingAnt, ScrapingRobot, and proxy integrations that upstream itself marks as no longer working.
+- **Credits remaining.** Domain cards show the account balance for providers that report it, including DataForSEO's dollar balance. See [Credits remaining](https://github.com/djav1985/v-serpbear/wiki/Scrapers#credits-remaining).
+- **Google redirect resolving.** Resolves `google.com/goto` result links through Serper's `/resolve` endpoint so SerpBear can match the actual destination domain.
+- **Domain trend indicators and clearer averages.** Domain stats show movement since the previous refresh; average position has explicit handling for failed scrapes, keywords that drop out of results, and map pack positions. See [How the average position is calculated](#how-the-average-position-is-calculated).
+- **Improved keyword workflows.** Discover and Ideas share an add-to-tracker bar with device, tags, and location controls. Existing keywords are skipped, and tracked keywords can be changed to a new location in bulk.
+- **Idea emails and richer digests.** Email selected keyword ideas and see a tracker summary with average position and map pack counts in digest emails.
+- **Flexible schedules.** Choose the time and timezone for scheduled scrapes, failed-scrape retries, Search Console refreshes, and email digests.
+- **Read-only MCP server.** AI assistants can read rankings, Search Console data, and keyword ideas through MCP.
+- **White-label branding.** Apply a custom app and email name and logo without rebuilding the app.
+- **A rebuilt responsive interface.** The fork replaces the older pages with a responsive dashboard, shared data tables, settings panels, and transitions that respect reduced-motion preferences.
+
+**Security and data integrity**
+
+- Login and API-key lockouts, session expiry and revocation, same-origin checks for browser-triggered searches, bounded request bodies, and `TRUST_PROXY` support.
+- Sensitive values are redacted from logs; MCP accepts API-key authentication rather than browser cookies.
+- Destructive database migrations back up SQLite first. A unique index and duplicate merging prevent repeated tracking targets, and stale refresh flags are recovered.
+
+**Performance and engineering**
+
+- Parallel scraping for SerpApi and SearchApi, bounded concurrency for other providers, and per-domain refresh locks.
+- Indexed keyword queries, virtualized large tables, single-pass statistics, and Search Console retrieval in pages of up to 25,000 rows.
+- Next.js 16 App Router API and page routes share a typed codebase and common request handling. See [Project structure](#project-structure).
 
 <br><br>
 
@@ -72,30 +84,6 @@ The full list of changes is in the [changelog](./CHANGELOG.md). See [Update Serp
       
 <br><br>
 
-**Core capabilities**
-
-| Capability | Details |
-| --- | --- |
-| **Unlimited domains and keywords** | Track as many keywords as you like across multiple sites, per country, city and device. |
-| **Managed SERP providers** | Nine providers with built-in retries (see [Supported SERP data providers](#supported-serp-data-providers)). |
-| **Failed scrape controls** | Retry all failed scrapes immediately, or clear the retry queue from Settings. |
-| **Keyword research** | Search volumes and suggestions from a Google Ads account. |
-| **Search Console enrichment** | Impressions, clicks and CTR next to your rankings. |
-| **Email digests** | Branded summaries of winners, losers and visits, opening with a tracker summary (tracked keywords, average position, map pack count). |
-| **Progressive web app** | Install the dashboard on iOS or Android. |
-| **REST API** | Manage and read data programmatically (see [API and MCP server](#api-and-mcp-server)). |
-
-<br><br>
-
-**Architecture**
-
-| Layer | Responsibility |
-| --- | --- |
-| **Frontend and API** | Next.js 16 serving React pages, JSON endpoints and the MCP server from one codebase. |
-| **Database** | SQLite through a custom `better-sqlite3` dialect (`database/sqlite-dialect.js`), with Sequelize and Umzug for models and migrations. No other engine is supported. |
-| **Background workers** | A Node cron runner schedules scrapes, retries, Search Console refreshes and digests from the times of day and timezone you set. |
-| **Settings** | Scraper, SMTP and Google Ads credentials live in the Settings UI and are stored in `data/settings.json` (secrets encrypted with `SECRET`). |
-
 <br><br>
 
 ---
@@ -107,14 +95,15 @@ The full list of changes is in the [changelog](./CHANGELOG.md). See [Update Serp
 ```bash
 git clone https://github.com/djav1985/v-serpbear.git
 cd v-serpbear
-cp .env.example .env
-# edit .env: replace every placeholder, and set USER, PASSWORD, SECRET, APIKEY and NEXT_PUBLIC_APP_URL
+# edit docker-compose.yml: replace PASSWORD, SECRET and APIKEY, and set NEXT_PUBLIC_APP_URL
 docker compose up -d
 ```
 
-The image is published on [Docker Hub](https://hub.docker.com/r/vontainment/v-serpbear) as `vontainment/v-serpbear`: `latest` is the newest stable release, a version number such as `5.0.0` pins a release, and `beta` is the opt-in beta build.
+The checked-in Compose file sets these values directly under `environment:`, so edit that file before starting the container. `.env` values are not automatically passed through by this Compose configuration.
 
-The app is served at <http://localhost:3030> (compose maps host port 3030 to container port 3000). Sign in with `USER` and `PASSWORD`, add a domain, then open **Settings → Scraper** to choose a provider and enter its API key.
+The image is published on [Docker Hub](https://hub.docker.com/r/vontainment/v-serpbear) as `vontainment/v-serpbear`: `latest` is the newest stable release, a version number such as `6.0.0` pins a release, and `beta` is the opt-in beta build.
+
+The app is served at <http://localhost:3030> (compose maps host port 3030 to container port 3000). Sign in with `USER_NAME` (or `USER`) and `PASSWORD`, add a domain, then open **Settings → Scraper** to choose a provider and enter its API key.
 
 <br><br>
 
@@ -123,28 +112,32 @@ The app is served at <http://localhost:3030> (compose maps host port 3030 to con
 ```bash
 docker compose stop
 docker cp serpbear:/app/data ./serpbear-data-backup
-docker compose start
+docker compose pull
+docker compose up -d
 ```
 
-Back up `data/` first. With Docker, run `docker compose pull && docker compose up -d` and migrations apply on start. With Node.js, pull, run `npm install`, `npm run db:migrate`, then rebuild. Read the *Upgrade notes* in the [changelog](./CHANGELOG.md) before upgrading.
+This backs up the data directory, pulls the new image and recreates the container; migrations apply on start. With Node.js, pull the code, run `npm install`, `npm run db:migrate`, then rebuild. Read the *Upgrade notes* in the [changelog](./CHANGELOG.md) before upgrading.
 
 <br><br>
 
 ### Supported SERP data providers
 
-| Provider | Pricing snapshot* | Geo targeting | Map pack | Mobile | Authentication |
-| --- | --- | --- | --- | --- | --- |
-| Serply (`serply`) | Plans from $49/mo | Country | Yes | Yes | Header `X-Api-Key` |
-| SerpApi (`serpapi`) | Free 250/mo, plans from $75/mo | City | Yes | Yes | Query `api_key` |
-| SearchApi (`searchapi`) | Plans from $40/mo | City | Yes | Yes | Query `api_key` |
-| ValueSerp (`valueserp`) | Pay-as-you-go, 10,000 for $25 | City | Yes | Yes | Query `api_key` |
-| Serper (`serper`) | Credit-based, 50,000 for $50 | Country | No | No | Query `apiKey` |
-| HasData (`hasdata`) | Free 1,000/mo, plans from $49/mo | City | Yes | Yes | Header `x-api-key` |
-| CrazySERP (`crazyserp`) | Pay-as-you-go | City | Yes | Yes | Header `Authorization: Bearer` |
-| PrismCrawl (`prismcrawl`) | 100 free credits, packages from $5 (about $0.21 per 1,000, valid 90 days) | City | Yes | Yes | Header `x-api-key` (POST JSON) |
-| DataForSEO (`dataforseo`) | Pay-as-you-go, $50 minimum top-up | City | Yes | Yes | HTTP Basic, `login:password` in the API key field |
+| Provider | Pricing snapshot* | Geo targeting | Map pack | Mobile | Credits left | Authentication |
+| --- | --- | --- | --- | --- | --- | --- |
+| Serply | Plans from $49/mo | Country | Yes | Yes | No | Header `X-Api-Key` |
+| SerpApi | Free 250/mo, plans from $75/mo | City | Yes | Yes | Yes | Query `api_key` |
+| SearchApi | Plans from $40/mo | City | Yes | Yes | Yes | Query `api_key` |
+| ValueSerp | Pay-as-you-go, 10,000 for $25 | City | Yes | Yes | Yes | Query `api_key` |
+| Serper | Credit-based, 50,000 for $50 | Country | No | No | No | Query `apiKey` |
+| HasData | Free 1,000/mo, plans from $49/mo | City | Yes | Yes | Yes | Header `x-api-key` |
+| CrazySERP | Pay-as-you-go | City | Yes | Yes | Yes | Header `Authorization: Bearer` |
+| PrismCrawl | 100 free credits, packages from $5 (about $0.21 per 1,000, valid 90 days) | City | Yes | Yes | Yes | Header `x-api-key` (POST JSON) |
+| DataForSEO | Pay-as-you-go, $50 minimum top-up | City | Yes | Yes | Yes (dollar balance) | HTTP Basic, `login:password` in the API key field |
+| SerpBase | Credit-based | City | Yes | Yes | Yes | Header `X-API-Key` (POST JSON) |
 
 > \*Pricing is indicative. Check each vendor before buying. The request formats are implemented in [`scrapers/services`](./scrapers/services).
+The **Credits left** column shows which providers can report the balance left on your account. For those, the domain card shows `Credits remaining:` under the last-updated line, and it refreshes whenever keywords are refreshed. Serply and Serper have no lookup, so nothing is shown for them. DataForSEO shows a dollar balance. Details are in [Credits remaining](https://github.com/djav1985/v-serpbear/wiki/Scrapers#credits-remaining).
+
 Each page request asks for 10 results. The [scrape strategy](#scrape-strategy) sets how many pages are fetched.
 
 <br><br>
@@ -161,12 +154,10 @@ Behaviour is controlled by environment variables inside docker compose as well a
 | `SECRET` | — | Yes | Signs the session JWT stored in the `token` cookie and encrypts stored keys. Login returns 500 when it is unset. Changing it signs everyone out and makes stored encrypted keys unreadable, so they must be re-entered. Use a unique value per deployment (`openssl rand -hex 32`). |
 | `APIKEY` | — | Yes | Key for REST and MCP clients, and for the cron worker's scheduled calls. When unset, scheduled jobs are skipped with a warning and MCP returns 500. Use `openssl rand -hex 32`. |
 | `SESSION_DURATION` | `24` | No | Session lifetime in hours. Empty, zero, negative or non-numeric values use 24. |
-| `TRUST_PROXY` | `0` | No | Number of reverse proxies in front of the app. `true` means 1, values above 10 are capped at 10, and invalid values mean 0. Login lockouts, API-key lockouts and the keyword-search and volume rate limits then use the `X-Forwarded-For` entry that many hops from the right. Without it, behind a proxy, every client shares the proxy's address. It also controls whether `X-Forwarded-Proto`, `X-Forwarded-Protocol` and `X-Forwarded-Ssl` set the `Secure` cookie flag; without it only the socket's TLS state does. |
+| `TRUST_PROXY` | `0` | No | Number of reverse proxies in front of the app. `true` means 1, values above 10 are capped at 10, and invalid values mean 0. Login lockouts, API-key lockouts and the keyword-search and volume rate limits then use the `X-Forwarded-For` entry that many hops from the right. Without it, every client shares one address, so five wrong logins or API keys from anyone lock everyone out for 15 minutes. The app cannot see the connection's own address, and a client can send its own `X-Forwarded-For`, so the header is trusted only when you say how many proxies are in front. It also controls whether `X-Forwarded-Proto`, `X-Forwarded-Protocol` and `X-Forwarded-Ssl` set the `Secure` cookie flag; without it only the request's own `https://` URL does. |
 | `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | No | Public URL of the deployment, used for the Google Ads OAuth return origin, email links and logo, and as the cron worker's fallback origin. Set it for real deployments. |
 | `APP_URL` | — | No | Server-side origin for the cron worker's own calls to the app. It takes precedence over `NEXT_PUBLIC_APP_URL` for those calls, which helps in Docker when the public URL is not reachable from inside the container. Google Ads uses it only when `NEXT_PUBLIC_APP_URL` is unset. Email links ignore it. |
-| `SCREENSHOTS` | `true` | No | Domain thumbnails via thum.io. `false` shows favicons. |
-| `NEXT_PUBLIC_WHITE_LABEL` | `false` | No | Enables white-label branding (name and logo). |
-| `WHITE_LABEL_LOGO_FILE` | `branding-logo.png` | No | File name only, stored in `/app/data`. Accepted extensions are `png`, `jpg`, `jpeg`, `gif`, `svg` and `webp`. Used only when `NEXT_PUBLIC_WHITE_LABEL=true`, and served without login at `/api/branding/logo` (404 if the file is missing). Recommended size is 96×96 px. |
+| `NEXT_PUBLIC_WHITE_LABEL` | `false` | No | Enables white-label branding (name and logo). The logo is always the file `logo.png` in `/app/data` (PNG, recommended size 96×96 px), served without login at `/api/images/logo.png`. The browser tab icon is the file `favicon.png` in the same folder, served at `/api/images/favicon.png`. When white-label is off or a file is missing, that URL serves the built-in default icon instead, so both always return an image. |
 | `NEXT_PUBLIC_PLATFORM_NAME` | `SerpBear` | No | App and email name. Used only in white-label mode. |
 | `SEARCH_CONSOLE_CLIENT_EMAIL` | — | No | Service account email with access to your Search Console properties. |
 | `SEARCH_CONSOLE_PRIVATE_KEY` | — | No | Matching private key; keep newlines escaped in `.env` files. |
@@ -184,7 +175,7 @@ Behaviour is controlled by environment variables inside docker compose as well a
 
 ### Settings configured in `data/settings.json`
 
-Manage these in the Settings UI or at `/api/settings`.
+Manage these in the Settings UI or at `/api/app/settings`.
 
 | Key | Values and default |
 | --- | --- |
@@ -289,7 +280,7 @@ The Keywords and Map Pack counts include every keyword, whether or not it is in 
 
 ### Google Search Console
 
-- Add a service account to show impressions, clicks and CTR next to each keyword. Credentials are read from the domain's own settings first, then the Settings page, then `SEARCH_CONSOLE_CLIENT_EMAIL` and `SEARCH_CONSOLE_PRIVATE_KEY`.
+- Add a service account to show impressions, clicks and CTR next to each keyword. Credentials are read from the domain's own settings first, then the Settings panel, then `SEARCH_CONSOLE_CLIENT_EMAIL` and `SEARCH_CONSOLE_PRIVATE_KEY`.
 - Cached data is refetched when a dashboard or API read finds it more than 24 hours old, and by the cron at the `CRON_MAIN_SCHEDULE` time. Search Console days follow Pacific Time (`America/Los_Angeles`) whatever `TZ` is.
 - The Discover tab disables keywords that are already tracked, and "select all" skips them.
 - It is optional. Without credentials the dashboard card is hidden and the Insight tab shows a message.
@@ -311,11 +302,11 @@ The Keywords and Map Pack counts include every keyword, whether or not it is in 
 
 ### White labelling
 
-Set `NEXT_PUBLIC_WHITE_LABEL=true` for a custom name and logo. Logo file changes apply on the next request, so refresh the browser. Environment value changes need a restart (`docker compose up -d` or restarting the Node.js process). Neither needs a rebuild.
+Set `NEXT_PUBLIC_WHITE_LABEL=true` for a custom name and logo. Logo and favicon file changes apply on the next request, so refresh the browser. Environment value changes need a restart (`docker compose up -d` or restarting the Node.js process). Neither needs a rebuild.
 
 ### Settings and data
 
-Settings are stored in `data/settings.json`, with secrets encrypted using `SECRET`. `GET /api/settings` is public and returns only `scraper_type`, `available_scapers`, `search_console_integrated`, `version` and `timezone` without a session. `PUT /api/settings` needs a login session (an API key is not accepted). It merges the payload: keys left out keep their stored values, and a secret sent empty is cleared.
+Settings are stored in `data/settings.json`, with secrets encrypted using `SECRET`. `GET /api/app/settings` is public and returns only `scraper_type`, `available_scapers`, `search_console_integrated`, `version`, `timezone` and a read-only `branding` object (name and logo, which the login page uses) without a session. `PUT /api/app/settings` needs a login session (an API key is not accepted). It merges the payload: keys left out keep their stored values, and a secret sent empty is cleared.
 
 Docker Compose stores data in a named volume (`data`) mounted at `/app/data`, prefixed with the project name (for example `v-serpbear_data`; find it with `docker volume ls`). It holds the SQLite database, `settings.json`, Search Console exports (`SC_<domain>.json`), keyword ideas (`IDEAS_*.json`), `session.json`, `email-throttle.json`, `failed_queue.json` and any white-label logo.
 
@@ -355,24 +346,25 @@ A REST API for scripts and automation. Send `Authorization: Bearer <APIKEY>`. Af
 
 ```bash
 export APIKEY=your-api-key
-curl -H "Authorization: Bearer $APIKEY" "http://localhost:3000/api/keywords?domain=example.com"
+curl -H "Authorization: Bearer $APIKEY" "http://localhost:3000/api/serp/keywords?domain=example.com"
 ```
 
 The example uses port 3000 (Node.js). Docker Compose serves the app on port 3030.
 
 | Method | Endpoint | What it does |
 | --- | --- | --- |
-| GET | `/api/keyword?id=` | One keyword with its position history |
-| GET | `/api/keywords?domain=` | All tracked keywords of a domain |
-| GET | `/api/domains` | All tracked domains (`withstats=true` adds keyword statistics) |
-| POST | `/api/refresh` | Refresh chosen keywords: body `ids`, or query `id` (comma-separated, or `all` with `domain`) |
-| POST | `/api/cron` | Run the scheduled refresh for every domain with scraping enabled |
-| POST | `/api/notify` | Send the email digest for one domain (`domain=`) or all |
-| GET | `/api/searchconsole?domain=` | Search Console data of a domain |
-| POST | `/api/searchconsole` | Refresh Search Console data for all domains |
-| GET | `/api/insight?domain=` | Search Console insight: top pages, keywords, countries and stats |
-| GET | `/api/ideas` | Saved keyword ideas and favourites (`domain=` optional) |
-| POST | `/api/ideas` | Fetch new ideas from Google Ads: body `seedType` (`auto`, `custom`, `tracking` or `searchconsole`), `domain`, `keywords`, `country`, `language` |
+| GET | `/api/serp/keyword?id=` | One keyword with its position history |
+| GET | `/api/serp/keywords?domain=` | All tracked keywords of a domain |
+| GET | `/api/serp/domains` | All tracked domains (`withstats=true` adds keyword statistics) |
+| POST | `/api/serp/refresh` | Refresh chosen keywords: body `ids`, or query `id` (comma-separated, or `all` with `domain`). Body `{ keyword, country, device }` runs a one-off keyword search (login session only, not an API key). Requests from a login session must come from this site |
+| GET | `/api/serp/refresh?status=retry&id=…` | Read which keywords are still updating (read-only) |
+| POST | `/api/app/cron` | Run the scheduled refresh for every domain with scraping enabled |
+| POST | `/api/app/email?type=digest` | Send the email digest for one domain (`domain=`) or all |
+| GET | `/api/google/searchconsole?domain=` | Search Console data of a domain |
+| POST | `/api/google/searchconsole` | Refresh Search Console data for all domains |
+| GET | `/api/google/insight?domain=` | Search Console insight: top pages, keywords, countries and stats |
+| GET | `/api/google/ideas` | Saved keyword ideas and favourites (`domain=` optional) |
+| POST | `/api/google/ideas` | Fetch new ideas from Google Ads: body `seedType` (`auto`, `custom`, `tracking` or `searchconsole`), `domain`, `keywords`, `country`, `language` |
 
 <br><br>
 
@@ -382,16 +374,15 @@ The example uses port 3000 (Node.js). Docker Compose serves the app on port 3030
 
 | Path | Contents |
 | --- | --- |
-| `pages/` | Next.js pages (`domains`, `domain`, `research`, `login`) and the JSON and MCP routes in `pages/api/` |
-| `components/` | React components grouped by area: `common`, `domains`, `ideas`, `insight`, `keywords`, `settings` |
-| `services/` | Client data hooks and API calls, such as `useFetchKeywords` |
-| `hooks/` | Shared React hooks, such as `useAuth` and `useBranding` |
+| `app/` | The App Router front end. `(auth)/login`, and `(dashboard)/` with `domains`, `domain/[slug]` (Tracking), `domain/console`, `domain/insight`, `domain/ideas` and `research`. Each route keeps its own parts in a private `_components/` folder. |
+| `app/api/` | The JSON and MCP routes (App Router route handlers) |
+| `components/ui/` | shadcn/ui building blocks (buttons, dialogs, selects, charts) |
+| `hooks/`, `lib/` | Small shared helpers for the front end |
 | `utils/` | Server and shared helpers: refresh pipeline, average position, email throttle, rate limits, Search Console, timezone |
 | `scrapers/` | Scraper registry, and `scrapers/services/` with one file per provider |
 | `database/` | Sequelize models, `migrations/`, `init.ts` (table sync) and the SQLite dialect |
 | `email/` | HTML email template |
-| `styles/`, `public/` | Global CSS, and static assets such as icons, the web app manifest and flag sprites |
-| `scripts/` | Repository helper scripts (`setup:git`) |
+| `public/` | Static assets such as icons, the web app manifest and flag sprites. Global styles are in `app/globals.css` and `app/flags.css`. |
 | `__tests__/` | Jest tests |
 | `cron.js` | Scheduled jobs worker |
 | `instrumentation.ts` | Next.js startup hook that initialises the database |
@@ -404,8 +395,10 @@ The example uses port 3000 (Node.js). Docker Compose serves the app on port 3030
 
 ## Credits
 
-SerpBear was created by Amruth Pillai. The upstream project is at <https://github.com/towfiqi/serpbear>. This fork is maintained at <https://github.com/djav1985/v-serpbear>.
+SerpBear was created by Amruth Pillai. The upstream project is at <https://github.com/towfiqi/serpbear>. This fork is maintained at <https://github.com/djav1985/v-serpbear>. The dashboard UI is adapted from [next-shadcn-admin-dashboard](https://github.com/arhamkhnz/next-shadcn-admin-dashboard) by Mohammed Arham Khan.
 
 ## License
 
 SerpBear is distributed under the [MIT License](./LICENSE). Commercial support and custom integrations are available; open a discussion if you need help deploying at scale.
+
+The dashboard UI is adapted from [next-shadcn-admin-dashboard](https://github.com/arhamkhnz/next-shadcn-admin-dashboard) and is also distributed under the [MIT License](https://github.com/arhamkhnz/next-shadcn-admin-dashboard/blob/main/LICENSE).

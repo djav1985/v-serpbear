@@ -1,4 +1,3 @@
-import './styles/globals.css';
 import '@testing-library/jest-dom';
 import { TextEncoder, TextDecoder } from 'util';
 
@@ -78,28 +77,3 @@ if (!global.fetch) {
 global.Headers = Headers;
 global.Request = Request;
 global.Response = Response;
-
-// polyfill BroadcastChannel for msw
-class BroadcastChannelMock {
-  constructor(name) {
-    this.name = name;
-    this.messages = [];
-  }
-
-  postMessage(message) {
-    this.messages.push(message);
-  }
-
-  close() {
-    this.messages = [];
-  }
-
-  addEventListener() {
-    return this;
-  }
-
-  removeEventListener() {
-    return this;
-  }
-}
-global.BroadcastChannel = BroadcastChannelMock;

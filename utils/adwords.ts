@@ -3,9 +3,8 @@ import { readSettingsFile } from './settingsFile';
 import * as path from 'path';
 import * as lockfile from 'proper-lockfile';
 import Cryptr from 'cryptr';
-import TTLCache from '@isaacs/ttlcache';
+import { TTLCache } from '@isaacs/ttlcache';
 import { setTimeout as sleep } from 'timers/promises';
-import { Op } from 'sequelize';
 import Keyword from '../database/models/keyword';
 import parseKeywords from './parseKeywords';
 import countries from './countries';
@@ -16,7 +15,7 @@ import { atomicWriteFile } from './atomicWrite';
 
 export const GOOGLE_ADS_API_VERSION = 'v23';
 
-const memoryCache = new TTLCache({ max: 10000 });
+const memoryCache = new TTLCache<string, string | false>({ max: 10000 });
 
 type keywordIdeasMetrics = {
    competition: IdeaKeyword['competition'],
@@ -179,11 +178,11 @@ export const getAdwordsAccessToken = async (credentials: AdwordsCredentials) => 
          } else {
             // Handle non-JSON responses from Google OAuth
             const textResponse = await resp.text();
-            logger.warn(`Google OAuth returned non-JSON response (${resp.status})`, { response: textResponse.substring(0, 200) });
+            logger.error(`Google OAuth returned non-JSON response (${resp.status})`, undefined, { response: textResponse.substring(0, 200) });
             return '';
          }
       } catch (parseError) {
-         logger.warn(`Failed to parse Google OAuth response (${resp.status})`, { error: parseError instanceof Error ? parseError.message : String(parseError) });
+         logger.error(`Failed to parse Google OAuth response (${resp.status})`, undefined, { error: parseError instanceof Error ? parseError.message : String(parseError) });
          return '';
       }
 
@@ -245,7 +244,7 @@ const resolveIdeasRequestTarget = (
    const countryData = countries[country];
    const geoTargetConstants = countryData ? countryData[3] : undefined;
 
-   logger.debug('Google Ads API request preparation', {
+   logger.debug('[GOOGLE] Google Ads API request preparation', {
       customerID,
       geoTargetConstants,
       hasCountryData: !!countryData,
@@ -315,7 +314,7 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
    // The ideas file is named after the domain; the research page has no domain and uses IDEAS_research.json
    const ideasFileKey = domain || RESEARCH_IDEAS_KEY;
 
-   logger.debug('getAdwordsKeywordIdeas started', {
+   logger.debug('[GOOGLE] getAdwordsKeywordIdeas started', {
       country,
       language,
       keywordsCount: keywords.length,
@@ -331,9 +330,9 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
    const cachedAccessToken: string | false | undefined = memoryCache.get('adwords_token');
    if (cachedAccessToken && !test) {
       accessToken = cachedAccessToken;
-      logger.debug('Using cached Google Ads access token');
+      logger.debug('[GOOGLE] Using cached Google Ads access token');
    } else {
-      logger.debug('Fetching new Google Ads access token');
+      logger.debug('[GOOGLE] Fetching new Google Ads access token');
       accessToken = await getAdwordsAccessToken(credentials);
       if (!accessToken) {
          logger.error('Failed to get Google Ads access token');
@@ -341,7 +340,7 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
       }
       memoryCache.delete('adwords_token');
       memoryCache.set('adwords_token', accessToken, { ttl: 3300000 });
-      logger.debug('Successfully obtained and cached Google Ads access token');
+      logger.debug('[GOOGLE] Successfully obtained and cached Google Ads access token');
    }
 
    let fetchedKeywords: IdeaKeyword[] = [];
@@ -367,11 +366,11 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
          const errMessage = seedType === 'tracking'
             ? 'No tracked keywords found for this domain'
             : 'No search console keywords found for this domain';
-         logger.warn(errMessage, { seedType, domain });
+         logger.debug(`[GOOGLE] ${errMessage}`, { seedType, domain });
          throw new Error(errMessage);
       }
 
-      logger.debug('Seed keywords prepared', { 
+      logger.debug('[GOOGLE] Seed keywords prepared', {
          seedKeywordsCount: seedKeywords.length,
          // Note: Seed keywords not logged to avoid exposing sensitive search terms in production logs
       });
@@ -387,7 +386,7 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
 
          // Note: DEBUG logging may include sensitive data (seed keywords, API tokens)
          // Only enable DEBUG/VERBOSE mode in secure environments
-         logger.debug('Google Ads API request payload', {
+         logger.debug('[GOOGLE] Google Ads API request payload', {
             url: `https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}/customers/${customerID}:generateKeywordIdeas`,
             geoTargetConstants: reqPayload.geoTargetConstants,
             language: reqPayload.language,
@@ -410,7 +409,7 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
             body: JSON.stringify(reqPayload),
          });
 
-         logger.debug('Google Ads API response received', {
+         logger.debug('[GOOGLE] Google Ads API response received', {
             status: resp.status,
             statusText: resp.statusText,
             contentType: resp.headers.get('content-type'),
@@ -425,7 +424,7 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
                try {
                   ideaData = JSON.parse(responseText);
                } catch (jsonParseError) {
-                  logger.warn(`Failed to parse Google Ads JSON response (${resp.status})`, { 
+                  logger.error(`Failed to parse Google Ads JSON response (${resp.status})`, undefined, {
                      response: responseText.substring(0, 200),
                      error: jsonParseError instanceof Error ? jsonParseError.message : String(jsonParseError),
                   });
@@ -433,7 +432,7 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
                }
             } else {
                // Handle non-JSON responses
-               logger.warn(`Google Ads returned non-JSON response (${resp.status})`, { response: responseText.substring(0, 200) });
+               logger.error(`Google Ads returned non-JSON response (${resp.status})`, undefined, { response: responseText.substring(0, 200) });
                throw new Error(`Google Ads API error (${resp.status}): Server returned non-JSON response`);
             }
          } catch (parseError) {
@@ -441,7 +440,7 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
                throw parseError;
             }
             const textResponse = responseText || 'Could not read response';
-            logger.warn(`Failed to parse Google Ads response (${resp.status})`, { 
+            logger.error(`Failed to parse Google Ads response (${resp.status})`, undefined, {
                response: textResponse.substring(0, 200),
                error: parseError instanceof Error ? parseError.message : String(parseError),
             });
@@ -458,14 +457,14 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
          }
 
          if (ideaData?.results) {
-            logger.debug(`Google Ads API returned ${ideaData.results.length} results`);
+            logger.debug(`[GOOGLE] Google Ads API returned ${ideaData.results.length} results`);
             fetchedKeywords = extractAdwordskeywordIdeas(ideaData.results as keywordIdeasResponseItem[], { country, domain: ideasFileKey });
-            logger.info(`Processed ${fetchedKeywords.length} keywords after filtering`, {
+            logger.info(`[GOOGLE] Processed ${fetchedKeywords.length} keywords after filtering`, {
                rawResults: ideaData.results.length,
                filteredResults: fetchedKeywords.length,
             });
          } else {
-            logger.debug('Google Ads API returned no results (ideaData?.results is falsy)', {
+            logger.debug('[GOOGLE] Google Ads API returned no results (ideaData?.results is falsy)', {
                hasIdeaData: !!ideaData,
                ideaDataKeys: ideaData ? Object.keys(ideaData) : [],
             });
@@ -473,7 +472,7 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
 
          if (!test && fetchedKeywords.length > 0) {
             await saveFetchedIdeas(ideasFileKey, { keywords: fetchedKeywords, settings: adwordsDomainOptions });
-            logger.debug('Updated local keyword ideas', { domain: ideasFileKey, count: fetchedKeywords.length });
+            logger.debug('[GOOGLE] Updated local keyword ideas', { domain: ideasFileKey, count: fetchedKeywords.length });
          }
       } catch (error) {
          logger.error('Error fetching keyword ideas from Google Ads API', error instanceof Error ? error : new Error(String(error)), {
@@ -484,7 +483,7 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
       }
    }
 
-   logger.debug('getAdwordsKeywordIdeas completed', {
+   logger.debug('[GOOGLE] getAdwordsKeywordIdeas completed', {
       fetchedKeywordsCount: fetchedKeywords.length,
       hasAccessToken: !!accessToken,
    });
@@ -505,7 +504,7 @@ const extractAdwordskeywordIdeas = (keywordIdeas: keywordIdeasResponseItem[], op
    const keywords: IdeaKeyword[] = [];
    if (keywordIdeas.length > 0) {
       const { country = '', domain = '' } = options;
-      logger.debug(`Processing ${keywordIdeas.length} keyword ideas from Google Ads API`);
+      logger.debug(`[GOOGLE] Processing ${keywordIdeas.length} keyword ideas from Google Ads API`);
       keywordIdeas.forEach((kwRaw) => {
          const { text, keywordIdeaMetrics } = kwRaw;
          if (keywordIdeaMetrics && text) {
@@ -548,7 +547,7 @@ const extractAdwordskeywordIdeas = (keywordIdeas: keywordIdeasResponseItem[], op
             });
          }
       });
-      logger.debug(`Returning ${keywords.length} keywords after filtering`);
+      logger.debug(`[GOOGLE] Returning ${keywords.length} keywords after filtering`);
    }
    return keywords.sort((a: IdeaKeyword, b: IdeaKeyword) => b.avgMonthlySearches - a.avgMonthlySearches);
 };
@@ -559,8 +558,10 @@ const extractAdwordskeywordIdeas = (keywordIdeas: keywordIdeasResponseItem[], op
  * @returns returns a Promise that resolves to an object with a `volumes` and error `proprties`.
  *  The `volumes` propery which outputs `false` if the request fails and outputs the volume data in `{[keywordID]: volume}` object if succeeds.
  *  The `error` porperty that outputs the error message if any.
+ *  A lookup that fails for every country comes back as `volumes: false` with an `error`, never as an empty success. When only
+ *  some countries fail, the volumes that did load are returned along with `failedCountries`.
  */
-export const getKeywordsVolume = async (keywords: KeywordType[]): Promise<{ error?: string, volumes: false | Record<number, number> }> => {
+export const getKeywordsVolume = async (keywords: KeywordType[]): Promise<{ error?: string, volumes: false | Record<number, number>, failedCountries?: string[] }> => {
    const credentials = await getAdwordsCredentials();
    if (!credentials) { return { error: 'Cannot Load Google Ads Credentials', volumes: false }; }
    const { client_id, client_secret, developer_token, account_id } = credentials;
@@ -578,7 +579,12 @@ export const getKeywordsVolume = async (keywords: KeywordType[]): Promise<{ erro
       memoryCache.delete('adwords_token');
       memoryCache.set('adwords_token', accessToken, { ttl: 3300000 });
    }
+   if (!accessToken) {
+      return { error: 'Could not get a Google Ads access token. Re-authenticate the Google Ads integration in Settings.', volumes: false };
+   }
    const fetchedKeywords: Record<number, number> = {};
+   const failedCountries: string[] = [];
+   let succeededCountries = 0;
 
    if (accessToken) {
       // Group keywords based on their country.
@@ -635,16 +641,19 @@ export const getKeywordsVolume = async (keywords: KeywordType[]): Promise<{ erro
                      try {
                         ideaData = JSON.parse(responseText);
                      } catch (parseError) {
-                        logger.warn(`Failed to parse Google Ads Volume response (${resp.status})`, { response: responseText.substring(0, 200), error: parseError instanceof Error ? parseError.message : String(parseError) });
+                        logger.error(`Failed to parse Google Ads Volume response (${resp.status})`, undefined, { response: responseText.substring(0, 200), error: parseError instanceof Error ? parseError.message : String(parseError) });
+                        failedCountries.push(country);
                         continue; // Skip this country and continue with next
                      }
                   } else {
                      // Handle non-JSON responses
-                     logger.warn(`Google Ads Volume API returned non-JSON response (${resp.status})`, { response: responseText.substring(0, 200) });
+                     logger.error(`Google Ads Volume API returned non-JSON response (${resp.status})`, undefined, { response: responseText.substring(0, 200) });
+                     failedCountries.push(country);
                      continue; // Skip this country and continue with next
                   }
                } catch (error) {
-                  logger.warn(`Exception while handling Google Ads Volume response (${resp.status})`, { error: error instanceof Error ? error.message : String(error) });
+                  logger.error(`Exception while handling Google Ads Volume response (${resp.status})`, undefined, { error: error instanceof Error ? error.message : String(error) });
+                  failedCountries.push(country);
                   continue; // Skip this country and continue with next
                }
 
@@ -654,6 +663,9 @@ export const getKeywordsVolume = async (keywords: KeywordType[]): Promise<{ erro
                      status: resp.status,
                      errorDetails: ideaData?.error,
                   });
+                  failedCountries.push(country);
+               } else {
+                  succeededCountries += 1;
                }
 
                if (ideaData?.results) {
@@ -678,13 +690,28 @@ export const getKeywordsVolume = async (keywords: KeywordType[]): Promise<{ erro
                   }
                }
             } catch (error) {
-               logger.error('Error fetching keyword volume from Google Ads', error instanceof Error ? error : new Error(String(error)));
+               // A network failure carries its real reason (for example ECONNREFUSED or ENOTFOUND) in `cause`.
+               const cause = error instanceof Error ? (error as Error & { cause?: unknown }).cause : undefined;
+               logger.error('Error fetching keyword volume from Google Ads', error instanceof Error ? error : new Error(String(error)), {
+                  country,
+                  cause: cause instanceof Error ? `${cause.name}: ${cause.message}` : (cause ? String(cause) : undefined),
+               });
+               failedCountries.push(country);
             }
          }
       }
    }
 
-   return { volumes: fetchedKeywords };
+   // Every request that was sent failed: report it, instead of answering with an empty list that looks like a success.
+   if (failedCountries.length > 0 && succeededCountries === 0) {
+      return {
+         error: `Could not fetch keyword volume from Google Ads (failed for ${failedCountries.join(', ')}). Check the server log for the reason.`,
+         volumes: false,
+         failedCountries,
+      };
+   }
+
+   return failedCountries.length > 0 ? { volumes: fetchedKeywords, failedCountries } : { volumes: fetchedKeywords };
 };
 
 /**
@@ -693,26 +720,18 @@ export const getKeywordsVolume = async (keywords: KeywordType[]): Promise<{ erro
  * keyword IDs as keys and corresponding volume data as values.
  * @returns returns a Promise that resolves to `true` if `volumesData` is not `false` else it returns `false`.
  */
-export const updateKeywordsVolumeData = async (volumesData: false | Record<number, number>) => {
-   if (volumesData === false) { return false; }
-
-   // Group keyword IDs by volume so each distinct volume is one UPDATE instead of one per keyword.
-   const idsByVolume = new Map<number, number[]>();
-   for (const [keywordID, volume] of Object.entries(volumesData)) {
-      const keyID = Number(keywordID);
-      if (!Number.isNaN(keyID)) {
-         const volumeData = typeof volume === 'number' ? volume : 0;
-         const ids = idsByVolume.get(volumeData) ?? [];
-         ids.push(keyID);
-         idsByVolume.set(volumeData, ids);
-      }
+export const updateKeywordsVolumeData = async (
+   volumes: Record<number, number>,
+   targets: Pick<KeywordType, 'ID' | 'keyword' | 'country'>[],
+): Promise<Record<number, number>> => {
+   const applied: Record<number, number> = {};
+   for (const { ID, keyword, country } of targets) {
+      const volume = volumes[ID];
+      if (typeof volume !== 'number') { continue; }
+      const [count] = await Keyword.update({ volume }, { where: { ID, keyword, country } });
+      if (count > 0) { applied[ID] = volume; }
    }
-
-   for (const [volumeData, ids] of idsByVolume) {
-      await Keyword.update({ volume: volumeData }, { where: { ID: { [Op.in]: ids } } });
-   }
-
-   return true;
+   return applied;
 };
 
 const IDEAS_LOCK_RETRIES = { retries: 12, factor: 1.5, minTimeout: 50, maxTimeout: 1500 };
@@ -741,7 +760,7 @@ export const withIdeasLock = async <T>(domain: string, fn: () => Promise<T>, opt
       try {
          await release();
       } catch (err: any) {
-         logger.debug('Failed to release keyword ideas lock', { error: err?.message });
+         logger.debug('[GOOGLE] Failed to release keyword ideas lock', { error: err?.message });
       }
    }
 };
@@ -767,7 +786,7 @@ export const getLocalKeywordIdeas = async (domain: string): Promise<false | Keyw
       }
       return false;
    } catch (error) {
-      logger.warn('Error getting local ideas', { error: error instanceof Error ? error.message : String(error) });
+      logger.error('Error getting local ideas', undefined, { error: error instanceof Error ? error.message : String(error) });
       return false;
    }
 };
@@ -799,7 +818,7 @@ export const updateLocalKeywordIdeas = async (domain: string, data: IdeaDatabase
       }
 
    await atomicWriteFile(filePath, JSON.stringify(fileContent, null, 2), 'utf-8');
-      logger.info(`Data saved to ${filename} successfully!`);
+      logger.info(`[GOOGLE] Data saved to ${filename} successfully!`);
       return true;
    } catch (error) {
       logger.error(`Error saving data to IDEAS_${domain}.json`, error instanceof Error ? error : new Error(String(error)));

@@ -17,6 +17,7 @@ import { retryQueueManager } from './retryQueueManager';
 import { historyKeyToTime, toHistoryDateKey } from './historyDateKey';
 import allScrapers from '../scrapers/index';
 import { DEVICE_MOBILE } from './constants';
+import { collectInUseCreditKeys, flushScraperCredits, readCurrentGlobalCreditSettings, withScraperCreditBatch } from './scraperCredits';
 
 const describeScraperType = (scraperType?: SettingsType['scraper_type']): string => {
    if (!scraperType || scraperType.length === 0) {
@@ -40,7 +41,7 @@ const logScraperSelectionSummary = (
             overrides.push(`${domain}:${overrideScraper}`);
          }
       }
-      logger.debug('Domain scraper overrides', { overrides });
+      logger.debug('[SCRAPER] Domain scraper overrides', { overrides });
    }
 };
 
@@ -293,7 +294,7 @@ const markKeywordsWithUnreadableKey = async (keywords: Keyword[]): Promise<void>
  * @param {SettingsType} settings - The App Settings that contain the Scraper settings
  * @returns {Promise}
  */
-const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsType, preloadedDomains?: Domain[]): Promise<KeywordType[]> => {
+const runKeywordRefresh = async (rawkeyword:Keyword[], settings:SettingsType, preloadedDomains?: Domain[]): Promise<KeywordType[]> => {
    if (!rawkeyword || rawkeyword.length === 0) { return []; }
 
    const domainNames = Array.from(new Set(rawkeyword.map((el) => el.domain).filter(Boolean)));
@@ -385,7 +386,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
    });
 
    if (unreadableKeyKeywords.length > 0) {
-      logger.warn('Skipping keyword refresh: domain scraper key could not be decrypted', { count: unreadableKeyKeywords.length });
+      logger.error('Skipping keyword refresh: domain scraper key could not be decrypted', undefined, { count: unreadableKeyKeywords.length });
       await markKeywordsWithUnreadableKey(unreadableKeyKeywords);
       // These keywords can never succeed until the settings are saved again, so keep them out of the hourly retry loop
       await retryQueueManager.removeBatch(new Set(unreadableKeyKeywords.map((keyword) => keyword.ID))).catch((error: any) => {
@@ -422,7 +423,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
    // Mobile keywords whose desktop twin is in this batch reuse its result instead of being scraped again
    const { twinsByDesktopId, reusedIds } = buildMobileTwinPlan(eligibleKeywordModels, settings, domainSpecificSettings);
    if (reusedIds.size > 0) {
-      logger.info('Reusing desktop results for mobile keywords', { count: reusedIds.size });
+      logger.debug('[SCRAPER] Reusing desktop results for mobile keywords', { count: reusedIds.size });
    }
    const scrapeKeywords = keywords.filter((keyword) => !reusedIds.has(keyword.ID));
    const scrapeModels = eligibleKeywordModels.filter((keyword) => !reusedIds.has(keyword.ID));
@@ -453,7 +454,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
                   while (nextKeywordIndex < domainKeywords.length) {
                      const keyword = domainKeywords[nextKeywordIndex++];
                      const keywordPlain = keyword.get({ plain: true });
-                     logger.info('Processing keyword refresh', { keywordId: keywordPlain.ID, keyword: keywordPlain.keyword });
+                     logger.debug('[SCRAPER] Processing keyword refresh', { keywordId: keywordPlain.ID, keyword: keywordPlain.keyword });
                      const domainStrategy = domainStrategyMap.get(domain);
                      await waitForDomainSlot(domain);
                      const updatedKeywordsForScrape = await refreshAndUpdateKeyword(
@@ -504,7 +505,7 @@ const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsT
 
    const end = performance.now();
    if (updatedKeywords.length > 0) {
-      logger.info('Keyword refresh completed', { count: updatedKeywords.length, duration: `${(end - start).toFixed(2)}ms` });
+      logger.debug('[SCRAPER] Keyword refresh completed', { count: updatedKeywords.length, duration: `${(end - start).toFixed(2)}ms` });
    }
 
    // Update domain stats for all affected domains after keyword updates
@@ -610,7 +611,7 @@ const persistScrapeFailure = async (
 
       // Update database to clear flags and persist error details if available.
       await keywordRaw.update(updateData);
-      logger.info('Keyword updating flag cleared after scraper error', { keywordId: keywordRaw.ID, error: scraperError });
+      logger.debug('[SCRAPER] Keyword updating flag cleared after scraper error', { keywordId: keywordRaw.ID, error: scraperError });
    } catch (updateError: any) {
       logger.error('[ERROR] Failed to update keyword error status:', updateError);
    }
@@ -730,9 +731,9 @@ const persistKeywordError = async (
          updatingStartedAt: null,
          lastUpdateError: JSON.stringify(errorInfo),
       };
-      logger.debug('[DB] Keyword error update', { keywordId: keyword.ID, keyword: keyword.keyword, previous: { position: keyword.position, url: keyword.url, lastUpdated: keyword.lastUpdated }, payload: errorPayload });
+      logger.debug('[SCRAPER] Keyword error update', { keywordId: keyword.ID, keyword: keyword.keyword, previous: { position: keyword.position, url: keyword.url, lastUpdated: keyword.lastUpdated }, payload: errorPayload });
       await keywordRaw.update(errorPayload);
-      logger.info('Keyword updating flag cleared after scrape error', { keywordId: keyword.ID, keyword: keyword.keyword, error: errorInfo.error });
+      logger.debug('[SCRAPER] Keyword updating flag cleared after scrape error', { keywordId: keyword.ID, keyword: keyword.keyword, error: errorInfo.error });
    } catch (error: any) {
       logger.error(
          '[ERROR] Failed to persist keyword error status',
@@ -826,7 +827,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
       try {
          // Single atomic DB update with all fields from API response + flags
          // Sequelize automatically updates the in-memory instance on success
-         logger.debug('[DB] Keyword update', { keywordId: keyword.ID, keyword: keyword.keyword, previous: { position: keyword.position, url: keyword.url, lastUpdated: keyword.lastUpdated }, payload: dbPayload });
+         logger.debug('[SCRAPER] Keyword update', { keywordId: keyword.ID, keyword: keyword.keyword, previous: { position: keyword.position, url: keyword.url, lastUpdated: keyword.lastUpdated }, payload: dbPayload });
          await keywordRaw.update(dbPayload);
 
          // Only a saved result leaves the retry queue. Removing it earlier would drop the retry if the save failed.
@@ -837,14 +838,14 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
          }
 
          // Log when updating flag is cleared to help debug UI issues
-         logger.info('Keyword updating flag cleared', {
+         logger.debug('[SCRAPER] Keyword updating flag cleared', {
             keywordId: keyword.ID,
             keyword: keyword.keyword,
             position: newPos,
          });
          // Only log significant updates (top 3 map pack)
          if (isMapPackTop3) {
-            logger.info('Keyword updated', {
+            logger.debug('[SCRAPER] Keyword updated', {
                keywordId: keyword.ID,
                keyword: keyword.keyword,
                device: keyword.device || 'desktop',
@@ -892,7 +893,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
                updatingStartedAt: null,
                lastUpdateError: JSON.stringify(dbErrorPayload),
             });
-            logger.info('Cleared updating flags and persisted error after DB update failure', { keywordId: keyword.ID });
+            logger.debug('[SCRAPER] Cleared updating flags and persisted error after DB update failure', { keywordId: keyword.ID });
          } catch (fallbackError: any) {
             logger.error(
                '[ERROR] Failed to clear updating flags after DB update failure',
@@ -1001,8 +1002,39 @@ const refreshParallel = async (
 
    updatedKeywords.push(...(await mapWithConcurrency(keywords, getParallelRefreshConcurrency(), scrapeKeyword)).flat());
    
-   logger.info('Parallel keyword refresh completed', { count: updatedKeywords.length });
+   logger.debug('[SCRAPER] Parallel keyword refresh completed', { count: updatedKeywords.length });
    return updatedKeywords;
+};
+
+/**
+ * Refreshes the keywords, then saves the scraper credit balances seen during the run (see utils/scraperCredits.ts).
+ * The save runs even when the refresh throws, and never fails the refresh itself.
+ */
+const refreshAndUpdateKeywords = async (rawkeyword:Keyword[], settings:SettingsType, preloadedDomains?: Domain[]): Promise<KeywordType[]> => withScraperCreditBatch(async () => {
+   try {
+      return await runKeywordRefresh(rawkeyword, settings, preloadedDomains);
+   } finally {
+      await flushScraperCredits(async () => {
+         const [domains, currentSettings] = await Promise.all([
+            Domain.findAll({ attributes: ['scraper_settings'] }),
+            readCurrentGlobalCreditSettings(),
+         ]);
+         return collectInUseCreditKeys(currentSettings, domains.map((domain) => domain.get({ plain: true }) as { scraper_settings?: unknown }));
+      });
+   }
+});
+
+/**
+ * Refreshes keywords by ID, loading the rows when the refresh starts rather than when it was queued. A keyword
+ * deleted while the task waited is skipped, and one whose location changed is scraped with its current location.
+ */
+export const refreshKeywordsByIds = async (ids: number[], settings: SettingsType, preloadedDomains?: Domain[]): Promise<KeywordType[]> => {
+   const uniqueIds = Array.from(new Set(ids.filter((id) => Number.isInteger(id) && id > 0)));
+   const rows = uniqueIds.length > 0 ? await Keyword.findAll({ where: { ID: uniqueIds } }) : [];
+   if (rows.length < uniqueIds.length) {
+      logger.debug('[SCRAPER] Skipping keywords removed while the refresh was queued', { removed: uniqueIds.length - rows.length });
+   }
+   return refreshAndUpdateKeywords(rows, settings, preloadedDomains);
 };
 
 export default refreshAndUpdateKeywords;

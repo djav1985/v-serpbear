@@ -1,5 +1,5 @@
 import { getGoogleDomain } from "../../utils/countries";
-import { resolveCountryCode, getKeywordLocationParts } from "../../utils/scraperHelpers";
+import { resolveCountryCode, getKeywordLocationParts, fetchAccountJson, toCreditNumber } from "../../utils/scraperHelpers";
 import { computeMapPackTop3 } from "../../utils/mapPack";
 
 interface HasDataResult {
@@ -11,6 +11,10 @@ interface HasDataResult {
 const hasdata: ScraperSettings = {
   id: "hasdata",
   name: "HasData",
+  fetchCredits: async (settings: SettingsType) => {
+    const data = await fetchAccountJson("https://api.hasdata.com/user/me/usage", { "x-api-key": settings.scraping_api ?? "" });
+    return toCreditNumber(data?.data?.availableCredits);
+  },
   allowsCity: true,
   headers: (_keyword: KeywordType, settings: SettingsType) => ({
     // use global types

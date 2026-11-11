@@ -1,4 +1,3 @@
-import { Op } from 'sequelize';
 import Keyword from '../../database/models/keyword';
 import * as scUtils from '../../utils/searchConsole';
 import * as adwordsUtils from '../../utils/adwords';
@@ -156,6 +155,56 @@ describe('getAdwordsKeywordIdeas', () => {
   });
 });
 
+describe('getAdwordsAccessToken response handling', () => {
+  const originalFetch = global.fetch;
+  const { getAdwordsAccessToken: getRealAdwordsAccessToken } = jest.requireActual('../../utils/adwords');
+  const credentials = { client_id: 'client', client_secret: 'secret', refresh_token: 'refresh' } as any;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    jest.restoreAllMocks();
+  });
+
+  it('returns the access token from a JSON response', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      status: 200,
+      headers: { get: jest.fn().mockReturnValue('application/json') },
+      json: async () => ({ access_token: 'fresh-token' }),
+    }) as any;
+
+    await expect(getRealAdwordsAccessToken(credentials)).resolves.toBe('fresh-token');
+  });
+
+  it('returns an empty token for non-JSON, malformed JSON, and rejected requests', async () => {
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        status: 502,
+        headers: { get: jest.fn().mockReturnValue('text/html') },
+        text: async () => '<html>gateway failure</html>',
+      })
+      .mockResolvedValueOnce({
+        status: 200,
+        headers: { get: jest.fn().mockReturnValue('application/json') },
+        json: async () => { throw new Error('invalid JSON'); },
+      })
+      .mockRejectedValueOnce(new Error('network unavailable')) as any;
+
+    await expect(getRealAdwordsAccessToken(credentials)).resolves.toBe('');
+    await expect(getRealAdwordsAccessToken(credentials)).resolves.toBe('');
+    await expect(getRealAdwordsAccessToken(credentials)).resolves.toBe('');
+  });
+
+  it('returns an empty token when Google returns an OAuth error payload', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      status: 400,
+      headers: { get: jest.fn().mockReturnValue('application/json') },
+      json: async () => ({ error: 'invalid_grant', error_description: 'refresh token expired' }),
+    }) as any;
+
+    await expect(getRealAdwordsAccessToken(credentials)).resolves.toBe('');
+  });
+});
+
 describe('getKeywordsVolume', () => {
   const originalFetch = global.fetch;
   const mockedGetAdwordsCredentials = adwordsUtils.getAdwordsCredentials as jest.MockedFunction<typeof adwordsUtils.getAdwordsCredentials>;
@@ -199,37 +248,25 @@ describe('updateKeywordsVolumeData', () => {
     jest.restoreAllMocks();
   });
 
-  it('groups keywords with the same volume into one update', async () => {
-    const updateSpy = jest.spyOn(Keyword, 'update').mockResolvedValue([1] as any);
+  const targets = [{ ID: 1, keyword: 'alpha', country: 'US' }, { ID: 2, keyword: 'beta', country: 'GB' }];
 
-    await expect(adwordsUtils.updateKeywordsVolumeData({ 1: 100, 2: 100, 3: 200 })).resolves.toBe(true);
+  it('reports only volumes saved for a matching keyword and country', async () => {
+    const updateSpy = jest.spyOn(Keyword, 'update')
+      .mockResolvedValueOnce([0])
+      .mockResolvedValueOnce([1]);
 
-    expect(updateSpy).toHaveBeenCalledTimes(2);
-    expect(updateSpy).toHaveBeenCalledWith({ volume: 100 }, { where: { ID: { [Op.in]: [1, 2] } } });
-    expect(updateSpy).toHaveBeenCalledWith({ volume: 200 }, { where: { ID: { [Op.in]: [3] } } });
+    await expect(adwordsUtils.updateKeywordsVolumeData({ 1: 100, 2: 200 }, targets)).resolves.toEqual({ 2: 200 });
+
+    expect(updateSpy).toHaveBeenNthCalledWith(1, { volume: 100 }, { where: targets[0] });
+    expect(updateSpy).toHaveBeenNthCalledWith(2, { volume: 200 }, { where: targets[1] });
   });
 
-  it('skips non-numeric IDs and treats non-numeric volumes as 0', async () => {
-    const updateSpy = jest.spyOn(Keyword, 'update').mockResolvedValue([1] as any);
+  it('skips targets without a volume and propagates database errors', async () => {
+    const updateSpy = jest.spyOn(Keyword, 'update').mockRejectedValue(new Error('db failure'));
 
-    await adwordsUtils.updateKeywordsVolumeData({ abc: 50, 4: undefined } as any);
-
-    expect(updateSpy).toHaveBeenCalledTimes(1);
-    expect(updateSpy).toHaveBeenCalledWith({ volume: 0 }, { where: { ID: { [Op.in]: [4] } } });
-  });
-
-  it('returns false without writing when volume data is unavailable', async () => {
-    const updateSpy = jest.spyOn(Keyword, 'update');
-
-    await expect(adwordsUtils.updateKeywordsVolumeData(false)).resolves.toBe(false);
+    await expect(adwordsUtils.updateKeywordsVolumeData({}, targets)).resolves.toEqual({});
     expect(updateSpy).not.toHaveBeenCalled();
-  });
-
-  it('propagates update errors', async () => {
-    const failure = new Error('db failure');
-    jest.spyOn(Keyword, 'update').mockRejectedValue(failure);
-
-    await expect(adwordsUtils.updateKeywordsVolumeData({ 3: 500 })).rejects.toThrow('db failure');
+    await expect(adwordsUtils.updateKeywordsVolumeData({ 1: 500 }, targets)).rejects.toThrow('db failure');
   });
 });
 
@@ -608,8 +645,7 @@ describe('Adwords Seed Functions', () => {
           headers: { get: jest.fn().mockReturnValue('application/json') },
         });
 
-      try {
-        await adwordsFunction(
+      await expect(adwordsFunction(
           mockCredentials,
           { 
             country: 'US', 
@@ -618,11 +654,7 @@ describe('Adwords Seed Functions', () => {
             seedType: 'tracking'
           },
           true,
-        );
-      } catch (_error) {
-        // We expect it to potentially throw since we're mocking minimal responses
-        // The important part is that findAll was called with the correct order
-      }
+        )).resolves.toEqual([]);
 
       // Verify that findAll was called with ORDER BY volume DESC
       expect(mockFindAll).toHaveBeenCalledWith({

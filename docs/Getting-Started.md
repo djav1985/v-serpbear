@@ -25,23 +25,33 @@ If you run it only on your computer, you won't be able to reach it from your pho
 
 ## Step 2: Open the app and sign in
 
+![The SerpBear sign-in screen](images/login.png)
+
 Open the app's address: <http://localhost:3030> with the Docker compose file, <http://localhost:3000> with Node.js, or the `NEXT_PUBLIC_APP_URL` value on a server. Sign in with the `USER_NAME` and `PASSWORD` you set.
 
 ## Step 3: Add your first domain
 
-After signing in you are asked for your first domain. Enter it as a host name, such as `example.com`. You then land on the main screen.
+![The Add Domain dialog](images/add-domain.png)
+
+After signing in you land on the Domains page. With no domains yet it says "No domains found. Add a domain to get started!". Click **Add Domain** and enter a host name, such as `example.com`. You can add several at once, one per line.
 
 ## Step 4: Set up the scraper
+
+![Scraper settings](images/settings-scraper.png)
 
 Open **Settings → Scraper**, choose a provider, paste its API key and save, then refresh the page. See [Scrapers](Scrapers) for the providers, what each costs and which features they support. You can also give a single domain its own provider.
 
 ## Step 5: Add your first keywords
 
-Click **Add Keyword**, enter the keywords, choose the country and device (and a city, if your provider supports it), and add them. SerpBear fetches the results straight away and fills in the positions. See [Keyword Tracking](Keyword-Tracking).
+![The Add Keyword dialog](images/add-keywords.png)
+
+On a domain's Tracking tab, click **Add Keyword**, enter the keywords, choose the country and device (and a city, if your provider supports it), and add them. SerpBear fetches the results straight away and fills in the positions. See [Keyword Tracking](Keyword-Tracking).
 
 ## Step 6: Get email digests (optional)
 
-In the Settings, enter your SMTP details, then set the domain's notification email. See [Email Digests](Email-Digests).
+![Notification settings](images/settings-notification.png)
+
+Open **Settings → Notification** and enter your SMTP details, then set the domain's notification email in its **Domain Settings → Notification** tab. See [Email Digests](Email-Digests).
 
 ---
 
@@ -75,9 +85,10 @@ Back up the data before updating:
 ```bash
 docker compose stop
 docker cp serpbear:/app/data ./serpbear-data-backup
-docker compose start
+docker compose pull
+docker compose up -d
 ```
 
 Each deployment page has its own update steps. Migrations run automatically on start, and the database is backed up before any migration that changes data.
 
-Docker Compose stores data in a named volume (`data`) mounted at `/app/data`, prefixed with the project name (for example `v-serpbear_data`; find it with `docker volume ls`). It holds the SQLite database, `settings.json`, Search Console exports (`SC_<domain>.json`), keyword ideas (`IDEAS_*.json`), `session.json`, `email-throttle.json`, `failed_queue.json` and any white-label logo. Secrets in `settings.json` are encrypted with `SECRET`.
+Docker Compose stores data in a named volume (`data`) mounted at `/app/data`, prefixed with the project name (for example `v-serpbear_data`; find it with `docker volume ls`). It holds the SQLite database, `settings.json`, Search Console exports (`SC_<domain>.json`), keyword ideas (`IDEAS_*.json`), `session.json`, `email-throttle.json`, `failed_queue.json` and any white-label `logo.png` and `favicon.png`. Secrets in `settings.json` are encrypted with `SECRET`.
