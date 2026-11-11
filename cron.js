@@ -190,13 +190,17 @@ const getAppSettings = async ({ strict = false } = {}) => {
    }
 };
 
-const makeCronApiCall = (apiKey, baseUrl, endpoint, successMessage) => {
+const makeCronApiCall = (apiKey, baseUrl, endpoint, successMessage, body) => {
    if (!apiKey) {
       logger.warn('[CRON] Skipping API call, API key not configured.', { endpoint });
       return Promise.resolve();
    }
 
-   const fetchOpts = { method: 'POST', headers: { Authorization: `Bearer ${apiKey}` } };
+   const fetchOpts = {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+   };
    return fetch(`${baseUrl}${endpoint}`, fetchOpts)
       .then((res) => {
          if (!res.ok) {
@@ -300,7 +304,7 @@ const runAppCronJobs = () => {
       if (scrapeCronTime) {
          scrapeJob = scheduleJob('keyword scraping', scrapeCronTime, () => {
             logger.info('[CRON] Running Keyword Position Cron Job.');
-            makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/serp/refresh?scope=enabled-domains', '[CRON] Keyword Scraping Result');
+            makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/serp/refresh', '[CRON] Keyword Scraping Result', { scope: 'enabled-domains' });
          }, cronOptions);
       }
 
@@ -313,7 +317,7 @@ const runAppCronJobs = () => {
                return;
             }
             logger.info('[CRON] Sending Notification Email.');
-            makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/app/email?type=digest', '[CRON] Email Notification Result');
+            makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/app/email', '[CRON] Email Notification Result', { type: 'digest' });
          }, cronOptions);
       }
 
@@ -375,11 +379,10 @@ const runAppCronJobs = () => {
 
          if (keywordsToRetry.length > 0) {
             logger.info('[CRON] Found failed scrapes to retry.', { count: keywordsToRetry.length });
-            // Send the IDs in batches so each request URL stays small
+            // Batch the IDs to keep each JSON retry request bounded
             for (let i = 0; i < keywordsToRetry.length; i += RETRY_BATCH_SIZE) {
                const batch = keywordsToRetry.slice(i, i + RETRY_BATCH_SIZE);
-               const params = new URLSearchParams({ id: batch.join(',') });
-               await makeCronApiCall(process.env.APIKEY, internalApiUrl, `/api/serp/refresh?${params.toString()}`, '[CRON] Failed Scrapes Retry Result');
+               await makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/serp/refresh', '[CRON] Failed Scrapes Retry Result', { ids: batch });
             }
          } else {
             logger.debug('[CRON] No failed scrapes to retry.');

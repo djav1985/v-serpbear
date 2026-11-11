@@ -9,10 +9,13 @@ import { trimStringProperties, trimString, sanitizeSmtpHost } from '../security'
 import { buildMailer } from '../mailer';
 import { logger } from '../logger';
 import normalizeDomainBooleans from '../normalizeDomain';
-import { fail, json, getQuery, type ApiContext } from '../apiLogging';
+import { fail, json, readJson, type ApiContext } from '../apiLogging';
 
 export const sendDigestEmails = async (req: Request, ctx: ApiContext) => {
-   const rawDomain = getQuery(req).domain;
+   const rawBody = await readJson(req);
+   const rawDomain = rawBody && typeof rawBody === 'object' && !Array.isArray(rawBody)
+      ? (rawBody as Record<string, unknown>).domain
+      : undefined;
    if (rawDomain !== undefined && typeof rawDomain !== 'string') {
       return fail(400, 'BAD_REQUEST', 'domain must be a single domain name.', ctx);
    }

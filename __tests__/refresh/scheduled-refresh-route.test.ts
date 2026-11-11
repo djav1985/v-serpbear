@@ -66,8 +66,8 @@ type MockedResponse = Partial<NextApiResponse> & {
   json: jest.Mock;
 };
 
-describe('POST /api/serp/refresh?scope=enabled-domains', () => {
-  const req = { method: 'POST', query: { scope: 'enabled-domains' }, headers: {} } as unknown as NextApiRequest;
+describe('POST /api/serp/refresh enabled-domains scope', () => {
+  const req = { method: 'POST', query: {}, body: { scope: 'enabled-domains' }, headers: {} } as unknown as NextApiRequest;
   let res: MockedResponse;
 
   beforeEach(() => {
@@ -78,7 +78,7 @@ describe('POST /api/serp/refresh?scope=enabled-domains', () => {
     } as MockedResponse;
 
     (db.sync as jest.Mock).mockResolvedValue(undefined);
-    req.query = { scope: 'enabled-domains' };
+    req.body = { scope: 'enabled-domains' };
     (verifyUser as jest.Mock).mockReturnValue('authorized');
     (getAppSettings as jest.Mock).mockResolvedValue({ scraper_type: 'serpapi' });
     (refreshAndUpdateKeywords as jest.Mock).mockResolvedValue([]);

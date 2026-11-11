@@ -11,7 +11,7 @@ All notable changes to this project will be documented in this file. Releases no
 ### Changed
 
 - Require JSON bodies for keyword and domain PUT/DELETE arguments; remove the legacy `id` and `domain` query forms and update the frontend API calls.
-- Move the scheduled refresh into `POST /api/serp/refresh?scope=enabled-domains` and remove `POST /api/app/cron`.
+- Move POST refresh and email arguments into JSON request bodies; update the frontend and cron worker callers. The scheduled refresh uses `{ scope: "enabled-domains" }` on `POST /api/serp/refresh`; remove `POST /api/app/cron`.
 - Remove the unused `GET /api/auth/check` endpoint; the app checks sessions in protected layouts and API routes.
 - Document `MCP_API_KEY` and MCP OAuth setup separately from the REST `APIKEY`.
 
@@ -138,8 +138,8 @@ The API routes are regrouped. **There are no compatibility aliases: the old rout
 | --- | --- |
 | `/api/settings` | `/api/app/settings` |
 | `/api/cron` | `/api/app/cron` |
-| `/api/notify` | `POST /api/app/email?type=digest` |
-| `/api/ideas/email` | `POST /api/app/email?type=ideas` |
+| `/api/notify` | `POST /api/app/email` with JSON body `{ type: "digest" }` |
+| `/api/ideas/email` | `POST /api/app/email` with JSON body `{ type: "ideas", ... }` |
 | `/api/login`, `/api/logout`, `/api/auth-check` | `/api/auth/login`, `/api/auth/logout`, `/api/auth/check` |
 | `/api/domains`, `/api/domain`, `/api/keywords`, `/api/keyword`, `/api/refresh`, `/api/clearfailed` | the same names under `/api/serp/` |
 | `/api/searchconsole`, `/api/insight`, `/api/ideas`, `/api/volume` | the same names under `/api/google/` |
@@ -150,7 +150,7 @@ The API routes are regrouped. **There are no compatibility aliases: the old rout
 
 ### Added
 - `GET /api/app/settings` returns a read-only `branding` object (`platformName`, `whiteLabelEnabled`, `hasCustomLogo`, `logoApiPath`, `defaultPlatformName`) in both the public and the signed-in response. A settings save never writes it.
-- `POST /api/app/email` sends both kinds of email, chosen by `?type=`: `digest` accepts the API key or a login session, `ideas` needs a login session and answers `403` to an API key. A missing or unknown `type` is a `400`.
+- `POST /api/app/email` sends both kinds of email, chosen by the JSON body `type`: `digest` accepts the API key or a login session, `ideas` needs a login session and answers `403` to an API key. A missing or unknown `type` is a `400`.
 - The web app manifest is generated at `/manifest.webmanifest`, so white-label installs use your name and logo. The apple touch icon follows the logo too.
 
 ### Removed

@@ -360,7 +360,7 @@ The example uses port 3000 (Node.js). Docker Compose serves the app on port 3030
 | GET | `/api/serp/keyword?id=` | One keyword with its position history |
 | GET | `/api/serp/keywords?domain=` | All tracked keywords of a domain |
 | GET | `/api/serp/domains` | All tracked domains (`withstats=true` adds keyword statistics) |
-| POST | `/api/serp/refresh` | Refresh chosen keywords: body `ids`, query `id` (comma-separated, or `all` with `domain`), or `scope=enabled-domains` for the scheduled refresh. Body `{ keyword, country, device }` runs a one-off keyword search (login session only, not an API key). Requests from a login session must come from this site |
+| POST | `/api/serp/refresh` | JSON body `{ ids }` refreshes selected keywords; `{ scope: "domain", domain }` refreshes one domain; `{ scope: "enabled-domains" }` runs the scheduled refresh; `{ keyword, country, device }` runs a one-off keyword search (login session only, not an API key). Requests from a login session must come from this site |
 | GET | `/api/serp/refresh?status=retry&id=…` | Read which keywords are still updating (read-only) |
 | PUT | `/api/serp/keywords` | Update keywords: JSON body `ids` plus `sticky` (boolean), `tags` (ID-to-tag-list object), or `location` (string; include `country` if the location does not name one) |
 | DELETE | `/api/serp/keywords` | Delete keywords: JSON body `ids` array |
@@ -369,7 +369,7 @@ The example uses port 3000 (Node.js). Docker Compose serves the app on port 3030
 | PUT | `/api/app/settings` | Save app settings: JSON body `settings` object (login session required) |
 | PUT | `/api/google/ideas` | Toggle an idea favorite: JSON body `keywordID`, optional `domain` |
 | PUT | `/api/serp/clearfailed` | Clear the failed retry queue; no arguments |
-| POST | `/api/app/email?type=digest` | Send the email digest for one domain (`domain=`) or all |
+| POST | `/api/app/email` | JSON body `{ type: "digest", domain? }` sends the digest for one domain or all; `{ type: "ideas", domain, keywords }` emails selected keyword ideas |
 | GET | `/api/google/searchconsole?domain=` | Search Console data of a domain |
 | POST | `/api/google/searchconsole` | Refresh Search Console data for all domains |
 | GET | `/api/google/insight?domain=` | Search Console insight: top pages, keywords, countries and stats |

@@ -1,14 +1,18 @@
-import { createRoute, fail, getQuery, type ApiContext } from '../../../../utils/apiLogging';
+import { createRoute, fail, readJson, type ApiContext } from '../../../../utils/apiLogging';
 import { hasValidSessionCookie } from '../../../../utils/verifyUser';
 import { sendDigestEmails } from '../../../../utils/api/emailDigest';
 import { sendIdeasEmail } from '../../../../utils/api/emailIdeas';
 
 /**
- * POST /api/app/email?type=digest   Sends the keyword digest (optional `domain=`). The API key or a login session may call it.
- * POST /api/app/email?type=ideas    Emails selected keyword ideas (JSON body). Needs a login session; an API key is refused.
+ * POST /api/app/email   JSON body `type` selects digest (optional `domain`) or ideas (`domain` and `keywords`).
+ * Digest accepts the API key or a login session; ideas needs a login session and refuses an API key.
  */
 const sendEmail = async (req: Request, ctx: ApiContext) => {
-   const { type } = getQuery(req);
+   const rawBody = await readJson(req);
+   if (!rawBody || typeof rawBody !== 'object' || Array.isArray(rawBody)) {
+      return fail(400, 'BAD_REQUEST', 'Request body must be a JSON object.', ctx);
+   }
+   const { type } = rawBody as { type?: unknown };
    if (type === 'digest') {
       return sendDigestEmails(req, ctx);
    }

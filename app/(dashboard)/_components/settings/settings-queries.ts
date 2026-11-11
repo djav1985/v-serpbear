@@ -43,7 +43,7 @@ export function useRetryFailedQueue() {
    const queryClient = useQueryClient();
    return useMutation({
       mutationFn: async (keywordIDs: number[]) => {
-         await apiPost(`/api/serp/refresh?id=${keywordIDs.join(',')}`, {});
+         await apiPost('/api/serp/refresh', { ids: keywordIDs });
          const startedAt = Date.now();
          let pending = keywordIDs;
          while (pending.length > 0) {
@@ -60,7 +60,7 @@ export function useRetryFailedQueue() {
 
 export function useSendNotifications() {
    return useMutation({
-      mutationFn: () => apiPost<{ message?: string; sent?: number; skipped?: number }>('/api/app/email?type=digest', {}),
+      mutationFn: () => apiPost<{ message?: string; sent?: number; skipped?: number }>('/api/app/email', { type: 'digest' }),
       onSuccess: (response) => {
          const sent = response?.sent ?? 0;
          const skipped = response?.skipped ?? 0;

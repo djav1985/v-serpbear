@@ -68,7 +68,8 @@ describe('email digest', () => {
       (reserveEmailSend as jest.Mock).mockReset();
       req = {
         method: 'POST',
-        query: { type: 'digest' },
+        query: {},
+        body: { type: 'digest' },
         headers: {},
       };
 
@@ -511,7 +512,7 @@ describe('email digest', () => {
   describe('/api/app/email (type=digest) recipients and outcomes', () => {
     let res: { status: jest.Mock; json: jest.Mock };
     let sendMailMock: jest.Mock;
-    const req = { method: 'POST', query: { type: 'digest' }, headers: {} } as unknown as NextApiRequest;
+    const req = { method: 'POST', query: {}, body: { type: 'digest' }, headers: {} } as unknown as NextApiRequest;
 
     beforeEach(() => {
       jest.clearAllMocks();

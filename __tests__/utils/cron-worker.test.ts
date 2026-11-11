@@ -6,7 +6,7 @@ describe('cron worker', () => {
   /* eslint-disable security/detect-non-literal-fs-filename -- writes only to a temp directory created by the test */
 
   describe('cron worker helpers', () => {
-    let makeCronApiCall: (apiKey: string | undefined | null, baseUrl: string, endpoint: string, successMessage: string) => Promise<void>;
+    let makeCronApiCall: (apiKey: string | undefined | null, baseUrl: string, endpoint: string, successMessage: string, body?: unknown) => Promise<void>;
     let normalizeValue: (value: unknown, fallback: string) => string;
     const originalFetch = global.fetch;
 
@@ -31,7 +31,7 @@ describe('cron worker', () => {
     it('skips API calls when the API key is missing', async () => {
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
-      await makeCronApiCall(undefined, 'http://localhost:3000', '/api/serp/refresh?scope=enabled-domains', 'ignored');
+      await makeCronApiCall(undefined, 'http://localhost:3000', '/api/serp/refresh', 'ignored', { scope: 'enabled-domains' });
 
       expect(global.fetch).not.toHaveBeenCalled();
       // logger.warn emits a JSON log entry via console.log
@@ -42,7 +42,7 @@ describe('cron worker', () => {
         expect.stringContaining('Skipping API call')
       );
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('"/api/serp/refresh?scope=enabled-domains"')
+        expect.stringContaining('"/api/serp/refresh"')
       );
     });
 
@@ -57,11 +57,12 @@ describe('cron worker', () => {
         json: () => Promise.resolve({ ok: true }),
       });
 
-      await makeCronApiCall('secret', 'http://localhost:3000', '/api/serp/refresh?scope=enabled-domains', '[CRON] Keyword Scraping Result');
+      await makeCronApiCall('secret', 'http://localhost:3000', '/api/serp/refresh', '[CRON] Keyword Scraping Result', { scope: 'enabled-domains' });
 
-      expect(global.fetch).toHaveBeenCalledWith('http://localhost:3000/api/serp/refresh?scope=enabled-domains', {
+      expect(global.fetch).toHaveBeenCalledWith('http://localhost:3000/api/serp/refresh', {
         method: 'POST',
-        headers: { Authorization: 'Bearer secret' },
+        headers: { Authorization: 'Bearer secret', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scope: 'enabled-domains' }),
       });
       // logger.info emits a JSON log entry via console.log
       expect(consoleSpy).toHaveBeenCalledWith(
@@ -80,7 +81,7 @@ describe('cron worker', () => {
         text: async () => 'upstream unavailable',
       });
 
-      await expect(makeCronApiCall('secret', 'http://localhost:3000', '/api/serp/refresh?scope=enabled-domains', 'unused')).resolves.toBeUndefined();
+      await expect(makeCronApiCall('secret', 'http://localhost:3000', '/api/serp/refresh', 'unused', { scope: 'enabled-domains' })).resolves.toBeUndefined();
 
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('HTTP 503: upstream unavailable'));
     });

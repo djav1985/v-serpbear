@@ -64,19 +64,12 @@ const getRetryStatus = async (req: Request, ctx: ApiContext) => {
    }
 };
 
-/**
- * Keyword IDs to refresh: the JSON body `ids` array when sent (null if any item is not a positive integer),
- * otherwise the legacy comma-separated `id` query.
- */
+/** Keyword IDs to refresh from the JSON body; null if any item is not a positive integer. */
 const readKeywordIds = async (req: Request): Promise<number[] | null> => {
    const body = await readBody(req);
-   if (body.ids !== undefined) {
-      const ids: unknown = body.ids;
-      const valid = Array.isArray(ids) && ids.every((id) => Number.isSafeInteger(id) && id > 0);
-      return valid ? Array.from(new Set(ids as number[])) : null;
-   }
-   const idParam = getParam(req, 'id');
-   return idParam ? parseKeywordIds(idParam) : null;
+   const ids: unknown = body.ids;
+   const valid = Array.isArray(ids) && ids.every((id) => Number.isSafeInteger(id) && id > 0);
+   return valid ? Array.from(new Set(ids as number[])) : null;
 };
 
 /**
@@ -203,33 +196,35 @@ const refreshTheKeywords = async (req: Request, ctx: ApiContext) => {
       return fail(403, 'FORBIDDEN', 'Refreshes must be started from this site.', ctx);
    }
    const body = await readBody(req);
-   const scope = getParam(req, 'scope');
+   const scope = body.scope;
    if (scope !== undefined) {
-      if (scope !== 'enabled-domains') {
+      if (scope === 'enabled-domains') {
+         if (body.ids !== undefined || body.keyword !== undefined || body.domain !== undefined) {
+            return fail(400, 'BAD_REQUEST', 'The enabled-domains scope cannot be combined with keyword or domain filters.', ctx);
+         }
+         return startEnabledDomainRefresh(ctx);
+      }
+      if (scope !== 'domain') {
          return fail(400, 'BAD_REQUEST', 'Invalid refresh scope.', ctx);
       }
-      if (body.ids !== undefined || body.keyword !== undefined || getParam(req, 'id') !== undefined || getParam(req, 'domain') !== undefined) {
-         return fail(400, 'BAD_REQUEST', 'The enabled-domains scope cannot be combined with keyword or domain filters.', ctx);
-      }
-      return startEnabledDomainRefresh(ctx);
    }
    // A body with a keyword is a one-off keyword search (see searchKeyword), not a refresh
    if (body.keyword !== undefined) {
       return searchKeyword(req, body, ctx);
    }
+   const refreshAll = scope === 'domain';
    const idsInBody = body.ids !== undefined;
-   if (!idsInBody && !getParam(req, 'id')) {
+   const domain = body.domain;
+   if (refreshAll && (idsInBody || typeof domain !== 'string' || !domain.trim())) {
+      return fail(400, 'BAD_REQUEST', 'The domain scope requires a domain and cannot be combined with keyword IDs.', ctx);
+   }
+   if (!refreshAll && domain !== undefined) {
+      return fail(400, 'BAD_REQUEST', 'A domain requires the domain refresh scope.', ctx);
+   }
+   if (!idsInBody && !refreshAll) {
       return fail(400, 'BAD_REQUEST', 'keyword ID is Required!', ctx);
    }
-   const refreshAll = !idsInBody && getParam(req, 'id') === 'all';
-   if (refreshAll && !getParam(req, 'domain')) {
-      return fail(400, 'BAD_REQUEST', 'When Refreshing all Keywords of a domian, the Domain name Must be provided.', ctx);
-   }
    const keywordIDs = refreshAll ? [] : await readKeywordIds(req);
-   const domain = getParam(req, 'domain');
-   if (domain !== undefined && typeof domain !== 'string') {
-      return fail(400, 'BAD_REQUEST', 'domain must be a single domain name.', ctx);
-   }
    logger.debug('[SCRAPER] keywordIDs: ', { data: keywordIDs });
 
    if (!refreshAll && (!keywordIDs || keywordIDs.length === 0)) {

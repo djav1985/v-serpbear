@@ -135,10 +135,10 @@ export function useUpdateKeywordLocation(onDone: () => void) {
 export function useRefreshKeywords(onDone: () => void) {
    const invalidate = useKeywordsInvalidator();
    return useMutation({
-      // Refreshing a whole domain has no ID list, so it keeps the query form; selected IDs go in the body.
+      // Selected keyword IDs and whole-domain refresh scope travel in the JSON body.
       mutationFn: ({ ids = [], domain = '' }: { ids?: number[]; domain?: string }) => (
          ids.length === 0 && domain
-            ? apiPost(`/api/serp/refresh?id=all&domain=${encodeURIComponent(domain)}`, {})
+            ? apiPost('/api/serp/refresh', { scope: 'domain', domain })
             : apiPost('/api/serp/refresh', { ids })
       ),
       onSuccess: () => { onDone(); toast.success('Keywords added to refresh queue'); invalidate(); },

@@ -25,7 +25,7 @@ describe('email routing', () => {
   const run = async (options: { method?: string; type?: string | string[]; session?: boolean; auth?: string }) => {
      (verifyUser as jest.Mock).mockReturnValue(options.auth ?? 'authorized');
      (hasValidSessionCookie as jest.Mock).mockReturnValue(options.session ?? false);
-     const req = { method: options.method ?? 'POST', query: options.type === undefined ? {} : { type: options.type }, headers: {} } as unknown as NextApiRequest;
+     const req = { method: options.method ?? 'POST', query: {}, body: options.type === undefined ? {} : { type: options.type }, headers: {} } as unknown as NextApiRequest;
      const res = { status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as NextApiResponse;
      await handler(req, res);
      return res;
