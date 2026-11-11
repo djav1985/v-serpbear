@@ -20,7 +20,16 @@ export function OAuthApprovalForm({ requestId, clientName, callbackHost, platfor
                <p className="mt-1 break-all"><span className="text-muted-foreground">Returns to: </span>{callbackHost}</p>
                <p className="text-muted-foreground mt-3">Choose the access level for this MCP connection.</p>
             </div>
-            <form action="/api/oauth/authorize" method="post" className="flex flex-col gap-4">
+            <form
+               action="/api/oauth/authorize"
+               method="post"
+               onSubmit={(event) => {
+                  // Resolve against the page origin so a proxy-injected <base> URL
+                  // cannot turn this into a cross-origin form submission blocked by CSP.
+                  event.currentTarget.action = new URL('/api/oauth/authorize', window.location.origin).toString();
+               }}
+               className="flex flex-col gap-4"
+            >
                <input type="hidden" name="request" value={requestId} />
                {sessionUser ? (
                   <p className="rounded-lg border bg-muted/40 p-3 text-sm">You’re logged in as <span className="font-medium">{sessionUser}</span>.</p>

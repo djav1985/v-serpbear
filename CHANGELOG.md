@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file. Releases no
 
 - Build OAuth approval redirects from the configured public app URL instead of the incoming request host.
 - Serve the OAuth approval screen at `/api/oauth/approve` and redirect consent flows there.
+- Submit OAuth approval forms to the current browser origin so the same-origin CSP permits the consent POST.
 - Update the OAuth approval test path and test type annotations for the moved page and current response contracts.
 - Build protected-resource metadata for the root URL and retain the resource-path-specific URL in the metadata helper.
 - Apply the same app-wide security headers to MCP and OAuth routes as other app routes.
