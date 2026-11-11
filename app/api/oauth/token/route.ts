@@ -2,7 +2,7 @@ import { createRoute, type ApiContext } from '../../../../utils/apiLogging';
 import { logger } from '../../../../utils/logger';
 import {
    OAuthCredential, OAUTH_ACCESS_TTL_SECONDS, OAUTH_REFRESH_TTL_MS, hashSecret, oauthError, oauthSuccess,
-   randomIdentifier, randomSecret, readOAuthForm, verifyPkce, withOAuthStore,
+   oauthOptions, randomIdentifier, randomSecret, readOAuthForm, verifyPkce, withOAuthStore,
 } from '../../../../utils/mcpOAuth';
 
 const invalidGrant = () => oauthError('invalid_grant', 400, 'The authorization code or refresh token is invalid, expired, or replayed.');
@@ -81,3 +81,4 @@ const handleToken = async (req: Request, _ctx: ApiContext): Promise<Response> =>
 };
 
 export const { GET, POST, PUT, PATCH, DELETE } = createRoute({ name: 'oauth/token', auth: false, POST: handleToken });
+export const OPTIONS = oauthOptions;

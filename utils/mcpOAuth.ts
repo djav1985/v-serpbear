@@ -122,14 +122,23 @@ export const getProtectedResourceMetadata = () => {
    return { resource, authorization_servers: [issuer], scopes_supported: [MCP_SCOPE], bearer_methods_supported: ['header'] };
 };
 
+export const oauthCorsHeaders = {
+   'Access-Control-Allow-Origin': '*',
+   'Access-Control-Allow-Headers': 'content-type, authorization, mcp-protocol-version',
+   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+   'Access-Control-Max-Age': '86400',
+};
+
+export const oauthOptions = (): Response => new Response(null, { status: 204, headers: oauthCorsHeaders });
+
 export const oauthError = (error: string, status = 400, description?: string, headers?: HeadersInit): Response => Response.json(
    { error, ...(description ? { error_description: description } : {}) },
-   { status, headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache', ...Object.fromEntries(new Headers(headers).entries()) } },
+   { status, headers: { ...oauthCorsHeaders, 'Cache-Control': 'no-store', Pragma: 'no-cache', ...Object.fromEntries(new Headers(headers).entries()) } },
 );
 
 export const oauthSuccess = (body: unknown, status = 200): Response => Response.json(body, {
    status,
-   headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' },
+   headers: { ...oauthCorsHeaders, 'Cache-Control': 'no-store', Pragma: 'no-cache' },
 });
 
 export const readOAuthForm = async (req: Request, maxBytes = 32 * 1024): Promise<URLSearchParams | null> => {

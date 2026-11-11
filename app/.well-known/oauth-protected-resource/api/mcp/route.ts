@@ -1,4 +1,4 @@
-import { getProtectedResourceMetadata, oauthError, oauthSuccess } from '../../../../../utils/mcpOAuth';
+import { getProtectedResourceMetadata, oauthError, oauthOptions, oauthSuccess } from '../../../../../utils/mcpOAuth';
 import { logger } from '../../../../../utils/logger';
 
 export const dynamic = 'force-dynamic';
@@ -9,3 +9,5 @@ export const GET = () => {
    else { logger.info('[OAuth] Served protected resource metadata.', { operation: 'protected_resource_discovery' }); }
    return metadata ? oauthSuccess(metadata) : oauthError('server_error', 503, 'Set NEXT_PUBLIC_APP_URL to the public HTTPS URL of this server.');
 };
+
+export const OPTIONS = oauthOptions;

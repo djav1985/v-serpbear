@@ -328,7 +328,7 @@ A read-only [Model Context Protocol](https://modelcontextprotocol.io) server for
 
 - **URL:** `https://<your-host>/api/mcp` (Streamable HTTP, `POST` only). Use HTTPS, because the key is sent on every request.
 - **Direct key:** header `Authorization: Bearer <MCP_API_KEY>`. Cookies and login sessions are not accepted.
-- **ChatGPT OAuth:** choose OAuth in the connector setup. Sign in with your normal SerpBear account and approve the connection; ChatGPT then uses its OAuth access and refresh tokens. OAuth endpoints are under `/api/oauth`; the standard well-known metadata URLs support discovery. OAuth state is stored in `data/mcp_oauth.json`.
+- **ChatGPT OAuth:** choose OAuth in the connector setup. Sign in with your normal SerpBear account and approve the connection; ChatGPT then uses its OAuth access and refresh tokens. OAuth endpoints are under `/api/oauth`. Protected-resource metadata is served at both the root and MCP path-specific well-known URLs. OAuth state is stored in `data/mcp_oauth.json`.
 
 | Tool | Returns |
 | --- | --- |

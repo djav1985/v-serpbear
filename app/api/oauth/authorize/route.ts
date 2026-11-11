@@ -3,7 +3,7 @@ import { createRoute, fail, type ApiContext } from '../../../../utils/apiLogging
 import { logger } from '../../../../utils/logger';
 import {
    constantTimeEqual, findCredential, getAuthorizationServerMetadata, getClientRedirectUris, getMcpResourceUrl, getOAuthBaseUrl,
-   hashSecret, oauthError, pruneExpiredOAuthCredentials, randomSecret, readClient, readOAuthForm, saveCredential, withOAuthStore,
+   hashSecret, oauthError, oauthOptions, pruneExpiredOAuthCredentials, randomSecret, readClient, readOAuthForm, saveCredential, withOAuthStore,
 } from '../../../../utils/mcpOAuth';
 
 const PENDING_COOKIE = 'mcp_oauth_pending';
@@ -62,7 +62,6 @@ const authorize = async (req: Request, ctx: ApiContext): Promise<Response> => {
    const state = params.get('state');
    const challenge = params.get('code_challenge') ?? '';
    const challengeMethod = params.get('code_challenge_method');
-   const requestedScope = params.get('scope')?.trim();
    const requestedResource = params.get('resource');
    const client = clientId ? await readClient(clientId) : null;
    const knownRedirect = !!client && getClientRedirectUris(client).includes(redirectUri);
@@ -84,9 +83,6 @@ const authorize = async (req: Request, ctx: ApiContext): Promise<Response> => {
    if (responseType !== 'code') { return failThroughClient('unsupported_response_type', 'Only response_type=code is supported.'); }
    if (!/^[A-Za-z0-9_-]{43}$/.test(challenge) || challengeMethod !== 'S256') {
       return failThroughClient('invalid_request', 'A PKCE code challenge using S256 is required.');
-   }
-   if (requestedScope && requestedScope.split(/\s+/).some((scope) => scope !== 'serpbear.read')) {
-      return failThroughClient('invalid_scope', 'Only the read-only SerpBear scope is supported.');
    }
    if (requestedResource && requestedResource !== resource) {
       return failThroughClient('invalid_target', 'The requested resource does not match this MCP server.');
@@ -157,3 +153,4 @@ const submitConsent = async (req: Request, ctx: ApiContext): Promise<Response> =
 };
 
 export const { GET, POST, PUT, PATCH, DELETE } = createRoute({ name: 'oauth/authorize', auth: false, GET: authorize, POST: submitConsent });
+export const OPTIONS = oauthOptions;

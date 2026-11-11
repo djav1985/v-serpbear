@@ -85,7 +85,7 @@ const handleMcp = async (req: Request, ctx: ApiContext) => {
 
    const unauthorized = () => {
       const metadata = getProtectedResourceMetadata();
-      const headers = metadata ? { 'WWW-Authenticate': `Bearer resource_metadata="${new URL('/.well-known/oauth-protected-resource/api/mcp', metadata.resource).toString()}"` } : undefined;
+      const headers = metadata ? { 'WWW-Authenticate': `Bearer resource_metadata="${new URL('/.well-known/oauth-protected-resource', metadata.resource).toString()}"` } : undefined;
       return fail(401, 'UNAUTHORIZED', 'Provide a valid MCP_API_KEY bearer token or authorize this client with OAuth.', ctx, undefined, headers);
    };
    const bearer = bearerValue(req);
