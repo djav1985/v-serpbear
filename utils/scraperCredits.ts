@@ -1,7 +1,7 @@
 /// <reference path="../types.d.ts" />
 
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { createHmac } from 'crypto';
+import { pbkdf2Sync } from 'crypto';
 import { readFile } from 'fs/promises';
 import * as path from 'path';
 import Cryptr from 'cryptr';
@@ -38,9 +38,13 @@ export const creditsUnitFor = (scraperId?: string | null): 'credits' | 'usd' => 
    findScraper(scraperId)?.creditsUnit === 'usd' ? 'usd' : 'credits'
 );
 
-/** Identifies one scraper account. Hashed with SECRET, so the file reveals nothing about the key. */
+/** Identifies one scraper account. Derived with a slow KDF using SECRET, so the file reveals nothing about the key. */
 export const creditKey = (scraperId: string, apiKey: string): string => {
-   const hash = createHmac('sha256', process.env.SECRET || 'serpbear-credits').update(apiKey).digest('hex').slice(0, 24);
+   const secret = process.env.SECRET || 'serpbear-credits';
+   const salt = `serpbear-credits:${secret}:${scraperId}`;
+   const iterations = 210000;
+   const keylen = 32;
+   const hash = pbkdf2Sync(apiKey, salt, iterations, keylen, 'sha256').toString('hex').slice(0, 24);
    return `${scraperId}:${hash}`;
 };
 
