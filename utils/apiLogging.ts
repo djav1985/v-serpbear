@@ -70,14 +70,15 @@ const run = async (handler: ApiHandler | undefined, def: RouteDefinition, req: R
          ip: getClientIp(req),
          userAgent: req.headers.get('user-agent'),
          contentType: req.headers.get('content-type'),
-         body: redactSecrets(body),
+         body: redactSecrets(body, ['code', 'state', 'code_verifier']),
       });
    }
 
    // A client address that sent too many wrong API keys refuses further wrong keys before any handler or key check runs.
    // The correct key is still accepted, so a lockout cannot shut out the owner (this matters when no address is known and
    // all clients share one bucket). A request with a valid login cookie is never refused for it.
-   if (isBearerAuthorization(req.headers.get('authorization') ?? undefined) && isLoginLocked(getApiKeyAttemptKeys(req)) && !hasValidSessionCookie(req) && !hasValidApiKey(req)) {
+   const isMcpEndpoint = (() => { try { return new URL(req.url).pathname === '/api/mcp'; } catch (_error) { return false; } })();
+   if (!isMcpEndpoint && isBearerAuthorization(req.headers.get('authorization') ?? undefined) && isLoginLocked(getApiKeyAttemptKeys(req)) && !hasValidSessionCookie(req) && !hasValidApiKey(req)) {
       logger.warn(`${label} - 429 (API key locked)`);
       return withRequestId(fail(429, 'TOO_MANY_ATTEMPTS', 'Too many failed API key attempts. Try again in 15 minutes.', ctx, undefined, { 'Retry-After': '900' }), requestId);
    }

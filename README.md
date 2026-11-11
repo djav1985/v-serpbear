@@ -58,6 +58,7 @@ The full list of changes is in the [changelog](./CHANGELOG.md). See [Update Serp
 - **Idea emails and richer digests.** Email selected keyword ideas and see a tracker summary with average position and map pack counts in digest emails.
 - **Flexible schedules.** Choose the time and timezone for scheduled scrapes, failed-scrape retries, Search Console refreshes, and email digests.
 - **Read-only MCP server.** AI assistants can read rankings, Search Console data, and keyword ideas through MCP.
+- **MCP OAuth for ChatGPT.** Connect through the themed approval screen, or use `MCP_API_KEY` directly as a bearer token.
 - **White-label branding.** Apply a custom app and email name and logo without rebuilding the app.
 - **A rebuilt responsive interface.** The fork replaces the older pages with a responsive dashboard, shared data tables, settings panels, and transitions that respect reduced-motion preferences.
 
@@ -95,7 +96,7 @@ The full list of changes is in the [changelog](./CHANGELOG.md). See [Update Serp
 ```bash
 git clone https://github.com/djav1985/v-serpbear.git
 cd v-serpbear
-# edit docker-compose.yml: replace PASSWORD, SECRET and APIKEY, and set NEXT_PUBLIC_APP_URL
+# edit docker-compose.yml: replace PASSWORD, SECRET, APIKEY and MCP_API_KEY, and set NEXT_PUBLIC_APP_URL
 docker compose up -d
 ```
 
@@ -152,7 +153,8 @@ Behaviour is controlled by environment variables inside docker compose as well a
 | `USER_NAME` | — | No | Takes precedence over `USER` when set. |
 | `PASSWORD` | — | Yes | Dashboard password. Replace the `change-me` placeholder. |
 | `SECRET` | — | Yes | Signs the session JWT stored in the `token` cookie and encrypts stored keys. Login returns 500 when it is unset. Changing it signs everyone out and makes stored encrypted keys unreadable, so they must be re-entered. Use a unique value per deployment (`openssl rand -hex 32`). |
-| `APIKEY` | — | Yes | Key for REST and MCP clients, and for the cron worker's scheduled calls. When unset, scheduled jobs are skipped with a warning and MCP returns 500. Use `openssl rand -hex 32`. |
+| `APIKEY` | — | Yes | Key for REST clients and cron worker calls; MCP uses it internally for REST calls. Use `openssl rand -hex 32`. |
+| `MCP_API_KEY` | — | Only for direct MCP access | Optional direct MCP Bearer key. OAuth connections use the normal SerpBear login and do not require this variable. Keep it separate from `APIKEY`. |
 | `SESSION_DURATION` | `24` | No | Session lifetime in hours. Empty, zero, negative or non-numeric values use 24. |
 | `TRUST_PROXY` | `0` | No | Number of reverse proxies in front of the app. `true` means 1, values above 10 are capped at 10, and invalid values mean 0. Login lockouts, API-key lockouts and the keyword-search and volume rate limits then use the `X-Forwarded-For` entry that many hops from the right. Without it, every client shares one address, so five wrong logins or API keys from anyone lock everyone out for 15 minutes. The app cannot see the connection's own address, and a client can send its own `X-Forwarded-For`, so the header is trusted only when you say how many proxies are in front. It also controls whether `X-Forwarded-Proto`, `X-Forwarded-Protocol` and `X-Forwarded-Ssl` set the `Secure` cookie flag; without it only the request's own `https://` URL does. |
 | `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | No | Public URL of the deployment, used for the Google Ads OAuth return origin, email links and logo, and as the cron worker's fallback origin. Set it for real deployments. |
@@ -316,16 +318,17 @@ Docker Compose stores data in a named volume (`data`) mounted at `/app/data`, pr
 
 ## API and MCP server
 
-Both use the same credential: the `APIKEY` environment variable, sent as `Authorization: Bearer <APIKEY>`. Domains are always real domain names such as `example.com`.
+The REST API uses `APIKEY`; MCP has a separate `MCP_API_KEY`. Domains are always real domain names such as `example.com`.
 
 <br><br>
 
 ### MCP server
 
-A read-only [Model Context Protocol](https://modelcontextprotocol.io) server for AI assistants. Any MCP client that accepts a remote URL and a header can connect.
+A read-only [Model Context Protocol](https://modelcontextprotocol.io) server for AI assistants, with direct-key and OAuth connection options.
 
 - **URL:** `https://<your-host>/api/mcp` (Streamable HTTP, `POST` only). Use HTTPS, because the key is sent on every request.
-- **Key:** header `Authorization: Bearer <APIKEY>`. Cookies and login sessions are not accepted.
+- **Direct key:** header `Authorization: Bearer <MCP_API_KEY>`. Cookies and login sessions are not accepted.
+- **ChatGPT OAuth:** choose OAuth in the connector setup. Sign in with your normal SerpBear account and approve the connection; ChatGPT then uses its OAuth access and refresh tokens. OAuth endpoints are under `/api/oauth`; the standard well-known metadata URLs support discovery. OAuth state is stored in `data/mcp_oauth.json`.
 
 | Tool | Returns |
 | --- | --- |

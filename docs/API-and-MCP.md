@@ -1,13 +1,17 @@
 # API and MCP
 
-Both use the same credential: the `APIKEY` environment variable, sent as `Authorization: Bearer <APIKEY>`. Domains are always real domain names such as `example.com`.
+The REST API uses `APIKEY`; MCP has its own `MCP_API_KEY`. Domains are always real domain names such as `example.com`.
 
 ## MCP server
 
-A read-only [Model Context Protocol](https://modelcontextprotocol.io) server for AI assistants. Any MCP client that accepts a remote URL and a header can connect.
+A read-only [Model Context Protocol](https://modelcontextprotocol.io) server for AI assistants. It supports direct bearer access and OAuth connections such as ChatGPT.
 
 - **URL:** `https://<your-host>/api/mcp` (Streamable HTTP, `POST` only). Use HTTPS, because the key is sent on every request.
-- **Key:** header `Authorization: Bearer <APIKEY>`. Cookies and login sessions are not accepted.
+- **Direct key:** set `MCP_API_KEY`, then send `Authorization: Bearer <MCP_API_KEY>`. Cookies and login sessions are not accepted.
+- **OAuth:** choose OAuth when connecting ChatGPT. Sign in with your normal SerpBear account and approve the connection; ChatGPT then uses OAuth access and refresh tokens. Discovery metadata is served at the standard `/.well-known/` URLs, and registration, authorization and token endpoints are under `/api/oauth`.
+- **Persistence:** keep `/app/data` on persistent storage. OAuth clients and hashed tokens are stored in `data/mcp_oauth.json`; no database schema changes are needed.
+
+`MCP_API_KEY` is optional and separate from `APIKEY`. It enables direct MCP bearer access. OAuth uses the normal SerpBear login. `APIKEY` remains the REST API credential used server-side when MCP calls SerpBear's existing REST routes.
 
 | Tool | Returns |
 | --- | --- |

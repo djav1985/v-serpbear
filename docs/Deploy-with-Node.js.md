@@ -27,12 +27,13 @@ USER_NAME=admin
 PASSWORD=your_password_here
 SECRET=your_random_secret_here
 APIKEY=your_random_api_key_here
+MCP_API_KEY=your_separate_random_mcp_key_here
 SESSION_DURATION=24
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 TZ=America/New_York
 ```
 
-Replace the values. Use `https://serpbear.yourdomain.com` for `NEXT_PUBLIC_APP_URL` on a server. Every variable is described in [Configuration](Configuration). Both the web app and the cron worker read this file.
+Replace the values. Set a separate `MCP_API_KEY` only if you want direct MCP bearer access; OAuth uses the normal SerpBear login. Use `https://serpbear.yourdomain.com` for `NEXT_PUBLIC_APP_URL` on a server. Every variable is described in [Configuration](Configuration). Both the web app and the cron worker read this file.
 
 ## Step 4: Create the data folder
 

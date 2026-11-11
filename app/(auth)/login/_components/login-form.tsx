@@ -16,7 +16,7 @@ type LoginError = { type: string; msg: string };
 
 const ERROR_VISIBLE_MS = 3000;
 
-export function LoginForm({ branding }: { branding: BrandingConfig }) {
+export function LoginForm({ branding, returnTo = '/' }: { branding: BrandingConfig, returnTo?: string }) {
    const router = useRouter();
    const queryClient = useQueryClient();
    const [error, setError] = useState<LoginError | null>(null);
@@ -53,7 +53,7 @@ export function LoginForm({ branding }: { branding: BrandingConfig }) {
          await apiPost<{ success: boolean }>('/api/auth/login', { username, password });
          // Drop cached auth state from before login so the next protected page does not bounce back here.
          queryClient.clear();
-         router.push('/');
+         router.replace(returnTo);
          router.refresh();
       } catch (err) {
          // The backend returns a generic 'Invalid credentials' message on purpose (no username enumeration).

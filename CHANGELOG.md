@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file. Releases no
 
 ## [Unreleased]
 
+### Added
+
+- Add MCP OAuth authorization for ChatGPT with PKCE, dynamic client registration, 24-hour access tokens, token rotation and a themed approval screen using the normal SerpBear login. OAuth state is stored in `data/mcp_oauth.json`; direct MCP bearer access can use the separate `MCP_API_KEY`.
+
+### Changed
+
+- Document `MCP_API_KEY` and MCP OAuth setup separately from the REST `APIKEY`.
+
 ### Fixed
 
 - Avoid blocking request handling while cancelling an oversized debug logging stream.

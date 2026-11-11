@@ -141,6 +141,7 @@ services:
       PASSWORD: change-me
       SECRET: change-me-to-a-long-random-string
       APIKEY: change-me-to-another-long-random-string
+      MCP_API_KEY: change-me-to-a-separate-long-random-string
       NEXT_PUBLIC_APP_URL: https://serpbear.yourdomain.com
       TRUST_PROXY: 1
       TZ: America/New_York

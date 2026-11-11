@@ -1,11 +1,13 @@
 import { z } from 'zod';
+import { clearLoginFailures, recordLoginFailure, isLoginLocked } from '../../../utils/loginThrottle';
+import { getApiKeyAttemptKeys } from '../../../utils/apiKeyThrottle';
 // The SDK exposes these subpaths through a "./*" export pattern that ESLint's resolver cannot read (Node and tsc resolve them)
 // eslint-disable-next-line import/no-unresolved
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 // eslint-disable-next-line import/no-unresolved
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
-import { checkApiKey } from '../../../utils/verifyUser';
 import { createRoute, fail, type ApiContext } from '../../../utils/apiLogging';
+import { bearerValue, constantTimeEqual, findCredential, getMcpResourceUrl, getProtectedResourceMetadata } from '../../../utils/mcpOAuth';
 
 type ApiResult = { ok: boolean, status: number, data: unknown };
 type ApiCall = (method: 'GET' | 'POST', path: string, query?: Record<string, string>, body?: unknown) => Promise<ApiResult>;
@@ -76,17 +78,33 @@ const buildServer = (call: ApiCall): McpServer => {
 };
 
 const handleMcp = async (req: Request, ctx: ApiContext) => {
-   // Only the API key is accepted here: no cookies, no login session (see checkApiKey)
-   const apiKey = process.env.APIKEY;
-   if (!apiKey) {
-      return fail(500, 'INTERNAL_SERVER_ERROR', 'APIKEY is not configured.', ctx);
+   const mcpApiKey = process.env.MCP_API_KEY;
+   const internalApiKey = process.env.APIKEY;
+   if (!internalApiKey) { return fail(500, 'INTERNAL_SERVER_ERROR', 'APIKEY is required for the MCP server to call internal API routes.', ctx); }
+
+   const unauthorized = () => {
+      const metadata = getProtectedResourceMetadata();
+      const headers = metadata ? { 'WWW-Authenticate': `Bearer resource_metadata="${new URL('/.well-known/oauth-protected-resource/api/mcp', metadata.resource).toString()}"` } : undefined;
+      return fail(401, 'UNAUTHORIZED', 'Provide a valid MCP_API_KEY bearer token or authorize this client with OAuth.', ctx, undefined, headers);
+   };
+   const bearer = bearerValue(req);
+   const attempts = getApiKeyAttemptKeys(req);
+   const directKeyValid = bearer && mcpApiKey ? constantTimeEqual(bearer, mcpApiKey) : false;
+   const oauthCredential = bearer && !directKeyValid ? await findCredential(bearer, 'access_token') : null;
+   const resource = getMcpResourceUrl();
+   const oauthValid = !!oauthCredential && oauthCredential.revokedAt == null && oauthCredential.expiresAt > Date.now() &&
+      (!oauthCredential.resource || oauthCredential.resource === resource);
+   if (!directKeyValid && !oauthValid) {
+      if (isLoginLocked(attempts)) {
+         return fail(429, 'TOO_MANY_ATTEMPTS', 'Too many failed MCP credentials. Try again in 15 minutes.', ctx, undefined, { 'Retry-After': '900' });
+      }
+      recordLoginFailure(attempts);
+      return unauthorized();
    }
-   if (!checkApiKey(req)) {
-      return fail(401, 'UNAUTHORIZED', 'The MCP server requires "Authorization: Bearer <APIKEY>".', ctx);
-   }
+   clearLoginFailures(attempts);
 
    // Tools call this same server on the port the request arrived on
-   const call = makeApiCall(`http://127.0.0.1:${process.env.PORT || 3000}`, `Bearer ${apiKey}`);
+   const call = makeApiCall(`http://127.0.0.1:${process.env.PORT || 3000}`, `Bearer ${internalApiKey}`);
    const server = buildServer(call);
    // Stateless, with plain JSON replies: one request in, one response out, nothing kept between calls
    const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });

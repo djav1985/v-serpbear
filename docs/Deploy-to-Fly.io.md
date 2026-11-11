@@ -62,6 +62,7 @@ fly secrets set \
   PASSWORD=yourpassword123 \
   NEXT_PUBLIC_APP_URL=https://your-unique-name.fly.dev \
   APIKEY=generate_a_long_random_string \
+  MCP_API_KEY=generate_a_separate_long_random_string \
   SECRET=generate_another_random_string \
   SESSION_DURATION=24 \
   TRUST_PROXY=1 \

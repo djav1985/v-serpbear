@@ -14,6 +14,7 @@ services:
       PASSWORD: change-me
       SECRET: change-me-to-a-long-random-string
       APIKEY: change-me-to-another-long-random-string
+      MCP_API_KEY: change-me-to-a-separate-long-random-string
       SESSION_DURATION: 24
       # Number of reverse proxies in front of the app (see README). 0 uses the socket address.
       TRUST_PROXY: 0
