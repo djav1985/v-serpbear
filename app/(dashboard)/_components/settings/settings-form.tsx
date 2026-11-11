@@ -51,7 +51,7 @@ const createDefaults = (platformName: string): SettingsType => ({
 /** The three settings tabs and the Update button. Mounted only while the sheet is open, so it always starts from the stored settings. */
 export function SettingsForm({ platformName }: { platformName: string }) {
    const router = useRouter();
-   const { data: stored, isLoading } = useAppSettings(true);
+   const { data: stored, isLoading, isError } = useAppSettings(true, true, true);
    const { mutateAsync: saveSettings, isPending } = useSaveSettings();
    const [settings, setSettings] = useState<SettingsType>(() => createDefaults(platformName));
    const [error, setError] = useState<SettingsError | null>(null);
@@ -128,7 +128,8 @@ export function SettingsForm({ platformName }: { platformName: string }) {
             </TabsList>
             <div className="relative min-h-0 flex-1 overflow-y-auto px-4 pb-4" data-loading={isLoading}>
                {isLoading && <Loader2 className="text-muted-foreground absolute top-6 left-1/2 size-5 animate-spin" />}
-               {!isLoading && (
+               {isError && <p role="alert" className="text-destructive text-sm">Could not load settings. Your session may have expired; sign in again and reopen Settings.</p>}
+               {!isLoading && !isError && (
                   <>
                      <TabsContent value="scraper" className="animate-in fade-in-0 slide-in-from-right-4 duration-1000"><ScraperTab {...tabProps} /></TabsContent>
                      <TabsContent value="notification" className="animate-in fade-in-0 slide-in-from-right-4 duration-1000"><NotificationTab {...tabProps} /></TabsContent>
@@ -139,7 +140,7 @@ export function SettingsForm({ platformName }: { platformName: string }) {
          </Tabs>
          <div className="border-t p-4">
             {error?.msg && <p role="alert" className="bg-destructive/10 text-destructive mb-3 rounded-md p-2 text-center text-sm font-medium">{error.msg}</p>}
-            <Button className="w-full" disabled={isPending || isLoading} onClick={() => { save(); }}>
+            <Button className="w-full" disabled={isPending || isLoading || isError} onClick={() => { save(); }}>
                {isPending && <Loader2 className="animate-spin" />}Update Settings
             </Button>
          </div>

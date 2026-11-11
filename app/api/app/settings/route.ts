@@ -14,6 +14,14 @@ import { DERIVED_SETTINGS_FIELDS, PERSISTED_SETTINGS_FIELDS, SECRET_SETTINGS_FIE
 
 const getSettings = async (req: Request, ctx: ApiContext) => {
    try {
+      // The settings editor must never mistake the public, branding-only response for
+      // the complete settings object. Opt-in full reads are explicitly authenticated.
+      const includePrivate = new URL(req.url).searchParams.get('includePrivate') === 'true';
+      if (includePrivate) {
+         const denied = requireAuth(req, ctx);
+         if (denied) { return denied; }
+      }
+
       // Silently check if user is authenticated without logging auth failures for anonymous GETs
       let isAuthenticated = false;
       try {
@@ -34,7 +42,7 @@ const getSettings = async (req: Request, ctx: ApiContext) => {
       // Read-only and public: the name and logo are shown on the login page before anyone signs in.
       const branding = getBranding();
       
-      if (isAuthenticated) {
+      if (isAuthenticated || includePrivate) {
          // Return full settings for authenticated users
          return json({ settings: { ...settings, version, timezone: APP_TIMEZONE, branding } });
       } else {

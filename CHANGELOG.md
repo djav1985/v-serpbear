@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file. Releases no
 
 ## [Unreleased]
 
+### Fixed
+
+- Load the settings editor through an explicitly authenticated full-settings request, and show an error instead of empty fields if the session is invalid.
+
 ### Changed
 
 - Extend Important frontend coverage for domain settings validation, tracker and ideas cells, add/delete keyword mutations, and settings mutations.
