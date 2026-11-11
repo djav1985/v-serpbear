@@ -196,17 +196,17 @@ function DomainSettingsForm({ open, onOpenChange, domain, availableScrapers = []
    return (
       <>
          <Dialog open={open} onOpenChange={close}>
-            <DialogContent className="h-[95dvh] min-h-0 max-h-[95dvh] grid-rows-[auto_1fr_auto] overflow-x-hidden overflow-y-auto sm:h-auto sm:min-h-[min(38rem,90vh)] sm:max-h-[90vh] sm:max-w-lg" data-testid="domain_settings">
+            <DialogContent className="h-[95dvh] min-h-0 max-h-[95dvh] grid-rows-[auto_1fr_auto] overflow-x-hidden overflow-y-auto sm:h-[min(42rem,90vh)] sm:min-h-[min(42rem,90vh)] sm:max-h-[90vh] sm:max-w-lg" data-testid="domain_settings">
                <DialogHeader>
                   <DialogTitle>Domain settings</DialogTitle>
                   <DialogDescription>{domain.domain}</DialogDescription>
                </DialogHeader>
 
                <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)}>
-                  <TabsList className="w-full">
-                     <TabsTrigger value="notification">Notification</TabsTrigger>
-                     <TabsTrigger value="searchconsole">Search Console</TabsTrigger>
-                     <TabsTrigger value="scraper">Scraper</TabsTrigger>
+                  <TabsList className="settings-tabs-list w-full">
+                     <TabsTrigger value="notification" className="settings-tabs-trigger">Notification</TabsTrigger>
+                     <TabsTrigger value="searchconsole" className="settings-tabs-trigger">Search Console</TabsTrigger>
+                     <TabsTrigger value="scraper" className="settings-tabs-trigger">Scraper</TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="notification" className="mt-4 flex flex-col gap-4 animate-in fade-in-0 slide-in-from-right-4 duration-1000">
@@ -329,7 +329,7 @@ function DomainSettingsForm({ open, onOpenChange, domain, availableScrapers = []
                   <Button variant="ghost" className="text-destructive hover:text-destructive" onClick={() => setConfirmRemove(true)}>
                      <Trash2 />Remove Domain
                   </Button>
-                  <Button disabled={isLoadingDomain || updateMutation.isPending} onClick={save}>
+                  <Button variant="primaryAction" disabled={isLoadingDomain || updateMutation.isPending} onClick={save}>
                      {isLoadingDomain ? 'Loading…' : updateMutation.isPending ? 'Saving…' : 'Update Settings'}
                   </Button>
                </DialogFooter>

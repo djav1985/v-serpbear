@@ -26,7 +26,7 @@ function SearchConsoleSection({ settings, update }: SettingsTabProps) {
             <Label htmlFor="sc-key">Search Console Private Key</Label>
             <Textarea id="sc-key" className="h-28 text-xs" placeholder="-----BEGIN PRIVATE KEY-----/ssssaswdkihad...." value={settings.search_console_private_key || ''} onChange={(event) => update('search_console_private_key', event.target.value)} />
          </div>
-         <Button variant="secondary" disabled={isPending} onClick={() => refresh()}>
+         <Button variant="secondary" className="h-10 text-base leading-none pt-0" disabled={isPending} onClick={() => refresh()}>
             {isPending && <Loader2 className="animate-spin" />}Refresh Search Console Data
          </Button>
       </div>
@@ -69,7 +69,7 @@ function AdwordsSection({ settings, update, save }: SettingsTabProps) {
                <Label>Client Secret</Label>
                <SecretInput aria-label="Client Secret" placeholder="GTXSPX-45asaf-u1s252sd6qdE9yc8T" value={adwords_client_secret} onChange={(event) => update('adwords_client_secret', event.target.value)} />
             </div>
-            <Button variant="outline" disabled={!adwords_client_id || !adwords_client_secret} title="Insert all the data in the above fields to authenticate" onClick={authenticate}>
+            <Button variant="secondary" className="h-10 text-base leading-none pt-0" disabled={!adwords_client_id || !adwords_client_secret} title="Insert all the data in the above fields to authenticate" onClick={authenticate}>
                {adwords_refresh_token ? 'Re-Authenticate' : 'Authenticate'} Integration
             </Button>
          </section>
@@ -85,7 +85,8 @@ function AdwordsSection({ settings, update, save }: SettingsTabProps) {
                <SecretInput aria-label="Test Account ID" placeholder="590-948-9101" value={adwords_account_id} onChange={(event) => update('adwords_account_id', event.target.value)} />
             </div>
             <Button
-               variant="outline"
+               variant="secondary"
+               className="h-10 text-base leading-none pt-0"
                disabled={!hasAll || testing}
                title={hasAll ? undefined : 'Insert all the data in the above fields to test the integration'}
                onClick={() => testIntegration({ developer_token: adwords_developer_token, account_id: adwords_account_id })}
@@ -97,7 +98,7 @@ function AdwordsSection({ settings, update, save }: SettingsTabProps) {
          <section className={cn('flex flex-col gap-3 border-t pt-4', !hasAll && 'pointer-events-none opacity-40')}>
             <h4 className="text-primary font-semibold">Update Keyword Volume Data</h4>
             <p className="text-sm">Update volume data for all your tracked keywords.</p>
-            <Button variant="outline" disabled={!hasAll || updatingVolume} onClick={() => updateVolume()}>
+            <Button variant="secondary" className="h-10 text-base leading-none pt-0" disabled={!hasAll || updatingVolume} onClick={() => updateVolume()}>
                {updatingVolume && <Loader2 className="animate-spin" />}Update Keywords Volume Data
             </Button>
          </section>

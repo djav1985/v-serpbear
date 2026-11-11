@@ -44,7 +44,7 @@ export function AddToTrackerBar({
                </button>
             ))}
          </div>
-         <Button size="sm" disabled={addDisabled} onClick={onAdd}><Plus />Add Keyword</Button>
+         <Button variant="primaryAction" size="sm" disabled={addDisabled} onClick={onAdd}><Plus />Add Keyword</Button>
          {onEmail && <Button size="sm" variant="secondary" disabled={emailDisabled} onClick={onEmail}><Mail />Email Keywords</Button>}
          <Button size="sm" variant="ghost" className="sm:ml-auto" onClick={onClear}>Clear</Button>
       </div>

@@ -97,10 +97,10 @@ export function ScraperTab({ settings, update, error }: SettingsTabProps) {
          )}
          {settings.scrape_retry && failed.length > 0 && (
             <div className="flex flex-col gap-3 border-t pt-4">
-               <Button variant="secondary" disabled={clearing} onClick={() => clearFailed()}>
+               <Button variant="secondary" className="h-10 text-base leading-none pt-0" disabled={clearing} onClick={() => clearFailed()}>
                   {clearing && <Loader2 className="animate-spin" />}Clear Failed Queue ({failed.length} Keywords)
                </Button>
-               <Button variant="secondary" disabled={retrying} onClick={() => retryFailed(failed)}>
+               <Button variant="secondary" className="h-10 text-base leading-none pt-0" disabled={retrying} onClick={() => retryFailed(failed)}>
                   {retrying && <Loader2 className="animate-spin" />}Retry All Failed Now ({failed.length} Keywords)
                </Button>
             </div>

@@ -99,7 +99,7 @@ export function LoginForm({ branding, returnTo = '/' }: { branding: BrandingConf
                         onChange={(event) => setPassword(event.target.value)}
                      />
                   </div>
-                  <Button type="submit" disabled={isSubmitting} className="w-full">
+                  <Button type="submit" variant="primaryAction" disabled={isSubmitting} className="h-10 w-full text-base">
                      {isSubmitting ? 'Logging in…' : 'Login'}
                   </Button>
                   <p

@@ -82,11 +82,10 @@ describe('OAuth routes', () => {
          resource: `${appUrl}/api/mcp`,
       });
       const authorization = await authorize(new Request(`${appUrl}/api/oauth/authorize?${query}`));
-      expect(authorization.status).toBe(200);
-      expect(authorization.headers.get('content-type')).toContain('text/html');
-      const authorizationHtml = await authorization.text();
-      expect(authorizationHtml).toContain('name="token" type="password"');
-      const pendingRequest = authorizationHtml.match(/name="request" value="([^"]+)"/)![1];
+      expect(authorization.status).toBe(303);
+      const approvalUrl = new URL(authorization.headers.get('location')!);
+      expect(approvalUrl.pathname).toBe('/oauth/approve');
+      const pendingRequest = approvalUrl.searchParams.get('request')!;
       const approved = await consent(formRequest(`${appUrl}/api/oauth/authorize`, {
          request: pendingRequest, token: 'operator-test-key', decision: 'approve', read_only: '1',
       }));

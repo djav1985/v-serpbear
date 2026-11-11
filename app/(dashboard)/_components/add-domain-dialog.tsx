@@ -4,7 +4,7 @@ import { useState, type ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Button } from 'components/ui/button';
+import { Button, ButtonLabel } from 'components/ui/button';
 import {
    Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from 'components/ui/dialog';
@@ -97,8 +97,8 @@ export function AddDomainDialog({ open, onOpenChange, existingDomains }: AddDoma
             </div>
             <DialogFooter>
                <Button variant="outline" onClick={() => close(false)}>Cancel</Button>
-               <Button disabled={isPending} onClick={() => { if (!isPending) { submit(); } }}>
-                  {isPending ? 'Adding…' : 'Add Domain'}
+               <Button variant="primaryAction" disabled={isPending} onClick={() => { if (!isPending) { submit(); } }}>
+                  <ButtonLabel>{isPending ? 'Adding…' : 'Add Domain'}</ButtonLabel>
                </Button>
             </DialogFooter>
          </DialogContent>

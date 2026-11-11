@@ -21,6 +21,7 @@ jest.mock('../../database/models/keyword', () => ({
 }));
 jest.mock('../../utils/logger', () => ({
    logger: {
+      debug: jest.fn(),
       info: jest.fn(),
       error: jest.fn(),
    },

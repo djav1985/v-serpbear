@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Globe, Plus } from 'lucide-react';
-import { Button } from 'components/ui/button';
+import { Button, ButtonLabel } from 'components/ui/button';
 import { useShell } from '../../_components/shell-context';
 
 /** The site's favicon, with a globe in the same space when it cannot be loaded, so the names always line up. */
@@ -51,7 +51,7 @@ export function DomainsSidebar() {
                ))}
             </ul>
             <Button variant="ghost" size="sm" className="text-muted-foreground justify-start" data-testid="add_domain_side" onClick={openAddDomain}>
-               <Plus />Add Domain
+               <Plus /><ButtonLabel>Add Domain</ButtonLabel>
             </Button>
          </div>
       </aside>

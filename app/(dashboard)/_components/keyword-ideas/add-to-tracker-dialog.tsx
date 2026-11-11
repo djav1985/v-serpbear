@@ -60,7 +60,7 @@ export function AddToTrackerDialog({
             )}
             <DialogFooter>
                <Button variant="outline" onClick={onClose}>Cancel</Button>
-               <Button disabled={isAdding || isLoadingExisting || existingLoadError} onClick={() => {
+               <Button variant="primaryAction" disabled={isAdding || isLoadingExisting || existingLoadError} onClick={() => {
                   if (!isAdding && !isLoadingExisting && !existingLoadError) { onConfirm({ tags: parseTags(tagInput), location: selection?.location ?? '', country: selection?.country ?? '' }); }
                }}>
                   {isAdding ? 'Adding…' : isLoadingExisting ? 'Loading keywords…' : 'Track'}

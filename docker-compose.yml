@@ -14,10 +14,12 @@ services:
       PASSWORD: change-me
       SECRET: change-me-to-a-long-random-string
       APIKEY: change-me-to-another-long-random-string
-      MCP_APIKEY: change-me-to-a-separate-long-random-string
+      SESSION_DURATION: 24
+
       MCP_ENABLED: "${MCP_ENABLED:-true}"
       MCP_OAUTH: "false"
-      SESSION_DURATION: 24
+      MCP_APIKEY: change-me-to-a-separate-long-random-string
+
       # Number of reverse proxies in front of the app (see README). 0 uses the socket address.
       TRUST_PROXY: 0
 
@@ -45,6 +47,7 @@ services:
       # --- Scraping and performance ---
       REFRESH_QUEUE_CONCURRENCY: 3
       PARALLEL_SCRAPE_CONCURRENCY: 3
+
       # Optional. Free Serper API key used to turn google.com/goto result links into real URLs (serper.dev).
       SERPER_API_KEY: ""
 

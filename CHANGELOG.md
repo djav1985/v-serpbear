@@ -4,11 +4,22 @@ All notable changes to this project will be documented in this file. Releases no
 
 ## [Unreleased]
 
+### Fixed
+
+- Correct the Swiss flag sprite mapping so it uses its Europe entry instead of Algeria's sprite position.
+- Keep the domain settings dialog height stable across tabs and place its mobile shortcut beside the Insight tab, with the divider below the tabs.
+
 ### Added
 
 - Add MCP OAuth authorization for ChatGPT with PKCE, dynamic client registration, 24-hour access tokens, token rotation and a themed approval screen using `MCP_API_KEY`. OAuth state is stored in `data/mcp_oauth.json`.
 - Add `MCP_ENABLED` as a master switch for direct MCP access and all OAuth/discovery endpoints.
 - Rename the MCP operator key variable to `MCP_APIKEY` and use `CRON_TIMEZONE` for the application timezone.
+- Render MCP OAuth approval through the app page and shared stylesheet/components.
+- Restyle primary and secondary action buttons, enlarge login, OAuth and main Settings action buttons, and make the OAuth cancel action red.
+- Show labeled sample Search Console rows in the Discover screen during development when no real data is available.
+- Use the primary button style for Google Search actions in Ideas, Research and Discover detail panels.
+- Stretch the main Settings tab background across the menu width.
+- Centralize vertical alignment for Add Domain, Load Ideas and Perform Google Search labels; share the sized Settings tab styles across Settings and Domain Settings.
 - Load only `.env` in the cron worker.
 - Keep only the final cron-worker and database startup messages at info level; log preceding startup progress at debug level.
 
@@ -100,7 +111,7 @@ All notable changes to this project will be documented in this file. Releases no
 - Credited the dashboard UI source and linked its MIT license in the README.
 - SerpBase (`serpbase`) scraper: Google search through `POST https://api.serpbase.dev/google/search` with the key in the `X-API-Key` header. City-level targeting through the `location` parameter, mobile and desktop, map pack from `local_results`, and organic results ranked by `rank`. When a result link is a `google.com/goto` redirect, the result's own domain is used instead. SerpBase also reports credits remaining through its free `/account/credits` endpoint.
 - Domain cards show `Credits remaining:` under the last-updated line for scrapers that report it: SerpApi, SearchApi, ValueSERP, HasData, CrazySERP, PrismCrawl, SerpBase and DataForSEO (a dollar balance). Serper and Serply have no way to look it up, so nothing shows. SerpApi, SearchApi, ValueSERP, HasData, CrazySERP, SerpBase and DataForSEO are asked once per API key at the end of a refresh run. PrismCrawl sends the balance in the `X-Credits-Remaining` header, so the lowest value seen in the run is kept. Balances are saved in `data/scraper_credits.json`, keyed by scraper and a keyed hash of the API key, so domains sharing a key share one entry. Entries no domain or the global setting uses anymore are dropped on each save.
-- Domain cards hold the favicon for 500 ms, so a cached screenshot replaces it without a flash, then the screenshot fades in over 500 ms. Settings and domain settings tabs fade their panels in over 1 s, and the domain settings dialog keeps a fixed height and footer position.
+- Domain cards hold the favicon for 500 ms, so a cached screenshot replaces it without a flash, then the screenshot fades in over 500 ms. Settings and domain settings tabs fade their panels in over 1 s, and the domain settings dialog keeps a fixed desktop height and footer position across tabs.
 - Page changes cross-fade (400 ms), and the top bar stays still. Tracker and Discover filters, sorting and the Search Console period update inside transitions. Dialogs and sheets use a 400 ms fade. All motion is turned off for users who prefer reduced motion.
 
 ### Security

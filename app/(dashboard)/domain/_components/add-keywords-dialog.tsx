@@ -176,7 +176,7 @@ export function AddKeywordsDialog({
 
             <DialogFooter>
                <Button variant="outline" onClick={() => close(false)}>Cancel</Button>
-               <Button disabled={isPending} onClick={() => { if (!isPending) { submit(); } }}>{isPending ? 'Adding…' : 'Add Keywords'}</Button>
+               <Button variant="primaryAction" disabled={isPending} onClick={() => { if (!isPending) { submit(); } }}>{isPending ? 'Adding…' : 'Add Keywords'}</Button>
             </DialogFooter>
          </DialogContent>
       </Dialog>

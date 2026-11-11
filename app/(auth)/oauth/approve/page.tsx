@@ -1,16 +1,19 @@
 import type { Metadata } from 'next';
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
 import { getBranding } from 'utils/branding';
 import { logger } from 'utils/logger';
-import { Brand } from 'app/_components/brand';
-import { verifySessionToken } from 'utils/verifyUser';
 import { findActiveAuthorizationRequest, MCP_SCOPE_READ, readClient } from 'utils/mcpOAuth';
+import { Brand } from 'app/_components/brand';
 import { OAuthApprovalForm } from './_components/oauth-approval-form';
 
 export const metadata: Metadata = { title: 'Authorize MCP Connection' };
 
 type PageProps = { searchParams: Promise<{ request?: string, error?: string }> };
+const approvalErrors: Record<string, string> = {
+   incorrect_key: 'That is not the MCP_APIKEY for this server.',
+   key_unconfigured: 'MCP_APIKEY is not configured on this server.',
+   too_many_attempts: 'Too many incorrect keys from this address. Wait 15 minutes and try again.',
+   invalid_decision: 'Choose approve or cancel.',
+};
 
 export default async function OAuthApprovalPage({ searchParams }: PageProps) {
    const { request = '', error = '' } = await searchParams;
@@ -21,14 +24,6 @@ export default async function OAuthApprovalPage({ searchParams }: PageProps) {
    let readOnlyRequested = false;
 
    if (request) {
-      const cookieStore = await cookies();
-      const session = cookieStore.get('token')?.value;
-      try {
-         if (!session) { throw new Error('No login session'); }
-         verifySessionToken(session);
-      } catch (_error) {
-         redirect(`/login?next=${encodeURIComponent(`/oauth/approve?request=${request}`)}`);
-      }
       try {
          const pending = await findActiveAuthorizationRequest(request);
          if (pending && pending.redirectUri) {
@@ -51,7 +46,7 @@ export default async function OAuthApprovalPage({ searchParams }: PageProps) {
    }
    if (request && !requestValid) { logger.error('[OAuth] Approval page could not load the authorization request.', undefined, { operation: 'authorization_approval', reason: 'missing_or_expired_request' }); }
 
-   const message = error === 'session_expired' ? 'Your login session expired. Sign in again to approve this connection.' : '';
+   const message = approvalErrors[error] ?? '';
 
    return (
       <main className="bg-muted/40 flex min-h-screen items-center justify-center p-4">
@@ -61,11 +56,11 @@ export default async function OAuthApprovalPage({ searchParams }: PageProps) {
                <Brand branding={branding} markSize={30} />
             </h1>
             {requestValid ? (
-               <OAuthApprovalForm requestId={request} clientName={clientName} callbackHost={callbackHost} readOnlyRequested={readOnlyRequested} error={message} />
+               <OAuthApprovalForm requestId={request} clientName={clientName} callbackHost={callbackHost} platformName={branding.platformName} readOnlyRequested={readOnlyRequested} error={message} />
             ) : (
                <section className="bg-card text-card-foreground rounded-xl border p-6 shadow-sm">
                   <h2 className="text-base font-semibold">Connection request expired</h2>
-                  <p className="text-muted-foreground mt-2 text-sm">Return to ChatGPT and start connecting SerpBear again.</p>
+                  <p className="text-muted-foreground mt-2 text-sm">Return to ChatGPT and start connecting {branding.platformName} again.</p>
                </section>
             )}
          </div>

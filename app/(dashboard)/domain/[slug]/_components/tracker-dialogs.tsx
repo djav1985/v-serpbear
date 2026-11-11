@@ -126,7 +126,7 @@ function TagsDialog({ keywords, allTags, onClose }: { keywords: KeywordType[]; a
                placeholder="Insert tags. e.g. tag1, tag2"
                onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addTags(); } }}
             >
-               <Button type="button" size="sm" className="absolute top-1/2 right-1 -translate-y-1/2" disabled={isPending} onClick={addTags}>Add</Button>
+               <Button type="button" variant="primaryAction" size="sm" className="absolute top-1/2 right-1 -translate-y-1/2" disabled={isPending} onClick={addTags}>Add</Button>
             </TagInput>
             {inputError && <p role="alert" className="text-destructive text-sm font-medium">{inputError}</p>}
          </DialogContent>
@@ -162,6 +162,7 @@ function ChangeLocationDialog({ keywords, existingLocations, allowsCity, onClose
             <DialogFooter>
                <Button variant="outline" onClick={onClose}>Cancel</Button>
                <Button
+                  variant="primaryAction"
                   disabled={!selection || isPending}
                   onClick={() => { if (selection) { mutate({ keywordIDs: keywords.map((k) => k.ID), location: selection.location, country: selection.country }); } }}
                >

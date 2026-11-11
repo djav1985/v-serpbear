@@ -122,6 +122,7 @@ function LoadIdeasForm({ domain, settings, searchConsoleConnected, adwordsConnec
          </div>
          <DialogFooter>
             <Button
+               variant="primaryAction"
                className="w-full"
                disabled={!adwordsConnected || isPending}
                title={!adwordsConnected ? 'Please connect your Google Ads account to generate keyword ideas.' : undefined}
