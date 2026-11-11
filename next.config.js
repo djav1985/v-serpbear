@@ -43,7 +43,7 @@ const nextConfig = {
       ].join('; '),
     };
     return [
-      { source: '/((?!api/oauth/approve$).*)', headers: [...securityHeaders, contentSecurityPolicy] },
+      { source: '/((?!api/oauth/approve(?:/|$)).*)', headers: [...securityHeaders, contentSecurityPolicy] },
       { source: '/api/oauth/approve', headers: securityHeaders },
       { source: '/login', headers: noStoreHeaders },
       { source: '/domains', headers: privatePageHeaders },
