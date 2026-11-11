@@ -5,7 +5,7 @@ import { getBranding } from 'utils/branding';
 import { logger } from 'utils/logger';
 import { Brand } from 'app/_components/brand';
 import { verifySessionToken } from 'utils/verifyUser';
-import { findActiveAuthorizationRequest, readClient } from 'utils/mcpOAuth';
+import { findActiveAuthorizationRequest, MCP_SCOPE_READ, readClient } from 'utils/mcpOAuth';
 import { OAuthApprovalForm } from './_components/oauth-approval-form';
 
 export const metadata: Metadata = { title: 'Authorize MCP Connection' };
@@ -18,6 +18,7 @@ export default async function OAuthApprovalPage({ searchParams }: PageProps) {
    let clientName = '';
    let callbackHost = '';
    let requestValid = false;
+   let readOnlyRequested = false;
 
    if (request) {
       const cookieStore = await cookies();
@@ -35,10 +36,11 @@ export default async function OAuthApprovalPage({ searchParams }: PageProps) {
             try {
                callbackHost = new URL(pending.redirectUri).host;
                clientName = client?.clientName || 'MCP client';
-            requestValid = !!client;
-            if (requestValid) {
-               logger.info('[OAuth] Approval page loaded for a pending client request.', { operation: 'authorization_approval', callbackHost });
-            }
+               readOnlyRequested = pending.scope === MCP_SCOPE_READ;
+               requestValid = !!client;
+               if (requestValid) {
+                  logger.info('[OAuth] Approval page loaded for a pending client request.', { operation: 'authorization_approval', callbackHost });
+               }
             } catch (_error) {
                requestValid = false;
             }
@@ -59,7 +61,7 @@ export default async function OAuthApprovalPage({ searchParams }: PageProps) {
                <Brand branding={branding} markSize={30} />
             </h1>
             {requestValid ? (
-               <OAuthApprovalForm requestId={request} clientName={clientName} callbackHost={callbackHost} error={message} />
+               <OAuthApprovalForm requestId={request} clientName={clientName} callbackHost={callbackHost} readOnlyRequested={readOnlyRequested} error={message} />
             ) : (
                <section className="bg-card text-card-foreground rounded-xl border p-6 shadow-sm">
                   <h2 className="text-base font-semibold">Connection request expired</h2>

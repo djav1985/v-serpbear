@@ -8,7 +8,10 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 // eslint-disable-next-line import/no-unresolved
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { createRoute, fail, type ApiContext } from '../../../utils/apiLogging';
-import { bearerValue, constantTimeEqual, findCredential, getMcpResourceUrl, getProtectedResourceMetadata } from '../../../utils/mcpOAuth';
+import {
+   bearerValue, constantTimeEqual, findCredential, getMcpResourceUrl, getProtectedResourceMetadata, McpOAuthScope,
+   MCP_SCOPE_FULL, MCP_SCOPE_READ, OAuthCredential,
+} from '../../../utils/mcpOAuth';
 
 type ApiResult = { ok: boolean, status: number, data: unknown };
 type ApiCall = (method: 'GET' | 'POST', path: string, query?: Record<string, string>, body?: unknown) => Promise<ApiResult>;
@@ -38,81 +41,92 @@ const makeApiCall = (baseUrl: string, authorization: string): ApiCall => async (
    return { ok: res.ok, status: res.status, data };
 };
 
-const buildServer = (call: ApiCall): McpServer => {
+const buildServer = (call: ApiCall, scope: McpOAuthScope): McpServer => {
    const server = new McpServer({ name: 'serpbear', version: '1.0.0' });
    const reply = (result: ApiResult) => ({
       isError: !result.ok,
       content: [{ type: 'text' as const, text: JSON.stringify(result.data ?? null, null, 2) }],
    });
+   const register = <TShape extends z.ZodRawShape>(
+      name: string,
+      readOnly: boolean,
+      description: string,
+      inputSchema: TShape,
+      handler: (input: z.infer<z.ZodObject<TShape>>) => Promise<ReturnType<typeof reply>>,
+   ) => {
+      if (scope === MCP_SCOPE_FULL || (scope === MCP_SCOPE_READ && readOnly)) {
+         server.registerTool(name, { description, inputSchema }, handler as never);
+      }
+   };
 
-   server.registerTool('get_keyword', {
-      description: 'Get one tracked keyword by its ID, with its position history.',
-      inputSchema: { id: z.string().describe('Keyword ID') },
-   }, async ({ id }) => reply(await call('GET', '/api/serp/keyword', { id })));
+   register('get_keyword', true, 'Get one tracked keyword by its ID, with its position history.',
+      { id: z.string().describe('Keyword ID') }, async ({ id }) => reply(await call('GET', '/api/serp/keyword', { id })));
 
-   server.registerTool('list_keywords', {
-      description: 'List all tracked keywords of a domain.',
-      inputSchema: { domain: domainField },
-   }, async ({ domain }) => reply(await call('GET', '/api/serp/keywords', { domain })));
+   register('list_keywords', true, 'List all tracked keywords of a domain.',
+      { domain: domainField }, async ({ domain }) => reply(await call('GET', '/api/serp/keywords', { domain })));
 
-   server.registerTool('list_domains', {
-      description: 'List all tracked domains. Set withstats to include keyword statistics.',
-      inputSchema: { withstats: z.boolean().optional() },
-   }, async ({ withstats }) => reply(await call('GET', '/api/serp/domains', withstats ? { withstats: 'true' } : {})));
+   register('list_domains', true, 'List all tracked domains. Set withstats to include keyword statistics.',
+      { withstats: z.boolean().optional() }, async ({ withstats }) => reply(await call('GET', '/api/serp/domains', withstats ? { withstats: 'true' } : {})));
 
-   server.registerTool('get_searchconsole', {
-      description: 'Get the raw Google Search Console data for a domain: per-keyword rows for the last 3, 7 and 30 days, plus stats. Fetched again from Google if the stored copy is older than 24 hours.',
-      inputSchema: { domain: domainField },
-   }, async ({ domain }) => reply(await call('GET', '/api/google/searchconsole', { domain })));
+   register('get_searchconsole', true, 'Get the raw Google Search Console data for a domain: per-keyword rows for the last 3, 7 and 30 days, plus stats. Fetched again from Google if the stored copy is older than 24 hours.',
+      { domain: domainField }, async ({ domain }) => reply(await call('GET', '/api/google/searchconsole', { domain })));
 
-   server.registerTool('get_insight', {
-      description: 'Get a summary of a domain\'s Google Search Console data: the top pages, top keywords and top countries, with stats. Use this for an overview; use get_searchconsole for the full per-keyword rows.',
-      inputSchema: { domain: domainField },
-   }, async ({ domain }) => reply(await call('GET', '/api/google/insight', { domain })));
+   register('get_insight', true, 'Get a summary of a domain\'s Google Search Console data: the top pages, top keywords and top countries, with stats. Use this for an overview; use get_searchconsole for the full per-keyword rows.',
+      { domain: domainField }, async ({ domain }) => reply(await call('GET', '/api/google/insight', { domain })));
 
-   server.registerTool('get_keyword_ideas', {
-      description: 'Get the saved keyword ideas and favourites of a domain. Leave domain out for the research list.',
-      inputSchema: { domain: domainField.optional() },
-   }, async ({ domain }) => reply(await call('GET', '/api/google/ideas', domain ? { domain } : {})));
+   register('get_keyword_ideas', true, 'Get the saved keyword ideas and favourites of a domain. Leave domain out for the research list.',
+      { domain: domainField.optional() }, async ({ domain }) => reply(await call('GET', '/api/google/ideas', domain ? { domain } : {})));
 
    return server;
 };
 
-const handleMcp = async (req: Request, ctx: ApiContext) => {
-   const mcpApiKey = process.env.MCP_API_KEY;
-   const internalApiKey = process.env.APIKEY;
-   if (!internalApiKey) { return fail(500, 'INTERNAL_SERVER_ERROR', 'APIKEY is required for the MCP server to call internal API routes.', ctx); }
+type McpAuthState = { directKeyValid: boolean, oauthCredential: OAuthCredential | null, valid: boolean, reason: string };
 
-   const unauthorized = () => {
-      const metadata = getProtectedResourceMetadata();
-      const headers = metadata ? { 'WWW-Authenticate': `Bearer resource_metadata="${new URL('/.well-known/oauth-protected-resource', metadata.resource).toString()}"` } : undefined;
-      return fail(401, 'UNAUTHORIZED', 'Provide a valid MCP_API_KEY bearer token or authorize this client with OAuth.', ctx, undefined, headers);
-   };
+const getMcpAuthState = async (req: Request): Promise<McpAuthState> => {
+   const mcpApiKey = process.env.MCP_API_KEY;
    const bearer = bearerValue(req);
-   const attempts = getApiKeyAttemptKeys(req);
    const directKeyValid = bearer && mcpApiKey ? constantTimeEqual(bearer, mcpApiKey) : false;
    const oauthCredential = bearer && !directKeyValid ? await findCredential(bearer, 'access_token') : null;
    const resource = getMcpResourceUrl();
    const oauthValid = !!oauthCredential && oauthCredential.revokedAt == null && oauthCredential.expiresAt > Date.now() &&
       (!oauthCredential.resource || oauthCredential.resource === resource);
-   if (!directKeyValid && !oauthValid) {
-      const reason = !bearer ? 'missing_bearer_token' : oauthCredential?.expiresAt && oauthCredential.expiresAt <= Date.now()
+   const reason = !bearer ? 'missing_bearer_token' : oauthCredential?.expiresAt && oauthCredential.expiresAt <= Date.now()
          ? 'expired_oauth_access_token' : oauthCredential?.resource && oauthCredential.resource !== resource
             ? 'oauth_resource_mismatch' : oauthCredential?.revokedAt != null
                ? 'inactive_oauth_access_token' : 'invalid_or_unrecognized_bearer_token';
+   return { directKeyValid: !!directKeyValid, oauthCredential, valid: !!directKeyValid || oauthValid, reason };
+};
+
+const unauthorized = (ctx?: ApiContext): Response => {
+   const metadata = getProtectedResourceMetadata();
+   const headers = metadata ? { 'WWW-Authenticate': `Bearer resource_metadata="${new URL('/.well-known/oauth-protected-resource', metadata.resource).toString()}"` } : undefined;
+   return ctx
+      ? fail(401, 'UNAUTHORIZED', 'Provide a valid MCP_API_KEY bearer token or authorize this client with OAuth.', ctx, undefined, headers)
+      : Response.json({ error: 'unauthorized' }, { status: 401, headers });
+};
+
+const handleMcp = async (req: Request, ctx: ApiContext) => {
+   const attempts = getApiKeyAttemptKeys(req);
+   const auth = await getMcpAuthState(req);
+   if (!auth.valid) {
+      const { reason } = auth;
       logger.error('[OAuth] MCP request authentication failed.', undefined, { operation: 'mcp_authentication', reason });
       if (isLoginLocked(attempts)) {
          return fail(429, 'TOO_MANY_ATTEMPTS', 'Too many failed MCP credentials. Try again in 15 minutes.', ctx, undefined, { 'Retry-After': '900' });
       }
       recordLoginFailure(attempts);
-      return unauthorized();
+      return unauthorized(ctx);
    }
    clearLoginFailures(attempts);
-   logger.info('[OAuth] MCP request authenticated.', { operation: 'mcp_authentication', method: directKeyValid ? 'direct_api_key' : 'oauth_access_token' });
+   if (req.method !== 'POST') { return fail(405, 'METHOD_NOT_ALLOWED', 'Method not allowed', ctx, undefined, { Allow: 'POST' }); }
+   const internalApiKey = process.env.APIKEY;
+   if (!internalApiKey) { return fail(500, 'INTERNAL_SERVER_ERROR', 'APIKEY is required for the MCP server to call internal API routes.', ctx); }
+   const scope = auth.directKeyValid ? MCP_SCOPE_FULL : auth.oauthCredential?.scope ?? MCP_SCOPE_FULL;
+   logger.info('[OAuth] MCP request authenticated.', { operation: 'mcp_authentication', method: auth.directKeyValid ? 'direct_api_key' : 'oauth_access_token', scope });
 
    // Tools call this same server on the port the request arrived on
    const call = makeApiCall(`http://127.0.0.1:${process.env.PORT || 3000}`, `Bearer ${internalApiKey}`);
-   const server = buildServer(call);
+   const server = buildServer(call, scope);
    // Stateless, with plain JSON replies: one request in, one response out, nothing kept between calls
    const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
    await server.connect(transport);
@@ -123,6 +137,13 @@ const handleMcp = async (req: Request, ctx: ApiContext) => {
    return response;
 };
 
+const handleMcpOptions = async (req: Request): Promise<Response> => {
+   const auth = await getMcpAuthState(req);
+   if (!auth.valid) { return unauthorized(); }
+   return new Response(null, { status: 405, headers: { Allow: 'POST' } });
+};
+
 // Stateless Streamable HTTP: only POST carries requests; there is no server-initiated stream to open.
 // Auth is not the cookie/API-key check of other routes: only the Bearer key counts (checked above).
-export const { GET, POST, PUT, PATCH, DELETE } = createRoute({ name: 'mcp', auth: false, POST: handleMcp });
+export const { GET, POST, PUT, PATCH, DELETE } = createRoute({ name: 'mcp', auth: false, GET: handleMcp, POST: handleMcp, PUT: handleMcp, PATCH: handleMcp, DELETE: handleMcp });
+export const OPTIONS = handleMcpOptions;

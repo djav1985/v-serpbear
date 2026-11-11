@@ -3,6 +3,7 @@ import { createRoute, fail, type ApiContext } from '../../../../utils/apiLogging
 import { logger } from '../../../../utils/logger';
 import {
    constantTimeEqual, findCredential, getAuthorizationServerMetadata, getClientRedirectUris, getMcpResourceUrl, getOAuthBaseUrl,
+   getScopeFromRequest, MCP_SCOPE_FULL, MCP_SCOPE_READ, oauthCorsHeaders,
    hashSecret, oauthError, oauthOptions, pruneExpiredOAuthCredentials, randomSecret, readClient, readOAuthForm, saveCredential, withOAuthStore,
 } from '../../../../utils/mcpOAuth';
 
@@ -64,6 +65,7 @@ const authorize = async (req: Request, ctx: ApiContext): Promise<Response> => {
    const challenge = params.get('code_challenge') ?? '';
    const challengeMethod = params.get('code_challenge_method');
    const requestedResource = params.get('resource');
+   const scope = getScopeFromRequest(params.get('scope'));
    const client = clientId ? await readClient(clientId) : null;
    const knownRedirect = !!client && getClientRedirectUris(client).includes(redirectUri);
    if (!client || !knownRedirect) {
@@ -97,7 +99,7 @@ const authorize = async (req: Request, ctx: ApiContext): Promise<Response> => {
    await pruneExpiredOAuthCredentials();
    await saveCredential({
       tokenHash: hashSecret(requestId), kind: 'authorization_request', clientId, redirectUri, codeChallenge: challenge,
-      state: state ?? null, resource: requestedResource ?? resource, expiresAt: Date.now() + 5 * 60 * 1000,
+      state: state ?? null, resource: requestedResource ?? resource, scope, expiresAt: Date.now() + 5 * 60 * 1000,
    });
    logger.info('[OAuth] Authorization request is ready for account approval.', { operation: 'authorization_request' });
    return redirectToApproval(requestId, secure);
@@ -149,6 +151,7 @@ const submitConsent = async (req: Request, ctx: ApiContext): Promise<Response> =
    }
 
    const code = randomSecret();
+   const scope = form.get('read_only') === '1' ? MCP_SCOPE_READ : pending.scope ?? MCP_SCOPE_FULL;
    const codeExpiresAt = Date.now() + 5 * 60 * 1000;
    const consumed = await withOAuthStore((store) => {
       const index = store.credentials.findIndex((item) => item.tokenHash === hashSecret(requestId) && item.kind === 'authorization_request' && item.expiresAt > Date.now());
@@ -158,7 +161,7 @@ const submitConsent = async (req: Request, ctx: ApiContext): Promise<Response> =
       store.credentials.push({
          tokenHash: hashSecret(code), kind: 'authorization_code', clientId: current.clientId,
          redirectUri: current.redirectUri, codeChallenge: current.codeChallenge, state: current.state,
-         resource: current.resource, expiresAt: codeExpiresAt, createdAt: Date.now(),
+         resource: current.resource, scope, expiresAt: codeExpiresAt, createdAt: Date.now(),
       });
       return true;
    });
@@ -171,5 +174,5 @@ const submitConsent = async (req: Request, ctx: ApiContext): Promise<Response> =
    return redirectToClient(pending.redirectUri, { code, ...(pending.state ? { state: pending.state } : {}), iss: issuer }, secure);
 };
 
-export const { GET, POST, PUT, PATCH, DELETE } = createRoute({ name: 'oauth/authorize', auth: false, GET: authorize, POST: submitConsent });
+export const { GET, POST, PUT, PATCH, DELETE } = createRoute({ name: 'oauth/authorize', auth: false, cors: oauthCorsHeaders, GET: authorize, POST: submitConsent });
 export const OPTIONS = oauthOptions;

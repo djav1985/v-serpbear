@@ -3,9 +3,9 @@
 import { Button } from 'components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from 'components/ui/card';
 
-type Props = { requestId: string, clientName: string, callbackHost: string, error: string };
+type Props = { requestId: string, clientName: string, callbackHost: string, readOnlyRequested: boolean, error: string };
 
-export function OAuthApprovalForm({ requestId, clientName, callbackHost, error: initialError }: Props) {
+export function OAuthApprovalForm({ requestId, clientName, callbackHost, readOnlyRequested, error: initialError }: Props) {
    return (
       <Card>
          <CardHeader>
@@ -16,10 +16,14 @@ export function OAuthApprovalForm({ requestId, clientName, callbackHost, error: 
             <div className="mb-5 rounded-lg border bg-muted/40 p-3 text-sm">
                <p><span className="text-muted-foreground">Client: </span><span className="font-medium">{clientName}</span></p>
                <p className="mt-1 break-all"><span className="text-muted-foreground">Returns to: </span>{callbackHost}</p>
-               <p className="text-muted-foreground mt-3">You are signed in to SerpBear. Access is limited to its existing read-only MCP tools.</p>
+               <p className="text-muted-foreground mt-3">You are signed in to SerpBear. Choose the access level for this MCP connection.</p>
             </div>
             <form action="/api/oauth/authorize" method="post" className="flex flex-col gap-4">
                <input type="hidden" name="request" value={requestId} />
+               <label className="flex items-start gap-2 text-sm">
+                  <input type="checkbox" name="read_only" value="1" defaultChecked={readOnlyRequested} />
+                  <span>Read-only access (recommended)</span>
+               </label>
                <p className="text-muted-foreground text-sm">Your SerpBear login authorizes this connection.</p>
                {initialError && <p role="alert" className="text-destructive text-sm">{initialError}</p>}
                <Button type="submit" name="decision" value="approve" className="w-full">Approve connection</Button>

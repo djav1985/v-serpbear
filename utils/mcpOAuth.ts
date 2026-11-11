@@ -9,13 +9,20 @@ import { withFileLock } from './fileLock';
 export const OAUTH_CODE_TTL_MS = 5 * 60 * 1000;
 export const OAUTH_ACCESS_TTL_SECONDS = 24 * 60 * 60;
 export const OAUTH_REFRESH_TTL_MS = 90 * 24 * 60 * 60 * 1000;
-export const MCP_SCOPE = 'serpbear.read';
+export const MCP_SCOPE_FULL = 'mcp:full';
+export const MCP_SCOPE_READ = 'mcp:read';
+export const MCP_SCOPES = [MCP_SCOPE_FULL, MCP_SCOPE_READ] as const;
+export type McpOAuthScope = typeof MCP_SCOPES[number];
+const MAX_REDIRECT_URIS = 8;
+const MAX_OAUTH_CLIENTS = 500;
+const UNUSED_CLIENT_TTL_MS = 24 * 60 * 60 * 1000;
 
 export type OAuthClient = {
    clientId: string;
    clientName: string | null;
    redirectUris: string[];
    createdAt: number;
+   hasGrant?: boolean;
 };
 
 export type OAuthCredentialKind = 'authorization_code' | 'access_token' | 'refresh_token' | 'authorization_request';
@@ -29,6 +36,7 @@ export type OAuthCredential = {
    codeChallenge?: string | null;
    state?: string | null;
    resource?: string | null;
+   scope?: McpOAuthScope | null;
    expiresAt: number;
    revokedAt?: number | null;
    createdAt: number;
@@ -105,12 +113,14 @@ export const getAuthorizationServerMetadata = () => {
       authorization_endpoint: `${issuer}/api/oauth/authorize`,
       token_endpoint: `${issuer}/api/oauth/token`,
       registration_endpoint: `${issuer}/api/oauth/register`,
+      revocation_endpoint: `${issuer}/api/oauth/revoke`,
       response_types_supported: ['code'],
       response_modes_supported: ['query'],
       grant_types_supported: ['authorization_code', 'refresh_token'],
       token_endpoint_auth_methods_supported: ['none'],
       code_challenge_methods_supported: ['S256'],
-      scopes_supported: [MCP_SCOPE],
+      scopes_supported: [...MCP_SCOPES],
+      revocation_endpoint_auth_methods_supported: ['none'],
       client_id_metadata_document_supported: false,
    };
 };
@@ -119,7 +129,14 @@ export const getProtectedResourceMetadata = () => {
    const resource = getMcpResourceUrl();
    const issuer = getOAuthBaseUrl();
    if (!resource || !issuer) { return null; }
-   return { resource, authorization_servers: [issuer], scopes_supported: [MCP_SCOPE], bearer_methods_supported: ['header'] };
+   return { resource, authorization_servers: [issuer], scopes_supported: [...MCP_SCOPES], bearer_methods_supported: ['header'] };
+};
+
+/** Match the example server: unknown scopes are ignored and full access is the default. */
+export const getScopeFromRequest = (requested: string | null): McpOAuthScope => {
+   const scopes = (requested ?? '').split(/[\s+]+/).filter(Boolean);
+   if (scopes.includes(MCP_SCOPE_FULL)) { return MCP_SCOPE_FULL; }
+   return scopes.includes(MCP_SCOPE_READ) ? MCP_SCOPE_READ : MCP_SCOPE_FULL;
 };
 
 export const oauthCorsHeaders = {
@@ -148,21 +165,49 @@ export const readOAuthForm = async (req: Request, maxBytes = 32 * 1024): Promise
    return text === null ? null : new URLSearchParams(text);
 };
 
+/** OAuth token and revocation clients may send either form data or JSON. */
+export const readOAuthFormOrJson = async (req: Request, maxBytes = 16 * 1024): Promise<URLSearchParams | null> => {
+   const length = Number(req.headers.get('content-length'));
+   if (Number.isFinite(length) && length > maxBytes) { return null; }
+   const text = await readTextUpTo(req.body, maxBytes);
+   if (text === null) { return null; }
+   if ((req.headers.get('content-type') ?? '').toLowerCase().includes('json')) {
+      try {
+         const body = JSON.parse(text) as unknown;
+         if (!body || typeof body !== 'object' || Array.isArray(body)) { return null; }
+         const params = new URLSearchParams();
+         Object.entries(body as Record<string, unknown>).forEach(([key, value]) => {
+            if (value !== null && value !== undefined) { params.set(key, String(value)); }
+         });
+         return params;
+      } catch (_error) {
+         return null;
+      }
+   }
+   return new URLSearchParams(text);
+};
+
 export const bearerValue = (req: Request): string | null => {
    const header = req.headers.get('authorization') ?? '';
    return /^Bearer\s+/i.test(header) ? header.replace(/^Bearer\s+/i, '').trim() : null;
 };
 
 export const parseRedirectUris = (value: unknown): string[] | null => {
-   if (!Array.isArray(value) || value.length === 0 || value.length > 20) { return null; }
+   if (!Array.isArray(value) || value.length === 0 || value.length > MAX_REDIRECT_URIS) { return null; }
    const result: string[] = [];
    for (const uri of value) {
       if (typeof uri !== 'string' || uri.length > 2048) { return null; }
       try {
          const parsed = new URL(uri);
          const loopback = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1' || parsed.hostname === '[::1]';
-         if ((parsed.protocol !== 'https:' && !(parsed.protocol === 'http:' && loopback)) || parsed.username || parsed.password || parsed.hash || uri.includes('#')) { return null; }
-         if (result.includes(uri)) { return null; }
+         if (parsed.hash) { return null; }
+         if (parsed.protocol === 'https:') {
+            if (!parsed.hostname) { return null; }
+         } else if (parsed.protocol === 'http:') {
+            if (!loopback) { return null; }
+         } else if (/^(javascript|data|file|blob|about|vbscript|ws|wss|ftp):$/.test(parsed.protocol) || !/^[a-z][a-z0-9+.-]*:$/.test(parsed.protocol)) {
+            return null;
+         }
          result.push(uri);
       } catch (_error) {
          return null;
@@ -171,15 +216,23 @@ export const parseRedirectUris = (value: unknown): string[] | null => {
    return result;
 };
 
-export const createClient = async (clientName: string | null, redirectUris: string[]): Promise<OAuthClient> => {
+export const createClient = async (clientName: string | null, redirectUris: string[]): Promise<OAuthClient | null> => {
    const client: OAuthClient = {
       clientId: `serpbear_${randomSecret()}`,
-      clientName: clientName?.trim().slice(0, 120) || null,
+      clientName: clientName?.slice(0, 80) || null,
       redirectUris,
       createdAt: Date.now(),
    };
-   await withOAuthStore((store) => { store.clients.push(client); });
-   return client;
+   return withOAuthStore((store) => {
+      const cutoff = Date.now() - UNUSED_CLIENT_TTL_MS;
+      const clientsWithGrants = new Set(store.credentials
+         .filter((credential) => credential.kind === 'access_token' || credential.kind === 'refresh_token')
+         .map((credential) => credential.clientId));
+      store.clients = store.clients.filter((existing) => existing.createdAt >= cutoff || existing.hasGrant || clientsWithGrants.has(existing.clientId));
+      if (store.clients.length >= MAX_OAUTH_CLIENTS) { return null; }
+      store.clients.push(client);
+      return client;
+   });
 };
 
 export const readClient = async (clientId: string): Promise<OAuthClient | null> => {
@@ -216,3 +269,19 @@ export const verifyPkce = (verifier: string, challenge: string): boolean => {
 export const pruneExpiredOAuthCredentials = async (): Promise<void> => {
    await withOAuthStore((store) => { store.credentials = store.credentials.filter((credential) => credential.expiresAt > Date.now()); });
 };
+
+/** Revoke an OAuth grant when any access token or current/previous refresh token is presented. */
+export const revokeOAuthGrantFromToken = async (token: string): Promise<boolean> => withOAuthStore((store) => {
+   const tokenHash = hashSecret(token);
+   const credential = store.credentials.find((item) => item.tokenHash === tokenHash &&
+      (item.kind === 'access_token' || item.kind === 'refresh_token'));
+   if (!credential?.grantId) { return false; }
+   let revoked = false;
+   store.credentials.forEach((item) => {
+      if (item.grantId === credential.grantId && item.revokedAt == null) {
+         item.revokedAt = Date.now();
+         revoked = true;
+      }
+   });
+   return revoked;
+});

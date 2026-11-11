@@ -23,6 +23,8 @@ type RouteDefinition = Partial<Record<HttpMethod, ApiHandler>> & {
    name: string;
    /** Requires a login cookie or an allowed API key before any method runs. Defaults to true. */
    auth?: boolean;
+   /** Additional headers for JSON responses from protocol routes such as OAuth. */
+   cors?: HeadersInit;
 };
 
 /** For a route that is public for some methods: the 401 response when the request is not signed in, otherwise null. */
@@ -112,6 +114,12 @@ const run = async (handler: ApiHandler | undefined, def: RouteDefinition, req: R
          });
          response = fail(500, 'INTERNAL_SERVER_ERROR', 'Internal server error', ctx);
       }
+   }
+
+   if (def.cors && response.headers.get('content-type')?.includes('application/json')) {
+      const headers = new Headers(response.headers);
+      new Headers(def.cors).forEach((value, key) => headers.set(key, value));
+      response = new Response(response.body, { status: response.status, statusText: response.statusText, headers });
    }
 
    const statusCode = response.status;
