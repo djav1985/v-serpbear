@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file. Releases no
 
 ### Fixed
 
+- Avoid blocking request handling while cancelling an oversized debug logging stream.
 - Load the settings editor through an explicitly authenticated full-settings request, and show an error instead of empty fields if the session is invalid.
 
 ### Changed

@@ -52,7 +52,9 @@ export const readTextUpTo = async (stream: ReadableStream<Uint8Array> | null, ma
       if (done) { break; }
       total += value.byteLength;
       if (total > maxBytes) {
-         await reader.cancel().catch(() => undefined);
+         // A cloned Request body is a tee'd stream; cancellation can stay pending until the other
+         // branch is consumed. Start cancellation, but don't block the caller on that promise.
+         void reader.cancel().catch(() => undefined);
          return null;
       }
       chunks.push(value);
