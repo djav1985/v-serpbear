@@ -35,7 +35,10 @@ export default async function OAuthApprovalPage({ searchParams }: PageProps) {
             try {
                callbackHost = new URL(pending.redirectUri).host;
                clientName = client?.clientName || 'MCP client';
-               requestValid = !!client;
+            requestValid = !!client;
+            if (requestValid) {
+               logger.info('[OAuth] Approval page loaded for a pending client request.', { operation: 'authorization_approval', callbackHost });
+            }
             } catch (_error) {
                requestValid = false;
             }

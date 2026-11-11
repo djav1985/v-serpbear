@@ -51,6 +51,7 @@ const redirectToLogin = (requestId: string, base: string): Response => {
 };
 
 const authorize = async (req: Request, ctx: ApiContext): Promise<Response> => {
+   logger.info('[OAuth] Authorization request received.', { operation: 'authorization_request' });
    const base = getOAuthBaseUrl();
    const resource = getMcpResourceUrl();
    if (!base || !resource || !getAuthorizationServerMetadata()) { return fail(503, 'SERVICE_UNAVAILABLE', 'Set NEXT_PUBLIC_APP_URL to the public HTTPS URL of this server.', ctx); }
@@ -65,7 +66,10 @@ const authorize = async (req: Request, ctx: ApiContext): Promise<Response> => {
    const requestedResource = params.get('resource');
    const client = clientId ? await readClient(clientId) : null;
    const knownRedirect = !!client && getClientRedirectUris(client).includes(redirectUri);
-   if (!client || !knownRedirect) { return oauthError('invalid_request', 400, 'Unknown client or unregistered redirect URI.'); }
+   if (!client || !knownRedirect) {
+      logger.error('[OAuth] Authorization request rejected.', undefined, { operation: 'authorization', reason: !client ? 'unknown_client' : 'unregistered_redirect_uri' });
+      return oauthError('invalid_request', 400, 'Unknown client or unregistered redirect URI.');
+   }
 
    const failThroughClient = (error: string, description?: string) => {
       logger.error('[OAuth] Authorization request rejected.', undefined, {
@@ -100,6 +104,7 @@ const authorize = async (req: Request, ctx: ApiContext): Promise<Response> => {
 };
 
 const submitConsent = async (req: Request, ctx: ApiContext): Promise<Response> => {
+   logger.info('[OAuth] Approval form submission received.', { operation: 'authorization_consent' });
    const base = getOAuthBaseUrl();
    if (!base) { return fail(503, 'SERVICE_UNAVAILABLE', 'OAuth is not configured.', ctx); }
    const secure = base.startsWith('https://');
@@ -108,16 +113,24 @@ const submitConsent = async (req: Request, ctx: ApiContext): Promise<Response> =
    const requestId = form.get('request') ?? '';
    const cookieId = getCookieValue(req, PENDING_COOKIE);
    if (!requestId || !cookieId || !constantTimeEqual(requestId, cookieId)) {
+      logger.error('[OAuth] Approval form rejected.', undefined, { operation: 'authorization_consent', reason: 'missing_or_mismatched_request_cookie' });
       return fail(400, 'BAD_REQUEST', 'This approval request has expired. Start the connection again.', ctx);
    }
-   if (!hasValidSessionCookie(req)) { return redirectToLogin(requestId, base); }
+   if (!hasValidSessionCookie(req)) {
+      logger.info('[OAuth] Approval form requires an account login.', { operation: 'authorization_consent', reason: 'login_required' });
+      return redirectToLogin(requestId, base);
+   }
 
    const pending = await findCredential(requestId, 'authorization_request');
    if (!pending || pending.expiresAt <= Date.now() || pending.revokedAt || !pending.redirectUri) {
+      logger.error('[OAuth] Approval form rejected.', undefined, { operation: 'authorization_consent', reason: 'missing_or_expired_request' });
       return fail(400, 'BAD_REQUEST', 'This approval request has expired. Start the connection again.', ctx);
    }
    const client = await readClient(pending.clientId);
-   if (!client) { return fail(400, 'BAD_REQUEST', 'The OAuth client registration is no longer available.', ctx); }
+   if (!client) {
+      logger.error('[OAuth] Approval form rejected.', undefined, { operation: 'authorization_consent', reason: 'client_registration_missing' });
+      return fail(400, 'BAD_REQUEST', 'The OAuth client registration is no longer available.', ctx);
+   }
    const issuer = base;
    const deny = form.get('decision') === 'deny';
    if (deny) {
@@ -127,7 +140,10 @@ const submitConsent = async (req: Request, ctx: ApiContext): Promise<Response> =
          store.credentials.splice(index, 1);
          return true;
       });
-      if (!denied) { return fail(400, 'BAD_REQUEST', 'This approval request has already been used.', ctx); }
+      if (!denied) {
+         logger.error('[OAuth] Approval form rejected.', undefined, { operation: 'authorization_consent', reason: 'request_already_used' });
+         return fail(400, 'BAD_REQUEST', 'This approval request has already been used.', ctx);
+      }
       logger.info('[OAuth] User denied an MCP client authorization request.', { operation: 'authorization_denied' });
       return redirectToClient(pending.redirectUri, { error: 'access_denied', ...(pending.state ? { state: pending.state } : {}), iss: issuer }, secure);
    }
@@ -146,7 +162,10 @@ const submitConsent = async (req: Request, ctx: ApiContext): Promise<Response> =
       });
       return true;
    });
-   if (!consumed) { return fail(400, 'BAD_REQUEST', 'This approval request has already been used.', ctx); }
+   if (!consumed) {
+      logger.error('[OAuth] Approval form rejected.', undefined, { operation: 'authorization_consent', reason: 'request_already_used' });
+      return fail(400, 'BAD_REQUEST', 'This approval request has already been used.', ctx);
+   }
 
    logger.info('[OAuth] User approved an MCP client authorization request.', { operation: 'authorization_approved' });
    return redirectToClient(pending.redirectUri, { code, ...(pending.state ? { state: pending.state } : {}), iss: issuer }, secure);

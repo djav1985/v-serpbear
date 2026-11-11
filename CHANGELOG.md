@@ -24,6 +24,7 @@ All notable changes to this project will be documented in this file. Releases no
 - Ignore OAuth scopes the MCP client requests but SerpBear does not implement, granting only the supported `serpbear.read` scope.
 - Log OAuth endpoint failures and MCP OAuth authentication failures at error level with diagnostic codes while keeping bearer tokens and authorization codes out of logs.
 - Log successful OAuth discovery, registration, approval and token exchanges at info level without logging credentials.
+- Add OAuth decision reason logs for registration, authorization, consent and token exchange, plus successful MCP authentication and request handling, without logging secrets.
 - Omit `client_name` from OAuth dynamic-registration responses when the client did not provide a name, rather than returning an invalid `null` value.
 - Avoid blocking request handling while cancelling an oversized debug logging stream.
 - Load the settings editor through an explicitly authenticated full-settings request, and show an error instead of empty fields if the session is invalid.

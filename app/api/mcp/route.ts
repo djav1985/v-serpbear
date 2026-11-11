@@ -108,6 +108,7 @@ const handleMcp = async (req: Request, ctx: ApiContext) => {
       return unauthorized();
    }
    clearLoginFailures(attempts);
+   logger.info('[OAuth] MCP request authenticated.', { operation: 'mcp_authentication', method: directKeyValid ? 'direct_api_key' : 'oauth_access_token' });
 
    // Tools call this same server on the port the request arrived on
    const call = makeApiCall(`http://127.0.0.1:${process.env.PORT || 3000}`, `Bearer ${internalApiKey}`);
@@ -116,6 +117,7 @@ const handleMcp = async (req: Request, ctx: ApiContext) => {
    const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
    await server.connect(transport);
    const response = await transport.handleRequest(req);
+   logger.info('[MCP] Streamable HTTP request handled.', { operation: 'mcp_request', statusCode: response.status });
    // Closing now is safe because the reply is already complete (JSON mode)
    void Promise.resolve().then(() => { transport.close(); server.close(); });
    return response;

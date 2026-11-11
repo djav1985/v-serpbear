@@ -8,17 +8,27 @@ import {
 const invalidGrant = () => oauthError('invalid_grant', 400, 'The authorization code or refresh token is invalid, expired, or replayed.');
 
 const handleToken = async (req: Request, _ctx: ApiContext): Promise<Response> => {
+   logger.info('[OAuth] Token request received.', { operation: 'token_request' });
    const form = await readOAuthForm(req);
-   if (!form) { return oauthError('invalid_request', 400, 'Invalid token request.'); }
+   if (!form) {
+      logger.error('[OAuth] Token request rejected.', undefined, { operation: 'token_request', reason: 'invalid_or_oversized_form' });
+      return oauthError('invalid_request', 400, 'Invalid token request.');
+   }
    const grantType = form.get('grant_type');
    const clientId = form.get('client_id') ?? '';
-   if (!clientId) { return oauthError('invalid_request', 400, 'client_id is required.'); }
+   if (!clientId) {
+      logger.error('[OAuth] Token request rejected.', undefined, { operation: 'token_request', reason: 'missing_client_id' });
+      return oauthError('invalid_request', 400, 'client_id is required.');
+   }
 
    if (grantType === 'authorization_code') {
       const code = form.get('code') ?? '';
       const redirectUri = form.get('redirect_uri') ?? '';
       const verifier = form.get('code_verifier') ?? '';
-      if (!code || !redirectUri || verifier.length < 43 || verifier.length > 128) { return invalidGrant(); }
+      if (!code || !redirectUri || verifier.length < 43 || verifier.length > 128) {
+         logger.error('[OAuth] Authorization code exchange rejected.', undefined, { operation: 'token_exchange', grantType, reason: 'missing_code_redirect_or_invalid_verifier' });
+         return invalidGrant();
+      }
       const accessToken = randomSecret();
       const refreshToken = randomSecret();
       const grantId = randomIdentifier();
@@ -41,14 +51,20 @@ const handleToken = async (req: Request, _ctx: ApiContext): Promise<Response> =>
          store.credentials.push(...records);
          return true;
       });
-      if (!result) { return invalidGrant(); }
+      if (!result) {
+         logger.error('[OAuth] Authorization code exchange rejected.', undefined, { operation: 'token_exchange', grantType, reason: 'code_invalid_expired_or_binding_mismatch' });
+         return invalidGrant();
+      }
       logger.info('[OAuth] Authorization code exchanged for tokens.', { operation: 'token_exchange', grantType: 'authorization_code' });
       return oauthSuccess({ access_token: accessToken, token_type: 'Bearer', expires_in: OAUTH_ACCESS_TTL_SECONDS, refresh_token: refreshToken, scope: 'serpbear.read' });
    }
 
    if (grantType === 'refresh_token') {
       const refreshToken = form.get('refresh_token') ?? '';
-      if (!refreshToken) { return invalidGrant(); }
+      if (!refreshToken) {
+         logger.error('[OAuth] Refresh token exchange rejected.', undefined, { operation: 'token_exchange', grantType, reason: 'missing_refresh_token' });
+         return invalidGrant();
+      }
       const accessToken = randomSecret();
       const nextRefreshToken = randomSecret();
       const now = Date.now();
@@ -72,11 +88,15 @@ const handleToken = async (req: Request, _ctx: ApiContext): Promise<Response> =>
          );
          return 'ok' as const;
       });
-      if (result !== 'ok') { return invalidGrant(); }
+      if (result !== 'ok') {
+         logger.error('[OAuth] Refresh token exchange rejected.', undefined, { operation: 'token_exchange', grantType, reason: result === 'replay' ? 'refresh_token_replay' : 'refresh_token_invalid_expired_or_resource_mismatch' });
+         return invalidGrant();
+      }
       logger.info('[OAuth] Refresh token exchanged for new tokens.', { operation: 'token_exchange', grantType: 'refresh_token' });
       return oauthSuccess({ access_token: accessToken, token_type: 'Bearer', expires_in: OAUTH_ACCESS_TTL_SECONDS, refresh_token: nextRefreshToken, scope: 'serpbear.read' });
    }
 
+   logger.error('[OAuth] Token request rejected.', undefined, { operation: 'token_request', reason: 'unsupported_grant_type' });
    return oauthError('unsupported_grant_type', 400, 'Supported grant types are authorization_code and refresh_token.');
 };
 
