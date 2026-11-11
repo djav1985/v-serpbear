@@ -69,7 +69,7 @@ There are three ways to give SerpBear the credentials. They are read in this ord
 
 ![The Insight screen](images/insight.png)
 
-Cached data is refetched when a dashboard or API read finds it more than 24 hours old, and by the cron at the `CRON_MAIN_SCHEDULE` time. Search Console days follow Pacific Time (`America/Los_Angeles`) whatever `TZ` is. Results are read in pages of up to 25,000 rows.
+Cached data is refetched when a dashboard or API read finds it more than 24 hours old, and by the cron at the `CRON_MAIN_SCHEDULE` time. Search Console days follow Pacific Time (`America/Los_Angeles`) whatever `CRON_TIMEZONE` is. Results are read in pages of up to 25,000 rows.
 
 ---
 

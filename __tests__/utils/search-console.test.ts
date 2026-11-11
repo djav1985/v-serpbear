@@ -33,11 +33,11 @@ describe('Search Console utilities', () => {
   const mockGetSearchConsoleApiInfo = getSearchConsoleApiInfo as jest.Mock;
 
   describe('Search Console caching helpers', () => {
-    const originalTimezone = process.env.TZ;
+    const originalTimezone = process.env.CRON_TIMEZONE;
     const timezoneSetting = 'America/New_York';
 
     beforeEach(() => {
-      process.env.TZ = timezoneSetting;
+      process.env.CRON_TIMEZONE = timezoneSetting;
       jest.clearAllMocks();
       mockReadLocalSCData.mockReset();
       mockFetchDomainSCData.mockReset();
@@ -50,7 +50,7 @@ describe('Search Console utilities', () => {
     });
 
     afterAll(() => {
-      process.env.TZ = originalTimezone;
+      process.env.CRON_TIMEZONE = originalTimezone;
     });
 
     it('detects that lastFetched occurred today in the cron timezone', () => {

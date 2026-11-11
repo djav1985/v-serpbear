@@ -291,19 +291,17 @@ describe('cron worker', () => {
       expect(process.env.CRON_ENV_TEST_ONLY_ENV).toBe('from-env');
     });
 
-    it('prefers .env.local over .env when both define a key', () => {
-      writeFileSync(path.join(dir, '.env.local'), 'CRON_ENV_TEST_LOCAL=from-local\nCRON_ENV_TEST_SHARED=local-wins\n');
-      writeFileSync(path.join(dir, '.env'), 'CRON_ENV_TEST_SHARED=env-file\nCRON_ENV_TEST_LOCAL=env-file\n');
+    it('loads variables from .env', () => {
+      writeFileSync(path.join(dir, '.env'), 'CRON_ENV_TEST_SHARED=env-file\nCRON_ENV_TEST_ONLY=from-env\n');
 
       loadEnvFiles(dir);
 
-      expect(process.env.CRON_ENV_TEST_SHARED).toBe('local-wins');
-      expect(process.env.CRON_ENV_TEST_LOCAL).toBe('from-local');
+      expect(process.env.CRON_ENV_TEST_SHARED).toBe('env-file');
+      expect(process.env.CRON_ENV_TEST_ONLY).toBe('from-env');
     });
 
     it('keeps variables already in the process environment (for example from docker compose)', () => {
       process.env.CRON_ENV_TEST_SHELL = 'from-shell';
-      writeFileSync(path.join(dir, '.env.local'), 'CRON_ENV_TEST_SHELL=from-local\n');
       writeFileSync(path.join(dir, '.env'), 'CRON_ENV_TEST_SHELL=from-env\n');
 
       loadEnvFiles(dir);
@@ -311,7 +309,7 @@ describe('cron worker', () => {
       expect(process.env.CRON_ENV_TEST_SHELL).toBe('from-shell');
     });
 
-    it('does not fail when neither env file exists', () => {
+    it('does not fail when .env does not exist', () => {
       expect(() => loadEnvFiles(dir)).not.toThrow();
     });
   });

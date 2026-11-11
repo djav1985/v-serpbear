@@ -5,14 +5,8 @@ const { promises, watch } = require('fs');
 const { Cron } = require('croner');
 const dotenv = require('dotenv');
 
-/**
- * Loads the same env files Next.js reads, so the worker sees APIKEY, SECRET and the CRON_* values outside Docker.
- * dotenv never overrides a variable that is already set, so the first file loaded wins: .env.local is loaded
- * before the optional .env. Variables already in the process environment (for example from docker compose)
- * take precedence over both files.
- */
+/** Load the shared .env file; environment values supplied by Docker Compose take precedence. */
 const loadEnvFiles = (dir = process.cwd()) => {
-   dotenv.config({ path: path.join(dir, '.env.local') });
    dotenv.config({ path: path.join(dir, '.env') });
 };
 
@@ -59,10 +53,10 @@ const isValidTimezone = (value) => {
       return false;
    }
 };
-const configuredTimezone = normalizeValue(process.env.TZ, DEFAULT_TZ);
-const TZ_NAME = isValidTimezone(configuredTimezone) ? configuredTimezone : DEFAULT_TZ;
+const configuredTimezone = normalizeValue(process.env.CRON_TIMEZONE, DEFAULT_TZ);
+const CRON_TIMEZONE_NAME = isValidTimezone(configuredTimezone) ? configuredTimezone : DEFAULT_TZ;
 /**
- * CRON_MAIN_SCHEDULE and CRON_EMAIL_SCHEDULE are times of day ("HH:MM", 24 hour, in TZ). The interval
+ * CRON_MAIN_SCHEDULE and CRON_EMAIL_SCHEDULE are times of day ("HH:MM", 24 hour, in CRON_TIMEZONE). The interval
  * settings decide on which days a job runs at that time. A value that is not a valid time (for example an old
  * cron expression) is logged and replaced by the default.
  */
@@ -250,7 +244,7 @@ const scheduleJob = (name, expression, task, options) => {
 const RETRY_BATCH_SIZE = 100;
 
 const runAppCronJobs = () => {
-   logger.info('[CRON] Initializing application cron jobs.', { timezone: TZ_NAME });
+   logger.debug('[CRON] Initializing application cron jobs.', { timezone: CRON_TIMEZONE_NAME });
    
    // APP_URL is the internal origin for the worker's own calls and wins when set (the public URL may not be
    // reachable from inside the container). Falls back to NEXT_PUBLIC_APP_URL, then localhost.
@@ -259,7 +253,7 @@ const runAppCronJobs = () => {
    logger.debug('[CRON] Worker configuration.', { url: internalApiUrl, apiKeyConfigured: !!process.env.APIKEY });
    
    // Timezone only: croner has no "scheduled" option, jobs start as soon as they are created
-   const cronOptions = { timezone: TZ_NAME };
+   const cronOptions = { timezone: CRON_TIMEZONE_NAME };
 
    // The scrape and email jobs follow the settings. Settings are re-read when data/settings.json changes (fs.watch,
    // debounced) and every 30 minutes as a safety check. Jobs are rebuilt only when the schedule changed.
@@ -400,7 +394,7 @@ const runAppCronJobs = () => {
       makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/google/searchconsole', '[CRON] Search Console Scraper Result');
    }, cronOptions);
    
-   logger.info('[CRON] All cron jobs initialized successfully.');
+   logger.debug('[CRON] All cron jobs initialized successfully.');
 };
 
 if (require.main === module) {

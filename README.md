@@ -58,7 +58,7 @@ The full list of changes is in the [changelog](./CHANGELOG.md). See [Update Serp
 - **Idea emails and richer digests.** Email selected keyword ideas and see a tracker summary with average position and map pack counts in digest emails.
 - **Flexible schedules.** Choose the time and timezone for scheduled scrapes, failed-scrape retries, Search Console refreshes, and email digests.
 - **Read-only MCP server.** AI assistants can read rankings, Search Console data, and keyword ideas through MCP.
-- **MCP OAuth for ChatGPT.** Connect through the themed approval screen, or use `MCP_API_KEY` directly as a bearer token.
+- **MCP OAuth for ChatGPT.** Connect through the themed approval screen, or use `MCP_APIKEY` directly as a bearer token.
 - **White-label branding.** Apply a custom app and email name and logo without rebuilding the app.
 - **A rebuilt responsive interface.** The fork replaces the older pages with a responsive dashboard, shared data tables, settings panels, and transitions that respect reduced-motion preferences.
 
@@ -96,7 +96,7 @@ The full list of changes is in the [changelog](./CHANGELOG.md). See [Update Serp
 ```bash
 git clone https://github.com/djav1985/v-serpbear.git
 cd v-serpbear
-# edit docker-compose.yml: replace PASSWORD, SECRET, APIKEY and MCP_API_KEY, and set NEXT_PUBLIC_APP_URL
+# edit docker-compose.yml: replace PASSWORD, SECRET, APIKEY and MCP_APIKEY, and set NEXT_PUBLIC_APP_URL
 docker compose up -d
 ```
 
@@ -154,8 +154,9 @@ Behaviour is controlled by environment variables inside docker compose as well a
 | `PASSWORD` | — | Yes | Dashboard password. Replace the `change-me` placeholder. |
 | `SECRET` | — | Yes | Signs the session JWT stored in the `token` cookie and encrypts stored keys. Login returns 500 when it is unset. Changing it signs everyone out and makes stored encrypted keys unreadable, so they must be re-entered. Use a unique value per deployment (`openssl rand -hex 32`). |
 | `APIKEY` | — | Yes | Key for REST clients and cron worker calls; MCP uses it internally for REST calls. Use `openssl rand -hex 32`. |
-| `MCP_API_KEY` | — | Required for OAuth; optional for direct MCP | Operator key used for OAuth approval and, when configured, direct MCP Bearer access. Keep it separate from `APIKEY`. |
-| `MCP_OAUTH` | `false` | No | Set to `true` to enable MCP OAuth discovery, registration, authorization, token and revocation endpoints. When disabled, direct MCP API-key access remains available and unauthenticated requests receive `WWW-Authenticate: Bearer`. Also accepts `1`, `yes` or `on`. |
+| `MCP_APIKEY` | — | Required for OAuth; optional for direct MCP | Operator key used for OAuth approval and, when configured, direct MCP Bearer access. Keep it separate from `APIKEY`. |
+| `MCP_ENABLED` | `true` | No | Master switch for MCP. Set to `false` to disable the MCP endpoint and all OAuth/discovery endpoints. Also accepts `0`, `no` or `off`. |
+| `MCP_OAUTH` | `false` | No | Set to `true` to enable OAuth discovery, registration, authorization, token and revocation endpoints while MCP is enabled. When false, direct MCP API-key access remains available. Also accepts `1`, `yes` or `on`. |
 | `SESSION_DURATION` | `24` | No | Session lifetime in hours. Empty, zero, negative or non-numeric values use 24. |
 | `TRUST_PROXY` | `0` | No | Number of reverse proxies in front of the app. `true` means 1, values above 10 are capped at 10, and invalid values mean 0. Login lockouts, API-key lockouts and the keyword-search and volume rate limits then use the `X-Forwarded-For` entry that many hops from the right. Without it, every client shares one address, so five wrong logins or API keys from anyone lock everyone out for 15 minutes. The app cannot see the connection's own address, and a client can send its own `X-Forwarded-For`, so the header is trusted only when you say how many proxies are in front. It also controls whether `X-Forwarded-Proto`, `X-Forwarded-Protocol` and `X-Forwarded-Ssl` set the `Secure` cookie flag; without it only the request's own `https://` URL does. |
 | `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | No | Public URL of the deployment, used for the Google Ads OAuth return origin, email links and logo, and as the cron worker's fallback origin. Set it for real deployments. |
@@ -169,7 +170,7 @@ Behaviour is controlled by environment variables inside docker compose as well a
 | `PARALLEL_SCRAPE_CONCURRENCY` | `3` | No | Keywords scraped at once per domain on the sequential path, which is used for every other provider. Positive integer. |
 | `SERPER_API_KEY` | empty | No | Free [Serper](https://serper.dev) key. When set, organic `google.com/goto` links are resolved to real URLs through Serper's `/resolve` endpoint, for every provider. Each SERP page makes one batched request with a 30 s timeout. A failed or timed-out call is tried once more, and links still unresolved are sent once more after the `retryAfter` seconds Serper reports. Anything still unresolved keeps the Google link and is logged as a warning. Without a key, those links stay as they are. |
 | `LOG_LEVEL` | `info` | No | `error`, `warn`, `info` or `debug`. `off`, `none`, `false` or `0` disables logging. Logs are JSON on stdout, so use `docker logs -f <container>`. |
-| `TZ` | `America/New_York` | No | IANA timezone (the standard container variable) for scheduled jobs, for "today" in results and emails, and for history date keys. An unknown name falls back to the default. Changing it later does not re-key existing history. |
+| `CRON_TIMEZONE` | `America/New_York` | No | IANA timezone for scheduled jobs, "today" in results and emails, and history date keys. The entrypoint exports it as `TZ` for Node.js and child processes. An unknown name falls back to the default. Changing it later does not re-key existing history. |
 | `CRON_MAIN_SCHEDULE` | `00:00` | No | Time of day (`HH:MM`, 24 hour) of every scheduled scrape and of the Search Console refresh. `scrape_interval` picks the days. |
 | `CRON_FAILED_SCHEDULE` | `hourly` | No | How often failed scrapes are retried: `hourly`, `daily` (at the `CRON_MAIN_SCHEDULE` time) or `never`. |
 | `CRON_EMAIL_SCHEDULE` | `06:00` | No | Time of day (`HH:MM`, 24 hour) of every email digest. `notification_interval` picks the days. |
@@ -284,7 +285,7 @@ The Keywords and Map Pack counts include every keyword, whether or not it is in 
 ### Google Search Console
 
 - Add a service account to show impressions, clicks and CTR next to each keyword. Credentials are read from the domain's own settings first, then the Settings panel, then `SEARCH_CONSOLE_CLIENT_EMAIL` and `SEARCH_CONSOLE_PRIVATE_KEY`.
-- Cached data is refetched when a dashboard or API read finds it more than 24 hours old, and by the cron at the `CRON_MAIN_SCHEDULE` time. Search Console days follow Pacific Time (`America/Los_Angeles`) whatever `TZ` is.
+- Cached data is refetched when a dashboard or API read finds it more than 24 hours old, and by the cron at the `CRON_MAIN_SCHEDULE` time. Search Console days follow Pacific Time (`America/Los_Angeles`) whatever `CRON_TIMEZONE` is.
 - The Discover tab disables keywords that are already tracked, and "select all" skips them.
 - It is optional. Without credentials the dashboard card is hidden and the Insight tab shows a message.
 
@@ -300,7 +301,7 @@ The Keywords and Map Pack counts include every keyword, whether or not it is in 
 - Digests summarise gains and losses, top movers and, when available, Search Console traffic, opening with a tracker summary.
 - SMTP (server, port, username, password, sender, display name and TLS server name) is set in the Notification settings modal, not in environment variables. The port is required. The sender defaults to `no-reply@serpbear.com`.
 - Recipients are set per domain, in the domain's settings. There is no global recipient. Clearing the SMTP settings makes scheduled sends fail with `400`.
-- Each domain gets at most one digest per hour and five per calendar day in `TZ`.
+- Each domain gets at most one digest per hour and five per calendar day in `CRON_TIMEZONE`.
 - **Send Notifications Now** in the Notification modal sends a digest for every domain with scraping enabled. Domains without a notification address, or held back by the throttle, are reported as skipped.
 
 ### White labelling
@@ -319,7 +320,7 @@ Docker Compose stores data in a named volume (`data`) mounted at `/app/data`, pr
 
 ## API and MCP server
 
-The REST API uses `APIKEY`; MCP has a separate `MCP_API_KEY`. Domains are always real domain names such as `example.com`.
+The REST API uses `APIKEY`; MCP has a separate `MCP_APIKEY`. Domains are always real domain names such as `example.com`.
 
 <br><br>
 
@@ -328,8 +329,8 @@ The REST API uses `APIKEY`; MCP has a separate `MCP_API_KEY`. Domains are always
 A read-only [Model Context Protocol](https://modelcontextprotocol.io) server for AI assistants, with direct-key and OAuth connection options.
 
 - **URL:** `https://<your-host>/api/mcp` (Streamable HTTP, `POST` only). Use HTTPS, because the key is sent on every request.
-- **Direct key:** header `Authorization: Bearer <MCP_API_KEY>`. Cookies and login sessions are not accepted.
-- **ChatGPT OAuth:** set `MCP_OAUTH=true`, then choose OAuth in the connector setup. The authorization endpoint serves the themed consent screen directly and asks for the server's `MCP_API_KEY` to approve the connection. Incorrect keys are limited to 10 attempts per IP per 15 minutes. Metadata, response fields, scopes, CORS, PKCE, refresh rotation and revocation follow the `google-seo-mcp` reference, with `/api` added to resource and OAuth endpoint paths. Protected-resource and authorization-server metadata are served at the root and MCP path-specific well-known URLs. OAuth state is stored in `data/mcp_oauth.json`. When `MCP_OAUTH` is unset or false, OAuth endpoints return 404 and the MCP challenge is `WWW-Authenticate: Bearer`.
+- **Direct key:** header `Authorization: Bearer <MCP_APIKEY>`. Cookies and login sessions are not accepted.
+- **ChatGPT OAuth:** set `MCP_OAUTH=true`, then choose OAuth in the connector setup. The authorization endpoint serves the themed consent screen directly and asks for the server's `MCP_APIKEY` to approve the connection. Incorrect keys are limited to 10 attempts per IP per 15 minutes. Metadata, response fields, scopes, CORS, PKCE, refresh rotation and revocation follow the `google-seo-mcp` reference, with `/api` added to resource and OAuth endpoint paths. Protected-resource and authorization-server metadata are served at the root and MCP path-specific well-known URLs. OAuth state is stored in `data/mcp_oauth.json`. When `MCP_OAUTH` is unset or false, OAuth endpoints return 404 and the MCP challenge is `WWW-Authenticate: Bearer`. Set `MCP_ENABLED=false` to return 404 from direct MCP access and all MCP OAuth/discovery endpoints.
 
 | Tool | Returns |
 | --- | --- |

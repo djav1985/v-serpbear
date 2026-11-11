@@ -66,7 +66,7 @@ export async function initializeDatabase(): Promise<void> {
 
    dbState.promise = (async () => {
       try {
-         logger.info('Initializing database...');
+         logger.debug('Initializing database...');
          await db.sync();
          // Fresh installs run migrations before the tables exist, so the index migrations skip themselves.
          // Create the indexes here after sync; IF NOT EXISTS keeps this a no-op on upgraded databases.

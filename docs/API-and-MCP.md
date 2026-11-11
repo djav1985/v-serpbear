@@ -1,17 +1,19 @@
 # API and MCP
 
-The REST API uses `APIKEY`; MCP has its own `MCP_API_KEY`. Domains are always real domain names such as `example.com`.
+The REST API uses `APIKEY`; MCP has its own `MCP_APIKEY`. Domains are always real domain names such as `example.com`.
 
 ## MCP server
 
 A read-only [Model Context Protocol](https://modelcontextprotocol.io) server for AI assistants. It supports direct bearer access and OAuth connections such as ChatGPT.
 
+Set `MCP_ENABLED=false` to disable the MCP endpoint and all OAuth/discovery endpoints. By default, MCP is enabled; OAuth itself remains opt-in through `MCP_OAUTH=true`.
+
 - **URL:** `https://<your-host>/api/mcp` (Streamable HTTP, `POST` only). Use HTTPS, because the key is sent on every request.
-- **Direct key:** set `MCP_API_KEY`, then send `Authorization: Bearer <MCP_API_KEY>`. Cookies and login sessions are not accepted.
-- **OAuth:** choose OAuth when connecting ChatGPT. The authorization endpoint serves the themed SerpBear consent screen directly and asks for `MCP_API_KEY` to approve the connection. Incorrect keys are limited to 10 attempts per IP per 15 minutes. OAuth metadata, response fields, scopes, CORS, PKCE, refresh rotation and revocation follow the `google-seo-mcp` reference, with `/api` added to resource and OAuth endpoint paths. Protected-resource and authorization-server metadata are served at the root and MCP path-specific well-known URLs.
+- **Direct key:** set `MCP_APIKEY`, then send `Authorization: Bearer <MCP_APIKEY>`. Cookies and login sessions are not accepted.
+- **OAuth:** choose OAuth when connecting ChatGPT. The authorization endpoint serves the themed SerpBear consent screen directly and asks for `MCP_APIKEY` to approve the connection. Incorrect keys are limited to 10 attempts per IP per 15 minutes. OAuth metadata, response fields, scopes, CORS, PKCE, refresh rotation and revocation follow the `google-seo-mcp` reference, with `/api` added to resource and OAuth endpoint paths. Protected-resource and authorization-server metadata are served at the root and MCP path-specific well-known URLs.
 - **Persistence:** keep `/app/data` on persistent storage. OAuth clients and hashed tokens are stored in `data/mcp_oauth.json`; no database schema changes are needed.
 
-`MCP_API_KEY` is the operator key for direct MCP bearer access and OAuth consent. Configure it to use either access method. It is separate from `APIKEY`, which remains the REST API credential used server-side when MCP calls SerpBear's existing REST routes.
+`MCP_APIKEY` is the operator key for direct MCP bearer access and OAuth consent. Configure it to use either access method. It is separate from `APIKEY`, which remains the REST API credential used server-side when MCP calls SerpBear's existing REST routes.
 
 | Tool | Returns |
 | --- | --- |

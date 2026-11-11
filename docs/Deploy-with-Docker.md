@@ -29,10 +29,10 @@ services:
       PASSWORD: change-me
       SECRET: change-me-to-a-long-random-string
       APIKEY: change-me-to-another-long-random-string
-      MCP_API_KEY: change-me-to-a-separate-long-random-string
+      MCP_APIKEY: change-me-to-a-separate-long-random-string
       SESSION_DURATION: 24
       NEXT_PUBLIC_APP_URL: http://localhost:3030
-      TZ: America/New_York
+      CRON_TIMEZONE: America/New_York
     volumes:
       - data:/app/data
 
@@ -47,7 +47,7 @@ git clone https://github.com/djav1985/v-serpbear.git
 cd v-serpbear
 ```
 
-Change the values. At least replace `PASSWORD`, `SECRET` and `APIKEY`; set `MCP_API_KEY` to a separate random value only if you want direct MCP bearer access (`openssl rand -hex 32` makes a good value). OAuth uses the normal SerpBear login. Set `NEXT_PUBLIC_APP_URL` to the address you will open in the browser. Every variable is described in [Configuration](Configuration).
+Change the values. At least replace `PASSWORD`, `SECRET` and `APIKEY`; set `MCP_APIKEY` to a separate random value only if you want direct MCP bearer access (`openssl rand -hex 32` makes a good value). OAuth uses the normal SerpBear login. Set `NEXT_PUBLIC_APP_URL` to the address you will open in the browser. Every variable is described in [Configuration](Configuration).
 
 ## Step 3: Start it
 

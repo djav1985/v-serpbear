@@ -8,7 +8,7 @@ import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/
 import { createRoute, fail, type ApiContext } from '../../../utils/apiLogging';
 import {
    bearerValue, constantTimeEqual, findCredential, getProtectedResourceMetadata, McpOAuthScope,
-   isMcpOAuthEnabled, MCP_SCOPE_FULL, MCP_SCOPE_READ, OAuthCredential,
+   isMcpEnabled, isMcpOAuthEnabled, oauthDisabledResponse, MCP_SCOPE_FULL, MCP_SCOPE_READ, OAuthCredential,
 } from '../../../utils/mcpOAuth';
 
 type ApiResult = { ok: boolean, status: number, data: unknown };
@@ -81,7 +81,7 @@ const buildServer = (call: ApiCall, scope: McpOAuthScope): McpServer => {
 type McpAuthState = { directKeyValid: boolean, oauthCredential: OAuthCredential | null, valid: boolean, reason: string };
 
 const getMcpAuthState = async (req: Request): Promise<McpAuthState> => {
-   const mcpApiKey = process.env.MCP_API_KEY;
+   const mcpApiKey = process.env.MCP_APIKEY;
    const bearer = bearerValue(req);
    const directKeyValid = bearer && mcpApiKey ? constantTimeEqual(bearer, mcpApiKey) : false;
    const oauthCredential = isMcpOAuthEnabled() && bearer && !directKeyValid ? await findCredential(bearer, 'access_token') : null;
@@ -117,6 +117,7 @@ const unauthorized = (req: Request): Response => {
 };
 
 const handleMcp = async (req: Request, ctx: ApiContext) => {
+   if (!isMcpEnabled()) { return oauthDisabledResponse(); }
    const auth = await getMcpAuthState(req);
    if (!auth.valid) {
       const { reason } = auth;
@@ -127,7 +128,7 @@ const handleMcp = async (req: Request, ctx: ApiContext) => {
    const internalApiKey = process.env.APIKEY;
    if (!internalApiKey) { return fail(500, 'INTERNAL_SERVER_ERROR', 'APIKEY is required for the MCP server to call internal API routes.', ctx); }
    const scope = auth.directKeyValid ? MCP_SCOPE_FULL : auth.oauthCredential?.scope ?? MCP_SCOPE_FULL;
-   logger.info('[OAuth] MCP request authenticated.', { operation: 'mcp_authentication', method: auth.directKeyValid ? 'direct_api_key' : 'oauth_access_token', scope });
+   logger.debug('[OAuth] MCP request authenticated.', { operation: 'mcp_authentication', method: auth.directKeyValid ? 'direct_api_key' : 'oauth_access_token', scope });
 
    // Tools call this same server on the port the request arrived on
    const call = makeApiCall(`http://127.0.0.1:${process.env.PORT || 3000}`, `Bearer ${internalApiKey}`);
@@ -136,13 +137,14 @@ const handleMcp = async (req: Request, ctx: ApiContext) => {
    const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
    await server.connect(transport);
    const response = await transport.handleRequest(req);
-   logger.info('[MCP] Streamable HTTP request handled.', { operation: 'mcp_request', statusCode: response.status });
+   logger.debug('[MCP] Streamable HTTP request handled.', { operation: 'mcp_request', statusCode: response.status });
    // Closing now is safe because the reply is already complete (JSON mode)
    void Promise.resolve().then(() => { transport.close(); server.close(); });
    return response;
 };
 
 const handleMcpOptions = async (req: Request): Promise<Response> => {
+   if (!isMcpEnabled()) { return oauthDisabledResponse(); }
    const auth = await getMcpAuthState(req);
    if (!auth.valid) { return unauthorized(req); }
    return Response.json({ error: 'method not allowed' }, { status: 405, headers: { Allow: 'POST' } });

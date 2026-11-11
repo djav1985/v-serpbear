@@ -22,18 +22,18 @@ Set `USER_NAME`, `PASSWORD` and `SECRET` in the `environment:` section of `docke
 
 - Check that `APIKEY` is set. When it is unset, scheduled jobs are skipped with a warning.
 - Check that a scraper is chosen in **Settings → Scraper**, and that `scrape_interval` is not `never`.
-- `CRON_*` and `TZ` are read at startup. Restart the container after changing them.
+- `CRON_*` and `CRON_TIMEZONE` are read at startup. Restart the container after changing them.
 - An old cron expression in `CRON_MAIN_SCHEDULE` or `CRON_EMAIL_SCHEDULE` is ignored with a warning. They must be `HH:MM`.
 
 ## MCP reports a server configuration error
 
-- Set `MCP_API_KEY` to a separate random value if you want direct MCP bearer access. OAuth approval uses the normal SerpBear login.
+- Set `MCP_APIKEY` to a separate random value if you want direct MCP bearer access. OAuth approval uses the normal SerpBear login.
 - Keep `APIKEY` set as well; MCP uses it internally to call SerpBear's existing REST routes.
 - Set `NEXT_PUBLIC_APP_URL` to the public HTTPS URL for OAuth discovery, then restart the app.
 
 ## Run times are off by a few hours
 
-Check `TZ`. It sets both the schedule and the container clock. Without it the container runs in UTC.
+Check `CRON_TIMEZONE`. It sets both the schedule and the container clock. Without it the container runs in UTC.
 
 ## Keywords show no position or an error
 

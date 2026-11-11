@@ -14,7 +14,8 @@ services:
       PASSWORD: change-me
       SECRET: change-me-to-a-long-random-string
       APIKEY: change-me-to-another-long-random-string
-      MCP_API_KEY: change-me-to-a-separate-long-random-string
+      MCP_APIKEY: change-me-to-a-separate-long-random-string
+      MCP_ENABLED: "${MCP_ENABLED:-true}"
       MCP_OAUTH: "false"
       SESSION_DURATION: 24
       # Number of reverse proxies in front of the app (see README). 0 uses the socket address.
@@ -34,7 +35,7 @@ services:
 
       # --- Scheduling ---
       # IANA timezone, for example Europe/London
-      TZ: America/New_York
+      CRON_TIMEZONE: America/New_York
       # Times of day (HH:MM, 24 hour) for the scrapes, and for the email digests
       CRON_MAIN_SCHEDULE: "00:00"
       CRON_EMAIL_SCHEDULE: "06:00"

@@ -8,7 +8,7 @@ export const GET = () => {
    if (!isMcpOAuthEnabled()) { return oauthDisabledResponse(); }
    const metadata = getProtectedResourceMetadata();
    if (!metadata) { logger.error('[OAuth] Root protected resource metadata unavailable; configure NEXT_PUBLIC_APP_URL with the public HTTPS origin.', undefined, { operation: 'protected_resource_discovery' }); }
-   else { logger.info('[OAuth] Served root fallback protected resource metadata.', { operation: 'protected_resource_discovery' }); }
+   else { logger.debug('[OAuth] Served root fallback protected resource metadata.', { operation: 'protected_resource_discovery' }); }
    return metadata ? oauthSuccess(metadata) : oauthError('server_error', 503, 'Set NEXT_PUBLIC_APP_URL to the public HTTPS URL of this server.');
 };
 

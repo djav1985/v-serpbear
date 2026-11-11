@@ -25,11 +25,11 @@
          PASSWORD: ${PASSWORD}
          SECRET: ${SECRET}
          APIKEY: ${APIKEY}
-         MCP_API_KEY: ${MCP_API_KEY}
+         MCP_APIKEY: ${MCP_APIKEY}
          SESSION_DURATION: ${SESSION_DURATION:-24}
          NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
          TRUST_PROXY: ${TRUST_PROXY:-1}
-         TZ: ${TZ:-America/New_York}
+         CRON_TIMEZONE: ${CRON_TIMEZONE:-America/New_York}
        volumes:
          - data:/app/data
 
@@ -38,7 +38,7 @@
    ```
 
    Here the values come from Coolify's Environment Variables screen, so the `${...}` form is right.
-4. Open the **Environment Variables** screen and set `PASSWORD`, `SECRET` and `APIKEY`; set `MCP_API_KEY` only if you want direct MCP bearer access. OAuth uses the normal SerpBear login. The variables are described in [Configuration](Configuration).
+4. Open the **Environment Variables** screen and set `PASSWORD`, `SECRET` and `APIKEY`; set `MCP_APIKEY` only if you want direct MCP bearer access. OAuth uses the normal SerpBear login. The variables are described in [Configuration](Configuration).
 5. In the resource's **General** settings, set the domain (for example `https://serpbear.yourdomain.com`). Set `NEXT_PUBLIC_APP_URL` to the same address. Turn on the Let's Encrypt option if you want HTTPS.
 6. Click **Deploy**. Coolify pulls the image and starts the container. Watch the deployment logs in the dashboard, then open your domain.
 

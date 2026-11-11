@@ -12,7 +12,7 @@ jest.mock('../../utils/logger', () => ({
    logger: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
 }));
 const originalAppUrl = process.env.NEXT_PUBLIC_APP_URL;
-const originalMcpApiKey = process.env.MCP_API_KEY;
+const originalMcpApiKey = process.env.MCP_APIKEY;
 const originalMcpOAuth = process.env.MCP_OAUTH;
 
 const jsonRequest = (url: string, body: unknown) => new Request(url, {
@@ -33,7 +33,7 @@ describe('OAuth routes', () => {
    beforeEach(() => {
       tempData = createTempAppDataDir('serpbear-oauth-routes-');
       process.env.NEXT_PUBLIC_APP_URL = appUrl;
-      process.env.MCP_API_KEY = 'operator-test-key';
+      process.env.MCP_APIKEY = 'operator-test-key';
       process.env.MCP_OAUTH = 'true';
    });
 
@@ -41,8 +41,8 @@ describe('OAuth routes', () => {
       tempData.cleanup();
       if (originalAppUrl === undefined) { delete process.env.NEXT_PUBLIC_APP_URL; }
       else { process.env.NEXT_PUBLIC_APP_URL = originalAppUrl; }
-      if (originalMcpApiKey === undefined) { delete process.env.MCP_API_KEY; }
-      else { process.env.MCP_API_KEY = originalMcpApiKey; }
+      if (originalMcpApiKey === undefined) { delete process.env.MCP_APIKEY; }
+      else { process.env.MCP_APIKEY = originalMcpApiKey; }
       if (originalMcpOAuth === undefined) { delete process.env.MCP_OAUTH; }
       else { process.env.MCP_OAUTH = originalMcpOAuth; }
    });

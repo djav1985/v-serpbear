@@ -119,10 +119,18 @@ const run = async (handler: ApiHandler | undefined, def: RouteDefinition, req: R
             ? Response.json({ error: error.status >= 500 ? 'server_error' : 'invalid_request' }, { status: error.status, headers: { 'Cache-Control': 'no-store' } })
             : fail(error.status, error.code, error.message, ctx);
       } else {
-         logger.error(`${label} - Exception`, error instanceof Error ? error : new Error(String(error)), {
-            requestId,
-            duration: Date.now() - startTime,
-         });
+         if (def.oauthProtocol || def.omitResponseMetadata) {
+            logger.debug(`${label} - Exception`, {
+               requestId,
+               duration: Date.now() - startTime,
+               error: error instanceof Error ? error.message : String(error),
+            });
+         } else {
+            logger.error(`${label} - Exception`, error instanceof Error ? error : new Error(String(error)), {
+               requestId,
+               duration: Date.now() - startTime,
+            });
+         }
          response = def.oauthProtocol
             ? Response.json({ error: 'server_error' }, { status: 500, headers: { 'Cache-Control': 'no-store' } })
             : fail(500, 'INTERNAL_SERVER_ERROR', 'Internal server error', ctx);

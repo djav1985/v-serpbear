@@ -19,7 +19,7 @@ Choose how to run it. Each guide has its own page:
 - [Deploy to Coolify](Deploy-to-Coolify)
 - [Deploy to Fly.io](Deploy-to-Fly.io)
 
-Whichever you choose, set `USER_NAME`, `PASSWORD`, `SECRET` and `APIKEY`, set `NEXT_PUBLIC_APP_URL` to the address you will open, and keep `/app/data` on persistent storage. Set a separate `MCP_API_KEY` only if you want direct MCP bearer access; OAuth uses your normal SerpBear login. Every variable is described in [Configuration](Configuration).
+Whichever you choose, set `USER_NAME`, `PASSWORD`, `SECRET` and `APIKEY`, set `NEXT_PUBLIC_APP_URL` to the address you will open, and keep `/app/data` on persistent storage. Set a separate `MCP_APIKEY` only if you want direct MCP bearer access; OAuth uses your normal SerpBear login. Every variable is described in [Configuration](Configuration).
 
 If you run it only on your computer, you won't be able to reach it from your phone or use the API from other tools.
 

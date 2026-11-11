@@ -1,18 +1,19 @@
 import { createRoute } from '../../../../utils/apiLogging';
 import { logger } from '../../../../utils/logger';
 import {
-   McpOAuthScope, MCP_SCOPE_FULL, OAuthCredential, OAUTH_ACCESS_TOKEN_PREFIX, OAUTH_REFRESH_TOKEN_PREFIX,
-   OAUTH_ACCESS_TTL_SECONDS, OAUTH_REFRESH_TTL_MS, hashSecret, oauthError, oauthSuccess,
+   isMcpOAuthEnabled, McpOAuthScope, MCP_SCOPE_FULL, OAuthCredential, OAUTH_ACCESS_TOKEN_PREFIX, OAUTH_REFRESH_TOKEN_PREFIX,
+   OAUTH_ACCESS_TTL_SECONDS, OAUTH_REFRESH_TTL_MS, hashSecret, oauthDisabledResponse, oauthError, oauthSuccess,
    oauthCorsHeaders, oauthOptionsWhenEnabled, randomIdentifier, randomSecret, readOAuthFormOrJson, verifyPkce, withOAuthStore,
 } from '../../../../utils/mcpOAuth';
 
 const invalidGrant = (description: string) => oauthError('invalid_grant', 400, description);
 
 const handleToken = async (req: Request): Promise<Response> => {
-   logger.info('[OAuth] Token request received.', { operation: 'token_request' });
+   if (!isMcpOAuthEnabled()) { return oauthDisabledResponse(); }
+   logger.debug('[OAuth] Token request received.', { operation: 'token_request' });
    const form = await readOAuthFormOrJson(req);
    if (!form) {
-      logger.error('[OAuth] Token request rejected.', undefined, { operation: 'token_request', reason: 'invalid_or_oversized_form' });
+      logger.debug('[OAuth] Token request rejected.', { operation: 'token_request', reason: 'invalid_or_oversized_form' });
       return oauthError('invalid_request', 400, 'body must be at most 16 KB');
    }
    const grantType = form.get('grant_type');
@@ -50,7 +51,7 @@ const handleToken = async (req: Request): Promise<Response> => {
          return { kind: 'ok', scope };
       });
       if (result.kind !== 'ok') {
-         logger.error('[OAuth] Authorization code exchange rejected.', undefined, { operation: 'token_exchange', grantType, reason: 'code_invalid_expired_or_binding_mismatch' });
+         logger.debug('[OAuth] Authorization code exchange rejected.', { operation: 'token_exchange', grantType, reason: 'code_invalid_expired_or_binding_mismatch' });
          return invalidGrant(result.description);
       }
       logger.info('[OAuth] Authorization code exchanged for tokens.', { operation: 'token_exchange', grantType: 'authorization_code' });
@@ -85,18 +86,18 @@ const handleToken = async (req: Request): Promise<Response> => {
          return { kind: 'ok', scope };
       });
       if (result.kind !== 'ok') {
-         logger.error('[OAuth] Refresh token exchange rejected.', undefined, { operation: 'token_exchange', grantType, reason: result.kind === 'replay' ? 'refresh_token_replay' : 'refresh_token_invalid_expired_or_client_mismatch' });
+      logger.debug('[OAuth] Refresh token exchange rejected.', { operation: 'token_exchange', grantType, reason: result.kind === 'replay' ? 'refresh_token_replay' : 'refresh_token_invalid_expired_or_client_mismatch' });
          return invalidGrant('unknown, expired or already-rotated refresh token');
       }
-      logger.info('[OAuth] Refresh token exchanged for new tokens.', { operation: 'token_exchange', grantType: 'refresh_token' });
+      logger.debug('[OAuth] Refresh token exchanged for new tokens.', { operation: 'token_exchange', grantType: 'refresh_token' });
       return oauthSuccess({ access_token: accessToken, token_type: 'Bearer', expires_in: OAUTH_ACCESS_TTL_SECONDS, refresh_token: nextRefreshToken, scope: result.scope });
    }
 
-   logger.error('[OAuth] Token request rejected.', undefined, { operation: 'token_request', reason: 'unsupported_grant_type' });
+   logger.debug('[OAuth] Token request rejected.', { operation: 'token_request', reason: 'unsupported_grant_type' });
    return oauthError('unsupported_grant_type', 400, 'authorization_code and refresh_token only');
 };
 
-const methodNotAllowed = () => oauthError('invalid_request', 405);
+const methodNotAllowed = () => isMcpOAuthEnabled() ? oauthError('invalid_request', 405) : oauthDisabledResponse();
 
 export const { GET, POST, PUT, PATCH, DELETE } = createRoute({
    name: 'oauth/token', auth: false, oauthProtocol: true, cors: oauthCorsHeaders,

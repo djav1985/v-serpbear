@@ -21,8 +21,10 @@ const MAX_REDIRECT_URIS = 8;
 const MAX_OAUTH_CLIENTS = 500;
 const UNUSED_CLIENT_TTL_MS = 24 * 60 * 60 * 1000;
 
-/** OAuth is opt-in, matching the reference server's default-off behavior. */
-export const isMcpOAuthEnabled = (): boolean => /^(1|true|yes|on)$/i.test(process.env.MCP_OAUTH?.trim() ?? '');
+/** The whole MCP integration can be disabled independently of direct/OAuth auth modes. */
+export const isMcpEnabled = (): boolean => !/^(0|false|no|off)$/i.test(process.env.MCP_ENABLED?.trim() ?? '');
+/** OAuth remains opt-in while MCP itself is enabled. */
+export const isMcpOAuthEnabled = (): boolean => isMcpEnabled() && /^(1|true|yes|on)$/i.test(process.env.MCP_OAUTH?.trim() ?? '');
 export const oauthDisabledResponse = (): Response => Response.json({ error: 'not_found' }, { status: 404 });
 export const oauthOptionsWhenEnabled = (): Response => isMcpOAuthEnabled()
    ? oauthOptions()
@@ -145,7 +147,7 @@ export const getProtectedResourceMetadata = () => {
       authorization_servers: [issuer],
       bearer_methods_supported: ['header'],
       scopes_supported: [...MCP_SCOPES],
-      resource_name: 'SerpBear',
+      resource_name: 'serpbear',
       resource_documentation: SERPBEAR_REPOSITORY,
    };
 };

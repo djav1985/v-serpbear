@@ -33,7 +33,7 @@ export const useShell = (): ShellContextValue => {
 type ShellProviderProps = {
    domains: DomainSummary[];
    domainsFailed: boolean;
-   /** The app's time zone (TZ on the server). Browsers cannot read it, so the server hands it down. */
+   /** The app's time zone (CRON_TIMEZONE on the server). Browsers cannot read it, so the server hands it down. */
    timezone: string;
    /** The product name, used as the default sender name for notification emails. */
    platformName: string;

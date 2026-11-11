@@ -7,6 +7,10 @@ All notable changes to this project will be documented in this file. Releases no
 ### Added
 
 - Add MCP OAuth authorization for ChatGPT with PKCE, dynamic client registration, 24-hour access tokens, token rotation and a themed approval screen using `MCP_API_KEY`. OAuth state is stored in `data/mcp_oauth.json`.
+- Add `MCP_ENABLED` as a master switch for direct MCP access and all OAuth/discovery endpoints.
+- Rename the MCP operator key variable to `MCP_APIKEY` and use `CRON_TIMEZONE` for the application timezone.
+- Load only `.env` in the cron worker.
+- Keep only the final cron-worker and database startup messages at info level; log preceding startup progress at debug level.
 
 ### Changed
 
@@ -18,7 +22,8 @@ All notable changes to this project will be documented in this file. Releases no
 ### Fixed
 
 - Serve protected-resource metadata at the domain-root well-known URL as a compatibility fallback while retaining the resource-path-specific URL.
-- Omit app-wide security headers from MCP protocol and OAuth responses so their application headers match the reference server.
+- Apply the same app-wide security headers to MCP and OAuth routes as other app routes.
+- Reduce routine OAuth and MCP logs to debug, keeping one info entry for a completed authorization-code exchange and one error entry for a rejected request.
 - Point MCP authentication challenges to root protected-resource metadata for ChatGPT client compatibility while keeping OAuth endpoints under `/api/oauth`.
 - Add CORS headers and preflight handling to OAuth discovery, registration, authorization, and token endpoints.
 - Match the `google-seo-mcp` OAuth metadata fields, response bodies, protocol headers, code/token prefixes, and authorization-page behavior while using `MCP_API_KEY` and JSON-file persistence.

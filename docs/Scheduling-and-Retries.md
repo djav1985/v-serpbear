@@ -1,6 +1,6 @@
 # Scheduling and Retries
 
-Three times of day and one retry mode control the background jobs. All times use the timezone in `TZ`.
+Three times of day and one retry mode control the background jobs. All times use the timezone in `CRON_TIMEZONE`.
 
 | Setting | Where | What it does |
 | --- | --- | --- |
@@ -26,8 +26,8 @@ A failed page request keeps the keyword's previous position and history, rather 
 
 ## When changes apply
 
-Settings changes apply without a restart: the worker watches `data/settings.json` and re-checks it every 30 minutes. `CRON_*` and `TZ` are read at startup, so they need a restart (`docker compose up -d`).
+Settings changes apply without a restart: the worker watches `data/settings.json` and re-checks it every 30 minutes. `CRON_*` and `CRON_TIMEZONE` are read at startup, so they need a restart (`docker compose up -d`).
 
 ## Timezone
 
-`TZ` is an IANA name such as `Europe/London`. It sets when the jobs run, what "today" means in results and emails, and the calendar date used for history keys. Changing it later does not re-key existing history. If the server previously ran in UTC, the day boundary shifts once on the changeover day.
+`CRON_TIMEZONE` is an IANA name such as `Europe/London`. It sets when the jobs run, what "today" means in results and emails, and the calendar date used for history keys. Changing it later does not re-key existing history. If the server previously ran in UTC, the day boundary shifts once on the changeover day.

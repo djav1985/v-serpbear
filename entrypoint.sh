@@ -1,8 +1,8 @@
 #!/bin/sh
 set -eu
 
-# Cron fire times and "today" use TZ. Exporting it makes the processes and their children agree.
-TZ="${TZ:-America/New_York}"
+# Cron fire times and "today" use CRON_TIMEZONE. Export it as TZ so Node and child processes use the same zone.
+TZ="${CRON_TIMEZONE:-America/New_York}"
 export TZ
 
 APP_SUPERVISOR_PID=""
