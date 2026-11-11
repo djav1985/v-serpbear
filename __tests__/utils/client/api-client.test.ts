@@ -116,7 +116,7 @@ describe('api client', () => {
      it('propagates X-Request-Id from response headers into ApiError', async () => {
         mockFetch(500, { error: { code: 'SERVER_ERROR', message: 'Boom' } }, { 'content-type': 'application/json', 'X-Request-Id': 'req-xyz' });
 
-        await expect(apiFetch('/api/fail')).rejects.toMatchObject<ApiError>({ requestId: 'req-xyz' });
+         await expect(apiFetch('/api/fail')).rejects.toMatchObject({ requestId: 'req-xyz' });
      });
 
      it('falls back to generic message for non-JSON error response', async () => {

@@ -47,7 +47,7 @@ describe('DomainSettingsDialog', () => {
       expect(screen.queryByRole('textbox', { name: 'Notification emails' })).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole('button', { name: 'toggle' })); // open again
 
-      expect((await screen.findByRole('textbox', { name: 'Notification emails' })).value).toBe('saved@example.com');
+      expect((await screen.findByRole('textbox', { name: 'Notification emails' }) as HTMLInputElement).value).toBe('saved@example.com');
    });
 
    it('rejects malformed notification addresses without saving', async () => {

@@ -33,7 +33,7 @@ export function OAuthApprovalForm({ requestId, clientName, callbackHost, platfor
                <p className="text-muted-foreground text-xs">This is the same key used for direct MCP access.</p>
                {initialError && <p role="alert" className="text-destructive text-sm">{initialError}</p>}
                <Button type="submit" name="decision" value="approve" variant="primaryAction" className="h-10 w-full text-base">Approve connection</Button>
-               <Button type="submit" name="decision" value="deny" formNoValidate variant="outline" className="h-10 w-full border-red-600 bg-red-600 text-base text-white hover:border-red-500 hover:bg-red-500 hover:text-white active:bg-red-700 focus-visible:border-red-700 focus-visible:ring-red-600/40">Cancel</Button>
+               <Button type="submit" name="decision" value="deny" formNoValidate variant="dangerAction" className="h-10 w-full text-base">Cancel</Button>
             </form>
          </CardContent>
       </Card>

@@ -44,7 +44,7 @@ const redirectToClient = (redirectUri: string, values: Record<string, string>): 
 };
 
 const redirectToApprovalPage = (baseUrl: string, requestId: string, error?: string): Response => {
-   const target = new URL('/oauth/approve', baseUrl);
+   const target = new URL('/api/oauth/approve', baseUrl);
    target.searchParams.set('request', requestId);
    if (error) { target.searchParams.set('error', error); }
    return new Response(null, { status: 303, headers: { Location: target.toString(), 'Cache-Control': 'no-store' } });

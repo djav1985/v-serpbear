@@ -84,7 +84,7 @@ describe('OAuth routes', () => {
       const authorization = await authorize(new Request(`${appUrl}/api/oauth/authorize?${query}`));
       expect(authorization.status).toBe(303);
       const approvalUrl = new URL(authorization.headers.get('location')!);
-      expect(approvalUrl.pathname).toBe('/oauth/approve');
+      expect(approvalUrl.pathname).toBe('/api/oauth/approve');
       const pendingRequest = approvalUrl.searchParams.get('request')!;
       const approved = await consent(formRequest(`${appUrl}/api/oauth/authorize`, {
          request: pendingRequest, token: 'operator-test-key', decision: 'approve', read_only: '1',
