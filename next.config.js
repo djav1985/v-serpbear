@@ -43,8 +43,8 @@ const nextConfig = {
       },
     ];
     return [
-      // Keep OAuth discovery responses' headers aligned with the reference server.
-      { source: '/((?!\\.well-known/oauth-protected-resource|\\.well-known/oauth-authorization-server).*)', headers: securityHeaders },
+      // Keep MCP protocol and OAuth responses' application headers aligned with the reference server.
+      { source: '/((?!\\.well-known/oauth-protected-resource|\\.well-known/oauth-authorization-server|api/oauth(?:/|$)|api/mcp(?:/|$)).*)', headers: securityHeaders },
       { source: '/login', headers: noStoreHeaders },
       { source: '/domains', headers: privatePageHeaders },
       { source: '/research', headers: privatePageHeaders },

@@ -18,7 +18,7 @@ All notable changes to this project will be documented in this file. Releases no
 ### Fixed
 
 - Serve protected-resource metadata at the domain-root well-known URL as a compatibility fallback while retaining the resource-path-specific URL.
-- Omit the app-wide security headers from OAuth discovery responses so their application headers match the reference server.
+- Omit app-wide security headers from MCP protocol and OAuth responses so their application headers match the reference server.
 - Point MCP authentication challenges to root protected-resource metadata for ChatGPT client compatibility while keeping OAuth endpoints under `/api/oauth`.
 - Add CORS headers and preflight handling to OAuth discovery, registration, authorization, and token endpoints.
 - Match the `google-seo-mcp` OAuth metadata fields, response bodies, protocol headers, code/token prefixes, and authorization-page behavior while using `MCP_API_KEY` and JSON-file persistence.
