@@ -43,8 +43,8 @@ const redirectToClient = (redirectUri: string, values: Record<string, string>): 
    });
 };
 
-const redirectToApprovalPage = (requestUrl: string, requestId: string, error?: string): Response => {
-   const target = new URL('/oauth/approve', requestUrl);
+const redirectToApprovalPage = (baseUrl: string, requestId: string, error?: string): Response => {
+   const target = new URL('/oauth/approve', baseUrl);
    target.searchParams.set('request', requestId);
    if (error) { target.searchParams.set('error', error); }
    return new Response(null, { status: 303, headers: { Location: target.toString(), 'Cache-Control': 'no-store' } });
@@ -61,7 +61,7 @@ const authorize = async (req: Request): Promise<Response> => {
    }
    const params = new URL(req.url).searchParams;
    const existingRequestId = params.get('request');
-   if (existingRequestId) { return redirectToApprovalPage(req.url, existingRequestId); }
+   if (existingRequestId) { return redirectToApprovalPage(base, existingRequestId); }
    const clientId = params.get('client_id') ?? '';
    const redirectUri = params.get('redirect_uri') ?? '';
    const responseType = params.get('response_type');
@@ -104,12 +104,14 @@ const authorize = async (req: Request): Promise<Response> => {
       state: state ?? null, scope, expiresAt: Date.now() + 10 * 60 * 1000,
    });
    logger.debug('[OAuth] Authorization request is ready for operator approval.', { operation: 'authorization_request' });
-   return redirectToApprovalPage(req.url, requestId);
+   return redirectToApprovalPage(base, requestId);
 };
 
 const submitConsent = async (req: Request): Promise<Response> => {
    if (!isMcpOAuthEnabled()) { return oauthDisabledResponse(); }
    logger.debug('[OAuth] Approval form submission received.', { operation: 'authorization_consent' });
+   const base = getOAuthBaseUrl();
+   if (!base) { return oauthHtmlError('OAuth unavailable', 'Set NEXT_PUBLIC_APP_URL to the public HTTPS URL of this server.', 503); }
    const form = await readOAuthForm(req);
    if (!form) { return oauthHtmlError('Request too large', 'The approval form is limited to 16 KB.'); }
    const requestId = form.get('request') ?? '';
@@ -140,23 +142,23 @@ const submitConsent = async (req: Request): Promise<Response> => {
    }
 
    if (form.get('decision') !== 'approve') {
-      return redirectToApprovalPage(req.url, requestId, 'invalid_decision');
+      return redirectToApprovalPage(base, requestId, 'invalid_decision');
    }
    const ip = getClientIp(req);
    if (isApprovalIpThrottled(ip)) {
       logger.debug('[OAuth] Approval request rate limited.', { operation: 'authorization_consent', reason: 'too_many_incorrect_api_keys', ip });
-      return redirectToApprovalPage(req.url, requestId, 'too_many_attempts');
+      return redirectToApprovalPage(base, requestId, 'too_many_attempts');
    }
    const apiKey = process.env.MCP_APIKEY;
    if (!apiKey) {
       logger.debug('[OAuth] Approval rejected because MCP_APIKEY is not configured.', { operation: 'authorization_consent', reason: 'mcp_api_key_not_configured' });
-      return redirectToApprovalPage(req.url, requestId, 'key_unconfigured');
+      return redirectToApprovalPage(base, requestId, 'key_unconfigured');
    }
    const suppliedKey = (form.get('token') ?? '').trim();
    if (!suppliedKey || !constantTimeEqual(suppliedKey, apiKey)) {
       countApprovalFailure(ip);
       logger.debug('[OAuth] Operator API key rejected on the approval page.', { operation: 'authorization_consent', reason: 'incorrect_mcp_api_key', ip });
-      return redirectToApprovalPage(req.url, requestId, 'incorrect_key');
+      return redirectToApprovalPage(base, requestId, 'incorrect_key');
    }
 
    const code = randomSecret(OAUTH_CODE_PREFIX);

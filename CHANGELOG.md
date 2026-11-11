@@ -37,6 +37,7 @@ All notable changes to this project will be documented in this file. Releases no
 
 ### Fixed
 
+- Build OAuth approval redirects from the configured public app URL instead of the incoming request host.
 - Serve protected-resource metadata at the domain-root well-known URL as a compatibility fallback while retaining the resource-path-specific URL.
 - Apply the same app-wide security headers to MCP and OAuth routes as other app routes.
 - Reduce routine OAuth and MCP logs to debug, keeping one info entry for a completed authorization-code exchange and one error entry for a rejected request.
