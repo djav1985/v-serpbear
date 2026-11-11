@@ -255,7 +255,6 @@ export function IdeasTable({
             table={table}
             label="Keyword ideas"
             className="h-[calc(100dvh-26rem)] min-h-96"
-            minWidth="38rem"
             isLoading={adwordsConnected && isLoading}
             emptyMessage={emptyMessage}
             estimateStackedHeight={120}

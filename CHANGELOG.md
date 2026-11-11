@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file. Releases no
 - Match the Discover table height to Tracking so both tabs use the same available viewport height.
 - Set the Insight Keywords, Countries and Pages tables to the same 24rem minimum height as the other table tabs.
 - Reserve each domain tab's bold label width so changing the active tab weight does not shift its neighbors.
+- Use the shared `DataTable` minimum width across Tracking, Discover, Insight and Ideas.
 - Keep desktop data-table containers at their configured CSS height instead of resizing them after rows are measured; retain invisible mobile loading space.
 
 ### Added

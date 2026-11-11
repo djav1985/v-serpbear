@@ -241,7 +241,6 @@ export function DiscoverView({ domain, searchConsoleConnected, adwordsConnected,
                table={table}
                label="Search Console keywords"
                className="h-[calc(100dvh-26rem)] min-h-96"
-               minWidth="38rem"
                isLoading={searchConsoleConnected && isLoading}
                emptyMessage={emptyMessage}
                estimateStackedHeight={110}

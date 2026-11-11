@@ -200,7 +200,6 @@ export function InsightView({ domain, searchConsoleConnected, adwordsConnected, 
                table={table}
                label={`Search Console ${tab}`}
                className={tab === 'stats' ? 'h-[calc(100dvh-52rem)] min-h-48' : 'h-[calc(100dvh-26rem)] min-h-96'}
-               minWidth="40rem"
                isLoading={searchConsoleConnected && isLoading}
                emptyMessage={emptyMessage}
                estimateStackedHeight={90}
