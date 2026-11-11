@@ -1,6 +1,6 @@
 import { createRoute } from '../../../../utils/apiLogging';
 import { logger } from '../../../../utils/logger';
-import { oauthCorsHeaders, oauthOptions, oauthSuccess, readOAuthFormOrJson, revokeOAuthGrantFromToken } from '../../../../utils/mcpOAuth';
+import { oauthCorsHeaders, oauthError, oauthOptions, oauthSuccess, readOAuthFormOrJson, revokeOAuthGrantFromToken } from '../../../../utils/mcpOAuth';
 
 const revoke = async (req: Request): Promise<Response> => {
    const form = await readOAuthFormOrJson(req);
@@ -13,5 +13,10 @@ const revoke = async (req: Request): Promise<Response> => {
    return oauthSuccess({});
 };
 
-export const { GET, POST, PUT, PATCH, DELETE } = createRoute({ name: 'oauth/revoke', auth: false, cors: oauthCorsHeaders, POST: revoke });
+const methodNotAllowed = () => oauthError('invalid_request', 405);
+
+export const { GET, POST, PUT, PATCH, DELETE } = createRoute({
+   name: 'oauth/revoke', auth: false, oauthProtocol: true, cors: oauthCorsHeaders,
+   GET: methodNotAllowed, POST: revoke, PUT: methodNotAllowed, PATCH: methodNotAllowed, DELETE: methodNotAllowed,
+});
 export const OPTIONS = oauthOptions;

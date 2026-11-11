@@ -1,80 +1,70 @@
-import { createRoute, type ApiContext } from '../../../../utils/apiLogging';
+import { createRoute } from '../../../../utils/apiLogging';
 import { logger } from '../../../../utils/logger';
 import {
-   McpOAuthScope, MCP_SCOPE_FULL, OAuthCredential, OAUTH_ACCESS_TTL_SECONDS, OAUTH_REFRESH_TTL_MS, hashSecret, oauthError, oauthSuccess,
+   McpOAuthScope, MCP_SCOPE_FULL, OAuthCredential, OAUTH_ACCESS_TOKEN_PREFIX, OAUTH_REFRESH_TOKEN_PREFIX,
+   OAUTH_ACCESS_TTL_SECONDS, OAUTH_REFRESH_TTL_MS, hashSecret, oauthError, oauthSuccess,
    oauthCorsHeaders, oauthOptions, randomIdentifier, randomSecret, readOAuthFormOrJson, verifyPkce, withOAuthStore,
 } from '../../../../utils/mcpOAuth';
 
-const invalidGrant = () => oauthError('invalid_grant', 400, 'The authorization code or refresh token is invalid, expired, or replayed.');
+const invalidGrant = (description: string) => oauthError('invalid_grant', 400, description);
 
-const handleToken = async (req: Request, _ctx: ApiContext): Promise<Response> => {
+const handleToken = async (req: Request): Promise<Response> => {
    logger.info('[OAuth] Token request received.', { operation: 'token_request' });
    const form = await readOAuthFormOrJson(req);
    if (!form) {
       logger.error('[OAuth] Token request rejected.', undefined, { operation: 'token_request', reason: 'invalid_or_oversized_form' });
-      return oauthError('invalid_request', 400, 'Invalid token request.');
+      return oauthError('invalid_request', 400, 'body must be at most 16 KB');
    }
    const grantType = form.get('grant_type');
-   const clientId = form.get('client_id') ?? '';
-   if (!clientId) {
-      logger.error('[OAuth] Token request rejected.', undefined, { operation: 'token_request', reason: 'missing_client_id' });
-      return oauthError('invalid_request', 400, 'client_id is required.');
-   }
+   const clientId = form.get('client_id');
 
    if (grantType === 'authorization_code') {
       const code = form.get('code') ?? '';
-      const redirectUri = form.get('redirect_uri') ?? '';
+      const redirectUri = form.get('redirect_uri');
       const verifier = form.get('code_verifier') ?? '';
-      if (!code || !redirectUri || verifier.length < 43 || verifier.length > 128) {
-         logger.error('[OAuth] Authorization code exchange rejected.', undefined, { operation: 'token_exchange', grantType, reason: 'missing_code_redirect_or_invalid_verifier' });
-         return invalidGrant();
-      }
-      const accessToken = randomSecret();
-      const refreshToken = randomSecret();
-      const grantId = randomIdentifier();
+      const accessToken = randomSecret(OAUTH_ACCESS_TOKEN_PREFIX);
+      const refreshToken = randomSecret(OAUTH_REFRESH_TOKEN_PREFIX);
       const now = Date.now();
-      const tokenResource = form.get('resource');
-      const result = await withOAuthStore((store): McpOAuthScope | null => {
+      const result = await withOAuthStore((store): { kind: 'ok', scope: McpOAuthScope } | { kind: 'invalid', description: string } => {
          const codeHash = hashSecret(code);
-         const index = store.credentials.findIndex((credential) => credential.tokenHash === codeHash && credential.kind === 'authorization_code' && credential.clientId === clientId);
-         if (index < 0) { return null; }
+         const index = store.credentials.findIndex((credential) => credential.tokenHash === codeHash && credential.kind === 'authorization_code');
+         if (index < 0) { return { kind: 'invalid', description: 'unknown or expired code' }; }
          const authorizationCode = store.credentials[index];
-         if (authorizationCode.expiresAt <= now || authorizationCode.redirectUri !== redirectUri || !authorizationCode.codeChallenge ||
-             !verifyPkce(verifier, authorizationCode.codeChallenge) ||
-             (tokenResource && authorizationCode.resource && tokenResource !== authorizationCode.resource)) { return null; }
-         const scope = authorizationCode.scope ?? MCP_SCOPE_FULL;
          store.credentials.splice(index, 1);
-         const common = { clientId, grantId, resource: authorizationCode.resource, scope, createdAt: now };
+         if (authorizationCode.expiresAt <= now) { return { kind: 'invalid', description: 'unknown or expired code' }; }
+         if (clientId && clientId !== authorizationCode.clientId) { return { kind: 'invalid', description: 'code was issued to another client' }; }
+         if (redirectUri && redirectUri !== authorizationCode.redirectUri) { return { kind: 'invalid', description: 'redirect_uri does not match the authorization request' }; }
+         if (!authorizationCode.codeChallenge || !verifyPkce(verifier, authorizationCode.codeChallenge)) {
+            return { kind: 'invalid', description: 'code_verifier does not match code_challenge' };
+         }
+         const scope = authorizationCode.scope ?? MCP_SCOPE_FULL;
+         const grantId = randomIdentifier();
+         const common = { clientId: authorizationCode.clientId, grantId, scope, createdAt: now };
          const records: OAuthCredential[] = [
             { ...common, tokenHash: hashSecret(accessToken), kind: 'access_token', expiresAt: now + OAUTH_ACCESS_TTL_SECONDS * 1000 },
             { ...common, tokenHash: hashSecret(refreshToken), kind: 'refresh_token', expiresAt: now + OAUTH_REFRESH_TTL_MS },
          ];
          store.credentials.push(...records);
-         const client = store.clients.find((item) => item.clientId === clientId);
+         const client = store.clients.find((item) => item.clientId === authorizationCode.clientId);
          if (client) { client.hasGrant = true; }
-         return scope;
+         return { kind: 'ok', scope };
       });
-      if (!result) {
+      if (result.kind !== 'ok') {
          logger.error('[OAuth] Authorization code exchange rejected.', undefined, { operation: 'token_exchange', grantType, reason: 'code_invalid_expired_or_binding_mismatch' });
-         return invalidGrant();
+         return invalidGrant(result.description);
       }
       logger.info('[OAuth] Authorization code exchanged for tokens.', { operation: 'token_exchange', grantType: 'authorization_code' });
-      return oauthSuccess({ access_token: accessToken, token_type: 'Bearer', expires_in: OAUTH_ACCESS_TTL_SECONDS, refresh_token: refreshToken, scope: result });
+      return oauthSuccess({ access_token: accessToken, token_type: 'Bearer', expires_in: OAUTH_ACCESS_TTL_SECONDS, refresh_token: refreshToken, scope: result.scope });
    }
 
    if (grantType === 'refresh_token') {
       const refreshToken = form.get('refresh_token') ?? '';
-      if (!refreshToken) {
-         logger.error('[OAuth] Refresh token exchange rejected.', undefined, { operation: 'token_exchange', grantType, reason: 'missing_refresh_token' });
-         return invalidGrant();
-      }
-      const accessToken = randomSecret();
-      const nextRefreshToken = randomSecret();
+      const accessToken = randomSecret(OAUTH_ACCESS_TOKEN_PREFIX);
+      const nextRefreshToken = randomSecret(OAUTH_REFRESH_TOKEN_PREFIX);
       const now = Date.now();
-      const tokenResource = form.get('resource');
       const result = await withOAuthStore((store): { kind: 'ok', scope: McpOAuthScope } | { kind: 'invalid' | 'replay' } => {
          const refreshHash = hashSecret(refreshToken);
-         const stored = store.credentials.find((credential) => credential.tokenHash === refreshHash && credential.kind === 'refresh_token' && credential.clientId === clientId);
+         const stored = store.credentials.find((credential) => credential.tokenHash === refreshHash && credential.kind === 'refresh_token');
          if (!stored?.grantId) { return { kind: 'invalid' }; }
          if (stored.revokedAt != null) {
             store.credentials.forEach((credential) => {
@@ -82,10 +72,12 @@ const handleToken = async (req: Request, _ctx: ApiContext): Promise<Response> =>
             });
             return { kind: 'replay' };
          }
-         if (stored.expiresAt <= now || (tokenResource && stored.resource && tokenResource !== stored.resource)) { return { kind: 'invalid' }; }
+         if (stored.expiresAt <= now || (clientId && stored.clientId !== clientId)) { return { kind: 'invalid' }; }
          stored.revokedAt = now;
          const scope = stored.scope ?? MCP_SCOPE_FULL;
-         const common = { clientId, grantId: stored.grantId, resource: stored.resource, scope, createdAt: now };
+         store.credentials = store.credentials.filter((credential) => credential.grantId !== stored.grantId ||
+            (credential.kind !== 'access_token' && !(credential.kind === 'refresh_token' && credential.revokedAt != null && credential !== stored)));
+         const common = { clientId: stored.clientId, grantId: stored.grantId, scope, createdAt: now };
          store.credentials.push(
             { ...common, tokenHash: hashSecret(accessToken), kind: 'access_token', expiresAt: now + OAUTH_ACCESS_TTL_SECONDS * 1000 },
             { ...common, tokenHash: hashSecret(nextRefreshToken), kind: 'refresh_token', expiresAt: now + OAUTH_REFRESH_TTL_MS },
@@ -93,16 +85,21 @@ const handleToken = async (req: Request, _ctx: ApiContext): Promise<Response> =>
          return { kind: 'ok', scope };
       });
       if (result.kind !== 'ok') {
-         logger.error('[OAuth] Refresh token exchange rejected.', undefined, { operation: 'token_exchange', grantType, reason: result.kind === 'replay' ? 'refresh_token_replay' : 'refresh_token_invalid_expired_or_resource_mismatch' });
-         return invalidGrant();
+         logger.error('[OAuth] Refresh token exchange rejected.', undefined, { operation: 'token_exchange', grantType, reason: result.kind === 'replay' ? 'refresh_token_replay' : 'refresh_token_invalid_expired_or_client_mismatch' });
+         return invalidGrant('unknown, expired or already-rotated refresh token');
       }
       logger.info('[OAuth] Refresh token exchanged for new tokens.', { operation: 'token_exchange', grantType: 'refresh_token' });
       return oauthSuccess({ access_token: accessToken, token_type: 'Bearer', expires_in: OAUTH_ACCESS_TTL_SECONDS, refresh_token: nextRefreshToken, scope: result.scope });
    }
 
    logger.error('[OAuth] Token request rejected.', undefined, { operation: 'token_request', reason: 'unsupported_grant_type' });
-   return oauthError('unsupported_grant_type', 400, 'Supported grant types are authorization_code and refresh_token.');
+   return oauthError('unsupported_grant_type', 400, 'authorization_code and refresh_token only');
 };
 
-export const { GET, POST, PUT, PATCH, DELETE } = createRoute({ name: 'oauth/token', auth: false, cors: oauthCorsHeaders, POST: handleToken });
+const methodNotAllowed = () => oauthError('invalid_request', 405);
+
+export const { GET, POST, PUT, PATCH, DELETE } = createRoute({
+   name: 'oauth/token', auth: false, oauthProtocol: true, cors: oauthCorsHeaders,
+   GET: methodNotAllowed, POST: handleToken, PUT: methodNotAllowed, PATCH: methodNotAllowed, DELETE: methodNotAllowed,
+});
 export const OPTIONS = oauthOptions;

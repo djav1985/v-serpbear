@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 /* eslint-disable security/detect-non-literal-fs-filename -- the path is fixed to the app's data directory, not user input. */
 import { mkdir, readFile } from 'fs/promises';
 import { dirname, join } from 'path';
@@ -13,6 +13,10 @@ export const MCP_SCOPE_FULL = 'mcp:full';
 export const MCP_SCOPE_READ = 'mcp:read';
 export const MCP_SCOPES = [MCP_SCOPE_FULL, MCP_SCOPE_READ] as const;
 export type McpOAuthScope = typeof MCP_SCOPES[number];
+export const OAUTH_ACCESS_TOKEN_PREFIX = 'mcpa_';
+export const OAUTH_REFRESH_TOKEN_PREFIX = 'mcpr_';
+export const OAUTH_CODE_PREFIX = 'mcpc_';
+const SERPBEAR_REPOSITORY = 'https://github.com/djav1985/v-serpbear';
 const MAX_REDIRECT_URIS = 8;
 const MAX_OAUTH_CLIENTS = 500;
 const UNUSED_CLIENT_TTL_MS = 24 * 60 * 60 * 1000;
@@ -75,8 +79,8 @@ export const withOAuthStore = async <T>(mutate: (store: OAuthStore) => Promise<T
    });
 };
 
-export const randomSecret = (): string => randomBytes(32).toString('base64url');
-export const randomIdentifier = (): string => randomUUID();
+export const randomSecret = (prefix = ''): string => `${prefix}${randomBytes(32).toString('base64url')}`;
+export const randomIdentifier = (): string => randomBytes(8).toString('hex');
 export const hashSecret = (secret: string): string => createHash('sha256').update(secret).digest('hex');
 
 export const constantTimeEqual = (candidate: string, expected: string | undefined): boolean => {
@@ -121,7 +125,7 @@ export const getAuthorizationServerMetadata = () => {
       code_challenge_methods_supported: ['S256'],
       scopes_supported: [...MCP_SCOPES],
       revocation_endpoint_auth_methods_supported: ['none'],
-      client_id_metadata_document_supported: false,
+      service_documentation: SERPBEAR_REPOSITORY,
    };
 };
 
@@ -129,7 +133,14 @@ export const getProtectedResourceMetadata = () => {
    const resource = getMcpResourceUrl();
    const issuer = getOAuthBaseUrl();
    if (!resource || !issuer) { return null; }
-   return { resource, authorization_servers: [issuer], scopes_supported: [...MCP_SCOPES], bearer_methods_supported: ['header'] };
+   return {
+      resource,
+      authorization_servers: [issuer],
+      bearer_methods_supported: ['header'],
+      scopes_supported: [...MCP_SCOPES],
+      resource_name: 'SerpBear',
+      resource_documentation: SERPBEAR_REPOSITORY,
+   };
 };
 
 /** Match the example server: unknown scopes are ignored and full access is the default. */
@@ -150,13 +161,35 @@ export const oauthOptions = (): Response => new Response(null, { status: 204, he
 
 export const oauthError = (error: string, status = 400, description?: string, headers?: HeadersInit): Response => Response.json(
    { error, ...(description ? { error_description: description } : {}) },
-   { status, headers: { ...oauthCorsHeaders, 'Cache-Control': 'no-store', Pragma: 'no-cache', ...Object.fromEntries(new Headers(headers).entries()) } },
+   { status, headers: { ...oauthCorsHeaders, 'Cache-Control': 'no-store', ...Object.fromEntries(new Headers(headers).entries()) } },
 );
 
 export const oauthSuccess = (body: unknown, status = 200): Response => Response.json(body, {
    status,
-   headers: { ...oauthCorsHeaders, 'Cache-Control': 'no-store', Pragma: 'no-cache' },
+   headers: { ...oauthCorsHeaders, 'Cache-Control': 'no-store' },
 });
+
+const htmlEscape = (value: string): string => value
+   .replace(/&/g, '&amp;')
+   .replace(/</g, '&lt;')
+   .replace(/>/g, '&gt;')
+   .replace(/"/g, '&quot;')
+   .replace(/'/g, '&#39;');
+
+/** HTML error response used when an authorization request has no trusted callback. */
+export const oauthHtmlError = (title: string, detail: string, status = 400): Response => new Response(
+   `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${htmlEscape(title)} · SerpBear</title></head><body><main><h1>${htmlEscape(title)}</h1><p>${htmlEscape(detail)}</p><p>Server: SerpBear · <a href="${SERPBEAR_REPOSITORY}">documentation</a></p></main></body></html>`,
+   {
+      status,
+      headers: {
+         'Content-Type': 'text/html; charset=utf-8',
+         'Cache-Control': 'no-store',
+         'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+         'X-Content-Type-Options': 'nosniff',
+         'Referrer-Policy': 'no-referrer',
+      },
+   },
+);
 
 export const readOAuthForm = async (req: Request, maxBytes = 32 * 1024): Promise<URLSearchParams | null> => {
    const length = Number(req.headers.get('content-length'));
@@ -181,7 +214,7 @@ export const readOAuthFormOrJson = async (req: Request, maxBytes = 16 * 1024): P
          });
          return params;
       } catch (_error) {
-         return null;
+         return new URLSearchParams(text);
       }
    }
    return new URLSearchParams(text);
@@ -218,7 +251,7 @@ export const parseRedirectUris = (value: unknown): string[] | null => {
 
 export const createClient = async (clientName: string | null, redirectUris: string[]): Promise<OAuthClient | null> => {
    const client: OAuthClient = {
-      clientId: `serpbear_${randomSecret()}`,
+      clientId: randomBytes(16).toString('hex'),
       clientName: clientName?.slice(0, 80) || null,
       redirectUris,
       createdAt: Date.now(),
@@ -262,6 +295,7 @@ export const findActiveAuthorizationRequest = async (requestId: string): Promise
 };
 
 export const verifyPkce = (verifier: string, challenge: string): boolean => {
+   if (verifier.length < 43 || verifier.length > 128 || !/^[A-Za-z0-9._~-]+$/.test(verifier)) { return false; }
    const actual = createHash('sha256').update(verifier).digest('base64url');
    return constantTimeEqual(actual, challenge);
 };

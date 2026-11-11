@@ -25,6 +25,10 @@ type RouteDefinition = Partial<Record<HttpMethod, ApiHandler>> & {
    auth?: boolean;
    /** Additional headers for JSON responses from protocol routes such as OAuth. */
    cors?: HeadersInit;
+   /** OAuth routes own their wire format: skip DB bootstrapping and API request-ID/cache wrappers. */
+   oauthProtocol?: boolean;
+   /** Preserve MCP protocol headers and body without the app-wide request-ID/cache wrapper. */
+   omitResponseMetadata?: boolean;
 };
 
 /** For a route that is public for some methods: the 401 response when the request is not signed in, otherwise null. */
@@ -80,7 +84,7 @@ const run = async (handler: ApiHandler | undefined, def: RouteDefinition, req: R
    // The correct key is still accepted, so a lockout cannot shut out the owner (this matters when no address is known and
    // all clients share one bucket). A request with a valid login cookie is never refused for it.
    const isMcpEndpoint = (() => { try { return new URL(req.url).pathname === '/api/mcp'; } catch (_error) { return false; } })();
-   if (!isMcpEndpoint && isBearerAuthorization(req.headers.get('authorization') ?? undefined) && isLoginLocked(getApiKeyAttemptKeys(req)) && !hasValidSessionCookie(req) && !hasValidApiKey(req)) {
+   if (!def.oauthProtocol && !isMcpEndpoint && isBearerAuthorization(req.headers.get('authorization') ?? undefined) && isLoginLocked(getApiKeyAttemptKeys(req)) && !hasValidSessionCookie(req) && !hasValidApiKey(req)) {
       logger.warn(`${label} - 429 (API key locked)`);
       return withRequestId(fail(429, 'TOO_MANY_ATTEMPTS', 'Too many failed API key attempts. Try again in 15 minutes.', ctx, undefined, { 'Retry-After': '900' }), requestId);
    }
@@ -88,7 +92,7 @@ const run = async (handler: ApiHandler | undefined, def: RouteDefinition, req: R
    let response: Response;
    try {
       // Fallback for when the instrumentation hook did not run (Docker, standalone). After the first call this is a boolean check.
-      await ensureDatabase();
+      if (!def.oauthProtocol) { await ensureDatabase(); }
 
       if (def.auth !== false) {
          const authorized = verifyUser(req);
@@ -100,19 +104,25 @@ const run = async (handler: ApiHandler | undefined, def: RouteDefinition, req: R
 
       if (!handler) {
          const allowed = HTTP_METHODS.filter((m) => def[m]).join(', ');
-         response = fail(405, 'METHOD_NOT_ALLOWED', 'Method not allowed', ctx, undefined, { Allow: allowed });
+         response = def.oauthProtocol
+            ? Response.json({ error: 'invalid_request' }, { status: 405, headers: { Allow: allowed, 'Cache-Control': 'no-store' } })
+            : fail(405, 'METHOD_NOT_ALLOWED', 'Method not allowed', ctx, undefined, { Allow: allowed });
       } else {
          response = await handler(req, ctx);
       }
    } catch (error) {
       if (error instanceof ApiError) {
-         response = fail(error.status, error.code, error.message, ctx);
+         response = def.oauthProtocol
+            ? Response.json({ error: error.status >= 500 ? 'server_error' : 'invalid_request' }, { status: error.status, headers: { 'Cache-Control': 'no-store' } })
+            : fail(error.status, error.code, error.message, ctx);
       } else {
          logger.error(`${label} - Exception`, error instanceof Error ? error : new Error(String(error)), {
             requestId,
             duration: Date.now() - startTime,
          });
-         response = fail(500, 'INTERNAL_SERVER_ERROR', 'Internal server error', ctx);
+         response = def.oauthProtocol
+            ? Response.json({ error: 'server_error' }, { status: 500, headers: { 'Cache-Control': 'no-store' } })
+            : fail(500, 'INTERNAL_SERVER_ERROR', 'Internal server error', ctx);
       }
    }
 
@@ -150,7 +160,7 @@ const run = async (handler: ApiHandler | undefined, def: RouteDefinition, req: R
    } else {
       logger.debug(`[API] ${label} - ${statusCode} (${duration}ms)`);
    }
-   return withRequestId(response, requestId);
+   return def.oauthProtocol || def.omitResponseMetadata ? response : withRequestId(response, requestId);
 };
 
 /**

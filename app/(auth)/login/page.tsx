@@ -9,7 +9,7 @@ type LoginPageProps = { searchParams: Promise<{ next?: string }> };
 export default async function LoginPage({ searchParams }: LoginPageProps) {
    const branding = getBranding();
    const { next = '' } = await searchParams;
-   const returnTo = /^\/oauth\/approve\?request=[A-Za-z0-9_-]{43}$/.test(next) ? next : '/';
+   const returnTo = /^(?:\/oauth\/approve|\/api\/oauth\/authorize)\?request=[A-Za-z0-9_-]{43}$/.test(next) ? next : '/';
 
    return (
       <main className="bg-muted/40 flex min-h-screen items-center justify-center p-4">
