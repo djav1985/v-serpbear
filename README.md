@@ -58,7 +58,7 @@ The full list of changes is in the [changelog](./CHANGELOG.md). See [Update Serp
 - **Idea emails and richer digests.** Email selected keyword ideas and see a tracker summary with average position and map pack counts in digest emails.
 - **Flexible schedules.** Choose the time and timezone for scheduled scrapes, failed-scrape retries, Search Console refreshes, and email digests.
 - **Read-only MCP server.** AI assistants can read rankings, Search Console data, and keyword ideas through MCP.
-- **MCP OAuth for ChatGPT.** Connect through the themed approval screen, or use `MCP_APIKEY` directly as a bearer token.
+- **MCP OAuth flow.** Includes PKCE authorization, a themed approval screen and token handling. The current checkout does not expose standard well-known discovery routes, so clients that require automatic OAuth discovery cannot connect yet. `MCP_APIKEY` also supports direct bearer access.
 - **White-label branding.** Apply a custom app and email name and logo without rebuilding the app.
 - **A rebuilt responsive interface.** The fork replaces the older pages with a responsive dashboard, shared data tables, settings panels, and transitions that respect reduced-motion preferences.
 
@@ -74,15 +74,6 @@ The full list of changes is in the [changelog](./CHANGELOG.md). See [Update Serp
 - Indexed keyword queries, virtualized large tables, single-pass statistics, and Search Console retrieval in pages of up to 25,000 rows.
 - Next.js 16 App Router API and page routes share a typed codebase and common request handling. See [Project structure](#project-structure).
 
-<br><br>
-
-**Feature roadmap**
-
-- [ ] **Not Started** Multi-user support with domain-specific users: More than one login, and you choose which domains each user can see.
-- [ ] **Currently Working On** New UI: the current UI doesn't work very well on mobile it feels very claustrophobic. so I'm moving this to a new UI.
-- [ ] **Currently Working On** Move to app router: I'll take in the back end to use app router instead of page router.
-- [ ] **Currently Working On** Updated packages: Updating all packages to the newest possible version.
-      
 <br><br>
 
 <br><br>
@@ -154,13 +145,13 @@ Behaviour is controlled by environment variables inside docker compose as well a
 | `PASSWORD` | — | Yes | Dashboard password. Replace the `change-me` placeholder. |
 | `SECRET` | — | Yes | Signs the session JWT stored in the `token` cookie and encrypts stored keys. Login returns 500 when it is unset. Changing it signs everyone out and makes stored encrypted keys unreadable, so they must be re-entered. Use a unique value per deployment (`openssl rand -hex 32`). |
 | `APIKEY` | — | Yes | Key for REST clients and cron worker calls; MCP uses it internally for REST calls. Use `openssl rand -hex 32`. |
-| `MCP_APIKEY` | — | Required for OAuth; optional for direct MCP | Operator key used for OAuth approval and, when configured, direct MCP Bearer access. Keep it separate from `APIKEY`. |
-| `MCP_ENABLED` | `true` | No | Master switch for MCP. Set to `false` to disable the MCP endpoint and all OAuth/discovery endpoints. Also accepts `0`, `no` or `off`. |
-| `MCP_OAUTH` | `false` | No | Set to `true` to enable OAuth discovery, registration, authorization, token and revocation endpoints while MCP is enabled. When false, direct MCP API-key access remains available. Also accepts `1`, `yes` or `on`. |
+| `MCP_APIKEY` | — | Required for OAuth or direct MCP | Operator key entered on the OAuth approval page and also accepted for direct MCP Bearer access. Keep it separate from `APIKEY`. |
+| `MCP_ENABLED` | `true` | No | Master switch for MCP. Set to `false` to disable the MCP endpoint and OAuth protocol handlers. Also accepts `0`, `no` or `off`. |
+| `MCP_OAUTH` | `false` | No | Set to `true` to enable OAuth registration, authorization, token and revocation handlers while MCP is enabled. Standard OAuth discovery routes are not present in this checkout. When false, direct MCP API-key access remains available. Also accepts `1`, `yes` or `on`. |
 | `SESSION_DURATION` | `24` | No | Session lifetime in hours. Empty, zero, negative or non-numeric values use 24. |
 | `TRUST_PROXY` | `0` | No | Number of reverse proxies in front of the app. `true` means 1, values above 10 are capped at 10, and invalid values mean 0. Login lockouts, API-key lockouts and the keyword-search and volume rate limits then use the `X-Forwarded-For` entry that many hops from the right. Without it, every client shares one address, so five wrong logins or API keys from anyone lock everyone out for 15 minutes. The app cannot see the connection's own address, and a client can send its own `X-Forwarded-For`, so the header is trusted only when you say how many proxies are in front. It also controls whether `X-Forwarded-Proto`, `X-Forwarded-Protocol` and `X-Forwarded-Ssl` set the `Secure` cookie flag; without it only the request's own `https://` URL does. |
-| `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | No | Public URL of the deployment, used for the Google Ads OAuth return origin, email links and logo, and as the cron worker's fallback origin. Set it for real deployments. |
-| `APP_URL` | — | No | Server-side origin for the cron worker's own calls to the app. It takes precedence over `NEXT_PUBLIC_APP_URL` for those calls, which helps in Docker when the public URL is not reachable from inside the container. Google Ads uses it only when `NEXT_PUBLIC_APP_URL` is unset. Email links ignore it. |
+| `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | No | Public app origin used for Google Ads OAuth redirects, MCP OAuth issuer/endpoint URL construction, email links and branding, and as the cron worker's fallback origin. Set it to the HTTPS origin in production; OAuth URLs must not include a path, query or fragment. |
+| `APP_URL` | — | No | Server-side origin for the cron worker's own calls to the app. It takes precedence over `NEXT_PUBLIC_APP_URL` for those calls, which helps in Docker when the public URL is not reachable from inside the container. Google Ads and MCP OAuth use it only if `NEXT_PUBLIC_APP_URL` is unset. Email links ignore it. |
 | `NEXT_PUBLIC_WHITE_LABEL` | `false` | No | Enables white-label branding (name and logo). The logo is always the file `logo.png` in `/app/data` (PNG, recommended size 96×96 px), served without login at `/api/images/logo.png`. The browser tab icon is the file `favicon.png` in the same folder, served at `/api/images/favicon.png`. When white-label is off or a file is missing, that URL serves the built-in default icon instead, so both always return an image. |
 | `NEXT_PUBLIC_PLATFORM_NAME` | `SerpBear` | No | App and email name. Used only in white-label mode. |
 | `SEARCH_CONSOLE_CLIENT_EMAIL` | — | No | Service account email with access to your Search Console properties. |
@@ -310,7 +301,7 @@ Set `NEXT_PUBLIC_WHITE_LABEL=true` for a custom name and logo. Logo and favicon 
 
 ### Settings and data
 
-Settings are stored in `data/settings.json`, with secrets encrypted using `SECRET`. `GET /api/app/settings` is public and returns only `scraper_type`, `available_scapers`, `search_console_integrated`, `version`, `timezone` and a read-only `branding` object (name and logo, which the login page uses) without a session. `PUT /api/app/settings` needs a login session (an API key is not accepted). It merges the payload: keys left out keep their stored values, and a secret sent empty is cleared.
+Settings are stored in `data/settings.json`, with secrets encrypted using `SECRET`. `GET /api/app/settings` is public and returns only `scraper_type`, `available_scapers`, `search_console_integrated`, `version`, `timezone` and a read-only `branding` object (name and logo, used by the login and OAuth approval pages) without a session. `PUT /api/app/settings` needs a login session (an API key is not accepted). It merges the payload: keys left out keep their stored values, and a secret sent empty is cleared.
 
 Docker Compose stores data in a named volume (`data`) mounted at `/app/data`, prefixed with the project name (for example `v-serpbear_data`; find it with `docker volume ls`). It holds the SQLite database, `settings.json`, Search Console exports (`SC_<domain>.json`), keyword ideas (`IDEAS_*.json`), `session.json`, `email-throttle.json`, `failed_queue.json` and any white-label logo.
 
@@ -330,7 +321,7 @@ A read-only [Model Context Protocol](https://modelcontextprotocol.io) server for
 
 - **URL:** `https://<your-host>/api/mcp` (Streamable HTTP, `POST` only). Use HTTPS, because the key is sent on every request.
 - **Direct key:** header `Authorization: Bearer <MCP_APIKEY>`. Cookies and login sessions are not accepted.
-- **ChatGPT OAuth:** set `MCP_OAUTH=true`, then choose OAuth in the connector setup. The authorization endpoint serves the themed consent screen directly and asks for the server's `MCP_APIKEY` to approve the connection. Incorrect keys are limited to 10 attempts per IP per 15 minutes. Metadata, response fields, scopes, CORS, PKCE, refresh rotation and revocation follow the `google-seo-mcp` reference, with `/api` added to resource and OAuth endpoint paths. Protected-resource and authorization-server metadata are served at the root and MCP path-specific well-known URLs. OAuth state is stored in `data/mcp_oauth.json`. When `MCP_OAUTH` is unset or false, OAuth endpoints return 404 and the MCP challenge is `WWW-Authenticate: Bearer`. Set `MCP_ENABLED=false` to return 404 from direct MCP access and all MCP OAuth/discovery endpoints.
+- **OAuth:** set `MCP_OAUTH=true`; the approval page is `/api/oauth/approve`, while the authorization handler is `/api/oauth/authorize`. Approve by entering the server's `MCP_APIKEY`; this does not use the dashboard login. Read-only access can be selected. Incorrect keys are limited to 10 attempts per IP per 15 minutes. OAuth client and token state is stored in `data/mcp_oauth.json`. The code currently has no route handlers for `/.well-known/oauth-authorization-server` or `/.well-known/oauth-protected-resource`, so clients that require standard OAuth discovery cannot complete automatic setup from this checkout. When `MCP_OAUTH` is unset or false, OAuth endpoints return 404 and the MCP challenge is `WWW-Authenticate: Bearer`. Set `MCP_ENABLED=false` to return 404 from direct MCP access and OAuth endpoints.
 
 | Tool | Returns |
 | --- | --- |
@@ -387,7 +378,7 @@ The example uses port 3000 (Node.js). Docker Compose serves the app on port 3030
 | Path | Contents |
 | --- | --- |
 | `app/` | The App Router front end. `(auth)/login`, and `(dashboard)/` with `domains`, `domain/[slug]` (Tracking), `domain/console`, `domain/insight`, `domain/ideas` and `research`. Each route keeps its own parts in a private `_components/` folder. |
-| `app/api/` | The JSON and MCP routes (App Router route handlers) |
+| `app/api/` | JSON, MCP, OAuth protocol and OAuth approval-page routes (App Router route handlers/pages) |
 | `components/ui/` | shadcn/ui building blocks (buttons, dialogs, selects, charts) |
 | `hooks/`, `lib/` | Small shared helpers for the front end |
 | `utils/` | Server and shared helpers: refresh pipeline, average position, email throttle, rate limits, Search Console, timezone |

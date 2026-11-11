@@ -86,7 +86,7 @@ There are no Google Ads environment variables. Everything is set in the Settings
 ### Prerequisites
 
 - SerpBear must be reachable at a public URL (not `localhost` or a `.local` name) if you set up the OAuth sign-in from another machine. Google's redirect needs a valid, routable address.
-- Set `NEXT_PUBLIC_APP_URL` (or `APP_URL`) to the full external URL of SerpBear, for example `https://serpbear.yourdomain.com`. It builds the OAuth redirect address, especially behind a reverse proxy.
+- Set `NEXT_PUBLIC_APP_URL` (or, if it is unset, `APP_URL`) to the full external origin of SerpBear, for example `https://serpbear.yourdomain.com`. It builds the Google Ads OAuth redirect address, especially behind a reverse proxy.
 
 ### Step 1: Create a Google Cloud project
 

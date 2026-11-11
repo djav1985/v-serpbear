@@ -38,7 +38,7 @@
    ```
 
    Here the values come from Coolify's Environment Variables screen, so the `${...}` form is right.
-4. Open the **Environment Variables** screen and set `PASSWORD`, `SECRET` and `APIKEY`; set `MCP_APIKEY` only if you want direct MCP bearer access. OAuth uses the normal SerpBear login. The variables are described in [Configuration](Configuration).
+4. Open the **Environment Variables** screen and set `PASSWORD`, `SECRET` and `APIKEY`; set a separate `MCP_APIKEY` if you enable MCP OAuth or direct MCP bearer access. OAuth approval uses this key rather than the normal SerpBear login. Standard OAuth discovery routes are not present in this checkout, so clients that require automatic OAuth discovery cannot currently connect. The variables are described in [Configuration](Configuration).
 5. In the resource's **General** settings, set the domain (for example `https://serpbear.yourdomain.com`). Set `NEXT_PUBLIC_APP_URL` to the same address. Turn on the Let's Encrypt option if you want HTTPS.
 6. Click **Deploy**. Coolify pulls the image and starts the container. Watch the deployment logs in the dashboard, then open your domain.
 

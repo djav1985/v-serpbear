@@ -17,12 +17,12 @@ All notable changes to this project will be documented in this file. Releases no
 - Build OAuth approval redirects from the configured public app URL instead of the incoming request host.
 - Serve the OAuth approval screen at `/api/oauth/approve` and redirect consent flows there.
 - Update the OAuth approval test path and test type annotations for the moved page and current response contracts.
-- Serve protected-resource metadata at the domain-root well-known URL as a compatibility fallback while retaining the resource-path-specific URL.
+- Build protected-resource metadata for the root URL and retain the resource-path-specific URL in the metadata helper.
 - Apply the same app-wide security headers to MCP and OAuth routes as other app routes.
 - Reduce routine OAuth and MCP logs to debug, keeping one info entry for a completed authorization-code exchange and one error entry for a rejected request.
-- Point MCP authentication challenges to root protected-resource metadata for ChatGPT client compatibility while keeping OAuth endpoints under `/api/oauth`.
+- Point MCP authentication challenges at the root protected-resource metadata URL for client compatibility while keeping OAuth protocol endpoints under `/api/oauth`. The metadata URL is advertised, but this checkout has no route serving the metadata document.
 - Add CORS headers and preflight handling to OAuth discovery, registration, authorization, and token endpoints.
-- Match the `google-seo-mcp` OAuth metadata fields, response bodies, protocol headers, code/token prefixes, and authorization-page behavior while using `MCP_API_KEY` and JSON-file persistence.
+- Define reference-compatible `google-seo-mcp` OAuth metadata fields and response bodies, and implement matching protocol headers, code/token prefixes, and authorization-page behavior while using `MCP_API_KEY` and JSON-file persistence.
 - Advertise `mcp:full` and `mcp:read` in OAuth metadata and dynamic registration, and return the granted scope from token exchanges.
 - Match MCP OAuth interoperability with `mcp:full` and `mcp:read` scopes, reference-compatible redirect and registration validation, root metadata challenges, CORS behavior, and `/api/oauth/revoke` grant revocation.
 - Ignore unknown requested OAuth scopes when choosing between the supported full and read scopes.
@@ -30,7 +30,7 @@ All notable changes to this project will be documented in this file. Releases no
 - Log successful OAuth discovery, registration, approval and token exchanges at info level without logging credentials.
 - Add OAuth decision reason logs for registration, authorization, consent and token exchange, plus successful MCP authentication and request handling, without logging secrets.
 - Preserve an explicitly empty `client_name` in OAuth dynamic-registration responses and coerce `redirect_uris` entries to strings before validation to match the reference server.
-- Make MCP OAuth opt-in through `MCP_OAUTH`; disable OAuth endpoints and use a plain Bearer challenge when off, and advertise protected-resource metadata when enabled.
+- Make MCP OAuth opt-in through `MCP_OAUTH`; disable OAuth handlers and use a plain Bearer challenge when off, and include a resource-metadata URL in the challenge when enabled.
 - Avoid blocking request handling while cancelling an oversized debug logging stream.
 - Load the settings editor through an explicitly authenticated full-settings request, and show an error instead of empty fields if the session is invalid.
 
@@ -172,6 +172,9 @@ All notable changes to this project will be documented in this file. Releases no
 - The `chart.js`, `react-chartjs-2`, `react-query` (v3), `react-hot-toast`, `react-timeago`, `react-transition-group`, `react-window` and `next-router-mock` packages.
 
 ### Documentation
+
+- Correct the MCP OAuth setup guides: approval uses `MCP_APIKEY` instead of the dashboard login, and document that this checkout is missing the standard root well-known discovery routes required by automatic OAuth client setup.
+- Remove completed work from the README roadmap.
 
 - The provider tables in the README and the Scrapers wiki page have a "Credits left" column showing which scrapers report the balance. The Scrapers page has a longer "Credits remaining" section: how each provider is asked, when the number updates, shared keys, the saved file and troubleshooting.
 - Added desktop screenshots to the wiki pages (in `docs/images/`), and a set of desktop and phone screenshots in `screenshots/`, all taken from demo data with example domains.

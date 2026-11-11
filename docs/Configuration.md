@@ -10,13 +10,13 @@ Behaviour is controlled by environment variables in `docker-compose.yml` (under 
 | `PASSWORD` | — | Yes | Dashboard password. Replace the `change-me` placeholder. |
 | `SECRET` | — | Yes | Signs the session JWT stored in the `token` cookie and encrypts stored keys. Login returns 500 when it is unset. Changing it signs everyone out and makes stored encrypted keys unreadable, so they must be re-entered. Use a unique value per deployment (`openssl rand -hex 32`). |
 | `APIKEY` | — | Yes | Key for REST clients and the cron worker's scheduled calls. When unset, scheduled jobs are skipped with a warning. It is also used server-side for MCP's internal REST calls. Use `openssl rand -hex 32`. |
-| `MCP_ENABLED` | `true` | No | Master switch for the MCP integration. Set to `false` to disable direct `/api/mcp` access and all MCP OAuth and discovery endpoints. Also accepts `0`, `no` or `off`. |
-| `MCP_OAUTH` | `false` | No | Set to `true` to enable OAuth discovery, registration, authorization, token and revocation endpoints while MCP is enabled. When false, direct MCP API-key access remains available. Also accepts `1`, `yes` or `on`. |
-| `MCP_APIKEY` | — | Only for direct MCP access | Optional key for direct `Authorization: Bearer` access to `/api/mcp`. OAuth approval uses the normal SerpBear login and does not need this variable. Set a separate random value (`openssl rand -hex 32`) if using direct access. |
+| `MCP_ENABLED` | `true` | No | Master switch for the MCP integration. Set to `false` to disable direct `/api/mcp` access and OAuth protocol handlers. Also accepts `0`, `no` or `off`. |
+| `MCP_OAUTH` | `false` | No | Set to `true` to enable OAuth authorization, registration, token and revocation handlers while MCP is enabled. Standard `/.well-known/...` discovery handlers are not present in this checkout. When false, direct MCP API-key access remains available. Also accepts `1`, `yes` or `on`. |
+| `MCP_APIKEY` | — | For OAuth or direct MCP | Operator key entered on the OAuth approval page; it is also accepted for direct `Authorization: Bearer` access to `/api/mcp`. OAuth approval does not use the dashboard login. Keep it separate from `APIKEY`; generate a random value (`openssl rand -hex 32`). |
 | `SESSION_DURATION` | `24` | No | Session lifetime in hours. Empty, zero, negative or non-numeric values use 24. |
 | `TRUST_PROXY` | `0` | No | Number of reverse proxies in front of the app, not an IP address. See [Security](Security). |
-| `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | No | Public URL of the deployment, used for Google Ads OAuth, MCP OAuth discovery, email links and logo, and as the cron worker's fallback origin. Set the HTTPS URL for real deployments. |
-| `APP_URL` | — | No | Server-side origin for the cron worker's own calls to the app. It takes precedence over `NEXT_PUBLIC_APP_URL` for those calls, which helps in Docker when the public URL is not reachable from inside the container. Google Ads uses it only when `NEXT_PUBLIC_APP_URL` is unset. Email links ignore it. |
+| `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | No | Public URL of the deployment, used to construct Google Ads OAuth redirects, MCP OAuth issuer and endpoint URLs, email links and logo, and as the cron worker's fallback origin. Set the HTTPS URL for real deployments. For OAuth, it must be a bare origin with no path, query or fragment. |
+| `APP_URL` | — | No | Server-side origin for the cron worker's own calls to the app. It takes precedence over `NEXT_PUBLIC_APP_URL` for those calls, which helps in Docker when the public URL is not reachable from inside the container. Google Ads and OAuth issuer URL construction use it only when `NEXT_PUBLIC_APP_URL` is unset. Email links ignore it. |
 | `NEXT_PUBLIC_WHITE_LABEL` | `false` | No | Enables white-label branding (name and logo). The logo is always the file `logo.png` in `/app/data` (PNG, recommended size 96×96 px), served without login at `/api/images/logo.png`. The browser tab icon is the file `favicon.png` in the same folder, served at `/api/images/favicon.png`. When white-label is off or a file is missing, that URL serves the built-in default icon instead, so both always return an image. |
 | `NEXT_PUBLIC_PLATFORM_NAME` | `SerpBear` | No | App and email name. Used only in white-label mode. |
 | `SEARCH_CONSOLE_CLIENT_EMAIL` | — | No | Service account email with access to your Search Console properties. |
@@ -53,7 +53,7 @@ Manage these in the Settings UI or at `/api/app/settings`.
 | `adwords_*` | Google Ads credentials for keyword ideas. |
 | `keywordsColumns` | Columns shown in the keyword table. |
 
-`GET /api/app/settings` is public and returns only `scraper_type`, `available_scapers`, `search_console_integrated`, `version`, `timezone` and a read-only `branding` object (name and logo, which the login page uses) without a session. `PUT /api/app/settings` needs a login session (an API key is not accepted). It merges the payload: keys left out keep their stored values, and a secret sent empty is cleared.
+`GET /api/app/settings` is public and returns only `scraper_type`, `available_scapers`, `search_console_integrated`, `version`, `timezone` and a read-only `branding` object (name and logo, used by the login and OAuth approval pages) without a session. `PUT /api/app/settings` needs a login session (an API key is not accepted). It merges the payload: keys left out keep their stored values, and a secret sent empty is cleared.
 
 ## White labelling
 

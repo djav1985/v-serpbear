@@ -27,9 +27,10 @@ Set `USER_NAME`, `PASSWORD` and `SECRET` in the `environment:` section of `docke
 
 ## MCP reports a server configuration error
 
-- Set `MCP_APIKEY` to a separate random value if you want direct MCP bearer access. OAuth approval uses the normal SerpBear login.
+- Set `MCP_APIKEY` to a separate random value for OAuth approval or direct MCP bearer access. OAuth approval uses this key, not the normal SerpBear login.
 - Keep `APIKEY` set as well; MCP uses it internally to call SerpBear's existing REST routes.
-- Set `NEXT_PUBLIC_APP_URL` to the public HTTPS URL for OAuth discovery, then restart the app.
+- Set `NEXT_PUBLIC_APP_URL` to the public HTTPS origin used to build OAuth issuer and redirect URLs, then restart the app. This does not replace the missing well-known discovery routes noted below.
+- This checkout does not implement standard `/.well-known/oauth-authorization-server` or `/.well-known/oauth-protected-resource` handlers. If ChatGPT rejects the server during automatic setup, that missing discovery support is a code limitation; changing the URL or API key alone will not add those endpoints.
 
 ## Run times are off by a few hours
 

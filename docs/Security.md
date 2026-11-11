@@ -5,8 +5,8 @@
 - The dashboard login uses `USER_NAME` and `PASSWORD`. Sessions last `SESSION_DURATION` hours (default 24) and are signed with `SECRET`.
 - REST clients use `APIKEY`. MCP accepts either a valid OAuth access token or `MCP_APIKEY` as a Bearer token; cookies are not accepted.
 - After repeated wrong passwords or API keys the address is locked out for 15 minutes: 5 wrong API keys from one address, and a lockout on login failures per address plus a user-wide cap. A correct password is still accepted during the user-wide cap.
-- Use unique random values for `SECRET`, `APIKEY`, and `MCP_APIKEY` (`openssl rand -hex 32`). `MCP_APIKEY` is optional and only needed for direct MCP bearer access. Changing `SECRET` signs everyone out and makes stored encrypted keys unreadable, so they must be re-entered.
-- Keep the public app URL in `NEXT_PUBLIC_APP_URL` accurate and use HTTPS for remote OAuth connections. MCP OAuth stores client metadata and hashes of authorization codes and access/refresh tokens in `data/mcp_oauth.json`.
+- Use unique random values for `SECRET`, `APIKEY`, and `MCP_APIKEY` (`openssl rand -hex 32`). `MCP_APIKEY` is required for OAuth approval and also enables direct MCP bearer access. Changing `SECRET` signs everyone out and makes stored encrypted keys unreadable, so they must be re-entered.
+- Keep the public app URL in `NEXT_PUBLIC_APP_URL` accurate and use HTTPS for remote OAuth connections. MCP OAuth stores client metadata and hashes of authorization codes and access/refresh tokens in `data/mcp_oauth.json`. Standard OAuth discovery endpoints are not implemented in this checkout.
 
 ## Behind a reverse proxy: `TRUST_PROXY`
 

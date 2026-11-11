@@ -4,16 +4,19 @@ The REST API uses `APIKEY`; MCP has its own `MCP_APIKEY`. Domains are always rea
 
 ## MCP server
 
-A read-only [Model Context Protocol](https://modelcontextprotocol.io) server for AI assistants. It supports direct bearer access and OAuth connections such as ChatGPT.
+A read-only [Model Context Protocol](https://modelcontextprotocol.io) server for AI assistants. It supports direct bearer access and includes OAuth authorization handlers. OAuth clients that require standard automatic discovery cannot connect to this checkout because the well-known discovery routes are missing.
 
-Set `MCP_ENABLED=false` to disable the MCP endpoint and all OAuth/discovery endpoints. By default, MCP is enabled; OAuth itself remains opt-in through `MCP_OAUTH=true`.
+Set `MCP_ENABLED=false` to disable the MCP endpoint and OAuth protocol handlers. By default, MCP is enabled; OAuth itself remains opt-in through `MCP_OAUTH=true`.
 
 - **URL:** `https://<your-host>/api/mcp` (Streamable HTTP, `POST` only). Use HTTPS, because the key is sent on every request.
 - **Direct key:** set `MCP_APIKEY`, then send `Authorization: Bearer <MCP_APIKEY>`. Cookies and login sessions are not accepted.
-- **OAuth:** choose OAuth when connecting ChatGPT. The authorization endpoint serves the themed SerpBear consent screen directly and asks for `MCP_APIKEY` to approve the connection. Incorrect keys are limited to 10 attempts per IP per 15 minutes. OAuth metadata, response fields, scopes, CORS, PKCE, refresh rotation and revocation follow the `google-seo-mcp` reference, with `/api` added to resource and OAuth endpoint paths. Protected-resource and authorization-server metadata are served at the root and MCP path-specific well-known URLs.
+- **OAuth:** set `MCP_OAUTH=true`. `/api/oauth/authorize` handles authorization requests and `/api/oauth/approve` displays the themed approval screen. Approval requires the server's `MCP_APIKEY`, not the dashboard login, and offers read-only access. Incorrect keys are limited to 10 attempts per IP per 15 minutes. The OAuth protocol endpoints support PKCE, refresh-token rotation and revocation; client and token state is stored in `data/mcp_oauth.json`.
+- **Discovery limitation:** this checkout does not contain handlers for `/.well-known/oauth-authorization-server` or `/.well-known/oauth-protected-resource` (nor the MCP-path-specific protected-resource metadata URL). OAuth clients that depend on standard discovery will therefore fail automatic setup until those routes are implemented. The OAuth protocol handlers themselves are under `/api/oauth`.
+- **Token lifetimes:** authorization codes expire after 5 minutes, access tokens after 24 hours, and refresh tokens after 90 days. Refresh tokens rotate when exchanged; reuse of a rotated token revokes that grant.
+- **OAuth endpoints:** `POST /api/oauth/register`, `GET` and form `POST /api/oauth/authorize`, `POST /api/oauth/token`, and `POST /api/oauth/revoke`. The approval page is `/api/oauth/approve`.
 - **Persistence:** keep `/app/data` on persistent storage. OAuth clients and hashed tokens are stored in `data/mcp_oauth.json`; no database schema changes are needed.
 
-`MCP_APIKEY` is the operator key for direct MCP bearer access and OAuth consent. Configure it to use either access method. It is separate from `APIKEY`, which remains the REST API credential used server-side when MCP calls SerpBear's existing REST routes.
+`MCP_APIKEY` is required for OAuth consent and is also accepted for direct MCP bearer access. It is separate from `APIKEY`, which remains the REST API credential used server-side when MCP calls SerpBear's existing REST routes.
 
 | Tool | Returns |
 | --- | --- |
