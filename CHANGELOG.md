@@ -20,6 +20,7 @@ All notable changes to this project will be documented in this file. Releases no
 - Serve protected-resource metadata at the domain-root well-known URL as a compatibility fallback while retaining the resource-path-specific URL.
 - Point MCP authentication challenges to root protected-resource metadata for ChatGPT client compatibility while keeping OAuth endpoints under `/api/oauth`.
 - Add CORS headers and preflight handling to OAuth discovery, registration, authorization, and token endpoints.
+- Include the supported MCP scope in dynamic client registration responses.
 - Ignore OAuth scopes the MCP client requests but SerpBear does not implement, granting only the supported `serpbear.read` scope.
 - Log OAuth endpoint failures and MCP OAuth authentication failures at error level with diagnostic codes while keeping bearer tokens and authorization codes out of logs.
 - Log successful OAuth discovery, registration, approval and token exchanges at info level without logging credentials.
