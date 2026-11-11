@@ -13,6 +13,7 @@ jest.mock('../../utils/logger', () => ({
 }));
 const originalAppUrl = process.env.NEXT_PUBLIC_APP_URL;
 const originalMcpApiKey = process.env.MCP_API_KEY;
+const originalMcpOAuth = process.env.MCP_OAUTH;
 
 const jsonRequest = (url: string, body: unknown) => new Request(url, {
    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
@@ -33,6 +34,7 @@ describe('OAuth routes', () => {
       tempData = createTempAppDataDir('serpbear-oauth-routes-');
       process.env.NEXT_PUBLIC_APP_URL = appUrl;
       process.env.MCP_API_KEY = 'operator-test-key';
+      process.env.MCP_OAUTH = 'true';
    });
 
    afterEach(() => {
@@ -41,6 +43,8 @@ describe('OAuth routes', () => {
       else { process.env.NEXT_PUBLIC_APP_URL = originalAppUrl; }
       if (originalMcpApiKey === undefined) { delete process.env.MCP_API_KEY; }
       else { process.env.MCP_API_KEY = originalMcpApiKey; }
+      if (originalMcpOAuth === undefined) { delete process.env.MCP_OAUTH; }
+      else { process.env.MCP_OAUTH = originalMcpOAuth; }
    });
 
    it('accepts extra DCR metadata and advertises scopes and CORS', async () => {

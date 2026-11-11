@@ -28,6 +28,7 @@ jest.mock('@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js', () =>
 describe('MCP route', () => {
   const originalApiKey = process.env.APIKEY;
   const originalMcpApiKey = process.env.MCP_API_KEY;
+  const originalMcpOAuth = process.env.MCP_OAUTH;
   const originalPort = process.env.PORT;
   const originalAppUrl = process.env.NEXT_PUBLIC_APP_URL;
 
@@ -49,6 +50,7 @@ describe('MCP route', () => {
       mockToolHandlers.clear();
       process.env.APIKEY = 'test-key';
       process.env.MCP_API_KEY = 'test-key';
+      process.env.MCP_OAUTH = 'true';
       process.env.PORT = '3200';
       process.env.NEXT_PUBLIC_APP_URL = 'https://serpbear.example';
     });
@@ -61,6 +63,8 @@ describe('MCP route', () => {
       }
       if (originalMcpApiKey === undefined) delete process.env.MCP_API_KEY;
       else process.env.MCP_API_KEY = originalMcpApiKey;
+      if (originalMcpOAuth === undefined) delete process.env.MCP_OAUTH;
+      else process.env.MCP_OAUTH = originalMcpOAuth;
       if (originalPort === undefined) delete process.env.PORT;
       else process.env.PORT = originalPort;
       if (originalAppUrl === undefined) delete process.env.NEXT_PUBLIC_APP_URL;
