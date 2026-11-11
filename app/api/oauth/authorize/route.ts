@@ -1,4 +1,5 @@
 import { createRoute } from '../../../../utils/apiLogging';
+import { hasValidSessionCookie } from '../../../../utils/verifyUser';
 import { getClientIp } from '../../../../utils/api/clientIp';
 import { logger } from '../../../../utils/logger';
 import {
@@ -55,10 +56,6 @@ const authorize = async (req: Request): Promise<Response> => {
    logger.debug('[OAuth] Authorization request received.', { operation: 'authorization_request' });
    const base = getOAuthBaseUrl();
    if (!base || !getAuthorizationServerMetadata()) { return oauthError('server_error', 503, 'Set NEXT_PUBLIC_APP_URL to the public HTTPS URL of this server.'); }
-   if (!process.env.MCP_APIKEY) {
-      logger.debug('[OAuth] Authorization unavailable because MCP_APIKEY is not configured.', { operation: 'authorization', reason: 'mcp_api_key_not_configured' });
-      return oauthHtmlError('OAuth unavailable', 'MCP_APIKEY must be configured before a client can be approved.', 503);
-   }
    const params = new URL(req.url).searchParams;
    const existingRequestId = params.get('request');
    if (existingRequestId) { return redirectToApprovalPage(base, existingRequestId); }
@@ -144,21 +141,26 @@ const submitConsent = async (req: Request): Promise<Response> => {
    if (form.get('decision') !== 'approve') {
       return redirectToApprovalPage(base, requestId, 'invalid_decision');
    }
+   const sessionAuthorized = hasValidSessionCookie(req);
    const ip = getClientIp(req);
-   if (isApprovalIpThrottled(ip)) {
-      logger.debug('[OAuth] Approval request rate limited.', { operation: 'authorization_consent', reason: 'too_many_incorrect_api_keys', ip });
+   if (!sessionAuthorized && isApprovalIpThrottled(ip)) {
+      logger.debug('[OAuth] Approval request rate limited.', { operation: 'authorization_consent', reason: 'too_many_incorrect_credentials', ip });
       return redirectToApprovalPage(base, requestId, 'too_many_attempts');
    }
-   const apiKey = process.env.MCP_APIKEY;
-   if (!apiKey) {
-      logger.debug('[OAuth] Approval rejected because MCP_APIKEY is not configured.', { operation: 'authorization_consent', reason: 'mcp_api_key_not_configured' });
-      return redirectToApprovalPage(base, requestId, 'key_unconfigured');
+   const username = form.get('username') ?? '';
+   const password = form.get('password') ?? '';
+   const configuredUsername = process.env.USER_NAME || process.env.USER;
+   const configuredPassword = process.env.PASSWORD;
+   const credentialsConfigured = !!configuredUsername && !!configuredPassword;
+   const credentialsValid = credentialsConfigured && constantTimeEqual(username, configuredUsername) && constantTimeEqual(password, configuredPassword);
+   if (!sessionAuthorized && !credentialsConfigured) {
+      logger.debug('[OAuth] Approval rejected because login credentials are not configured.', { operation: 'authorization_consent', reason: 'credentials_unconfigured' });
+      return redirectToApprovalPage(base, requestId, 'credentials_unconfigured');
    }
-   const suppliedKey = (form.get('token') ?? '').trim();
-   if (!suppliedKey || !constantTimeEqual(suppliedKey, apiKey)) {
+   if (!sessionAuthorized && !credentialsValid) {
       countApprovalFailure(ip);
-      logger.debug('[OAuth] Operator API key rejected on the approval page.', { operation: 'authorization_consent', reason: 'incorrect_mcp_api_key', ip });
-      return redirectToApprovalPage(base, requestId, 'incorrect_key');
+      logger.debug('[OAuth] Login credentials rejected on the approval page.', { operation: 'authorization_consent', reason: 'incorrect_credentials', ip });
+      return redirectToApprovalPage(base, requestId, 'incorrect_credentials');
    }
 
    const code = randomSecret(OAUTH_CODE_PREFIX);

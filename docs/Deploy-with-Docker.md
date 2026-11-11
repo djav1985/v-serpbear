@@ -47,7 +47,7 @@ git clone https://github.com/djav1985/v-serpbear.git
 cd v-serpbear
 ```
 
-Change the values. At least replace `PASSWORD`, `SECRET` and `APIKEY`. Set `MCP_APIKEY` to a separate random value if you enable MCP OAuth or direct MCP bearer access (`openssl rand -hex 32` makes a good value). OAuth approval uses this key rather than the normal SerpBear login. Set `NEXT_PUBLIC_APP_URL` to the address you will open in the browser. Standard OAuth discovery routes are not present in this checkout, so clients that require automatic OAuth discovery cannot currently connect. Every variable is described in [Configuration](Configuration).
+Change the values. At least replace `PASSWORD`, `SECRET` and `APIKEY`. The sample `MCP_APIKEY` is for direct MCP bearer access; replace it with a random value (`openssl rand -hex 32`) if you keep that access enabled, or unset it. OAuth approval uses the configured SerpBear username and password or an existing valid login cookie. Set `NEXT_PUBLIC_APP_URL` to the address you will open in the browser. Standard OAuth discovery routes are not present in this checkout, so clients that require automatic OAuth discovery cannot currently connect. Every variable is described in [Configuration](Configuration).
 
 ## Step 3: Start it
 

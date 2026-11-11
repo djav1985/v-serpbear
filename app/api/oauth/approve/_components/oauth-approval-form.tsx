@@ -5,9 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from 'components/ui/card';
 import { Input } from 'components/ui/input';
 import { Label } from 'components/ui/label';
 
-type Props = { requestId: string, clientName: string, callbackHost: string, platformName: string, readOnlyRequested: boolean, error: string };
+type Props = { requestId: string, clientName: string, callbackHost: string, platformName: string, readOnlyRequested: boolean, error: string, sessionUser: string | null };
 
-export function OAuthApprovalForm({ requestId, clientName, callbackHost, platformName, readOnlyRequested, error: initialError }: Props) {
+export function OAuthApprovalForm({ requestId, clientName, callbackHost, platformName, readOnlyRequested, error: initialError, sessionUser }: Props) {
    return (
       <Card>
          <CardHeader>
@@ -22,15 +22,25 @@ export function OAuthApprovalForm({ requestId, clientName, callbackHost, platfor
             </div>
             <form action="/api/oauth/authorize" method="post" className="flex flex-col gap-4">
                <input type="hidden" name="request" value={requestId} />
-               <div className="flex flex-col gap-2">
-                  <Label htmlFor="mcp-apikey">Server API key (MCP_APIKEY)</Label>
-                  <Input id="mcp-apikey" name="token" type="password" autoComplete="off" autoFocus required />
-               </div>
+               {sessionUser ? (
+                  <p className="rounded-lg border bg-muted/40 p-3 text-sm">You’re logged in as <span className="font-medium">{sessionUser}</span>.</p>
+               ) : (
+                  <>
+                     <div className="flex flex-col gap-2">
+                        <Label htmlFor="oauth-username">Username</Label>
+                        <Input id="oauth-username" name="username" type="text" autoComplete="username" autoFocus required />
+                     </div>
+                     <div className="flex flex-col gap-2">
+                        <Label htmlFor="oauth-password">Password</Label>
+                        <Input id="oauth-password" name="password" type="password" autoComplete="current-password" required />
+                     </div>
+                  </>
+               )}
                <label className="flex items-center gap-2 text-sm">
                   <input type="checkbox" name="read_only" value="1" defaultChecked={readOnlyRequested} />
                   <span>Read-only access (recommended)</span>
                </label>
-               <p className="text-muted-foreground text-xs">This is the same key used for direct MCP access.</p>
+               {!sessionUser && <p className="text-muted-foreground text-xs">Use the SerpBear username and password configured on the server.</p>}
                {initialError && <p role="alert" className="text-destructive text-sm">{initialError}</p>}
                <Button type="submit" name="decision" value="approve" variant="primaryAction" className="h-10 w-full text-base">Approve connection</Button>
                <Button type="submit" name="decision" value="deny" formNoValidate variant="dangerAction" className="h-10 w-full text-base">Cancel</Button>

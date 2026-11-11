@@ -71,6 +71,7 @@ All notable changes to this project will be documented in this file. Releases no
 
 ### Changed
 
+- Use the configured SerpBear username and password on the OAuth approval page, or approve with an existing login cookie. Credential entry authorizes only that request without creating a login session; `MCP_APIKEY` remains for direct MCP bearer access.
 - Require JSON bodies for keyword and domain PUT/DELETE arguments; remove the legacy `id` and `domain` query forms and update the frontend API calls.
 - Move POST refresh and email arguments into JSON request bodies; update the frontend and cron worker callers. The scheduled refresh uses `{ scope: "enabled-domains" }` on `POST /api/serp/refresh`; remove `POST /api/app/cron`.
 - Remove the unused `GET /api/auth/check` endpoint; the app checks sessions in protected layouts and API routes.
@@ -173,7 +174,7 @@ All notable changes to this project will be documented in this file. Releases no
 
 ### Documentation
 
-- Correct the MCP OAuth setup guides: approval uses `MCP_APIKEY` instead of the dashboard login, and document that this checkout is missing the standard root well-known discovery routes required by automatic OAuth client setup.
+- Update MCP OAuth setup guides and `.env.example` to describe username/password and existing-cookie approval, and document that this checkout is missing the standard root well-known discovery routes required by automatic OAuth client setup.
 - Remove completed work from the README roadmap.
 
 - The provider tables in the README and the Scrapers wiki page have a "Credits left" column showing which scrapers report the balance. The Scrapers page has a longer "Credits remaining" section: how each provider is asked, when the number updates, shared keys, the saved file and troubleshooting.

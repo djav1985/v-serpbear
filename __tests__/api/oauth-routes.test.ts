@@ -1,6 +1,8 @@
 import { createHash, randomBytes } from 'crypto';
+import jwt from 'jsonwebtoken';
 import { createTempAppDataDir } from '../__helpers__/tempAppDataDir';
 import { findCredential, hashSecret, withOAuthStore } from '../../utils/mcpOAuth';
+import { getSessionVersion } from '../../utils/sessionStore';
 import { GET as registerGet, OPTIONS as registerOptions, POST as registerClient } from '../../app/api/oauth/register/route';
 import { GET as authorize, POST as consent } from '../../app/api/oauth/authorize/route';
 import { POST as token } from '../../app/api/oauth/token/route';
@@ -14,6 +16,10 @@ jest.mock('../../utils/logger', () => ({
 const originalAppUrl = process.env.NEXT_PUBLIC_APP_URL;
 const originalMcpApiKey = process.env.MCP_APIKEY;
 const originalMcpOAuth = process.env.MCP_OAUTH;
+const originalUserName = process.env.USER_NAME;
+const originalUser = process.env.USER;
+const originalPassword = process.env.PASSWORD;
+const originalSecret = process.env.SECRET;
 
 const jsonRequest = (url: string, body: unknown) => new Request(url, {
    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
@@ -33,8 +39,11 @@ describe('OAuth routes', () => {
    beforeEach(() => {
       tempData = createTempAppDataDir('serpbear-oauth-routes-');
       process.env.NEXT_PUBLIC_APP_URL = appUrl;
-      process.env.MCP_APIKEY = 'operator-test-key';
+      delete process.env.MCP_APIKEY;
       process.env.MCP_OAUTH = 'true';
+      process.env.USER_NAME = 'admin';
+      process.env.PASSWORD = 'oauth-test-password';
+      process.env.SECRET = 'oauth-test-secret';
    });
 
    afterEach(() => {
@@ -45,6 +54,14 @@ describe('OAuth routes', () => {
       else { process.env.MCP_APIKEY = originalMcpApiKey; }
       if (originalMcpOAuth === undefined) { delete process.env.MCP_OAUTH; }
       else { process.env.MCP_OAUTH = originalMcpOAuth; }
+      if (originalUserName === undefined) { delete process.env.USER_NAME; }
+      else { process.env.USER_NAME = originalUserName; }
+      if (originalUser === undefined) { delete process.env.USER; }
+      else { process.env.USER = originalUser; }
+      if (originalPassword === undefined) { delete process.env.PASSWORD; }
+      else { process.env.PASSWORD = originalPassword; }
+      if (originalSecret === undefined) { delete process.env.SECRET; }
+      else { process.env.SECRET = originalSecret; }
    });
 
    it('accepts extra DCR metadata and advertises scopes and CORS', async () => {
@@ -87,9 +104,10 @@ describe('OAuth routes', () => {
       expect(approvalUrl.pathname).toBe('/api/oauth/approve');
       const pendingRequest = approvalUrl.searchParams.get('request')!;
       const approved = await consent(formRequest(`${appUrl}/api/oauth/authorize`, {
-         request: pendingRequest, token: 'operator-test-key', decision: 'approve', read_only: '1',
+         request: pendingRequest, username: 'admin', password: 'oauth-test-password', decision: 'approve', read_only: '1',
       }));
       expect(approved.status).toBe(303);
+      expect(approved.headers.get('set-cookie')).toBeNull();
       const authorizationCode = new URL(approved.headers.get('location')!).searchParams.get('code')!;
 
       const exchanged = await token(formRequest(`${appUrl}/api/oauth/token`, {
@@ -110,6 +128,60 @@ describe('OAuth routes', () => {
       const unknown = await revoke(formRequest(`${appUrl}/api/oauth/revoke`, { token: 'unknown-token' }));
       expect(unknown.status).toBe(200);
       await expect(unknown.json()).resolves.toEqual({});
+   });
+
+   it('approves using an existing login cookie without asking for credentials', async () => {
+      const registration = await registerClient(jsonRequest(`${appUrl}/api/oauth/register`, {
+         client_name: 'ChatGPT', redirect_uris: [redirectUri],
+      }));
+      const client = await registration.json() as { client_id: string };
+      const verifier = randomBytes(32).toString('base64url');
+      const challenge = createHash('sha256').update(verifier).digest('base64url');
+      const query = new URLSearchParams({
+         client_id: client.client_id,
+         redirect_uri: redirectUri,
+         response_type: 'code',
+         code_challenge: challenge,
+         code_challenge_method: 'S256',
+      });
+      const authorization = await authorize(new Request(`${appUrl}/api/oauth/authorize?${query}`));
+      const requestId = new URL(authorization.headers.get('location')!).searchParams.get('request')!;
+      const sessionToken = jwt.sign({ user: 'admin', sv: getSessionVersion() }, process.env.SECRET!, { expiresIn: '1h' });
+
+      const approved = await consent(formRequest(`${appUrl}/api/oauth/authorize`, {
+         request: requestId, decision: 'approve', read_only: '1',
+      }, { Cookie: `token=${sessionToken}` }));
+
+      expect(approved.status).toBe(303);
+      expect(new URL(approved.headers.get('location')!).searchParams.get('code')).toBeTruthy();
+      expect(approved.headers.get('set-cookie')).toBeNull();
+   });
+
+   it('returns to the approval page when the entered username or password is incorrect', async () => {
+      const registration = await registerClient(jsonRequest(`${appUrl}/api/oauth/register`, {
+         client_name: 'ChatGPT', redirect_uris: [redirectUri],
+      }));
+      const client = await registration.json() as { client_id: string };
+      const verifier = randomBytes(32).toString('base64url');
+      const challenge = createHash('sha256').update(verifier).digest('base64url');
+      const query = new URLSearchParams({
+         client_id: client.client_id,
+         redirect_uri: redirectUri,
+         response_type: 'code',
+         code_challenge: challenge,
+         code_challenge_method: 'S256',
+      });
+      const authorization = await authorize(new Request(`${appUrl}/api/oauth/authorize?${query}`));
+      const requestId = new URL(authorization.headers.get('location')!).searchParams.get('request')!;
+
+      const rejected = await consent(formRequest(`${appUrl}/api/oauth/authorize`, {
+         request: requestId, username: 'admin', password: 'incorrect', decision: 'approve',
+      }));
+
+      expect(rejected.status).toBe(303);
+      const approvalUrl = new URL(rejected.headers.get('location')!);
+      expect(approvalUrl.pathname).toBe('/api/oauth/approve');
+      expect(approvalUrl.searchParams.get('error')).toBe('incorrect_credentials');
    });
 
    it('returns an OAuth metadata error for malformed or oversized DCR JSON', async () => {

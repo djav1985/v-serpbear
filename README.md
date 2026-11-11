@@ -58,7 +58,7 @@ The full list of changes is in the [changelog](./CHANGELOG.md). See [Update Serp
 - **Idea emails and richer digests.** Email selected keyword ideas and see a tracker summary with average position and map pack counts in digest emails.
 - **Flexible schedules.** Choose the time and timezone for scheduled scrapes, failed-scrape retries, Search Console refreshes, and email digests.
 - **Read-only MCP server.** AI assistants can read rankings, Search Console data, and keyword ideas through MCP.
-- **MCP OAuth flow.** Includes PKCE authorization, a themed approval screen and token handling. The current checkout does not expose standard well-known discovery routes, so clients that require automatic OAuth discovery cannot connect yet. `MCP_APIKEY` also supports direct bearer access.
+- **MCP OAuth flow.** Includes PKCE authorization, a themed approval screen and token handling. The current checkout does not expose standard well-known discovery routes, so clients that require automatic OAuth discovery cannot connect yet. OAuth approval uses the configured SerpBear username and password, or an existing login cookie. `MCP_APIKEY` is for direct bearer access.
 - **White-label branding.** Apply a custom app and email name and logo without rebuilding the app.
 - **A rebuilt responsive interface.** The fork replaces the older pages with a responsive dashboard, shared data tables, settings panels, and transitions that respect reduced-motion preferences.
 
@@ -145,7 +145,7 @@ Behaviour is controlled by environment variables inside docker compose as well a
 | `PASSWORD` | — | Yes | Dashboard password. Replace the `change-me` placeholder. |
 | `SECRET` | — | Yes | Signs the session JWT stored in the `token` cookie and encrypts stored keys. Login returns 500 when it is unset. Changing it signs everyone out and makes stored encrypted keys unreadable, so they must be re-entered. Use a unique value per deployment (`openssl rand -hex 32`). |
 | `APIKEY` | — | Yes | Key for REST clients and cron worker calls; MCP uses it internally for REST calls. Use `openssl rand -hex 32`. |
-| `MCP_APIKEY` | — | Required for OAuth or direct MCP | Operator key entered on the OAuth approval page and also accepted for direct MCP Bearer access. Keep it separate from `APIKEY`. |
+| `MCP_APIKEY` | — | For direct MCP access | Optional key for direct `Authorization: Bearer` access to `/api/mcp`. OAuth approval uses the configured SerpBear username and password, or an existing login cookie. Keep this key separate from `APIKEY`. |
 | `MCP_ENABLED` | `true` | No | Master switch for MCP. Set to `false` to disable the MCP endpoint and OAuth protocol handlers. Also accepts `0`, `no` or `off`. |
 | `MCP_OAUTH` | `false` | No | Set to `true` to enable OAuth registration, authorization, token and revocation handlers while MCP is enabled. Standard OAuth discovery routes are not present in this checkout. When false, direct MCP API-key access remains available. Also accepts `1`, `yes` or `on`. |
 | `SESSION_DURATION` | `24` | No | Session lifetime in hours. Empty, zero, negative or non-numeric values use 24. |
@@ -321,7 +321,7 @@ A read-only [Model Context Protocol](https://modelcontextprotocol.io) server for
 
 - **URL:** `https://<your-host>/api/mcp` (Streamable HTTP, `POST` only). Use HTTPS, because the key is sent on every request.
 - **Direct key:** header `Authorization: Bearer <MCP_APIKEY>`. Cookies and login sessions are not accepted.
-- **OAuth:** set `MCP_OAUTH=true`; the approval page is `/api/oauth/approve`, while the authorization handler is `/api/oauth/authorize`. Approve by entering the server's `MCP_APIKEY`; this does not use the dashboard login. Read-only access can be selected. Incorrect keys are limited to 10 attempts per IP per 15 minutes. OAuth client and token state is stored in `data/mcp_oauth.json`. The code currently has no route handlers for `/.well-known/oauth-authorization-server` or `/.well-known/oauth-protected-resource`, so clients that require standard OAuth discovery cannot complete automatic setup from this checkout. When `MCP_OAUTH` is unset or false, OAuth endpoints return 404 and the MCP challenge is `WWW-Authenticate: Bearer`. Set `MCP_ENABLED=false` to return 404 from direct MCP access and OAuth endpoints.
+- **OAuth:** set `MCP_OAUTH=true`; the approval page is `/api/oauth/approve`, while the authorization handler is `/api/oauth/authorize`. Approve with the configured `USER_NAME` (or `USER`) and `PASSWORD`, or use an existing valid login cookie. Entering credentials approves this request without creating a login cookie. Read-only access can be selected. Incorrect credentials are limited to 10 attempts per IP per 15 minutes. OAuth client and token state is stored in `data/mcp_oauth.json`. The code currently has no route handlers for `/.well-known/oauth-authorization-server` or `/.well-known/oauth-protected-resource`, so clients that require standard OAuth discovery cannot complete automatic setup from this checkout. When `MCP_OAUTH` is unset or false, OAuth endpoints return 404 and the MCP challenge is `WWW-Authenticate: Bearer`. Set `MCP_ENABLED=false` to return 404 from direct MCP access and OAuth endpoints.
 
 | Tool | Returns |
 | --- | --- |

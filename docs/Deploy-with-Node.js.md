@@ -33,7 +33,7 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 CRON_TIMEZONE=America/New_York
 ```
 
-Replace the values. Set a separate `MCP_APIKEY` if you enable MCP OAuth or direct MCP bearer access. OAuth approval uses this key rather than the normal SerpBear login. Use `https://serpbear.yourdomain.com` for `NEXT_PUBLIC_APP_URL` on a server. Standard OAuth discovery routes are not present in this checkout, so clients that require automatic OAuth discovery cannot currently connect. Every variable is described in [Configuration](Configuration). Both the web app and the cron worker read this file.
+Replace the values. `MCP_APIKEY` is optional and only used for direct MCP bearer access. OAuth approval uses the configured SerpBear username and password or an existing valid login cookie; entering credentials does not create a login cookie. Use `https://serpbear.yourdomain.com` for `NEXT_PUBLIC_APP_URL` on a server. Standard OAuth discovery routes are not present in this checkout, so clients that require automatic OAuth discovery cannot currently connect. Every variable is described in [Configuration](Configuration). Both the web app and the cron worker read this file.
 
 ## Step 4: Create the data folder
 

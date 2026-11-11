@@ -10,13 +10,13 @@ Set `MCP_ENABLED=false` to disable the MCP endpoint and OAuth protocol handlers.
 
 - **URL:** `https://<your-host>/api/mcp` (Streamable HTTP, `POST` only). Use HTTPS, because the key is sent on every request.
 - **Direct key:** set `MCP_APIKEY`, then send `Authorization: Bearer <MCP_APIKEY>`. Cookies and login sessions are not accepted.
-- **OAuth:** set `MCP_OAUTH=true`. `/api/oauth/authorize` handles authorization requests and `/api/oauth/approve` displays the themed approval screen. Approval requires the server's `MCP_APIKEY`, not the dashboard login, and offers read-only access. Incorrect keys are limited to 10 attempts per IP per 15 minutes. The OAuth protocol endpoints support PKCE, refresh-token rotation and revocation; client and token state is stored in `data/mcp_oauth.json`.
+- **OAuth:** set `MCP_OAUTH=true`. `/api/oauth/authorize` handles authorization requests and `/api/oauth/approve` displays the themed approval screen. Approve using the configured `USER_NAME` (or `USER`) and `PASSWORD`, or an existing valid login cookie. Entered credentials authorize only this request and do not create a login cookie. The screen offers read-only access. Incorrect credentials are limited to 10 attempts per IP per 15 minutes. OAuth protocol endpoints support PKCE, refresh-token rotation and revocation; client and token state is stored in `data/mcp_oauth.json`.
 - **Discovery limitation:** this checkout does not contain handlers for `/.well-known/oauth-authorization-server` or `/.well-known/oauth-protected-resource` (nor the MCP-path-specific protected-resource metadata URL). OAuth clients that depend on standard discovery will therefore fail automatic setup until those routes are implemented. The OAuth protocol handlers themselves are under `/api/oauth`.
 - **Token lifetimes:** authorization codes expire after 5 minutes, access tokens after 24 hours, and refresh tokens after 90 days. Refresh tokens rotate when exchanged; reuse of a rotated token revokes that grant.
 - **OAuth endpoints:** `POST /api/oauth/register`, `GET` and form `POST /api/oauth/authorize`, `POST /api/oauth/token`, and `POST /api/oauth/revoke`. The approval page is `/api/oauth/approve`.
 - **Persistence:** keep `/app/data` on persistent storage. OAuth clients and hashed tokens are stored in `data/mcp_oauth.json`; no database schema changes are needed.
 
-`MCP_APIKEY` is required for OAuth consent and is also accepted for direct MCP bearer access. It is separate from `APIKEY`, which remains the REST API credential used server-side when MCP calls SerpBear's existing REST routes.
+`MCP_APIKEY` is optional and only used for direct MCP bearer access. It is separate from `APIKEY`, which remains the REST API credential used server-side when MCP calls SerpBear's existing REST routes.
 
 | Tool | Returns |
 | --- | --- |

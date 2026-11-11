@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { getBranding } from 'utils/branding';
 import { logger } from 'utils/logger';
+import { getSessionUser } from 'utils/serverSession';
 import { findActiveAuthorizationRequest, MCP_SCOPE_READ, readClient } from 'utils/mcpOAuth';
 import { Brand } from 'app/_components/brand';
 import { OAuthApprovalForm } from './_components/oauth-approval-form';
@@ -9,15 +10,16 @@ export const metadata: Metadata = { title: 'Authorize MCP Connection' };
 
 type PageProps = { searchParams: Promise<{ request?: string, error?: string }> };
 const approvalErrors: Record<string, string> = {
-   incorrect_key: 'That is not the MCP_APIKEY for this server.',
-   key_unconfigured: 'MCP_APIKEY is not configured on this server.',
-   too_many_attempts: 'Too many incorrect keys from this address. Wait 15 minutes and try again.',
+   incorrect_credentials: 'The username or password is incorrect.',
+   credentials_unconfigured: 'The server username or password is not configured.',
+   too_many_attempts: 'Too many incorrect sign-in attempts from this address. Wait 15 minutes and try again.',
    invalid_decision: 'Choose approve or cancel.',
 };
 
 export default async function OAuthApprovalPage({ searchParams }: PageProps) {
    const { request = '', error = '' } = await searchParams;
    const branding = getBranding();
+   const sessionUser = await getSessionUser();
    let clientName = '';
    let callbackHost = '';
    let requestValid = false;
@@ -56,7 +58,15 @@ export default async function OAuthApprovalPage({ searchParams }: PageProps) {
                <Brand branding={branding} markSize={30} />
             </h1>
             {requestValid ? (
-               <OAuthApprovalForm requestId={request} clientName={clientName} callbackHost={callbackHost} platformName={branding.platformName} readOnlyRequested={readOnlyRequested} error={message} />
+               <OAuthApprovalForm
+                  requestId={request}
+                  clientName={clientName}
+                  callbackHost={callbackHost}
+                  platformName={branding.platformName}
+                  readOnlyRequested={readOnlyRequested}
+                  error={message}
+                  sessionUser={sessionUser}
+               />
             ) : (
                <section className="bg-card text-card-foreground rounded-xl border p-6 shadow-sm">
                   <h2 className="text-base font-semibold">Connection request expired</h2>
