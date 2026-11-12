@@ -1,4 +1,6 @@
 import { logger } from './logger';
+import { getUnknownErrorMessage } from './errorSerialization';
+import { asRecordArray, getPathValue } from './typeGuards';
 
 const SERPER_RESOLVE_URL = 'https://google.serper.dev/resolve';
 // Serper waits for Google on our behalf, so one call can take about 30 seconds
@@ -65,8 +67,8 @@ export const resolveGoogleRedirects = async <T extends { title?: string, url?: s
             continue;
          }
 
-         const data: any = await response.json();
-         const organic: any[] = Array.isArray(data?.organic) ? data.organic : [];
+         const data: unknown = await response.json();
+         const organic = asRecordArray(getPathValue(data, 'organic'));
          if (organic.length !== pending.length) {
             logger.debug('[SCRAPER] Serper link resolve returned an unexpected list', { sent: pending.length, received: organic.length, attempt });
             continue;
@@ -82,10 +84,10 @@ export const resolveGoogleRedirects = async <T extends { title?: string, url?: s
             }
          });
          remaining = stillUnresolved;
-         const retryAfter = Number(data?.retryAfter);
+         const retryAfter = Number(getPathValue(data, 'retryAfter'));
          waitSeconds = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 0;
-      } catch (error: any) {
-         logger.debug('[SCRAPER] Serper link resolve request failed', { error: error?.message || '', attempt });
+      } catch (error) {
+         logger.debug('[SCRAPER] Serper link resolve request failed', { error: getUnknownErrorMessage(error) ?? '', attempt });
       }
    }
 

@@ -2,6 +2,7 @@ import Keyword from '../database/models/keyword';
 import { normalizeToBoolean } from './dbBooleans';
 import { safeJsonParse } from './safeJsonParse';
 import { normalizeHistoryDateKey } from './historyDateKey';
+import { isRecord } from './typeGuards';
 
 export const normaliseHistory = (rawHistory: unknown): KeywordHistory => {
    if (!rawHistory || typeof rawHistory !== 'object' || Array.isArray(rawHistory)) {
@@ -31,7 +32,7 @@ export const normaliseHistory = (rawHistory: unknown): KeywordHistory => {
  */
 const parseKeywords = (allKeywords: Keyword[]) : KeywordType[] => {
    const parsedItems = allKeywords.map((keywrd:Keyword) => {
-      const keywordData = keywrd as unknown as Record<string, any>;
+      const keywordData = keywrd as unknown as Record<string, unknown>;
 
       const historyRaw = typeof keywordData.history === 'string' 
          ? safeJsonParse<unknown>(keywordData.history, {}, { context: `history of keyword ${keywordData.ID}` })
@@ -52,16 +53,26 @@ const parseKeywords = (allKeywords: Keyword[]) : KeywordType[] => {
          : (Array.isArray(keywordData.tags) ? keywordData.tags : []);
 
       const lastResult = typeof keywordData.lastResult === 'string'
-         ? safeJsonParse<any[]>(keywordData.lastResult, [], { context: `last result of keyword ${keywordData.ID}` })
+         ? safeJsonParse<KeywordLastResult[]>(keywordData.lastResult, [], { context: `last result of keyword ${keywordData.ID}` })
          : (Array.isArray(keywordData.lastResult) ? keywordData.lastResult : []);
 
       const localResults = typeof keywordData.localResults === 'string'
-         ? safeJsonParse<any[]>(keywordData.localResults, [], { context: `local results of keyword ${keywordData.ID}` })
+         ? safeJsonParse<KeywordLocalResult[]>(keywordData.localResults, [], { context: `local results of keyword ${keywordData.ID}` })
          : (Array.isArray(keywordData.localResults) ? keywordData.localResults : []);
 
-      let lastUpdateError: any = false;
+      let lastUpdateError: KeywordType['lastUpdateError'] = false;
       if (typeof keywordData.lastUpdateError === 'string' && keywordData.lastUpdateError !== 'false' && keywordData.lastUpdateError.includes('{')) {
-         lastUpdateError = safeJsonParse<any>(keywordData.lastUpdateError, {}, { context: `last update error of keyword ${keywordData.ID}` });
+         const parsedError = safeJsonParse<unknown>(keywordData.lastUpdateError, null, { context: `last update error of keyword ${keywordData.ID}` });
+         if (isRecord(parsedError)) {
+            lastUpdateError = {
+               ...(typeof parsedError.date === 'string' ? { date: parsedError.date } : {}),
+               ...(typeof parsedError.error === 'string' ? { error: parsedError.error } : {}),
+               ...(typeof parsedError.scraper === 'string' ? { scraper: parsedError.scraper } : {}),
+               ...(typeof parsedError.reason === 'string' ? { reason: parsedError.reason } : {}),
+               ...(typeof parsedError.code === 'string' ? { code: parsedError.code } : {}),
+               ...(typeof parsedError.message === 'string' ? { message: parsedError.message } : {}),
+            };
+         }
       }
 
       return {

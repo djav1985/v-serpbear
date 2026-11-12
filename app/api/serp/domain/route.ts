@@ -19,7 +19,7 @@ const getDomain = async (req: Request, ctx: ApiContext) => {
          return fail(404, 'NOT_FOUND', 'Domain not found', ctx);
       }
 
-      const parsedDomain = foundDomain.get({ plain: true }) as DomainType & { scraper_settings?: any };
+      const parsedDomain = foundDomain.get({ plain: true }) as DomainType & { scraper_settings?: unknown };
 
       if (parsedDomain.search_console) {
          // The Search Console key stays on the server: only a 'true' marker says whether credentials are saved.

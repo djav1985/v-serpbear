@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file. Releases no
 
 ### Changed
 
+- Replace explicit `any` types across production code with typed values and unknown-value guards, and enforce the rule in ESLint.
 - Add simple themed global error and not-found pages.
 - Validate API request bodies as unknown values before using them in the keyword, refresh, ideas, and volume routes.
 - Enable TypeScript checking for JavaScript and enforce the recommended JSX accessibility lint rules.

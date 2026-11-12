@@ -142,6 +142,22 @@ export default [
     },
   },
   {
+    name: "serpbear/no-explicit-any-in-production",
+    files: [
+      "app/**/*.{ts,tsx}",
+      "components/**/*.{ts,tsx}",
+      "database/**/*.ts",
+      "hooks/**/*.ts",
+      "lib/**/*.ts",
+      "scrapers/**/*.ts",
+      "types.d.ts",
+      "utils/**/*.ts",
+    ],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "error",
+    },
+  },
+  {
     name: "serpbear/tests",
     files: ["**/__tests__/**/*", "**/__mocks__/**/*", "**/*.{test,spec}.*", "jest.setup.js"],
     languageOptions: { globals: { ...globals.browser, ...globals.node, ...globals.jest } },

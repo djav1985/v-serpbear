@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { timingSafeEqual } from 'crypto';
 import { logger } from './logger';
+import { getUnknownErrorMessage } from './errorSerialization';
 import { getSessionVersion } from './sessionStore';
 import { redactUrl } from './logRedaction';
 import { clearLoginFailures, recordLoginFailure } from './loginThrottle';
@@ -123,19 +124,19 @@ const verifyUser = (req: Request): string => {
          authMethod = 'jwt_token';
          username = decoded?.user;
          logger.authEvent('token_verification_success', username, true);
-      } catch (err: any) {
+      } catch (err) {
          // JWT validation failed - try API key fallback before rejecting
          if (verifiedAPI && accessingAllowedRoute) {
             authorized = 'authorized';
             authMethod = 'api_key';
             logger.authEvent('api_key_verification_success_after_jwt_fail', 'api_user', true, {
                route: normalizedPath,
-               jwtError: err?.message || String(err)
+               jwtError: getUnknownErrorMessage(err) || String(err)
             });
          } else {
             authorized = 'Not authorized';
             logger.authEvent('token_verification_failed', undefined, false, {
-               error: err?.message || String(err),
+               error: getUnknownErrorMessage(err) || String(err),
                tokenPresent: true
             });
          }

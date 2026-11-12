@@ -2,6 +2,7 @@ import { readFile, writeFile } from 'fs/promises';
 import * as path from 'path';
 import * as lockfile from 'proper-lockfile';
 import { logger } from './logger';
+import { getUnknownErrorCode, getUnknownErrorMessage } from './errorSerialization';
 
 /**
  * Path of data/settings.json. Every read-modify-write of the file must run inside withSettingsLock, so two
@@ -25,8 +26,8 @@ export const withSettingsLock = async <T>(fn: () => Promise<T>): Promise<T> => {
    try {
       // eslint-disable-next-line security/detect-non-literal-fs-filename
       await writeFile(filePath, '{}', { encoding: 'utf-8', flag: 'wx' });
-   } catch (err: any) {
-      if (err?.code !== 'EEXIST') {
+   } catch (err) {
+      if (getUnknownErrorCode(err) !== 'EEXIST') {
          throw err;
       }
    }
@@ -34,7 +35,7 @@ export const withSettingsLock = async <T>(fn: () => Promise<T>): Promise<T> => {
    let release: () => Promise<void>;
    try {
       release = await lockfile.lock(filePath, { retries: LOCK_RETRIES });
-   } catch (err: any) {
+   } catch (err) {
       logger.error('Could not lock settings file', err instanceof Error ? err : new Error(String(err)));
       throw err;
    }
@@ -44,8 +45,8 @@ export const withSettingsLock = async <T>(fn: () => Promise<T>): Promise<T> => {
    } finally {
       try {
          await release();
-      } catch (err: any) {
-         logger.debug('[LOCK] Failed to release settings file lock', { error: err?.message });
+      } catch (err) {
+         logger.debug('[LOCK] Failed to release settings file lock', { error: getUnknownErrorMessage(err) });
       }
    }
 };

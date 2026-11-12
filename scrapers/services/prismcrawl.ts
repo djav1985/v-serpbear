@@ -1,6 +1,7 @@
 import { getGoogleDomain } from "../../utils/countries";
 import { resolveCountryCode, getKeywordLocationParts, toCreditNumber } from "../../utils/scraperHelpers";
 import { DEVICE_MOBILE } from "../../utils/constants";
+import { asRecordArray, getPathValue } from "../../utils/typeGuards";
 import { computeMapPackTop3 } from "../../utils/mapPack";
 import { isGoogleRedirectUrl } from "../../utils/resolveGoogleLinks";
 
@@ -24,7 +25,7 @@ const prismcrawl: ScraperSettings = {
   id: "prismcrawl",
   name: "PrismCrawl",
   // No account endpoint: every response carries the balance in a header.
-  readCredits: (_body: any, headers: Headers) => toCreditNumber(headers?.get?.("x-credits-remaining")),
+  readCredits: (_body: unknown, headers: Headers) => toCreditNumber(headers.get("x-credits-remaining")),
   allowsCity: true,
   supportsMapPack: true,
   usesResultOffset: true,
@@ -39,7 +40,7 @@ const prismcrawl: ScraperSettings = {
   body: (
     keyword: KeywordType,
     _settings: SettingsType,
-    countryData: any,
+    countryData: countryData,
     pagination?: ScraperPagination,
   ) => {
     const country = resolveCountryCode(keyword.country);
@@ -67,8 +68,9 @@ const prismcrawl: ScraperSettings = {
   },
   serpExtractor: ({ response, settings }) => {
     // Payload shape: { success, data: { content: { results: [...] } } }
-    const results: PrismCrawlResult[] = Array.isArray(response?.data?.content?.results)
-      ? response.data.content.results
+    const rawResults = getPathValue(response, 'data', 'content', 'results');
+    const results: PrismCrawlResult[] = Array.isArray(rawResults)
+      ? rawResults as PrismCrawlResult[]
       : [];
 
     const organic = results
@@ -81,13 +83,14 @@ const prismcrawl: ScraperSettings = {
       }));
 
     const businessName = (settings as ExtendedSettings)?.business_name ?? null;
-    const localResults = ((Array.isArray(response?.data?.content?.serp_features) ? response.data.content.serp_features : []) as any[])
+    const localResults = asRecordArray(getPathValue(response, 'data', 'content', 'serp_features'))
       .filter((feature) => feature?.type === "local_results")
-      .flatMap((feature) => (Array.isArray(feature.items) ? feature.items : []))
-      .map((item: any, index: number) => ({
-      position: index + 1,
-        title: item.title as string,
-        url: (item.link || undefined) as string | undefined,
+      .flatMap((feature) => asRecordArray(feature.items))
+      .filter((item) => typeof item.title === 'string')
+      .map((item, index) => ({
+         position: index + 1,
+         title: item.title as string,
+         url: typeof item.link === 'string' ? item.link : undefined,
       }));
     const mapPackTop3 = computeMapPackTop3(localResults, businessName);
 

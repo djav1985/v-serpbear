@@ -7,6 +7,7 @@ import { readFile, unlink } from 'fs/promises';
 import * as path from 'path';
 import { countryAlphaTwoCodes } from './countries';
 import { logger } from './logger';
+import { getUnknownErrorCode, getUnknownErrorMessage, getUnknownProperty } from './errorSerialization';
 import { atomicWriteFile } from './atomicWrite';
 import { safeJsonParse } from './safeJsonParse';
 import { readSettingsFile } from './settingsFile';
@@ -71,7 +72,7 @@ export const fetchSearchConsoleData = async (domain:DomainType, days:number, typ
    const endDate = todayKey(SEARCH_CONSOLE_TIMEZONE);
    const client = new searchconsole_v1.Searchconsole({ auth: authClient });
    // Params: https://developers.google.com/webmaster-tools/v1/searchanalytics/query
-   let requestBody:any = {
+   let requestBody: searchconsole_v1.Schema$SearchAnalyticsQueryRequest = {
       startDate,
       endDate,
       type: 'web',
@@ -97,32 +98,34 @@ export const fetchSearchConsoleData = async (domain:DomainType, days:number, typ
             siteUrl,
             requestBody: { ...requestBody, startRow: page * SC_ROW_LIMIT },
          });
-         const resData:any = (await res).data;
-         const pageRows:SearchAnalyticsRawItem[] = resData.rows || [];
+         const resData = (await res).data;
+         const pageRows = (resData.rows ?? []) as SearchAnalyticsRawItem[];
          rawRows.push(...pageRows);
          if (pageRows.length < SC_ROW_LIMIT) break;
       }
-      let finalRows:any[] = rawRows.map((item:SearchAnalyticsRawItem) => parseSearchConsoleItem(item, domainName));
-
       if (type === 'stat' && rawRows.length > 0) {
-         finalRows = [];
-         rawRows.forEach((row:SearchAnalyticsRawItem) => {
-            finalRows.push({
+         return rawRows.map((row: SearchAnalyticsRawItem) => ({
                date: row.keys[0],
                clicks: row.clicks,
                impressions: row.impressions,
                ctr: row.ctr * 100,
                position: row.position,
-            });
-         });
+         }));
       }
 
-      return finalRows;
-   } catch (err:any) {
+      return rawRows.map((item: SearchAnalyticsRawItem) => parseSearchConsoleItem(item, domainName));
+   } catch (err) {
       const qType = type === 'stat' ? '(stats)' : `(${days}days)`;
-      const errorMsg = err?.response?.status && `${err?.response?.statusText}. ${err?.response?.data?.error_description}`;
-      logger.error(`Search Console API error for ${domainName} ${qType}`, new Error(errorMsg || err?.code || 'Unknown error'));
-      return { error: true, errorMsg: errorMsg || err?.code };
+      const response = getUnknownProperty(err, 'response');
+      const status = getUnknownProperty(response, 'status');
+      const statusText = getUnknownProperty(response, 'statusText');
+      const data = getUnknownProperty(response, 'data');
+      const description = getUnknownProperty(data, 'error_description');
+      const errorMsg = status ? `${String(statusText ?? '')}. ${String(description ?? '')}` : undefined;
+      const errorCode = getUnknownErrorCode(err);
+      const errorCodeText = typeof errorCode === 'string' ? errorCode : undefined;
+      logger.error(`Search Console API error for ${domainName} ${qType}`, new Error(errorMsg || errorCodeText || getUnknownErrorMessage(err) || 'Unknown error'));
+      return { error: true, errorMsg: errorMsg || errorCodeText || 'Unknown error' };
    }
 };
 
@@ -251,31 +254,27 @@ export const integrateKeywordSCData = (keyword: KeywordType, SCData:SCDomainData
    const kuid = buildKeywordUid(keyword.country, keyword.device, keyword.keyword);
    // Stored rows may predate the case-insensitive key, so both sides are normalised when comparing
    const findRow = (rows?: SearchAnalyticsItem[]) => rows?.find((item) => (item.uid ?? '').trim().toLowerCase() === kuid);
-   const impressions:any = { yesterday: 0, threeDays: 0, sevenDays: 0, thirtyDays: 0, avgSevenDays: 0, avgThreeDays: 0, avgThirtyDays: 0 };
-   const visits :any = { yesterday: 0, threeDays: 0, sevenDays: 0, thirtyDays: 0, avgSevenDays: 0, avgThreeDays: 0, avgThirtyDays: 0 };
-   const ctr:any = { yesterday: 0, threeDays: 0, sevenDays: 0, thirtyDays: 0, avgSevenDays: 0, avgThreeDays: 0, avgThirtyDays: 0 };
-   const position:any = { yesterday: 0, threeDays: 0, sevenDays: 0, thirtyDays: 0, avgSevenDays: 0, avgThreeDays: 0, avgThirtyDays: 0 };
+   const emptyMetric = (): KeywordSCDataChild => ({ yesterday: 0, threeDays: 0, sevenDays: 0, thirtyDays: 0, avgSevenDays: 0, avgThreeDays: 0, avgThirtyDays: 0 });
+   const impressions = emptyMetric();
+   const visits = emptyMetric();
+   const ctr = emptyMetric();
+   const position = emptyMetric();
+   const periods = [
+      { key: 'threeDays', average: 'avgThreeDays', days: 3, row: findRow(SCData?.threeDays) },
+      { key: 'sevenDays', average: 'avgSevenDays', days: 7, row: findRow(SCData?.sevenDays) },
+      { key: 'thirtyDays', average: 'avgThirtyDays', days: 30, row: findRow(SCData?.thirtyDays) },
+   ] as const;
 
-   const threeDaysData = findRow(SCData?.threeDays) || {};
-   const sevenDaysData = findRow(SCData?.sevenDays) || {};
-   const thirtyDaysData = findRow(SCData?.thirtyDays) || {};
-   const totalData:any = { threeDays: threeDaysData, sevenDays: sevenDaysData, thirtyDays: thirtyDaysData };
-
-   Object.keys(totalData).forEach((dataKey) => {
-      let avgDataKey = 'avgThreeDays'; let divideBy = 3;
-      if (dataKey === 'sevenDays') { avgDataKey = 'avgSevenDays'; divideBy = 7; }
-      if (dataKey === 'thirtyDays') { avgDataKey = 'avgThirtyDays'; divideBy = 30; }
-      // Actual Data
-      impressions[dataKey] = totalData[dataKey].impressions || 0;
-      visits[dataKey] = totalData[dataKey].clicks || 0;
-      ctr[dataKey] = Math.round((totalData[dataKey].ctr || 0) * 100) / 100;
-      position[dataKey] = totalData[dataKey].position ? Math.round(totalData[dataKey].position) : 0;
-      // Average Data
-      impressions[avgDataKey] = Math.round(impressions[dataKey] / divideBy);
-      ctr[avgDataKey] = Math.round((ctr[dataKey] / divideBy) * 100) / 100;
-      visits[avgDataKey] = Math.round(visits[dataKey] / divideBy);
-      position[avgDataKey] = Math.round(position[dataKey] / divideBy);
-   });
+   for (const { key, average, days, row } of periods) {
+      impressions[key] = row?.impressions ?? 0;
+      visits[key] = row?.clicks ?? 0;
+      ctr[key] = Math.round((row?.ctr ?? 0) * 100) / 100;
+      position[key] = row?.position ? Math.round(row.position) : 0;
+      impressions[average] = Math.round(impressions[key] / days);
+      ctr[average] = Math.round((ctr[key] / days) * 100) / 100;
+      visits[average] = Math.round(visits[key] / days);
+      position[average] = Math.round(position[key] / days);
+   }
    const finalSCData = { impressions, visits, ctr, position };
 
    return { ...keyword, scData: finalSCData };

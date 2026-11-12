@@ -61,7 +61,7 @@ type KeywordType = {
    tags: string[],
    updating: boolean,
    updatingStartedAt?: string | null,
-   lastUpdateError: {date: string, error?: string, scraper?: string, reason?: string} | false,
+   lastUpdateError: {date?: string, error?: string, scraper?: string, reason?: string, code?: string, message?: string} | false,
    scData?: KeywordSCData,
     uid?: string
    location?: string,
@@ -287,7 +287,7 @@ type scraperExtractedItem = {
 
 type ScraperExtractorInput = {
    keyword: KeywordType,
-   response: any,
+   response: Record<string, unknown>,
    result?: unknown,
    settings?: SettingsType,
    pagination?: ScraperPagination,
@@ -363,7 +363,7 @@ interface ScraperSettings {
     * Reads the credits the account has left from a scrape response. Return null when the response has none.
     * Set it only when the provider sends the number with the scrape and has no account endpoint.
     */
-   readCredits?(body: any, headers: Headers): number | null,
+   readCredits?(body: unknown, headers: Headers): number | null,
    /**
     * Asks the provider's account endpoint how many credits are left. Return null when it cannot be read.
     * Called once per API key at the end of a refresh run, and must never throw.

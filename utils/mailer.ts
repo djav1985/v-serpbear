@@ -1,4 +1,5 @@
 import nodeMailer from 'nodemailer';
+import type SMTPTransport from 'nodemailer/lib/smtp-transport';
 import { trimString, sanitizeSmtpHost } from './security';
 import { getBranding } from './branding';
 
@@ -18,7 +19,7 @@ export const buildMailer = (settings: SettingsType) => {
    const portNum = parseInt(String(settings.smtp_port ?? ''), 10);
    const validPort = isNaN(portNum) ? DEFAULT_SMTP_PORT : Math.max(1, Math.min(65535, portNum));
 
-   const mailerSettings: any = { host: smtpHost, port: validPort };
+   const mailerSettings: SMTPTransport.Options = { host: smtpHost, port: validPort };
    if (tlsServername) {
       mailerSettings.tls = { servername: tlsServername };
    }

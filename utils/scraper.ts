@@ -1,5 +1,5 @@
 import countries from './countries';
-import { serializeError } from './errorSerialization';
+import { getUnknownErrorMessage, serializeError } from './errorSerialization';
 import allScrapers from '../scrapers/index';
 import { GOOGLE_BASE_URL, DEVICE_MOBILE } from './constants';
 import { logger } from './logger';
@@ -7,6 +7,7 @@ import { retryQueueManager } from './retryQueueManager';
 import { markOwnLocalResults } from './mapPack';
 import { resolveGoogleRedirects } from './resolveGoogleLinks';
 import { trackScrapeCredits } from './scraperCredits';
+import { asRecord, isRecord } from './typeGuards';
 
 type SearchResult = {
    title: string,
@@ -26,7 +27,7 @@ export type RefreshResult = false | {
    url: string,
    result: KeywordLastResult[],
    mapPackTop3: boolean,
-   localResults?: any[],
+   localResults?: KeywordLocalResult[],
    error?: boolean | string
 };
 
@@ -66,7 +67,7 @@ export const getScraperClient = (
 ): Promise<Response> | false => {
    let apiURL = '';
    let client: Promise<Response> | false = false;
-   const headers: any = {
+   const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246',
       Accept: 'application/json; charset=utf8;',
@@ -85,8 +86,8 @@ export const getScraperClient = (
          requestBody = JSON.stringify(scraper.body(keyword, settings, countries, pagination));
       }
       if (scrapeHeaders && Object.keys(scrapeHeaders).length > 0) {
-         Object.keys(scrapeHeaders).forEach((headerItemKey:string) => {
-            headers[headerItemKey] = scrapeHeaders[headerItemKey as keyof object];
+         Object.entries(scrapeHeaders).forEach(([headerName, headerValue]) => {
+            if (headerValue !== undefined) { headers[headerName] = headerValue; }
          });
       }
       if (scraperAPIURL) {
@@ -126,19 +127,24 @@ export const getScraperClient = (
    return client;
 };
 
-const hasScraperError = (res: any): boolean => res && (
-      (res.status && (res.status < 200 || res.status >= 300))
-      || (res.ok === false)
-      || (res.request_info?.success === false)
-   );
+const hasScraperError = (rawResponse: unknown): boolean => {
+   if (!isRecord(rawResponse)) { return false; }
+   const status = rawResponse.status;
+   const requestInfo = asRecord(rawResponse.request_info);
+   return (typeof status === 'number' && (status < 200 || status >= 300))
+      || rawResponse.ok === false
+      || requestInfo.success === false;
+};
 
-const buildScraperError = (res: any) => {
-   const statusCode = res.status || res.request_info?.status_code || 'Unknown Status';
-   const errorInfo = res.request_info?.error
+const buildScraperError = (rawResponse: unknown) => {
+   const res = asRecord(rawResponse);
+   const requestInfo = asRecord(res.request_info);
+   const statusCode = res.status || requestInfo.status_code || 'Unknown Status';
+   const errorInfo = requestInfo.error
       || res.error_message
       || res.detail
       || res.error
-      || res.request_info?.message
+      || requestInfo.message
       || '';
    const errorBody = res.body || res.message || '';
 
@@ -171,14 +177,14 @@ const withTimeout = <T>(promise: Promise<T>, timeoutMs: number, onTimeout?: () =
  * Reads the response body once and parses it as JSON. A body that is not JSON (an HTML error page, for example)
  * is returned as { status, ok, body } so the error message can show what the server said.
  */
-export const parseScraperResponse = async (response: Response): Promise<any> => {
+export const parseScraperResponse = async (response: Response): Promise<unknown> => {
    // The body can only be read once, so read the text first and parse it, instead of trying json() and then text().
    const text = await withTimeout(response.text(), SCRAPER_BODY_TIMEOUT_MS, () => requestControllers.get(response)?.abort());
    // Providers can echo the API key back in their response (e.g. ValueSERP's json_url), so mask it here too
    logger.debug('[SCRAPER] Raw response', { status: response.status, ok: response.ok, body: maskSecrets(text) });
    try {
-      const parsed = JSON.parse(text);
-      if (parsed && typeof parsed === 'object') {
+      const parsed: unknown = JSON.parse(text);
+      if (isRecord(parsed)) {
          if (!Object.prototype.hasOwnProperty.call(parsed, 'status')) {
             parsed.status = response.status;
          }
@@ -199,13 +205,13 @@ export const parseScraperResponse = async (response: Response): Promise<any> => 
 type PageScrapeResult = {
    results: SearchResult[];
    mapPackTop3: boolean;
-   localResults: any[];
+   localResults: KeywordLocalResult[];
    // true when the request itself failed, as opposed to a page that simply has no results
    failed: boolean;
    error?: string;
 };
 
-const describeScraperFailure = (res: any): string => {
+const describeScraperFailure = (res: unknown): string => {
    const scraperError = buildScraperError(res);
    const detail = scraperError.error || scraperError.body || 'Request failed';
    return `[${scraperError.status}] ${typeof detail === 'string' ? detail : serializeError(detail)}`;
@@ -234,7 +240,7 @@ const scrapeSinglePage = async (
          const response = await scraperClient;
          const res = await parseScraperResponse(response);
          trackScrapeCredits(scraperObj, settings, response, res);
-         if (!res || typeof res !== 'object') {
+         if (!isRecord(res)) {
             lastError = 'Provider returned an empty or invalid response';
             if (attempt < maxRetries) {
                await new Promise(resolve => setTimeout(resolve, getRetryDelay(attempt)));
@@ -270,9 +276,9 @@ const scrapeSinglePage = async (
             await new Promise(resolve => setTimeout(resolve, getRetryDelay(attempt)));
             continue;
          }
-      } catch (error:any) {
+      } catch (error) {
          lastError = serializeError(error);
-         logger.debug('[SCRAPER] Scraping page failed', { page: pagination.page, keyword: keyword.keyword, error: error?.message || '' });
+         logger.debug('[SCRAPER] Scraping page failed', { page: pagination.page, keyword: keyword.keyword, error: getUnknownErrorMessage(error) ?? '' });
          if (attempt < maxRetries) {
             await new Promise(resolve => setTimeout(resolve, getRetryDelay(attempt)));
             continue;
@@ -361,7 +367,7 @@ export const scrapeKeywordWithStrategy = async (
    const pageResults = new Map<number, SearchResult[]>();
    const state = {
       page1MapPackTop3: keyword.mapPackTop3 ?? false,
-      page1LocalResults: [] as any[],
+      page1LocalResults: [] as KeywordLocalResult[],
       page1Scraped: false,
       failureMessage: undefined as string | undefined,
    };
@@ -460,8 +466,8 @@ const resolveResultURL = (value: string | undefined | null): URL | null => {
    } catch (_error) {
       try {
          return new URL(value, GOOGLE_BASE_URL);
-      } catch (error: any) {
-         logger.error('[ERROR] Unable to resolve SERP result URL', error, { url: value });
+      } catch (error) {
+         logger.error('[ERROR] Unable to resolve SERP result URL', error instanceof Error ? error : new Error(String(error)), { url: value });
          return null;
       }
    }
@@ -475,8 +481,8 @@ export const getSerp = (domainURL:string, result:SearchResult[]) : SERPObject =>
    let URLToFind: URL;
    try {
       URLToFind = domainURL.includes('://') ? new URL(domainURL) : new URL(`https://${domainURL}`);
-   } catch (error: any) {
-      logger.error('Invalid domain URL provided', error, { domainURL });
+   } catch (error) {
+      logger.error('Invalid domain URL provided', error instanceof Error ? error : new Error(String(error)), { domainURL });
       return { position: 0, url: '' };
    }
 

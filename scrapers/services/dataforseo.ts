@@ -2,6 +2,7 @@ import countries, { getGoogleDomain } from "../../utils/countries";
 import { resolveCountryCode, getKeywordLocationParts, fetchAccountJson, toCreditNumber } from "../../utils/scraperHelpers";
 import { computeMapPackTop3 } from "../../utils/mapPack";
 import { DEVICE_MOBILE } from "../../utils/constants";
+import { asRecordArray, getPathValue } from "../../utils/typeGuards";
 
 const DATAFORSEO_SUCCESS = 20000;
 
@@ -25,10 +26,7 @@ const buildLocationName = (keyword: KeywordType, countryName: string): string =>
   return location || countryName;
 };
 
-const getTask = (response: any): DataForSeoTask | undefined => {
-  const tasks = Array.isArray(response?.tasks) ? response.tasks : null;
-  return tasks?.[0] as DataForSeoTask | undefined;
-};
+const getTask = (response: unknown): DataForSeoTask | undefined => asRecordArray(getPathValue(response, 'tasks'))[0] as DataForSeoTask | undefined;
 
 const dataforseo: ScraperSettings = {
   id: "dataforseo",
@@ -38,7 +36,7 @@ const dataforseo: ScraperSettings = {
   fetchCredits: async (settings: SettingsType) => {
     const auth = Buffer.from(settings.scraping_api ?? "").toString("base64");
     const data = await fetchAccountJson("https://api.dataforseo.com/v3/appendix/user_data", { Authorization: `Basic ${auth}` });
-    return toCreditNumber(data?.tasks?.[0]?.result?.[0]?.money?.balance);
+    return toCreditNumber(getPathValue(data, 'tasks', '0', 'result', '0', 'money', 'balance'));
   },
   allowsCity: true,
   supportsMapPack: true,
@@ -54,7 +52,7 @@ const dataforseo: ScraperSettings = {
   body: (
     keyword: KeywordType,
     _settings: SettingsType,
-    countryData: any,
+    countryData: countryData,
     pagination?: ScraperPagination,
   ) => {
     const country = resolveCountryCode(keyword.country);

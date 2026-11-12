@@ -8,6 +8,7 @@ import { atomicWriteFile } from '../../../utils/atomicWrite';
 import { readSettingsFile, withSettingsLock, withoutRemovedSettingsKeys } from '../../../utils/settingsFile';
 import normalizeOrigin from '../../../utils/normalizeOrigin';
 import { serializeForScript } from '../../../utils/api/scriptJson';
+import { getUnknownProperty } from '../../../utils/errorSerialization';
 
 
 type IntegrationResultOptions = {
@@ -177,8 +178,10 @@ const getAdwordsRefreshToken = async (req: Request, _ctx: ApiContext) => {
                message: 'Error Getting the Google Ads Refresh Token. Please Try Again!',
                statusCode: 400,
             });
-         } catch (error:any) {
-            let errorMsg = error?.response?.data?.error;
+         } catch (error) {
+            const response = getUnknownProperty(error, 'response');
+            const data = getUnknownProperty(response, 'data');
+            let errorMsg = getUnknownProperty(data, 'error');
             if (typeof errorMsg !== 'string' || !errorMsg) {
                errorMsg = 'Unknown error retrieving Google Ads refresh token.';
             } else if (errorMsg.includes('redirect_uri_mismatch')) {

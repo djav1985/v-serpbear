@@ -1,6 +1,7 @@
 import { getGoogleDomain } from "../../utils/countries";
 import { resolveCountryCode, getKeywordLocationParts, fetchAccountJson, toCreditNumber } from "../../utils/scraperHelpers";
 import { computeMapPackTop3 } from "../../utils/mapPack";
+import { asRecord, getPathValue, isRecord } from "../../utils/typeGuards";
 
 interface CrazySerpResult {
    position: number;
@@ -19,7 +20,7 @@ const crazyserp: ScraperSettings = {
    name: 'CrazySERP',
    fetchCredits: async (settings: SettingsType) => {
       const data = await fetchAccountJson('https://crazyserp.com/api/get-credits', { Authorization: `Bearer ${settings.scraping_api ?? ''}` });
-      return toCreditNumber(data?.available_credits?.total);
+      return toCreditNumber(getPathValue(data, 'available_credits', 'total'));
    },
    allowsCity: true,
    supportsMapPack: true,
@@ -62,10 +63,11 @@ const crazyserp: ScraperSettings = {
 
       if (typeof result === 'string') {
          try {
-            const parsed = JSON.parse(result);
+            const parsed: unknown = JSON.parse(result);
+            const parsedRecord = asRecord(parsed);
             // Accept either a plain list or an object with an organic list; anything else has no results
-            results = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.organic) ? parsed.organic : []);
-            locations = Array.isArray(parsed?.locations) ? parsed.locations : [];
+            results = Array.isArray(parsed) ? parsed as CrazySerpResult[] : (Array.isArray(parsedRecord.organic) ? parsedRecord.organic as CrazySerpResult[] : []);
+            locations = Array.isArray(parsedRecord.locations) ? parsedRecord.locations as CrazySerpLocation[] : [];
          } catch (error) {
             throw new Error(
                `Invalid JSON response for CrazySERP: ${error instanceof Error ? error.message : error}`
@@ -73,9 +75,9 @@ const crazyserp: ScraperSettings = {
          }
       } else if (Array.isArray(result)) {
          results = result as CrazySerpResult[];
-      } else if (result && typeof result === 'object' && Array.isArray((result as any).organic)) {
-         results = (result as any).organic as CrazySerpResult[];
-         locations = Array.isArray((result as any).locations) ? (result as any).locations : [];
+      } else if (isRecord(result) && Array.isArray(result.organic)) {
+         results = result.organic as CrazySerpResult[];
+         locations = Array.isArray(result.locations) ? result.locations as CrazySerpLocation[] : [];
       } else if (Array.isArray(response?.organic)) {
          results = response.organic as CrazySerpResult[];
       } else if (Array.isArray(response?.parsed_data)) {

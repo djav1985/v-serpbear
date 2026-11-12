@@ -1,6 +1,7 @@
 import { resolveCountryCode } from '../../utils/scraperHelpers';
 import { computeMapPackTop3 } from '../../utils/mapPack';
 import { DEVICE_MOBILE } from '../../utils/constants';
+import { asRecordArray } from '../../utils/typeGuards';
 
 interface SerplyResult {
    title: string,
@@ -68,11 +69,13 @@ const serply:ScraperSettings = {
       }
 
       const businessName = (settings as ExtendedSettings)?.business_name ?? null;
-      const localResults = (Array.isArray(response?.local_businesses) ? response.local_businesses : []).map((business: any, index: number) => ({
-        position: index + 1,
-        title: business.title as string,
-        url: (business.url || undefined) as string | undefined,
-      }));
+      const localResults = asRecordArray(response.local_businesses)
+         .filter((business) => typeof business.title === 'string')
+         .map((business, index) => ({
+            position: index + 1,
+            title: business.title as string,
+            url: typeof business.url === 'string' ? business.url : undefined,
+         }));
       const mapPackTop3 = computeMapPackTop3(localResults, businessName);
 
       return { organic: extractedResult, mapPackTop3, localResults };

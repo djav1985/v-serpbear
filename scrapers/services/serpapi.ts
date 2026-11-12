@@ -2,6 +2,7 @@ import countries, { getGoogleDomain } from "../../utils/countries";
 import { resolveCountryCode, getKeywordLocationParts, fetchAccountJson, toCreditNumber } from "../../utils/scraperHelpers";
 import { computeMapPackTop3 } from "../../utils/mapPack";
 import { DEVICE_MOBILE } from "../../utils/constants";
+import { asRecord, asRecordArray, getPathValue } from "../../utils/typeGuards";
 
 interface SerpApiResult {
   title: string;
@@ -16,7 +17,7 @@ const serpapi: ScraperSettings = {
    fetchCredits: async (settings: SettingsType) => {
       const key = encodeURIComponent(settings.scraping_api ?? '');
       const data = await fetchAccountJson(`https://serpapi.com/account.json?api_key=${key}`);
-      return toCreditNumber(data?.total_searches_left);
+      return toCreditNumber(getPathValue(data, 'total_searches_left'));
    },
   allowsCity: true,
   supportsMapPack: true,
@@ -76,11 +77,11 @@ const serpapi: ScraperSettings = {
     }
 
     const businessName = (settings as ExtendedSettings)?.business_name ?? null;
-    const rawLocal: any[] = Array.isArray(response?.local_results?.places) ? response.local_results.places : [];
-    const localResults = rawLocal.map((place: any, index: number) => ({
+    const rawLocal = asRecordArray(getPathValue(response, 'local_results', 'places'));
+    const localResults = rawLocal.filter((place) => typeof place.title === 'string').map((place, index) => ({
       position: index + 1,
       title: place.title as string,
-      url: (place.links?.website || undefined) as string | undefined,
+      url: typeof asRecord(place.links).website === 'string' ? asRecord(place.links).website as string : undefined,
     }));
     const mapPackTop3 = computeMapPackTop3(localResults, businessName);
 

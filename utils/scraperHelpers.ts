@@ -64,7 +64,7 @@ const ACCOUNT_CALL_TIMEOUT_MS = 10000;
  * Reads a provider's account endpoint as JSON. Returns null on any failure (network, timeout, non-2xx,
  * invalid JSON) so a credit lookup can never break a refresh.
  */
-export const fetchAccountJson = async (url: string, headers: Record<string, string> = {}): Promise<any | null> => {
+export const fetchAccountJson = async (url: string, headers: Record<string, string> = {}): Promise<unknown | null> => {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), ACCOUNT_CALL_TIMEOUT_MS);
   try {

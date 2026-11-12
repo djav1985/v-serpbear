@@ -60,6 +60,18 @@ const buildMessageBody = (messages: string[]): string => {
    return cleaned.join(' ').trim();
 };
 
+export const getUnknownProperty = (value: unknown, key: string): unknown => (
+   value !== null && typeof value === 'object' ? (value as Record<string, unknown>)[key] : undefined
+);
+
+export const getUnknownErrorMessage = (value: unknown): string | undefined => {
+   if (value instanceof Error) { return value.message; }
+   const message = getUnknownProperty(value, 'message');
+   return typeof message === 'string' ? message : undefined;
+};
+
+export const getUnknownErrorCode = (value: unknown): unknown => getUnknownProperty(value, 'code');
+
 export const serializeError = (error: unknown): string => {
    if (!error) { return 'Unknown error'; }
 

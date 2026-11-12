@@ -263,7 +263,7 @@ export const clearKeywordUpdatingFlags = async (
             }
          });
       }
-   } catch (error: any) {
+   } catch (error) {
       const normalizedError = error instanceof Error ? error : new Error(String(error));
       logger.error(`[ERROR] Failed to clear updating flags ${logContext}`, normalizedError, meta);
    }
@@ -317,7 +317,7 @@ const runKeywordRefresh = async (rawkeyword:Keyword[], settings:SettingsType, pr
       const secret = process.env.SECRET;
       const cryptr = secret ? new Cryptr(secret) : null;
       scrapePermissions = new Map(domains.map((domain) => {
-         const domainPlain = domain.get({ plain: true }) as DomainType & { scraper_settings?: any };
+         const domainPlain = domain.get({ plain: true }) as DomainType & { scraper_settings?: unknown };
          const normalizedDomain = normalizeDomainBooleans(domainPlain);
          const isEnabled = normalizedDomain.scrapeEnabled;
 
@@ -389,8 +389,8 @@ const runKeywordRefresh = async (rawkeyword:Keyword[], settings:SettingsType, pr
       logger.error('Skipping keyword refresh: domain scraper key could not be decrypted', undefined, { count: unreadableKeyKeywords.length });
       await markKeywordsWithUnreadableKey(unreadableKeyKeywords);
       // These keywords can never succeed until the settings are saved again, so keep them out of the hourly retry loop
-      await retryQueueManager.removeBatch(new Set(unreadableKeyKeywords.map((keyword) => keyword.ID))).catch((error: any) => {
-         logger.error('[ERROR] Failed to update retry queue:', error);
+      await retryQueueManager.removeBatch(new Set(unreadableKeyKeywords.map((keyword) => keyword.ID))).catch((error: unknown) => {
+         logger.error('[ERROR] Failed to update retry queue:', error instanceof Error ? error : new Error(String(error)));
       });
    }
 
@@ -400,8 +400,8 @@ const runKeywordRefresh = async (rawkeyword:Keyword[], settings:SettingsType, pr
       // Use batched removal for better performance and concurrency safety
       const idsToRemove = new Set(skippedKeywords.map((keyword) => keyword.ID));
       if (idsToRemove.size > 0) {
-         await retryQueueManager.removeBatch(idsToRemove).catch((error: any) => {
-            logger.error('[ERROR] Failed to update retry queue:', error);
+         await retryQueueManager.removeBatch(idsToRemove).catch((error: unknown) => {
+            logger.error('[ERROR] Failed to update retry queue:', error instanceof Error ? error : new Error(String(error)));
          });
       }
    }
@@ -489,16 +489,16 @@ const runKeywordRefresh = async (rawkeyword:Keyword[], settings:SettingsType, pr
             throw rejectedDomainResult.reason;
          }
       }
-   } catch (error: any) {
-      logger.error('[ERROR] Unexpected error during keyword refresh:', error);
+   } catch (error) {
+      logger.error('[ERROR] Unexpected error during keyword refresh:', error instanceof Error ? error : new Error(String(error)));
       // Ensure all keywords that were marked for update have their flags cleared
       // This prevents UI spinner from getting stuck if an unexpected error occurs
       const keywordIdsToCleanup = eligibleKeywordIds;
       try {
          const keywordModelsToCleanup = eligibleKeywordModels.filter((keyword) => keywordIdsToCleanup.includes(keyword.ID));
          await clearKeywordUpdatingFlags(keywordModelsToCleanup, 'after refresh error', undefined, true, 'refresh-error');
-      } catch (cleanupError: any) {
-         logger.error('[ERROR] Failed to cleanup updating flags after error:', cleanupError);
+      } catch (cleanupError) {
+         logger.error('[ERROR] Failed to cleanup updating flags after error:', cleanupError instanceof Error ? cleanupError : new Error(String(cleanupError)));
       }
       throw error; // Re-throw the original error after cleanup
    }
@@ -579,7 +579,7 @@ const applyToMobileTwins = async (
    for (const twin of twins) {
       try {
          results.push(await apply(twin));
-      } catch (error: any) {
+      } catch (error) {
          logger.error('[ERROR] Failed to apply desktop result to reused mobile keyword', error instanceof Error ? error : new Error(String(error)), { keywordId: twin.ID });
          await clearKeywordUpdatingFlags([twin], 'after reused mobile keyword error', undefined, true, 'refresh-error');
          results.push(parseKeywords([{ ...twin.get({ plain: true }), updating: toDbBool(false), updatingStartedAt: null }])[0]);
@@ -598,7 +598,7 @@ const persistScrapeFailure = async (
 ): Promise<KeywordType> => {
    const currentkeyword = keywordRaw.get({ plain: true });
    try {
-      const updateData: any = { updating: toDbBool(false), updatingStartedAt: null };
+      const updateData: Partial<Keyword> = { updating: toDbBool(false), updatingStartedAt: null };
 
       if (scraperError) {
          const theDate = new Date();
@@ -612,8 +612,8 @@ const persistScrapeFailure = async (
       // Update database to clear flags and persist error details if available.
       await keywordRaw.update(updateData);
       logger.debug('[SCRAPER] Keyword updating flag cleared after scraper error', { keywordId: keywordRaw.ID, error: scraperError });
-   } catch (updateError: any) {
-      logger.error('[ERROR] Failed to update keyword error status:', updateError);
+   } catch (updateError) {
+      logger.error('[ERROR] Failed to update keyword error status:', updateError instanceof Error ? updateError : new Error(String(updateError)));
    }
 
    try {
@@ -622,8 +622,8 @@ const persistScrapeFailure = async (
       } else {
          await removeFromRetryQueue(keywordRaw.ID);
       }
-   } catch (queueError: any) {
-      logger.error('[ERROR] Failed to update retry queue for keyword:', queueError, { keywordId: keywordRaw.ID });
+   } catch (queueError) {
+      logger.error('[ERROR] Failed to update retry queue for keyword:', queueError instanceof Error ? queueError : new Error(String(queueError)), { keywordId: keywordRaw.ID });
    }
 
    // Return the current keyword with updated state
@@ -663,9 +663,9 @@ const refreshAndUpdateKeyword = async (
             ? refreshedkeywordData.error
             : JSON.stringify(refreshedkeywordData.error);
       }
-   } catch (error: any) {
+   } catch (error) {
       scraperError = serializeError(error);
-      logger.error('[ERROR] Scraper failed for keyword:', error, { keyword: currentkeyword.keyword, scraperError });
+      logger.error('[ERROR] Scraper failed for keyword:', error instanceof Error ? error : new Error(String(error)), { keyword: currentkeyword.keyword, scraperError });
    }
 
    // Update keyword position or handle error, and give the same outcome to each reused mobile twin
@@ -734,7 +734,7 @@ const persistKeywordError = async (
       logger.debug('[SCRAPER] Keyword error update', { keywordId: keyword.ID, keyword: keyword.keyword, previous: { position: keyword.position, url: keyword.url, lastUpdated: keyword.lastUpdated }, payload: errorPayload });
       await keywordRaw.update(errorPayload);
       logger.debug('[SCRAPER] Keyword updating flag cleared after scrape error', { keywordId: keyword.ID, keyword: keyword.keyword, error: errorInfo.error });
-   } catch (error: any) {
+   } catch (error) {
       logger.error(
          '[ERROR] Failed to persist keyword error status',
          error instanceof Error ? error : new Error(String(error)),
@@ -753,8 +753,8 @@ const persistKeywordError = async (
  * @returns {Promise<KeywordType>}
  */
 export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: RefreshResult, settings: SettingsType): Promise<KeywordType> => {
-   const keywordPlain = keywordRaw.get({ plain: true }) as Record<string, any>;
-   const keywordParsed = parseKeywords([keywordPlain as Keyword]);
+   const keywordPlain = keywordRaw.get({ plain: true }) as unknown as Record<string, unknown>;
+   const keywordParsed = parseKeywords([keywordPlain as unknown as Keyword]);
    const keyword = keywordParsed[0];
    let updated = keyword;
    // A stored history that cannot be parsed is left untouched, instead of replacing it with a one-point history
@@ -869,7 +869,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
             lastUpdateError: false,
             mapPackTop3: isMapPackTop3,
          };
-      } catch (error: any) {
+      } catch (error) {
          const normalizedError = error instanceof Error ? error : new Error(String(error));
          logger.error(
             '[ERROR] Failed to update keyword in database',
@@ -894,7 +894,7 @@ export const updateKeywordPosition = async (keywordRaw:Keyword, updatedKeyword: 
                lastUpdateError: JSON.stringify(dbErrorPayload),
             });
             logger.debug('[SCRAPER] Cleared updating flags and persisted error after DB update failure', { keywordId: keyword.ID });
-         } catch (fallbackError: any) {
+         } catch (fallbackError) {
             logger.error(
                '[ERROR] Failed to clear updating flags after DB update failure',
                fallbackError instanceof Error ? fallbackError : new Error(String(fallbackError)),
@@ -989,8 +989,8 @@ const refreshParallel = async (
          const twinResults = await applyToMobileTwins(mobileTwins, (twin) => updateKeywordPosition(twin, result, effectiveSettings));
          return [updatedKeyword, ...twinResults];
 
-      } catch (error: any) {
-         logger.error('[ERROR] Parallel scrape failed for keyword:', error, { keyword: keyword.keyword });
+      } catch (error) {
+         logger.error('[ERROR] Parallel scrape failed for keyword:', error instanceof Error ? error : new Error(String(error)), { keyword: keyword.keyword });
          const errorResult = buildErrorResult(keyword, error);
 
          // Update database with error immediately

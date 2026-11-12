@@ -1,6 +1,7 @@
 import { writeFile } from 'fs/promises';
 import * as lockfile from 'proper-lockfile';
 import { logger } from './logger';
+import { getUnknownErrorCode, getUnknownErrorMessage } from './errorSerialization';
 
 const LOCK_RETRIES = {
    retries: 12,
@@ -17,8 +18,8 @@ export const withFileLock = async <T>(filePath: string, fn: () => Promise<T>): P
    try {
       // eslint-disable-next-line security/detect-non-literal-fs-filename
       await writeFile(filePath, '{}', { encoding: 'utf-8', flag: 'wx' });
-   } catch (err: any) {
-      if (err?.code !== 'EEXIST') {
+   } catch (err) {
+      if (getUnknownErrorCode(err) !== 'EEXIST') {
          throw err;
       }
    }
@@ -26,7 +27,7 @@ export const withFileLock = async <T>(filePath: string, fn: () => Promise<T>): P
    let release: () => Promise<void>;
    try {
       release = await lockfile.lock(filePath, { retries: LOCK_RETRIES });
-   } catch (err: any) {
+   } catch (err) {
       logger.error('Could not lock file', err instanceof Error ? err : new Error(String(err)), { filePath });
       throw err;
    }
@@ -36,8 +37,8 @@ export const withFileLock = async <T>(filePath: string, fn: () => Promise<T>): P
    } finally {
       try {
          await release();
-      } catch (err: any) {
-         logger.debug('[LOCK] Failed to release file lock', { error: err?.message });
+      } catch (err) {
+         logger.debug('[LOCK] Failed to release file lock', { error: getUnknownErrorMessage(err) });
       }
    }
 };

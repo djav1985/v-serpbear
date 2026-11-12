@@ -3,6 +3,7 @@ import { dirname, join } from 'path';
 import { atomicWriteFile } from './atomicWrite';
 import * as lockfile from 'proper-lockfile';
 import { logger } from './logger';
+import { getUnknownErrorCode, getUnknownErrorMessage } from './errorSerialization';
 
 /**
  * Retry Queue Manager with concurrency-safe file operations
@@ -55,8 +56,8 @@ class RetryQueueManager {
       try {
          // eslint-disable-next-line security/detect-non-literal-fs-filename
          await mkdir(dirname(this.filePath), { recursive: true });
-      } catch (err: any) {
-         logger.debug('[LOCK] Failed to create retry queue directory', { error: err?.message });
+      } catch (err) {
+         logger.debug('[LOCK] Failed to create retry queue directory', { error: getUnknownErrorMessage(err) });
          throw err;
       }
 
@@ -74,8 +75,8 @@ class RetryQueueManager {
                maxTimeout: 1500,
             },
          });
-      } catch (err: any) {
-         logger.debug('[LOCK] Failed to acquire retry queue file lock', { error: err?.message });
+      } catch (err) {
+         logger.debug('[LOCK] Failed to acquire retry queue file lock', { error: getUnknownErrorMessage(err) });
          throw err;
       }
 
@@ -84,15 +85,15 @@ class RetryQueueManager {
          try {
             // eslint-disable-next-line security/detect-non-literal-fs-filename
             await readFile(this.filePath, { encoding: 'utf-8' });
-         } catch (err: any) {
-            if (err.code !== 'ENOENT') {
-               logger.debug('[LOCK] Failed to read retry queue file', { error: err?.message });
+         } catch (err) {
+            if (getUnknownErrorCode(err) !== 'ENOENT') {
+               logger.debug('[LOCK] Failed to read retry queue file', { error: getUnknownErrorMessage(err) });
                throw err;
             }
             try {
                await atomicWriteFile(this.filePath, JSON.stringify([]), 'utf-8');
-            } catch (createErr: any) {
-               logger.debug('[LOCK] Failed to create retry queue file', { error: createErr?.message });
+            } catch (createErr) {
+               logger.debug('[LOCK] Failed to create retry queue file', { error: getUnknownErrorMessage(createErr) });
                throw createErr;
             }
          }
@@ -101,9 +102,9 @@ class RetryQueueManager {
       } finally {
          try {
             await release();
-         } catch (err: any) {
+         } catch (err) {
             // Log but do not rethrow to avoid masking the original operation error.
-            logger.debug('[LOCK] Failed to release retry queue file lock', { error: err?.message });
+            logger.debug('[LOCK] Failed to release retry queue file lock', { error: getUnknownErrorMessage(err) });
          }
       }
    }
@@ -116,8 +117,8 @@ class RetryQueueManager {
       try {
          // eslint-disable-next-line security/detect-non-literal-fs-filename
          rawData = await readFile(this.filePath, { encoding: 'utf-8' });
-      } catch (err: any) {
-         if (err.code === 'ENOENT') {
+      } catch (err) {
+         if (getUnknownErrorCode(err) === 'ENOENT') {
             // File doesn't exist yet - return empty array
             return [];
          }
@@ -128,7 +129,7 @@ class RetryQueueManager {
       let parsed: unknown;
       try {
          parsed = JSON.parse(rawData);
-      } catch (err: any) {
+      } catch (err) {
          // Move the damaged file aside once (kept for inspection) and carry on with an empty queue. Because the
          // file is moved, later reads see a missing file instead of re-copying it on every request, and queue
          // writes keep working instead of failing until someone repairs the file by hand.
@@ -163,8 +164,8 @@ class RetryQueueManager {
       const serialized = queue.map((entry) => (entry.attempts > 0 ? { id: entry.id, attempts: entry.attempts } : entry.id));
       try {
          await atomicWriteFile(this.filePath, JSON.stringify(serialized), 'utf-8');
-      } catch (err: any) {
-         logger.error('Failed to write retry queue', err);
+      } catch (err) {
+         logger.error('Failed to write retry queue', err instanceof Error ? err : new Error(String(err)));
          throw err;
       }
    }

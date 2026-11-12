@@ -26,6 +26,7 @@ import db from '../../../../database/database';
 import { atomicWriteFile } from '../../../../utils/atomicWrite';
 import { withFileLock } from '../../../../utils/fileLock';
 import { removeDomainIdeasFile } from '../../../../utils/domainIdeasFile';
+import { getUnknownErrorCode } from '../../../../utils/errorSerialization';
 
 // Sent in place of a saved Search Console credential: GET responses mask it, and a save that sends it back keeps the stored value
 const SC_CREDENTIAL_MARKER = 'true';
@@ -41,8 +42,8 @@ const readPendingCleanupMap = async (): Promise<PendingCleanupMap> => {
          new Set((Array.isArray(ids) ? ids : []).filter((id): id is number => Number.isInteger(id) && id > 0)),
       ] as const);
       return new Map(entries);
-   } catch (error: any) {
-      if (error?.code === 'ENOENT') {
+   } catch (error) {
+      if (getUnknownErrorCode(error) === 'ENOENT') {
          return new Map();
       }
       logger.error('Failed reading domain cleanup retry state', error instanceof Error ? error : new Error(String(error)));
@@ -149,7 +150,7 @@ const addDomain = async (req: Request, ctx: ApiContext) => {
       }
 
       const now = new Date().toJSON();
-      const domainsToAdd: any = Array.from(uniqueHosts.values()).map((hostname) => ({
+      const domainsToAdd = Array.from(uniqueHosts.values()).map((hostname) => ({
          domain: hostname,
          slug: toDomainSlug(hostname),
          lastUpdated: now,
@@ -432,7 +433,7 @@ const updateDomain = async (req: Request, ctx: ApiContext) => {
       domainToUpdate.set(updates);
       await domainToUpdate.save();
 
-      const savedPlain = domainToUpdate.get({ plain: true }) as any;
+      const savedPlain = domainToUpdate.get({ plain: true }) as unknown as Record<string, unknown>;
       const searchConsoleData = maskSearchConsole(savedPlain?.search_console, String(savedPlain?.domain ?? savedPlain?.ID ?? ''));
       const persistedScraperSettingsAfter = parseDomainScraperSettings(savedPlain?.scraper_settings);
       const maskedDomain = {

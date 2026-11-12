@@ -1,6 +1,7 @@
 import { getGoogleDomain } from "../../utils/countries";
 import { resolveCountryCode, getKeywordLocationParts, fetchAccountJson, toCreditNumber } from "../../utils/scraperHelpers";
 import { computeMapPackTop3 } from "../../utils/mapPack";
+import { asRecordArray, getPathValue } from "../../utils/typeGuards";
 
 interface HasDataResult {
   title: string;
@@ -13,7 +14,7 @@ const hasdata: ScraperSettings = {
   name: "HasData",
   fetchCredits: async (settings: SettingsType) => {
     const data = await fetchAccountJson("https://api.hasdata.com/user/me/usage", { "x-api-key": settings.scraping_api ?? "" });
-    return toCreditNumber(data?.data?.availableCredits);
+    return toCreditNumber(getPathValue(data, 'data', 'availableCredits'));
   },
   allowsCity: true,
   headers: (_keyword: KeywordType, settings: SettingsType) => ({
@@ -24,7 +25,7 @@ const hasdata: ScraperSettings = {
   scrapeURL: (
     keyword: KeywordType,
     settings: SettingsType,
-    countryData: any,
+    countryData: countryData,
     pagination?: ScraperPagination,
   ) => {
     // use global types
@@ -84,10 +85,9 @@ const hasdata: ScraperSettings = {
     }
 
     const businessName = (settings as ExtendedSettings)?.business_name ?? null;
-    const localResults = (Array.isArray(response?.localResults?.places) ? response.localResults.places : []).map((place: any, index: number) => ({
-      position: index + 1,
-      title: place.title as string,
-    }));
+    const localResults = asRecordArray(getPathValue(response, 'localResults', 'places'))
+      .filter((place) => typeof place.title === 'string')
+      .map((place, index) => ({ position: index + 1, title: place.title as string }));
     const mapPackTop3 = computeMapPackTop3(localResults, businessName);
 
     return { organic: extractedResult, mapPackTop3, localResults };

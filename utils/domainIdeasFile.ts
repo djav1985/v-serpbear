@@ -2,6 +2,7 @@ import { unlink } from 'fs/promises';
 import path from 'path';
 import { logger } from './logger';
 import { SAFE_DOMAIN_NAME } from './domainSlug';
+import { getUnknownErrorCode, getUnknownErrorMessage } from './errorSerialization';
 
 /** The research page has no domain, so its ideas live in data/IDEAS_research.json. */
 export const RESEARCH_IDEAS_KEY = 'research';
@@ -32,11 +33,11 @@ export const removeDomainIdeasFile = async (domain: string): Promise<boolean> =>
       // eslint-disable-next-line security/detect-non-literal-fs-filename
       await unlink(filePath);
       return true;
-   } catch (error: any) {
-      if (error?.code === 'ENOENT') {
+   } catch (error) {
+      if (getUnknownErrorCode(error) === 'ENOENT') {
          return true;
       }
-      logger.error('Domain deleted, but its keyword ideas file could not be removed', undefined, { domain, error: error?.message });
+      logger.error('Domain deleted, but its keyword ideas file could not be removed', undefined, { domain, error: getUnknownErrorMessage(error) });
       return false;
    }
 };

@@ -2,6 +2,7 @@ import { getGoogleDomain } from "../../utils/countries";
 import { resolveCountryCode, getKeywordLocationParts, fetchAccountJson, toCreditNumber } from "../../utils/scraperHelpers";
 import { computeMapPackTop3 } from "../../utils/mapPack";
 import { DEVICE_MOBILE } from "../../utils/constants";
+import { getPathValue } from "../../utils/typeGuards";
 
 interface ValueSerpResult {
   title: string;
@@ -16,16 +17,16 @@ const valueSerp: ScraperSettings = {
   fetchCredits: async (settings: SettingsType) => {
     const key = encodeURIComponent(settings.scraping_api ?? "");
     const data = await fetchAccountJson(`https://api.valueserp.com/account?api_key=${key}`);
-    const monthly = toCreditNumber(data?.account_info?.monthly_credits_remaining);
+    const monthly = toCreditNumber(getPathValue(data, 'account_info', 'monthly_credits_remaining'));
     if (monthly === null) return null;
-    return monthly + (toCreditNumber(data?.account_info?.topup_credits_remaining) ?? 0);
+    return monthly + (toCreditNumber(getPathValue(data, 'account_info', 'topup_credits_remaining')) ?? 0);
   },
   allowsCity: true,
   timeoutMs: 20000, // 20s — fail fast; long hangs are usually a broken connection, not a slow response
   scrapeURL: (
     keyword: KeywordType,
     settings: SettingsType,
-    countryData: any,
+    countryData: countryData,
     pagination?: ScraperPagination,
   ) => {
     const resolvedCountry = resolveCountryCode(keyword.country);
@@ -83,11 +84,10 @@ const valueSerp: ScraperSettings = {
       }
     }
 
-    const localResults = (Array.isArray(response?.local_results) ? response.local_results : []).map((item: any, index: number) => ({
-      position: index + 1,
-      title: item.title as string,
-      url: (item.link || undefined) as string | undefined,
-    }));
+    const localResults = (Array.isArray(response?.local_results) ? response.local_results : [])
+      .filter((item: unknown): item is Record<string, unknown> => item !== null && typeof item === 'object' && !Array.isArray(item))
+      .filter((item) => typeof item.title === 'string')
+      .map((item, index) => ({ position: index + 1, title: item.title as string, url: typeof item.link === 'string' ? item.link : undefined }));
     const businessName = (settings as ExtendedSettings)?.business_name ?? null;
     const mapPackTop3 = computeMapPackTop3(localResults, businessName);
 

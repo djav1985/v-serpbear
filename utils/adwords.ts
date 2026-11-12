@@ -10,6 +10,8 @@ import parseKeywords from './parseKeywords';
 import countries from './countries';
 import { readLocalSCData } from './searchConsole';
 import { logger } from './logger';
+import { getUnknownErrorCode, getUnknownErrorMessage } from './errorSerialization';
+import { asRecord } from './typeGuards';
 import { RESEARCH_IDEAS_KEY, getIdeasFilePath } from './domainIdeasFile';
 import { atomicWriteFile } from './atomicWrite';
 
@@ -271,8 +273,8 @@ const buildKeywordIdeasPayload = (
    geoTargetConstants: number,
    language: string,
    test: boolean,
-): Record<string, any> => {
-   const reqPayload: Record<string, any> = {
+): Record<string, unknown> => {
+   const reqPayload: Record<string, unknown> = {
       geoTargetConstants: [`geoTargetConstants/${geoTargetConstants}`],
       language: `languageConstants/${language}`,
       pageSize: test ? 1 : 1000,
@@ -392,7 +394,7 @@ export const getAdwordsKeywordIdeas = async (credentials: AdwordsCredentials, ad
             language: reqPayload.language,
             pageSize: reqPayload.pageSize,
             hasSeedKeywords: !!reqPayload.keywordSeed,
-            seedKeywordCount: reqPayload.keywordSeed?.keywords?.length || 0,
+            seedKeywordCount: Array.isArray(asRecord(reqPayload.keywordSeed).keywords) ? (asRecord(reqPayload.keywordSeed).keywords as unknown[]).length : 0,
             hasSiteSeed: !!reqPayload.siteSeed,
             hasDeveloperToken: !!developer_token,
             hasAccessToken: !!accessToken,
@@ -614,7 +616,7 @@ export const getKeywordsVolume = async (keywords: KeywordType[]): Promise<{ erro
                   continue;
                }
                const reqKeywords = keywordRequests[country].map((kw) => kw.keyword);
-               const reqPayload: Record<string, any> = {
+               const reqPayload: Record<string, unknown> = {
                   keywords: [...new Set(reqKeywords)],
                   geoTargetConstants: [`geoTargetConstants/${geoTargetConstants}`],
                   // language: `languageConstants/${language}`,
@@ -749,8 +751,8 @@ export const withIdeasLock = async <T>(domain: string, fn: () => Promise<T>, opt
       try {
          // eslint-disable-next-line security/detect-non-literal-fs-filename
          await writeFile(filePath, '{}', { encoding: 'utf-8', flag: 'wx' });
-      } catch (err: any) {
-         if (err?.code !== 'EEXIST') { throw err; }
+      } catch (err) {
+         if (getUnknownErrorCode(err) !== 'EEXIST') { throw err; }
       }
    }
    const release = await lockfile.lock(filePath, { retries: IDEAS_LOCK_RETRIES });
@@ -759,8 +761,8 @@ export const withIdeasLock = async <T>(domain: string, fn: () => Promise<T>, opt
    } finally {
       try {
          await release();
-      } catch (err: any) {
-         logger.debug('[GOOGLE] Failed to release keyword ideas lock', { error: err?.message });
+      } catch (err) {
+         logger.debug('[GOOGLE] Failed to release keyword ideas lock', { error: getUnknownErrorMessage(err) });
       }
    }
 };

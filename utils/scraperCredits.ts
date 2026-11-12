@@ -11,6 +11,7 @@ import { withFileLock } from './fileLock';
 import { readSettingsFile } from './settingsFile';
 import { logger } from './logger';
 import { decryptDomainScraperSettings, parseDomainScraperSettings } from './domainScraperSettings';
+import { getUnknownErrorMessage } from './errorSerialization';
 
 // Credits left on each scraper account, kept in data/scraper_credits.json. An entry belongs to a scraper plus an API key
 // (stored as a keyed hash, never the key), so every domain that uses the same key reads and updates the same entry.
@@ -132,7 +133,7 @@ export const readCurrentGlobalCreditSettings = async () => {
  * Called after every scrape response. Scrapers that send the balance with the response update the in-memory number;
  * scrapers with an account endpoint are queued for one lookup when the run ends. Never throws.
  */
-export const trackScrapeCredits = (scraper: ScraperSettings, settings: SettingsType, response: Response, body: any): void => {
+export const trackScrapeCredits = (scraper: ScraperSettings, settings: SettingsType, response: Response, body: unknown): void => {
    try {
       const batch = creditBatch.getStore();
       if (!batch) { return; }
@@ -152,8 +153,8 @@ export const trackScrapeCredits = (scraper: ScraperSettings, settings: SettingsT
             observed.set(key, { scraper: scraper.id, remaining, observedAt: nextStamp() });
          }
       }
-   } catch (error: any) {
-      logger.debug('[CREDITS] Could not read credits from a response', { scraper: scraper?.id, error: error?.message });
+   } catch (error) {
+      logger.debug('[CREDITS] Could not read credits from a response', { scraper: scraper?.id, error: getUnknownErrorMessage(error) });
    }
 };
 
@@ -180,8 +181,8 @@ export const flushScraperCredits = async (getInUseKeys?: () => Promise<Set<strin
             if (typeof remaining === 'number' && Number.isFinite(remaining)) {
                fresh.set(key, { scraper: scraper.id, remaining, observedAt });
             }
-         } catch (error: any) {
-            logger.debug('[CREDITS] Account lookup failed', { scraper: scraper.id, error: error?.message });
+         } catch (error) {
+            logger.debug('[CREDITS] Account lookup failed', { scraper: scraper.id, error: getUnknownErrorMessage(error) });
          }
       }));
 
@@ -207,7 +208,7 @@ export const flushScraperCredits = async (getInUseKeys?: () => Promise<Set<strin
             await atomicWriteFile(filePath, JSON.stringify(next, null, 2));
          }
       });
-   } catch (error: any) {
+   } catch (error) {
       logger.error('[CREDITS] Could not save scraper credits', error instanceof Error ? error : new Error(String(error)));
    }
 };

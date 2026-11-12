@@ -143,7 +143,7 @@ const sendNotificationEmail = async (domain: DomainType, settings: SettingsType)
       logger.info(`[EMAIL] Successfully sent notification for ${domainName}`);
       return 'sent';
 
-   } catch (error:any) {
+   } catch (error) {
       // The send did not happen, so give back the slot it reserved
       await reservation.release();
       logger.error('Error sending notification email', error instanceof Error ? error : new Error(String(error)), { domain: domainName });

@@ -2,6 +2,7 @@ import { resolveCountryCode, getKeywordLocationParts, fetchAccountJson, toCredit
 import { computeMapPackTop3 } from "../../utils/mapPack";
 import { isGoogleRedirectUrl } from "../../utils/resolveGoogleLinks";
 import { DEVICE_MOBILE } from "../../utils/constants";
+import { getPathValue } from "../../utils/typeGuards";
 
 interface SerpBaseOrganic {
   title?: string;
@@ -37,7 +38,7 @@ const serpbase: ScraperSettings = {
   // The account call is free and returns the credits left on the key.
   fetchCredits: async (settings: SettingsType) => {
     const data = await fetchAccountJson("https://api.serpbase.dev/account/credits", { "X-API-Key": settings.scraping_api ?? "" });
-    return toCreditNumber(data?.credits);
+    return toCreditNumber(getPathValue(data, 'credits'));
   },
   allowsCity: true,
   supportsMapPack: true,
@@ -52,7 +53,7 @@ const serpbase: ScraperSettings = {
   body: (
     keyword: KeywordType,
     _settings: SettingsType,
-    countryData: any,
+    countryData: countryData,
     pagination?: ScraperPagination,
   ) => {
     const country = resolveCountryCode(keyword.country);
@@ -95,7 +96,7 @@ const serpbase: ScraperSettings = {
       });
 
     const businessName = (settings as ExtendedSettings)?.business_name ?? null;
-    const localResults = (Array.isArray(response?.local_results) ? response.local_results : [] as SerpBaseLocal[])
+    const localResults = (Array.isArray(response?.local_results) ? response.local_results as SerpBaseLocal[] : [])
       .filter((item: SerpBaseLocal) => item?.title)
       .map((item: SerpBaseLocal, index: number) => ({
         position: item.rank ?? index + 1,

@@ -15,7 +15,7 @@ export const trimString = (value?: string | null): string => (typeof value === '
 export const sanitizeSmtpHost = (host?: string | null): string =>
    trimString(host).replace(/\.+$/, '').toLowerCase();
 
-const safeTrim = (value: any): string => {
+const safeTrim = (value: unknown): string => {
    if (typeof value === 'string') {
       return value.trim();
    }
@@ -29,7 +29,7 @@ const safeTrim = (value: any): string => {
  * Checks if a trimmed value has non-zero length.
  * Handles both string and non-string values safely.
  */
-export const hasTrimmedLength = (value: any): boolean => safeTrim(value).length > 0;
+export const hasTrimmedLength = (value: unknown): boolean => safeTrim(value).length > 0;
 
 /**
  * Trims all string properties in an object.

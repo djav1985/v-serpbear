@@ -3,6 +3,7 @@
 import Cryptr from 'cryptr';
 import { logger } from './logger';
 import { normalizeLegacyDomainScraperType } from './removedScrapers';
+import { isRecord } from './typeGuards';
 
 export type PersistedDomainScraperSettings = {
    scraper_type?: string | null;
@@ -16,7 +17,7 @@ export const parseDomainScraperSettings = (
 ): PersistedDomainScraperSettings | null => {
    if (!raw) { return null; }
 
-   let payload: any = raw;
+   let payload: unknown = raw;
    if (typeof raw === 'string') {
       try {
          payload = JSON.parse(raw);
@@ -25,7 +26,7 @@ export const parseDomainScraperSettings = (
       }
    }
 
-   if (!payload || typeof payload !== 'object') {
+   if (!isRecord(payload)) {
       return null;
    }
 

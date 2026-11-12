@@ -27,7 +27,7 @@ export interface LogEntry {
   timestamp: string;
   level: string;
   message: string;
-  meta?: Record<string, any>;
+  meta?: Record<string, unknown>;
   error?: {
     name: string;
     message: string;
@@ -66,7 +66,7 @@ export class Logger {
     }
   }
 
-  private static formatLogEntry(level: string, message: string, meta?: Record<string, any>, error?: Error): string {
+  private static formatLogEntry(level: string, message: string, meta?: Record<string, unknown>, error?: Error): string {
     const logEntry: LogEntry = {
       timestamp: new Date().toISOString(),
       level,
@@ -88,7 +88,7 @@ export class Logger {
     return JSON.stringify(logEntry);
   }
 
-  private log(level: LogLevel, levelName: string, message: string, meta?: Record<string, any>, error?: Error): void {
+  private log(level: LogLevel, levelName: string, message: string, meta?: Record<string, unknown>, error?: Error): void {
     if (level <= this.logLevel) {
       const formattedLog = Logger.formatLogEntry(levelName, message, meta, error);
       // eslint-disable-next-line no-console
@@ -96,24 +96,24 @@ export class Logger {
     }
   }
 
-  error(message: string, error?: Error, meta?: Record<string, any>): void {
+  error(message: string, error?: Error, meta?: Record<string, unknown>): void {
     this.log(LogLevel.ERROR, 'ERROR', message, meta, error);
   }
 
-  warn(message: string, meta?: Record<string, any>): void {
+  warn(message: string, meta?: Record<string, unknown>): void {
     this.log(LogLevel.WARN, 'WARN', message, meta);
   }
 
-  info(message: string, meta?: Record<string, any>): void {
+  info(message: string, meta?: Record<string, unknown>): void {
     this.log(LogLevel.INFO, 'INFO', message, meta);
   }
 
-  debug(message: string, meta?: Record<string, any>): void {
+  debug(message: string, meta?: Record<string, unknown>): void {
     this.log(LogLevel.DEBUG, 'DEBUG', message, meta);
   }
 
   // Authentication event logging
-  authEvent(event: string, user?: string, success: boolean = true, meta?: Record<string, any>): void {
+  authEvent(event: string, user?: string, success: boolean = true, meta?: Record<string, unknown>): void {
     if (success) {
       // DEBUG level: Log auth success with structured metadata
       this.debug(`[API] ${event}${user ? ` [${user}]` : ''}`, {
