@@ -12,7 +12,7 @@ import {
 } from '../../../utils/mcpOAuth';
 
 type ApiResult = { ok: boolean, status: number, data: unknown };
-type ApiCall = (method: 'GET' | 'POST', path: string, query?: Record<string, string>, body?: unknown) => Promise<ApiResult>;
+type ApiCall = (method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string, query?: Record<string, string>, body?: unknown) => Promise<ApiResult>;
 
 const domainField = z.string().describe('Real domain name, for example example.com');
 

@@ -11,6 +11,11 @@ const { backupDatabaseFile } = require('../backupDatabase');
 
 const INDEX_NAME = 'keyword_tracking_target_idx';
 
+/**
+ * @typedef {{ID: number, domain?: string | null, keyword?: string | null, country?: string | null, location?: string | null, device?: string | null, history?: string | null, tags?: string | null, sticky?: number | string | boolean}} KeywordRow
+ */
+
+/** @param {KeywordRow} row */
 const targetKey = (row) => JSON.stringify([
    row.domain ?? '',
    row.keyword ?? '',
@@ -19,6 +24,12 @@ const targetKey = (row) => JSON.stringify([
    row.device ?? '',
 ]);
 
+/**
+ * @template T
+ * @param {unknown} raw
+ * @param {T} fallback
+ * @returns {T | unknown}
+ */
 const parseJson = (raw, fallback) => {
    if (typeof raw !== 'string' || raw.trim() === '') { return fallback; }
    try {
@@ -29,23 +40,28 @@ const parseJson = (raw, fallback) => {
    }
 };
 
+/** @param {KeywordRow} row */
 const historySize = (row) => {
    const history = parseJson(row.history, {});
    return history && typeof history === 'object' && !Array.isArray(history) ? Object.keys(history).length : 0;
 };
 
+/** @param {KeywordRow} row */
 const tagList = (row) => {
    const tags = parseJson(row.tags, []);
    return Array.isArray(tags) ? tags.filter((tag) => typeof tag === 'string') : [];
 };
 
 // Returns one entry per group of duplicate rows: which row to keep, which to delete, and what to carry over.
+/** @param {KeywordRow[]} rows */
 const planDuplicateRemovals = (rows) => {
+   /** @type {Map<string, KeywordRow[]>} */
    const groups = new Map();
    for (const row of rows) {
       const key = targetKey(row);
-      if (!groups.has(key)) { groups.set(key, []); }
-      groups.get(key).push(row);
+      const existing = groups.get(key);
+      if (existing) { existing.push(row); }
+      else { groups.set(key, [row]); }
    }
 
    const plans = [];
@@ -55,6 +71,7 @@ const planDuplicateRemovals = (rows) => {
       const [keep, ...removed] = ordered;
 
       const seen = new Set();
+      /** @type {string[]} */
       const mergedTags = [];
       [keep, ...removed].forEach((row) => tagList(row).forEach((tag) => {
          const normalized = tag.toLowerCase();
@@ -77,12 +94,16 @@ const planDuplicateRemovals = (rows) => {
 };
 
 module.exports = {
+   /**
+    * @param {import('./migrationTypes').MigrationParams} [params={}]
+    * @param {typeof import('sequelize')} [legacySequelize]
+    */
    up: async function up(params = {}, legacySequelize) {
-      const queryInterface = params?.context ?? params;
-      const SequelizeLib = params?.Sequelize
+      const queryInterface = /** @type {import('./migrationTypes').MigrationQueryInterface} */ (params.context ?? params);
+      const SequelizeLib = /** @type {typeof import('sequelize')} */ (/** @type {unknown} */ (params.Sequelize
          ?? legacySequelize
          ?? queryInterface?.sequelize?.constructor
-         ?? require('sequelize');
+         ?? require('sequelize')));
 
       return queryInterface.sequelize.transaction(async (transaction) => {
          const [tables] = await queryInterface.sequelize.query(
@@ -94,6 +115,7 @@ module.exports = {
             return;
          }
 
+         /** @type {KeywordRow[]} */
          const rows = await queryInterface.sequelize.query(
             'SELECT ID, domain, keyword, country, location, device, history, tags, sticky FROM keyword',
             { transaction, type: SequelizeLib.QueryTypes.SELECT }
@@ -133,8 +155,9 @@ module.exports = {
       });
    },
 
+   /** @param {import('./migrationTypes').MigrationParams} [params={}] */
    down: async function down(params = {}) {
-      const queryInterface = params?.context ?? params;
+      const queryInterface = /** @type {import('./migrationTypes').MigrationQueryInterface} */ (params.context ?? params);
       return queryInterface.sequelize.transaction(async (transaction) => {
          await queryInterface.sequelize.query(`DROP INDEX IF EXISTS ${INDEX_NAME}`, { transaction });
       });

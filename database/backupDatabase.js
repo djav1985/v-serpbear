@@ -7,14 +7,23 @@ const path = require('path');
 const BetterSqlite3 = require('better-sqlite3');
 const { logger } = require('./migrationLogger');
 
+/** @param {number} value */
 const pad = (value) => String(value).padStart(2, '0');
 
 // Local calendar date, e.g. 2026-11-04
+/** @param {Date} [now] */
 const todayStamp = (now = new Date()) => `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
+/**
+ * @param {{sequelize?: unknown}} queryInterface
+ * @param {Date} [now]
+ * @returns {Promise<string | null>}
+ */
 const backupDatabaseFile = async (queryInterface, now = new Date()) => {
    try {
-      const storage = queryInterface?.sequelize?.options?.storage;
+      const sequelize = queryInterface?.sequelize;
+      const options = sequelize && typeof sequelize === 'object' && 'options' in sequelize ? sequelize.options : undefined;
+      const storage = options && typeof options === 'object' && 'storage' in options ? options.storage : undefined;
       if (typeof storage !== 'string' || storage.trim() === '' || storage === ':memory:') {
          return null;
       }

@@ -11,6 +11,10 @@ All notable changes to this project will be documented in this file. Releases no
 - Keep `MCP_APIKEY` access read-only and expose keyword editing and refresh tools to OAuth `mcp:full` clients.
 - Consolidate overlapping Jest suites for domain routes, keyword mutations, and refresh routes.
 
+### Changed
+
+- Enable TypeScript checking for JavaScript and enforce the recommended JSX accessibility lint rules.
+
 ## [6.0.0] (2026-11-08)
 ### Fixed
 

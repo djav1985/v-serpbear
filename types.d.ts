@@ -150,6 +150,16 @@ type SettingsType = {
    keywordsColumns: string[]
 }
 
+declare module 'better-sqlite3' {
+   class Database {
+      constructor(filename: string, options?: { readonly?: boolean, fileMustExist?: boolean });
+      backup(destination: string): Promise<void>;
+      close(): void;
+   }
+
+   export = Database;
+}
+
 type KeywordSCDataChild = {
    yesterday: number,
    threeDays: number,

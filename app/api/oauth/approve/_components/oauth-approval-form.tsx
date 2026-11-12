@@ -37,7 +37,7 @@ export function OAuthApprovalForm({ requestId, clientName, callbackHost, platfor
                   <>
                      <div className="flex flex-col gap-2">
                         <Label htmlFor="oauth-username">Username</Label>
-                        <Input id="oauth-username" name="username" type="text" autoComplete="username" autoFocus required />
+                        <Input id="oauth-username" name="username" type="text" autoComplete="username" required />
                      </div>
                      <div className="flex flex-col gap-2">
                         <Label htmlFor="oauth-password">Password</Label>

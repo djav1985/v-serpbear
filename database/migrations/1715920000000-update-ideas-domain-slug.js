@@ -23,7 +23,9 @@ module.exports = {
                const domainSlug = domainName.replaceAll('-', '_').replaceAll('.', '-').replaceAll('/', '-');
 
                if (Array.isArray(content.keywords)) {
-                  content.keywords = content.keywords.map((k) => ({ ...k, domain: domainSlug }));
+                  /** @param {Record<string, unknown>} keyword */
+                  const withDomain = (keyword) => ({ ...keyword, domain: domainSlug });
+                  content.keywords = content.keywords.map(withDomain);
                }
 
                content.settings = content.settings || {};

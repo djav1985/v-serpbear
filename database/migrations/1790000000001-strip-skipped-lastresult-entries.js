@@ -15,6 +15,7 @@ const BATCH_SIZE = 500;
 
 // Returns the JSON text of lastResult without the skipped entries, or null when the row must be left untouched
 // (null, empty, invalid JSON, not an array, or no skipped entries).
+/** @param {unknown} raw */
 const stripSkippedEntries = (raw) => {
    if (typeof raw !== 'string' || raw.trim() === '') {
       return null;
@@ -33,12 +34,16 @@ const stripSkippedEntries = (raw) => {
 };
 
 module.exports = {
+   /**
+    * @param {import('./migrationTypes').MigrationParams} [params={}]
+    * @param {typeof import('sequelize')} [legacySequelize]
+    */
    up: async function up(params = {}, legacySequelize) {
-      const queryInterface = params?.context ?? params;
-      const SequelizeLib = params?.Sequelize
+      const queryInterface = /** @type {import('./migrationTypes').MigrationQueryInterface} */ (params.context ?? params);
+      const SequelizeLib = /** @type {typeof import('sequelize')} */ (/** @type {unknown} */ (params.Sequelize
          ?? legacySequelize
          ?? queryInterface?.sequelize?.constructor
-         ?? require('sequelize');
+         ?? require('sequelize')));
 
       return queryInterface.sequelize.transaction(async (transaction) => {
          const [tables] = await queryInterface.sequelize.query(
@@ -52,6 +57,7 @@ module.exports = {
 
          // PRAGMA instead of describeTable: Sequelize's describeTable throws on the expression index
          // keyword_tracking_target_idx (COALESCE columns have no name), which would abort the upgrade.
+         /** @type {Array<{name: string}>} */
          const columns = await queryInterface.sequelize.query('PRAGMA table_info(`keyword`)', {
             transaction,
             type: SequelizeLib.QueryTypes.SELECT,
@@ -65,7 +71,8 @@ module.exports = {
          let updatedCount = 0;
          let lastId = 0;
          for (;;) {
-            const rows = await queryInterface.sequelize.query(
+      /** @type {Array<{ID: number, lastResult: string | null}>} */
+      const rows = await queryInterface.sequelize.query(
                'SELECT ID, lastResult FROM keyword WHERE ID > :lastId ORDER BY ID LIMIT :limit',
                {
                   transaction,

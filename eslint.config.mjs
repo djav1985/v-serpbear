@@ -67,17 +67,10 @@ export default [
     rules: {
       ...reactPlugin.configs.flat.recommended.rules,
       ...reactHooksPlugin.configs.recommended.rules,
+      ...jsxA11yPlugin.flatConfigs.recommended.rules,
       ...importPlugin.configs.recommended.rules,
       ...importPlugin.configs.typescript.rules,
       ...nextPlugin.configs['core-web-vitals'].rules,
-
-      // Accessibility
-      "jsx-a11y/alt-text": ["warn", { elements: ["img"], img: ["Image"] }],
-      "jsx-a11y/aria-props": "warn",
-      "jsx-a11y/aria-proptypes": "warn",
-      "jsx-a11y/aria-unsupported-elements": "warn",
-      "jsx-a11y/role-has-required-aria-props": "warn",
-      "jsx-a11y/role-supports-aria-props": "warn",
 
       // React modernizations
       "react/react-in-jsx-scope": "off",

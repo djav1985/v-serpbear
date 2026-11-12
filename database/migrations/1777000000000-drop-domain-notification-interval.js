@@ -10,12 +10,16 @@ const { logger } = require('../migrationLogger');
 const { backupDatabaseFile } = require('../backupDatabase');
 
 module.exports = {
+   /**
+    * @param {import('./migrationTypes').MigrationParams} [params={}]
+    * @param {typeof import('sequelize')} [legacySequelize]
+    */
    up: async function up(params = {}, legacySequelize) {
-      const queryInterface = params?.context ?? params;
-      const SequelizeLib = params?.Sequelize
+      const queryInterface = /** @type {import('./migrationTypes').MigrationQueryInterface} */ (params.context ?? params);
+      const SequelizeLib = /** @type {typeof import('sequelize')} */ (/** @type {unknown} */ (params.Sequelize
          ?? legacySequelize
          ?? queryInterface?.sequelize?.constructor
-         ?? require('sequelize');
+         ?? require('sequelize')));
 
       return queryInterface.sequelize.transaction(async (transaction) => {
          const [tables] = await queryInterface.sequelize.query(
@@ -27,6 +31,7 @@ module.exports = {
             return;
          }
 
+         /** @type {Array<{name: string}>} */
          const columns = await queryInterface.sequelize.query(
             'PRAGMA table_info(domain)',
             { transaction, type: SequelizeLib.QueryTypes.SELECT }
@@ -48,12 +53,16 @@ module.exports = {
       });
    },
 
+   /**
+    * @param {import('./migrationTypes').MigrationParams} [params={}]
+    * @param {typeof import('sequelize')} [legacySequelize]
+    */
    down: async function down(params = {}, legacySequelize) {
-      const queryInterface = params?.context ?? params;
-      const SequelizeLib = params?.Sequelize
+      const queryInterface = /** @type {import('./migrationTypes').MigrationQueryInterface} */ (params.context ?? params);
+      const SequelizeLib = /** @type {typeof import('sequelize')} */ (/** @type {unknown} */ (params.Sequelize
          ?? legacySequelize
          ?? queryInterface?.sequelize?.constructor
-         ?? require('sequelize');
+         ?? require('sequelize')));
 
       return queryInterface.sequelize.transaction(async (transaction) => {
          const [tables] = await queryInterface.sequelize.query(
@@ -64,6 +73,7 @@ module.exports = {
             return;
          }
 
+         /** @type {Array<{name: string}>} */
          const columns = await queryInterface.sequelize.query(
             'PRAGMA table_info(domain)',
             { transaction, type: SequelizeLib.QueryTypes.SELECT }

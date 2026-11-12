@@ -31,8 +31,9 @@ const replaceGlobalSmartStrategy = () => {
 };
 
 module.exports = {
+   /** @param {import('./migrationTypes').MigrationParams} [params={}] */
    up: async function up(params = {}) {
-      const queryInterface = params?.context ?? params;
+      const queryInterface = /** @type {import('./migrationTypes').MigrationQueryInterface} */ (params.context ?? params);
 
       await queryInterface.sequelize.transaction(async (transaction) => {
          const [tables] = await queryInterface.sequelize.query(
@@ -52,7 +53,8 @@ module.exports = {
             "SELECT COUNT(*) AS total FROM domain WHERE scrape_strategy = 'smart'",
             { transaction }
          );
-         const rowsUpdated = Number(countRows?.[0]?.total ?? 0);
+         const countRow = /** @type {{total?: number | string} | undefined} */ (Array.isArray(countRows) ? countRows[0] : undefined);
+         const rowsUpdated = Number(countRow?.total ?? 0);
          await queryInterface.sequelize.query(
             "UPDATE domain SET scrape_strategy = 'basic' WHERE scrape_strategy = 'smart'",
             { transaction }

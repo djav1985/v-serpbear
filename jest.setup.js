@@ -8,6 +8,7 @@ jest.mock('signal-exit', () => jest.fn(() => jest.fn()));
 
 jest.mock('next/image', () => ({
   __esModule: true,
+  /** @param {import('react').ImgHTMLAttributes<HTMLImageElement> & { unoptimized?: boolean }} props */
   default: ({ src, alt, width, height, unoptimized: _unoptimized, ...rest }) => {
     const React = require('react');
     return React.createElement('img', { src, alt, width, height, ...rest });
@@ -20,13 +21,13 @@ global.TextDecoder = TextDecoder;
 const { ReadableStream, WritableStream, TransformStream } = require('stream/web');
 
 if (!global.ReadableStream) {
-  global.ReadableStream = ReadableStream;
+  Object.defineProperty(globalThis, 'ReadableStream', { configurable: true, writable: true, value: ReadableStream });
 }
 if (!global.WritableStream) {
-  global.WritableStream = WritableStream;
+  Object.defineProperty(globalThis, 'WritableStream', { configurable: true, writable: true, value: WritableStream });
 }
 if (!global.TransformStream) {
-  global.TransformStream = TransformStream;
+  Object.defineProperty(globalThis, 'TransformStream', { configurable: true, writable: true, value: TransformStream });
 }
 
 const { fetch: undiciFetch, Headers, Request, Response } = require('undici');
@@ -74,11 +75,15 @@ if (typeof window !== 'undefined') {
   });
 }
 
-global.ResizeObserver = require('resize-observer-polyfill');
+Object.defineProperty(globalThis, 'ResizeObserver', {
+  configurable: true,
+  writable: true,
+  value: require('resize-observer-polyfill'),
+});
 
 if (!global.fetch) {
-  global.fetch = undiciFetch;
+  Object.defineProperty(globalThis, 'fetch', { configurable: true, writable: true, value: undiciFetch });
 }
-global.Headers = Headers;
-global.Request = Request;
-global.Response = Response;
+Object.defineProperty(globalThis, 'Headers', { configurable: true, writable: true, value: Headers });
+Object.defineProperty(globalThis, 'Request', { configurable: true, writable: true, value: Request });
+Object.defineProperty(globalThis, 'Response', { configurable: true, writable: true, value: Response });

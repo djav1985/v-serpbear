@@ -184,6 +184,7 @@ export function DataTable<TData extends RowData>({
                         role="row"
                         aria-rowindex={virtualRow.index + 1}
                         aria-selected={row.getIsSelected()}
+                         tabIndex={onRowClick ? 0 : undefined}
                         className={cn(
                            'absolute top-0 left-0 w-full border-b',
                            row.getIsSelected() && 'bg-accent/50',
@@ -191,6 +192,13 @@ export function DataTable<TData extends RowData>({
                         )}
                         style={{ transform: `translateY(${virtualRow.start - (stacked ? scrollMargin : 0)}px)` }}
                         onClick={onRowClick ? () => onRowClick(row) : undefined}
+                         onKeyDown={onRowClick ? (event) => {
+                            if (event.target !== event.currentTarget) { return; }
+                            if (event.key === 'Enter' || event.key === ' ') {
+                               event.preventDefault();
+                               onRowClick(row);
+                            }
+                         } : undefined}
                      >
                         {stacked ? renderStackedRow(row) : (
                            <div className="grid items-center gap-3 px-4 py-2" style={gridStyle}>

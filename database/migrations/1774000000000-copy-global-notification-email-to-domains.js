@@ -20,8 +20,9 @@ const readGlobalNotificationEmail = () => {
 };
 
 module.exports = {
+   /** @param {import('./migrationTypes').MigrationParams} [params={}] */
    up: async function up(params = {}) {
-      const queryInterface = params?.context ?? params;
+      const queryInterface = /** @type {import('./migrationTypes').MigrationQueryInterface} */ (params.context ?? params);
 
       return queryInterface.sequelize.transaction(async (transaction) => {
          const [tables] = await queryInterface.sequelize.query(
@@ -41,7 +42,8 @@ module.exports = {
          // An UPDATE does not report its row count through Sequelize's raw query, so count the rows first
          const noEmail = "notification_emails IS NULL OR TRIM(notification_emails) = ''";
          const [countRows] = await queryInterface.sequelize.query(`SELECT COUNT(*) AS total FROM domain WHERE ${noEmail}`, { transaction });
-         const rowsUpdated = Number(countRows?.[0]?.total ?? 0);
+         const countRow = /** @type {{total?: number | string} | undefined} */ (Array.isArray(countRows) ? countRows[0] : undefined);
+         const rowsUpdated = Number(countRow?.total ?? 0);
          await queryInterface.sequelize.query(
             `UPDATE domain SET notification_emails = :email WHERE ${noEmail}`,
             { transaction, replacements: { email: globalEmail } }

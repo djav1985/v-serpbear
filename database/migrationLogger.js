@@ -11,11 +11,24 @@
  */
 
 /* eslint-disable no-console */
+/** @typedef {'INFO' | 'WARN' | 'ERROR' | 'DEBUG'} MigrationLogLevel */
+/** @typedef {{name: string, message: string, stack?: string}} SerializedError */
+/** @typedef {{timestamp: string, level: MigrationLogLevel, message: string, meta?: Record<string, unknown>, error?: SerializedError}} MigrationLogEntry */
+/** @typedef {{info: (message: string, meta?: Record<string, unknown>) => void, warn: (message: string, meta?: Record<string, unknown>) => void, error: (message: string, error?: Error, meta?: Record<string, unknown>) => void, debug: (message: string, meta?: Record<string, unknown>) => void}} MigrationLogger */
+
+/** @type {MigrationLogger | undefined} */
 let _logger;
 try {
   _logger = require('../utils/logger').logger;
 } catch (_) {
+  /**
+   * @param {MigrationLogLevel} level
+   * @param {string} message
+   * @param {Record<string, unknown>} [meta]
+   * @param {Error} [error]
+   */
   const mkEntry = (level, message, meta, error) => {
+    /** @type {MigrationLogEntry} */
     const entry = { timestamp: new Date().toISOString(), level, message };
     if (meta) entry.meta = meta;
     if (error) {

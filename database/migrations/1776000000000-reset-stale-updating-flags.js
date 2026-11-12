@@ -6,12 +6,16 @@
 const { logger } = require('../migrationLogger');
 
 module.exports = {
+   /**
+    * @param {import('./migrationTypes').MigrationParams} [params={}]
+    * @param {typeof import('sequelize')} [legacySequelize]
+    */
    up: async function up(params = {}, legacySequelize) {
-      const queryInterface = params?.context ?? params;
-      const SequelizeLib = params?.Sequelize
+      const queryInterface = /** @type {import('./migrationTypes').MigrationQueryInterface} */ (params.context ?? params);
+      const SequelizeLib = /** @type {typeof import('sequelize')} */ (/** @type {unknown} */ (params.Sequelize
          ?? legacySequelize
          ?? queryInterface?.sequelize?.constructor
-         ?? require('sequelize');
+         ?? require('sequelize')));
 
       return queryInterface.sequelize.transaction(async (transaction) => {
          const [tables] = await queryInterface.sequelize.query(
@@ -23,6 +27,7 @@ module.exports = {
             return;
          }
 
+         /** @type {Array<{name: string}>} */
          const columns = await queryInterface.sequelize.query(
             'PRAGMA table_info(keyword)',
             { transaction, type: SequelizeLib.QueryTypes.SELECT }
@@ -33,11 +38,11 @@ module.exports = {
             return;
          }
 
-         const [countRows] = await queryInterface.sequelize.query(
+         const [countRow] = await queryInterface.sequelize.query(
             'SELECT COUNT(*) AS count FROM keyword WHERE updating',
             { transaction, type: SequelizeLib.QueryTypes.SELECT }
          );
-         const staleCount = Number(countRows?.count ?? 0);
+         const staleCount = Number((/** @type {{count?: number | string} | undefined} */ (countRow))?.count ?? 0);
          if (staleCount === 0) {
             return;
          }

@@ -6,13 +6,16 @@ const { logger } = require('../migrationLogger');
 const UNPADDED_DATE_KEY = /^(\d{4})-(\d{1,2})-(\d{1,2})$/;
 
 // Same rule as toHistoryDateKey in utils/historyDateKey.ts
+/** @param {string} key */
 const padDateKey = (key) => {
    const match = UNPADDED_DATE_KEY.exec(key);
    return match ? `${match[1]}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}` : key;
 };
 
 // Returns the history with padded keys. If a padded key already exists, that entry wins over the unpadded one.
+/** @param {Record<string, unknown>} history */
 const padHistoryDateKeys = (history) => {
+   /** @type {Record<string, unknown>} */
    const result = {};
    for (const [key, value] of Object.entries(history)) {
       const padded = padDateKey(key);
@@ -24,18 +27,23 @@ const padHistoryDateKeys = (history) => {
    return result;
 };
 
+/** @param {unknown} raw */
 const parseHistory = (raw) => {
    if (typeof raw !== 'string' || raw.trim() === '') {
       return null;
    }
    try {
+      /** @type {unknown} */
       const parsed = JSON.parse(raw);
-      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+         ? /** @type {Record<string, unknown>} */ (parsed)
+         : null;
    } catch (_error) {
       return null;
    }
 };
 
+/** @param {unknown} raw */
 const rewriteRow = (raw) => {
    const parsed = parseHistory(raw);
    if (!parsed) {
@@ -47,12 +55,16 @@ const rewriteRow = (raw) => {
 };
 
 module.exports = {
+   /**
+    * @param {import('./migrationTypes').MigrationParams} [params={}]
+    * @param {typeof import('sequelize')} [legacySequelize]
+    */
    up: async function up(params = {}, legacySequelize) {
-      const queryInterface = params?.context ?? params;
-      const SequelizeLib = params?.Sequelize
+      const queryInterface = /** @type {import('./migrationTypes').MigrationQueryInterface} */ (params.context ?? params);
+      const SequelizeLib = /** @type {typeof import('sequelize')} */ (/** @type {unknown} */ (params.Sequelize
          ?? legacySequelize
          ?? queryInterface?.sequelize?.constructor
-         ?? require('sequelize');
+         ?? require('sequelize')));
 
       return queryInterface.sequelize.transaction(async (transaction) => {
          const [tables] = await queryInterface.sequelize.query(
@@ -69,6 +81,7 @@ module.exports = {
             return;
          }
 
+         /** @type {Array<{ID: number, history: string | null, history7d: string | null}>} */
          const rows = await queryInterface.sequelize.query(
             'SELECT ID, history, history7d FROM keyword',
             { transaction, type: SequelizeLib.QueryTypes.SELECT }
