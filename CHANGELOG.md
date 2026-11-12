@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. Releases now follow the conventional commits format but are managed with lightweight project scripts instead of `standard-version`.
 
+## [Unreleased]
+
+### Fixed
+
+- Prevent long page URLs in the final Search Console email table from expanding the table beyond the email width, including on mobile.
+
 ## [6.1.0]
 
 ### Added
