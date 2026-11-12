@@ -30,10 +30,16 @@ const sanitizeTagList = (raw: unknown): string[] => Array.from(new Set(
       .filter((tag) => tag.length > 0),
 )).sort();
 
+type RequestBody = Record<string, unknown>;
+
+const isRequestBody = (value: unknown): value is RequestBody => (
+   value !== null && typeof value === 'object' && !Array.isArray(value)
+);
+
 /** The JSON body as an object; null, arrays and other types read as an empty object. */
-const readBody = async (req: Request): Promise<Record<string, any>> => {
+const readBody = async (req: Request): Promise<RequestBody> => {
    const body = await readJson(req);
-   return body && typeof body === 'object' && !Array.isArray(body) ? body as Record<string, any> : {};
+   return isRequestBody(body) ? body : {};
 };
 
 /** True when a bulk request names keyword IDs in its JSON body. */
@@ -84,53 +90,72 @@ const getKeywords = async (req: Request, ctx: ApiContext) => {
 /**
  * Validates and sanitizes keyword input data
  */
-const validateKeywordData = (kwrd: any): { isValid: boolean, sanitized?: any, errors?: string[] } => {
-   if (!kwrd || typeof kwrd !== 'object' || Array.isArray(kwrd)) {
+type SanitizedKeyword = {
+   keyword: string;
+   domain: string;
+   device: string;
+   country: string;
+   location: string;
+   tags: string;
+};
+
+type KeywordValidation = { isValid: true; sanitized: SanitizedKeyword } | { isValid: false; errors: string[] };
+
+const validateKeywordData = (kwrd: unknown): KeywordValidation => {
+   if (!isRequestBody(kwrd)) {
       return { isValid: false, errors: ['Keyword must be an object'] };
    }
    const errors: string[] = [];
+   const rawKeyword = kwrd.keyword;
+   const rawDomain = kwrd.domain;
+   const rawDevice = kwrd.device;
+   const rawCountry = kwrd.country;
+   const rawLocation = kwrd.location;
+   const rawCity = kwrd.city;
+   const rawState = kwrd.state;
+   const rawTags = kwrd.tags;
    
    // Required fields validation
-   if (!kwrd.keyword || typeof kwrd.keyword !== 'string') {
+   if (!rawKeyword || typeof rawKeyword !== 'string') {
       errors.push('Keyword is required and must be a string');
    }
-   if (!kwrd.domain || typeof kwrd.domain !== 'string') {
+   if (!rawDomain || typeof rawDomain !== 'string') {
       errors.push('Domain is required and must be a string');
    }
    
    // Sanitize and validate keyword
-   const keyword = typeof kwrd.keyword === 'string' ? kwrd.keyword.trim().substring(0, 200) : '';
+   const keyword = typeof rawKeyword === 'string' ? rawKeyword.trim().substring(0, 200) : '';
    if (keyword.length === 0) {
       errors.push('Keyword cannot be empty');
    }
    
    // Same hostname rules as adding a domain (utils/validators/hostname)
-   const domain = typeof kwrd.domain === 'string' ? kwrd.domain.trim().toLowerCase().substring(0, 100) : '';
+   const domain = typeof rawDomain === 'string' ? rawDomain.trim().toLowerCase().substring(0, 100) : '';
    if (!isValidHostname(domain)) {
       errors.push('Invalid domain format');
    }
    
    // Validate device
    const validDevices = ['desktop', 'mobile'];
-   const device = validDevices.includes(kwrd.device) ? kwrd.device : 'desktop';
+   const device = typeof rawDevice === 'string' && validDevices.includes(rawDevice) ? rawDevice : 'desktop';
    
    // Validate country code (basic validation)
-   const country = typeof kwrd.country === 'string' && /^[A-Z]{2}$/.test(kwrd.country) ? kwrd.country : 'US';
+   const country = typeof rawCountry === 'string' && /^[A-Z]{2}$/.test(rawCountry) ? rawCountry : 'US';
    
    // Sanitize optional fields
-   const rawLocation = typeof kwrd.location === 'string' ? kwrd.location.trim().substring(0, 255) : '';
-   const city = typeof kwrd.city === 'string' ? kwrd.city.trim().substring(0, 100) : '';
-   const state = typeof kwrd.state === 'string' ? kwrd.state.trim().substring(0, 100) : '';
-   const tags = typeof kwrd.tags === 'string' ? kwrd.tags.trim().substring(0, 500) : '';
+   const locationInput = typeof rawLocation === 'string' ? rawLocation.trim().substring(0, 255) : '';
+   const city = typeof rawCity === 'string' ? rawCity.trim().substring(0, 100) : '';
+   const state = typeof rawState === 'string' ? rawState.trim().substring(0, 100) : '';
+   const tags = typeof rawTags === 'string' ? rawTags.trim().substring(0, 500) : '';
 
    if (!hasValidCityStatePair(city, state)) {
       errors.push('City and state must be provided together when provided');
    }
 
    // The location's country is the market the scraper searches, so it wins over the request's country
-   const marketCountry = getLocationCountry(rawLocation) || country;
+   const marketCountry = getLocationCountry(locationInput) || country;
    // A country-only location names no city or state; anything else must give both
-   const parsedLocation = isCountryOnlyLocation(rawLocation) ? { city: '', state: '' } : parseCityState(rawLocation);
+   const parsedLocation = isCountryOnlyLocation(locationInput) ? { city: '', state: '' } : parseCityState(locationInput);
    const cityValue = city || parsedLocation.city;
    const stateValue = state || parsedLocation.state;
    if (!hasValidCityStatePair(cityValue, stateValue)) {
@@ -156,12 +181,12 @@ const validateKeywordData = (kwrd: any): { isValid: boolean, sanitized?: any, er
          country: marketCountry,
          location,
          tags
-      }
+      },
    };
 };
 
 const addKeywords = async (req: Request, ctx: ApiContext) => {
-   const { keywords } = await readBody(req);
+   const keywords = (await readBody(req)).keywords;
    
    // Enhanced input validation
    if (!keywords) {
@@ -187,20 +212,21 @@ const addKeywords = async (req: Request, ctx: ApiContext) => {
       country: string;
       location: string;
       position: number;
-      updating: boolean;
+      updating: 0 | 1;
+      updatingStartedAt: string;
       history: string;
       lastResult: string;
       url: string;
       tags: string;
-      sticky: boolean;
+      sticky: 0 | 1;
       lastUpdated: string;
       added: string;
-      mapPackTop3: boolean;
+      mapPackTop3: 0 | 1;
    }> = [];
    const validationErrors: string[] = [];
 
    const now = new Date().toJSON();
-   keywords.forEach((kwrd: KeywordAddPayload, index: number) => {
+   keywords.forEach((kwrd: unknown, index: number) => {
       const validation = validateKeywordData(kwrd);
       
       if (!validation.isValid) {
@@ -237,7 +263,7 @@ const addKeywords = async (req: Request, ctx: ApiContext) => {
          lastUpdated: now,
          added: now,
          mapPackTop3: toDbBool(false),
-      } as any;
+      };
       keywordsToAdd.push(newKeyword);
    });
    
@@ -280,7 +306,7 @@ const addKeywords = async (req: Request, ctx: ApiContext) => {
             return fail(409, 'CONFLICT', `Already tracked: ${duplicates.join(', ')}`, ctx);
          }
 
-         return Keyword.bulkCreate(keywordsToAdd as any, { transaction });
+         return Keyword.bulkCreate(keywordsToAdd, { transaction });
       });
       if (createdKeywords instanceof Response) { return createdKeywords; }
       await refreshDomainStats(requestedDomains);
@@ -419,7 +445,7 @@ const updateKeywords = async (req: Request, ctx: ApiContext) => {
          return json({ keywords });
       }
       if (tags !== undefined) {
-         if (!tags || typeof tags !== 'object' || Array.isArray(tags)) {
+         if (!isRequestBody(tags)) {
             return fail(400, 'BAD_REQUEST', 'Invalid Payload!', ctx);
          }
 

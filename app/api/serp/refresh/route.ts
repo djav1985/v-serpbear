@@ -29,10 +29,20 @@ const parseKeywordIds = (raw: string): number[] | null => {
    return ids.every((id) => Number.isSafeInteger(id)) ? ids : null;
 };
 
+type RequestBody = Record<string, unknown>;
+
+const isRequestBody = (value: unknown): value is RequestBody => (
+   value !== null && typeof value === 'object' && !Array.isArray(value)
+);
+
+const isPositiveSafeIntegerArray = (value: unknown): value is number[] => (
+   Array.isArray(value) && value.every((id: unknown) => typeof id === 'number' && Number.isSafeInteger(id) && id > 0)
+);
+
 /** The JSON body as an object; null, arrays and other types read as an empty object. */
-const readBody = async (req: Request): Promise<Record<string, any>> => {
+const readBody = async (req: Request): Promise<RequestBody> => {
    const body = await readJson(req);
-   return body && typeof body === 'object' && !Array.isArray(body) ? body as Record<string, any> : {};
+   return isRequestBody(body) ? body : {};
 };
 
 const getRetryStatus = async (req: Request, ctx: ApiContext) => {
@@ -68,8 +78,7 @@ const getRetryStatus = async (req: Request, ctx: ApiContext) => {
 const readKeywordIds = async (req: Request): Promise<number[] | null> => {
    const body = await readBody(req);
    const ids: unknown = body.ids;
-   const valid = Array.isArray(ids) && ids.every((id) => Number.isSafeInteger(id) && id > 0);
-   return valid ? Array.from(new Set(ids as number[])) : null;
+   return isPositiveSafeIntegerArray(ids) ? Array.from(new Set(ids)) : null;
 };
 
 /**
@@ -400,7 +409,7 @@ const KEYWORD_SEARCHES_PER_MINUTE = 20;
  * A one-off keyword search, which is a paid provider request. It is a POST with the JSON body { keyword, country, device }.
  * Only a logged-in browser session can run one; an API key cannot. refreshTheKeywords has already checked the origin.
  */
-const searchKeyword = async (req: Request, body: Record<string, any>, ctx: ApiContext) => {
+const searchKeyword = async (req: Request, body: RequestBody, ctx: ApiContext) => {
    if (!hasValidSessionCookie(req)) {
       return fail(403, 'FORBIDDEN', 'Keyword searches need a logged-in session.', ctx);
    }

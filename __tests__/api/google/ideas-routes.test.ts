@@ -183,6 +183,7 @@ describe('ideas route', () => {
       ['a country that is not a two-letter code', { country: 'USA' }],
       ['a language that is not a numeric ID', { language: 'english' }],
       ['keywords that are not strings', { keywords: [{ a: 1 }] }],
+      ['a seed flag that is not a boolean', { seedSCKeywords: 'false' }],
     ])('returns 400 for %s, before calling Google Ads', async (_label, override) => {
       const res = await post({ ...valid, ...override });
 

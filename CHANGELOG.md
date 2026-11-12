@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file. Releases no
 
 ### Changed
 
+- Validate API request bodies as unknown values before using them in the keyword, refresh, ideas, and volume routes.
 - Enable TypeScript checking for JavaScript and enforce the recommended JSX accessibility lint rules.
 
 ## [6.0.0] (2026-11-08)

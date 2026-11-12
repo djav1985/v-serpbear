@@ -12,19 +12,36 @@ import { getClientIp } from '../../../../utils/api/clientIp';
 const DOMAIN_LOOKUPS_PER_HOUR = 6;
 const ALL_DOMAIN_LOOKUPS_PER_HOUR = 2;
 
+type RequestBody = Record<string, unknown>;
+
+const isRequestBody = (value: unknown): value is RequestBody => (
+   value !== null && typeof value === 'object' && !Array.isArray(value)
+);
+
+const isPositiveIntegerArray = (value: unknown): value is number[] => (
+   Array.isArray(value) && value.every((id: unknown) => typeof id === 'number' && Number.isInteger(id) && id > 0)
+);
+
 
 const updatekeywordVolume = async (req: Request, ctx: ApiContext) => {
    const body = await readJson(req);
-   if (body !== undefined && body !== null && (typeof body !== 'object' || Array.isArray(body))) {
+   if (body !== undefined && body !== null && !isRequestBody(body)) {
       return fail(400, 'BAD_REQUEST', 'Request body must be a JSON object.', ctx);
    }
-   const { keywords = [], domain: rawDomain = '', update = true } = (body || {}) as Record<string, any>;
+   const requestBody: RequestBody = isRequestBody(body) ? body : {};
+   const rawKeywords = requestBody.keywords;
+   const keywords = rawKeywords === undefined ? [] : rawKeywords;
+   const rawDomain = requestBody.domain === undefined ? '' : requestBody.domain;
+   const update = requestBody.update === undefined ? true : requestBody.update;
    const domain = typeof rawDomain === 'string' ? rawDomain.trim().toLowerCase() : rawDomain;
-   if (!Array.isArray(keywords) || !keywords.every((id) => Number.isInteger(id) && id > 0)) {
+   if (!isPositiveIntegerArray(keywords)) {
       return fail(400, 'BAD_REQUEST', 'keywords must be a list of keyword IDs.', ctx);
    }
    if (typeof domain !== 'string') {
       return fail(400, 'BAD_REQUEST', 'domain must be a string.', ctx);
+   }
+   if (typeof update !== 'boolean') {
+      return fail(400, 'BAD_REQUEST', 'update must be true or false.', ctx);
    }
    if (keywords.length === 0 && !domain) {
       return fail(400, 'BAD_REQUEST', 'Please provide keyword Ids or a domain name.', ctx);

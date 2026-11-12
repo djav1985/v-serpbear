@@ -189,6 +189,16 @@ describe('volume', () => {
           expect(keywordModelMock.findAll).not.toHaveBeenCalled();
        });
 
+       it('returns 400 when update is not a boolean', async () => {
+          const req = { method: 'POST', body: { keywords: [1], update: 'false' }, headers: {} } as unknown as NextApiRequest;
+          const res = createMockResponse();
+
+          await handler(req, res);
+
+          expect(res.status).toHaveBeenCalledWith(400);
+          expect(keywordModelMock.findAll).not.toHaveBeenCalled();
+       });
+
        it('limits how often domain=all can start paid lookups', async () => {
           const { resetRateLimits } = jest.requireActual('../../../utils/rateLimit');
           resetRateLimits();
