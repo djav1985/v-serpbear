@@ -9,8 +9,13 @@ const mockTransportHandleRequest = jest.fn();
 const mockTransportClose = jest.fn();
 const mockServerClose = jest.fn();
 const mockServerConnect = jest.fn();
+const mockFindCredential = jest.fn();
 
 jest.mock('../../utils/apiLogging', () => require('../__helpers__/apiLoggingMock').apiLoggingMock());
+jest.mock('../../utils/mcpOAuth', () => ({
+  ...jest.requireActual('../../utils/mcpOAuth'),
+  findCredential: (...args: unknown[]) => mockFindCredential(...args),
+}));
 jest.mock('@modelcontextprotocol/sdk/server/mcp.js', () => ({
   McpServer: jest.fn().mockImplementation(() => ({
     registerTool: (name: string, _config: unknown, handler: (input: any) => Promise<unknown>) => mockToolHandlers.set(name, handler),
@@ -132,7 +137,12 @@ describe('MCP route', () => {
       try {
         const res = await call('POST');
         expect(res.status).toHaveBeenCalledWith(200);
-        expect(mockToolHandlers.size).toBe(6);
+        expect(mockToolHandlers.size).toBe(7);
+        expect(mockToolHandlers.has('favorite_keyword_idea')).toBe(false);
+        expect(mockToolHandlers.has('add_keywords')).toBe(false);
+        expect(mockToolHandlers.has('update_keywords')).toBe(false);
+        expect(mockToolHandlers.has('delete_keywords')).toBe(false);
+        expect(mockToolHandlers.has('refresh_keywords')).toBe(false);
         const reply = await mockToolHandlers.get('list_keywords')!({ domain: 'example.com' });
         await mockToolHandlers.get('get_keyword')!({ id: '7' });
         await mockToolHandlers.get('list_domains')!({ withstats: true });
@@ -140,6 +150,11 @@ describe('MCP route', () => {
         await mockToolHandlers.get('get_insight')!({ domain: 'example.com' });
         await mockToolHandlers.get('get_keyword_ideas')!({ domain: 'example.com' });
         await mockToolHandlers.get('get_keyword_ideas')!({});
+        const ideaRequest = {
+          keywords: ['compress'], country: 'US', language: '1000', domain: 'example.com',
+          seedSCKeywords: false, seedCurrentKeywords: false, seedType: 'custom',
+        };
+        await mockToolHandlers.get('generate_keyword_ideas')!(ideaRequest);
 
         const calls = (global.fetch as jest.Mock).mock.calls;
         const urls = calls.map(([url]) => String(url));
@@ -151,9 +166,15 @@ describe('MCP route', () => {
           'http://127.0.0.1:3200/api/google/insight?domain=example.com',
           'http://127.0.0.1:3200/api/google/ideas?domain=example.com',
           'http://127.0.0.1:3200/api/google/ideas',
+          'http://127.0.0.1:3200/api/google/ideas',
         ]);
         const options = calls[0][1];
         expect(options).toEqual({ method: 'GET', headers: { Authorization: 'Bearer test-key', Accept: 'application/json' }, body: undefined });
+        expect(calls[7][1]).toEqual({
+          method: 'POST',
+          headers: { Authorization: 'Bearer test-key', Accept: 'application/json', 'Content-Type': 'application/json' },
+          body: JSON.stringify(ideaRequest),
+        });
         expect(reply).toEqual({ isError: false, content: [{ type: 'text', text: '{\n  "keywords": [\n    {\n      "ID": 7\n    }\n  ]\n}' }] });
         expect(mockServerConnect).toHaveBeenCalledTimes(1);
         await Promise.resolve();
@@ -177,6 +198,56 @@ describe('MCP route', () => {
         expect(String(url)).toBe('http://127.0.0.1:3200/api/serp/domains');
         expect(options.method).toBe('GET');
         expect(reply).toEqual({ isError: true, content: [{ type: 'text', text: '"upstream unavailable"' }] });
+      } finally {
+        global.fetch = previousFetch;
+      }
+    });
+
+    it('keeps OAuth read scope limited to read tools', async () => {
+      mockFindCredential.mockResolvedValue({ scope: 'mcp:read', revokedAt: null, expiresAt: Date.now() + 60_000 });
+      mockTransportHandleRequest.mockResolvedValue(new Response('{}', { status: 200 }));
+
+      await call('POST', { authorization: 'Bearer oauth-read-token' });
+
+      expect(mockToolHandlers.size).toBe(7);
+      expect(mockToolHandlers.has('generate_keyword_ideas')).toBe(true);
+      expect(mockToolHandlers.has('favorite_keyword_idea')).toBe(false);
+      expect(mockToolHandlers.has('add_keywords')).toBe(false);
+      expect(mockToolHandlers.has('update_keywords')).toBe(false);
+      expect(mockToolHandlers.has('delete_keywords')).toBe(false);
+      expect(mockToolHandlers.has('refresh_keywords')).toBe(false);
+    });
+
+    it('exposes mutation and refresh tools only to OAuth full scope and routes them to their API methods', async () => {
+      mockFindCredential.mockResolvedValue({ scope: 'mcp:full', revokedAt: null, expiresAt: Date.now() + 60_000 });
+      mockTransportHandleRequest.mockResolvedValue(new Response('{}', { status: 200 }));
+      const previousFetch = global.fetch;
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, text: async () => '{}' }) as unknown as typeof fetch;
+
+      try {
+        await call('POST', { authorization: 'Bearer oauth-full-token' });
+
+        expect(mockToolHandlers.size).toBe(12);
+        await mockToolHandlers.get('favorite_keyword_idea')!({ keywordID: 'idea-1', domain: 'example.com' });
+        await mockToolHandlers.get('add_keywords')!({ keywords: [{ keyword: 'new term', domain: 'example.com' }] });
+        await mockToolHandlers.get('update_keywords')!({ ids: [11], sticky: true });
+        await mockToolHandlers.get('delete_keywords')!({ ids: [11] });
+        await mockToolHandlers.get('refresh_keywords')!({ ids: [11] });
+
+        const calls = (global.fetch as jest.Mock).mock.calls;
+        expect(calls.map(([url, options]) => [new URL(String(url)).pathname, options.method])).toEqual([
+          ['/api/google/ideas', 'PUT'],
+          ['/api/serp/keywords', 'POST'],
+          ['/api/serp/keywords', 'PUT'],
+          ['/api/serp/keywords', 'DELETE'],
+          ['/api/serp/refresh', 'POST'],
+        ]);
+        expect(calls[0][1].body).toBe(JSON.stringify({ keywordID: 'idea-1', domain: 'example.com' }));
+        expect(calls[1][1].body).toBe(JSON.stringify({ keywords: [{ keyword: 'new term', domain: 'example.com' }] }));
+        expect(calls[2][1].body).toBe(JSON.stringify({ ids: [11], sticky: true }));
+        expect(calls[3][1].body).toBe(JSON.stringify({ ids: [11] }));
+        expect(calls[4][1].body).toBe(JSON.stringify({ ids: [11] }));
+        expect(calls.every(([, options]) => options.headers.Authorization === 'Bearer test-key')).toBe(true);
       } finally {
         global.fetch = previousFetch;
       }

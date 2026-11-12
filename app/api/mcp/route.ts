@@ -75,6 +75,56 @@ const buildServer = (call: ApiCall, scope: McpOAuthScope): McpServer => {
    register('get_keyword_ideas', true, 'Get the saved keyword ideas and favourites of a domain. Leave domain out for the research list.',
       { domain: domainField.optional() }, async ({ domain }) => reply(await call('GET', '/api/google/ideas', domain ? { domain } : {})));
 
+   register('generate_keyword_ideas', true, 'Fetch keyword ideas from Google Ads. Choose a seedType; custom seeds can use keywords, Search Console keywords, or tracked keywords.',
+      {
+         keywords: z.array(z.string()).max(1000).optional().describe('Seed keywords for custom ideas.'),
+         country: z.string().regex(/^[A-Za-z]{2}$/).optional().describe('Two-letter country code; defaults to US.'),
+         language: z.string().regex(/^\d{1,10}$/).optional().describe('Google Ads language ID; defaults to 1000 (English).'),
+         domain: domainField.optional(),
+         seedSCKeywords: z.boolean().optional().describe('Use this domain’s Search Console keywords as seeds.'),
+         seedCurrentKeywords: z.boolean().optional().describe('Use this domain’s tracked keywords as seeds.'),
+         seedType: z.enum(['auto', 'custom', 'tracking', 'searchconsole']).describe('Keyword idea seed mode.'),
+      }, async (input) => reply(await call('POST', '/api/google/ideas', undefined, input)));
+
+   register('favorite_keyword_idea', false, 'Toggle a saved keyword idea in or out of the favorites list.',
+      {
+         keywordID: z.string().describe('ID of the keyword idea to favorite or unfavorite.'),
+         domain: domainField.optional().describe('Domain ideas list; omit for the general research list.'),
+      }, async (input) => reply(await call('PUT', '/api/google/ideas', undefined, input)));
+
+   register('add_keywords', false, 'Add tracked keywords to an existing domain.',
+      {
+         keywords: z.array(z.object({
+            keyword: z.string(),
+            domain: domainField,
+            device: z.enum(['desktop', 'mobile']).optional(),
+            country: z.string().regex(/^[A-Z]{2}$/).optional(),
+            location: z.string().optional(),
+            city: z.string().optional(),
+            state: z.string().optional(),
+            tags: z.string().optional(),
+         })).min(1).max(100),
+      }, async (input) => reply(await call('POST', '/api/serp/keywords', undefined, input)));
+
+   register('update_keywords', false, 'Update tracked keyword sticky status, tags, or search location. Supply keyword IDs and one update field.',
+      {
+         ids: z.array(z.number().int().positive()).min(1),
+         sticky: z.boolean().optional(),
+         tags: z.record(z.string(), z.array(z.string())).optional(),
+         location: z.string().optional(),
+         country: z.string().regex(/^[A-Z]{2}$/).optional(),
+      }, async (input) => reply(await call('PUT', '/api/serp/keywords', undefined, input)));
+
+   register('delete_keywords', false, 'Delete tracked keywords by their IDs.',
+      { ids: z.array(z.number().int().positive()).min(1) }, async (input) => reply(await call('DELETE', '/api/serp/keywords', undefined, input)));
+
+   register('refresh_keywords', false, 'Start a ranking refresh for keyword IDs, one domain, or all enabled domains. One-off keyword searches require a browser session and are not available through MCP.',
+      {
+         ids: z.array(z.number().int().positive()).min(1).optional(),
+         scope: z.enum(['domain', 'enabled-domains']).optional(),
+         domain: domainField.optional(),
+      }, async (input) => reply(await call('POST', '/api/serp/refresh', undefined, input)));
+
    return server;
 };
 
@@ -127,7 +177,7 @@ const handleMcp = async (req: Request, ctx: ApiContext) => {
    if (req.method !== 'POST') { return Response.json({ error: 'method not allowed' }, { status: 405 }); }
    const internalApiKey = process.env.APIKEY;
    if (!internalApiKey) { return fail(500, 'INTERNAL_SERVER_ERROR', 'APIKEY is required for the MCP server to call internal API routes.', ctx); }
-   const scope = auth.directKeyValid ? MCP_SCOPE_FULL : auth.oauthCredential?.scope ?? MCP_SCOPE_FULL;
+   const scope = auth.directKeyValid ? MCP_SCOPE_READ : auth.oauthCredential?.scope ?? MCP_SCOPE_FULL;
    logger.debug('[OAuth] MCP request authenticated.', { operation: 'mcp_authentication', method: auth.directKeyValid ? 'direct_api_key' : 'oauth_access_token', scope });
 
    // Tools call this same server on the port the request arrived on

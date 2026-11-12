@@ -1,4 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from 'crypto';
+import { lookup } from 'dns/promises';
+import { isIP } from 'net';
+import { Agent } from 'undici';
 /* eslint-disable security/detect-non-literal-fs-filename -- the path is fixed to the app's data directory, not user input. */
 import { mkdir, readFile } from 'fs/promises';
 import { dirname, join } from 'path';
@@ -20,6 +23,8 @@ const SERPBEAR_REPOSITORY = 'https://github.com/djav1985/v-serpbear';
 const MAX_REDIRECT_URIS = 8;
 const MAX_OAUTH_CLIENTS = 500;
 const UNUSED_CLIENT_TTL_MS = 24 * 60 * 60 * 1000;
+const CIMD_MAX_BYTES = 5 * 1024;
+const CIMD_FETCH_TIMEOUT_MS = 5_000;
 
 /** The whole MCP integration can be disabled independently of direct/OAuth auth modes. */
 export const isMcpEnabled = (): boolean => !/^(0|false|no|off)$/i.test(process.env.MCP_ENABLED?.trim() ?? '');
@@ -131,6 +136,7 @@ export const getAuthorizationServerMetadata = () => {
       response_modes_supported: ['query'],
       grant_types_supported: ['authorization_code', 'refresh_token'],
       token_endpoint_auth_methods_supported: ['none'],
+      client_id_metadata_document_supported: true,
       code_challenge_methods_supported: ['S256'],
       scopes_supported: [...MCP_SCOPES],
       revocation_endpoint_auth_methods_supported: ['none'],
@@ -177,6 +183,12 @@ export const oauthSuccess = (body: unknown, status = 200): Response => Response.
    status,
    headers: { ...oauthCorsHeaders, 'Cache-Control': 'no-store' },
 });
+
+export const oauthDiscoveryResponse = (metadata: unknown | null): Response => {
+   if (!isMcpOAuthEnabled()) { return oauthDisabledResponse(); }
+   if (!metadata) { return oauthError('server_error', 503, 'Set NEXT_PUBLIC_APP_URL to the public HTTPS URL of this server.'); }
+   return oauthSuccess(metadata);
+};
 
 const htmlEscape = (value: string): string => value
    .replace(/&/g, '&amp;')
@@ -280,6 +292,134 @@ export const createClient = async (clientName: string | null, redirectUris: stri
 export const readClient = async (clientId: string): Promise<OAuthClient | null> => {
    const store = await readStore();
    return store.clients.find((client) => client.clientId === clientId) ?? null;
+};
+
+const isPublicIpv4 = (address: string): boolean => {
+   const octets = address.split('.').map(Number);
+   if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) { return false; }
+   const [a, b, c] = octets;
+   return !(
+      a === 0 || a === 10 || a === 127 || a >= 224 ||
+      (a === 100 && b >= 64 && b <= 127) ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && (b === 0 || b === 168)) ||
+      (a === 192 && b === 0 && c === 2) ||
+      (a === 198 && (b === 18 || b === 19 || (b === 51 && c === 100))) ||
+      (a === 203 && b === 0 && c === 113)
+   );
+};
+
+const ipv6Words = (address: string): number[] | null => {
+   let value = address.toLowerCase().split('%')[0];
+   if (value.includes('.')) {
+      const lastColon = value.lastIndexOf(':');
+      const ipv4 = value.slice(lastColon + 1);
+      if (!isPublicIpv4(ipv4)) { return null; }
+      const octets = ipv4.split('.').map(Number);
+      value = `${value.slice(0, lastColon)}:${((octets[0] << 8) | octets[1]).toString(16)}:${((octets[2] << 8) | octets[3]).toString(16)}`;
+   }
+   const halves = value.split('::');
+   if (halves.length > 2) { return null; }
+   const parseHalf = (half: string) => half ? half.split(':').map((word) => /^[\da-f]{1,4}$/.test(word) ? Number.parseInt(word, 16) : Number.NaN) : [];
+   const left = parseHalf(halves[0]);
+   const right = parseHalf(halves[1] ?? '');
+   const missing = 8 - left.length - right.length;
+   if (left.some(Number.isNaN) || right.some(Number.isNaN) || missing < 0 || (halves.length === 1 && missing !== 0)) { return null; }
+   return [...left, ...Array.from({ length: missing }, () => 0), ...right];
+};
+
+const isPublicAddress = (address: string, family: number): boolean => {
+   if (family === 4) { return isPublicIpv4(address); }
+   if (family !== 6) { return false; }
+   const words = ipv6Words(address);
+   if (!words) { return false; }
+   if (words.slice(0, 5).every((word) => word === 0) && words[5] === 0xffff) {
+      return isPublicIpv4(`${words[6] >> 8}.${words[6] & 255}.${words[7] >> 8}.${words[7] & 255}`);
+   }
+   const first = words[0];
+   const second = words[1];
+   // Only global unicast space is accepted. Exclude documentation and tunnelling prefixes.
+   return first >= 0x2000 && first <= 0x3fff && !(first === 0x2001 && (second === 0xdb8 || second === 0)) && first !== 0x2002;
+};
+
+const parseCimdUrl = (clientId: string): URL | null => {
+   if (clientId.length > 2048) { return null; }
+   try {
+      const url = new URL(clientId);
+      if (url.protocol !== 'https:' || !url.hostname || url.username || url.password || url.hash) { return null; }
+      const hostname = url.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+      if (hostname === 'localhost' || hostname.endsWith('.localhost') || hostname.endsWith('.local') || hostname.endsWith('.internal')) { return null; }
+      const family = isIP(hostname);
+      if (family && !isPublicAddress(hostname, family)) { return null; }
+      return url;
+   } catch (_error) {
+      return null;
+   }
+};
+
+const isJsonMediaType = (contentType: string | null): boolean => {
+   const mediaType = (contentType ?? '').split(';', 1)[0].trim().toLowerCase();
+   return mediaType === 'application/json' || /^application\/[a-z0-9.+-]+\+json$/.test(mediaType);
+};
+
+const fetchCimdClient = async (clientId: string): Promise<OAuthClient | null> => {
+   const url = parseCimdUrl(clientId);
+   if (!url) { return null; }
+   try {
+      const addresses = await lookup(url.hostname.replace(/^\[|\]$/g, ''), { all: true, verbatim: true });
+      if (!addresses.length || addresses.some(({ address, family }) => !isPublicAddress(address, family))) { return null; }
+      const pinnedAddress = addresses[0];
+      const agent = new Agent({
+         connect: {
+            lookup: ((_hostname: string, options: { all?: boolean }, callback: (...args: unknown[]) => void) => {
+               if (options?.all) { callback(null, [pinnedAddress]); }
+               else { callback(null, pinnedAddress.address, pinnedAddress.family); }
+            }) as never,
+         },
+      });
+      try {
+         const response = await fetch(clientId, {
+            redirect: 'error',
+            signal: AbortSignal.timeout(CIMD_FETCH_TIMEOUT_MS),
+            dispatcher: agent,
+         } as RequestInit & { dispatcher: Agent });
+         if (response.status !== 200 || !isJsonMediaType(response.headers.get('content-type'))) { return null; }
+         const length = Number(response.headers.get('content-length'));
+         if (Number.isFinite(length) && length > CIMD_MAX_BYTES) { return null; }
+         const body = await readTextUpTo(response.body, CIMD_MAX_BYTES);
+         if (body === null) { return null; }
+         let metadata: unknown;
+         try { metadata = JSON.parse(body); }
+         catch (_error) { return null; }
+         if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) { return null; }
+         const document = metadata as Record<string, unknown>;
+         if (document.client_id !== clientId) { return null; }
+         const redirectUris = parseRedirectUris(document.redirect_uris);
+         if (!redirectUris) { return null; }
+         const methods = document.token_endpoint_auth_methods_supported;
+         const supportsNone = Array.isArray(methods)
+            ? methods.includes('none')
+            : document.token_endpoint_auth_method === 'none';
+         if (!supportsNone) { return null; }
+         return {
+            clientId,
+            clientName: typeof document.client_name === 'string' ? document.client_name.slice(0, 80) : null,
+            redirectUris,
+            createdAt: Date.now(),
+         };
+      } finally {
+         await agent.close();
+      }
+   } catch (_error) {
+      return null;
+   }
+};
+
+/** Resolves existing DCR clients first, then validates CIMD URLs as HTTPS-hosted metadata documents. */
+export const resolveOAuthClient = async (clientId: string): Promise<OAuthClient | null> => {
+   const registered = await readClient(clientId);
+   return registered ?? fetchCimdClient(clientId);
 };
 
 export const getClientRedirectUris = (client: OAuthClient): string[] => client.redirectUris;

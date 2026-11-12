@@ -9,6 +9,7 @@ import { POST as token } from '../../app/api/oauth/token/route';
 import { POST as revoke } from '../../app/api/oauth/revoke/route';
 
 jest.mock('../../utils/apiLogging', () => require('../__helpers__/apiLoggingMock').apiLoggingMock());
+jest.mock('dns/promises', () => ({ lookup: jest.fn() }));
 jest.mock('../../utils/logger', () => ({
    __esModule: true,
    logger: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
@@ -20,6 +21,7 @@ const originalUserName = process.env.USER_NAME;
 const originalUser = process.env.USER;
 const originalPassword = process.env.PASSWORD;
 const originalSecret = process.env.SECRET;
+const lookupMock = (require('dns/promises') as { lookup: jest.Mock }).lookup;
 
 const jsonRequest = (url: string, body: unknown) => new Request(url, {
    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
@@ -44,10 +46,12 @@ describe('OAuth routes', () => {
       process.env.USER_NAME = 'admin';
       process.env.PASSWORD = 'oauth-test-password';
       process.env.SECRET = 'oauth-test-secret';
+      lookupMock.mockResolvedValue([{ address: '8.8.8.8', family: 4 }]);
    });
 
    afterEach(() => {
       tempData.cleanup();
+      lookupMock.mockReset();
       if (originalAppUrl === undefined) { delete process.env.NEXT_PUBLIC_APP_URL; }
       else { process.env.NEXT_PUBLIC_APP_URL = originalAppUrl; }
       if (originalMcpApiKey === undefined) { delete process.env.MCP_APIKEY; }
@@ -128,6 +132,83 @@ describe('OAuth routes', () => {
       const unknown = await revoke(formRequest(`${appUrl}/api/oauth/revoke`, { token: 'unknown-token' }));
       expect(unknown.status).toBe(200);
       await expect(unknown.json()).resolves.toEqual({});
+   });
+
+   it('runs authorization and token exchange for a CIMD client while keeping its URL as the client identity', async () => {
+      const clientId = 'https://chatgpt.com/oauth/client.json';
+      const verifier = randomBytes(32).toString('base64url');
+      const challenge = createHash('sha256').update(verifier).digest('base64url');
+      const previousFetch = global.fetch;
+      global.fetch = jest.fn().mockImplementation(async () => new Response(JSON.stringify({
+         client_id: clientId,
+         client_name: 'ChatGPT',
+         redirect_uris: [redirectUri],
+         token_endpoint_auth_methods_supported: ['none', 'private_key_jwt'],
+         token_endpoint_auth_method: 'private_key_jwt',
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } })) as unknown as typeof fetch;
+
+      try {
+         const query = new URLSearchParams({
+            client_id: clientId,
+            redirect_uri: redirectUri,
+            response_type: 'code',
+            code_challenge: challenge,
+            code_challenge_method: 'S256',
+            scope: 'mcp:read',
+         });
+         const authorization = await authorize(new Request(`${appUrl}/api/oauth/authorize?${query}`));
+         expect(authorization.status).toBe(303);
+         const requestId = new URL(authorization.headers.get('location')!).searchParams.get('request')!;
+         const approved = await consent(formRequest(`${appUrl}/api/oauth/authorize`, {
+            request: requestId, username: 'admin', password: 'oauth-test-password', decision: 'approve', read_only: '1',
+         }));
+         const code = new URL(approved.headers.get('location')!).searchParams.get('code')!;
+         const exchanged = await token(formRequest(`${appUrl}/api/oauth/token`, {
+            grant_type: 'authorization_code', client_id: clientId, code, redirect_uri: redirectUri, code_verifier: verifier,
+         }));
+
+         expect(exchanged.status).toBe(200);
+         await expect(exchanged.json()).resolves.toMatchObject({ token_type: 'Bearer', scope: 'mcp:read' });
+      } finally {
+         global.fetch = previousFetch;
+      }
+   });
+
+   it('requires the exact CIMD client ID when exchanging an authorization code', async () => {
+      const clientId = 'https://chatgpt.com/oauth/client.json';
+      const verifier = randomBytes(32).toString('base64url');
+      const code = 'cimd-authorization-code';
+      await withOAuthStore((store) => {
+         store.credentials.push({
+            tokenHash: hashSecret(code), kind: 'authorization_code', clientId, redirectUri,
+            codeChallenge: createHash('sha256').update(verifier).digest('base64url'), scope: 'mcp:read',
+            expiresAt: Date.now() + 60_000, createdAt: Date.now(),
+         });
+      });
+
+      const response = await token(formRequest(`${appUrl}/api/oauth/token`, {
+         grant_type: 'authorization_code', code, redirect_uri: redirectUri, code_verifier: verifier,
+      }));
+
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toMatchObject({ error: 'invalid_grant' });
+   });
+
+   it('requires the exact CIMD client ID when refreshing a CIMD grant', async () => {
+      const clientId = 'https://chatgpt.com/oauth/client.json';
+      await withOAuthStore((store) => {
+         store.credentials.push({
+            tokenHash: hashSecret('cimd-refresh-token'), kind: 'refresh_token', clientId, grantId: 'cimd-grant',
+            scope: 'mcp:read', expiresAt: Date.now() + 60_000, createdAt: Date.now(),
+         });
+      });
+
+      const response = await token(formRequest(`${appUrl}/api/oauth/token`, {
+         grant_type: 'refresh_token', refresh_token: 'cimd-refresh-token',
+      }));
+
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toMatchObject({ error: 'invalid_grant' });
    });
 
    it('approves using an existing login cookie without asking for credentials', async () => {

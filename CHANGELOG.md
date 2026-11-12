@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. Releases now follow the conventional commits format but are managed with lightweight project scripts instead of `standard-version`.
 
+## [6.1.0]
+
+### Added
+
+- Add CIMD client identification alongside MCP OAuth dynamic client registration, with standard discovery metadata and validated HTTPS client metadata documents.
+- Expose Google Ads keyword idea generation as a full-access MCP tool.
+- Keep `MCP_APIKEY` access read-only and expose keyword editing and refresh tools to OAuth `mcp:full` clients.
+
 ## [6.0.0] (2026-11-08)
 ### Fixed
 

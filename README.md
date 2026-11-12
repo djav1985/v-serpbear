@@ -173,7 +173,7 @@ Behaviour is controlled by environment variables inside docker compose as well a
 Manage these in the Settings UI or at `/api/app/settings`.
 
 | Key | Values and default |
-| --- | --- |
+| --- | --- | --- |
 | `scraper_type` | Global provider: `none` (default) or a provider ID from the [providers table](#supported-serp-data-providers). |
 | `scraping_api` | Global provider API key (encrypted). |
 | `scrape_interval` | `daily` when blank, `other_day`, `weekly`, `monthly` or `never`. See [Scheduling](#scheduling). |
@@ -317,22 +317,28 @@ The REST API uses `APIKEY`; MCP has a separate `MCP_APIKEY`. Domains are always 
 
 ### MCP server
 
-A read-only [Model Context Protocol](https://modelcontextprotocol.io) server for AI assistants, with direct-key and OAuth connection options.
+A [Model Context Protocol](https://modelcontextprotocol.io) server for AI assistants, with read-only direct-key access and OAuth `mcp:read` or `mcp:full` scopes.
 
 - **URL:** `https://<your-host>/api/mcp` (Streamable HTTP, `POST` only). Use HTTPS, because the key is sent on every request.
-- **Direct key:** header `Authorization: Bearer <MCP_APIKEY>`. Cookies and login sessions are not accepted.
-- **OAuth:** set `MCP_OAUTH=true`; the approval page is `/api/oauth/approve`, while the authorization handler is `/api/oauth/authorize`. Approve with the configured `USER_NAME` (or `USER`) and `PASSWORD`, or use an existing valid login cookie. Cookie-based approval accepts only same-origin form submissions. Entering credentials approves this request without creating a login cookie. Read-only access can be selected. Incorrect credentials are limited to 10 attempts per detected IP per 15 minutes; when the IP is unknown, failed attempts share a fallback bucket, but correct credentials remain accepted after the limit is reached. OAuth client and token state is stored in `data/mcp_oauth.json`. When OAuth is enabled and `NEXT_PUBLIC_APP_URL` is configured, authorization-server metadata is served at `/.well-known/oauth-authorization-server` and `/.well-known/oauth-authorization-server/api/mcp`; protected-resource metadata is served at `/.well-known/oauth-protected-resource` and `/.well-known/oauth-protected-resource/api/mcp`. When `MCP_OAUTH` is unset or false, OAuth endpoints return 404 and the MCP challenge is `WWW-Authenticate: Bearer`. Set `MCP_ENABLED=false` to return 404 from direct MCP access and OAuth endpoints.
+- **Direct key:** header `Authorization: Bearer <MCP_APIKEY>`. This key grants read-only MCP tools. Cookies and login sessions are not accepted.
+- **OAuth:** set `MCP_OAUTH=true`; the approval page is `/api/oauth/approve`, while the authorization handler is `/api/oauth/authorize`. Approve with the configured `USER_NAME` (or `USER`) and `PASSWORD`, or use an existing valid login cookie. Cookie-based approval accepts only same-origin form submissions. Entering credentials approves this request without creating a login cookie. Read-only access can be selected. Incorrect credentials are limited to 10 attempts per detected IP per 15 minutes; when the IP is unknown, failed attempts share a fallback bucket, but correct credentials remain accepted after the limit is reached. OAuth client and token state is stored in `data/mcp_oauth.json`. OAuth supports both CIMD client metadata URLs and dynamic client registration; the OAuth client chooses the method during setup. Both use the same PKCE approval and token flow. When OAuth is enabled and `NEXT_PUBLIC_APP_URL` is configured, authorization-server metadata is served at `/.well-known/oauth-authorization-server` and `/.well-known/oauth-authorization-server/api/mcp`; protected-resource metadata is served at `/.well-known/oauth-protected-resource` and `/.well-known/oauth-protected-resource/api/mcp`. When `MCP_OAUTH` is unset or false, OAuth endpoints return 404 and the MCP challenge is `WWW-Authenticate: Bearer`. Set `MCP_ENABLED=false` to return 404 from direct MCP access and OAuth endpoints.
 
-| Tool | Returns |
+| Tool | Access | What it does |
 | --- | --- |
-| `get_keyword` | One keyword by `id`, with position history |
-| `list_keywords` | All keywords of a `domain` |
-| `list_domains` | All domains, optionally with `withstats` |
-| `get_searchconsole` | Raw Search Console rows for a `domain` (3, 7 and 30 days) |
-| `get_insight` | Top pages, keywords and countries for a `domain` |
-| `get_keyword_ideas` | Saved ideas and favourites for a `domain`, or the research list when omitted |
+| `get_keyword` | Read | One keyword by `id`, with position history |
+| `list_keywords` | Read | All keywords of a `domain` |
+| `list_domains` | Read | All domains, optionally with `withstats` |
+| `get_searchconsole` | Read | Raw Search Console rows for a `domain` (3, 7 and 30 days) |
+| `get_insight` | Read | Top pages, keywords and countries for a `domain` |
+| `get_keyword_ideas` | Read | Saved ideas and favourites for a `domain`, or the research list when omitted |
+| `generate_keyword_ideas` | Read | Fetch new ideas from Google Ads; this uses Google Ads quota |
+| `favorite_keyword_idea` | Full | Toggle a saved idea in or out of favorites |
+| `add_keywords` | Full | Add tracked keywords to a domain |
+| `update_keywords` | Full | Change keyword sticky status, tags, or location |
+| `delete_keywords` | Full | Delete tracked keywords |
+| `refresh_keywords` | Full | Start refreshes for keyword IDs, a domain, or all enabled domains |
 
-Tools that start scrapes, send email or spend Google Ads quota are not exposed; use the REST API for those.
+`MCP_APIKEY` and OAuth `mcp:read` clients receive only the read tools. OAuth `mcp:full` clients receive the full tools as well. One-off keyword searches and email sending are not available as MCP tools.
 
 <br><br>
 

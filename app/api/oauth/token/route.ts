@@ -33,7 +33,10 @@ const handleToken = async (req: Request): Promise<Response> => {
          const authorizationCode = store.credentials[index];
          store.credentials.splice(index, 1);
          if (authorizationCode.expiresAt <= now) { return { kind: 'invalid', description: 'unknown or expired code' }; }
-         if (clientId && clientId !== authorizationCode.clientId) { return { kind: 'invalid', description: 'code was issued to another client' }; }
+         if ((authorizationCode.clientId.startsWith('https://') && clientId !== authorizationCode.clientId) ||
+            (clientId && clientId !== authorizationCode.clientId)) {
+            return { kind: 'invalid', description: 'code was issued to another client' };
+         }
          if (redirectUri && redirectUri !== authorizationCode.redirectUri) { return { kind: 'invalid', description: 'redirect_uri does not match the authorization request' }; }
          if (!authorizationCode.codeChallenge || !verifyPkce(verifier, authorizationCode.codeChallenge)) {
             return { kind: 'invalid', description: 'code_verifier does not match code_challenge' };
@@ -67,7 +70,9 @@ const handleToken = async (req: Request): Promise<Response> => {
          const refreshHash = hashSecret(refreshToken);
          const stored = store.credentials.find((credential) => credential.tokenHash === refreshHash && credential.kind === 'refresh_token');
          if (!stored?.grantId) { return { kind: 'invalid' }; }
-         if (stored.expiresAt <= now || (clientId && stored.clientId !== clientId)) { return { kind: 'invalid' }; }
+         if (stored.expiresAt <= now ||
+            (stored.clientId.startsWith('https://') && clientId !== stored.clientId) ||
+            (clientId && stored.clientId !== clientId)) { return { kind: 'invalid' }; }
          if (stored.revokedAt != null) {
             store.credentials.forEach((credential) => {
                if (credential.grantId === stored.grantId && credential.revokedAt == null) { credential.revokedAt = now; }
