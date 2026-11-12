@@ -9,6 +9,7 @@ import refreshAndUpdateKeywords, { refreshKeywordsByIds } from '../../utils/refr
 import { getAppSettings } from '../../utils/appSettings';
 import { scrapeKeywordWithStrategy } from '../../utils/scraper';
 import { isSameOriginRequest } from '../../utils/api/sameOrigin';
+import { refreshQueue } from '../../utils/refreshQueue';
 import { resetRateLimits } from '../../utils/rateLimit';
 const handler = asHandler(handlerRoute);
 
@@ -231,35 +232,6 @@ describe('refresh route', () => {
       await handler(regularReq, unconfiguredRes);
       expect(unconfiguredRes.status).toHaveBeenCalledWith(400);
       expect(Keyword.findAll).not.toHaveBeenCalled();
-    });
-
-    it('starts the scheduled refresh for enabled domains through the refresh route', async () => {
-      req.body = { scope: 'enabled-domains' };
-      (Domain.findAll as jest.Mock).mockResolvedValue([
-        { get: () => ({ domain: 'enabled.com', scrapeEnabled: 1 }) },
-        { get: () => ({ domain: 'disabled.com', scrapeEnabled: 0 }) },
-      ]);
-      const keyword = {
-        ID: 21,
-        domain: 'enabled.com',
-        updating: 0,
-        update: jest.fn().mockImplementation(function(this: any, values: Record<string, unknown>) {
-          Object.assign(this, values);
-          return Promise.resolve(undefined);
-        }),
-        set: jest.fn(),
-      };
-      (Keyword.findAll as jest.Mock).mockResolvedValue([keyword]);
-
-      await handler(req, res);
-      await jest.runAllTimersAsync();
-
-      expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({ started: true });
-      expect(Domain.findAll).toHaveBeenCalledTimes(1);
-      expect(Keyword.findAll).toHaveBeenCalledWith({ where: { domain: 'enabled.com' } });
-      expect(keyword.update).toHaveBeenCalledWith(expect.objectContaining({ updating: 1 }));
-      expect(refreshAndUpdateKeywords).toHaveBeenCalledWith([keyword], { scraper_type: 'serpapi' }, expect.any(Array));
     });
 
     it('rejects an unknown refresh scope and conflicting selection filters', async () => {
@@ -819,5 +791,262 @@ describe('refresh route', () => {
       jest.clearAllMocks();
       jest.useRealTimers();
     });
+  });
+});
+
+type MockedResponse = Partial<NextApiResponse> & {
+  status: jest.Mock;
+  json: jest.Mock;
+};
+
+describe('POST /api/serp/refresh enabled-domains scope', () => {
+  const req = { method: 'POST', query: {}, body: { scope: 'enabled-domains' }, headers: {} } as unknown as NextApiRequest;
+  let res: MockedResponse;
+
+  beforeEach(() => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] }).setSystemTime(new Date('2024-06-01T12:00:00.000Z'));
+    res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+    } as MockedResponse;
+
+    (db.sync as jest.Mock).mockResolvedValue(undefined);
+    req.body = { scope: 'enabled-domains' };
+    (verifyUser as jest.Mock).mockReturnValue('authorized');
+    (getAppSettings as jest.Mock).mockResolvedValue({ scraper_type: 'serpapi' });
+    (refreshAndUpdateKeywords as jest.Mock).mockResolvedValue([]);
+  });
+
+  it('only refreshes keywords for domains with scraping enabled', async () => {
+    (Domain.findAll as jest.Mock).mockResolvedValue([
+      { get: () => ({ domain: 'enabled.com', scrapeEnabled: 1 }) },
+      { get: () => ({ domain: 'disabled.com', scrapeEnabled: 0 }) },
+    ]);
+
+    const keywordRecord = { domain: 'enabled.com', update: jest.fn().mockResolvedValue(undefined), set: jest.fn() };
+    (Keyword.findAll as jest.Mock).mockResolvedValue([keywordRecord]);
+
+    await handler(req, res as NextApiResponse);
+
+    // Response should be sent immediately (background processing)
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ started: true });
+
+    // Flush all pending promises
+    await jest.runAllTimersAsync();
+
+    // Sequential processing: update and findAll called per domain
+    expect(keywordRecord.update).toHaveBeenCalledWith({
+      updating: 1,
+      lastUpdateError: 'false',
+      updatingStartedAt: '2024-06-01T12:00:00.000Z',
+    });
+    expect(Keyword.findAll).toHaveBeenCalledWith({ where: { domain: 'enabled.com' } });
+    expect(refreshAndUpdateKeywords).toHaveBeenCalledWith([keywordRecord], { scraper_type: 'serpapi' }, expect.any(Array));
+  });
+
+  it('loads domains once per run and reuses them for every queued domain', async () => {
+    (Domain.findAll as jest.Mock).mockResolvedValue([
+      { get: () => ({ domain: 'one.com', scrapeEnabled: 1 }) },
+      { get: () => ({ domain: 'two.com', scrapeEnabled: 1 }) },
+    ]);
+    (Keyword.findAll as jest.Mock).mockResolvedValue([]);
+
+    await handler(req, res as NextApiResponse);
+    await jest.runAllTimersAsync();
+
+    expect(Domain.findAll).toHaveBeenCalledTimes(1);
+    // One Keyword lookup per domain; the domain lookup is not repeated inside the refresh path.
+    expect(Keyword.findAll).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns early when no domains have scraping enabled', async () => {
+    (Domain.findAll as jest.Mock).mockResolvedValue([
+      { get: () => ({ domain: 'disabled.com', scrapeEnabled: 0 }) },
+    ]);
+
+    await handler(req, res as NextApiResponse);
+
+    expect(Keyword.update).not.toHaveBeenCalled();
+    expect(Keyword.findAll).not.toHaveBeenCalled();
+    expect(refreshAndUpdateKeywords).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ started: false, error: 'No domains have scraping enabled.' });
+  });
+
+  it('leaves keywords alone when a live refresh already owns them', async () => {
+    const domain = { domain: 'busy.example', scrapeEnabled: 1 };
+    (Domain.findAll as jest.Mock).mockResolvedValue([{ get: () => domain }]);
+    (Keyword.findAll as jest.Mock).mockResolvedValue([{
+      ID: 41,
+      domain: domain.domain,
+      updating: 1,
+      updatingStartedAt: '2024-06-01T11:59:00.000Z',
+      scrapeEnabled: 1,
+    }]);
+
+    await handler(req, res as NextApiResponse);
+    await jest.runAllTimersAsync();
+
+    expect(refreshAndUpdateKeywords).not.toHaveBeenCalled();
+    expect(refreshQueue.enqueue).toHaveBeenCalledTimes(1);
+    expect(res.json).toHaveBeenCalledWith({ started: true });
+  });
+
+  it('processes multiple domains sequentially', async () => {
+    (Domain.findAll as jest.Mock).mockResolvedValue([
+      { get: () => ({ domain: 'first.com', scrapeEnabled: 1 }) },
+      { get: () => ({ domain: 'second.com', scrapeEnabled: 1 }) },
+    ]);
+
+    const firstKeyword = { domain: 'first.com', keyword: 'test1', update: jest.fn().mockResolvedValue(undefined), set: jest.fn() };
+    const secondKeyword = { domain: 'second.com', keyword: 'test2', update: jest.fn().mockResolvedValue(undefined), set: jest.fn() };
+
+    (Keyword.findAll as jest.Mock)
+      .mockResolvedValueOnce([firstKeyword])
+      .mockResolvedValueOnce([secondKeyword]);
+
+    await handler(req, res as NextApiResponse);
+
+    // Response should be sent immediately
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ started: true });
+
+    // Flush all pending promises
+    await jest.runAllTimersAsync();
+
+    // Each domain enqueued separately (can process in parallel via queue)
+    expect(firstKeyword.update).toHaveBeenCalledWith({
+      updating: 1,
+      lastUpdateError: 'false',
+      updatingStartedAt: '2024-06-01T12:00:00.000Z',
+    });
+    expect(secondKeyword.update).toHaveBeenCalledWith({
+      updating: 1,
+      lastUpdateError: 'false',
+      updatingStartedAt: '2024-06-01T12:00:00.000Z',
+    });
+
+    expect(Keyword.findAll).toHaveBeenCalledTimes(2);
+    expect(Keyword.findAll).toHaveBeenNthCalledWith(1, { where: { domain: 'first.com' } });
+    expect(Keyword.findAll).toHaveBeenNthCalledWith(2, { where: { domain: 'second.com' } });
+
+    expect(refreshAndUpdateKeywords).toHaveBeenCalledTimes(2);
+    expect(refreshAndUpdateKeywords).toHaveBeenNthCalledWith(1, [firstKeyword], { scraper_type: 'serpapi' }, expect.any(Array));
+    expect(refreshAndUpdateKeywords).toHaveBeenNthCalledWith(2, [secondKeyword], { scraper_type: 'serpapi' }, expect.any(Array));
+  });
+
+  it('generates unique task IDs for each domain using crypto.randomUUID()', async () => {
+    const { refreshQueue } = require('../../utils/refreshQueue');
+
+    (Domain.findAll as jest.Mock).mockResolvedValue([
+      { get: () => ({ domain: 'first.com', scrapeEnabled: 1 }) },
+      { get: () => ({ domain: 'second.com', scrapeEnabled: 1 }) },
+    ]);
+
+    (Keyword.findAll as jest.Mock).mockResolvedValue([
+      { domain: 'first.com', update: jest.fn().mockResolvedValue(undefined), set: jest.fn() }
+    ]);
+
+    await handler(req, res as NextApiResponse);
+    await jest.runAllTimersAsync();
+
+    // Verify enqueue was called twice (once per domain)
+    expect(refreshQueue.enqueue).toHaveBeenCalledTimes(2);
+
+    // Extract the task IDs from the enqueue calls
+    const firstCallId = (refreshQueue.enqueue as jest.Mock).mock.calls[0][0];
+    const secondCallId = (refreshQueue.enqueue as jest.Mock).mock.calls[1][0];
+
+    // Task IDs should start with "cron-refresh-{domain}-"
+    expect(firstCallId).toMatch(/^cron-refresh-first\.com-[a-f0-9-]{36}$/);
+    expect(secondCallId).toMatch(/^cron-refresh-second\.com-[a-f0-9-]{36}$/);
+
+    // Task IDs should be different (unique UUIDs)
+    expect(firstCallId).not.toBe(secondCallId);
+
+    // Verify the domain parameter is passed correctly
+    expect(refreshQueue.enqueue).toHaveBeenNthCalledWith(
+      1,
+      expect.stringMatching(/^cron-refresh-first\.com-/),
+      expect.any(Function),
+      ['first.com'],
+      { reservations: [expect.any(Function)] }
+    );
+    expect(refreshQueue.enqueue).toHaveBeenNthCalledWith(
+      2,
+      expect.stringMatching(/^cron-refresh-second\.com-/),
+      expect.any(Function),
+      ['second.com'],
+      { reservations: [expect.any(Function)] }
+    );
+  });
+
+
+  afterEach(() => {
+    jest.clearAllMocks();
+    jest.useRealTimers();
+  });
+
+  it('skips domains that are already being refreshed and reports them', async () => {
+    (Domain.findAll as jest.Mock).mockResolvedValue([
+      { get: () => ({ domain: 'busy.com', scrapeEnabled: 1 }) },
+      { get: () => ({ domain: 'free.com', scrapeEnabled: 1 }) },
+    ]);
+    (Keyword.findAll as jest.Mock).mockResolvedValue([]);
+    (refreshQueue.enqueue as jest.Mock).mockClear();
+    (refreshQueue.reserveDomains as jest.Mock).mockImplementation((domains: string[]) => (domains[0] === 'busy.com' ? null : jest.fn()));
+
+    await handler(req, res as NextApiResponse);
+    await jest.runAllTimersAsync();
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ started: true, skipped: { domains: ['busy.com'] } });
+    expect(refreshQueue.enqueue).toHaveBeenCalledTimes(1);
+    expect((refreshQueue.enqueue as jest.Mock).mock.calls[0][0]).toContain('free.com');
+  });
+
+  it('reports started: false when every domain is already being refreshed', async () => {
+    (Domain.findAll as jest.Mock).mockResolvedValue([{ get: () => ({ domain: 'busy.com', scrapeEnabled: 1 }) }]);
+    (refreshQueue.enqueue as jest.Mock).mockClear();
+    (refreshQueue.reserveDomains as jest.Mock).mockImplementation(() => null);
+
+    await handler(req, res as NextApiResponse);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ started: false, skipped: { domains: ['busy.com'] } });
+    expect(refreshQueue.enqueue).not.toHaveBeenCalled();
+    (refreshQueue.reserveDomains as jest.Mock).mockImplementation(() => jest.fn());
+  });
+
+  it.each([undefined, { scraper_type: 'none' }])('skips a cron refresh when scraper settings are not configured (%p)', async (settings) => {
+    (getAppSettings as jest.Mock).mockResolvedValue(settings);
+
+    await handler(req, res as NextApiResponse);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(Domain.findAll).not.toHaveBeenCalled();
+    expect(refreshQueue.enqueue).not.toHaveBeenCalled();
+  });
+
+  it('returns an internal error when the enabled-domain lookup fails', async () => {
+    (Domain.findAll as jest.Mock).mockRejectedValue(new Error('database unavailable'));
+
+    await handler(req, res as NextApiResponse);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ code: 'INTERNAL_SERVER_ERROR' }) }));
+  });
+
+  it('still reports the cron run as started when queue insertion fails asynchronously', async () => {
+    (Domain.findAll as jest.Mock).mockResolvedValue([{ get: () => ({ domain: 'example.com', scrapeEnabled: 1 }) }]);
+    (refreshQueue.reserveDomains as jest.Mock).mockReturnValue(jest.fn());
+    (refreshQueue.enqueue as jest.Mock).mockRejectedValue(new Error('queue unavailable'));
+
+    await handler(req, res as NextApiResponse);
+    await Promise.resolve();
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ started: true });
   });
 });

@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file. Releases no
 - Add CIMD client identification alongside MCP OAuth dynamic client registration, with standard discovery metadata and validated HTTPS client metadata documents.
 - Expose Google Ads keyword idea generation as a full-access MCP tool.
 - Keep `MCP_APIKEY` access read-only and expose keyword editing and refresh tools to OAuth `mcp:full` clients.
+- Consolidate overlapping Jest suites for domain routes, keyword mutations, and refresh routes.
 
 ## [6.0.0] (2026-11-08)
 ### Fixed
