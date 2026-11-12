@@ -5,6 +5,7 @@ const nextConfig = {
 
   // Performance optimizations
   experimental: {
+    globalNotFound: true,
     optimizePackageImports: ['lucide-react', 'recharts'],
   },
 
