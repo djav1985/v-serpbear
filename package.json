@@ -82,7 +82,7 @@
     "eslint-plugin-security": "^4.2.1",
     "globals": "^17.14.0",
     "jest": "^30.5.2",
-    "minimatch": "^11.0.4",
+    "minimatch": "^11.0.8",
     "postcss": "^8.5.29",
     "resize-observer-polyfill": "^1.5.1",
     "stylelint": "^16.26.1",
