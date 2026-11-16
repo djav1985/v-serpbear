@@ -26,7 +26,7 @@
     "@tanstack/react-query": "^5.107.1",
     "@tanstack/react-table": "^9.3.1",
     "@tanstack/react-virtual": "^3.14.26",
-    "better-sqlite3": "^13.0.3",
+    "better-sqlite3": "^13.1.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "croner": "^11.0.0",
