@@ -33,7 +33,7 @@
     "cryptr": "^6.4.0",
     "dayjs": "^1.11.20",
     "dotenv": "^18.0.9",
-    "google-auth-library": "^11.3.3",
+    "google-auth-library": "^11.3.4",
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^1.70.0",
     "next": "^16.4.4",
