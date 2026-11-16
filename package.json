@@ -58,7 +58,7 @@
   "devDependencies": {
     "@eslint/js": "^9.39.5",
     "@happy-dom/jest-environment": "^21.0.4",
-    "@next/eslint-plugin-next": "^16.4.5",
+    "@next/eslint-plugin-next": "^16.4.6",
     "@stylistic/stylelint-plugin": "^4.0.1",
     "@tailwindcss/postcss": "^4.3.5",
     "@testing-library/dom": "^10.4.2",
