@@ -19,7 +19,7 @@ type BuildAddPayloadOptions = {
 
 // Whether the scraper in use supports city-level locations. A domain's own scraper (domainScraperType) wins over
 // the global one, the same way the scrape itself picks it.
-export const scraperAllowsCity = (settings?: SettingsType, domainScraperType?: string | null): boolean => {
+export const scraperAllowsCity = (settings?: Pick<SettingsType, 'scraper_type' | 'available_scapers'>, domainScraperType?: string | null): boolean => {
    const scraperType = domainScraperType || settings?.scraper_type;
    return !!settings?.available_scapers?.find((scraper) => scraper.value === scraperType)?.allowsCity;
 };

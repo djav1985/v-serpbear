@@ -78,6 +78,8 @@ A success never carries an `error` string. Reads take filters in the query strin
 
 Query and body are checked against the endpoint's schema (`utils/api/contracts`) before the route runs. A request that does not match answers `400` with `code` `BAD_REQUEST`, a message such as `Invalid request: ids.1: Too small: expected number to be >0`, and the individual issues as `[{ "path", "message" }]` in `error.details`. Query values are text: booleans are `true` or `false`, numbers are whole numbers, and lists are comma-separated or repeat the parameter. `PUT /api/serp/clearfailed`, `POST /api/auth/logout` and `POST /api/google/volume` may be sent without a body.
 
+Records in `data` have fixed shapes. A keyword's `history7d` and a domain's `keywordsUpdated`, `keywordsTracked`, `avgPosition`, `mapPackKeywords` and `scrape_pagination_limit` are absent when there is no value, never `null`. Text fields that may be empty in the database (`lastUpdated`, `added`, `url`, `notification_emails`) are an empty string. `GET /api/app/settings` returns the public subset by default and every setting, with secrets masked as `"true"` or `""`, with `?includePrivate=true`.
+
 ### Migrating from 6.1
 
 | Endpoint | Before | Now |

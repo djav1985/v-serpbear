@@ -6,25 +6,17 @@
  */
 import { z } from 'zod';
 
-/** A record that is not validated field by field here: the server builds it from a database model or a stored file. */
-const dto = <T>() => z.custom<T>((value) => typeof value === 'object' && value !== null && !Array.isArray(value), 'Expected an object');
+import {
+   DomainDTO, KeywordDTO, KeywordLastResultDTO, IdeaKeywordDTO, IdeasDatabaseDTO, InsightDataDTO, PrivateSettingsDTO,
+   PublicSettingsDTO, SavedSettingsDTO, SCDomainDataDTO,
+} from './dto';
 
-const DomainDTO = dto<DomainType>();
-const KeywordDTO = dto<KeywordType>();
-const IdeaDTO = dto<IdeaKeyword>();
-const SettingsDTO = dto<SettingsType>();
+export { IdeasDatabaseDTO };
 
 const IntegrationStatus = z.enum(['integrated', 'not-integrated']);
 const positiveInt = z.number().int().positive();
 const keywordIds = z.array(positiveInt).min(1);
 const country = z.string().regex(/^[A-Z]{2}$/);
-
-export const IdeasDatabaseDTO = z.object({
-   keywords: z.array(IdeaDTO),
-   favorites: z.array(IdeaDTO).default([]),
-   settings: dto<DomainIdeasSettings>(),
-   updated: z.number().optional(),
-});
 
 const RefreshStartDTO = z.object({
    message: z.string(),
@@ -107,19 +99,21 @@ export const endpoints = defineEndpoints({
    'refresh.status': { method: 'GET', path: '/api/serp/refresh', query: z.object({ status: z.literal('retry'), id: z.array(positiveInt).min(1) }), response: z.object({ keywords: z.array(z.object({ ID: z.number(), updating: z.boolean() })) }) },
    'refresh.start': { method: 'POST', path: '/api/serp/refresh', body: z.union([z.object({ ids: keywordIds }).strict(), z.object({ scope: z.literal('domain'), domain: z.string() }).strict()]), response: RefreshStartDTO },
    'refresh.enabledDomains': { method: 'POST', path: '/api/serp/refresh', body: z.object({ scope: z.literal('enabled-domains') }).strict(), response: EnabledDomainsRefreshDTO },
-   'refresh.search': { method: 'POST', path: '/api/serp/refresh', body: z.object({ keyword: z.string(), country: z.string(), device: z.string().optional() }).strict(), response: z.object({ searchResult: z.object({ results: z.array(dto<KeywordLastResult>()), keyword: z.string(), position: z.number(), country: z.string(), device: z.string() }) }) },
+   'refresh.search': { method: 'POST', path: '/api/serp/refresh', body: z.object({ keyword: z.string(), country: z.string(), device: z.string().optional() }).strict(), response: z.object({ searchResult: z.object({ results: z.array(KeywordLastResultDTO), keyword: z.string(), position: z.number(), country: z.string(), device: z.string() }) }) },
    'clearFailed.run': { method: 'PUT', path: '/api/serp/clearfailed', body: z.object({}).strict(), response: z.object({ cleared: z.literal(true) }) },
    // Google
    'ideas.get': { method: 'GET', path: '/api/google/ideas', query: z.object({ domain: z.string().optional() }), response: z.object({ ideas: IdeasDatabaseDTO }) },
-   'ideas.generate': { method: 'POST', path: '/api/google/ideas', body: IdeasGenerateBody, response: z.object({ keywords: z.array(IdeaDTO) }) },
-   'ideas.favorite': { method: 'PUT', path: '/api/google/ideas', body: z.object({ keywordID: z.string(), domain: z.string().optional() }), response: z.object({ favorites: z.array(IdeaDTO) }) },
-   'searchConsole.get': { method: 'GET', path: '/api/google/searchconsole', query: z.object({ domain: z.string().min(1) }), response: z.object({ searchConsole: dto<SCDomainDataType>().nullable(), integrationStatus: IntegrationStatus }) },
+   'ideas.generate': { method: 'POST', path: '/api/google/ideas', body: IdeasGenerateBody, response: z.object({ keywords: z.array(IdeaKeywordDTO) }) },
+   'ideas.favorite': { method: 'PUT', path: '/api/google/ideas', body: z.object({ keywordID: z.string(), domain: z.string().optional() }), response: z.object({ favorites: z.array(IdeaKeywordDTO) }) },
+   'searchConsole.get': { method: 'GET', path: '/api/google/searchconsole', query: z.object({ domain: z.string().min(1) }), response: z.object({ searchConsole: SCDomainDataDTO.nullable(), integrationStatus: IntegrationStatus }) },
    'searchConsole.refresh': { method: 'POST', path: '/api/google/searchconsole', body: z.object({}).strict(), response: z.object({ updatedCount: z.number(), failedCount: z.number() }) },
-   'insight.get': { method: 'GET', path: '/api/google/insight', query: z.object({ domain: z.string().min(1) }), response: z.object({ insight: dto<InsightDataType>().nullable(), integrationStatus: IntegrationStatus }) },
+   'insight.get': { method: 'GET', path: '/api/google/insight', query: z.object({ domain: z.string().min(1) }), response: z.object({ insight: InsightDataDTO.nullable(), integrationStatus: IntegrationStatus }) },
    'volume.update': { method: 'POST', path: '/api/google/volume', body: z.object({ keywords: z.array(positiveInt).optional(), domain: z.string().optional(), update: z.boolean().optional() }), response: z.object({ keywords: z.array(KeywordDTO), volumes: z.record(z.string(), z.unknown()), failedCountries: z.array(z.string()).optional() }) },
    // App
-   'settings.get': { method: 'GET', path: '/api/app/settings', query: z.object({ includePrivate: z.boolean().optional() }), response: z.object({ settings: SettingsDTO }) },
-   'settings.save': { method: 'PUT', path: '/api/app/settings', body: z.object({ settings: z.record(z.string(), z.unknown()) }), response: z.object({ settings: SettingsDTO }) },
+   // One URL, two views: the login page's public subset, and the full settings (secrets masked) for a signed-in session
+   'settings.public': { method: 'GET', path: '/api/app/settings', response: z.object({ settings: PublicSettingsDTO }) },
+   'settings.private': { method: 'GET', path: '/api/app/settings', query: z.object({ includePrivate: z.literal(true) }), response: z.object({ settings: PrivateSettingsDTO }) },
+   'settings.save': { method: 'PUT', path: '/api/app/settings', body: z.object({ settings: z.record(z.string(), z.unknown()) }), response: z.object({ settings: SavedSettingsDTO }) },
    'email.digest': { method: 'POST', path: '/api/app/email', body: z.object({ type: z.literal('digest'), domain: z.string().optional() }), response: z.object({ sent: z.number(), skipped: z.number(), message: z.string().optional() }) },
    'email.ideas': { method: 'POST', path: '/api/app/email', body: z.object({ type: z.literal('ideas'), domain: z.string(), keywords: z.array(z.unknown()) }), response: z.object({ success: z.literal(true) }) },
    // Auth and Google Ads

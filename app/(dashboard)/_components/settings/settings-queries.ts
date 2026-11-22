@@ -8,10 +8,21 @@ import { settingsKey } from '../../domain/_components/keyword-queries';
 /** The server's own message when it sent one (it says what to fix), otherwise the fallback. */
 const errorText = (error: unknown, fallback: string) => (error instanceof Error && error.message && !error.message.startsWith('Server error (') ? error.message : fallback);
 
-export function useAppSettings(enabled: boolean, refetchWhenEnabled = false, includePrivate = false) {
+/** The public subset of the settings: the scraper in use, its list, branding and version. It needs no sign-in. */
+export function useAppSettings(enabled: boolean, refetchWhenEnabled = false) {
    return useQuery({
-      queryKey: includePrivate ? [...settingsKey, 'private'] : settingsKey,
-      queryFn: async () => (await callApi('settings.get', { query: includePrivate ? { includePrivate: true } : {} })).settings,
+      queryKey: settingsKey,
+      queryFn: async () => (await callApi('settings.public')).settings,
+      enabled,
+      staleTime: refetchWhenEnabled ? 0 : undefined,
+   });
+}
+
+/** Every setting, with secrets masked. It needs a signed-in session. */
+export function usePrivateSettings(enabled: boolean, refetchWhenEnabled = false) {
+   return useQuery({
+      queryKey: [...settingsKey, 'private'],
+      queryFn: async () => (await callApi('settings.private', { query: { includePrivate: true } })).settings,
       enabled,
       staleTime: refetchWhenEnabled ? 0 : undefined,
    });

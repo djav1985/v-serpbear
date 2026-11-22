@@ -151,7 +151,8 @@ describe('ideas route', () => {
     });
 
     it('returns an empty favorites list for a file written by a first generation', async () => {
-      const saved = { keywords: [{ uid: 'idea-1', keyword: 'shoes' }], settings: { country: 'US' } };
+      const idea = { uid: 'idea-1', keyword: 'shoes', competition: 'LOW', country: 'US', domain: '', competitionIndex: 12, monthlySearchVolumes: { '2026-1': '100' }, avgMonthlySearches: 100, added: 1, updated: 1, position: 0 };
+      const saved = { keywords: [idea], settings: { country: 'US', seedType: 'custom' }, updated: 1 };
       (readFile as jest.Mock).mockResolvedValue(JSON.stringify(saved));
 
       const res = await get();

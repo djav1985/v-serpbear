@@ -10,7 +10,7 @@ import { IntegrationsTab } from './integrations-tab';
 import { NotificationTab } from './notification-tab';
 import { ScraperTab } from './scraper-tab';
 import { SECRET_MARKER, SECRET_SETTINGS_FIELDS } from 'utils/settingsSecrets';
-import { useAppSettings, useSaveSettings } from './settings-queries';
+import { usePrivateSettings, useSaveSettings } from './settings-queries';
 
 export type SettingsError = { type: string; msg: string };
 const ERROR_VISIBLE_MS = 3000;
@@ -52,7 +52,7 @@ const createDefaults = (platformName: string): SettingsType => ({
 /** The three settings tabs and the Update button. Mounted only while the sheet is open, so it always starts from the stored settings. */
 export function SettingsForm({ platformName }: { platformName: string }) {
    const router = useRouter();
-   const { data: stored, isLoading, isError } = useAppSettings(true, true, true);
+   const { data: stored, isLoading, isError } = usePrivateSettings(true, true);
    const { mutateAsync: saveSettings, isPending } = useSaveSettings();
    const [settings, setSettings] = useState<SettingsType>(() => createDefaults(platformName));
    const [error, setError] = useState<SettingsError | null>(null);

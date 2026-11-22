@@ -65,7 +65,7 @@ describe('keyword mutation hooks', () => {
 describe('add-flow query loading', () => {
    it('waits until enabled and refreshes cached add-flow data', async () => {
       callApi.mockImplementation(async (key: string) => (
-         key === 'settings.get'
+         key === 'settings.public'
             ? { settings: { scraper_type: 'scrapingant' } }
             : { keywords: [] }
       ));
@@ -81,7 +81,7 @@ describe('add-flow query loading', () => {
       rerender({ enabled: true });
       await waitFor(() => expect(callApi).toHaveBeenCalledTimes(2));
       expect(callApi).toHaveBeenCalledWith('keywords.list', { query: { domain: 'example.com' } });
-      expect(callApi).toHaveBeenCalledWith('settings.get', { query: {} });
+      expect(callApi).toHaveBeenCalledWith('settings.public');
       await waitFor(() => expect(result.current.settings.data).toMatchObject({ scraper_type: 'scrapingant' }));
       queryClient.clear();
 

@@ -11,7 +11,7 @@ import { ApiError, getQuery, readJson } from '../apiLogging';
 type QueryOut<K extends EndpointKey> = Endpoints[K] extends { query: infer Q extends z.ZodType } ? z.output<Q> : undefined;
 type BodyOut<K extends EndpointKey> = Endpoints[K] extends { body: infer B extends z.ZodType } ? z.output<B> : undefined;
 
-type SchemaNode = { def: { type: string, innerType?: SchemaNode, element?: SchemaNode } };
+type SchemaNode = { def: { type: string, innerType?: SchemaNode, element?: SchemaNode, values?: unknown[] } };
 
 /** Removes the optional and nullable wrappers to reach the type a query value must be. */
 const unwrap = (node: SchemaNode): SchemaNode => (
@@ -20,7 +20,12 @@ const unwrap = (node: SchemaNode): SchemaNode => (
 
 /** A query value is text. Booleans and numbers are read from it only when the text is exactly one; anything else stays text and fails the schema. */
 const coerceScalar = (node: SchemaNode, text: string): unknown => {
-   const { type } = unwrap(node).def;
+   const { type, values } = unwrap(node).def;
+   // A literal true, false or number is written as text in a query
+   if (type === 'literal' && values) {
+      const match = values.find((value) => typeof value !== 'string' && String(value) === text);
+      return match !== undefined ? match : text;
+   }
    if (type === 'boolean') { return text === 'true' ? true : text === 'false' ? false : text; }
    if (type === 'number') { return /^-?\d+(\.\d+)?$/.test(text) ? Number(text) : text; }
    return text;

@@ -75,8 +75,16 @@ const parseKeywords = (allKeywords: Keyword[]) : KeywordType[] => {
          }
       }
 
+      // Columns that may be empty in the database are filled with what the type says: text columns with their default
+      // or an empty string, and an absent 7 day history is left out instead of sent as null
+      const { history7d: _storedHistory7d, ...stored } = keywordData;
       return {
-         ...keywordData,
+         ...stored,
+         device: typeof keywordData.device === 'string' ? keywordData.device : 'desktop',
+         country: typeof keywordData.country === 'string' ? keywordData.country : 'US',
+         lastUpdated: typeof keywordData.lastUpdated === 'string' ? keywordData.lastUpdated : '',
+         added: typeof keywordData.added === 'string' ? keywordData.added : '',
+         url: typeof keywordData.url === 'string' ? keywordData.url : '',
          location: typeof keywordData.location === 'string' ? keywordData.location : '',
          history,
          ...(history7d !== undefined ? { history7d } : {}),

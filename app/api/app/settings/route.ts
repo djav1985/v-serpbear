@@ -13,8 +13,10 @@ import { APP_TIMEZONE } from '../../../../utils/timezone';
 import { DERIVED_SETTINGS_FIELDS, PERSISTED_SETTINGS_FIELDS, SECRET_SETTINGS_FIELDS, validateSettingsPayload } from '../../../../utils/settingsPayload';
 
 const getSettings = async (req: Request, ctx: ApiContext) => {
-   // includePrivate is true or false; anything else is refused by the contract
-   const includePrivate = parseQuery(req, 'settings.get').includePrivate === true;
+   // includePrivate=true asks for the full view (the contract refuses any other value); without it, or with false, the public one
+   const includePrivateParam = new URL(req.url).searchParams.get('includePrivate');
+   const includePrivate = includePrivateParam !== null && includePrivateParam !== 'false';
+   if (includePrivate) { parseQuery(req, 'settings.private'); }
    try {
       // The settings editor must never mistake the public, branding-only response for
       // the complete settings object. Opt-in full reads are explicitly authenticated.

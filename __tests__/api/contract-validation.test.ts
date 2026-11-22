@@ -20,7 +20,7 @@ describe('parseQuery', () => {
       .toEqual({ withstats: true, domains: ['a.com', 'b.com', 'c.com'] });
     expect(parseQuery(get('?status=retry&id=4,5'), 'refresh.status')).toEqual({ status: 'retry', id: [4, 5] });
     expect(parseQuery(get('?id=12'), 'keywords.get')).toEqual({ id: 12 });
-    expect(parseQuery(get(''), 'settings.get')).toEqual({});
+    expect(parseQuery(get('?includePrivate=true'), 'settings.private')).toEqual({ includePrivate: true });
   });
 
   it.each([
@@ -33,7 +33,9 @@ describe('parseQuery', () => {
     ['keywords.list', '?domain='],
     ['searchConsole.get', ''],
     ['refresh.status', '?status=retry&id=1,x'],
-    ['settings.get', '?includePrivate=yes'],
+    ['settings.private', '?includePrivate=yes'],
+    ['settings.private', '?includePrivate=false'],
+    ['settings.private', ''],
   ] as const)('refuses %s with %s with a 400 that names the field', async (key, query) => {
     const error = await thrown(() => parseQuery(get(query), key));
     expect(error.status).toBe(400);
