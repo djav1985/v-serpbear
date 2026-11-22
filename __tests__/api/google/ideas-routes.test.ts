@@ -43,12 +43,12 @@ describe('adwords ideasPath', () => {
       });
 
       it('reads the ideas file of a hyphenated domain under its real name', async () => {
-        readMock.mockResolvedValue(JSON.stringify({ keywords: [{ uid: 'k1' }] }));
+        readMock.mockResolvedValue(JSON.stringify({ keywords: [{ uid: 'k1', competition: 'LOW' }] }));
 
         const result = await getLocalKeywordIdeas('my-site.com');
 
         expect(readMock).toHaveBeenCalledWith(expect.stringMatching(/IDEAS_my-site\.com\.json$/), expect.anything());
-        expect(result).toEqual({ keywords: [{ uid: 'k1' }] });
+        expect(result).toEqual({ keywords: [{ uid: 'k1', competition: 'LOW' }] });
       });
     });
   });
@@ -140,7 +140,7 @@ describe('ideas route', () => {
     });
 
     it('loads the research ideas list when no domain is provided', async () => {
-      const saved = { keywords: [{ uid: 'idea-1', keyword: 'shoes' }], favorites: [] };
+      const saved = { keywords: [{ uid: 'idea-1', keyword: 'shoes', competition: 'LOW' }], favorites: [] };
       (readFile as jest.Mock).mockResolvedValue(JSON.stringify(saved));
 
       const res = await get();
@@ -327,7 +327,7 @@ describe('ideas route', () => {
      });
 
      it('adds a matching idea to favorites and leaves saved ideas intact', async () => {
-        const keyword = { uid: 'kw-2', keyword: 'coffee beans' } as any;
+        const keyword = { uid: 'kw-2', keyword: 'coffee beans', competition: 'LOW' } as any;
         const storedDatabase = { keywords: [keyword], favorites: [], settings: { seedType: 'custom' }, updated: Date.now() } as KeywordIdeasDatabase;
         (readFile as jest.Mock).mockResolvedValue(JSON.stringify(storedDatabase));
         const req = createMockRequest({ method: 'PUT', body: { keywordID: 'kw-2', domain: 'example.com' } });

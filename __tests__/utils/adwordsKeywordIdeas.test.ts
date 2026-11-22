@@ -319,6 +319,7 @@ describe('idea competition level', () => {
       const result = await adwordsUtils.getAdwordsKeywordIdeas(creds, { country: 'US', language: '1000', keywords: ['test'], seedType: 'custom' }, true);
       global.fetch = originalFetch;
 
+      if (!result) { throw new Error('expected keyword ideas to be returned'); }
       expect(result.map((idea: IdeaKeyword) => [idea.keyword, idea.competition])).toEqual([
          ['no competition', 'UNSPECIFIED'], ['odd competition', 'UNSPECIFIED'], ['known competition', 'HIGH'],
       ]);
@@ -329,8 +330,10 @@ describe('idea competition level', () => {
       const os = require('os');
       const path = require('path');
       const dir = mkdtempSync(path.join(os.tmpdir(), 'ideas-competition-'));
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- writes only inside the temp directory created above
       mkdirSync(path.join(dir, 'data'));
       const idea = (keyword: string, competition?: string) => ({ uid: `us:${keyword}`, keyword, ...(competition ? { competition } : {}), country: 'US', domain: 'example.com', competitionIndex: 1, monthlySearchVolumes: {}, avgMonthlySearches: 10, added: 1, updated: 1, position: 999 });
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- writes only inside the temp directory created above
       writeFileSync(path.join(dir, 'data', 'IDEAS_example.com.json'), JSON.stringify({ keywords: [idea('a'), idea('b', 'LOW'), idea('c', 'EXTREME')], favorites: [idea('d')], settings: {}, updated: 1 }));
       const cwd = jest.spyOn(process, 'cwd').mockReturnValue(dir);
       try {
