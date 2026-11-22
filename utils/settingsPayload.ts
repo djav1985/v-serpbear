@@ -69,9 +69,9 @@ export const validateSettingsPayload = (settings: Record<string, unknown>): stri
          errors.push(`${key} must be true or false.`);
       }
    });
-   if (has('smtp_port') && settings.smtp_port !== '') {
-      const port = Number(settings.smtp_port);
-      if (!Number.isInteger(port) || port < 1 || port > 65535) {
+   if (has('smtp_port') && settings.smtp_port !== null) {
+      const port = settings.smtp_port;
+      if (typeof port !== 'number' || !Number.isInteger(port) || port < 1 || port > 65535) {
          errors.push('smtp_port must be a number from 1 to 65535.');
       }
    }

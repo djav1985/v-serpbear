@@ -155,7 +155,6 @@ describe('cron worker', () => {
       scraper_type: 'none',
       notification_interval: 'never',
       smtp_server: '',
-      smtp_port: '',
       smtp_username: '',
       smtp_password: '',
       scrape_interval: '',

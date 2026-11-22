@@ -28,7 +28,7 @@ function TextField({ id, label, value, onChange, placeholder, invalid }: { id: s
 export function NotificationTab({ settings, update, error, platformName }: SettingsTabProps) {
    const { mutate: sendNow, isPending: sending } = useSendNotifications();
    const never = settings.notification_interval === 'never';
-   const canSend = !never && hasTrimmedLength(settings.smtp_server) && hasTrimmedLength(settings.smtp_port);
+   const canSend = !never && hasTrimmedLength(settings.smtp_server) && settings.smtp_port !== null;
 
    return (
       <div className="flex flex-col gap-5">
@@ -44,7 +44,7 @@ export function NotificationTab({ settings, update, error, platformName }: Setti
                <p className="text-muted-foreground text-xs">Notification recipients are set for each domain, in its Domain Settings.</p>
                <TextField id="smtp-server" label="SMTP Server" placeholder="smtp.example.com" invalid={error?.type === 'no_smtp_server'} value={settings.smtp_server || ''} onChange={(v) => update('smtp_server', v)} />
                <TextField id="smtp-tls" label="SMTP TLS Certificate Hostname (optional)" placeholder="mail.example.com" value={settings.smtp_tls_servername || ''} onChange={(v) => update('smtp_tls_servername', v)} />
-               <TextField id="smtp-port" label="SMTP Port" placeholder="2234" invalid={error?.type === 'no_smtp_port'} value={settings.smtp_port || ''} onChange={(v) => update('smtp_port', v)} />
+               <TextField id="smtp-port" label="SMTP Port" placeholder="2234" invalid={error?.type === 'no_smtp_port'} value={settings.smtp_port === null ? '' : String(settings.smtp_port)} onChange={(v) => { const digits = v.replace(/\D/g, ''); update('smtp_port', digits ? Number(digits) : null); }} />
                <TextField id="smtp-user" label="SMTP Username" value={settings.smtp_username || ''} onChange={(v) => update('smtp_username', v)} />
                <div className="flex flex-col gap-2">
                   <Label>SMTP Password</Label>

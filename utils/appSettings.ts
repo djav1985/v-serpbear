@@ -23,7 +23,7 @@ export const buildSettingsDefaults = (): SettingsType => {
       notification_email_from: '',
       notification_email_from_name: platformName,
       smtp_server: '',
-      smtp_port: '',
+      smtp_port: null,
       smtp_tls_servername: '',
       smtp_username: '',
       smtp_password: '',
@@ -49,6 +49,17 @@ export const normalizeLegacySettings = (settings: Partial<SettingsType>): Partia
 
    if (Object.prototype.hasOwnProperty.call(normalizedSettings, 'scraper_type')) {
       normalizedSettings.scraper_type = normalizeLegacyGlobalScraperType(normalizedSettings.scraper_type);
+   }
+
+   // The port used to be stored as text ('587', or '' for unset). Whole-number text becomes a number and empty text null;
+   // anything else is left for the save validation to reject (and for getAppSettings to drop when it is read).
+   if (Object.prototype.hasOwnProperty.call(normalizedSettings, 'smtp_port')) {
+      const port: unknown = normalizedSettings.smtp_port;
+      if (typeof port === 'string') {
+         const text = port.trim();
+         if (text === '') { normalizedSettings.smtp_port = null; }
+         else if (/^\d+$/.test(text)) { normalizedSettings.smtp_port = Number(text); }
+      }
    }
 
    if (Object.prototype.hasOwnProperty.call(normalizedSettings, 'proxy')) {
@@ -78,7 +89,11 @@ export const getAppSettings = async () : Promise<SettingsType> => {
 
    try {
       const settings = await readStoredSettingsFile(settingsPath);
-      const baseSettings: SettingsType = { ...buildSettingsDefaults(), ...settings };
+      const defaults = buildSettingsDefaults();
+      const baseSettings: SettingsType = { ...defaults, ...settings };
+      // A value the settings page cannot show (a hand-edited file) falls back to the default instead of breaking the page
+      if (typeof baseSettings.smtp_port !== 'number' || !Number.isInteger(baseSettings.smtp_port)) { baseSettings.smtp_port = null; }
+      if (baseSettings.scrape_strategy !== 'basic' && baseSettings.scrape_strategy !== 'custom') { baseSettings.scrape_strategy = defaults.scrape_strategy; }
       let decryptedSettings: SettingsType = baseSettings;
 
       if (!process.env.SECRET) {

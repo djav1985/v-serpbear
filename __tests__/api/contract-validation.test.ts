@@ -80,7 +80,7 @@ describe('parseBody', () => {
     ['volume.update', { keywords: ['1'] }],
     ['settings.save', {}],
     ['settings.save', { settings: [] }],
-    ['settings.save', { settings: { smtp_port: 25 } }],
+    ['settings.save', { settings: { smtp_port: '25' } }],
     ['settings.save', { settings: { scrape_strategy: 'fast' } }],
     ['settings.save', { settings: { keywordsColumns: 'Best' } }],
     ['email.ideas', { type: 'ideas', domain: 'example.com', keywords: [] }],

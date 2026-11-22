@@ -139,7 +139,7 @@ export const SettingsDTO = z.object({
    notification_email_from: str,
    notification_email_from_name: str,
    smtp_server: str,
-   smtp_port: str,
+   smtp_port: num.nullable(),
    smtp_tls_servername: str.optional(),
    smtp_username: str.optional(),
    smtp_password: str.optional(),

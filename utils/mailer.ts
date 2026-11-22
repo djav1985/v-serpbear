@@ -16,8 +16,9 @@ export const buildMailer = (settings: SettingsType) => {
 
    const smtpHost = sanitizeSmtpHost(settings.smtp_server);
    const tlsServername = sanitizeSmtpHost(settings.smtp_tls_servername);
-   const portNum = parseInt(String(settings.smtp_port ?? ''), 10);
-   const validPort = isNaN(portNum) ? DEFAULT_SMTP_PORT : Math.max(1, Math.min(65535, portNum));
+   const validPort = typeof settings.smtp_port === 'number' && Number.isInteger(settings.smtp_port)
+      ? Math.max(1, Math.min(65535, settings.smtp_port))
+      : DEFAULT_SMTP_PORT;
 
    const mailerSettings: SMTPTransport.Options = { host: smtpHost, port: validPort };
    if (tlsServername) {

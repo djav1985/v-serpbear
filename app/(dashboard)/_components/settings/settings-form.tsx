@@ -17,7 +17,7 @@ const ERROR_VISIBLE_MS = 3000;
 
 export type SettingsTabProps = {
    settings: SettingsType;
-   update: (key: string, value: string | number | boolean) => void;
+   update: (key: string, value: string | number | boolean | null) => void;
    error: SettingsError | null;
    platformName: string;
    /** Saves the current form. Resolves false when validation or the save failed. */
@@ -38,7 +38,7 @@ const createDefaults = (platformName: string): SettingsType => ({
    scrape_retry: false,
    notification_interval: 'daily',
    smtp_server: '',
-   smtp_port: '',
+   smtp_port: null,
    smtp_tls_servername: '',
    smtp_username: '',
    smtp_password: '',
@@ -74,7 +74,7 @@ export function SettingsForm({ platformName }: { platformName: string }) {
 
    useEffect(() => () => { if (errorTimer.current) { clearTimeout(errorTimer.current); } }, []);
 
-   const update = (key: string, value: string | number | boolean) => setSettings((current) => ({ ...current, [key]: value }));
+   const update = (key: string, value: string | number | boolean | null) => setSettings((current) => ({ ...current, [key]: value }));
 
    const save = async (): Promise<boolean> => {
       const clean: SettingsType = { ...settings };

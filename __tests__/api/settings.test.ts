@@ -206,10 +206,10 @@ describe('validateSettingsPayload', () => {
       scrape_pagination_limit: 5,
       notification_interval: 'weekly',
       scrape_retry: true,
-      smtp_port: '587',
+      smtp_port: 587,
       keywordsColumns: ['Best', 'Volume'],
     })).toEqual([]);
-    expect(validateSettingsPayload({ smtp_port: '' })).toEqual([]);
+    expect(validateSettingsPayload({ smtp_port: null })).toEqual([]);
   });
 
   it.each([
@@ -228,7 +228,9 @@ describe('validateSettingsPayload', () => {
 
   it('rejects non-boolean flags, a port outside 1-65535 and keywordsColumns that are not a list of strings', () => {
     expect(validateSettingsPayload({ scrape_retry: 'yes' })[0]).toMatch(/scrape_retry must be true or false/);
-    expect(validateSettingsPayload({ smtp_port: '70000' })[0]).toMatch(/smtp_port/);
+    expect(validateSettingsPayload({ smtp_port: 70000 })[0]).toMatch(/smtp_port/);
+    expect(validateSettingsPayload({ smtp_port: 587.5 })[0]).toMatch(/smtp_port/);
+    expect(validateSettingsPayload({ smtp_port: '587' })[0]).toMatch(/smtp_port/);
     expect(validateSettingsPayload({ keywordsColumns: 'Best' })[0]).toMatch(/keywordsColumns/);
   });
 
@@ -300,7 +302,7 @@ describe('GET /api/app/settings and configuration requirements', () => {
       notification_email_from: '',
       notification_email_from_name: platformName,
       smtp_server: '',
-      smtp_port: '',
+      smtp_port: null,
       smtp_username: '',
       smtp_password: '',
       scrape_interval: '',
@@ -332,6 +334,21 @@ describe('GET /api/app/settings and configuration requirements', () => {
     expect(settings.scraper_type).toBe('none');
     expect(settings.notification_interval).toBe('weekly');
     expect(settings).not.toHaveProperty('proxy');
+  });
+
+  it('reads a port stored as text as a number, and drops values the settings page could not show', async () => {
+    const read = async (stored: Record<string, unknown>) => {
+      readFileMock.mockReset();
+      readFileMock.mockImplementation(async (file: unknown) => (String(file).endsWith('failed_queue.json') ? '[]' : JSON.stringify(stored)));
+      return getAppSettings();
+    };
+    expect(await read({ smtp_port: '587' })).toMatchObject({ smtp_port: 587 });
+    expect(await read({ smtp_port: ' 2525 ' })).toMatchObject({ smtp_port: 2525 });
+    expect(await read({ smtp_port: 465 })).toMatchObject({ smtp_port: 465 });
+    expect(await read({ smtp_port: '' })).toMatchObject({ smtp_port: null });
+    expect(await read({ smtp_port: 'abc' })).toMatchObject({ smtp_port: null });
+    expect(await read({ scrape_strategy: '' })).toMatchObject({ scrape_strategy: 'basic' });
+    expect(await read({ scrape_strategy: 'custom' })).toMatchObject({ scrape_strategy: 'custom' });
   });
 
   it('treats a missing, empty or whitespace-only settings.json as defaults without logging errors or rewriting the file', async () => {

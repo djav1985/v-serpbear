@@ -93,7 +93,7 @@ describe('email ideas', () => {
         (hasValidSessionCookie as jest.Mock).mockReturnValue(true);
         (getAppSettings as jest.Mock).mockResolvedValue({
            smtp_server: 'smtp.example.com',
-           smtp_port: '587',
+           smtp_port: 587,
            smtp_username: 'user',
            smtp_password: 'pass',
            notification_email_from: 'sender@example.com',
@@ -137,7 +137,7 @@ describe('email ideas', () => {
      it('rejects requests without SMTP configuration', async () => {
         (getAppSettings as jest.Mock).mockResolvedValueOnce({
            smtp_server: '',
-           smtp_port: '',
+           smtp_port: null,
            notification_email_from: '',
            notification_email_from_name: '',
            smtp_tls_servername: '',

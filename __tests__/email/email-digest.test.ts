@@ -90,7 +90,7 @@ describe('email digest', () => {
       (reserveEmailSend as jest.Mock).mockResolvedValue({ reserved: true, release: jest.fn(() => Promise.resolve()) });
       (getAppSettings as jest.Mock).mockResolvedValue({
         smtp_server: 'smtp.test',
-        smtp_port: '587',
+        smtp_port: 587,
         smtp_username: '',
         smtp_password: '',
         notification_email_from: '',
@@ -215,7 +215,7 @@ describe('email digest', () => {
 
       (getAppSettings as jest.Mock).mockResolvedValue({
         smtp_server: '  smtp.test.com.  ',
-        smtp_port: ' 587 ',
+        smtp_port: 587,
         smtp_username: '',
         smtp_password: '',
         smtp_tls_servername: ' override.test. ',
@@ -283,7 +283,7 @@ describe('email digest', () => {
       (verifyUser as jest.Mock).mockReturnValue('authorized');
       (getAppSettings as jest.Mock).mockResolvedValueOnce({
         smtp_server: '',
-        smtp_port: '',
+        smtp_port: null,
         smtp_username: '',
         smtp_password: '',
         notification_email_from: '',
@@ -526,7 +526,7 @@ describe('email digest', () => {
       (Keyword.findAll as jest.Mock).mockResolvedValue([]);
       (getAppSettings as jest.Mock).mockResolvedValue({
         smtp_server: 'smtp.test',
-        smtp_port: '587',
+        smtp_port: 587,
         notification_email: 'global@example.com',
         notification_email_from: '',
         notification_email_from_name: 'SerpBear',
@@ -544,7 +544,7 @@ describe('email digest', () => {
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ sent: 1, skipped: 0 }));
 
       // Recipients are per domain, so a blank global address still sends to the domain address
-      (getAppSettings as jest.Mock).mockResolvedValue({ smtp_server: 'smtp.test', smtp_port: '587' });
+      (getAppSettings as jest.Mock).mockResolvedValue({ smtp_server: 'smtp.test', smtp_port: 587 });
       const blankGlobalRes = { status: jest.fn().mockReturnThis(), json: jest.fn() };
       sendMailMock.mockClear();
 
@@ -576,7 +576,7 @@ describe('email digest', () => {
     });
 
     it('gives the throttle slot back when setup fails after reserving it', async () => {
-      (getAppSettings as jest.Mock).mockResolvedValue({ smtp_server: 'smtp.test', smtp_port: '587' });
+      (getAppSettings as jest.Mock).mockResolvedValue({ smtp_server: 'smtp.test', smtp_port: 587 });
       (Domain.findAll as jest.Mock).mockResolvedValue([domainRow({})]);
       const release = jest.fn(() => Promise.resolve());
       (reserveEmailSend as jest.Mock).mockResolvedValue({ reserved: true, release });

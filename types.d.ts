@@ -127,7 +127,8 @@ type SettingsType = {
    notification_email_from: string,
    notification_email_from_name: string,
    smtp_server: string,
-   smtp_port: string,
+   /** 1 to 65535, or null until one is set. */
+   smtp_port: number | null,
    smtp_tls_servername?: string,
    smtp_username?: string,
    smtp_password?: string,
