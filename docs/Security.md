@@ -21,7 +21,7 @@ The client IP drives the login and API-key lockouts and the keyword-search and v
 
 ## Stored secrets
 
-Provider API keys, SMTP passwords and other secrets in `data/settings.json` are encrypted with `SECRET`. Secrets are redacted from logs. `GET /api/app/settings` is public but returns only a few non-secret fields; `PUT /api/app/settings` needs a login session.
+Provider API keys, SMTP passwords and other secrets in `data/settings.json` are encrypted with `SECRET`. Secrets are redacted from logs. `GET /api/app/settings` is public but returns only a few non-secret fields, even when signed in. `GET /api/app/settings?includePrivate=true` needs a login session and never returns a secret: a stored secret is the marker `"true"` and an unset one is an empty string. `PUT /api/app/settings` needs a login session; a secret that is omitted or sent as the marker keeps its stored value, a new value replaces it and `""` clears it. Requests that change data (`POST`, `PUT`, `DELETE`) without an `Authorization: Bearer` header are refused with `403` when the browser reports a cross-site origin (OAuth protocol routes and `/api/mcp` are exempt). MCP tools run the route handlers in process with the caller's scope, so MCP needs no `APIKEY`.
 
 ## Data you should back up
 

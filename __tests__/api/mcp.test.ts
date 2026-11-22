@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { asHandler } from '../__helpers__/routeAdapter';
 import * as handlerRoute from '../../app/api/mcp/route';
 import { createMockRequest, createMockResponse } from '../__helpers__';
+import { getInternalRequestScope } from '../../utils/mcpInternalAuth';
 const handler = asHandler(handlerRoute);
 
 const mockToolHandlers = new Map<string, (input: any) => Promise<unknown>>();
@@ -12,6 +13,23 @@ const mockServerConnect = jest.fn();
 const mockFindCredential = jest.fn();
 
 jest.mock('../../utils/apiLogging', () => require('../__helpers__/apiLoggingMock').apiLoggingMock());
+// The tools run these handlers in process. Each is a stub that records the Request it was given.
+const mockRouteCalls: Array<{ method: string; request: Request }> = [];
+let mockRouteResponse: () => Response = () => Response.json({});
+// A function declaration, so the hoisted jest.mock factories can refer to it before the consts above are initialized
+function mockRouteHandler(method: string) {
+  return async (request: Request) => {
+    mockRouteCalls.push({ method, request });
+    return mockRouteResponse();
+  };
+}
+jest.mock('../../app/api/serp/keyword/route', () => ({ GET: mockRouteHandler('GET') }));
+jest.mock('../../app/api/serp/keywords/route', () => ({ GET: mockRouteHandler('GET'), POST: mockRouteHandler('POST'), PUT: mockRouteHandler('PUT'), DELETE: mockRouteHandler('DELETE') }));
+jest.mock('../../app/api/serp/domains/route', () => ({ GET: mockRouteHandler('GET') }));
+jest.mock('../../app/api/serp/refresh/route', () => ({ POST: mockRouteHandler('POST') }));
+jest.mock('../../app/api/google/searchconsole/route', () => ({ GET: mockRouteHandler('GET') }));
+jest.mock('../../app/api/google/insight/route', () => ({ GET: mockRouteHandler('GET') }));
+jest.mock('../../app/api/google/ideas/route', () => ({ GET: mockRouteHandler('GET'), POST: mockRouteHandler('POST'), PUT: mockRouteHandler('PUT') }));
 jest.mock('../../utils/mcpOAuth', () => ({
   ...jest.requireActual('../../utils/mcpOAuth'),
   findCredential: (...args: unknown[]) => mockFindCredential(...args),
@@ -53,6 +71,8 @@ describe('MCP route', () => {
     beforeEach(() => {
       jest.clearAllMocks();
       mockToolHandlers.clear();
+      mockRouteCalls.length = 0;
+      mockRouteResponse = () => Response.json({});
       process.env.APIKEY = 'test-key';
       process.env.MCP_APIKEY = 'test-key';
       process.env.MCP_OAUTH = 'true';
@@ -99,12 +119,27 @@ describe('MCP route', () => {
       expect(res.setHeader).toHaveBeenCalledWith('www-authenticate', 'Bearer resource_metadata="https://serpbear.example/.well-known/oauth-protected-resource"');
     });
 
-    it('returns 500 for an authorized POST when APIKEY is unset', async () => {
+    it('does not need APIKEY: an authorized POST still reaches the transport', async () => {
       delete process.env.APIKEY;
+      mockTransportHandleRequest.mockResolvedValue(new Response('{}', { status: 200 }));
 
       const res = await call('POST');
 
-      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(mockServerConnect).toHaveBeenCalledTimes(1);
+    });
+
+    it('refuses an OAuth credential that has no scope or an unknown one, instead of granting full access', async () => {
+      for (const scope of [undefined, null, '', 'mcp:admin']) {
+        mockToolHandlers.clear();
+        mockFindCredential.mockResolvedValue({ scope, revokedAt: null, expiresAt: Date.now() + 60_000 });
+
+        const res = await call('POST', { authorization: 'Bearer oauth-no-scope-token' });
+
+        expect(res.status).toHaveBeenCalledWith(403);
+        expect(mockToolHandlers.size).toBe(0);
+      }
+      expect(mockServerConnect).not.toHaveBeenCalled();
     });
 
     it('matches the example challenge on unauthenticated OPTIONS and omits MCP CORS headers', async () => {
@@ -125,13 +160,10 @@ describe('MCP route', () => {
       expect(response.headers.get('access-control-allow-origin')).toBeNull();
     });
 
-    it('registers the public tools and routes a tool call to the matching local API with the bearer key', async () => {
+    it('registers the read tools and runs the matching route handlers in process with the read scope', async () => {
       const previousFetch = global.fetch;
-      global.fetch = jest.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        text: async () => JSON.stringify({ keywords: [{ ID: 7 }] }),
-      }) as unknown as typeof fetch;
+      global.fetch = jest.fn() as unknown as typeof fetch;
+      mockRouteResponse = () => Response.json({ keywords: [{ ID: 7 }] });
       mockTransportHandleRequest.mockResolvedValue(new Response(JSON.stringify({ jsonrpc: '2.0', result: {} }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
 
       try {
@@ -156,25 +188,23 @@ describe('MCP route', () => {
         };
         await mockToolHandlers.get('generate_keyword_ideas')!(ideaRequest);
 
-        const calls = (global.fetch as jest.Mock).mock.calls;
-        const urls = calls.map(([url]) => String(url));
+        const urls = mockRouteCalls.map(({ request }) => { const u = new URL(request.url); return `${request.method} ${u.pathname}${u.search}`; });
         expect(urls).toEqual([
-          'http://127.0.0.1:3200/api/serp/keywords?domain=example.com',
-          'http://127.0.0.1:3200/api/serp/keyword?id=7',
-          'http://127.0.0.1:3200/api/serp/domains?withstats=true',
-          'http://127.0.0.1:3200/api/google/searchconsole?domain=example.com',
-          'http://127.0.0.1:3200/api/google/insight?domain=example.com',
-          'http://127.0.0.1:3200/api/google/ideas?domain=example.com',
-          'http://127.0.0.1:3200/api/google/ideas',
-          'http://127.0.0.1:3200/api/google/ideas',
+          'GET /api/serp/keywords?domain=example.com',
+          'GET /api/serp/keyword?id=7',
+          'GET /api/serp/domains?withstats=true',
+          'GET /api/google/searchconsole?domain=example.com',
+          'GET /api/google/insight?domain=example.com',
+          'GET /api/google/ideas?domain=example.com',
+          'GET /api/google/ideas',
+          'POST /api/google/ideas',
         ]);
-        const options = calls[0][1];
-        expect(options).toEqual({ method: 'GET', headers: { Authorization: 'Bearer test-key', Accept: 'application/json' }, body: undefined });
-        expect(calls[7][1]).toEqual({
-          method: 'POST',
-          headers: { Authorization: 'Bearer test-key', Accept: 'application/json', 'Content-Type': 'application/json' },
-          body: JSON.stringify(ideaRequest),
-        });
+        // No network call and no key: each Request is registered with the caller's scope instead
+        expect(global.fetch).not.toHaveBeenCalled();
+        expect(mockRouteCalls.every(({ request }) => request.headers.get('authorization') === null)).toBe(true);
+        expect(mockRouteCalls.every(({ request }) => getInternalRequestScope(request) === 'mcp:read')).toBe(true);
+        expect(await mockRouteCalls[7].request.json()).toEqual(ideaRequest);
+        expect(mockRouteCalls[7].request.headers.get('content-type')).toBe('application/json');
         expect(reply).toEqual({ isError: false, content: [{ type: 'text', text: '{\n  "keywords": [\n    {\n      "ID": 7\n    }\n  ]\n}' }] });
         expect(mockServerConnect).toHaveBeenCalledTimes(1);
         await Promise.resolve();
@@ -185,22 +215,17 @@ describe('MCP route', () => {
       }
     });
 
-    it('marks failed local API calls as tool errors and preserves non-JSON response text', async () => {
-      const previousFetch = global.fetch;
-      global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 502, text: async () => 'upstream unavailable' }) as unknown as typeof fetch;
+    it('marks failed route calls as tool errors and preserves non-JSON response text', async () => {
+      mockRouteResponse = () => new Response('upstream unavailable', { status: 502 });
       mockTransportHandleRequest.mockResolvedValue(new Response('', { status: 200 }));
 
-      try {
-        await call('POST');
-        const reply = await mockToolHandlers.get('list_domains')!({ withstats: false });
+      await call('POST');
+      const reply = await mockToolHandlers.get('list_domains')!({ withstats: false });
 
-        const [url, options] = (global.fetch as jest.Mock).mock.calls[0];
-        expect(String(url)).toBe('http://127.0.0.1:3200/api/serp/domains');
-        expect(options.method).toBe('GET');
-        expect(reply).toEqual({ isError: true, content: [{ type: 'text', text: '"upstream unavailable"' }] });
-      } finally {
-        global.fetch = previousFetch;
-      }
+      expect(mockRouteCalls).toHaveLength(1);
+      expect(mockRouteCalls[0].method).toBe('GET');
+      expect(new URL(mockRouteCalls[0].request.url).pathname).toBe('/api/serp/domains');
+      expect(reply).toEqual({ isError: true, content: [{ type: 'text', text: '"upstream unavailable"' }] });
     });
 
     it('keeps OAuth read scope limited to read tools', async () => {
@@ -218,39 +243,32 @@ describe('MCP route', () => {
       expect(mockToolHandlers.has('refresh_keywords')).toBe(false);
     });
 
-    it('exposes mutation and refresh tools only to OAuth full scope and routes them to their API methods', async () => {
+    it('exposes mutation and refresh tools only to OAuth full scope and runs them with the full scope', async () => {
       mockFindCredential.mockResolvedValue({ scope: 'mcp:full', revokedAt: null, expiresAt: Date.now() + 60_000 });
       mockTransportHandleRequest.mockResolvedValue(new Response('{}', { status: 200 }));
-      const previousFetch = global.fetch;
-      global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, text: async () => '{}' }) as unknown as typeof fetch;
 
-      try {
-        await call('POST', { authorization: 'Bearer oauth-full-token' });
+      await call('POST', { authorization: 'Bearer oauth-full-token' });
 
-        expect(mockToolHandlers.size).toBe(12);
-        await mockToolHandlers.get('favorite_keyword_idea')!({ keywordID: 'idea-1', domain: 'example.com' });
-        await mockToolHandlers.get('add_keywords')!({ keywords: [{ keyword: 'new term', domain: 'example.com' }] });
-        await mockToolHandlers.get('update_keywords')!({ ids: [11], sticky: true });
-        await mockToolHandlers.get('delete_keywords')!({ ids: [11] });
-        await mockToolHandlers.get('refresh_keywords')!({ ids: [11] });
+      expect(mockToolHandlers.size).toBe(12);
+      await mockToolHandlers.get('favorite_keyword_idea')!({ keywordID: 'idea-1', domain: 'example.com' });
+      await mockToolHandlers.get('add_keywords')!({ keywords: [{ keyword: 'new term', domain: 'example.com' }] });
+      await mockToolHandlers.get('update_keywords')!({ ids: [11], sticky: true });
+      await mockToolHandlers.get('delete_keywords')!({ ids: [11] });
+      await mockToolHandlers.get('refresh_keywords')!({ ids: [11] });
 
-        const calls = (global.fetch as jest.Mock).mock.calls;
-        expect(calls.map(([url, options]) => [new URL(String(url)).pathname, options.method])).toEqual([
-          ['/api/google/ideas', 'PUT'],
-          ['/api/serp/keywords', 'POST'],
-          ['/api/serp/keywords', 'PUT'],
-          ['/api/serp/keywords', 'DELETE'],
-          ['/api/serp/refresh', 'POST'],
-        ]);
-        expect(calls[0][1].body).toBe(JSON.stringify({ keywordID: 'idea-1', domain: 'example.com' }));
-        expect(calls[1][1].body).toBe(JSON.stringify({ keywords: [{ keyword: 'new term', domain: 'example.com' }] }));
-        expect(calls[2][1].body).toBe(JSON.stringify({ ids: [11], sticky: true }));
-        expect(calls[3][1].body).toBe(JSON.stringify({ ids: [11] }));
-        expect(calls[4][1].body).toBe(JSON.stringify({ ids: [11] }));
-        expect(calls.every(([, options]) => options.headers.Authorization === 'Bearer test-key')).toBe(true);
-      } finally {
-        global.fetch = previousFetch;
-      }
+      expect(mockRouteCalls.map(({ request }) => [new URL(request.url).pathname, request.method])).toEqual([
+        ['/api/google/ideas', 'PUT'],
+        ['/api/serp/keywords', 'POST'],
+        ['/api/serp/keywords', 'PUT'],
+        ['/api/serp/keywords', 'DELETE'],
+        ['/api/serp/refresh', 'POST'],
+      ]);
+      expect(await mockRouteCalls[0].request.json()).toEqual({ keywordID: 'idea-1', domain: 'example.com' });
+      expect(await mockRouteCalls[1].request.json()).toEqual({ keywords: [{ keyword: 'new term', domain: 'example.com' }] });
+      expect(await mockRouteCalls[2].request.json()).toEqual({ ids: [11], sticky: true });
+      expect(await mockRouteCalls[3].request.json()).toEqual({ ids: [11] });
+      expect(await mockRouteCalls[4].request.json()).toEqual({ ids: [11] });
+      expect(mockRouteCalls.every(({ request }) => getInternalRequestScope(request) === 'mcp:full')).toBe(true);
     });
   });
 });

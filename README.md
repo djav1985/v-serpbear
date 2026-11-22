@@ -144,7 +144,7 @@ Behaviour is controlled by environment variables inside docker compose as well a
 | `USER_NAME` | — | No | Takes precedence over `USER` when set. |
 | `PASSWORD` | — | Yes | Dashboard password. Replace the `change-me` placeholder. |
 | `SECRET` | — | Yes | Signs the session JWT stored in the `token` cookie and encrypts stored keys. Login returns 500 when it is unset. Changing it signs everyone out and makes stored encrypted keys unreadable, so they must be re-entered. Use a unique value per deployment (`openssl rand -hex 32`). |
-| `APIKEY` | — | Yes | Key for REST clients and cron worker calls; MCP uses it internally for REST calls. Use `openssl rand -hex 32`. |
+| `APIKEY` | — | Yes | Key for REST clients and cron worker calls. MCP does not use it. Use `openssl rand -hex 32`. |
 | `MCP_APIKEY` | — | For direct MCP access | Optional key for direct `Authorization: Bearer` access to `/api/mcp`. OAuth approval uses the configured SerpBear username and password, or an existing login cookie. Keep this key separate from `APIKEY`. |
 | `MCP_ENABLED` | `true` | No | Master switch for MCP. Set to `false` to disable the MCP endpoint and OAuth protocol handlers. Also accepts `0`, `no` or `off`. |
 | `MCP_OAUTH` | `false` | No | Set to `true` to enable OAuth registration, authorization, token and revocation handlers while MCP is enabled. Standard root and MCP-path-scoped discovery routes are served when `NEXT_PUBLIC_APP_URL` is configured. When false, direct MCP API-key access remains available. Also accepts `1`, `yes` or `on`. |
@@ -359,21 +359,17 @@ The example uses port 3000 (Node.js). Docker Compose serves the app on port 3030
 | GET | `/api/serp/keyword?id=` | One keyword with its position history |
 | GET | `/api/serp/keywords?domain=` | All tracked keywords of a domain |
 | GET | `/api/serp/domains` | All tracked domains (`withstats=true` adds keyword statistics) |
-| POST | `/api/serp/refresh` | JSON body `{ ids }` refreshes selected keywords; `{ scope: "domain", domain }` refreshes one domain; `{ scope: "enabled-domains" }` runs the scheduled refresh; `{ keyword, country, device }` runs a one-off keyword search (login session only, not an API key). Requests from a login session must come from this site |
-| GET | `/api/serp/refresh?status=retry&id=…` | Read which keywords are still updating (read-only) |
-| PUT | `/api/serp/keywords` | Update keywords: JSON body `ids` plus `sticky` (boolean), `tags` (ID-to-tag-list object), or `location` (string; include `country` if the location does not name one) |
-| DELETE | `/api/serp/keywords` | Delete keywords: JSON body `ids` array |
-| PUT | `/api/serp/domains` | Update a domain: JSON body `domain` plus any of `notification_emails`, `search_console`, `scrapeEnabled`, `scraper_settings`, `business_name`, `scrape_strategy`, or `scrape_pagination_limit` |
-| DELETE | `/api/serp/domains` | Delete a domain: JSON body `domain` |
-| PUT | `/api/app/settings` | Save app settings: JSON body `settings` object (login session required) |
-| PUT | `/api/google/ideas` | Toggle an idea favorite: JSON body `keywordID`, optional `domain` |
-| PUT | `/api/serp/clearfailed` | Clear the failed retry queue; no arguments |
-| POST | `/api/app/email` | JSON body `{ type: "digest", domain? }` sends the digest for one domain or all; `{ type: "ideas", domain, keywords }` emails selected keyword ideas |
+| POST | `/api/serp/refresh` | JSON body `{ ids }` refreshes selected keywords; `{ scope: "domain", domain }` refreshes one domain; `{ scope: "enabled-domains" }` runs the scheduled refresh; `{ keyword, country, device }` runs a one-off keyword search (login session only, not an API key) |
+| POST | `/api/app/email` | JSON body `{ type: "digest", domain? }` sends the digest for one domain or all (`{ type: "ideas", domain, keywords }` needs a login session) |
 | GET | `/api/google/searchconsole?domain=` | Search Console data of a domain |
 | POST | `/api/google/searchconsole` | Refresh Search Console data for all domains |
 | GET | `/api/google/insight?domain=` | Search Console insight: top pages, keywords, countries and stats |
 | GET | `/api/google/ideas` | Saved keyword ideas and favourites (`domain=` optional) |
 | POST | `/api/google/ideas` | Fetch new ideas from Google Ads: body `seedType` (`auto`, `custom`, `tracking` or `searchconsole`), `domain`, `keywords`, `country`, `language` |
+
+Every other route needs a login session; an API key is refused with `401`. That includes updating or deleting keywords and domains (`PUT`/`DELETE /api/serp/keywords` and `/api/serp/domains`), `PUT /api/app/settings`, `PUT /api/google/ideas`, `PUT /api/serp/clearfailed` and `GET /api/serp/refresh?status=retry`.
+
+A request that changes data (`POST`, `PUT`, `DELETE`) and carries no `Authorization: Bearer` header is refused with `403` when a browser reports that it came from another site. Scripts that send a Bearer key, `curl` and the cron worker are not affected.
 
 <br><br>
 

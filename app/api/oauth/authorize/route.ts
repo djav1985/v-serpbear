@@ -4,7 +4,7 @@ import { getClientIp } from '../../../../utils/api/clientIp';
 import { logger } from '../../../../utils/logger';
 import {
    constantTimeEqual, findCredential, getAuthorizationServerMetadata, getClientRedirectUris, getOAuthBaseUrl, hashSecret,
-   getScopeFromRequest, MCP_SCOPE_FULL, MCP_SCOPE_READ, OAUTH_CODE_PREFIX, OAUTH_CODE_TTL_MS, oauthCorsHeaders, oauthError, oauthHtmlError,
+   getScopeFromRequest, parseMcpScope, MCP_SCOPE_READ, OAUTH_CODE_PREFIX, OAUTH_CODE_TTL_MS, oauthCorsHeaders, oauthError, oauthHtmlError,
    isMcpOAuthEnabled, oauthDisabledResponse, oauthOptionsWhenEnabled, pruneExpiredOAuthCredentials, randomSecret, resolveOAuthClient, readOAuthForm, saveCredential, withOAuthStore,
 } from '../../../../utils/mcpOAuth';
 
@@ -174,7 +174,7 @@ const submitConsent = async (req: Request): Promise<Response> => {
    }
 
    const code = randomSecret(OAUTH_CODE_PREFIX);
-   const scope = form.get('read_only') === '1' ? MCP_SCOPE_READ : pending.scope ?? MCP_SCOPE_FULL;
+   const scope = form.get('read_only') === '1' ? MCP_SCOPE_READ : parseMcpScope(pending.scope) ?? MCP_SCOPE_READ;
    const codeExpiresAt = Date.now() + OAUTH_CODE_TTL_MS;
    const consumed = await withOAuthStore((store) => {
       const index = store.credentials.findIndex((item) => item.tokenHash === hashSecret(requestId) && item.kind === 'authorization_request' && item.expiresAt > Date.now());

@@ -13,8 +13,7 @@ import { refreshQueue } from '../../../../utils/refreshQueue';
 import { takeRateLimitToken } from '../../../../utils/rateLimit';
 import { getClientIp } from '../../../../utils/api/clientIp';
 import { isKeywordUpdating } from '../../../../utils/keywordUpdating';
-import { isSameOriginRequest } from '../../../../utils/api/sameOrigin';
-import { hasValidSessionCookie, isBearerAuthorization } from '../../../../utils/verifyUser';
+import { hasValidSessionCookie } from '../../../../utils/verifyUser';
 
 /**
  * Parses a comma separated list of keyword IDs. Returns null when any item is not a positive integer,
@@ -80,14 +79,6 @@ const readKeywordIds = async (req: Request): Promise<number[] | null> => {
    const ids: unknown = body.ids;
    return isPositiveSafeIntegerArray(ids) ? Array.from(new Set(ids)) : null;
 };
-
-/**
- * A request that is not authenticated by an API key is a browser session, so it must come from this site. A page on
- * another site cannot make a logged-in browser start a refresh or a search. API key requests are checked by the key.
- */
-const isCrossSiteBrowserRequest = (req: Request): boolean => (
-   !isBearerAuthorization(req.headers.get('authorization') ?? undefined) && !isSameOriginRequest(req)
-);
 
 /** Start the scheduled refresh for every domain with scraping enabled. */
 const startEnabledDomainRefresh = async (ctx: ApiContext): Promise<Response> => {
@@ -201,9 +192,7 @@ const processScheduledDomain = async (domain: string, settings: SettingsType, do
 };
 
 const refreshTheKeywords = async (req: Request, ctx: ApiContext) => {
-   if (isCrossSiteBrowserRequest(req)) {
-      return fail(403, 'FORBIDDEN', 'Refreshes must be started from this site.', ctx);
-   }
+   // Cross-site browser writes are refused for every route in createRoute
    const body = await readBody(req);
    const scope = body.scope;
    if (scope !== undefined) {

@@ -3,10 +3,14 @@ import { ensureDatabase } from '../database/init';
 import { ApiError, fail, getQuery, readTextUpTo, type ApiContext } from './api/http';
 import { redactSecrets, redactUrl } from './logRedaction';
 import { getClientIp } from './api/clientIp';
+import { isSameOriginRequest } from './api/sameOrigin';
+import { getInternalRequestScope } from './mcpInternalAuth';
 import { isLoginLocked } from './loginThrottle';
 import { getApiKeyAttemptKeys } from './apiKeyThrottle';
 import { isMcpOAuthEnabled, oauthDisabledResponse } from './mcpOAuth';
 import verifyUser, { hasValidApiKey, hasValidSessionCookie, isBearerAuthorization } from './verifyUser';
+
+const WRITE_METHODS = ['POST', 'PUT', 'DELETE'];
 
 // Debug logging shows the body of small requests only. Larger ones are never read for the log.
 const DEBUG_BODY_LOG_MAX_BYTES = 16 * 1024;
@@ -90,6 +94,16 @@ const run = async (handler: ApiHandler | undefined, def: RouteDefinition, req: R
    if (!def.oauthProtocol && !isMcpEndpoint && isBearerAuthorization(req.headers.get('authorization') ?? undefined) && isLoginLocked(getApiKeyAttemptKeys(req)) && !hasValidSessionCookie(req) && !hasValidApiKey(req)) {
       logger.warn(`${label} - 429 (API key locked)`);
       return withRequestId(fail(429, 'TOO_MANY_ATTEMPTS', 'Too many failed API key attempts. Try again in 15 minutes.', ctx, undefined, { 'Retry-After': '900' }), requestId);
+   }
+
+   // A browser can send a cookie-authenticated write from another site (SameSite=Lax does not stop a sibling subdomain).
+   // Writes must come from this site. Exempt: Bearer requests (a page on another site cannot add that header without a
+   // CORS preflight, and these routes send no CORS headers), OAuth protocol routes (MCP clients call them from other
+   // origins), the MCP endpoint (Bearer only, never cookies) and requests the MCP route built in process.
+   if (WRITE_METHODS.includes(req.method) && !def.oauthProtocol && !isMcpEndpoint && !getInternalRequestScope(req)
+      && !isBearerAuthorization(req.headers.get('authorization') ?? undefined) && !isSameOriginRequest(req)) {
+      logger.warn(`${label} - 403 (cross-site write)`);
+      return withRequestId(fail(403, 'FORBIDDEN', 'Requests that change data must be made from this site.', ctx), requestId);
    }
 
    let response: Response;

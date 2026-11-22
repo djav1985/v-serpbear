@@ -1,7 +1,7 @@
 import { createRoute } from '../../../../utils/apiLogging';
 import { logger } from '../../../../utils/logger';
 import {
-   isMcpOAuthEnabled, McpOAuthScope, MCP_SCOPE_FULL, OAuthCredential, OAUTH_ACCESS_TOKEN_PREFIX, OAUTH_REFRESH_TOKEN_PREFIX,
+   isMcpOAuthEnabled, McpOAuthScope, parseMcpScope, OAuthCredential, OAUTH_ACCESS_TOKEN_PREFIX, OAUTH_REFRESH_TOKEN_PREFIX,
    OAUTH_ACCESS_TTL_SECONDS, OAUTH_REFRESH_TTL_MS, hashSecret, oauthDisabledResponse, oauthError, oauthSuccess,
    oauthCorsHeaders, oauthOptionsWhenEnabled, randomIdentifier, randomSecret, readOAuthFormOrJson, verifyPkce, withOAuthStore,
 } from '../../../../utils/mcpOAuth';
@@ -41,7 +41,9 @@ const handleToken = async (req: Request): Promise<Response> => {
          if (!authorizationCode.codeChallenge || !verifyPkce(verifier, authorizationCode.codeChallenge)) {
             return { kind: 'invalid', description: 'code_verifier does not match code_challenge' };
          }
-         const scope = authorizationCode.scope ?? MCP_SCOPE_FULL;
+         // A grant that records no (or an unknown) scope gets no tokens: a missing scope never means full access
+         const scope = parseMcpScope(authorizationCode.scope);
+         if (!scope) { return { kind: 'invalid', description: 'authorization request has no valid scope' }; }
          const grantId = randomIdentifier();
          const common = { clientId: authorizationCode.clientId, grantId, scope, createdAt: now };
          const records: OAuthCredential[] = [
@@ -79,8 +81,10 @@ const handleToken = async (req: Request): Promise<Response> => {
             });
             return { kind: 'replay' };
          }
+         // A refresh token with no (or an unknown) scope cannot be exchanged: a missing scope never means full access
+         const scope = parseMcpScope(stored.scope);
+         if (!scope) { return { kind: 'invalid' }; }
          stored.revokedAt = now;
-         const scope = stored.scope ?? MCP_SCOPE_FULL;
          // Keep every rotated refresh-token record until expiry so replaying any
          // previous token can still identify and revoke the active grant.
          store.credentials = store.credentials.filter((credential) => credential.grantId !== stored.grantId || credential.kind !== 'access_token');

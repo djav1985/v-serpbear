@@ -579,12 +579,44 @@ describe('PUT /api/app/settings keeps secrets that are left out of the payload',
     expect(cryptr.decrypt(saved.scraping_api)).toBe('new-key');
     expect(saved.smtp_password).toBe('');
   });
+
+  it('keeps the stored value of a secret that is sent back as the marker', async () => {
+    const req = { method: 'PUT', body: { settings: { scraper_type: 'serper', scraping_api: 'true', smtp_password: 'true', adwords_client_id: 'true' } }, headers: {} } as unknown as NextApiRequest;
+    const res = createMockResponse();
+
+    await handler(req, res as unknown as NextApiResponse);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    const saved = JSON.parse(writeMock.mock.calls[0][1]);
+    expect(saved.scraping_api).toBe(storedApiKey);
+    expect(saved.smtp_password).toBe(storedSmtpPassword);
+    // Nothing was stored for it, so the marker is not stored either
+    expect(saved.adwords_client_id).toBe('');
+  });
+
+  it('never echoes a secret back: stored and new ones are the marker, cleared and unset ones are empty', async () => {
+    const req = { method: 'PUT', body: { settings: { scraper_type: 'serper', scraping_api: 'brand-new-key', smtp_password: '', adwords_client_secret: 'another-secret' } }, headers: {} } as unknown as NextApiRequest;
+    const res = createMockResponse();
+
+    await handler(req, res as unknown as NextApiResponse);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    const body = (res.json as jest.Mock).mock.calls[0][0];
+    expect(body.settings.scraping_api).toBe('true');
+    expect(body.settings.adwords_client_secret).toBe('true');
+    expect(body.settings.smtp_password).toBe('');
+    expect(body.settings.adwords_refresh_token).toBe('true');
+    expect(body.settings.search_console_private_key).toBe('');
+    expect(body.settings.scraper_type).toBe('serper');
+    expect(JSON.stringify(body)).not.toContain('brand-new-key');
+    expect(JSON.stringify(body)).not.toContain('another-secret');
+  });
 });
 
-describe('GET /api/app/settings session checks', () => {
+describe('GET /api/app/settings public and private views', () => {
   const originalSecret = process.env.SECRET;
   let handler: any;
-  let verifySessionMock: jest.Mock;
+  let verifyUserMock: jest.Mock;
   let readFileMock: jest.Mock;
 
   beforeAll(() => {
@@ -612,33 +644,34 @@ describe('GET /api/app/settings session checks', () => {
     }));
     jest.isolateModules(() => {
       handler = require('../__helpers__/routeAdapter').asModule(require('../../app/api/app/settings/route')).default;
-      verifySessionMock = require('../../utils/verifyUser').verifySessionToken;
+      verifyUserMock = require('../../utils/verifyUser').default;
       readFileMock = require('fs/promises').readFile;
     });
   });
 
-  const run = async () => {
-    const req = { method: 'GET', headers: {}, query: {}, cookies: { token: 'copied-token' } } as unknown as NextApiRequest;
+  const run = async (query: Record<string, string> = {}) => {
+    const req = { method: 'GET', headers: {}, query, cookies: { token: 'copied-token' } } as unknown as NextApiRequest;
     const res = { status: jest.fn().mockReturnThis(), json: jest.fn(), setHeader: jest.fn() } as unknown as NextApiResponse;
     await handler(req, res);
-    return (res.json as jest.Mock).mock.calls[0][0].settings;
+    return { res, settings: (res.json as jest.Mock).mock.calls[0][0].settings };
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.SECRET = 'secret';
-    readFileMock.mockResolvedValue(JSON.stringify({ smtp_password: 'hunter2', scraping_api: 'key' }));
+    readFileMock.mockResolvedValue(JSON.stringify({ smtp_password: 'hunter2', scraping_api: 'key', smtp_server: 'smtp.example.com' }));
   });
 
   afterEach(() => {
     if (originalSecret === undefined) { delete process.env.SECRET; } else { process.env.SECRET = originalSecret; }
   });
 
-  it('returns only public settings when the token was revoked by logout', async () => {
-    verifySessionMock.mockImplementation(() => { throw new Error('Session has been revoked'); });
+  it('returns only the public subset without includePrivate, even with a valid session', async () => {
+    verifyUserMock.mockReturnValue('authorized');
 
-    const settings = await run();
+    const { res, settings } = await run();
 
+    expect(res.status).toHaveBeenCalledWith(200);
     expect(settings).toEqual({
       scraper_type: expect.any(String),
       available_scapers: expect.any(Array),
@@ -650,14 +683,28 @@ describe('GET /api/app/settings session checks', () => {
     expect(settings.smtp_password).toBeUndefined();
   });
 
-  it('returns full settings for a valid, current session', async () => {
-    verifySessionMock.mockReturnValue({ user: 'admin' });
+  it('answers 401 for includePrivate=true without a session', async () => {
+    verifyUserMock.mockReturnValue('Not authorized');
+    const req = { method: 'GET', headers: {}, query: { includePrivate: 'true' } } as unknown as NextApiRequest;
+    const res = { status: jest.fn().mockReturnThis(), json: jest.fn(), setHeader: jest.fn() } as unknown as NextApiResponse;
 
-    const settings = await run();
+    await handler(req, res);
 
-    expect(verifySessionMock).toHaveBeenCalledWith('copied-token');
-    expect(settings.smtp_password).toBe('decrypted:hunter2');
-    expect(settings.scraping_api).toBe('decrypted:key');
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(JSON.stringify((res.json as jest.Mock).mock.calls[0][0])).not.toContain('hunter2');
+  });
+
+  it('returns the private view with every secret masked: the marker when stored, an empty string when unset', async () => {
+    verifyUserMock.mockReturnValue('authorized');
+
+    const { settings } = await run({ includePrivate: 'true' });
+
+    expect(settings.smtp_server).toBe('smtp.example.com');
+    expect(settings.smtp_password).toBe('true');
+    expect(settings.scraping_api).toBe('true');
+    expect(settings.adwords_client_secret).toBe('');
+    expect(settings.search_console_private_key).toBe('');
+    expect(JSON.stringify(settings)).not.toContain('decrypted:');
     expect(settings.branding).toEqual(expect.objectContaining({ logoApiPath: '/api/images/logo.png' }));
   });
 });

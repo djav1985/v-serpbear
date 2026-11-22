@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from 'components/ui/tabs';
 import { IntegrationsTab } from './integrations-tab';
 import { NotificationTab } from './notification-tab';
 import { ScraperTab } from './scraper-tab';
+import { SECRET_MARKER, SECRET_SETTINGS_FIELDS } from 'utils/settingsSecrets';
 import { useAppSettings, useSaveSettings } from './settings-queries';
 
 export type SettingsError = { type: string; msg: string };
@@ -102,6 +103,8 @@ export function SettingsForm({ platformName }: { platformName: string }) {
       // The refresh token is written by the Google callback on the server. Sending this copy back could overwrite a newer
       // token (for example right after re-authorising) with a stale one, so it is left out and the server keeps the stored one.
       const { adwords_refresh_token: _storedToken, ...toSave } = clean;
+      // The server only sends a marker for a stored secret. Send a secret only when it was changed, so the stored value is kept.
+      SECRET_SETTINGS_FIELDS.forEach((field) => { if ((toSave as Record<string, unknown>)[field] === SECRET_MARKER) { delete (toSave as Record<string, unknown>)[field]; } });
       try {
          await saveSettings(toSave as SettingsType);
       } catch (_saveError) {

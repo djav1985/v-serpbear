@@ -8,8 +8,17 @@ All notable changes to this project will be documented in this file. Releases no
 
 - Revise the API communication plan against the current code: split it into security fixes and a contract migration, record the settled decisions, and target release 6.5.0.
 
+### Security
+
+- MCP tools now run the app's route handlers in process with the caller's scope instead of calling them over loopback with `APIKEY`. Full-scope write tools work without widening the `APIKEY` allowlist, and `APIKEY` is no longer required for MCP.
+- An OAuth credential with no or an unknown scope now gets no MCP access (including after a refresh-token exchange) instead of full access.
+- `GET`/`PUT /api/app/settings` never return a decrypted secret: a stored secret is the marker `"true"`, an unset one is `""`. A secret that is omitted or sent as the marker keeps its stored value. The settings form sends only changed secrets, and the Google Ads test accepts the marker.
+- `GET /api/app/settings` returns the public subset to everyone unless `includePrivate=true` is passed, which requires a login session.
+- Writes (`POST`, `PUT`, `DELETE`) without a Bearer key that a browser reports as cross-site are refused with `403` in one place, `createRoute`, including `POST /api/auth/login`. OAuth protocol routes and `/api/mcp` are exempt; the separate check in `POST /api/serp/refresh` was removed.
+
 ### Fixed
 
+- Correct `docs/API-and-MCP.md` and `README.md` to match the `APIKEY` route allowlist: update/delete keywords and domains, ideas favorites, clear failed and the retry status are login-session only.
 - Prevent long page URLs in the final Search Console email table from expanding the table beyond the email width, including on mobile.
 
 ## [6.1.0]

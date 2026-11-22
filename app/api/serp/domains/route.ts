@@ -27,9 +27,10 @@ import { atomicWriteFile } from '../../../../utils/atomicWrite';
 import { withFileLock } from '../../../../utils/fileLock';
 import { removeDomainIdeasFile } from '../../../../utils/domainIdeasFile';
 import { getUnknownErrorCode } from '../../../../utils/errorSerialization';
+import { SECRET_MARKER } from '../../../../utils/settingsSecrets';
 
 // Sent in place of a saved Search Console credential: GET responses mask it, and a save that sends it back keeps the stored value
-const SC_CREDENTIAL_MARKER = 'true';
+const SC_CREDENTIAL_MARKER = SECRET_MARKER;
 const DOMAIN_CLEANUP_RETRY_FILE = `${process.cwd()}/data/domain_cleanup_retry.json`;
 type PendingCleanupMap = Map<string, Set<number>>;
 

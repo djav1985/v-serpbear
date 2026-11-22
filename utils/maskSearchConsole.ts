@@ -1,4 +1,5 @@
 import { safeJsonParse } from './safeJsonParse';
+import { SECRET_MARKER } from './settingsSecrets';
 
 /**
  * Parses a domain's stored search_console JSON and masks it for API responses. The Search Console key stays on the
@@ -16,8 +17,8 @@ export const maskSearchConsole = (raw: unknown, label: string): Record<string, s
    }
    return {
       ...scData,
-      client_email: scData.client_email ? 'true' : '',
-      private_key: scData.private_key ? 'true' : '',
+      client_email: scData.client_email ? SECRET_MARKER : '',
+      private_key: scData.private_key ? SECRET_MARKER : '',
    };
 };
 

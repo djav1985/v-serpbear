@@ -1,5 +1,6 @@
 import allScrapers from '../scrapers/index';
 import { NOTIFICATION_INTERVALS } from './constants';
+import { SECRET_SETTINGS_FIELDS } from './settingsSecrets';
 
 /**
  * Fields that GET adds on top of the stored settings (the app version and timezone, and values computed or read
@@ -12,18 +13,7 @@ export const DERIVED_SETTINGS_FIELDS = ['version', 'timezone', 'branding', 'avai
  * and deleted from an existing file by migration 1781000000000-drop-removed-settings-keys. A PUT that still sends one is ignored, not rejected.
  */
 
-/** Fields stored encrypted. A key present in a save is encrypted (an empty value clears it); an absent key keeps the stored value. */
-export const SECRET_SETTINGS_FIELDS = [
-   'scraping_api',
-   'smtp_password',
-   'search_console_client_email',
-   'search_console_private_key',
-   'adwords_client_id',
-   'adwords_client_secret',
-   'adwords_refresh_token',
-   'adwords_developer_token',
-   'adwords_account_id',
-] as const;
+export { SECRET_SETTINGS_FIELDS };
 
 /** Every key a save may store (SettingsType minus the derived fields). Anything else in a payload is ignored. */
 export const PERSISTED_SETTINGS_FIELDS = [

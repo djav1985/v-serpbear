@@ -9,6 +9,7 @@ import { readSettingsFile, withSettingsLock, withoutRemovedSettingsKeys } from '
 import normalizeOrigin from '../../../utils/normalizeOrigin';
 import { serializeForScript } from '../../../utils/api/scriptJson';
 import { getUnknownProperty } from '../../../utils/errorSerialization';
+import { SECRET_MARKER } from '../../../utils/settingsSecrets';
 
 
 type IntegrationResultOptions = {
@@ -224,15 +225,18 @@ const validateAdwordsIntegration = async (req: Request, ctx: ApiContext) => {
    }
    try {
       const cryptr = new Cryptr(process.env.SECRET as string);
-      const trimmedDeveloperToken = developer_token.trim();
-      const trimmedAccountId = account_id.trim();
-      const encryptedDeveloperToken = cryptr.encrypt(trimmedDeveloperToken);
-      const encryptedAccountId = cryptr.encrypt(trimmedAccountId);
-
       const adwordsCreds = await getAdwordsCredentials();
       if (!adwordsCreds || !adwordsCreds.client_id || !adwordsCreds.client_secret || !adwordsCreds.refresh_token) {
          throw new Error('Missing Google Ads OAuth credentials.');
       }
+      // The settings form only holds the marker for a stored secret, so the marker means "use the stored value"
+      const trimmedDeveloperToken = developer_token.trim() === SECRET_MARKER ? (adwordsCreds.developer_token ?? '') : developer_token.trim();
+      const trimmedAccountId = account_id.trim() === SECRET_MARKER ? (adwordsCreds.account_id ?? '') : account_id.trim();
+      if (!trimmedDeveloperToken || !trimmedAccountId) {
+         return fail(400, 'BAD_REQUEST', 'Please Provide the Google Ads Developer Token and Test Account ID', ctx);
+      }
+      const encryptedDeveloperToken = cryptr.encrypt(trimmedDeveloperToken);
+      const encryptedAccountId = cryptr.encrypt(trimmedAccountId);
 
       const testCredentials: AdwordsCredentials = {
          ...adwordsCreds,
