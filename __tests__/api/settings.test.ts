@@ -1,3 +1,4 @@
+import packageJson from '../../package.json';
 import { writeFile, readFile, rename, unlink } from 'fs/promises';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { asHandler } from '../__helpers__/routeAdapter';
@@ -107,7 +108,7 @@ describe('PUT /api/app/settings validation and errors', () => {
     // GET no longer calls verifyUser (uses silent auth check to avoid logging anonymous access failures)
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({ error: expect.objectContaining({ code: 'BAD_REQUEST', message: 'Settings payload is required.' }) }),
+      expect.objectContaining({ error: expect.objectContaining({ code: 'BAD_REQUEST', message: expect.stringContaining('Invalid request: settings') }) }),
     );
     expect(writeFileMock).not.toHaveBeenCalled();
   });
@@ -267,7 +268,7 @@ describe('GET /api/app/settings and configuration requirements', () => {
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       settings: expect.objectContaining({
-        version: '6.0.0',
+        version: packageJson.version,
       }),
     });
   });

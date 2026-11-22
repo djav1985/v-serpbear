@@ -2,11 +2,11 @@ import Domain from '../../../../database/models/domain';
 import { logger } from '../../../../utils/logger';
 import { fetchDomainSCData, getSearchConsoleApiInfo, readLocalSCData } from '../../../../utils/searchConsole';
 import { SAFE_DOMAIN_NAME } from '../../../../utils/domainSlug';
-import { createRoute, fail, json, getParam, type ApiContext } from '../../../../utils/apiLogging';
+import { createRoute, fail, json, type ApiContext } from '../../../../utils/apiLogging';
+import { parseBody, parseQuery } from '../../../../utils/api/validate';
 
 const getDomainSearchConsoleData = async (req: Request, ctx: ApiContext) => {
-   const domainParam = getParam(req, 'domain');
-   if (!domainParam) return fail(400, 'BAD_REQUEST', 'Domain is Missing.', ctx);
+   const domainParam = parseQuery(req, 'searchConsole.get').domain;
    const requestedDomain = domainParam.trim().toLowerCase();
    if (!SAFE_DOMAIN_NAME.test(requestedDomain)) {
       return fail(400, 'BAD_REQUEST', 'Domain is Missing.', ctx);
@@ -24,19 +24,19 @@ const getDomainSearchConsoleData = async (req: Request, ctx: ApiContext) => {
       && Array.isArray(localSCData.threeDays) && Array.isArray(localSCData.sevenDays) && Array.isArray(localSCData.thirtyDays)
       && (new Date().getTime() - new Date(localSCData.lastFetched).getTime() <= 86400000);
    if (isFresh) {
-      return json({ data: localSCData });
+      return json({ searchConsole: localSCData, integrationStatus: 'integrated' });
    }
    try {
       const scDomainAPI = domainObj?.search_console ? await getSearchConsoleApiInfo(domainObj) : { client_email: '', private_key: '' };
       const scGlobalAPI = await getSearchConsoleApiInfo({} as DomainType);
       if (!(scDomainAPI.client_email && scDomainAPI.private_key)
           && !(scGlobalAPI.client_email && scGlobalAPI.private_key)) {
-         // Stays 200: "not integrated" is a normal state the pages render from the error field, not a failure
-         return json({ data: null, error: 'Google Search Console is not Integrated.' });
+         // "Not integrated" is a normal state, not a failure: a typed result with no error
+         return json({ searchConsole: null, integrationStatus: 'not-integrated' });
       }
       const scData = await fetchDomainSCData(domainObj, scDomainAPI, scGlobalAPI);
       if (scData && scData.thirtyDays && scData.thirtyDays.length) {
-         return json({ data: scData });
+         return json({ searchConsole: scData, integrationStatus: 'integrated' });
       }
       // The request was valid; Google returned nothing usable, so this is an upstream failure
       return fail(502, 'BAD_GATEWAY', 'Error Fetching Data from Google Search Console.', ctx);
@@ -46,7 +46,9 @@ const getDomainSearchConsoleData = async (req: Request, ctx: ApiContext) => {
    }
 };
 
-const cronRefreshSearchConsoleData = async (_req: Request, ctx: ApiContext) => {
+const cronRefreshSearchConsoleData = async (req: Request, ctx: ApiContext) => {
+   // Like every write, this takes a JSON object body ({} when there is nothing to send)
+   await parseBody(req, 'searchConsole.refresh');
    try {
       const allDomainsRaw = await Domain.findAll();
       const Domains: DomainType[] = allDomainsRaw.map((el) => el.get({ plain: true }));
@@ -81,7 +83,7 @@ const cronRefreshSearchConsoleData = async (_req: Request, ctx: ApiContext) => {
       if (failedCount > 0 && updatedCount === 0) {
          return fail(502, 'BAD_GATEWAY', 'Failed to update Search Console data for every domain.', ctx);
       }
-      return json({ status: 'completed' });
+      return json({ updatedCount, failedCount });
    } catch (error) {
       logger.error('Error in CRON updating Search Console data', error instanceof Error ? error : new Error(String(error)));
       return fail(500, 'INTERNAL_SERVER_ERROR', 'Error updating Search Console data.', ctx);

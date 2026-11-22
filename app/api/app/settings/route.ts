@@ -1,7 +1,8 @@
 import Cryptr from 'cryptr';
 import { logger } from '../../../../utils/logger';
 import { maskSecretSettings, SECRET_MARKER } from '../../../../utils/settingsSecrets';
-import { createRoute, fail, json, readJson, requireAuth, type ApiContext } from '../../../../utils/apiLogging';
+import { createRoute, fail, json, requireAuth, type ApiContext } from '../../../../utils/apiLogging';
+import { parseBody, parseQuery } from '../../../../utils/api/validate';
 import { trimStringProperties } from '../../../../utils/security';
 import { getBranding } from '../../../../utils/branding';
 import { getAppSettings, normalizeLegacySettings, readStoredSettingsFile } from '../../../../utils/appSettings';
@@ -12,10 +13,11 @@ import { APP_TIMEZONE } from '../../../../utils/timezone';
 import { DERIVED_SETTINGS_FIELDS, PERSISTED_SETTINGS_FIELDS, SECRET_SETTINGS_FIELDS, validateSettingsPayload } from '../../../../utils/settingsPayload';
 
 const getSettings = async (req: Request, ctx: ApiContext) => {
+   // includePrivate is true or false; anything else is refused by the contract
+   const includePrivate = parseQuery(req, 'settings.get').includePrivate === true;
    try {
       // The settings editor must never mistake the public, branding-only response for
       // the complete settings object. Opt-in full reads are explicitly authenticated.
-      const includePrivate = new URL(req.url).searchParams.get('includePrivate') === 'true';
       if (includePrivate) {
          const denied = requireAuth(req, ctx);
          if (denied) { return denied; }
@@ -54,11 +56,8 @@ const getSettings = async (req: Request, ctx: ApiContext) => {
 const updateSettings = async (req: Request, ctx: ApiContext) => {
    const denied = requireAuth(req, ctx);
    if (denied) { return denied; }
-   const { settings } = ((await readJson(req)) || {}) as { settings?: Record<string, unknown> };
-   if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
-      return fail(400, 'BAD_REQUEST', 'Settings payload is required.', ctx);
-   }
-   
+   const { settings } = await parseBody(req, 'settings.save');
+
    if (!process.env.SECRET) {
       return fail(500, 'INTERNAL_SERVER_ERROR', 'Server configuration error', ctx);
    }

@@ -63,7 +63,13 @@ const writeResponse = async (response: Response, res: any): Promise<void> => {
   const text = await response.text();
   const type = response.headers.get('content-type') ?? '';
   if (type.includes('application/json')) {
-    res.json(text ? JSON.parse(text) : null);
+    const body = text ? JSON.parse(text) : null;
+    // Route tests assert what a route returns. The envelope { data, error, requestId } is checked once, for every route,
+    // in api/contract-envelope.test.ts, so here a success shows its `data` and a failure shows { error, requestId }.
+    const isEnvelope = body && typeof body === 'object' && 'data' in body && 'error' in body;
+    if (isEnvelope && body.error === null) { res.json(body.data); }
+    else if (isEnvelope) { res.json({ error: body.error, ...(body.requestId ? { requestId: body.requestId } : {}) }); }
+    else { res.json(body); }
   } else {
     if (typeof res.send === 'function') { res.send(text); } else if (typeof res.end === 'function') { res.end(text); }
   }

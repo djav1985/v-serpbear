@@ -1,4 +1,5 @@
 import { createRoute, fail, json, type ApiContext } from '../../../../utils/apiLogging';
+import { parseBody } from '../../../../utils/api/validate';
 import { getCookie, serializeCookie } from '../../../../utils/api/cookies';
 import { logger } from '../../../../utils/logger';
 import { getClientIp } from '../../../../utils/api/clientIp';
@@ -6,6 +7,8 @@ import isRequestSecure from '../../../../utils/api/isRequestSecure';
 import { revokeAllSessions } from '../../../../utils/sessionStore';
 
 const logout = async (req: Request, ctx: ApiContext) => {
+   // The body is an empty object; callers may leave it out
+   await parseBody(req, 'auth.logout', { emptyBodyOk: true });
    const startTime = Date.now();
    try {
       const secureCookie = isRequestSecure(req);

@@ -2,18 +2,17 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { apiGet, apiPost, apiPut } from 'utils/client/apiClient';
+import type { EndpointData, EndpointInput } from 'utils/api/contracts';
 
-type IdeasResponse = {
-   data: { keywords: IdeaKeyword[]; favorites: IdeaKeyword[]; settings: DomainIdeasSettings };
-};
+type IdeasGenerateInput = EndpointInput<'ideas.generate'>['body'];
+import { callApi } from 'utils/client/apiClient';
 
 /** The ideas of one domain, or of the Research page when no domain is given. */
 export const ideasKey = (domain?: string | null) => ['keyword-ideas', domain || 'research'] as const;
 
 // No domain on the Research page; the backend treats a missing domain as research.
-export const fetchIdeas = (domain?: string | null) => (
-   apiGet<IdeasResponse>(domain ? `/api/google/ideas?domain=${encodeURIComponent(domain)}` : '/api/google/ideas')
+export const fetchIdeas = async (domain?: string | null) => (
+   (await callApi('ideas.get', { query: domain ? { domain } : {} })).ideas
 );
 
 export const ideasQueryOptions = (domain?: string | null) => ({
@@ -33,7 +32,7 @@ export function useIdeas(domain: string | null | undefined, enabled: boolean) {
 export function useLoadIdeas(domain?: string | null) {
    const queryClient = useQueryClient();
    return useMutation({
-      mutationFn: (payload: Record<string, unknown>) => apiPost('/api/google/ideas', { ...payload, ...(domain ? { domain } : {}) }),
+      mutationFn: (payload: IdeasGenerateInput) => callApi('ideas.generate', { body: { ...payload, ...(domain ? { domain } : {}) } }),
       onSuccess: () => { toast.success('Keyword ideas loaded successfully!'); queryClient.invalidateQueries({ queryKey: ideasKey(domain) }); },
       onError: (error) => { toast.error(error instanceof Error && error.message ? error.message : 'Error loading keyword ideas'); },
    });
@@ -42,7 +41,7 @@ export function useLoadIdeas(domain?: string | null) {
 export function useFavoriteIdea(domain?: string | null) {
    const queryClient = useQueryClient();
    return useMutation({
-      mutationFn: ({ keywordID }: { keywordID: string }) => apiPut('/api/google/ideas', { keywordID, domain: domain || undefined }),
+      mutationFn: ({ keywordID }: { keywordID: string }) => callApi('ideas.favorite', { body: { keywordID, domain: domain || undefined } }),
       onSuccess: () => { queryClient.invalidateQueries({ queryKey: ideasKey(domain) }); },
       onError: () => { toast.error('Error favoriting keywords'); },
    });
@@ -61,17 +60,15 @@ type EmailIdeaPayload = {
 
 export function useEmailIdeas(onDone: () => void) {
    return useMutation({
-      mutationFn: (payload: EmailIdeaPayload) => apiPost<{ success?: boolean; error?: string | null }>('/api/app/email', { ...payload, type: 'ideas' }),
+      mutationFn: (payload: EmailIdeaPayload) => callApi('email.ideas', { body: { ...payload, type: 'ideas' } }),
       onSuccess: () => { toast.success('Keyword ideas emailed successfully!'); onDone(); },
       onError: (error) => { toast.error(error instanceof Error && error.message ? error.message : 'Error emailing keyword ideas.'); },
    });
 }
 
-export type SearchResultsResponse = {
-   searchResult: { results: KeywordLastResult[]; keyword: string; position: number; country: string; device: string };
-};
+export type SearchResultsResponse = EndpointData<'refresh.search'>;
 
 /** A live Google search for one idea, run only when the user asks for it. */
 export const fetchSearchResults = (params: { keyword: string; country: string; device: string }) => (
-   apiPost<SearchResultsResponse>('/api/serp/refresh', params)
+   callApi('refresh.search', { body: params })
 );

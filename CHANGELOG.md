@@ -4,9 +4,22 @@ All notable changes to this project will be documented in this file. Releases no
 
 ## [Unreleased]
 
+## [6.5.0] (2026-11-22)
+
 ### Changed
 
 - Revise the API communication plan against the current code: split it into security fixes and a contract migration, record the settled decisions, and target release 6.5.0.
+
+### Breaking: REST API contract (external API-key clients must update)
+
+- Every app REST response is now `{ data, error, requestId }` (failure: `{ data: null, error: { code, message, details? }, requestId }`). The envelope is built in one place, `json()`/`fail()`. OAuth, MCP, the Google Ads callback and the image routes are unchanged.
+- Shared Zod contracts in `utils/api/contracts` describe every app endpoint, and the browser uses one typed client, `callApi`, built on them. It checks the request, decodes the envelope and validates `data`. The old `apiGet`/`apiPost`/`apiPut`/`apiDelete`/`apiFetch` helpers and the legacy string-error handling are removed.
+- No more 200 with an error string. `GET /api/google/ideas` returns `ideas`; `PUT /api/google/ideas` returns `favorites`; Search Console and insight return `searchConsole`/`insight` plus `integrationStatus` (`not-integrated` is a normal result, also for the MCP tools); `POST /api/google/searchconsole` takes a `{}` body and returns `updatedCount`/`failedCount`; refresh answers "nothing eligible" and "no domains enabled" with typed `reason` values.
+- `PUT /api/serp/keywords` requires exactly one of `sticky`, `tags` or `location`, and `tags` keys must match `ids`. `POST /api/app/email` reads `type` and `domain` from the JSON body only and drops the `success`/`error` fields.
+- MCP tools receive the `data` of a response, or `{ code, message, details }` as a tool error, never the envelope. `cron.js` sends `{}` to the Search Console route and logs the envelope's data and request id.
+- Every app route now checks its query and JSON body against the same contract schemas the browser client uses (`utils/api/validate`). A request that does not match answers `400 BAD_REQUEST` with a message that names the field and the schema issues in `error.details`, before any handler logic runs. Wrong types the old checks let through are refused: for example a string `scrape_pagination_limit`, a `volume` `keywords` list of strings, or a non-boolean `includePrivate`. Login still answers a missing username or password with `401 MISSING_CREDENTIALS`. Error text for malformed requests changed from the old hand-written messages to `Invalid request: <field>: <issue>`.
+- The Google Ads OAuth callback (`GET /api/adwords?code=...`) and the start of the integration are not part of this and behave as before; only `POST /api/adwords` (test) uses the contract.
+- Migration table and examples are in `docs/API-and-MCP.md`.
 
 ### Security
 
@@ -18,6 +31,7 @@ All notable changes to this project will be documented in this file. Releases no
 
 ### Fixed
 
+- `GET /api/google/ideas` returns `favorites: []` for an ideas file written by a first generation, so the browser client accepts freshly generated ideas.
 - Correct `docs/API-and-MCP.md` and `README.md` to match the `APIKEY` route allowlist: update/delete keywords and domains, ideas favorites, clear failed and the retry status are login-session only.
 - Prevent long page URLs in the final Search Console email table from expanding the table beyond the email width, including on mobile.
 

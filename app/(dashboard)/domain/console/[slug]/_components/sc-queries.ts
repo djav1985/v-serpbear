@@ -1,13 +1,13 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { apiGet } from 'utils/client/apiClient';
+import { callApi } from 'utils/client/apiClient';
 
 export const scKeywordsKey = (domain: string) => ['sc-keywords', domain] as const;
 
 export const scKeywordsQueryOptions = (domain: string) => ({
    queryKey: scKeywordsKey(domain),
-   queryFn: async () => (await apiGet<{ data: SCDomainDataType }>(`/api/google/searchconsole?domain=${encodeURIComponent(domain)}`)).data,
+   queryFn: async () => (await callApi('searchConsole.get', { query: { domain } })).searchConsole,
    retry: false as const,
 });
 

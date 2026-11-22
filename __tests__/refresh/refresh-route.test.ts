@@ -186,7 +186,7 @@ describe('refresh route', () => {
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-        error: expect.objectContaining({ message: 'No valid keyword IDs provided' }),
+        error: expect.objectContaining({ message: expect.stringContaining('Invalid request') }),
       }));
       expect(Keyword.findAll).not.toHaveBeenCalled();
     });
@@ -201,7 +201,7 @@ describe('refresh route', () => {
       await handler(malformedReq, malformedRes);
 
       expect(malformedRes.status).toHaveBeenCalledWith(400);
-      expect(malformedRes.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ message: 'No valid keyword IDs provided' }) }));
+      expect(malformedRes.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ message: expect.stringContaining('Invalid request') }) }));
       expect(Keyword.findAll).not.toHaveBeenCalled();
     });
 
@@ -764,9 +764,9 @@ describe('refresh route', () => {
       expect(keywordRecord1.update).toHaveBeenCalledTimes(1);
       expect(keywordRecord2.update).toHaveBeenCalledTimes(1);
 
-      // Should return empty keywords array
+      // Nothing eligible: the normal start result with no keywords, not an ambiguous empty list
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({ keywords: [] });
+      expect(res.json).toHaveBeenCalledWith({ message: 'Refresh started', keywordCount: 0, skipped: { domains: [], keywordIds: [] }, reason: 'no-eligible-keywords' });
 
       // refreshKeywordsByIds should not be called
       expect(refreshKeywordsByIds).not.toHaveBeenCalled();
@@ -856,7 +856,7 @@ describe('POST /api/serp/refresh enabled-domains scope', () => {
     expect(Keyword.findAll).not.toHaveBeenCalled();
     expect(refreshAndUpdateKeywords).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ started: false, error: 'No domains have scraping enabled.' });
+    expect(res.json).toHaveBeenCalledWith({ started: false, reason: 'no-enabled-domains' });
   });
 
   it('leaves keywords alone when a live refresh already owns them', async () => {

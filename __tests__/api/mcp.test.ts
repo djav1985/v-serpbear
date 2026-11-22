@@ -228,6 +228,55 @@ describe('MCP route', () => {
       expect(reply).toEqual({ isError: true, content: [{ type: 'text', text: '"upstream unavailable"' }] });
     });
 
+    it('gives tools the data of a success envelope, never the envelope', async () => {
+      mockRouteResponse = () => Response.json({ data: { keywords: [{ ID: 7 }] }, error: null, requestId: 'rid-1' });
+      mockTransportHandleRequest.mockResolvedValue(new Response('{}', { status: 200 }));
+
+      await call('POST');
+      const reply = await mockToolHandlers.get('list_keywords')!({ domain: 'example.com' }) as { isError: boolean, content: { text: string }[] };
+
+      expect(reply.isError).toBe(false);
+      expect(JSON.parse(reply.content[0].text)).toEqual({ keywords: [{ ID: 7 }] });
+    });
+
+    it('maps a failure envelope to a tool error with { code, message, details }', async () => {
+      mockRouteResponse = () => Response.json({ data: null, error: { code: 'NOT_FOUND', message: 'Domain not found', details: ['x'] }, requestId: 'rid-2' }, { status: 404 });
+      mockTransportHandleRequest.mockResolvedValue(new Response('{}', { status: 200 }));
+
+      await call('POST');
+      const reply = await mockToolHandlers.get('list_keywords')!({ domain: 'missing.com' }) as { isError: boolean, content: { text: string }[] };
+
+      expect(reply.isError).toBe(true);
+      expect(JSON.parse(reply.content[0].text)).toEqual({ code: 'NOT_FOUND', message: 'Domain not found', details: ['x'] });
+    });
+
+    it('returns "not integrated" as a normal tool result for Search Console and insight', async () => {
+      mockTransportHandleRequest.mockResolvedValue(new Response('{}', { status: 200 }));
+      await call('POST');
+
+      mockRouteResponse = () => Response.json({ data: { searchConsole: null, integrationStatus: 'not-integrated' }, error: null });
+      const searchConsole = await mockToolHandlers.get('get_searchconsole')!({ domain: 'example.com' }) as { isError: boolean, content: { text: string }[] };
+      mockRouteResponse = () => Response.json({ data: { insight: null, integrationStatus: 'not-integrated' }, error: null });
+      const insight = await mockToolHandlers.get('get_insight')!({ domain: 'example.com' }) as { isError: boolean, content: { text: string }[] };
+
+      expect(searchConsole.isError).toBe(false);
+      expect(JSON.parse(searchConsole.content[0].text)).toEqual({ searchConsole: null, integrationStatus: 'not-integrated' });
+      expect(insight.isError).toBe(false);
+      expect(JSON.parse(insight.content[0].text)).toEqual({ insight: null, integrationStatus: 'not-integrated' });
+    });
+
+    it('passes tool string ids through as query values, so get_keyword and favorite_keyword_idea keep their string inputs', async () => {
+      mockFindCredential.mockResolvedValue({ scope: 'mcp:full', revokedAt: null, expiresAt: Date.now() + 60_000 });
+      mockTransportHandleRequest.mockResolvedValue(new Response('{}', { status: 200 }));
+      await call('POST', { authorization: 'Bearer oauth-full-token' });
+
+      await mockToolHandlers.get('get_keyword')!({ id: '7' });
+      await mockToolHandlers.get('favorite_keyword_idea')!({ keywordID: 'idea-1' });
+
+      expect(new URL(mockRouteCalls[0].request.url).searchParams.get('id')).toBe('7');
+      expect(await mockRouteCalls[1].request.json()).toEqual({ keywordID: 'idea-1' });
+    });
+
     it('keeps OAuth read scope limited to read tools', async () => {
       mockFindCredential.mockResolvedValue({ scope: 'mcp:read', revokedAt: null, expiresAt: Date.now() + 60_000 });
       mockTransportHandleRequest.mockResolvedValue(new Response('{}', { status: 200 }));

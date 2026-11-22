@@ -1,18 +1,18 @@
 /**
- * Centralized API client for SerpBear frontend services.
+ * The one browser client for the app's REST API.
  *
- * Provides typed helpers for common request patterns that automatically:
- * - Construct URLs using the client origin
- * - Set standard headers (Content-Type, Accept)
- * - Execute fetch
- * - Parse JSON responses
- * - Decode the shared envelope format
- * - Convert errors to Error instances with human-readable messages
- * - Propagate X-Request-Id from response headers
+ * `callApi(endpoint, { query, body })` looks the method, path and schemas up in the shared contract
+ * (utils/api/contracts), so a call cannot pair a path with the wrong method, request or response type. It:
+ * - checks the request against the endpoint's schema before sending it
+ * - sends query parameters for reads and a JSON body for writes
+ * - decodes the response envelope { data, error, requestId }, rejecting anything that is not one
+ * - checks `data` against the endpoint's response schema and returns it
+ * - turns every failure into an ApiError with the server's message, code and request id
  */
 
+import { ZodError } from 'zod';
+import { endpoints, type EndpointData, type EndpointInput, type EndpointKey } from '../api/contracts';
 import { getClientOrigin } from './origin';
-import type { NextRouter } from 'next/router';
 
 export class ApiError extends Error {
    readonly statusCode: number;
@@ -36,105 +36,69 @@ export function conflictMessage(error: unknown, fallback: string): string {
    return error instanceof ApiError && error.statusCode === 409 && error.message.trim() ? error.message : fallback;
 }
 
-/**
- * Extracts an error message from a JSON error response body.
- * Handles both the structured failure envelope and legacy string-error shapes.
- */
-function extractMessage(data: unknown, status: number): string {
-   if (!data || typeof data !== 'object') {
-      return `Server error (${status}): Please try again later`;
-   }
-   const err = (data as Record<string, unknown>).error;
-   if (typeof err === 'string') { return err; }
-   if (err && typeof err === 'object') {
-      const msg = (err as Record<string, unknown>).message;
-      if (typeof msg === 'string') { return msg; }
-   }
-   return `Server error (${status}): Please try again later`;
-}
+const genericMessage = (status: number) => `Server error (${status}): Please try again later`;
 
-/**
- * Extracts an error code from a structured failure envelope.
- */
-function extractCode(data: unknown): string {
-   if (!data || typeof data !== 'object') { return 'UNKNOWN'; }
-   const err = (data as Record<string, unknown>).error;
-   if (err && typeof err === 'object') {
-      const code = (err as Record<string, unknown>).code;
-      if (typeof code === 'string') { return code; }
-   }
-   return 'UNKNOWN';
-}
+const isObject = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 
-/**
- * Core fetch wrapper that handles errors and returns parsed JSON.
- * Optionally redirects to /login on 401.
- */
-export async function apiFetch<T = unknown>(
-   path: string,
-   init: RequestInit = {},
-   router?: Pick<NextRouter, 'push'>,
-): Promise<T> {
-   const origin = getClientOrigin();
-   const headers = new Headers({
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      ...(init.headers as Record<string, string> | undefined),
+/** Query parameters as a string: arrays are comma-separated, booleans are "true"/"false", undefined is left out. */
+export function buildQueryString(query: Record<string, unknown> | undefined): string {
+   const params = new URLSearchParams();
+   Object.entries(query ?? {}).forEach(([key, value]) => {
+      if (value === undefined || value === null) { return; }
+      params.set(key, Array.isArray(value) ? value.join(',') : String(value));
    });
+   const text = params.toString();
+   return text ? `?${text}` : '';
+}
 
-   const res = await fetch(`${origin}${path}`, { ...init, headers });
-   const requestId = res.headers.get('X-Request-Id') ?? undefined;
+type CallArgs<K extends EndpointKey> = Record<string, never> extends EndpointInput<K> ? [input?: EndpointInput<K>] : [input: EndpointInput<K>];
 
-   if (res.status >= 400 && res.status < 600) {
-      if (res.status === 401 && router) { router.push('/login'); }
-      let data: unknown = null;
-      try {
-         const contentType = res.headers.get('content-type');
-         if (contentType && contentType.includes('application/json')) {
-            data = await res.json();
-         } else {
-            await res.text();
-         }
-      } catch (_) { /* ignore parse errors */ }
-      const message = extractMessage(data, res.status);
-      const code = extractCode(data);
-      throw new ApiError(message, res.status, code, requestId);
+/** Calls an endpoint of the shared contract and returns its `data`. */
+export async function callApi<K extends EndpointKey>(key: K, ...args: CallArgs<K>): Promise<EndpointData<K>> {
+   const endpoint = endpoints[key] as (typeof endpoints)[EndpointKey];
+   const input = (args[0] ?? {}) as { query?: Record<string, unknown>, body?: unknown };
+
+   let queryText = '';
+   let bodyText: string | undefined;
+   try {
+      if ('query' in endpoint && endpoint.query) { queryText = buildQueryString(endpoint.query.parse(input.query ?? {}) as Record<string, unknown>); }
+      if ('body' in endpoint && endpoint.body) { bodyText = JSON.stringify(endpoint.body.parse(input.body ?? {})); }
+   } catch (error) {
+      const message = error instanceof ZodError ? error.issues.map((issue) => `${issue.path.join('.') || 'request'}: ${issue.message}`).join('; ') : 'Invalid request';
+      throw new ApiError(`Invalid request for ${key}: ${message}`, 0, 'INVALID_REQUEST');
    }
 
-   return res.json() as Promise<T>;
-}
+   const res = await fetch(`${getClientOrigin()}${endpoint.path}${queryText}`, {
+      method: endpoint.method,
+      headers: { Accept: 'application/json', ...(bodyText !== undefined ? { 'Content-Type': 'application/json' } : {}) },
+      body: bodyText,
+   });
+   const headerRequestId = res.headers.get('X-Request-Id') ?? undefined;
 
-/** GET request helper */
-export function apiGet<T = unknown>(
-   path: string,
-   router?: Pick<NextRouter, 'push'>,
-): Promise<T> {
-   return apiFetch<T>(path, { method: 'GET' }, router);
-}
+   let payload: unknown = null;
+   if ((res.headers.get('content-type') ?? '').includes('application/json')) {
+      try { payload = await res.json(); } catch (_error) { payload = null; }
+   } else {
+      try { await res.text(); } catch (_error) { /* ignore */ }
+   }
+   const envelope = isObject(payload) && 'data' in payload && 'error' in payload ? payload : null;
+   const requestId = (envelope && typeof envelope.requestId === 'string' ? envelope.requestId : undefined) ?? headerRequestId;
 
-/** POST request helper */
-export function apiPost<T = unknown>(
-   path: string,
-   body: unknown,
-   router?: Pick<NextRouter, 'push'>,
-): Promise<T> {
-   return apiFetch<T>(path, { method: 'POST', body: JSON.stringify(body) }, router);
-}
-
-/** PUT request helper */
-export function apiPut<T = unknown>(
-   path: string,
-   body: unknown,
-   router?: Pick<NextRouter, 'push'>,
-): Promise<T> {
-   return apiFetch<T>(path, { method: 'PUT', body: JSON.stringify(body) }, router);
-}
-
-/** DELETE request helper */
-export function apiDelete<T = unknown>(
-   path: string,
-   body?: unknown,
-   router?: Pick<NextRouter, 'push'>,
-): Promise<T> {
-   return apiFetch<T>(path, { method: 'DELETE', ...(body === undefined ? {} : { body: JSON.stringify(body) }) }, router);
+   if (!res.ok) {
+      const failure = envelope && isObject(envelope.error) ? envelope.error : null;
+      throw new ApiError(
+         failure && typeof failure.message === 'string' ? failure.message : genericMessage(res.status),
+         res.status,
+         failure && typeof failure.code === 'string' ? failure.code : 'UNKNOWN',
+         requestId,
+      );
+   }
+   if (!envelope || envelope.error !== null) {
+      throw new ApiError('The server sent a response in an unexpected format.', res.status, 'INVALID_ENVELOPE', requestId);
+   }
+   const parsed = endpoint.response.safeParse(envelope.data);
+   if (!parsed.success) {
+      throw new ApiError(`The server's answer to ${key} did not match the expected shape.`, res.status, 'INVALID_RESPONSE', requestId);
+   }
+   return parsed.data as EndpointData<K>;
 }

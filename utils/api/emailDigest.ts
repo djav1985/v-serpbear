@@ -16,12 +16,11 @@ export const sendDigestEmails = async (req: Request, ctx: ApiContext) => {
    const rawDomain = rawBody && typeof rawBody === 'object' && !Array.isArray(rawBody)
       ? (rawBody as Record<string, unknown>).domain
       : undefined;
-   const queryDomains = new URL(req.url).searchParams.getAll('domain');
-   if (queryDomains.length > 1 || (rawDomain !== undefined && typeof rawDomain !== 'string')) {
+   if (rawDomain !== undefined && typeof rawDomain !== 'string') {
       return fail(400, 'BAD_REQUEST', 'domain must be a single domain name.', ctx);
    }
    // Domains are stored trimmed and lowercase
-   const reqDomain = (typeof rawDomain === 'string' ? rawDomain : queryDomains[0] || '').trim().toLowerCase();
+   const reqDomain = (typeof rawDomain === 'string' ? rawDomain : '').trim().toLowerCase();
    try {
       const settings = await getAppSettings();
       const normalizedSettings: SettingsType = trimStringProperties({ ...settings });
@@ -86,10 +85,10 @@ export const sendDigestEmails = async (req: Request, ctx: ApiContext) => {
 
       // No eligible domains at all: tell the user nothing was sent
       if (sentCount === 0 && skippedCount === 0) {
-         return json({ success: true, error: null, sent: 0, skipped: 0, message: 'No domains are enabled for notifications.' });
+         return json({ sent: 0, skipped: 0, message: 'No domains are enabled for notifications.' });
       }
 
-      return json({ success: true, error: null, sent: sentCount, skipped: skippedCount });
+      return json({ sent: sentCount, skipped: skippedCount });
    } catch (error) {
       logger.error('Error sending notification emails', error instanceof Error ? error : new Error(String(error)));
       // A missing or invalid SMTP host is answered with 400 before any send (see the check above)

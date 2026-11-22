@@ -9,6 +9,7 @@ import { Label } from 'components/ui/label';
 import { Textarea } from 'components/ui/textarea';
 import { cn } from 'lib/utils';
 import { SecretInput } from '../secret-input';
+import { callApi } from 'utils/client/apiClient';
 import { useRefreshSearchConsole, useTestAdwords, useUpdateAllVolume } from './settings-queries';
 import type { SettingsTabProps } from './settings-form';
 
@@ -48,10 +49,8 @@ function AdwordsSection({ settings, update, save }: SettingsTabProps) {
       // A failed or rejected save must not start Google authentication with the old stored credentials.
       if ((await save()) === false) { return; }
       try {
-         const response = await fetch('/api/adwords', { method: 'GET', credentials: 'same-origin' });
-         const result = await response.json() as { authUrl?: string };
-         if (!response.ok || !result.authUrl) { toast.error('Unable to start Google Ads integration.'); return; }
-         window.open(result.authUrl, '_blank');
+         const { authUrl } = await callApi('adwords.begin');
+         window.open(authUrl, '_blank');
       } catch (_error) {
          toast.error('Unable to start Google Ads integration.');
       }
