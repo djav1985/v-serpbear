@@ -9,15 +9,11 @@ import * as apiClient from 'utils/client/apiClient';
 
 jest.mock('utils/client/apiClient', () => ({
    ...jest.requireActual('utils/client/apiClient'),
-   apiGet: jest.fn(),
-   apiPost: jest.fn(),
-   apiFetch: jest.fn(),
+   callApi: jest.fn(),
 }));
 
-const apiGet = apiClient.apiGet as jest.Mock;
-const apiPost = apiClient.apiPost as jest.Mock;
-const apiFetch = apiClient.apiFetch as jest.Mock;
-afterEach(() => apiGet.mockReset());
+const callApi = apiClient.callApi as jest.Mock;
+afterEach(() => callApi.mockReset());
 
 describe('Discover add-time duplicate checks', () => {
    it('skips only the same keyword, device, country, and selected location', () => {
@@ -36,7 +32,7 @@ describe('Discover add-time duplicate checks', () => {
 });
 
 describe('keyword mutation hooks', () => {
-   beforeEach(() => { apiPost.mockReset(); apiFetch.mockReset(); });
+   beforeEach(() => { callApi.mockReset(); });
 
    it('skips the add request when every item was already tracked, while completing the flow', async () => {
       const done = jest.fn();
@@ -46,21 +42,21 @@ describe('keyword mutation hooks', () => {
 
       await result.current.mutateAsync({ payloads: [], skipped: ['plumber (desktop)'] });
 
-      expect(apiPost).not.toHaveBeenCalled();
+      expect(callApi).not.toHaveBeenCalled();
       expect(done).toHaveBeenCalledTimes(1);
       expect(invalidate).toHaveBeenCalledWith({ queryKey: ['keywords'] });
       client.clear();
    });
 
    it('deletes selected keywords using a JSON request body and completes the flow', async () => {
-      apiFetch.mockResolvedValue({});
+      callApi.mockResolvedValue({ keywordsRemoved: 2 });
       const done = jest.fn();
       const { client, wrapper } = createQueryClientWrapper();
       const { result } = renderHook(() => useDeleteKeywords(done), { wrapper });
 
       await result.current.mutateAsync([7, 8]);
 
-      expect(apiFetch).toHaveBeenCalledWith('/api/serp/keywords', { method: 'DELETE', body: JSON.stringify({ ids: [7, 8] }) });
+      expect(callApi).toHaveBeenCalledWith('keywords.remove', { body: { ids: [7, 8] } });
       expect(done).toHaveBeenCalledTimes(1);
       client.clear();
    });
@@ -68,9 +64,8 @@ describe('keyword mutation hooks', () => {
 
 describe('add-flow query loading', () => {
    it('waits until enabled and refreshes cached add-flow data', async () => {
-      const apiGet = apiClient.apiGet as jest.Mock;
-      apiGet.mockImplementation(async (url: string) => (
-         url === '/api/app/settings'
+      callApi.mockImplementation(async (key: string) => (
+         key === 'settings.get'
             ? { settings: { scraper_type: 'scrapingant' } }
             : { keywords: [] }
       ));
@@ -82,19 +77,19 @@ describe('add-flow query loading', () => {
          settings: useAppSettings(enabled, true),
       }), { initialProps: { enabled: false }, wrapper });
 
-      expect(apiGet).not.toHaveBeenCalled();
+      expect(callApi).not.toHaveBeenCalled();
       rerender({ enabled: true });
-      await waitFor(() => expect(apiGet).toHaveBeenCalledTimes(2));
-      expect(apiGet).toHaveBeenCalledWith('/api/serp/keywords?domain=example.com');
-      expect(apiGet).toHaveBeenCalledWith('/api/app/settings');
+      await waitFor(() => expect(callApi).toHaveBeenCalledTimes(2));
+      expect(callApi).toHaveBeenCalledWith('keywords.list', { query: { domain: 'example.com' } });
+      expect(callApi).toHaveBeenCalledWith('settings.get', { query: {} });
       await waitFor(() => expect(result.current.settings.data).toMatchObject({ scraper_type: 'scrapingant' }));
       queryClient.clear();
 
-      apiGet.mockClear();
+      callApi.mockClear();
       const { client: settingsClient, wrapper: settingsWrapper } = createQueryClientWrapper();
       const { result: defaultSettings } = renderHook(() => useAppSettings(true), { wrapper: settingsWrapper });
       await waitFor(() => expect(defaultSettings.current.data).toMatchObject({ scraper_type: 'scrapingant' }));
-      expect(apiGet).toHaveBeenCalledTimes(1);
+      expect(callApi).toHaveBeenCalledTimes(1);
       settingsClient.clear();
    });
 });

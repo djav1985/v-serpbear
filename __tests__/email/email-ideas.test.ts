@@ -123,13 +123,13 @@ describe('email ideas', () => {
      });
 
      it('rejects requests without a domain', async () => {
-        req.body = { keywords: [keywordPayload] };
+        req.body = { type: 'ideas', keywords: [keywordPayload] };
 
         await handler(req as NextApiRequest, res as NextApiResponse);
 
         expect(res.status).toHaveBeenCalledWith(400);
         expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-           error: expect.objectContaining({ code: 'BAD_REQUEST', message: 'A domain is required to email keyword ideas.' }),
+           error: expect.objectContaining({ code: 'BAD_REQUEST', message: expect.stringContaining('domain') }),
         }));
         expect(sendMailMock).not.toHaveBeenCalled();
      });
@@ -198,7 +198,7 @@ describe('email ideas', () => {
            html: '<html></html>',
         });
         expect(res.status).toHaveBeenCalledWith(200);
-        expect(res.json).toHaveBeenCalledWith({ success: true, error: null });
+        expect(res.json).toHaveBeenCalledWith({ success: true });
      });
 
      it('rejects more than 1000 keyword ideas', async () => {

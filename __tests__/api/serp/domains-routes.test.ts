@@ -210,11 +210,11 @@ describe('GET /api/serp/domains', () => {
     });
 
      it.each([
-       [{ withstats: 'sometimes' }, 'Invalid boolean value'],
+       [{ withstats: 'sometimes' }, 'Invalid request: withstats'],
        [{ domains: 'example.com' }, 'The domains parameter requires withstats=true'],
        [{ withstats: 'true', domains: '' }, 'between 1 and 8 valid domain names'],
        [{ withstats: 'true', domains: 'bad host' }, 'between 1 and 8 valid domain names'],
-       [{ withstats: 'true', domains: 'a.com,b.com,c.com,d.com,e.com,f.com,g.com,h.com,i.com' }, 'between 1 and 8 valid domain names'],
+       [{ withstats: 'true', domains: 'a.com,b.com,c.com,d.com,e.com,f.com,g.com,h.com,i.com' }, 'Invalid request: domains'],
      ])('rejects invalid domain-list query values before loading domains (%p)', async (query, message) => {
        const req = { method: 'GET', headers: {}, query } as unknown as NextApiRequest;
        const res = createMockResponse();
@@ -304,9 +304,9 @@ describe('POST /api/serp/domains', () => {
     });
 
     it.each([
-      [{ domains: [] }, 'Necessary data missing.'],
-      [{ domains: 'example.com' }, 'Necessary data missing.'],
-      [{ domains: [123] }, 'Invalid domain(s): blank domain'],
+      [{ domains: [] }, 'Invalid request: domains'],
+      [{ domains: 'example.com' }, 'Invalid request: domains'],
+      [{ domains: [123] }, 'Invalid request: domains'],
     ])('rejects empty or malformed domain lists before database writes (%p)', async (body, message) => {
       const req = { method: 'POST', body, headers: {} } as unknown as NextApiRequest;
       const res = createMockResponse();
@@ -314,7 +314,7 @@ describe('POST /api/serp/domains', () => {
       await handler(req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ message }) }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ message: expect.stringContaining(message) }) }));
       expect(DomainMock.bulkCreate).not.toHaveBeenCalled();
     });
 

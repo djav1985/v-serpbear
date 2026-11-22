@@ -1,7 +1,8 @@
 import {
    getAdwordsCredentials, getAdwordsKeywordIdeas, getLocalKeywordIdeas, updateLocalKeywordIdeas, withIdeasLock,
 } from '../../../../utils/adwords';
-import { createRoute, fail, json, getParam, readJson, type ApiContext } from '../../../../utils/apiLogging';
+import { createRoute, fail, json, type ApiContext } from '../../../../utils/apiLogging';
+import { parseBody, parseQuery } from '../../../../utils/api/validate';
 import { logger } from '../../../../utils/logger';
 import { SAFE_DOMAIN_NAME } from '../../../../utils/domainSlug';
 import { RESEARCH_IDEAS_KEY } from '../../../../utils/domainIdeasFile';
@@ -10,10 +11,6 @@ type RequestBody = Record<string, unknown>;
 
 const isRequestBody = (value: unknown): value is RequestBody => (
    value !== null && typeof value === 'object' && !Array.isArray(value)
-);
-
-const isStringArray = (value: unknown): value is string[] => (
-   Array.isArray(value) && value.every((item: unknown) => typeof item === 'string')
 );
 
 const IDEA_SEED_TYPES = ['auto', 'custom', 'tracking', 'searchconsole'] as const;
@@ -36,14 +33,14 @@ const parseIdeasDomain = (raw: unknown): string | null => {
 };
 
 const getKeywordIdeas = async (req: Request, ctx: ApiContext) => {
+   const domain = parseIdeasDomain(parseQuery(req, 'ideas.get').domain);
+   if (domain === null) {
+      return fail(400, 'BAD_REQUEST', 'Invalid domain', ctx);
+   }
    try {
-      const domain = parseIdeasDomain(getParam(req, 'domain'));
-      if (domain === null) {
-         return fail(400, 'BAD_REQUEST', 'Invalid domain', ctx);
-      }
       const keywordsDatabase = await getLocalKeywordIdeas(domain || RESEARCH_IDEAS_KEY);
       if (keywordsDatabase) {
-         return json({ data: keywordsDatabase });
+         return json({ ideas: keywordsDatabase });
       }
       return fail(400, 'BAD_REQUEST', 'Error Loading Keyword Ideas.', ctx);
    } catch (error) {
@@ -54,10 +51,7 @@ const getKeywordIdeas = async (req: Request, ctx: ApiContext) => {
 
 const updateKeywordIdeas = async (req: Request, ctx: ApiContext) => {
    const errMsg = 'Error Fetching Keywords. Please try again!';
-   const body = await readJson(req);
-   if (!isRequestBody(body)) {
-      return fail(400, 'BAD_REQUEST', 'Request body must be a JSON object.', ctx);
-   }
+   // Types, the country and language formats, and the 1000-keyword limit are checked against the contract
    const {
       keywords = [],
       country: rawCountry = 'US',
@@ -66,11 +60,7 @@ const updateKeywordIdeas = async (req: Request, ctx: ApiContext) => {
       seedSCKeywords = false,
       seedCurrentKeywords = false,
       seedType,
-   } = body;
-
-   if (!isStringArray(keywords) || keywords.length > 1000) {
-      return fail(400, 'BAD_REQUEST', 'keywords must be a list of up to 1000 strings.', ctx);
-   }
+   } = await parseBody(req, 'ideas.generate');
 
    logger.debug('[GOOGLE] updateKeywordIdeas called', {
       keywordsCount: keywords.length,
@@ -82,21 +72,8 @@ const updateKeywordIdeas = async (req: Request, ctx: ApiContext) => {
       seedType,
    });
 
-   if (!rawCountry || !language) {
-      return fail(400, 'BAD_REQUEST', 'Please provide both country and language', ctx);
-   }
-   if (typeof seedSCKeywords !== 'boolean' || typeof seedCurrentKeywords !== 'boolean') {
-      return fail(400, 'BAD_REQUEST', 'seedSCKeywords and seedCurrentKeywords must be true or false.', ctx);
-   }
-   // These values go to the paid Google Ads API and into a file name, so check their shape first
-   if (typeof rawCountry !== 'string' || !/^[A-Za-z]{2}$/.test(rawCountry)) {
-      return fail(400, 'BAD_REQUEST', 'country must be a two-letter country code.', ctx);
-   }
    // The country table is keyed by upper-case codes, so a lower-case code would find no geo target
    const country = rawCountry.toUpperCase();
-   if ((typeof language !== 'string' && typeof language !== 'number') || !/^\d{1,10}$/.test(String(language))) {
-      return fail(400, 'BAD_REQUEST', 'language must be a Google Ads language ID.', ctx);
-   }
    const languageId = String(language);
    const domain = parseIdeasDomain(rawDomain);
    if (domain === null) {
@@ -104,9 +81,6 @@ const updateKeywordIdeas = async (req: Request, ctx: ApiContext) => {
    }
    if (seedType === 'auto' && !domain) {
       return fail(400, 'BAD_REQUEST', 'Missing domain', ctx);
-   }
-   if (!seedType) {
-      return fail(400, 'BAD_REQUEST', 'Missing seedType', ctx);
    }
    if (!isIdeaSeedType(seedType)) {
       return fail(400, 'BAD_REQUEST', 'Invalid seedType', ctx);
@@ -176,12 +150,7 @@ const updateKeywordIdeas = async (req: Request, ctx: ApiContext) => {
 
 const favoriteKeywords = async (req: Request, ctx: ApiContext) => {
    const errMsg = 'Error Favorating Keyword Idea. Please try again!';
-   const rawBody = await readJson(req);
-   const body = isRequestBody(rawBody) ? rawBody : {};
-   const rawKeywordID = body.keywordID;
-   const keywordID = typeof rawKeywordID === 'string' ? rawKeywordID : '';
-   const rawDomain = body.domain;
-
+   const { keywordID, domain: rawDomain } = await parseBody(req, 'ideas.favorite');
    if (!keywordID) {
       return fail(400, 'BAD_REQUEST', 'Missing Necessary data. Please provide a keywordID value.', ctx);
    }
@@ -209,7 +178,7 @@ const favoriteKeywords = async (req: Request, ctx: ApiContext) => {
       });
 
       if (result) {
-         return json({ keywords: result, error: '' });
+         return json({ favorites: result });
       }
 
       return fail(400, 'BAD_REQUEST', errMsg, ctx);

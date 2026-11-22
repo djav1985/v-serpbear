@@ -208,8 +208,11 @@ const makeCronApiCall = (apiKey, baseUrl, endpoint, successMessage, body) => {
          
          const contentType = res.headers.get('content-type');
          if (contentType && contentType.includes('application/json')) {
-            return res.json().then(data => {
-               logger.info(successMessage, { endpoint, status: res.status, data });
+            return res.json().then((envelope) => {
+               // Every app route answers { data, error, requestId }; log the data and keep the request id for support
+               const isEnvelope = envelope && typeof envelope === 'object' && 'data' in envelope && 'error' in envelope;
+               const data = isEnvelope ? envelope.data : envelope;
+               logger.info(successMessage, { endpoint, status: res.status, data, ...(isEnvelope && envelope.requestId ? { requestId: envelope.requestId } : {}) });
             });
          } else {
             // Non-JSON response or empty body
@@ -391,7 +394,7 @@ const runAppCronJobs = () => {
    const searchConsoleCRONTime = CRON_INTERVAL_MAP.daily;
    scheduleJob('search console', searchConsoleCRONTime, () => {
       logger.info('[CRON] Running Google Search Console Scraper.');
-      makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/google/searchconsole', '[CRON] Search Console Scraper Result');
+      makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/google/searchconsole', '[CRON] Search Console Scraper Result', {});
    }, cronOptions);
    
    logger.debug('[CRON] All cron jobs initialized successfully.');

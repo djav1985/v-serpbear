@@ -11,7 +11,8 @@ import { buildStoredLocation, getLocationCountry, hasValidCityStatePair, isCount
 import { planLocationUpdate } from '../../../../utils/keywordMeta';
 import { isValidHostname } from '../../../../utils/validators/hostname';
 import { logger } from '../../../../utils/logger';
-import { createRoute, fail, json, getParam, readJson, type ApiContext } from '../../../../utils/apiLogging';
+import { createRoute, fail, json, type ApiContext } from '../../../../utils/apiLogging';
+import { parseBody, parseQuery } from '../../../../utils/api/validate';
 import db from '../../../../database/database';
 import { toDbBool } from '../../../../utils/dbBooleans';
 import { refreshQueue } from '../../../../utils/refreshQueue';
@@ -36,25 +37,6 @@ const isRequestBody = (value: unknown): value is RequestBody => (
    value !== null && typeof value === 'object' && !Array.isArray(value)
 );
 
-/** The JSON body as an object; null, arrays and other types read as an empty object. */
-const readBody = async (req: Request): Promise<RequestBody> => {
-   const body = await readJson(req);
-   return isRequestBody(body) ? body : {};
-};
-
-/** True when a bulk request names keyword IDs in its JSON body. */
-const hasKeywordIdInput = async (req: Request): Promise<boolean> => (await readBody(req)).ids !== undefined;
-
-/**
- * Keyword IDs for a bulk request. It returns null when any item is not a positive integer.
- */
-const readKeywordIds = async (req: Request): Promise<number[] | null> => {
-   const body = await readBody(req);
-   const ids: unknown = body.ids;
-   const valid = Array.isArray(ids) && ids.every((id) => Number.isSafeInteger(id) && id > 0);
-   return valid ? Array.from(new Set(ids as number[])) : null;
-};
-
 /**
  * Recalculates the stored stats (keywordsTracked, avgPosition, mapPackKeywords) for each domain once.
  * A failure is logged and never fails the request that already changed the keywords.
@@ -70,10 +52,7 @@ const refreshDomainStats = async (domainNames: string[]): Promise<void> => {
 };
 
 const getKeywords = async (req: Request, ctx: ApiContext) => {
-   if (!getParam(req, 'domain')) {
-      return fail(400, 'BAD_REQUEST', 'Domain is Required!', ctx);
-   }
-   const domain = getParam(req, 'domain') as string;
+   const { domain } = parseQuery(req, 'keywords.list');
 
    try {
       const { keywords: processedKeywords, backfill } = await loadDomainKeywords(domain);
@@ -186,24 +165,8 @@ const validateKeywordData = (kwrd: unknown): KeywordValidation => {
 };
 
 const addKeywords = async (req: Request, ctx: ApiContext) => {
-   const keywords = (await readBody(req)).keywords;
-   
-   // Enhanced input validation
-   if (!keywords) {
-      return fail(400, 'BAD_REQUEST', 'Keywords array is required', ctx, 'Request body must contain a keywords array');
-   }
-   
-   if (!Array.isArray(keywords)) {
-      return fail(400, 'BAD_REQUEST', 'Keywords must be an array', ctx, 'The keywords field must be an array of keyword objects');
-   }
-   
-   if (keywords.length === 0) {
-      return fail(400, 'BAD_REQUEST', 'At least one keyword is required', ctx, 'Keywords array cannot be empty');
-   }
-   
-   if (keywords.length > 100) {
-      return fail(400, 'BAD_REQUEST', 'Too many keywords', ctx, 'Maximum 100 keywords can be added at once');
-   }
+   // The shape (a list of 1 to 100 keyword objects) is checked against the contract; the values are checked below
+   const { keywords } = await parseBody(req, 'keywords.add');
 
    const keywordsToAdd: Array<{
       keyword: string;
@@ -373,18 +336,12 @@ const addKeywords = async (req: Request, ctx: ApiContext) => {
 };
 
 const deleteKeywords = async (req: Request, ctx: ApiContext) => {
-   if (!(await hasKeywordIdInput(req))) {
-      return fail(400, 'BAD_REQUEST', 'keyword ID is Required!', ctx);
-   }
-   logger.debug('[SCRAPER] keyword IDs: ', { data: (await readBody(req)).ids });
+   const { ids } = await parseBody(req, 'keywords.remove');
+   logger.debug('[SCRAPER] keyword IDs: ', { data: ids });
 
    try {
-      const keywordsToRemove = (await readKeywordIds(req)) ?? [];
+      const keywordsToRemove = Array.from(new Set(ids));
 
-      if (keywordsToRemove.length === 0) {
-         return fail(400, 'BAD_REQUEST', 'No valid keyword IDs provided', ctx);
-      }
-      
       // Check which domains these keywords belong to
       const keywordsToCheck = await Keyword.findAll({ 
          where: { ID: { [Op.in]: keywordsToRemove } },
@@ -417,26 +374,14 @@ const deleteKeywords = async (req: Request, ctx: ApiContext) => {
 };
 
 const updateKeywords = async (req: Request, ctx: ApiContext) => {
-   if (!(await hasKeywordIdInput(req))) {
-      return fail(400, 'BAD_REQUEST', 'keyword ID is Required!', ctx);
-   }
-   const body = await readBody(req);
-   if (body.sticky === undefined && body.tags === undefined && body.location === undefined) {
-      return fail(400, 'BAD_REQUEST', 'Keyword update payload is required.', ctx);
-   }
-   // Anything that is not a positive ID is rejected or dropped, so NaN and 0 never reach the database query
-   const keywordIDs = (await readKeywordIds(req)) ?? [];
-   if (keywordIDs.length === 0) {
-      return fail(400, 'BAD_REQUEST', 'No valid keyword IDs provided', ctx);
-   }
-   const { sticky, tags, location } = body;
+   // Exactly one of sticky, tags or location next to a list of positive ids, or the contract refuses it
+   const body = await parseBody(req, 'keywords.update');
+   const keywordIDs = Array.from(new Set(body.ids));
+   const { sticky, tags, location } = body as { sticky?: boolean, tags?: Record<string, string[]>, location?: string };
 
    try {
       let keywords: KeywordType[] = [];
       if (sticky !== undefined) {
-         if (typeof sticky !== 'boolean') {
-            return fail(400, 'BAD_REQUEST', 'sticky must be true or false.', ctx);
-         }
          await Keyword.update({ sticky: toDbBool(sticky) }, { where: { ID: { [Op.in]: keywordIDs } } });
          const updateQuery = { where: { ID: { [Op.in]: keywordIDs } } };
          const updatedKeywords:Keyword[] = await Keyword.findAll(updateQuery);
@@ -445,13 +390,13 @@ const updateKeywords = async (req: Request, ctx: ApiContext) => {
          return json({ keywords });
       }
       if (tags !== undefined) {
-         if (!isRequestBody(tags)) {
-            return fail(400, 'BAD_REQUEST', 'Invalid Payload!', ctx);
-         }
-
          const tagsKeywordIDs = Object.keys(tags);
          if (tagsKeywordIDs.length === 0) {
             return json({ keywords: [] });
+         }
+         // The tag keys are the keywords being updated, so they must be the same keywords as ids
+         if (new Set(tagsKeywordIDs.map(Number)).size !== new Set(keywordIDs).size || !tagsKeywordIDs.every((key) => keywordIDs.includes(Number(key)))) {
+            return fail(400, 'BAD_REQUEST', 'The tags keys must match the keyword ids.', ctx);
          }
          // Keys must be plain positive integers ("1.0" or "01" would select a keyword but never match its tag list)
          if (tagsKeywordIDs.some((keywordID) => !/^[1-9]\d*$/.test(keywordID) || !Number.isSafeInteger(Number(keywordID)))) {
@@ -487,8 +432,8 @@ const updateKeywords = async (req: Request, ctx: ApiContext) => {
          return json({ keywords });
       }
       if (location !== undefined) {
-         const rawLocation = typeof location === 'string' ? location.trim().substring(0, 255) : '';
-         const requestedCountry = typeof body.country === 'string' && /^[A-Z]{2}$/.test(body.country) ? body.country : '';
+         const rawLocation = location.trim().substring(0, 255);
+         const requestedCountry = 'country' in body && typeof body.country === 'string' ? body.country : '';
          const locationCountry = requestedCountry || getLocationCountry(rawLocation);
          if (!locationCountry) {
             return fail(400, 'BAD_REQUEST', 'Country is required!', ctx);

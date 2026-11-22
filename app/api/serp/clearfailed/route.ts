@@ -1,8 +1,11 @@
 import { logger } from '../../../../utils/logger';
 import { retryQueueManager } from '../../../../utils/retryQueueManager';
 import { createRoute, fail, json, type ApiContext } from '../../../../utils/apiLogging';
+import { parseBody } from '../../../../utils/api/validate';
 
-const clearFailedQueue = async (_req: Request, ctx: ApiContext) => {
+const clearFailedQueue = async (req: Request, ctx: ApiContext) => {
+   // The body is an empty object; callers may leave it out
+   await parseBody(req, 'clearFailed.run', { emptyBodyOk: true });
    try {
       await retryQueueManager.clearQueue();
       logger.debug('[SCRAPER] Failed queue cleared successfully');

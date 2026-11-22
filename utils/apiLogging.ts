@@ -1,6 +1,6 @@
 import { logger } from './logger';
 import { ensureDatabase } from '../database/init';
-import { ApiError, fail, getQuery, readTextUpTo, type ApiContext } from './api/http';
+import { ApiError, fail, getQuery, readTextUpTo, runWithApiContext, type ApiContext } from './api/http';
 import { redactSecrets, redactUrl } from './logRedaction';
 import { getClientIp } from './api/clientIp';
 import { isSameOriginRequest } from './api/sameOrigin';
@@ -125,13 +125,13 @@ const run = async (handler: ApiHandler | undefined, def: RouteDefinition, req: R
             ? Response.json({ error: 'invalid_request' }, { status: 405, headers: { Allow: allowed, 'Cache-Control': 'no-store' } })
             : fail(405, 'METHOD_NOT_ALLOWED', 'Method not allowed', ctx, undefined, { Allow: allowed });
       } else {
-         response = await handler(req, ctx);
+         response = await runWithApiContext(ctx, () => handler(req, ctx));
       }
    } catch (error) {
       if (error instanceof ApiError) {
          response = def.oauthProtocol
             ? Response.json({ error: error.status >= 500 ? 'server_error' : 'invalid_request' }, { status: error.status, headers: { 'Cache-Control': 'no-store' } })
-            : fail(error.status, error.code, error.message, ctx);
+            : fail(error.status, error.code, error.message, ctx, error.details);
       } else {
          if (def.oauthProtocol || def.omitResponseMetadata) {
             logger.debug(`${label} - Exception`, {

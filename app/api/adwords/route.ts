@@ -3,7 +3,8 @@ import Cryptr from 'cryptr';
 import { randomBytes } from 'crypto';
 import { getAdwordsCredentials, getAdwordsKeywordIdeas } from '../../../utils/adwords';
 import { logger } from '../../../utils/logger';
-import { createRoute, fail, json, getParam, readJson, requireAuth, type ApiContext } from '../../../utils/apiLogging';
+import { createRoute, fail, json, getParam, requireAuth, type ApiContext } from '../../../utils/apiLogging';
+import { parseBody } from '../../../utils/api/validate';
 import { atomicWriteFile } from '../../../utils/atomicWrite';
 import { readSettingsFile, withSettingsLock, withoutRemovedSettingsKeys } from '../../../utils/settingsFile';
 import normalizeOrigin from '../../../utils/normalizeOrigin';
@@ -216,10 +217,8 @@ const validateAdwordsIntegration = async (req: Request, ctx: ApiContext) => {
    const denied = requireAuth(req, ctx);
    if (denied) { return denied; }
    const errMsg = 'Error Validating Google Ads Integration. Please make sure your provided data are correct!';
-   const { developer_token, account_id } = ((await readJson(req)) ?? {}) as {
-      developer_token?: string;
-      account_id?: string;
-   };
+   // Only this POST uses the contract. The GET (start of the integration and Google's ?code= callback) is untouched.
+   const { developer_token, account_id } = await parseBody(req, 'adwords.test');
    if (!developer_token || !account_id) {
       return fail(400, 'BAD_REQUEST', 'Please Provide the Google Ads Developer Token and Test Account ID', ctx);
    }

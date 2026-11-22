@@ -73,6 +73,35 @@ describe('cron worker', () => {
       );
     });
 
+    it('sends {} as the JSON body when it has nothing else to send, so write routes always get a JSON object', async () => {
+      jest.spyOn(console, 'log').mockImplementation();
+      (global.fetch as jest.Mock).mockResolvedValue({ ok: true, status: 200, headers: { get: jest.fn().mockReturnValue('application/json') }, json: () => Promise.resolve({ data: {}, error: null }) });
+
+      await makeCronApiCall('secret', 'http://localhost:3000', '/api/google/searchconsole', '[CRON] Search Console Scraper Result', {});
+
+      expect(global.fetch).toHaveBeenCalledWith('http://localhost:3000/api/google/searchconsole', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer secret', 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+    });
+
+    it('logs the data of a response envelope together with its request id, not the envelope', async () => {
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: { get: jest.fn().mockReturnValue('application/json') },
+        json: () => Promise.resolve({ data: { updatedCount: 3, failedCount: 1 }, error: null, requestId: 'rid-42' }),
+      });
+
+      await makeCronApiCall('secret', 'http://localhost:3000', '/api/google/searchconsole', '[CRON] Search Console Scraper Result', {});
+
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"data":{"updatedCount":3,"failedCount":1}'));
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"requestId":"rid-42"'));
+      expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('"error":null'));
+    });
+
     it('logs an HTTP error response with its status and body without rejecting the caller', async () => {
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
       (global.fetch as jest.Mock).mockResolvedValue({

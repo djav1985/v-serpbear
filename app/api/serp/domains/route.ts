@@ -5,9 +5,8 @@ import Domain from '../../../../database/models/domain';
 import Keyword from '../../../../database/models/keyword';
 import { loadDomains } from '../../../../utils/domainsList';
 import { checkSearchConsoleIntegration, removeLocalSCData } from '../../../../utils/searchConsole';
-import { errorResponse } from '../../../../utils/api/response';
-import { parseStrictBooleanQueryParam } from '../../../../utils/api/queryBoolean';
-import { createRoute, fail, json, getQuery, readJson, type ApiContext } from '../../../../utils/apiLogging';
+import { parseBody, parseQuery } from '../../../../utils/api/validate';
+import { createRoute, fail, json, type ApiContext } from '../../../../utils/apiLogging';
 import { validateHostname } from '../../../../utils/validators/hostname';
 import { toDomainSlug } from '../../../../utils/domainSlug';
 import { logger } from '../../../../utils/logger';
@@ -95,22 +94,12 @@ const retryOtherDomainCleanup = async (domain: string, keywordIds: Set<number>):
 };
 
 const getDomains = async (req: Request, ctx: ApiContext) => {
-   const query = getQuery(req);
-   const withStatsParam = query.withstats;
-   const selectedDomainsParam = query.domains;
-   let withStats = false;
-   if (withStatsParam !== undefined) {
-      const parsed = parseStrictBooleanQueryParam(withStatsParam);
-      if (!parsed || !parsed.ok) {
-         return fail(400, 'BAD_REQUEST', parsed?.message ?? 'Invalid parameter', ctx);
-      }
-      withStats = parsed.value;
-   }
+   const query = parseQuery(req, 'domains.list');
+   const withStats = query.withstats ?? false;
 
    let selectedDomains: string[] | undefined;
-   if (selectedDomainsParam !== undefined) {
-      const rawDomainParams = Array.isArray(selectedDomainsParam) ? selectedDomainsParam : [selectedDomainsParam];
-      selectedDomains = [...new Set(rawDomainParams.flatMap((domains) => domains.split(',')).map((domain) => domain.trim()).filter(Boolean))];
+   if (query.domains !== undefined) {
+      selectedDomains = [...new Set(query.domains.map((domain) => domain.trim()).filter(Boolean))];
       if (!withStats || selectedDomains.length === 0 || selectedDomains.length > 8 || selectedDomains.some((domain) => !validateHostname(domain).isValid)) {
          return fail(400, 'BAD_REQUEST', 'The domains parameter requires withstats=true and between 1 and 8 valid domain names.', ctx);
       }
@@ -127,16 +116,15 @@ const getDomains = async (req: Request, ctx: ApiContext) => {
 };
 
 const addDomain = async (req: Request, ctx: ApiContext) => {
-   const requestBody = await readJson(req);
-   const { domains } = (requestBody && typeof requestBody === 'object' ? requestBody : {}) as { domains?: unknown };
-   if (domains && Array.isArray(domains) && domains.length > 0) {
+   const { domains } = await parseBody(req, 'domains.add');
+   if (domains.length > 0) {
       const invalidDomains: string[] = [];
       const uniqueHosts = new Map<string, string>();
 
       domains.forEach((domain: string) => {
          const validation = validateHostname(domain);
          if (!validation.isValid) {
-            invalidDomains.push(typeof domain === 'string' ? domain : '');
+            invalidDomains.push(domain);
             return;
          }
 
@@ -187,14 +175,7 @@ const addDomain = async (req: Request, ctx: ApiContext) => {
 };
 
 const deleteDomain = async (req: Request, ctx: ApiContext) => {
-   const requestBody = await readJson(req);
-   const domainValue = requestBody && typeof requestBody === 'object' && !Array.isArray(requestBody)
-      ? (requestBody as Record<string, unknown>).domain
-      : undefined;
-   if (typeof domainValue !== 'string' || !domainValue.trim()) {
-      return fail(400, 'BAD_REQUEST', 'Domain is Required!', ctx);
-   }
-   const domain = domainValue;
+   const { domain } = await parseBody(req, 'domains.remove');
    const normalizedDomain = domain.trim().toLowerCase();
 
    try {
@@ -209,7 +190,8 @@ const deleteDomain = async (req: Request, ctx: ApiContext) => {
       const taskId = `delete-domain-${normalizedDomain}-${Date.now()}`;
       let responsePayload: {
         status: number;
-        body: unknown;
+        body?: unknown;
+        notFound?: boolean;
       } | null = null;
 
       await new Promise<void>((resolve, reject) => {
@@ -231,7 +213,7 @@ const deleteDomain = async (req: Request, ctx: ApiContext) => {
                   const keywordsToRemove = await Keyword.findAll({ where: { domain: normalizedDomain }, attributes: ['ID'] });
                   if (!domainToRemove && keywordsToRemove.length === 0 && !pendingKeywordIds) {
                      await updatePendingCleanup((map) => clearedDomains.forEach((domain) => map.delete(domain)));
-                     responsePayload = { status: 404, body: errorResponse('NOT_FOUND', 'Domain not found', ctx.requestId) };
+                     responsePayload = { status: 404, notFound: true };
                      resolve();
                      return;
                   }
@@ -304,7 +286,8 @@ const deleteDomain = async (req: Request, ctx: ApiContext) => {
       if (!responsePayload) {
          return fail(500, 'INTERNAL_SERVER_ERROR', 'Error Deleting Domain.', ctx);
       }
-      const finalizedResponse = responsePayload as { status: number; body: unknown };
+      const finalizedResponse = responsePayload as { status: number; body?: unknown; notFound?: boolean };
+      if (finalizedResponse.notFound) { return fail(404, 'NOT_FOUND', 'Domain not found', ctx); }
       return json(finalizedResponse.body, finalizedResponse.status);
    } catch (error) {
       logger.error(`Error deleting domain: ${normalizedDomain}`, error instanceof Error ? error : new Error(String(error)));
@@ -333,17 +316,13 @@ const applyScrapeOptionUpdates = (payload: Partial<DomainSettings>, updates: Par
 };
 
 const updateDomain = async (req: Request, ctx: ApiContext) => {
-   const requestBody = await readJson(req);
-   if (!requestBody || typeof requestBody !== 'object' || Array.isArray(requestBody)) {
-      return fail(400, 'BAD_REQUEST', 'Request body must be a JSON object.', ctx);
-   }
-   const body = requestBody as Record<string, unknown>;
-   if (typeof body.domain !== 'string' || !body.domain.trim()) {
-      return fail(400, 'BAD_REQUEST', 'Domain is Required!', ctx);
-   }
+   const body = await parseBody(req, 'domains.update');
    // Same normalisation as DELETE: domains are stored trimmed and lowercase
    const domain = body.domain.trim().toLowerCase();
-   const payload = requestBody as Partial<DomainSettings>;
+   if (!domain) {
+      return fail(400, 'BAD_REQUEST', 'Domain is Required!', ctx);
+   }
+   const payload = body as Partial<DomainSettings>;
    const {
       notification_emails,
       search_console,

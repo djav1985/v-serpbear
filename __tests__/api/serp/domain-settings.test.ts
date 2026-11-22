@@ -110,10 +110,10 @@ describe('domains route', () => {
     });
 
     it.each([
-      [null, 'Request body must be a JSON object.'],
-      [[], 'Request body must be a JSON object.'],
-      [{}, 'Domain is Required!'],
-      [{ scrapeEnabled: true }, 'Domain is Required!'],
+      [null, 'Invalid request'],
+      [[], 'Invalid request'],
+      [{}, 'Invalid request: domain'],
+      [{ scrapeEnabled: true }, 'Invalid request: domain'],
     ])('requires a JSON body containing the domain (%p)', async (body, message) => {
       const req = { method: 'PUT', query: { domain: 'example.com' }, body, headers: {} } as unknown as NextApiRequest;
       const res = createMockResponse();
@@ -121,7 +121,7 @@ describe('domains route', () => {
       await handler(req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ message }) }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ message: expect.stringContaining(message) }) }));
       expect(DomainMock.findOne).not.toHaveBeenCalled();
     });
 
@@ -327,11 +327,25 @@ describe('domains route', () => {
       expect(bothUpdate.scraper_settings).toEqual(expect.any(String));
     });
 
+    it('rejects a pagination limit that is not a number', async () => {
+      const req = {
+        method: 'PUT',
+        query: {},
+        body: { domain: domainState.domain, scrape_strategy: 'basic', scrape_pagination_limit: '5' },
+        headers: {},
+      } as unknown as NextApiRequest;
+      const res = createMockResponse();
+
+      await handler(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(domainInstance.save).not.toHaveBeenCalled();
+    });
+
     it.each([
       ['custom', 5, 'custom', 5, true],
       ['unknown', 99, '', 10, true],
       ['', -3, '', 0, true],
-      ['basic', '5', 'basic', undefined, false],
     ])('normalizes scrape strategy and pagination options (%p, %p)', async (strategy, limit, expectedStrategy, expectedLimit, writesLimit) => {
       const req = {
         method: 'PUT',

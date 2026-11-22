@@ -10,7 +10,7 @@ import { Input } from 'components/ui/input';
 import { Label } from 'components/ui/label';
 import { cn } from 'lib/utils';
 import type { BrandingConfig } from 'utils/branding';
-import { apiPost, ApiError } from 'utils/client/apiClient';
+import { callApi, ApiError } from 'utils/client/apiClient';
 
 type LoginError = { type: string; msg: string };
 
@@ -50,7 +50,7 @@ export function LoginForm({ branding, returnTo = '/' }: { branding: BrandingConf
 
       setIsSubmitting(true);
       try {
-         await apiPost<{ success: boolean }>('/api/auth/login', { username, password });
+         await callApi('auth.login', { body: { username, password } });
          // Drop cached auth state from before login so the next protected page does not bounce back here.
          queryClient.clear();
          router.replace(returnTo);

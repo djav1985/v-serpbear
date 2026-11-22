@@ -145,7 +145,7 @@ describe('ideas route', () => {
       const res = await get();
 
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({ data: saved });
+      expect(res.json).toHaveBeenCalledWith({ ideas: saved });
       expect(readFile).toHaveBeenCalledWith(expect.stringMatching(/IDEAS_research\.json$/), { encoding: 'utf-8' });
     });
 
@@ -230,7 +230,7 @@ describe('ideas route', () => {
     });
 
     it.each([
-      [{ ...valid, seedType: undefined }, 'Missing seedType'],
+      [{ ...valid, seedType: undefined }, 'Invalid request: seedType'],
       [{ ...valid, seedType: 'unsupported' }, 'Invalid seedType'],
       [{ ...valid, seedType: 'custom', keywords: [] }, 'Please Provide one of these'],
     ])('rejects a missing, unsupported or empty custom seed (%p)', async (body, message) => {
@@ -304,7 +304,7 @@ describe('ideas route', () => {
         await handler(req, res);
 
         expect(res.status).toHaveBeenCalledWith(200);
-        expect(res.json).toHaveBeenCalledWith({ keywords: [], error: '' });
+        expect(res.json).toHaveBeenCalledWith({ favorites: [] });
         expect(writeFile).toHaveBeenCalledTimes(1);
 
         const [, contents] = (writeFile as jest.Mock).mock.calls[0];
@@ -322,7 +322,7 @@ describe('ideas route', () => {
         await handler(req as unknown as NextApiRequest, res as unknown as NextApiResponse);
 
         expect(res.status).toHaveBeenCalledWith(200);
-        expect(res.json).toHaveBeenCalledWith({ keywords: [keyword], error: '' });
+        expect(res.json).toHaveBeenCalledWith({ favorites: [keyword] });
         const [, contents] = (writeFile as jest.Mock).mock.calls[0];
         expect((JSON.parse(contents as string) as KeywordIdeasDatabase).keywords).toEqual([keyword]);
         expect((JSON.parse(contents as string) as KeywordIdeasDatabase).favorites).toEqual([keyword]);

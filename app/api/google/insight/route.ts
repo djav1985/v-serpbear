@@ -3,12 +3,12 @@ import { fetchDomainSCData, getSearchConsoleApiInfo, readLocalSCData } from '../
 import { SAFE_DOMAIN_NAME } from '../../../../utils/domainSlug';
 import Domain from '../../../../database/models/domain';
 import { logger } from '../../../../utils/logger';
-import { createRoute, fail, json, getParam, type ApiContext } from '../../../../utils/apiLogging';
+import { createRoute, fail, json, type ApiContext } from '../../../../utils/apiLogging';
+import { parseQuery } from '../../../../utils/api/validate';
 
 
 const getDomainSearchConsoleInsight = async (req: Request, ctx: ApiContext) => {
-   const domainParam = getParam(req, 'domain');
-   if (!domainParam) return fail(400, 'BAD_REQUEST', 'Domain is Missing.', ctx);
+   const domainParam = parseQuery(req, 'insight.get').domain;
    const requestedDomain = domainParam.trim().toLowerCase();
    if (!SAFE_DOMAIN_NAME.test(requestedDomain)) {
       return fail(400, 'BAD_REQUEST', 'Domain is Missing.', ctx);
@@ -39,7 +39,7 @@ const getDomainSearchConsoleInsight = async (req: Request, ctx: ApiContext) => {
                      || (localSCData.thirtyDays && localSCData.thirtyDays.length > 0);
       if (hasData && fetchTimeDiff <= 86400000) {
          const response = getInsightFromSCData(localSCData);
-         return json({ data: response });
+         return json({ insight: response, integrationStatus: 'integrated' });
       }
    }
 
@@ -49,13 +49,13 @@ const getDomainSearchConsoleInsight = async (req: Request, ctx: ApiContext) => {
       const scGlobalAPI = await getSearchConsoleApiInfo({} as DomainType);
       if (!(scDomainAPI.client_email && scDomainAPI.private_key)
           && !(scGlobalAPI.client_email && scGlobalAPI.private_key)) {
-         // Stays 200: "not integrated" is a normal state the pages render from the error field, not a failure
-         return json({ data: null, error: 'Google Search Console is not Integrated.' });
+         // "Not integrated" is a normal state, not a failure: a typed result with no error
+         return json({ insight: null, integrationStatus: 'not-integrated' });
       }
       const scData = await fetchDomainSCData(domainObj, scDomainAPI, scGlobalAPI);
       if (scData && scData.thirtyDays && scData.thirtyDays.length) {
          const response = getInsightFromSCData(scData);
-         return json({ data: response });
+         return json({ insight: response, integrationStatus: 'integrated' });
       }
       return fail(502, 'BAD_GATEWAY', 'Error Fetching Stats from Google Search Console.', ctx);
    } catch (error) {

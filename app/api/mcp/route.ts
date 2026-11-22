@@ -64,6 +64,12 @@ const makeApiCall = (baseUrl: string, scope: McpOAuthScope): ApiCall => async (m
    } catch {
       // Keep the raw text when the response is not JSON
    }
+   // App routes answer in the { data, error, requestId } envelope. Tools get the useful part only: the data on success,
+   // and { code, message, details } on failure. The envelope itself is never shown to an MCP client.
+   if (data && typeof data === 'object' && 'data' in data && 'error' in data) {
+      const envelope = data as { data: unknown, error: { code?: string, message?: string, details?: unknown } | null };
+      return { ok: res.ok && envelope.error === null, status: res.status, data: envelope.error ?? envelope.data };
+   }
    return { ok: res.ok, status: res.status, data };
 };
 

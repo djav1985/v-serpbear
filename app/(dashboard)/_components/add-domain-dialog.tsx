@@ -10,7 +10,7 @@ import {
 } from 'components/ui/dialog';
 import { Label } from 'components/ui/label';
 import { Textarea } from 'components/ui/textarea';
-import { apiPost } from 'utils/client/apiClient';
+import { callApi } from 'utils/client/apiClient';
 import { isValidUrl } from 'utils/client/validators';
 import { normalizeHostFromString } from 'utils/validators/hostname';
 
@@ -32,7 +32,7 @@ export function AddDomainDialog({ open, onOpenChange, existingDomains }: AddDoma
    };
 
    const { mutate, isPending } = useMutation({
-      mutationFn: (domains: string[]) => apiPost<{ domains: DomainType[] }>('/api/serp/domains', { domains }),
+      mutationFn: (domains: string[]) => callApi('domains.add', { body: { domains } }),
       onSuccess: (data) => {
          const added = data.domains;
          const single = added.length === 1;

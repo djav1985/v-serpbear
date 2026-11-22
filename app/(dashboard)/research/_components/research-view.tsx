@@ -32,9 +32,9 @@ export function ResearchView({ adwordsConnected }: ResearchViewProps) {
    const { data, isLoading, isError } = useIdeas(null, adwordsConnected);
    const { mutate: loadIdeas, isPending: isLoadingIdeas } = useLoadIdeas(null);
 
-   const ideas = useMemo(() => data?.data?.keywords ?? [], [data]);
-   const favorites = useMemo(() => data?.data?.favorites ?? [], [data]);
-   const previous = data?.data?.settings;
+   const ideas = useMemo(() => data?.keywords ?? [], [data]);
+   const favorites = useMemo(() => data?.favorites ?? [], [data]);
+   const previous = data?.settings;
 
    // Start the form from what was used for the stored ideas.
    const previousCountry = previous?.country;

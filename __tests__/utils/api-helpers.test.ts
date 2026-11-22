@@ -86,7 +86,7 @@ describe('parseStrictBooleanQueryParam', () => {
 describe('errorResponse', () => {
     it('constructs a failure envelope with code and message', () => {
       const result = errorResponse('NOT_FOUND', 'Resource not found');
-      expect(result).toEqual({ error: { code: 'NOT_FOUND', message: 'Resource not found' } });
+      expect(result).toEqual({ data: null, error: { code: 'NOT_FOUND', message: 'Resource not found' } });
     });
 
     it('includes requestId and details when provided', () => {
