@@ -8,7 +8,7 @@ Before that, fix the security and authorization problems found while auditing th
 
 ## Phases and branches
 
-- **Phase 1: security and authorization fixes.** Ordinary pull requests to `main`, releasable on their own. Covers: MCP scoped authorization (so full-scope write tools work without widening `APIKEY`), fail-closed scope defaults, settings secret masking with the `includePrivate` change, and the docs fix for the `APIKEY` allowlist. Responses keep today's shapes. See [Phase 1](#phase-1-security-and-authorization-fixes).
+- **Phase 1: security and authorization fixes.** Ordinary pull requests to `main`, releasable on their own. Covers: MCP scoped authorization (so full-scope write tools work without widening `APIKEY`), fail-closed scope defaults, settings secret masking with the `includePrivate` change, the docs fix for the `APIKEY` allowlist, and a same-origin check on browser writes. Responses keep today's shapes. See [Phase 1](#phase-1-security-and-authorization-fixes).
 - **Phase 2: contract migration.** A breaking API change. Work happens on one long-lived integration branch; each route group lands there as its own pull request, and the branch merges to `main` only when every group, caller, test and doc is migrated, so `main` never holds a half-migrated API. See [Phase 2](#phase-2-contract-migration).
 - **Release: 6.5.0.** Both phases ship in version `6.5.0`. Phase 1 pull requests may merge to `main` earlier; until `6.5.0` is cut, every change from either phase is recorded in `CHANGELOG.md` under `[Unreleased]`. When the integration branch has merged, bump `package.json` (and `package-lock.json`) to `6.5.0` and move the `[Unreleased]` entries under a `[6.5.0]` heading with the release date.
 
@@ -45,16 +45,28 @@ These were decided before implementation. The phase sections apply them.
 
 Each item keeps today's response shapes and can ship as its own pull request.
 
-1. **MCP scoped authorization.** Replace MCP's use of `APIKEY` for internal calls with a server-only scoped identity passed from the authenticated MCP request to its internal REST call. `mcp:read` and direct `MCP_APIKEY` can invoke only read operations (classify `POST /api/google/ideas`, used by the read tool `generate_keyword_ideas`, as read); `mcp:full` can invoke the documented full tools: favorite idea, add/update/delete keywords, and ranking refresh. The internal identity must not be forgeable by public callers: never accept a caller-supplied header as proof of scope. Check method/path/scope before business logic. The external `APIKEY` allowlist is not widened.
+1. **MCP scoped authorization.** Stop calling the app's own REST routes over HTTP with `APIKEY`. `makeApiCall` in `app/api/mcp/route.ts` instead invokes the route handlers in-process: it builds a `Request` object and calls the exported handler (`GET`, `POST`, ...) directly, with no loopback `fetch`, no `http://127.0.0.1:<PORT>` URL and no secret to leak or replay.
+   - **How the handler knows the caller.** A server-only module (for example `utils/mcpInternalAuth.ts`) keeps a module-private `WeakMap<Request, McpOAuthScope>`. `makeApiCall` registers each `Request` it builds, with the scope of the authenticated MCP request (`mcp:read` for the direct `MCP_APIKEY`, the credential's scope for OAuth). `verifyUser` (and `createRoute`'s auth check) accepts a request that is in the map and allows it only if the method/path is permitted for that scope. Network requests are created by the runtime, never by this module, so they can never be in the map: there is no header, token or other input a public caller can send to claim scope. `createRoute` passes the original `req` to `verifyUser` (`req.clone()` is only used for the debug body log), so the identity lookup holds.
+   - **Permitted operations.** `mcp:read` and direct `MCP_APIKEY` can invoke only read operations (classify `POST /api/google/ideas`, used by the read tool `generate_keyword_ideas`, as read). `mcp:full` can also invoke the documented full tools: favorite idea, add/update/delete keywords, and ranking refresh. Anything else is refused with the usual 401 before business logic runs.
+   - **Side effects.** `MCP`'s `APIKEY is required` startup check is removed, since MCP no longer needs `APIKEY`. The external `APIKEY` allowlist is not widened, and `isLoginLocked`/`apiKeyThrottle` stay on the external path.
 2. **Fail closed on scope.** Change both defaults (`app/api/mcp/route.ts` and `app/api/oauth/token/route.ts`) so a missing or unknown scope means no access, not full.
 3. **Settings masking and `includePrivate`** (Settled decisions 1 and 2), including the settings form's save flow and any first-party caller that needs `includePrivate=true`.
 4. **Docs fix for the allowlist** (Settled decision 3) in `docs/API-and-MCP.md` and `README.md`, plus `docs/Security.md` for the settings change.
+5. **Same-origin check for browser writes.** In `createRoute`, reject with `403` any `POST`, `PUT` or `DELETE` that has no `Authorization: Bearer` header and fails `isSameOriginRequest` (`utils/api/sameOrigin.ts`). Today only `POST /api/serp/refresh` and the OAuth consent in `POST /api/oauth/authorize` check origin; every other session-cookie write relies on the cookie's `SameSite=Lax` alone, which does not stop requests from a sibling subdomain of the same site. There is no `middleware.ts`/`proxy.ts`.
+   - **Covered:** every app REST write, including `POST /api/auth/login` (blocks login CSRF) and `POST /api/adwords` (declared `auth: false` but session-checked inside with `requireAuth`).
+   - **Exempt:** requests with a Bearer header (`APIKEY`, `MCP_APIKEY`, OAuth access tokens), and routes declared `oauthProtocol: true` (the OAuth routes and `.well-known` metadata), which MCP clients call from other origins and which send `oauthCorsHeaders`. `POST /api/oauth/authorize` keeps its own consent origin check. Exempting Bearer requests is safe because a page on another site cannot add an `Authorization` header without a CORS preflight, and the app REST routes send no CORS headers.
+   - **Non-browser callers are unaffected:** `isSameOriginRequest` passes requests that send neither `Origin` nor `Sec-Fetch-Site`, so curl, external API-key scripts and `cron.js` keep working.
+   - The per-route origin check in `app/api/serp/refresh/route.ts` becomes redundant and is removed.
+   - `Content-Type: application/json` is not required: the origin check already stops cross-site form posts, and requiring it would make every `cron.js` call send the header for no added protection.
 
 Tests for Phase 1:
 
-- An end-to-end MCP test that runs the real `verifyUser` (not mocked) and shows each full-scope write tool is authorized and each read-scope or direct-key call to a write operation is refused.
+- An end-to-end MCP test that runs the real `verifyUser` and the real route handlers (neither mocked, no `fetch` mock) and shows each full-scope write tool is authorized and each read-scope or direct-key call to a write operation is refused.
+- A forgery test: a network request to a protected route that carries `Authorization: Bearer` of any kind, `X-` headers or any other input claiming MCP scope is still refused unless it passes the normal session or `APIKEY` checks.
 - Separate tests for direct key, session, `APIKEY`, OAuth read and OAuth full; a credential with no scope gets no access, including after a refresh-token exchange (`__tests__/api/mcp.test.ts`, `__tests__/api/oauth-routes.test.ts`, `__tests__/utils/auth.test.ts`).
 - Settings: no decrypted secret in any `GET`/`PUT` response; marker and omitted secrets keep the stored value; `''` clears; the public view without `includePrivate` even with a session; 401 for `includePrivate=true` without one (`__tests__/api/settings.test.ts`, `__tests__/frontend/settingsQueries.test.tsx`).
+- Cross-site writes: a cookie-authenticated `POST`/`PUT`/`DELETE` with `Sec-Fetch-Site: cross-site` or `same-site`, or a foreign `Origin`, gets `403` before business logic; same-origin requests and requests with neither header pass; Bearer requests pass from any origin; `oauthProtocol` routes are unaffected (`__tests__/api/api-logging.test.ts`, and the refresh origin cases in `__tests__/refresh/refresh-route.test.ts` move to the shared check).
+- Login: a cross-site `POST /api/auth/login` is refused even with valid credentials (`__tests__/api/login.test.ts`).
 - `CHANGELOG.md` entry under `[Unreleased]`.
 
 ## Phase 2: contract migration
@@ -115,7 +127,7 @@ All responses below use the envelope, on the existing paths. "Session" means a v
 | `enabled-domains` | `{ started: true }`, `{ started, skipped: { domains } }`, or `{ started: false, reason: 'no-enabled-domains' }` | 400 no scraper or combined with other filters |
 | one-off search | `{ searchResult: { results, keyword, position, country, device } }` | 403 without a session; 429 rate limit; 400 no scraper or bad input; 502 scrape failed |
 
-A refresh request without a Bearer key that is not same-origin gets 403.
+A write request without a Bearer key that is not same-origin gets 403 from `createRoute` (Phase 1 item 5).
 
 ### Migration notes
 
@@ -154,7 +166,7 @@ These keep their standards-required or non-JSON formats and are outside the enve
 MCP has two hops. Phase 2 changes only the internal one; the protocol exposed to MCP clients does not change.
 
 1. **MCP client to `/api/mcp`:** keep Streamable HTTP with JSON-RPC requests and MCP tool results. MCP clients never receive the REST envelope.
-2. **MCP tool to app endpoint:** `makeApiCall` in `app/api/mcp/route.ts` calls the existing REST paths with the same rules as the browser (query parameters for GET, JSON bodies for writes) and the scoped identity from Phase 1. It unwraps `data` for successful tool results and maps `{ code, message, details }` to an MCP tool error result instead of returning the raw envelope. "Not integrated" is a normal tool result (Settled decision 6).
+2. **MCP tool to app endpoint:** `makeApiCall` in `app/api/mcp/route.ts` invokes the existing route handlers in-process (Phase 1 item 1) with the same rules as the browser (query parameters for GET, JSON bodies for writes) and the scoped identity registered for that request. It unwraps `data` for successful tool results and maps `{ code, message, details }` to an MCP tool error result instead of returning the raw envelope. "Not integrated" is a normal tool result (Settled decision 6).
 3. **Shared tool input definitions:** derive each MCP tool's Zod input schema from the matching shared endpoint contract. Keep tool names, descriptions and read/full availability. Some tool inputs differ from the REST types today (`get_keyword` `id` and `favorite_keyword_idea` `keywordID` are strings), so the shared schemas need an explicit coercion rule for tool input versus REST query/body values.
 4. **Keep MCP semantics:** tool outputs are useful resource data, not `{ data, error, requestId }`; protocol errors and transport headers stay in the MCP/JSON-RPC layer. Direct `MCP_APIKEY` stays read-only and the OAuth read/full scopes stay as Phase 1 left them.
 
