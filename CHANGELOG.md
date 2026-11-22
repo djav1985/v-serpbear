@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file. Releases no
 
 ## [Unreleased]
 
+### Fixed
+
+- The settings form no longer shows the word `true` in secret fields. A stored secret (scraper key, SMTP password, Search Console private key, Google Ads fields) is shown as an empty box with the hint "Saved. Type to replace."; typing replaces it and leaving it alone keeps the stored value.
+- Saving a domain (`PUT /api/serp/domains`) and adding domains (`POST /api/serp/domains`) now answer with the same record as the domain list, with empty text columns sent as empty text. A domain with empty database columns no longer saves successfully and then shows a "did not match the expected shape" error.
+- Keyword ideas whose Google Ads response has no competition level, or one this app does not know, are saved with `UNSPECIFIED`. Saved ideas and favorites are corrected as they are read, so an ideas file written by an earlier release can no longer make the ideas page fail.
+- A refused cross-site write (`403 Requests that change data must be made from this site.`) now logs the `origin` the browser sent and the `expectedOrigins` the app accepts. The Reverse Proxy and Troubleshooting docs explain the fix: set `NEXT_PUBLIC_APP_URL`, or make the proxy pass `Host` and `X-Forwarded-Proto`.
+- Docs: removed the Troubleshooting line saying MCP uses `APIKEY` internally (it runs the route handlers in process) and the Coolify sentence saying the OAuth discovery routes do not exist.
+- The Search Console client email is a service account address, not a secret, so it is no longer encrypted or masked. It is stored as plain text (in `data/settings.json` and in each domain's `search_console` value), returned as it is by `GET /api/app/settings?includePrivate=true`, the settings save response and the domain responses, and shown in the settings and domain forms. The private key stays encrypted and masked. A domain save that sends the saved email back with the key marker keeps the stored credentials; a different email still needs a new key.
+- Migration `1790000000003-decrypt-search-console-client-email` decrypts the email already stored encrypted by earlier releases, in `settings.json` and in domain rows. It needs `SECRET`, leaves values that are already plain text alone, backs up the database before changing a domain row, and is safe to run twice.
+
 ## [6.5.0] (2026-11-22)
 
 ### Breaking: REST API contract (external API-key clients must update)

@@ -184,6 +184,12 @@ describe('settings records', () => {
     expect((view as { scraping_api: string }).scraping_api).toBe('true');
   });
 
+  it('returns the Search Console client email in plain text and masks the private key', () => {
+    const view = maskSecretSettings({ ...full, search_console_client_email: 'svc@project.iam.gserviceaccount.com', search_console_private_key: 'key' } as unknown as Record<string, unknown>) as { search_console_client_email: string, search_console_private_key: string };
+    expect(view.search_console_client_email).toBe('svc@project.iam.gserviceaccount.com');
+    expect(view.search_console_private_key).toBe('true');
+  });
+
   it('accepts the public view and nothing less', () => {
     const view = { scraper_type: 'none', available_scapers: [], search_console_integrated: false, version: '6.5.0', timezone: 'UTC', branding };
     expect(issues(PublicSettingsDTO.safeParse(view))).toEqual([]);

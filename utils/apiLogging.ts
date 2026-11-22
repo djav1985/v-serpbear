@@ -3,7 +3,7 @@ import { ensureDatabase } from '../database/init';
 import { ApiError, fail, getQuery, readTextUpTo, runWithApiContext, type ApiContext } from './api/http';
 import { redactSecrets, redactUrl } from './logRedaction';
 import { getClientIp } from './api/clientIp';
-import { isSameOriginRequest } from './api/sameOrigin';
+import { isSameOriginRequest, ownOrigins } from './api/sameOrigin';
 import { getInternalRequestScope } from './mcpInternalAuth';
 import { isLoginLocked } from './loginThrottle';
 import { getApiKeyAttemptKeys } from './apiKeyThrottle';
@@ -102,7 +102,14 @@ const run = async (handler: ApiHandler | undefined, def: RouteDefinition, req: R
    // origins), the MCP endpoint (Bearer only, never cookies) and requests the MCP route built in process.
    if (WRITE_METHODS.includes(req.method) && !def.oauthProtocol && !isMcpEndpoint && !getInternalRequestScope(req)
       && !isBearerAuthorization(req.headers.get('authorization') ?? undefined) && !isSameOriginRequest(req)) {
-      logger.warn(`${label} - 403 (cross-site write)`);
+      // Behind a proxy that rewrites Host or drops X-Forwarded-Proto, the site's own address does not match the Origin the
+      // browser sends. The log names both, so the fix (NEXT_PUBLIC_APP_URL or the proxy headers) is clear.
+      logger.warn(`${label} - 403 (cross-site write)`, {
+         origin: req.headers.get('origin'),
+         secFetchSite: req.headers.get('sec-fetch-site'),
+         expectedOrigins: ownOrigins(req),
+         hint: 'Set NEXT_PUBLIC_APP_URL to this site\'s public address, or make the proxy pass Host and X-Forwarded-Proto.',
+      });
       return withRequestId(fail(403, 'FORBIDDEN', 'Requests that change data must be made from this site.', ctx), requestId);
    }
 

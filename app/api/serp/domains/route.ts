@@ -3,7 +3,7 @@ import { mkdir, readFile } from 'fs/promises';
 import { dirname } from 'path';
 import Domain from '../../../../database/models/domain';
 import Keyword from '../../../../database/models/keyword';
-import { loadDomains } from '../../../../utils/domainsList';
+import { formatDomainPlain, loadDomains } from '../../../../utils/domainsList';
 import { checkSearchConsoleIntegration, removeLocalSCData } from '../../../../utils/searchConsole';
 import { parseBody, parseQuery } from '../../../../utils/api/validate';
 import { createRoute, fail, json, type ApiContext } from '../../../../utils/apiLogging';
@@ -13,13 +13,10 @@ import { logger } from '../../../../utils/logger';
 import { refreshQueue } from '../../../../utils/refreshQueue';
 import {
    buildPersistedScraperSettings,
-   maskDomainScraperSettings,
    parseDomainScraperSettings,
 } from '../../../../utils/domainScraperSettings';
 import { toDbBool } from '../../../../utils/dbBooleans';
 import { safeJsonParse } from '../../../../utils/safeJsonParse';
-import { maskSearchConsole } from '../../../../utils/maskSearchConsole';
-import normalizeDomainBooleans from '../../../../utils/normalizeDomain';
 import { retryQueueManager } from '../../../../utils/retryQueueManager';
 import db from '../../../../database/database';
 import { atomicWriteFile } from '../../../../utils/atomicWrite';
@@ -159,7 +156,7 @@ const addDomain = async (req: Request, ctx: ApiContext) => {
          }
 
          const newDomains:Domain[] = await Domain.bulkCreate(domainsToAdd);
-         const formattedDomains = newDomains.map((el) => normalizeDomainBooleans(el.get({ plain: true }) as DomainType));
+         const formattedDomains = newDomains.map((el) => formatDomainPlain(el.get({ plain: true }) as unknown as Record<string, unknown>));
          return json({ domains: formattedDomains }, 201);
       } catch (error) {
          // A concurrent request can add the same domain between the check above and the insert
@@ -361,11 +358,14 @@ const updateDomain = async (req: Request, ctx: ApiContext) => {
             null,
             { context: `domain ${domainPlain?.domain ?? ''} search_console`, logError: true },
          );
-         const keepsStoredCredentials = search_console.client_email === SC_CREDENTIAL_MARKER
-            && search_console.private_key === SC_CREDENTIAL_MARKER;
+         // The form shows the saved email in plain text and the key as the marker. Sending the saved email back with the
+         // marker key means nothing was changed, so the stored credentials are kept. A different email needs a new key.
+         const keepsStoredCredentials = search_console.private_key === SC_CREDENTIAL_MARKER
+            && (search_console.client_email === SC_CREDENTIAL_MARKER
+               || (!!search_console.client_email && search_console.client_email.trim() === storedSearchConsole?.client_email));
 
          if (keepsStoredCredentials) {
-            // The form sends the marker back when the credentials were not changed: keep the stored encrypted values
+            // The form sends the marker back when the credentials were not changed: keep the stored values
             search_console.client_email = storedSearchConsole?.client_email ?? '';
             search_console.private_key = storedSearchConsole?.private_key ?? '';
          } else if (search_console.client_email === SC_CREDENTIAL_MARKER || search_console.private_key === SC_CREDENTIAL_MARKER) {
@@ -386,7 +386,8 @@ const updateDomain = async (req: Request, ctx: ApiContext) => {
                return fail(400, 'BAD_REQUEST', isSearchConsoleAPIValid.error ?? 'Invalid Search Console credentials', ctx);
             }
             const cryptr = new Cryptr(process.env.SECRET as string);
-            search_console.client_email = cryptr.encrypt(search_console.client_email.trim());
+            // The client email is not a secret and is stored as plain text; only the private key is encrypted
+            search_console.client_email = search_console.client_email.trim();
             search_console.private_key = cryptr.encrypt(search_console.private_key.trim());
          }
       }
@@ -413,15 +414,9 @@ const updateDomain = async (req: Request, ctx: ApiContext) => {
       domainToUpdate.set(updates);
       await domainToUpdate.save();
 
+      // The same mapper as the domain list and the single domain route: credentials masked, empty columns filled in
       const savedPlain = domainToUpdate.get({ plain: true }) as unknown as Record<string, unknown>;
-      const searchConsoleData = maskSearchConsole(savedPlain?.search_console, String(savedPlain?.domain ?? savedPlain?.ID ?? ''));
-      const persistedScraperSettingsAfter = parseDomainScraperSettings(savedPlain?.scraper_settings);
-      const maskedDomain = {
-         ...savedPlain,
-         search_console: JSON.stringify(searchConsoleData),
-         scraper_settings: maskDomainScraperSettings(persistedScraperSettingsAfter),
-      } as DomainType;
-      return json({ domain: normalizeDomainBooleans(maskedDomain) });
+      return json({ domain: formatDomainPlain(savedPlain) });
    } catch (error) {
       logger.error('Updating Domain: ', error instanceof Error ? error : new Error(String(error)), { context: domain });
       return fail(500, 'INTERNAL_SERVER_ERROR', 'Error Updating Domain. An Unknown Error Occurred.', ctx);

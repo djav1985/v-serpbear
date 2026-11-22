@@ -431,13 +431,14 @@ describe('GET /api/app/settings and configuration requirements', () => {
 
     expect(settings.scraping_api).toBe('');
     expect(settings.smtp_password).toBe('');
-    expect(settings.search_console_client_email).toBe('');
     expect(settings.search_console_private_key).toBe('');
     expect(settings.adwords_client_id).toBe('');
     expect(settings.adwords_client_secret).toBe('');
     expect(settings.adwords_refresh_token).toBe('');
     expect(settings.adwords_developer_token).toBe('');
     expect(settings.adwords_account_id).toBe('');
+    // The Search Console client email is not encrypted, so a decryption failure does not touch it
+    expect(settings.search_console_client_email).toBe('encrypted-email');
     // Non-sensitive fields should still be present
     expect(settings.scraper_type).toBe('serpapi');
   });
@@ -682,7 +683,7 @@ describe('GET /api/app/settings public and private views', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.SECRET = 'secret';
-    readFileMock.mockResolvedValue(JSON.stringify({ smtp_password: 'hunter2', scraping_api: 'key', smtp_server: 'smtp.example.com' }));
+    readFileMock.mockResolvedValue(JSON.stringify({ smtp_password: 'hunter2', scraping_api: 'key', smtp_server: 'smtp.example.com', search_console_client_email: 'svc@project.iam.gserviceaccount.com' }));
   });
 
   afterEach(() => {
@@ -737,6 +738,8 @@ describe('GET /api/app/settings public and private views', () => {
     expect(settings.scraping_api).toBe('true');
     expect(settings.adwords_client_secret).toBe('');
     expect(settings.search_console_private_key).toBe('');
+    // The client email is not a secret: it is stored and returned as plain text
+    expect(settings.search_console_client_email).toBe('svc@project.iam.gserviceaccount.com');
     expect(JSON.stringify(settings)).not.toContain('decrypted:');
     expect(settings.branding).toEqual(expect.objectContaining({ logoApiPath: '/api/images/logo.png' }));
   });

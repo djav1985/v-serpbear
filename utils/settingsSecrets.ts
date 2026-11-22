@@ -12,7 +12,6 @@ export const SECRET_MARKER = 'true';
 export const SECRET_SETTINGS_FIELDS = [
    'scraping_api',
    'smtp_password',
-   'search_console_client_email',
    'search_console_private_key',
    'adwords_client_id',
    'adwords_client_secret',

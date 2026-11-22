@@ -361,9 +361,10 @@ describe('POST /api/serp/domains', () => {
       ]);
       expect(res.status).toHaveBeenCalledWith(201);
       const responsePayload = (res.json as jest.Mock).mock.calls[0][0];
+      // Same mapper as the domain list: empty text columns are sent as empty text, so the response matches the contract
       expect(responsePayload.domains).toEqual([
-        { domain: 'example.com', slug: 'example-com', scrapeEnabled: true },
-        { domain: 'sub.domain.com', slug: 'sub-domain-com', scrapeEnabled: true },
+        expect.objectContaining({ domain: 'example.com', slug: 'example-com', scrapeEnabled: true, notification_emails: '', lastUpdated: '', added: '', scrape_strategy: '', search_console: '{}' }),
+        expect.objectContaining({ domain: 'sub.domain.com', slug: 'sub-domain-com', scrapeEnabled: true, notification_emails: '', lastUpdated: '', added: '', scrape_strategy: '', search_console: '{}' }),
       ]);
     });
 

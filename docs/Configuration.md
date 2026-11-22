@@ -49,7 +49,7 @@ Manage these in the Settings UI or at `/api/app/settings`.
 | `notification_interval` | `never` (default), `daily`, `weekly` or `monthly`. |
 | `notification_email_from`, `notification_email_from_name` | Sender address (default `no-reply@serpbear.com`) and display name (default the platform name). |
 | `smtp_server`, `smtp_port`, `smtp_username`, `smtp_password`, `smtp_tls_servername` | SMTP connection. The port is required and is a whole number from 1 to 65535. |
-| `search_console_client_email`, `search_console_private_key` | Search Console service account, used when the domain has none of its own. |
+| `search_console_client_email`, `search_console_private_key` | Search Console service account, used when the domain has none of its own. The email is stored as plain text; the private key is encrypted. |
 | `adwords_*` | Google Ads credentials for keyword ideas. |
 | `keywordsColumns` | Columns shown in the keyword table. |
 

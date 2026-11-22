@@ -194,6 +194,23 @@ describe('api logging', () => {
         expect(handler).not.toHaveBeenCalled();
       });
 
+      it('logs the origin the browser sent and the origins the app expects when it refuses a write', async () => {
+        const { createRoute } = await import('../../utils/apiLogging');
+        const { POST } = createRoute({ name: 'test', auth: false, POST: ok });
+
+        const response = await POST(write('POST', { origin: 'https://public.example', host: 'internal:3000', cookie: 'token=abc' }));
+
+        expect(response.status).toBe(403);
+        expect(logger.warn).toHaveBeenCalledWith(
+          expect.stringContaining('403 (cross-site write)'),
+          expect.objectContaining({
+            origin: 'https://public.example',
+            expectedOrigins: expect.arrayContaining(['http://localhost:3000']),
+            hint: expect.stringContaining('NEXT_PUBLIC_APP_URL'),
+          }),
+        );
+      });
+
       it('lets same-origin writes and writes that report neither header through', async () => {
         const { createRoute } = await import('../../utils/apiLogging');
         const { POST } = createRoute({ name: 'test', auth: false, POST: ok });

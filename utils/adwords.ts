@@ -537,7 +537,7 @@ const extractAdwordskeywordIdeas = (keywordIdeas: keywordIdeasResponseItem[], op
                // Search Console join key from buildKeywordUid (utils/searchConsole.ts), so the two formats stay separate.
                uid: `${country.toLowerCase()}:${text.replaceAll(' ', '-')}`,
                keyword: text,
-               competition,
+               competition: normalizeIdeaCompetition(competition),
                competitionIndex: isNaN(compIndex) ? 0 : Math.max(0, compIndex),
                monthlySearchVolumes: searchVolumeTrend,
                avgMonthlySearches: searchVolume,
@@ -767,6 +767,21 @@ export const withIdeasLock = async <T>(domain: string, fn: () => Promise<T>, opt
    }
 };
 
+const IDEA_COMPETITION_LEVELS: readonly IdeaKeyword['competition'][] = ['UNSPECIFIED', 'UNKNOWN', 'HIGH', 'LOW', 'MEDIUM'];
+
+/**
+ * Google Ads leaves the competition level out when it has none to give, and may send a value this app does not know.
+ * Anything that is not one of the known levels becomes 'UNSPECIFIED', so a saved idea always has a valid one.
+ */
+export const normalizeIdeaCompetition = (competition: unknown): IdeaKeyword['competition'] => (
+   IDEA_COMPETITION_LEVELS.find((level) => level === competition) ?? 'UNSPECIFIED'
+);
+
+/** Applies normalizeIdeaCompetition to a list of ideas, for ideas files written before the value was checked. */
+const normalizeIdeaList = (ideas: unknown): IdeaKeyword[] => (
+   Array.isArray(ideas) ? ideas.map((idea: IdeaKeyword) => ({ ...idea, competition: normalizeIdeaCompetition(idea?.competition) })) : []
+);
+
 /**
  * The function `getLocalKeywordIdeas` reads keyword ideas data from a local JSON file based on a domain slug and returns it as a Promise.
  * @param {string} domain - The `domain` parameter is the domain slug for which the keyword Ideas are fetched.
@@ -784,7 +799,12 @@ export const getLocalKeywordIdeas = async (domain: string): Promise<false | Keyw
    const keywordIdeasRaw = await readFile(filePath, { encoding: 'utf-8' });
       const keywordIdeasData = JSON.parse(keywordIdeasRaw) as KeywordIdeasDatabase;
       if (keywordIdeasData.keywords) {
-         return keywordIdeasData;
+         // Saved ideas may have no competition level or an unknown one; fix them as they are read
+         return {
+            ...keywordIdeasData,
+            keywords: normalizeIdeaList(keywordIdeasData.keywords),
+            ...(Array.isArray(keywordIdeasData.favorites) ? { favorites: normalizeIdeaList(keywordIdeasData.favorites) } : {}),
+         };
       }
       return false;
    } catch (error) {

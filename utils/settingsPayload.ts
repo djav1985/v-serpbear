@@ -31,6 +31,8 @@ export const PERSISTED_SETTINGS_FIELDS = [
    'scrape_strategy',
    'scrape_pagination_limit',
    'keywordsColumns',
+   // The Search Console service account email is not a secret: it is stored as plain text
+   'search_console_client_email',
    ...SECRET_SETTINGS_FIELDS,
 ] as const;
 

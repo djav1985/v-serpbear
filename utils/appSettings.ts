@@ -102,7 +102,6 @@ export const getAppSettings = async () : Promise<SettingsType> => {
             ...baseSettings,
             scraping_api: '',
             smtp_password: '',
-            search_console_client_email: '',
             search_console_private_key: '',
             adwords_client_id: '',
             adwords_client_secret: '',
@@ -119,7 +118,6 @@ export const getAppSettings = async () : Promise<SettingsType> => {
          const cryptr = new Cryptr(process.env.SECRET as string);
          const scraping_api = settings.scraping_api ? cryptr.decrypt(settings.scraping_api) : '';
          const smtp_password = settings.smtp_password ? cryptr.decrypt(settings.smtp_password) : '';
-         const search_console_client_email = settings.search_console_client_email ? cryptr.decrypt(settings.search_console_client_email) : '';
          const search_console_private_key = settings.search_console_private_key ? cryptr.decrypt(settings.search_console_private_key) : '';
          const adwords_client_id = settings.adwords_client_id ? cryptr.decrypt(settings.adwords_client_id) : '';
          const adwords_client_secret = settings.adwords_client_secret ? cryptr.decrypt(settings.adwords_client_secret) : '';
@@ -131,7 +129,6 @@ export const getAppSettings = async () : Promise<SettingsType> => {
             ...baseSettings,
             scraping_api,
             smtp_password,
-            search_console_client_email,
             search_console_private_key,
             adwords_client_id,
             adwords_client_secret,
@@ -145,7 +142,6 @@ export const getAppSettings = async () : Promise<SettingsType> => {
             ...baseSettings,
             scraping_api: '',
             smtp_password: '',
-            search_console_client_email: '',
             search_console_private_key: '',
             adwords_client_id: '',
             adwords_client_secret: '',
