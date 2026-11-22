@@ -31,6 +31,7 @@ All notable changes to this project will be documented in this file. Releases no
 
 ### Fixed
 
+- `GET /api/google/ideas` returns `favorites: []` for an ideas file written by a first generation, so the browser client accepts freshly generated ideas.
 - Correct `docs/API-and-MCP.md` and `README.md` to match the `APIKEY` route allowlist: update/delete keywords and domains, ideas favorites, clear failed and the retry status are login-session only.
 - Prevent long page URLs in the final Search Console email table from expanding the table beyond the email width, including on mobile.
 

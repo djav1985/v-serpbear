@@ -40,7 +40,8 @@ const getKeywordIdeas = async (req: Request, ctx: ApiContext) => {
    try {
       const keywordsDatabase = await getLocalKeywordIdeas(domain || RESEARCH_IDEAS_KEY);
       if (keywordsDatabase) {
-         return json({ ideas: keywordsDatabase });
+         // The file written by a first generation has no favorites yet
+         return json({ ideas: { ...keywordsDatabase, favorites: keywordsDatabase.favorites ?? [] } });
       }
       return fail(400, 'BAD_REQUEST', 'Error Loading Keyword Ideas.', ctx);
    } catch (error) {

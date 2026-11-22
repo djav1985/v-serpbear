@@ -21,7 +21,7 @@ const country = z.string().regex(/^[A-Z]{2}$/);
 
 export const IdeasDatabaseDTO = z.object({
    keywords: z.array(IdeaDTO),
-   favorites: z.array(IdeaDTO),
+   favorites: z.array(IdeaDTO).default([]),
    settings: dto<DomainIdeasSettings>(),
    updated: z.number().optional(),
 });

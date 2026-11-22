@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { readFile, writeFile } from 'fs/promises';
 import { type KeywordIdeasDatabase, getLocalKeywordIdeas, updateLocalKeywordIdeas } from '../../../utils/adwords';
+import { IdeasDatabaseDTO } from '../../../utils/api/contracts';
 jest.mock('../../../utils/searchConsole');
 jest.mock('../../../database/models/domain', () => ({
   __esModule: true,
@@ -147,6 +148,18 @@ describe('ideas route', () => {
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({ ideas: saved });
       expect(readFile).toHaveBeenCalledWith(expect.stringMatching(/IDEAS_research\.json$/), { encoding: 'utf-8' });
+    });
+
+    it('returns an empty favorites list for a file written by a first generation', async () => {
+      const saved = { keywords: [{ uid: 'idea-1', keyword: 'shoes' }], settings: { country: 'US' } };
+      (readFile as jest.Mock).mockResolvedValue(JSON.stringify(saved));
+
+      const res = await get();
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({ ideas: { ...saved, favorites: [] } });
+      // The browser client accepts it too
+      expect(IdeasDatabaseDTO.safeParse(saved).success).toBe(true);
     });
 
     it('rejects an invalid domain before reading the ideas file', async () => {
