@@ -175,9 +175,6 @@ export const PublicSettingsDTO = z.object({
 /** GET /api/app/settings?includePrivate=true: every setting, with secrets masked, plus the read-only version, timezone and branding. */
 export const PrivateSettingsDTO = SettingsDTO.extend({ version: str, timezone: str, branding: BrandingDTO });
 
-/** PUT /api/app/settings echoes the fields that were saved (and every secret, masked), not the whole object. */
-export const SavedSettingsDTO = SettingsDTO.partial();
-
 // Search Console and insight
 
 export const SearchAnalyticsStatDTO = z.object({ date: str, clicks: num, impressions: num, ctr: num, position: num });

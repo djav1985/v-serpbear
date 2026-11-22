@@ -8,7 +8,7 @@ import { z } from 'zod';
 
 import {
    DomainDTO, EmailIdeaKeywordDTO, KeywordDTO, KeywordLastResultDTO, IdeaKeywordDTO, IdeasDatabaseDTO, InsightDataDTO, PrivateSettingsDTO,
-   PublicSettingsDTO, SavedSettingsDTO, SCDomainDataDTO, SettingsDTO,
+   PublicSettingsDTO, SCDomainDataDTO, SettingsDTO,
 } from './dto';
 
 export { IdeasDatabaseDTO };
@@ -113,7 +113,7 @@ export const endpoints = defineEndpoints({
    // One URL, two views: the login page's public subset, and the full settings (secrets masked) for a signed-in session
    'settings.public': { method: 'GET', path: '/api/app/settings', response: z.object({ settings: PublicSettingsDTO }) },
    'settings.private': { method: 'GET', path: '/api/app/settings', query: z.object({ includePrivate: z.literal(true) }), response: z.object({ settings: PrivateSettingsDTO }) },
-   'settings.save': { method: 'PUT', path: '/api/app/settings', body: z.object({ settings: SettingsDTO.partial() }), response: z.object({ settings: SavedSettingsDTO }) },
+   'settings.save': { method: 'PUT', path: '/api/app/settings', body: z.object({ settings: SettingsDTO.partial() }), response: z.object({ settings: PrivateSettingsDTO }) },
    'email.digest': { method: 'POST', path: '/api/app/email', body: z.object({ type: z.literal('digest'), domain: z.string().optional() }), response: z.object({ sent: z.number(), skipped: z.number(), message: z.string().optional() }) },
    'email.ideas': { method: 'POST', path: '/api/app/email', body: z.object({ type: z.literal('ideas'), domain: z.string(), keywords: z.array(EmailIdeaKeywordDTO).min(1).max(1000) }), response: z.object({ success: z.literal(true) }) },
    // Auth and Google Ads

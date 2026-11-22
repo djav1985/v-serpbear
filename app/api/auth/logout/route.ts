@@ -8,7 +8,7 @@ import { revokeAllSessions } from '../../../../utils/sessionStore';
 
 const logout = async (req: Request, ctx: ApiContext) => {
    // The body is an empty object; callers may leave it out
-   await parseBody(req, 'auth.logout', { emptyBodyOk: true });
+   await parseBody(req, 'auth.logout');
    const startTime = Date.now();
    try {
       const secureCookie = isRequestSecure(req);

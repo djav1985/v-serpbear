@@ -54,7 +54,7 @@ describe('cron worker', () => {
         headers: {
           get: jest.fn().mockReturnValue('application/json'),
         },
-        json: () => Promise.resolve({ ok: true }),
+        json: () => Promise.resolve({ data: { started: true }, error: null }),
       });
 
       await makeCronApiCall('secret', 'http://localhost:3000', '/api/serp/refresh', '[CRON] Keyword Scraping Result', { scope: 'enabled-domains' });
@@ -100,6 +100,24 @@ describe('cron worker', () => {
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"data":{"updatedCount":3,"failedCount":1}'));
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"requestId":"rid-42"'));
       expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('"error":null'));
+    });
+
+    it('warns about a successful response that is not in the envelope, with a trimmed copy of its body', async () => {
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      (global.fetch as jest.Mock).mockResolvedValue({ ok: true, status: 200, headers: { get: jest.fn().mockReturnValue('application/json') }, json: () => Promise.resolve({ keywords: [] }) });
+
+      await makeCronApiCall('secret', 'http://localhost:3000', '/api/serp/refresh', '[CRON] Keyword Scraping Result', { scope: 'enabled-domains' });
+
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"level":"WARN"'));
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('[CRON] Keyword Scraping Result - unexpected response format'));
+      expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('"level":"INFO"'));
+
+      consoleSpy.mockClear();
+      (global.fetch as jest.Mock).mockResolvedValue({ ok: true, status: 200, headers: { get: jest.fn().mockReturnValue('text/html') }, text: async () => `<html>${'x'.repeat(2000)}</html>` });
+      await makeCronApiCall('secret', 'http://localhost:3000', '/api/serp/refresh', '[CRON] Keyword Scraping Result', { scope: 'enabled-domains' });
+      const logged = consoleSpy.mock.calls.map((args) => String(args[0])).find((line) => line.includes('unexpected response format')) ?? '';
+      expect(logged).toContain('<html>');
+      expect(logged.length).toBeLessThan(1000);
     });
 
     it('logs an HTTP error response with its status and body without rejecting the caller', async () => {

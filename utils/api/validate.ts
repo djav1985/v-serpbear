@@ -67,7 +67,7 @@ export const parseQuery = <K extends EndpointKey>(req: Request, key: K): QueryOu
 
 /**
  * The JSON body, checked against the endpoint's body schema. A missing body is a 400 unless `emptyBodyOk` is set,
- * for the few endpoints whose body is an empty object that callers may leave out.
+ * for the endpoint whose body fields are all optional and may be left out (volume).
  */
 export const parseBody = async <K extends EndpointKey>(req: Request, key: K, options: { emptyBodyOk?: boolean } = {}): Promise<BodyOut<K>> => {
    const endpoint = endpoints[key] as { body?: z.ZodType };

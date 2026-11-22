@@ -1,10 +1,8 @@
 import Domain from '../../../../database/models/domain';
-import { maskDomainScraperSettings, parseDomainScraperSettings } from '../../../../utils/domainScraperSettings';
 import { logger } from '../../../../utils/logger';
 import { createRoute, fail, json, type ApiContext } from '../../../../utils/apiLogging';
 import { parseQuery } from '../../../../utils/api/validate';
-import { maskSearchConsole } from '../../../../utils/maskSearchConsole';
-import normalizeDomainBooleans from '../../../../utils/normalizeDomain';
+import { formatDomainPlain } from '../../../../utils/domainsList';
 
 
 const getDomain = async (req: Request, ctx: ApiContext) => {
@@ -21,19 +19,8 @@ const getDomain = async (req: Request, ctx: ApiContext) => {
          return fail(404, 'NOT_FOUND', 'Domain not found', ctx);
       }
 
-      const parsedDomain = foundDomain.get({ plain: true }) as DomainType & { scraper_settings?: unknown };
-
-      if (parsedDomain.search_console) {
-         // The Search Console key stays on the server: only a 'true' marker says whether credentials are saved.
-         parsedDomain.search_console = JSON.stringify(maskSearchConsole(parsedDomain.search_console, String(parsedDomain.domain || parsedDomain.ID || '')));
-      }
-
-      const parsedScraperSettings = maskDomainScraperSettings(
-         parseDomainScraperSettings(parsedDomain?.scraper_settings),
-      );
-      parsedDomain.scraper_settings = parsedScraperSettings;
-
-      return json({ domain: normalizeDomainBooleans(parsedDomain) });
+      // The same mapper as the domain list and the domain page: credentials masked, empty columns filled in
+      return json({ domain: formatDomainPlain(foundDomain.get({ plain: true }) as unknown as Record<string, unknown>) });
    } catch (error) {
       logger.error('Getting Domain: ', error instanceof Error ? error : new Error(String(error)));
       return fail(500, 'INTERNAL_SERVER_ERROR', 'Error Loading Domain', ctx);

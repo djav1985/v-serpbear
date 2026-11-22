@@ -98,8 +98,11 @@ describe('parseBody', () => {
 
   it('refuses a missing body unless the endpoint allows an empty one', async () => {
     expect((await thrown(() => parseBody(post(), 'searchConsole.refresh'))).status).toBe(400);
-    await expect(parseBody(post(), 'clearFailed.run', { emptyBodyOk: true })).resolves.toEqual({});
-    await expect(parseBody(post(), 'auth.logout', { emptyBodyOk: true })).resolves.toEqual({});
+    // Logout and clear-failed take an empty object, which must be sent; only volume may leave its optional fields out
+    for (const key of ['clearFailed.run', 'auth.logout'] as const) {
+      expect((await thrown(() => parseBody(post(), key, {}))).status).toBe(400);
+      await expect(parseBody(post({}), key)).resolves.toEqual({});
+    }
     await expect(parseBody(post(), 'volume.update', { emptyBodyOk: true })).resolves.toEqual({});
   });
 

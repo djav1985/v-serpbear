@@ -4,14 +4,15 @@
  * the result with the schemas the browser client uses.
  */
 import { endpoints } from '../../utils/api/contracts';
-import { DomainDTO, KeywordDTO, SettingsDTO, PublicSettingsDTO, PrivateSettingsDTO, SavedSettingsDTO } from '../../utils/api/contracts/dto';
+import { DomainDTO, KeywordDTO, SettingsDTO, PublicSettingsDTO, PrivateSettingsDTO } from '../../utils/api/contracts/dto';
 import parseKeywords from '../../utils/parseKeywords';
 import { maskSecretSettings } from '../../utils/settingsSecrets';
-import { buildSettingsDefaults } from '../../utils/appSettings';
-import { loadDomains } from '../../utils/domainsList';
+import { buildSettingsDefaults, getAppSettings } from '../../utils/appSettings';
+import { loadDomains, loadDomainBySlug } from '../../utils/domainsList';
+import { loadDomainKeywords } from '../../utils/keywordsList';
 import Domain from '../../database/models/domain';
 import Keyword from '../../database/models/keyword';
-import { readLocalSCData } from '../../utils/searchConsole';
+import { readLocalSCData, buildKeywordUid } from '../../utils/searchConsole';
 import { getBranding } from '../../utils/branding';
 
 jest.mock('../../utils/logger', () => ({
@@ -19,8 +20,8 @@ jest.mock('../../utils/logger', () => ({
 }));
 jest.mock('../../database/database', () => ({ __esModule: true, default: { sync: jest.fn() } }));
 jest.mock('../../database/models/domain', () => ({ __esModule: true, default: { findAll: jest.fn(), findOne: jest.fn() } }));
-jest.mock('../../database/models/keyword', () => ({ __esModule: true, default: { findAll: jest.fn() } }));
-jest.mock('../../utils/searchConsole', () => ({ __esModule: true, readLocalSCData: jest.fn().mockResolvedValue(false) }));
+jest.mock('../../database/models/keyword', () => ({ __esModule: true, default: { findAll: jest.fn(), update: jest.fn().mockResolvedValue([1]) } }));
+jest.mock('../../utils/searchConsole', () => ({ ...jest.requireActual('../../utils/searchConsole'), readLocalSCData: jest.fn().mockResolvedValue(false) }));
 jest.mock('../../utils/appSettings', () => ({
   ...jest.requireActual('../../utils/appSettings'),
   getAppSettings: jest.fn().mockResolvedValue({ scraper_type: 'none' }),
@@ -66,6 +67,47 @@ describe('keyword records', () => {
     });
   });
 
+  describe('as the keyword page loads them (loadDomainKeywords)', () => {
+    const tenDays = JSON.stringify(Object.fromEntries(Array.from({ length: 10 }, (_, i) => [`2026-11-${String(i + 1).padStart(2, '0')}`, i + 1])));
+    const rows = [
+      stored,
+      // A legacy row without a 7 day history: it is cut to seven days and queued for a backfill
+      { ...stored, ID: 2, history: tenDays, history7d: null },
+      // Never scraped, with empty columns
+      { ...stored, ID: 3, lastUpdated: null, url: null, device: null, country: null, location: null, history: '{}', lastResult: '[]', position: 0 },
+      { ...stored, ID: 4, lastUpdateError: '{"date":"2026-11-02","error":"boom"}', mapPackTop3: 1, history7d: '{"2026-11-01":3}' },
+    ];
+    const load = async (settings: Record<string, unknown> = {}, scData: unknown = false) => {
+      (Keyword.findAll as jest.Mock).mockResolvedValue(rows.map(row));
+      (getAppSettings as jest.Mock).mockResolvedValue({ scraper_type: 'none', ...settings });
+      (readLocalSCData as jest.Mock).mockResolvedValue(scData);
+      return loadDomainKeywords('example.com');
+    };
+
+    it('accepts every keyword, with the stored results left out and the history cut to seven days', async () => {
+      const { keywords } = await load();
+      keywords.forEach((keyword) => {
+        expect({ id: keyword.ID, issues: issues(KeywordDTO.safeParse(keyword)) }).toEqual({ id: keyword.ID, issues: [] });
+        expect(keyword.lastResult).toEqual([]);
+        expect(Object.keys(keyword.history).length).toBeLessThanOrEqual(7);
+      });
+      expect(Object.keys(keywords[1].history)).toHaveLength(7);
+    });
+
+    it('accepts every keyword with Search Console data merged in', async () => {
+      const item = (position: number) => ({ keyword: 'shoes', uid: buildKeywordUid('US', 'desktop', 'shoes'), device: 'desktop', page: 'https://example.com/shoes', country: 'US', clicks: 4, impressions: 90, ctr: 0.044, position });
+      const { keywords } = await load(
+        { search_console_client_email: 'sc@example.com', search_console_private_key: 'key' },
+        { threeDays: [item(3.2)], sevenDays: [item(3.4)], thirtyDays: [item(3.9)], lastFetched: '2026-11-02T00:00:00.000Z', stats: [] },
+      );
+      keywords.forEach((keyword) => {
+        expect({ id: keyword.ID, issues: issues(KeywordDTO.safeParse(keyword)) }).toEqual({ id: keyword.ID, issues: [] });
+        expect(keyword.scData).toBeDefined();
+      });
+      expect(keywords[0].scData?.visits.threeDays).toBe(4);
+    });
+  });
+
   it('rejects a keyword that has lost a field', () => {
     const [keyword] = parseKeywords([stored as unknown as Keyword]);
     const { position: _position, ...withoutPosition } = keyword;
@@ -102,6 +144,27 @@ describe('domain records', () => {
     });
   });
 
+  it('accepts a domain read by its slug, as the domain page loads it, and sends the same record as the list', async () => {
+    const rowsBySlug = [
+      storedDomain,
+      { ...storedDomain, ID: 2, domain: 'new.example', slug: 'new-example', lastUpdated: null, added: null, notification_emails: null, scrape_strategy: null, scrape_pagination_limit: null, avgPosition: null, mapPackKeywords: null, keywordsTracked: null },
+      { ...storedDomain, ID: 3, domain: 'own.example', slug: 'own-example', business_name: 'Own', scrape_strategy: 'custom', scrape_pagination_limit: 3, scraper_settings: JSON.stringify({ scraper_type: 'serpapi', scraping_api: 'key' }), search_console: JSON.stringify({ property_type: 'domain', url: '', client_email: 'sc@example.com', private_key: 'secret' }) },
+    ];
+    for (const stored of rowsBySlug) {
+      (Domain.findOne as jest.Mock).mockResolvedValue(row(stored));
+      const domain = await loadDomainBySlug(stored.slug);
+      expect({ slug: stored.slug, issues: issues(DomainDTO.safeParse(domain)) }).toEqual({ slug: stored.slug, issues: [] });
+      const [fromList] = await load([stored], false);
+      expect(domain).toEqual(fromList);
+      expect(JSON.stringify(domain)).not.toContain('secret');
+    }
+  });
+
+  it('answers null for a slug that is not tracked', async () => {
+    (Domain.findOne as jest.Mock).mockResolvedValue(null);
+    expect(await loadDomainBySlug('missing')).toBeNull();
+  });
+
   it('rejects a domain that has lost a field', () => {
     expect(DomainDTO.safeParse({ ...storedDomain, slug: undefined }).success).toBe(false);
   });
@@ -127,9 +190,8 @@ describe('settings records', () => {
     expect(PublicSettingsDTO.safeParse({ ...view, timezone: undefined }).success).toBe(false);
   });
 
-  it('accepts a save echo of only the fields that were saved', () => {
-    expect(issues(SavedSettingsDTO.safeParse({ keywordsColumns: ['Best'], smtp_password: 'true', scraping_api: '' }))).toEqual([]);
-    expect(SavedSettingsDTO.safeParse({ keywordsColumns: 'Best' }).success).toBe(false);
+  it('answers a save with the same private view as the GET', () => {
+    expect(endpoints['settings.save'].response.shape.settings).toBe(endpoints['settings.private'].response.shape.settings);
   });
 });
 

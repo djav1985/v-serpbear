@@ -3,9 +3,13 @@ import { asHandler } from '../__helpers__/routeAdapter';
 import * as handlerRoute from '../../app/api/mcp/route';
 import { createMockRequest, createMockResponse } from '../__helpers__';
 import { getInternalRequestScope } from '../../utils/mcpInternalAuth';
+import { z } from 'zod';
+import { parseBody, parseQuery } from '../../utils/api/validate';
+import { endpoints, type EndpointKey } from '../../utils/api/contracts';
 const handler = asHandler(handlerRoute);
 
 const mockToolHandlers = new Map<string, (input: any) => Promise<unknown>>();
+const mockToolConfigs = new Map<string, { inputSchema: z.ZodRawShape }>();
 const mockTransportHandleRequest = jest.fn();
 const mockTransportClose = jest.fn();
 const mockServerClose = jest.fn();
@@ -15,7 +19,7 @@ const mockFindCredential = jest.fn();
 jest.mock('../../utils/apiLogging', () => require('../__helpers__/apiLoggingMock').apiLoggingMock());
 // The tools run these handlers in process. Each is a stub that records the Request it was given.
 const mockRouteCalls: Array<{ method: string; request: Request }> = [];
-let mockRouteResponse: () => Response = () => Response.json({});
+let mockRouteResponse: () => Response = () => Response.json({ data: {}, error: null });
 // A function declaration, so the hoisted jest.mock factories can refer to it before the consts above are initialized
 function mockRouteHandler(method: string) {
   return async (request: Request) => {
@@ -36,7 +40,7 @@ jest.mock('../../utils/mcpOAuth', () => ({
 }));
 jest.mock('@modelcontextprotocol/sdk/server/mcp.js', () => ({
   McpServer: jest.fn().mockImplementation(() => ({
-    registerTool: (name: string, _config: unknown, handler: (input: any) => Promise<unknown>) => mockToolHandlers.set(name, handler),
+    registerTool: (name: string, config: { inputSchema: z.ZodRawShape }, handler: (input: any) => Promise<unknown>) => { mockToolConfigs.set(name, config); mockToolHandlers.set(name, handler); },
     connect: mockServerConnect,
     close: mockServerClose,
   })),
@@ -71,8 +75,9 @@ describe('MCP route', () => {
     beforeEach(() => {
       jest.clearAllMocks();
       mockToolHandlers.clear();
+      mockToolConfigs.clear();
       mockRouteCalls.length = 0;
-      mockRouteResponse = () => Response.json({});
+      mockRouteResponse = () => Response.json({ data: {}, error: null });
       process.env.APIKEY = 'test-key';
       process.env.MCP_APIKEY = 'test-key';
       process.env.MCP_OAUTH = 'true';
@@ -163,7 +168,7 @@ describe('MCP route', () => {
     it('registers the read tools and runs the matching route handlers in process with the read scope', async () => {
       const previousFetch = global.fetch;
       global.fetch = jest.fn() as unknown as typeof fetch;
-      mockRouteResponse = () => Response.json({ keywords: [{ ID: 7 }] });
+      mockRouteResponse = () => Response.json({ data: { keywords: [{ ID: 7 }] }, error: null });
       mockTransportHandleRequest.mockResolvedValue(new Response(JSON.stringify({ jsonrpc: '2.0', result: {} }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
 
       try {
@@ -215,17 +220,28 @@ describe('MCP route', () => {
       }
     });
 
-    it('marks failed route calls as tool errors and preserves non-JSON response text', async () => {
+    it('turns a response that is not in the envelope into an INVALID_RESPONSE tool error, never passing its body on', async () => {
+      mockTransportHandleRequest.mockResolvedValue(new Response('', { status: 200 }));
+      await call('POST');
+      for (const response of [() => new Response('upstream unavailable', { status: 502 }), () => Response.json({ keywords: [{ ID: 7 }] })]) {
+         mockRouteResponse = response;
+         const reply = await mockToolHandlers.get('list_domains')!({ withstats: false }) as { isError: boolean, content: { text: string }[] };
+         expect(reply.isError).toBe(true);
+         expect(JSON.parse(reply.content[0].text)).toEqual({ code: 'INVALID_RESPONSE', message: 'The app answered in an unexpected format.' });
+      }
+    });
+
+    it('marks a failed route call as a tool error', async () => {
       mockRouteResponse = () => new Response('upstream unavailable', { status: 502 });
       mockTransportHandleRequest.mockResolvedValue(new Response('', { status: 200 }));
 
       await call('POST');
-      const reply = await mockToolHandlers.get('list_domains')!({ withstats: false });
+      const reply = await mockToolHandlers.get('list_domains')!({ withstats: false }) as { isError: boolean };
 
       expect(mockRouteCalls).toHaveLength(1);
       expect(mockRouteCalls[0].method).toBe('GET');
       expect(new URL(mockRouteCalls[0].request.url).pathname).toBe('/api/serp/domains');
-      expect(reply).toEqual({ isError: true, content: [{ type: 'text', text: '"upstream unavailable"' }] });
+      expect(reply.isError).toBe(true);
     });
 
     it('gives tools the data of a success envelope, never the envelope', async () => {
@@ -275,6 +291,52 @@ describe('MCP route', () => {
 
       expect(new URL(mockRouteCalls[0].request.url).searchParams.get('id')).toBe('7');
       expect(await mockRouteCalls[1].request.json()).toEqual({ keywordID: 'idea-1' });
+    });
+
+    it('builds, for every tool, a request that its endpoint contract accepts (the tool inputs are written by hand, so this catches them drifting)', async () => {
+      mockFindCredential.mockResolvedValue({ scope: 'mcp:full', revokedAt: null, expiresAt: Date.now() + 60_000 });
+      mockTransportHandleRequest.mockResolvedValue(new Response('{}', { status: 200 }));
+      await call('POST', { authorization: 'Bearer oauth-full-token' });
+
+      const samples: Array<[string, Record<string, unknown>, EndpointKey]> = [
+        ['get_keyword', { id: '7' }, 'keywords.get'],
+        ['list_keywords', { domain: 'example.com' }, 'keywords.list'],
+        ['list_domains', {}, 'domains.list'],
+        ['list_domains', { withstats: true }, 'domains.list'],
+        ['get_searchconsole', { domain: 'example.com' }, 'searchConsole.get'],
+        ['get_insight', { domain: 'example.com' }, 'insight.get'],
+        ['get_keyword_ideas', {}, 'ideas.get'],
+        ['get_keyword_ideas', { domain: 'example.com' }, 'ideas.get'],
+        ['generate_keyword_ideas', { seedType: 'auto' }, 'ideas.generate'],
+        ['generate_keyword_ideas', { seedType: 'custom', keywords: ['shoes'], country: 'US', language: '1000', domain: 'example.com', seedSCKeywords: true, seedCurrentKeywords: false }, 'ideas.generate'],
+        ['favorite_keyword_idea', { keywordID: 'idea-1' }, 'ideas.favorite'],
+        ['favorite_keyword_idea', { keywordID: 'idea-1', domain: 'example.com' }, 'ideas.favorite'],
+        ['add_keywords', { keywords: [{ keyword: 'shoes', domain: 'example.com' }] }, 'keywords.add'],
+        ['add_keywords', { keywords: [{ keyword: 'shoes', domain: 'example.com', device: 'mobile', country: 'US', location: 'Austin,Texas,US', city: 'Austin', state: 'Texas', tags: 'a,b' }] }, 'keywords.add'],
+        ['update_keywords', { ids: [1, 2], sticky: true }, 'keywords.update'],
+        ['update_keywords', { ids: [1], tags: { 1: ['a', 'b'] } }, 'keywords.update'],
+        ['update_keywords', { ids: [1], location: 'Austin,Texas,US', country: 'US' }, 'keywords.update'],
+        ['delete_keywords', { ids: [1, 2] }, 'keywords.remove'],
+        ['refresh_keywords', { ids: [1, 2] }, 'refresh.start'],
+        ['refresh_keywords', { scope: 'domain', domain: 'example.com' }, 'refresh.start'],
+        ['refresh_keywords', { scope: 'enabled-domains' }, 'refresh.enabledDomains'],
+      ];
+
+      // Every registered tool is covered by a sample
+      expect([...new Set(samples.map(([tool]) => tool))].sort()).toEqual([...mockToolHandlers.keys()].sort());
+
+      for (const [tool, input, key] of samples) {
+        mockRouteCalls.length = 0;
+        expect({ tool, input, accepted: z.object(mockToolConfigs.get(tool)!.inputSchema).safeParse(input).success }).toEqual({ tool, input, accepted: true });
+        await mockToolHandlers.get(tool)!(input);
+        expect(mockRouteCalls).toHaveLength(1);
+        const { request } = mockRouteCalls[0];
+        expect({ tool, method: request.method }).toEqual({ tool, method: endpoints[key].method });
+        expect({ tool, path: new URL(request.url).pathname }).toEqual({ tool, path: endpoints[key].path });
+        // The route's own check, the one it runs before any logic, must accept what the tool sent
+        const check = async () => (request.method === 'GET' ? parseQuery(request, key as never) : parseBody(request, key as never));
+        await expect(check()).resolves.toBeDefined();
+      }
     });
 
     it('keeps OAuth read scope limited to read tools', async () => {

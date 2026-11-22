@@ -444,7 +444,7 @@ describe('GET /api/app/settings and configuration requirements', () => {
 });
 
 describe('/api/serp/clearfailed', () => {
-   const req = { method: 'PUT', headers: {} } as unknown as NextApiRequest;
+   const req = { method: 'PUT', headers: {}, body: {} } as unknown as NextApiRequest;
    let res: NextApiResponse;
 
    beforeEach(() => {
@@ -517,7 +517,8 @@ describe('PUT /api/app/settings keeps secrets that are left out of the payload',
     jest.doMock('../../scrapers/index', () => jest.requireActual('../../scrapers/index'));
     jest.doMock('../../utils/atomicWrite', () => ({
       __esModule: true,
-      atomicWriteFile: jest.fn().mockResolvedValue(undefined),
+      // A save is kept, so the settings read back after it are the saved ones
+      atomicWriteFile: jest.fn(async (_path: string, data: string) => { mockStoredFile.current = data; }),
     }));
     jest.doMock('../../utils/settingsFile', () => ({ ...jest.requireActual('../../utils/settingsFile'), withSettingsLock: (section: () => Promise<unknown>) => section() }));
     jest.isolateModules(() => {
@@ -626,6 +627,10 @@ describe('PUT /api/app/settings keeps secrets that are left out of the payload',
     expect(body.settings.adwords_refresh_token).toBe('true');
     expect(body.settings.search_console_private_key).toBe('');
     expect(body.settings.scraper_type).toBe('serper');
+    // The answer is the whole private view, the same as the GET, not only the fields that were sent
+    expect(body.settings).toEqual(expect.objectContaining({
+      version: expect.any(String), timezone: expect.any(String), branding: expect.any(Object), keywordsColumns: expect.any(Array), notification_interval: expect.any(String),
+    }));
     expect(JSON.stringify(body)).not.toContain('brand-new-key');
     expect(JSON.stringify(body)).not.toContain('another-secret');
   });
@@ -710,6 +715,16 @@ describe('GET /api/app/settings public and private views', () => {
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(JSON.stringify((res.json as jest.Mock).mock.calls[0][0])).not.toContain('hunter2');
+  });
+
+  it('answers 401, not 400, for a signed-out request whose includePrivate value is not valid', async () => {
+    verifyUserMock.mockReturnValue('Not authorized');
+    const req = { method: 'GET', headers: {}, query: { includePrivate: 'yes' } } as unknown as NextApiRequest;
+    const res = { status: jest.fn().mockReturnThis(), json: jest.fn(), setHeader: jest.fn() } as unknown as NextApiResponse;
+
+    await handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(401);
   });
 
   it('returns the private view with every secret masked: the marker when stored, an empty string when unset', async () => {

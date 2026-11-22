@@ -62,7 +62,7 @@ const makeApiCall = (baseUrl: string, scope: McpOAuthScope): ApiCall => async (m
    try {
       data = text ? JSON.parse(text) : null;
    } catch {
-      // Keep the raw text when the response is not JSON
+      // Not JSON: reported below as an unexpected format
    }
    // App routes answer in the { data, error, requestId } envelope. Tools get the useful part only: the data on success,
    // and { code, message, details } on failure. The envelope itself is never shown to an MCP client.
@@ -70,7 +70,8 @@ const makeApiCall = (baseUrl: string, scope: McpOAuthScope): ApiCall => async (m
       const envelope = data as { data: unknown, error: { code?: string, message?: string, details?: unknown } | null };
       return { ok: res.ok && envelope.error === null, status: res.status, data: envelope.error ?? envelope.data };
    }
-   return { ok: res.ok, status: res.status, data };
+   // The routes run in process and always answer in the envelope, so anything else is a bug: report it instead of passing it on
+   return { ok: false, status: res.status, data: { code: 'INVALID_RESPONSE', message: 'The app answered in an unexpected format.' } };
 };
 
 const buildServer = (call: ApiCall, scope: McpOAuthScope): McpServer => {

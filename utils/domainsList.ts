@@ -18,7 +18,7 @@ import { getUnknownErrorMessage } from './errorSerialization';
  * Shared by the API handler and by server components so both see identical data.
  * Pass `withStats` to attach keyword counts and Search Console totals.
  */
-const formatDomainPlain = (domainPlain: Record<string, unknown>): DomainType => {
+export const formatDomainPlain = (domainPlain: Record<string, unknown>): DomainType => {
    const searchConsoleData = maskSearchConsole(domainPlain?.search_console, String(domainPlain?.domain ?? domainPlain?.ID ?? ''));
    const persistedScraperSettings = parseDomainScraperSettings(domainPlain?.scraper_settings);
    const maskedDomain = {

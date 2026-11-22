@@ -5,7 +5,7 @@ import { parseBody } from '../../../../utils/api/validate';
 
 const clearFailedQueue = async (req: Request, ctx: ApiContext) => {
    // The body is an empty object; callers may leave it out
-   await parseBody(req, 'clearFailed.run', { emptyBodyOk: true });
+   await parseBody(req, 'clearFailed.run');
    try {
       await retryQueueManager.clearQueue();
       logger.debug('[SCRAPER] Failed queue cleared successfully');
