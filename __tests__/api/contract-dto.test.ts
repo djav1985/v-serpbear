@@ -3,6 +3,7 @@
  * feed the real mappers rows as the database holds them, awkward ones included (null columns, JSON text), and parse
  * the result with the schemas the browser client uses.
  */
+import { endpoints } from '../../utils/api/contracts';
 import { DomainDTO, KeywordDTO, SettingsDTO, PublicSettingsDTO, PrivateSettingsDTO, SavedSettingsDTO } from '../../utils/api/contracts/dto';
 import parseKeywords from '../../utils/parseKeywords';
 import { maskSecretSettings } from '../../utils/settingsSecrets';
@@ -129,5 +130,26 @@ describe('settings records', () => {
   it('accepts a save echo of only the fields that were saved', () => {
     expect(issues(SavedSettingsDTO.safeParse({ keywordsColumns: ['Best'], smtp_password: 'true', scraping_api: '' }))).toEqual([]);
     expect(SavedSettingsDTO.safeParse({ keywordsColumns: 'Best' }).success).toBe(false);
+  });
+});
+
+describe('the last response and request shapes', () => {
+  it('describes the volume map and the skipped keywords of a location change', () => {
+    const volume = endpoints['volume.update'].response;
+    expect(volume.safeParse({ keywords: [], volumes: { 1: 120, 2: 0 } }).success).toBe(true);
+    expect(volume.safeParse({ keywords: [], volumes: { 1: 'many' } }).success).toBe(false);
+    const update = endpoints['keywords.update'].response;
+    expect(update.safeParse({ keywords: [], updatedCount: 1, skipped: ['shoes'] }).success).toBe(true);
+    expect(update.safeParse({ keywords: [], updatedCount: 1, skipped: [{ ID: 3 }] }).success).toBe(false);
+  });
+
+  it('accepts the settings a form sends back and the ideas the browser emails', () => {
+    const save = endpoints['settings.save'].body;
+    expect(save.safeParse({ settings: { ...buildSettingsDefaults(), version: '6.5.0', timezone: 'UTC' } }).success).toBe(true);
+    const ideas = endpoints['email.ideas'].body;
+    expect(ideas.safeParse({ type: 'ideas', domain: 'example.com', keywords: [
+      { keyword: 'a', avgMonthlySearches: 10, monthlySearchVolumes: { '2026-1': '10' }, competition: 'LOW', competitionIndex: 5, uid: 'x' },
+      { keyword: 'b', monthlySearchVolumes: null, competition: null, competitionIndex: '' },
+    ] }).success).toBe(true);
   });
 });

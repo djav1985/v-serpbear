@@ -7,8 +7,8 @@
 import { z } from 'zod';
 
 import {
-   DomainDTO, KeywordDTO, KeywordLastResultDTO, IdeaKeywordDTO, IdeasDatabaseDTO, InsightDataDTO, PrivateSettingsDTO,
-   PublicSettingsDTO, SavedSettingsDTO, SCDomainDataDTO,
+   DomainDTO, EmailIdeaKeywordDTO, KeywordDTO, KeywordLastResultDTO, IdeaKeywordDTO, IdeasDatabaseDTO, InsightDataDTO, PrivateSettingsDTO,
+   PublicSettingsDTO, SavedSettingsDTO, SCDomainDataDTO, SettingsDTO,
 } from './dto';
 
 export { IdeasDatabaseDTO };
@@ -75,7 +75,7 @@ export const IdeasGenerateBody = z.object({
 /** Request body of POST /api/app/email. */
 export const EmailBody = z.discriminatedUnion('type', [
    z.object({ type: z.literal('digest'), domain: z.string().optional() }),
-   z.object({ type: z.literal('ideas'), domain: z.string(), keywords: z.array(z.unknown()) }),
+   z.object({ type: z.literal('ideas'), domain: z.string(), keywords: z.array(EmailIdeaKeywordDTO).min(1).max(1000) }),
 ]);
 
 type Method = 'GET' | 'POST' | 'PUT' | 'DELETE';
@@ -92,7 +92,7 @@ export const endpoints = defineEndpoints({
    // Keywords
    'keywords.list': { method: 'GET', path: '/api/serp/keywords', query: z.object({ domain: z.string().min(1) }), response: z.object({ keywords: z.array(KeywordDTO) }) },
    'keywords.add': { method: 'POST', path: '/api/serp/keywords', body: z.object({ keywords: z.array(KeywordInput).min(1).max(100) }), response: z.object({ keywords: z.array(KeywordDTO) }) },
-   'keywords.update': { method: 'PUT', path: '/api/serp/keywords', body: KeywordUpdate, response: z.object({ keywords: z.array(KeywordDTO), updatedCount: z.number().optional(), skipped: z.array(z.unknown()).optional() }) },
+   'keywords.update': { method: 'PUT', path: '/api/serp/keywords', body: KeywordUpdate, response: z.object({ keywords: z.array(KeywordDTO), updatedCount: z.number().optional(), skipped: z.array(z.string()).optional() }) },
    'keywords.remove': { method: 'DELETE', path: '/api/serp/keywords', body: z.object({ ids: keywordIds }), response: z.object({ keywordsRemoved: z.number() }) },
    'keywords.get': { method: 'GET', path: '/api/serp/keyword', query: z.object({ id: positiveInt }), response: z.object({ keyword: KeywordDTO.nullable() }) },
    // Refresh
@@ -108,14 +108,14 @@ export const endpoints = defineEndpoints({
    'searchConsole.get': { method: 'GET', path: '/api/google/searchconsole', query: z.object({ domain: z.string().min(1) }), response: z.object({ searchConsole: SCDomainDataDTO.nullable(), integrationStatus: IntegrationStatus }) },
    'searchConsole.refresh': { method: 'POST', path: '/api/google/searchconsole', body: z.object({}).strict(), response: z.object({ updatedCount: z.number(), failedCount: z.number() }) },
    'insight.get': { method: 'GET', path: '/api/google/insight', query: z.object({ domain: z.string().min(1) }), response: z.object({ insight: InsightDataDTO.nullable(), integrationStatus: IntegrationStatus }) },
-   'volume.update': { method: 'POST', path: '/api/google/volume', body: z.object({ keywords: z.array(positiveInt).optional(), domain: z.string().optional(), update: z.boolean().optional() }), response: z.object({ keywords: z.array(KeywordDTO), volumes: z.record(z.string(), z.unknown()), failedCountries: z.array(z.string()).optional() }) },
+   'volume.update': { method: 'POST', path: '/api/google/volume', body: z.object({ keywords: z.array(positiveInt).optional(), domain: z.string().optional(), update: z.boolean().optional() }), response: z.object({ keywords: z.array(KeywordDTO), volumes: z.record(z.string(), z.number()), failedCountries: z.array(z.string()).optional() }) },
    // App
    // One URL, two views: the login page's public subset, and the full settings (secrets masked) for a signed-in session
    'settings.public': { method: 'GET', path: '/api/app/settings', response: z.object({ settings: PublicSettingsDTO }) },
    'settings.private': { method: 'GET', path: '/api/app/settings', query: z.object({ includePrivate: z.literal(true) }), response: z.object({ settings: PrivateSettingsDTO }) },
-   'settings.save': { method: 'PUT', path: '/api/app/settings', body: z.object({ settings: z.record(z.string(), z.unknown()) }), response: z.object({ settings: SavedSettingsDTO }) },
+   'settings.save': { method: 'PUT', path: '/api/app/settings', body: z.object({ settings: SettingsDTO.partial() }), response: z.object({ settings: SavedSettingsDTO }) },
    'email.digest': { method: 'POST', path: '/api/app/email', body: z.object({ type: z.literal('digest'), domain: z.string().optional() }), response: z.object({ sent: z.number(), skipped: z.number(), message: z.string().optional() }) },
-   'email.ideas': { method: 'POST', path: '/api/app/email', body: z.object({ type: z.literal('ideas'), domain: z.string(), keywords: z.array(z.unknown()) }), response: z.object({ success: z.literal(true) }) },
+   'email.ideas': { method: 'POST', path: '/api/app/email', body: z.object({ type: z.literal('ideas'), domain: z.string(), keywords: z.array(EmailIdeaKeywordDTO).min(1).max(1000) }), response: z.object({ success: z.literal(true) }) },
    // Auth and Google Ads
    'auth.login': { method: 'POST', path: '/api/auth/login', body: z.object({ username: z.string().min(1).max(1024), password: z.string().min(1).max(1024) }), response: z.object({ success: z.literal(true) }) },
    'auth.logout': { method: 'POST', path: '/api/auth/logout', body: z.object({}).strict(), response: z.object({ success: z.literal(true) }) },

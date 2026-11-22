@@ -555,7 +555,7 @@ describe('PUT /api/app/settings keeps secrets that are left out of the payload',
     const storedSettings = await getAppSettings();
     Object.keys(removedKeys).forEach((key) => expect(storedSettings).not.toHaveProperty(key));
 
-    const payload = { scraper_type: 'serper', ...removedKeys, version: '9.9.9', timezone: 'UTC', available_scapers: [{ id: 'x' }], search_console_integrated: true, failed_queue: [1] };
+    const payload = { scraper_type: 'serper', ...removedKeys, version: '9.9.9', timezone: 'UTC', available_scapers: [{ label: 'X', value: 'x' }], search_console_integrated: true, failed_queue: [1] };
     const req = { method: 'PUT', body: { settings: payload }, headers: {} } as unknown as NextApiRequest;
     const res = createMockResponse();
 

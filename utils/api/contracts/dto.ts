@@ -253,6 +253,18 @@ export const IdeaSettingsDTO = z.object({
    seedCurrentKeywords: bool.optional(),
 });
 
+/**
+ * A keyword idea as the browser sends it to be emailed: the fields the email shows. The rest of an idea may come along
+ * and is ignored. Volumes are text in a saved idea and numbers elsewhere, and an idea without a volume or competition has null there, so all are accepted.
+ */
+export const EmailIdeaKeywordDTO = z.looseObject({
+   keyword: str,
+   avgMonthlySearches: num.optional(),
+   monthlySearchVolumes: z.record(str, z.union([str, num])).nullish(),
+   competition: str.nullish(),
+   competitionIndex: z.union([num, str]).nullish(),
+});
+
 export const IdeasDatabaseDTO = z.object({
    keywords: z.array(IdeaKeywordDTO),
    favorites: z.array(IdeaKeywordDTO).default([]),
