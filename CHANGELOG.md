@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file. Releases no
 
 ## [Unreleased]
 
+### Changed
+
+- Revise the API communication plan against the current code: split it into security fixes and a contract migration, record the settled decisions, and target release 6.5.0.
+
 ### Fixed
 
 - Prevent long page URLs in the final Search Console email table from expanding the table beyond the email width, including on mobile.
