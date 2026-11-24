@@ -124,7 +124,7 @@ export const sendIdeasEmail = async (req: Request, ctx: ApiContext) => {
       });
 
       logger.info(`[EMAIL] Sent keyword ideas email for ${normalizedDomain.domain}`);
-      return json({ success: true, error: null });
+      return json({ success: true });
    } catch (error) {
       logger.error('Error sending keyword ideas email', error instanceof Error ? error : new Error(String(error)));
       return fail(500, 'INTERNAL_SERVER_ERROR', 'Error sending keyword ideas email.', ctx);

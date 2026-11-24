@@ -3,12 +3,14 @@ import Cryptr from 'cryptr';
 import { randomBytes } from 'crypto';
 import { getAdwordsCredentials, getAdwordsKeywordIdeas } from '../../../utils/adwords';
 import { logger } from '../../../utils/logger';
-import { createRoute, fail, json, getParam, readJson, requireAuth, type ApiContext } from '../../../utils/apiLogging';
+import { createRoute, fail, json, getParam, requireAuth, type ApiContext } from '../../../utils/apiLogging';
+import { parseBody } from '../../../utils/api/validate';
 import { atomicWriteFile } from '../../../utils/atomicWrite';
 import { readSettingsFile, withSettingsLock, withoutRemovedSettingsKeys } from '../../../utils/settingsFile';
 import normalizeOrigin from '../../../utils/normalizeOrigin';
 import { serializeForScript } from '../../../utils/api/scriptJson';
 import { getUnknownProperty } from '../../../utils/errorSerialization';
+import { SECRET_MARKER } from '../../../utils/settingsSecrets';
 
 
 type IntegrationResultOptions = {
@@ -215,24 +217,25 @@ const validateAdwordsIntegration = async (req: Request, ctx: ApiContext) => {
    const denied = requireAuth(req, ctx);
    if (denied) { return denied; }
    const errMsg = 'Error Validating Google Ads Integration. Please make sure your provided data are correct!';
-   const { developer_token, account_id } = ((await readJson(req)) ?? {}) as {
-      developer_token?: string;
-      account_id?: string;
-   };
+   // Only this POST uses the contract. The GET (start of the integration and Google's ?code= callback) is untouched.
+   const { developer_token, account_id } = await parseBody(req, 'adwords.test');
    if (!developer_token || !account_id) {
       return fail(400, 'BAD_REQUEST', 'Please Provide the Google Ads Developer Token and Test Account ID', ctx);
    }
    try {
       const cryptr = new Cryptr(process.env.SECRET as string);
-      const trimmedDeveloperToken = developer_token.trim();
-      const trimmedAccountId = account_id.trim();
-      const encryptedDeveloperToken = cryptr.encrypt(trimmedDeveloperToken);
-      const encryptedAccountId = cryptr.encrypt(trimmedAccountId);
-
       const adwordsCreds = await getAdwordsCredentials();
       if (!adwordsCreds || !adwordsCreds.client_id || !adwordsCreds.client_secret || !adwordsCreds.refresh_token) {
          throw new Error('Missing Google Ads OAuth credentials.');
       }
+      // The settings form only holds the marker for a stored secret, so the marker means "use the stored value"
+      const trimmedDeveloperToken = developer_token.trim() === SECRET_MARKER ? (adwordsCreds.developer_token ?? '') : developer_token.trim();
+      const trimmedAccountId = account_id.trim() === SECRET_MARKER ? (adwordsCreds.account_id ?? '') : account_id.trim();
+      if (!trimmedDeveloperToken || !trimmedAccountId) {
+         return fail(400, 'BAD_REQUEST', 'Please Provide the Google Ads Developer Token and Test Account ID', ctx);
+      }
+      const encryptedDeveloperToken = cryptr.encrypt(trimmedDeveloperToken);
+      const encryptedAccountId = cryptr.encrypt(trimmedAccountId);
 
       const testCredentials: AdwordsCredentials = {
          ...adwordsCreds,

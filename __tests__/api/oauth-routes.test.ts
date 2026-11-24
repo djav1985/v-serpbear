@@ -211,6 +211,41 @@ describe('OAuth routes', () => {
       await expect(response.json()).resolves.toMatchObject({ error: 'invalid_grant' });
    });
 
+   it('issues no tokens for a refresh token that has no scope or an unknown one, and keeps it unrotated', async () => {
+      const clientId = 'client-without-scope';
+      await withOAuthStore((store) => {
+         store.credentials.push(
+            { tokenHash: hashSecret('no-scope-refresh'), kind: 'refresh_token', clientId, grantId: 'g1', expiresAt: Date.now() + 60_000, createdAt: Date.now() },
+            { tokenHash: hashSecret('odd-scope-refresh'), kind: 'refresh_token', clientId, grantId: 'g2', scope: 'mcp:admin' as never, expiresAt: Date.now() + 60_000, createdAt: Date.now() },
+         );
+      });
+
+      for (const refresh_token of ['no-scope-refresh', 'odd-scope-refresh']) {
+         const response = await token(formRequest(`${appUrl}/api/oauth/token`, { grant_type: 'refresh_token', refresh_token, client_id: clientId }));
+
+         expect(response.status).toBe(400);
+         await expect(response.json()).resolves.toMatchObject({ error: 'invalid_grant' });
+      }
+      expect((await findCredential('no-scope-refresh', 'refresh_token'))?.revokedAt ?? null).toBeNull();
+   });
+
+   it('issues no tokens for an authorization code that has no scope', async () => {
+      const verifier = randomBytes(32).toString('base64url');
+      await withOAuthStore((store) => {
+         store.credentials.push({
+            tokenHash: hashSecret('scopeless-code'), kind: 'authorization_code', clientId: 'client-without-scope', redirectUri,
+            codeChallenge: createHash('sha256').update(verifier).digest('base64url'), expiresAt: Date.now() + 60_000, createdAt: Date.now(),
+         });
+      });
+
+      const response = await token(formRequest(`${appUrl}/api/oauth/token`, {
+         grant_type: 'authorization_code', code: 'scopeless-code', redirect_uri: redirectUri, code_verifier: verifier,
+      }));
+
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toMatchObject({ error: 'invalid_grant' });
+   });
+
    it('approves using an existing login cookie without asking for credentials', async () => {
       const registration = await registerClient(jsonRequest(`${appUrl}/api/oauth/register`, {
          client_name: 'ChatGPT', redirect_uris: [redirectUri],

@@ -8,35 +8,18 @@ import { scrapeKeywordWithStrategy } from '../../../../utils/scraper';
 import { serializeError } from '../../../../utils/errorSerialization';
 import { logger } from '../../../../utils/logger';
 import { createRoute, fail, json, getParam, readJson, type ApiContext } from '../../../../utils/apiLogging';
+import { parseBody, parseQuery } from '../../../../utils/api/validate';
 import { fromDbBool } from '../../../../utils/dbBooleans';
 import { refreshQueue } from '../../../../utils/refreshQueue';
 import { takeRateLimitToken } from '../../../../utils/rateLimit';
 import { getClientIp } from '../../../../utils/api/clientIp';
 import { isKeywordUpdating } from '../../../../utils/keywordUpdating';
-import { isSameOriginRequest } from '../../../../utils/api/sameOrigin';
-import { hasValidSessionCookie, isBearerAuthorization } from '../../../../utils/verifyUser';
-
-/**
- * Parses a comma separated list of keyword IDs. Returns null when any item is not a positive integer,
- * so callers can answer 400 instead of silently dropping bad input.
- */
-const parseKeywordIds = (raw: string): number[] | null => {
-   const items = raw.split(',').map((item) => item.trim());
-   if (items.some((item) => !/^[1-9]\d*$/.test(item))) {
-      return null;
-   }
-   const ids = Array.from(new Set(items.map((item) => Number(item))));
-   return ids.every((id) => Number.isSafeInteger(id)) ? ids : null;
-};
+import { hasValidSessionCookie } from '../../../../utils/verifyUser';
 
 type RequestBody = Record<string, unknown>;
 
 const isRequestBody = (value: unknown): value is RequestBody => (
    value !== null && typeof value === 'object' && !Array.isArray(value)
-);
-
-const isPositiveSafeIntegerArray = (value: unknown): value is number[] => (
-   Array.isArray(value) && value.every((id: unknown) => typeof id === 'number' && Number.isSafeInteger(id) && id > 0)
 );
 
 /** The JSON body as an object; null, arrays and other types read as an empty object. */
@@ -46,15 +29,7 @@ const readBody = async (req: Request): Promise<RequestBody> => {
 };
 
 const getRetryStatus = async (req: Request, ctx: ApiContext) => {
-   const idParam = getParam(req, 'id');
-   if (!idParam) {
-      return fail(400, 'BAD_REQUEST', 'keyword ID is Required!', ctx);
-   }
-
-   const keywordIDs = parseKeywordIds(idParam);
-   if (!keywordIDs) {
-      return fail(400, 'BAD_REQUEST', 'No valid keyword IDs provided', ctx);
-   }
+   const keywordIDs = Array.from(new Set(parseQuery(req, 'refresh.status').id));
 
    try {
       const keywords = await Keyword.findAll({
@@ -74,21 +49,6 @@ const getRetryStatus = async (req: Request, ctx: ApiContext) => {
    }
 };
 
-/** Keyword IDs to refresh from the JSON body; null if any item is not a positive integer. */
-const readKeywordIds = async (req: Request): Promise<number[] | null> => {
-   const body = await readBody(req);
-   const ids: unknown = body.ids;
-   return isPositiveSafeIntegerArray(ids) ? Array.from(new Set(ids)) : null;
-};
-
-/**
- * A request that is not authenticated by an API key is a browser session, so it must come from this site. A page on
- * another site cannot make a logged-in browser start a refresh or a search. API key requests are checked by the key.
- */
-const isCrossSiteBrowserRequest = (req: Request): boolean => (
-   !isBearerAuthorization(req.headers.get('authorization') ?? undefined) && !isSameOriginRequest(req)
-);
-
 /** Start the scheduled refresh for every domain with scraping enabled. */
 const startEnabledDomainRefresh = async (ctx: ApiContext): Promise<Response> => {
    try {
@@ -106,7 +66,7 @@ const startEnabledDomainRefresh = async (ctx: ApiContext): Promise<Response> => 
 
       if (enabledDomains.length === 0) {
          logger.debug('[SCRAPER] Scheduled refresh skipped: No domains have scraping enabled');
-         return json({ started: false, error: 'No domains have scraping enabled.' });
+         return json({ started: false, reason: 'no-enabled-domains' });
       }
 
       const releases: Array<() => void> = [];
@@ -201,44 +161,25 @@ const processScheduledDomain = async (domain: string, settings: SettingsType, do
 };
 
 const refreshTheKeywords = async (req: Request, ctx: ApiContext) => {
-   if (isCrossSiteBrowserRequest(req)) {
-      return fail(403, 'FORBIDDEN', 'Refreshes must be started from this site.', ctx);
-   }
-   const body = await readBody(req);
-   const scope = body.scope;
-   if (scope !== undefined) {
-      if (scope === 'enabled-domains') {
-         if (body.ids !== undefined || body.keyword !== undefined || body.domain !== undefined) {
-            return fail(400, 'BAD_REQUEST', 'The enabled-domains scope cannot be combined with keyword or domain filters.', ctx);
-         }
-         return startEnabledDomainRefresh(ctx);
-      }
-      if (scope !== 'domain') {
-         return fail(400, 'BAD_REQUEST', 'Invalid refresh scope.', ctx);
-      }
+   // Cross-site browser writes are refused for every route in createRoute.
+   // One URL serves three contract endpoints; the body picks which one, and that endpoint's schema then checks it.
+   const rawBody = await readBody(req);
+   if (rawBody.scope === 'enabled-domains') {
+      await parseBody(req, 'refresh.enabledDomains');
+      return startEnabledDomainRefresh(ctx);
    }
    // A body with a keyword is a one-off keyword search (see searchKeyword), not a refresh
-   if (body.keyword !== undefined) {
-      return searchKeyword(req, body, ctx);
+   if (rawBody.keyword !== undefined) {
+      return searchKeyword(req, await parseBody(req, 'refresh.search'), ctx);
    }
-   const refreshAll = scope === 'domain';
-   const idsInBody = body.ids !== undefined;
-   const domain = body.domain;
-   if (refreshAll && (idsInBody || typeof domain !== 'string' || !domain.trim())) {
+   const refreshBody = await parseBody(req, 'refresh.start');
+   const refreshAll = 'scope' in refreshBody;
+   const domain = 'domain' in refreshBody ? refreshBody.domain.trim() : '';
+   if (refreshAll && !domain) {
       return fail(400, 'BAD_REQUEST', 'The domain scope requires a domain and cannot be combined with keyword IDs.', ctx);
    }
-   if (!refreshAll && domain !== undefined) {
-      return fail(400, 'BAD_REQUEST', 'A domain requires the domain refresh scope.', ctx);
-   }
-   if (!idsInBody && !refreshAll) {
-      return fail(400, 'BAD_REQUEST', 'keyword ID is Required!', ctx);
-   }
-   const keywordIDs = refreshAll ? [] : await readKeywordIds(req);
+   const keywordIDs = 'ids' in refreshBody ? Array.from(new Set(refreshBody.ids)) : [];
    logger.debug('[SCRAPER] keywordIDs: ', { data: keywordIDs });
-
-   if (!refreshAll && (!keywordIDs || keywordIDs.length === 0)) {
-      return fail(400, 'BAD_REQUEST', 'No valid keyword IDs provided', ctx);
-   }
 
    const clearUpdatingFlags = async (keywords: Keyword[], logContext: string, reason: string, onlyWhenUpdating = false) => {
       await clearKeywordUpdatingFlags(keywords, logContext, {
@@ -298,7 +239,13 @@ const refreshTheKeywords = async (req: Request, ctx: ApiContext) => {
       }
 
       if (keywordsToRefresh.length === 0) {
-         return json({ keywords: [] });
+         // Nothing eligible (for example scraping is off for every domain): the normal start shape with no keywords
+         return json({
+            message: 'Refresh started',
+            keywordCount: 0,
+            skipped: { domains: [], keywordIds: [] },
+            reason: 'no-eligible-keywords',
+         });
       }
 
       // Keywords a live run is already refreshing are skipped. A stale flag (crashed run) does not count.
@@ -407,18 +354,17 @@ const KEYWORD_SEARCHES_PER_MINUTE = 20;
 
 /**
  * A one-off keyword search, which is a paid provider request. It is a POST with the JSON body { keyword, country, device }.
- * Only a logged-in browser session can run one; an API key cannot. refreshTheKeywords has already checked the origin.
+ * Only a logged-in browser session can run one; an API key cannot. createRoute has already checked the origin.
  */
-const searchKeyword = async (req: Request, body: RequestBody, ctx: ApiContext) => {
+const searchKeyword = async (req: Request, body: { keyword: string, country: string, device?: string }, ctx: ApiContext) => {
    if (!hasValidSessionCookie(req)) {
       return fail(403, 'FORBIDDEN', 'Keyword searches need a logged-in session.', ctx);
    }
-   const keyword: unknown = body.keyword;
-   const country: unknown = body.country;
-   if (typeof keyword !== 'string' || !keyword || typeof country !== 'string' || !country) {
+   const { keyword, country } = body;
+   if (!keyword || !country) {
       return fail(400, 'BAD_REQUEST', 'A Valid keyword and Country Code is Required!', ctx);
    }
-   const device = typeof body.device === 'string' && body.device ? body.device : 'desktop';
+   const device = body.device || 'desktop';
    // Each search is a paid provider request, so limit how many one client can start per minute
    const clientKey = `keyword-search:${getClientIp(req)}`;
    if (!takeRateLimitToken(clientKey, KEYWORD_SEARCHES_PER_MINUTE, 60 * 1000)) {

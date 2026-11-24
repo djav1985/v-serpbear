@@ -2,16 +2,27 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { apiGet, apiPost, apiPut } from 'utils/client/apiClient';
+import { callApi } from 'utils/client/apiClient';
 import { settingsKey } from '../../domain/_components/keyword-queries';
 
 /** The server's own message when it sent one (it says what to fix), otherwise the fallback. */
 const errorText = (error: unknown, fallback: string) => (error instanceof Error && error.message && !error.message.startsWith('Server error (') ? error.message : fallback);
 
-export function useAppSettings(enabled: boolean, refetchWhenEnabled = false, includePrivate = false) {
+/** The public subset of the settings: the scraper in use, its list, branding and version. It needs no sign-in. */
+export function useAppSettings(enabled: boolean, refetchWhenEnabled = false) {
    return useQuery({
-      queryKey: includePrivate ? [...settingsKey, 'private'] : settingsKey,
-      queryFn: async () => (await apiGet<{ settings: SettingsType }>(`/api/app/settings${includePrivate ? '?includePrivate=true' : ''}`)).settings,
+      queryKey: settingsKey,
+      queryFn: async () => (await callApi('settings.public')).settings,
+      enabled,
+      staleTime: refetchWhenEnabled ? 0 : undefined,
+   });
+}
+
+/** Every setting, with secrets masked. It needs a signed-in session. */
+export function usePrivateSettings(enabled: boolean, refetchWhenEnabled = false) {
+   return useQuery({
+      queryKey: [...settingsKey, 'private'],
+      queryFn: async () => (await callApi('settings.private', { query: { includePrivate: true } })).settings,
       enabled,
       staleTime: refetchWhenEnabled ? 0 : undefined,
    });
@@ -20,7 +31,7 @@ export function useAppSettings(enabled: boolean, refetchWhenEnabled = false, inc
 export function useSaveSettings() {
    const queryClient = useQueryClient();
    return useMutation({
-      mutationFn: (settings: Partial<SettingsType>) => apiPut('/api/app/settings', { settings }),
+      mutationFn: (settings: Partial<SettingsType>) => callApi('settings.save', { body: { settings } }),
       onSuccess: () => { toast.success('Settings updated!'); queryClient.invalidateQueries({ queryKey: settingsKey }); },
       onError: (error) => { toast.error(errorText(error, 'Error updating app settings.')); },
    });
@@ -29,7 +40,7 @@ export function useSaveSettings() {
 export function useClearFailedQueue() {
    const queryClient = useQueryClient();
    return useMutation({
-      mutationFn: () => apiPut('/api/serp/clearfailed', {}),
+      mutationFn: () => callApi('clearFailed.run', { body: {} }),
       onSuccess: () => { toast.success('Failed queue cleared'); queryClient.invalidateQueries({ queryKey: settingsKey }); },
       onError: (error) => { toast.error(errorText(error, 'Error clearing failed queue.')); },
    });
@@ -43,12 +54,12 @@ export function useRetryFailedQueue() {
    const queryClient = useQueryClient();
    return useMutation({
       mutationFn: async (keywordIDs: number[]) => {
-         await apiPost('/api/serp/refresh', { ids: keywordIDs });
+         await callApi('refresh.start', { body: { ids: keywordIDs } });
          const startedAt = Date.now();
          let pending = keywordIDs;
          while (pending.length > 0) {
             if (Date.now() - startedAt > RETRY_POLL_MAX_DURATION_MS) { throw new Error('Keyword retries are still running. Check the keywords later.'); }
-            const status = await apiGet<{ keywords?: { ID: number; updating: boolean }[] }>(`/api/serp/refresh?status=retry&id=${pending.join(',')}`);
+            const status = await callApi('refresh.status', { query: { status: 'retry', id: pending } });
             pending = (status?.keywords ?? []).filter((keyword) => keyword.updating).map((keyword) => keyword.ID);
             if (pending.length > 0) { await new Promise<void>((resolve) => { setTimeout(resolve, RETRY_POLL_INTERVAL_MS); }); }
          }
@@ -60,7 +71,7 @@ export function useRetryFailedQueue() {
 
 export function useSendNotifications() {
    return useMutation({
-      mutationFn: () => apiPost<{ message?: string; sent?: number; skipped?: number }>('/api/app/email', { type: 'digest' }),
+      mutationFn: () => callApi('email.digest', { body: { type: 'digest' } }),
       onSuccess: (response) => {
          const sent = response?.sent ?? 0;
          const skipped = response?.skipped ?? 0;
@@ -78,7 +89,7 @@ export function useSendNotifications() {
 export function useRefreshSearchConsole() {
    const queryClient = useQueryClient();
    return useMutation({
-      mutationFn: () => apiPost('/api/google/searchconsole', {}),
+      mutationFn: () => callApi('searchConsole.refresh', { body: {} }),
       onSuccess: () => {
          toast.success('Search Console data refreshed!');
          // Refreshed data should show up without a reload.
@@ -91,7 +102,7 @@ export function useRefreshSearchConsole() {
 
 export function useTestAdwords() {
    return useMutation({
-      mutationFn: (payload: { developer_token: string; account_id: string }) => apiPost('/api/adwords', payload),
+      mutationFn: (payload: { developer_token: string; account_id: string }) => callApi('adwords.test', { body: payload }),
       onSuccess: () => { toast.success('Google Ads has been integrated successfully!'); },
       onError: (error) => { toast.error(errorText(error, 'Failed to connect to Google Ads. Please make sure you have provided the correct API info.')); },
    });
@@ -99,7 +110,7 @@ export function useTestAdwords() {
 
 export function useUpdateAllVolume() {
    return useMutation({
-      mutationFn: () => apiPost<{ failedCountries?: string[] }>('/api/google/volume', { domain: 'all' }),
+      mutationFn: () => callApi('volume.update', { body: { domain: 'all' } }),
       onSuccess: (response) => {
          const failed = response?.failedCountries ?? [];
          if (failed.length > 0) {

@@ -1,21 +1,28 @@
-import { errorResponse } from './response';
+import { AsyncLocalStorage } from 'async_hooks';
+import { errorResponse, successResponse } from './response';
 
 /** What every route handler receives besides the request. */
 export type ApiContext = { requestId: string };
 
-/** A JSON response. */
-export const json = (body: unknown, status = 200, headers?: HeadersInit): Response => (
-   Response.json(body, { status, headers })
+/** Holds the request id of the request being handled, so json() can put it in the envelope without every route passing it. */
+const requestContext = new AsyncLocalStorage<ApiContext>();
+
+/** Runs a handler so that json() and fail() know its request id. createRoute does this for every route. */
+export const runWithApiContext = <T>(ctx: ApiContext, fn: () => T): T => requestContext.run(ctx, fn);
+
+/** A success response in the shared envelope: { data, error: null, requestId }. The only place a success body is built. */
+export const json = (data: unknown, status = 200, headers?: HeadersInit): Response => (
+   Response.json(successResponse(data, requestContext.getStore()?.requestId), { status, headers })
 );
 
-/** A failure response using the shared error envelope. */
+/** A failure response in the shared envelope: { data: null, error: { code, message, details? }, requestId }. */
 export const fail = (status: number, code: string, message: string, ctx: ApiContext, details?: unknown, headers?: HeadersInit): Response => (
    Response.json(errorResponse(code, message, ctx.requestId, details), { status, headers })
 );
 
 /** Thrown inside a handler to answer with a specific client error. */
 export class ApiError extends Error {
-   constructor(public status: number, public code: string, message: string) {
+   constructor(public status: number, public code: string, message: string, public details?: unknown) {
       super(message);
    }
 }

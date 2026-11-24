@@ -3,6 +3,7 @@ import { timingSafeEqual } from 'crypto';
 import { logger } from '../../../../utils/logger';
 import isRequestSecure from '../../../../utils/api/isRequestSecure';
 import { createRoute, fail, json, readJson, type ApiContext } from '../../../../utils/apiLogging';
+import { endpoints } from '../../../../utils/api/contracts';
 import { serializeCookie } from '../../../../utils/api/cookies';
 import { AttemptKey, clearLoginFailures, isLoginLocked, recordLoginFailure } from '../../../../utils/loginThrottle';
 import { getSessionVersion } from '../../../../utils/sessionStore';
@@ -22,26 +23,15 @@ const loginUser = async (req: Request, ctx: ApiContext) => {
    if (!body || typeof body !== 'object' || Array.isArray(body)) {
       return fail(400, 'BAD_REQUEST', 'Request body must be a JSON object', ctx);
    }
-   const { username, password } = body as { username?: unknown; password?: unknown };
-   
-   logger.debug('[API] Login attempt started', {
-      hasUsername: typeof username === 'string' && username.length > 0,
-      hasPassword: !!password,
-      ip: getClientIp(req)
-   });
-
-   const MAX_CREDENTIAL_LENGTH = 1024;
-   if (typeof username !== 'string' || typeof password !== 'string'
-      || username.length === 0 || password.length === 0
-      || username.length > MAX_CREDENTIAL_LENGTH || password.length > MAX_CREDENTIAL_LENGTH) {
-      const error = 'Username Password Missing';
-      logger.debug('[API] Login failed: missing credentials', {
-         hasUsername: !!username,
-         hasPassword: !!password,
-         duration: Date.now() - startTime
-      });
-      return fail(401, 'MISSING_CREDENTIALS', error, ctx);
+   // A username and a password, each 1 to 1024 characters, as the contract says. A login without them is a
+   // 401 (not a 400) so that it reads the same as a wrong password to the client.
+   const credentials = endpoints['auth.login'].body.safeParse(body);
+   logger.debug('[API] Login attempt started', { hasCredentials: credentials.success, ip: getClientIp(req) });
+   if (!credentials.success) {
+      logger.debug('[API] Login failed: missing credentials', { duration: Date.now() - startTime });
+      return fail(401, 'MISSING_CREDENTIALS', 'Username Password Missing', ctx);
    }
+   const { username, password } = credentials.data;
 
    // Limit guesses without letting a stranger lock the real user out:
    //  - the user's own lockout (5 failures) is per client address, so one address cannot block the others

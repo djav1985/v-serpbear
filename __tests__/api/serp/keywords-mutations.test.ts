@@ -244,7 +244,7 @@ it('returns 400 when keyword payload is missing', async () => {
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-        error: expect.objectContaining({ message: 'Keywords array is required' }),
+        error: expect.objectContaining({ message: expect.stringContaining('Invalid request: keywords') }),
       }));
       expect(keywordMock.bulkCreate).not.toHaveBeenCalled();
     });
@@ -1096,10 +1096,10 @@ it('rejects tag keys that are not canonical integers', async () => {
   });
 
 it.each([
-    [{ sticky: 'true' }, 'sticky must be true or false.'],
-    [{ tags: [] }, 'Invalid Payload!'],
+    [{ sticky: 'true' }, 'Invalid request'],
+    [{ tags: [] }, 'Invalid request'],
     [{ tags: { 1: Array.from({ length: 21 }, (_, index) => `tag-${index}`) } }, 'A keyword can have at most'],
-    [{}, 'Keyword update payload is required.'],
+    [{}, 'Invalid request'],
   ])('rejects malformed keyword update payloads before writing (%p)', async (body, message) => {
     const req = createMockRequest({ method: 'PUT', query: {}, body: { ids: [1], ...body } });
     const res = createMockResponse();

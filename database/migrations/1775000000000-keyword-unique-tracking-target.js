@@ -95,11 +95,11 @@ const planDuplicateRemovals = (rows) => {
 
 module.exports = {
    /**
-    * @param {import('./migrationTypes').MigrationParams} [params={}]
+    * @param {import('../migrationTypes').MigrationParams} [params={}]
     * @param {typeof import('sequelize')} [legacySequelize]
     */
    up: async function up(params = {}, legacySequelize) {
-      const queryInterface = /** @type {import('./migrationTypes').MigrationQueryInterface} */ (params.context ?? params);
+      const queryInterface = /** @type {import('../migrationTypes').MigrationQueryInterface} */ (params.context ?? params);
       const SequelizeLib = /** @type {typeof import('sequelize')} */ (/** @type {unknown} */ (params.Sequelize
          ?? legacySequelize
          ?? queryInterface?.sequelize?.constructor
@@ -155,9 +155,9 @@ module.exports = {
       });
    },
 
-   /** @param {import('./migrationTypes').MigrationParams} [params={}] */
+   /** @param {import('../migrationTypes').MigrationParams} [params={}] */
    down: async function down(params = {}) {
-      const queryInterface = /** @type {import('./migrationTypes').MigrationQueryInterface} */ (params.context ?? params);
+      const queryInterface = /** @type {import('../migrationTypes').MigrationQueryInterface} */ (params.context ?? params);
       return queryInterface.sequelize.transaction(async (transaction) => {
          await queryInterface.sequelize.query(`DROP INDEX IF EXISTS ${INDEX_NAME}`, { transaction });
       });

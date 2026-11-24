@@ -7,6 +7,7 @@ import { redactUrl } from './logRedaction';
 import { clearLoginFailures, recordLoginFailure } from './loginThrottle';
 import { getApiKeyAttemptKeys } from './apiKeyThrottle';
 import { getCookie } from './api/cookies';
+import { getInternalRequestScope, isOperationAllowedForScope } from './mcpInternalAuth';
 
 /**
  * Compares two secrets in constant time. Returns false when either side is missing.
@@ -86,6 +87,15 @@ export const checkApiKey = (req: Request, shouldCountFailure: () => boolean = ()
  * @returns {string} 'authorized', or the reason the request was refused
  */
 const verifyUser = (req: Request): string => {
+   // A request the MCP route built in process is checked against the scope of the MCP caller and nothing else
+   const internalScope = getInternalRequestScope(req);
+   if (internalScope) {
+      const { pathname } = new URL(req.url);
+      if (isOperationAllowedForScope(internalScope, req.method, pathname)) { return 'authorized'; }
+      logger.authEvent('mcp_scope_not_allowed', 'mcp_user', false, { route: `${req.method}:${pathname}`, scope: internalScope });
+      return 'This Route cannot be accessed with this MCP scope.';
+   }
+
    const startTime = Date.now();
    const token = getCookie(req, 'token');
 

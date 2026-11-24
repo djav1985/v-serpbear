@@ -1,5 +1,5 @@
 import normalizeOrigin from '../../../utils/normalizeOrigin';
-import { ApiError, apiFetch, apiPost, apiPut } from '../../../utils/client/apiClient';
+import { ApiError, callApi } from '../../../utils/client/apiClient';
 const mockOrigin = 'http://localhost:3000';
 jest.mock('../../../utils/client/origin', () => ({
    getClientOrigin: () => mockOrigin,
@@ -64,7 +64,7 @@ describe('api client', () => {
      });
   });
 
-  describe('apiFetch', () => {
+  describe('callApi', () => {
      const originalFetch = global.fetch;
 
      beforeEach(() => {
@@ -75,108 +75,95 @@ describe('api client', () => {
         global.fetch = originalFetch;
      });
 
-     const mockFetch = (status: number, body: unknown, headers: Record<string, string> = {}) => {
+     const mockFetch = (status: number, body: unknown, headers: Record<string, string> = { 'content-type': 'application/json' }) => {
         const fetchMock = global.fetch as unknown as jest.Mock;
         fetchMock.mockResolvedValueOnce({
            status,
            ok: status >= 200 && status < 300,
-           headers: {
-              get: (name: string) => headers[name] ?? null,
-           },
+           headers: { get: (name: string) => headers[name] ?? headers[name.toLowerCase()] ?? null },
            json: jest.fn().mockResolvedValue(body),
            text: jest.fn().mockResolvedValue(typeof body === 'string' ? body : ''),
         });
      };
+     const ok = (data: unknown) => ({ data, error: null, requestId: 'rid-ok' });
 
-     it('returns parsed JSON body on successful response', async () => {
-        mockFetch(200, { domains: [] }, { 'content-type': 'application/json' });
-        const result = await apiFetch('/api/serp/domains');
-        expect(result).toEqual({ domains: [] });
+     it('unwraps `data` from the success envelope', async () => {
+        mockFetch(200, ok({ domains: [] }));
+
+        await expect(callApi('domains.list')).resolves.toEqual({ domains: [] });
      });
 
-     it('throws ApiError with structured message on failure envelope', async () => {
-        mockFetch(404, { error: { code: 'NOT_FOUND', message: 'Domain not found' }, requestId: 'rid-1' }, { 'content-type': 'application/json' });
+     it('encodes the query for reads: booleans as text, lists comma-separated, undefined left out, no body or Content-Type', async () => {
+        mockFetch(200, ok({ domains: [] }));
 
-        await expect(apiFetch('/api/serp/domain?domain=missing')).rejects.toMatchObject({
+        await callApi('domains.list', { query: { withstats: true, domains: ['a.com', 'b.com'] } });
+
+        const [url, init] = (global.fetch as jest.Mock).mock.calls[0];
+        expect(url).toBe(`${mockOrigin}/api/serp/domains?withstats=true&domains=a.com%2Cb.com`);
+        expect(init.method).toBe('GET');
+        expect(init.body).toBeUndefined();
+        expect(init.headers['Content-Type']).toBeUndefined();
+     });
+
+     it('sends the method and path of the endpoint with a JSON body for writes', async () => {
+        mockFetch(200, ok({ keywordsRemoved: 2 }));
+
+        await callApi('keywords.remove', { body: { ids: [1, 2] } });
+
+        const [url, init] = (global.fetch as jest.Mock).mock.calls[0];
+        expect(url).toBe(`${mockOrigin}/api/serp/keywords`);
+        expect(init).toMatchObject({ method: 'DELETE', body: JSON.stringify({ ids: [1, 2] }), headers: expect.objectContaining({ 'Content-Type': 'application/json' }) });
+     });
+
+     it('refuses a request that does not match the endpoint schema, without calling the server', async () => {
+        await expect(callApi('keywords.remove', { body: { ids: [] } })).rejects.toMatchObject({ code: 'INVALID_REQUEST' });
+        await expect(callApi('keywords.update', { body: { ids: [1], sticky: true, tags: {} } as never })).rejects.toMatchObject({ code: 'INVALID_REQUEST' });
+        expect(global.fetch).not.toHaveBeenCalled();
+     });
+
+     it('throws ApiError with the message, code and request id of a failure envelope', async () => {
+        mockFetch(404, { data: null, error: { code: 'NOT_FOUND', message: 'Domain not found' }, requestId: 'rid-1' });
+
+        await expect(callApi('domains.get', { query: { domain: 'missing.com' } })).rejects.toMatchObject({
            message: 'Domain not found',
            statusCode: 404,
            code: 'NOT_FOUND',
+           requestId: 'rid-1',
         });
      });
 
-     it('throws ApiError with legacy string error on old-format responses', async () => {
-        mockFetch(400, { error: 'Bad request legacy' }, { 'content-type': 'application/json' });
+     it('does not accept the old string error shape: it is an unreadable failure', async () => {
+        mockFetch(400, { error: 'Bad request legacy' });
 
-        await expect(apiFetch('/api/something')).rejects.toMatchObject({
-           message: 'Bad request legacy',
+        await expect(callApi('auth.logout', { body: {} })).rejects.toMatchObject({
+           message: 'Server error (400): Please try again later',
            statusCode: 400,
+           code: 'UNKNOWN',
         });
      });
 
-     it('propagates X-Request-Id from response headers into ApiError', async () => {
-        mockFetch(500, { error: { code: 'SERVER_ERROR', message: 'Boom' } }, { 'content-type': 'application/json', 'X-Request-Id': 'req-xyz' });
+     it('takes the request id from the X-Request-Id header when the body has none', async () => {
+        mockFetch(500, { data: null, error: { code: 'SERVER_ERROR', message: 'Boom' } }, { 'content-type': 'application/json', 'X-Request-Id': 'req-xyz' });
 
-         await expect(apiFetch('/api/fail')).rejects.toMatchObject({ requestId: 'req-xyz' });
+        await expect(callApi('auth.logout', { body: {} })).rejects.toMatchObject({ requestId: 'req-xyz' });
      });
 
-     it('falls back to generic message for non-JSON error response', async () => {
-        const fetchMock = global.fetch as unknown as jest.Mock;
-        fetchMock.mockResolvedValueOnce({
-           status: 503,
-           ok: false,
-           headers: { get: () => 'text/html' },
-           json: jest.fn().mockRejectedValue(new Error('not json')),
-           text: jest.fn().mockResolvedValue('<html>Service Unavailable</html>'),
-        });
+     it('falls back to a generic message for a non-JSON error response', async () => {
+        mockFetch(503, '<html>Service Unavailable</html>', { 'content-type': 'text/html' });
 
-        await expect(apiFetch('/api/fail')).rejects.toMatchObject({
-           message: 'Server error (503): Please try again later',
-        });
-     });
-  });
-
-  describe('HTTP verb helpers', () => {
-     const originalFetch = global.fetch;
-
-     beforeEach(() => {
-        global.fetch = jest.fn() as unknown as typeof fetch;
+        await expect(callApi('auth.logout', { body: {} })).rejects.toMatchObject({ message: 'Server error (503): Please try again later' });
      });
 
-     afterEach(() => {
-        global.fetch = originalFetch;
+     it('rejects a success that is not an envelope, an empty body, and data that does not match the endpoint', async () => {
+        mockFetch(200, { domains: [] });
+        await expect(callApi('domains.list')).rejects.toMatchObject({ code: 'INVALID_ENVELOPE' });
+
+        mockFetch(204, '', { 'content-type': 'text/plain' });
+        await expect(callApi('domains.list')).rejects.toMatchObject({ code: 'INVALID_ENVELOPE' });
+
+        mockFetch(200, ok({ domains: 'nope' }));
+        await expect(callApi('domains.list')).rejects.toMatchObject({ code: 'INVALID_RESPONSE', requestId: 'rid-ok' });
      });
-
-     const mockSuccess = (body: unknown) => {
-        const fetchMock = global.fetch as unknown as jest.Mock;
-        fetchMock.mockResolvedValueOnce({
-           status: 200,
-           ok: true,
-           headers: { get: () => null },
-           json: jest.fn().mockResolvedValue(body),
-        });
-     };
-
-
-     it('apiPost calls fetch with POST method and serialized body', async () => {
-        mockSuccess({ ok: true });
-        await apiPost('/api/test', { key: 'value' });
-        const fetchMock = global.fetch as unknown as jest.Mock;
-        expect(fetchMock).toHaveBeenCalledWith(`${mockOrigin}/api/test`, expect.objectContaining({
-           method: 'POST',
-           body: JSON.stringify({ key: 'value' }),
-        }));
-     });
-
-     it('apiPut calls fetch with PUT method and serialized body', async () => {
-        mockSuccess({ ok: true });
-        await apiPut('/api/test', { update: true });
-        const fetchMock = global.fetch as unknown as jest.Mock;
-        expect(fetchMock).toHaveBeenCalledWith(`${mockOrigin}/api/test`, expect.objectContaining({
-           method: 'PUT',
-           body: JSON.stringify({ update: true }),
-        }));
-     });
-
   });
 });
 

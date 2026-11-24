@@ -294,6 +294,60 @@ describe('saving fetched keyword ideas', () => {
   });
 });
 
+describe('idea competition level', () => {
+   it.each([
+      ['LOW', 'LOW'], ['MEDIUM', 'MEDIUM'], ['HIGH', 'HIGH'], ['UNKNOWN', 'UNKNOWN'], ['UNSPECIFIED', 'UNSPECIFIED'],
+      [undefined, 'UNSPECIFIED'], [null, 'UNSPECIFIED'], ['', 'UNSPECIFIED'], ['low', 'UNSPECIFIED'], ['EXTREME', 'UNSPECIFIED'], [3, 'UNSPECIFIED'],
+   ])('normalizes %p to %p', (value, expected) => {
+      expect(adwordsUtils.normalizeIdeaCompetition(value)).toBe(expected);
+   });
+
+   it('saves an idea whose competition is missing or unknown as UNSPECIFIED', async () => {
+      const creds = { client_id: 'id', client_secret: 'secret', developer_token: 'dev', account_id: '123-456-7890', refresh_token: 'refresh' } as any;
+      const body = {
+         results: [
+            { text: 'no competition', keywordIdeaMetrics: { avgMonthlySearches: '100', competitionIndex: '5', monthlySearchVolumes: [] } },
+            { text: 'odd competition', keywordIdeaMetrics: { avgMonthlySearches: '100', competition: 'EXTREME', competitionIndex: '5', monthlySearchVolumes: [] } },
+            { text: 'known competition', keywordIdeaMetrics: { avgMonthlySearches: '100', competition: 'HIGH', competitionIndex: '5', monthlySearchVolumes: [] } },
+         ],
+      };
+      const response = (payload: unknown) => ({ json: async () => payload, text: async () => JSON.stringify(payload), status: 200, headers: { get: jest.fn().mockReturnValue('application/json') } });
+      const originalFetch = global.fetch;
+      global.fetch = jest.fn().mockResolvedValueOnce(response({ access_token: 'token' })).mockResolvedValueOnce(response(body));
+      (adwordsUtils.getAdwordsAccessToken as jest.Mock).mockResolvedValue('token');
+
+      const result = await adwordsUtils.getAdwordsKeywordIdeas(creds, { country: 'US', language: '1000', keywords: ['test'], seedType: 'custom' }, true);
+      global.fetch = originalFetch;
+
+      if (!result) { throw new Error('expected keyword ideas to be returned'); }
+      expect(result.map((idea: IdeaKeyword) => [idea.keyword, idea.competition])).toEqual([
+         ['no competition', 'UNSPECIFIED'], ['odd competition', 'UNSPECIFIED'], ['known competition', 'HIGH'],
+      ]);
+   });
+
+   it('fixes the competition of saved ideas and favorites when they are read', async () => {
+      const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = require('fs');
+      const os = require('os');
+      const path = require('path');
+      const dir = mkdtempSync(path.join(os.tmpdir(), 'ideas-competition-'));
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- writes only inside the temp directory created above
+      mkdirSync(path.join(dir, 'data'));
+      const idea = (keyword: string, competition?: string) => ({ uid: `us:${keyword}`, keyword, ...(competition ? { competition } : {}), country: 'US', domain: 'example.com', competitionIndex: 1, monthlySearchVolumes: {}, avgMonthlySearches: 10, added: 1, updated: 1, position: 999 });
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- writes only inside the temp directory created above
+      writeFileSync(path.join(dir, 'data', 'IDEAS_example.com.json'), JSON.stringify({ keywords: [idea('a'), idea('b', 'LOW'), idea('c', 'EXTREME')], favorites: [idea('d')], settings: {}, updated: 1 }));
+      const cwd = jest.spyOn(process, 'cwd').mockReturnValue(dir);
+      try {
+        const db = await adwordsUtils.getLocalKeywordIdeas('example.com');
+        if (!db) { throw new Error('expected the saved ideas to be read'); }
+        expect(db.keywords.map((item) => item.competition)).toEqual(['UNSPECIFIED', 'LOW', 'UNSPECIFIED']);
+        expect(db.favorites.map((item) => item.competition)).toEqual(['UNSPECIFIED']);
+      } finally {
+        cwd.mockRestore();
+        rmSync(dir, { recursive: true, force: true });
+      }
+   });
+});
+
 describe('extractAdwordskeywordIdeas - avgMonthlySearches handling', () => {
    const creds = {
       client_id: 'test-client-id',

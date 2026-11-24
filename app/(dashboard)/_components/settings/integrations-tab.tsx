@@ -8,7 +8,8 @@ import { Input } from 'components/ui/input';
 import { Label } from 'components/ui/label';
 import { Textarea } from 'components/ui/textarea';
 import { cn } from 'lib/utils';
-import { SecretInput } from '../secret-input';
+import { SecretInput, savedSecretProps } from '../secret-input';
+import { callApi } from 'utils/client/apiClient';
 import { useRefreshSearchConsole, useTestAdwords, useUpdateAllVolume } from './settings-queries';
 import type { SettingsTabProps } from './settings-form';
 
@@ -24,7 +25,7 @@ function SearchConsoleSection({ settings, update }: SettingsTabProps) {
          </div>
          <div className="flex flex-col gap-2">
             <Label htmlFor="sc-key">Search Console Private Key</Label>
-            <Textarea id="sc-key" className="h-28 text-xs" placeholder="-----BEGIN PRIVATE KEY-----/ssssaswdkihad...." value={settings.search_console_private_key || ''} onChange={(event) => update('search_console_private_key', event.target.value)} />
+            <Textarea id="sc-key" className="h-28 text-xs" {...savedSecretProps(settings.search_console_private_key, '-----BEGIN PRIVATE KEY-----/ssssaswdkihad....')} onChange={(event) => update('search_console_private_key', event.target.value)} />
          </div>
          <Button variant="secondary" className="h-10 text-base leading-none pt-0" disabled={isPending} onClick={() => refresh()}>
             {isPending && <Loader2 className="animate-spin" />}Refresh Search Console Data
@@ -48,10 +49,8 @@ function AdwordsSection({ settings, update, save }: SettingsTabProps) {
       // A failed or rejected save must not start Google authentication with the old stored credentials.
       if ((await save()) === false) { return; }
       try {
-         const response = await fetch('/api/adwords', { method: 'GET', credentials: 'same-origin' });
-         const result = await response.json() as { authUrl?: string };
-         if (!response.ok || !result.authUrl) { toast.error('Unable to start Google Ads integration.'); return; }
-         window.open(result.authUrl, '_blank');
+         const { authUrl } = await callApi('adwords.begin');
+         window.open(authUrl, '_blank');
       } catch (_error) {
          toast.error('Unable to start Google Ads integration.');
       }

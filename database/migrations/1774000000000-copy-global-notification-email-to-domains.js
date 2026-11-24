@@ -20,9 +20,9 @@ const readGlobalNotificationEmail = () => {
 };
 
 module.exports = {
-   /** @param {import('./migrationTypes').MigrationParams} [params={}] */
+   /** @param {import('../migrationTypes').MigrationParams} [params={}] */
    up: async function up(params = {}) {
-      const queryInterface = /** @type {import('./migrationTypes').MigrationQueryInterface} */ (params.context ?? params);
+      const queryInterface = /** @type {import('../migrationTypes').MigrationQueryInterface} */ (params.context ?? params);
 
       return queryInterface.sequelize.transaction(async (transaction) => {
          const [tables] = await queryInterface.sequelize.query(

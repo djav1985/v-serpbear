@@ -5,9 +5,17 @@ import { logger } from '../../../utils/logger';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 // eslint-disable-next-line import/no-unresolved
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
-import { createRoute, fail, type ApiContext } from '../../../utils/apiLogging';
+import { createRoute } from '../../../utils/apiLogging';
+import { registerInternalRequest } from '../../../utils/mcpInternalAuth';
+import * as keywordRoute from '../serp/keyword/route';
+import * as keywordsRoute from '../serp/keywords/route';
+import * as domainsRoute from '../serp/domains/route';
+import * as refreshRoute from '../serp/refresh/route';
+import * as searchConsoleRoute from '../google/searchconsole/route';
+import * as insightRoute from '../google/insight/route';
+import * as ideasRoute from '../google/ideas/route';
 import {
-   bearerValue, constantTimeEqual, findCredential, getProtectedResourceMetadata, McpOAuthScope,
+   bearerValue, constantTimeEqual, findCredential, getProtectedResourceMetadata, McpOAuthScope, parseMcpScope,
    isMcpEnabled, isMcpOAuthEnabled, oauthDisabledResponse, MCP_SCOPE_FULL, MCP_SCOPE_READ, OAuthCredential,
 } from '../../../utils/mcpOAuth';
 
@@ -16,27 +24,54 @@ type ApiCall = (method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string, query?:
 
 const domainField = z.string().describe('Real domain name, for example example.com');
 
-/** Calls the app's own /api routes over loopback with the same Bearer key, so every existing check still applies. */
-const makeApiCall = (baseUrl: string, authorization: string): ApiCall => async (method, path, query, body) => {
+type RouteHandler = (req: Request) => Promise<Response>;
+type ApiMethod = Parameters<ApiCall>[0];
+
+/** The app's own route handlers the tools use. Anything not listed here cannot be called from MCP. */
+const INTERNAL_ROUTES: Record<string, Partial<Record<ApiMethod, RouteHandler>>> = {
+   '/api/serp/keyword': { GET: keywordRoute.GET },
+   '/api/serp/keywords': { GET: keywordsRoute.GET, POST: keywordsRoute.POST, PUT: keywordsRoute.PUT, DELETE: keywordsRoute.DELETE },
+   '/api/serp/domains': { GET: domainsRoute.GET },
+   '/api/serp/refresh': { POST: refreshRoute.POST },
+   '/api/google/searchconsole': { GET: searchConsoleRoute.GET },
+   '/api/google/insight': { GET: insightRoute.GET },
+   '/api/google/ideas': { GET: ideasRoute.GET, POST: ideasRoute.POST, PUT: ideasRoute.PUT },
+};
+
+/**
+ * Runs one of the app's own route handlers in process: no network call, no key. The Request is built here and
+ * registered with the caller's scope, so the handler's own auth check allows exactly what that scope may do.
+ */
+const makeApiCall = (baseUrl: string, scope: McpOAuthScope): ApiCall => async (method, path, query, body) => {
+   const handler = INTERNAL_ROUTES[path]?.[method];
+   if (!handler) { return { ok: false, status: 404, data: { error: { code: 'NOT_FOUND', message: 'Unknown MCP operation.' } } }; }
    const url = new URL(path, baseUrl);
    Object.entries(query ?? {}).forEach(([key, value]) => url.searchParams.set(key, value));
-   const res = await fetch(url, {
+   const request = new Request(url, {
       method,
       headers: {
-         Authorization: authorization,
          Accept: 'application/json',
          ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
    });
+   registerInternalRequest(request, scope);
+   const res = await handler(request);
    const text = await res.text();
    let data: unknown = text;
    try {
       data = text ? JSON.parse(text) : null;
    } catch {
-      // Keep the raw text when the response is not JSON
+      // Not JSON: reported below as an unexpected format
    }
-   return { ok: res.ok, status: res.status, data };
+   // App routes answer in the { data, error, requestId } envelope. Tools get the useful part only: the data on success,
+   // and { code, message, details } on failure. The envelope itself is never shown to an MCP client.
+   if (data && typeof data === 'object' && 'data' in data && 'error' in data) {
+      const envelope = data as { data: unknown, error: { code?: string, message?: string, details?: unknown } | null };
+      return { ok: res.ok && envelope.error === null, status: res.status, data: envelope.error ?? envelope.data };
+   }
+   // The routes run in process and always answer in the envelope, so anything else is a bug: report it instead of passing it on
+   return { ok: false, status: res.status, data: { code: 'INVALID_RESPONSE', message: 'The app answered in an unexpected format.' } };
 };
 
 const buildServer = (call: ApiCall, scope: McpOAuthScope): McpServer => {
@@ -75,7 +110,7 @@ const buildServer = (call: ApiCall, scope: McpOAuthScope): McpServer => {
    register('get_keyword_ideas', true, 'Get the saved keyword ideas and favourites of a domain. Leave domain out for the research list.',
       { domain: domainField.optional() }, async ({ domain }) => reply(await call('GET', '/api/google/ideas', domain ? { domain } : {})));
 
-   register('generate_keyword_ideas', true, 'Fetch keyword ideas from Google Ads. Choose a seedType; custom seeds can use keywords, Search Console keywords, or tracked keywords.',
+   register('generate_keyword_ideas', false, 'Fetch keyword ideas from Google Ads. Choose a seedType; custom seeds can use keywords, Search Console keywords, or tracked keywords.',
       {
          keywords: z.array(z.string()).max(1000).optional().describe('Seed keywords for custom ideas.'),
          country: z.string().regex(/^[A-Za-z]{2}$/).optional().describe('Two-letter country code; defaults to US.'),
@@ -166,7 +201,7 @@ const unauthorized = (req: Request): Response => {
    return Response.json({ error: 'unauthorized' }, { status: 401, headers: { 'WWW-Authenticate': `Bearer resource_metadata="${metadataUrl}"` } });
 };
 
-const handleMcp = async (req: Request, ctx: ApiContext) => {
+const handleMcp = async (req: Request) => {
    if (!isMcpEnabled()) { return oauthDisabledResponse(); }
    const auth = await getMcpAuthState(req);
    if (!auth.valid) {
@@ -175,13 +210,16 @@ const handleMcp = async (req: Request, ctx: ApiContext) => {
       return unauthorized(req);
    }
    if (req.method !== 'POST') { return Response.json({ error: 'method not allowed' }, { status: 405 }); }
-   const internalApiKey = process.env.APIKEY;
-   if (!internalApiKey) { return fail(500, 'INTERNAL_SERVER_ERROR', 'APIKEY is required for the MCP server to call internal API routes.', ctx); }
-   const scope = auth.directKeyValid ? MCP_SCOPE_READ : auth.oauthCredential?.scope ?? MCP_SCOPE_FULL;
+   // A credential with no (or an unknown) scope gets no access, never full access
+   const scope = auth.directKeyValid ? MCP_SCOPE_READ : parseMcpScope(auth.oauthCredential?.scope);
+   if (!scope) {
+      logger.error('[OAuth] MCP request refused: credential has no valid scope.', undefined, { operation: 'mcp_authentication', reason: 'missing_scope' });
+      return Response.json({ error: 'insufficient_scope' }, { status: 403, headers: { 'WWW-Authenticate': 'Bearer error="insufficient_scope"' } });
+   }
    logger.debug('[OAuth] MCP request authenticated.', { operation: 'mcp_authentication', method: auth.directKeyValid ? 'direct_api_key' : 'oauth_access_token', scope });
 
-   // Tools call this same server on the port the request arrived on
-   const call = makeApiCall(`http://127.0.0.1:${process.env.PORT || 3000}`, `Bearer ${internalApiKey}`);
+   // Tools run the app's route handlers in process with this caller's scope
+   const call = makeApiCall(req.url, scope);
    const server = buildServer(call, scope);
    // Stateless, with plain JSON replies: one request in, one response out, nothing kept between calls
    const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });

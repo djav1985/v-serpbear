@@ -158,6 +158,11 @@ export const getProtectedResourceMetadata = () => {
    };
 };
 
+/** A stored scope if it is a known one, otherwise null. Callers treat null as no access, never as full access. */
+export const parseMcpScope = (value: unknown): McpOAuthScope | null => (
+   (MCP_SCOPES as readonly unknown[]).includes(value) ? value as McpOAuthScope : null
+);
+
 /** Match the example server: unknown scopes are ignored and full access is the default. */
 export const getScopeFromRequest = (requested: string | null): McpOAuthScope => {
    const scopes = (requested ?? '').split(/[\s+]+/).filter(Boolean);

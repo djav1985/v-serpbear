@@ -26,8 +26,8 @@ export function IdeasView({ domain, adwordsConnected, searchConsoleConnected, av
    const [settingsOpen, setSettingsOpen] = useState(false);
 
    const { data, isLoading, isError } = useIdeas(domain.domain, adwordsConnected);
-   const ideas = useMemo(() => data?.data?.keywords ?? [], [data]);
-   const favorites = useMemo(() => data?.data?.favorites ?? [], [data]);
+   const ideas = useMemo(() => data?.keywords ?? [], [data]);
+   const favorites = useMemo(() => data?.favorites ?? [], [data]);
 
    return (
       <div className="flex flex-col gap-2">
@@ -55,7 +55,7 @@ export function IdeasView({ domain, adwordsConnected, searchConsoleConnected, av
             open={loadOpen}
             onOpenChange={setLoadOpen}
             domain={domain.domain}
-            settings={data?.data?.settings}
+            settings={data?.settings}
             searchConsoleConnected={searchConsoleConnected}
             adwordsConnected={adwordsConnected}
          />

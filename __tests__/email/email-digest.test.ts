@@ -90,7 +90,7 @@ describe('email digest', () => {
       (reserveEmailSend as jest.Mock).mockResolvedValue({ reserved: true, release: jest.fn(() => Promise.resolve()) });
       (getAppSettings as jest.Mock).mockResolvedValue({
         smtp_server: 'smtp.test',
-        smtp_port: '587',
+        smtp_port: 587,
         smtp_username: '',
         smtp_password: '',
         notification_email_from: '',
@@ -127,7 +127,7 @@ describe('email digest', () => {
     it('returns 404 for a domain that does not exist', async () => {
       (verifyUser as jest.Mock).mockReturnValue('authorized');
       (Domain.findOne as jest.Mock).mockResolvedValue(null);
-      req.query = { type: 'digest', domain: 'Missing.com ' };
+      req.body = { type: 'digest', domain: 'Missing.com ' };
 
       await handler(req as NextApiRequest, res as NextApiResponse);
 
@@ -136,9 +136,9 @@ describe('email digest', () => {
       expect(sendMailMock).not.toHaveBeenCalled();
     });
 
-    it('returns 400 when the domain query is repeated', async () => {
+    it('returns 400 when the domain is not a single string, and ignores a domain in the query string', async () => {
       (verifyUser as jest.Mock).mockReturnValue('authorized');
-      req.query = { type: 'digest', domain: ['a.com', 'b.com'] };
+      req.body = { type: 'digest', domain: ['a.com', 'b.com'] };
 
       await handler(req as NextApiRequest, res as NextApiResponse);
 
@@ -202,7 +202,7 @@ describe('email digest', () => {
 
       expect(verifyUser).toHaveBeenCalledWith(expect.any(Request));
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, error: null }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ sent: expect.any(Number), skipped: expect.any(Number) }));
       expect(Domain.findAll).toHaveBeenCalledTimes(1);
       expect(Keyword.findAll).toHaveBeenCalledWith({ where: { domain: 'example.com' } });
       expect(sendMailMock).toHaveBeenCalledWith(expect.objectContaining({
@@ -215,7 +215,7 @@ describe('email digest', () => {
 
       (getAppSettings as jest.Mock).mockResolvedValue({
         smtp_server: '  smtp.test.com.  ',
-        smtp_port: ' 587 ',
+        smtp_port: 587,
         smtp_username: '',
         smtp_password: '',
         smtp_tls_servername: ' override.test. ',
@@ -267,7 +267,7 @@ describe('email digest', () => {
       await handler(req as NextApiRequest, res as NextApiResponse);
 
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, error: null }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ sent: expect.any(Number), skipped: expect.any(Number) }));
       expect(nodeMailer.createTransport).toHaveBeenCalledWith(expect.objectContaining({
         host: 'smtp.test.com',
         port: 587,
@@ -283,7 +283,7 @@ describe('email digest', () => {
       (verifyUser as jest.Mock).mockReturnValue('authorized');
       (getAppSettings as jest.Mock).mockResolvedValueOnce({
         smtp_server: '',
-        smtp_port: '',
+        smtp_port: null,
         smtp_username: '',
         smtp_password: '',
         notification_email_from: '',
@@ -357,7 +357,7 @@ describe('email digest', () => {
     it('returns 500 when single domain notification fails', async () => {
       (verifyUser as jest.Mock).mockReturnValue('authorized');
 
-      req.query = { type: 'digest', domain: 'example.com' };
+      req.body = { type: 'digest', domain: 'example.com' };
 
       const domainRecord = {
         get: () => ({
@@ -473,7 +473,7 @@ describe('email digest', () => {
       await handler(req as NextApiRequest, res as NextApiResponse);
 
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, error: null }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ sent: expect.any(Number), skipped: expect.any(Number) }));
       expect(sendMailMock).toHaveBeenCalledTimes(2);
     });
 
@@ -494,7 +494,7 @@ describe('email digest', () => {
       await handler(req as NextApiRequest, res as NextApiResponse);
 
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, error: null, message: 'No domains are enabled for notifications.' }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ message: 'No domains are enabled for notifications.' }));
       expect(nodeMailer.createTransport).not.toHaveBeenCalled();
       expect(sendMailMock).not.toHaveBeenCalled();
     });
@@ -526,7 +526,7 @@ describe('email digest', () => {
       (Keyword.findAll as jest.Mock).mockResolvedValue([]);
       (getAppSettings as jest.Mock).mockResolvedValue({
         smtp_server: 'smtp.test',
-        smtp_port: '587',
+        smtp_port: 587,
         notification_email: 'global@example.com',
         notification_email_from: '',
         notification_email_from_name: 'SerpBear',
@@ -541,10 +541,10 @@ describe('email digest', () => {
 
       expect(sendMailMock).toHaveBeenCalledTimes(1);
       expect(sendMailMock).toHaveBeenCalledWith(expect.objectContaining({ to: 'owner@example.com' }));
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, sent: 1, skipped: 0 }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ sent: 1, skipped: 0 }));
 
       // Recipients are per domain, so a blank global address still sends to the domain address
-      (getAppSettings as jest.Mock).mockResolvedValue({ smtp_server: 'smtp.test', smtp_port: '587' });
+      (getAppSettings as jest.Mock).mockResolvedValue({ smtp_server: 'smtp.test', smtp_port: 587 });
       const blankGlobalRes = { status: jest.fn().mockReturnThis(), json: jest.fn() };
       sendMailMock.mockClear();
 
@@ -561,7 +561,7 @@ describe('email digest', () => {
 
       expect(sendMailMock).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, sent: 0, skipped: 1 }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ sent: 0, skipped: 1 }));
     });
 
     it('returns 200 with a skipped count when every domain is throttled', async () => {
@@ -572,11 +572,11 @@ describe('email digest', () => {
 
       expect(sendMailMock).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, sent: 0, skipped: 2 }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ sent: 0, skipped: 2 }));
     });
 
     it('gives the throttle slot back when setup fails after reserving it', async () => {
-      (getAppSettings as jest.Mock).mockResolvedValue({ smtp_server: 'smtp.test', smtp_port: '587' });
+      (getAppSettings as jest.Mock).mockResolvedValue({ smtp_server: 'smtp.test', smtp_port: 587 });
       (Domain.findAll as jest.Mock).mockResolvedValue([domainRow({})]);
       const release = jest.fn(() => Promise.resolve());
       (reserveEmailSend as jest.Mock).mockResolvedValue({ reserved: true, release });

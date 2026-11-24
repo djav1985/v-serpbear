@@ -6,14 +6,11 @@ import * as apiClient from 'utils/client/apiClient';
 
 jest.mock('next/navigation', () => ({ useRouter: () => ({ push: jest.fn(), refresh: jest.fn() }) }));
 jest.mock('utils/client/apiClient', () => ({
-   apiGet: jest.fn(async () => ({ domain: { domain: 'example.com', notification_emails: 'saved@example.com', scrapeEnabled: true, search_console: '{}', scraper_settings: null } })),
-   apiPut: jest.fn(),
-   apiDelete: jest.fn(),
+   callApi: jest.fn(async () => ({ domain: { domain: 'example.com', notification_emails: 'saved@example.com', scrapeEnabled: true, search_console: '{}', scraper_settings: null } })),
 }));
 jest.mock('utils/keywordMeta', () => ({ scraperAllowsCity: jest.fn(() => false) }));
 
-const apiGet = apiClient.apiGet as jest.Mock;
-const apiPut = apiClient.apiPut as jest.Mock;
+const callApi = apiClient.callApi as jest.Mock;
 
 const domain = { ID: 1, domain: 'example.com', slug: 'example-com', notification_emails: 'saved@example.com', scrapeEnabled: true, search_console: '{}' } as unknown as DomainType;
 
@@ -29,14 +26,14 @@ function Page() {
 }
 
 describe('DomainSettingsDialog', () => {
-   beforeEach(() => { apiPut.mockReset(); });
+   beforeEach(() => { callApi.mockClear(); });
 
    it('starts from the stored settings every time it opens, so an abandoned edit is never saved later', async () => {
       let resolveDomain!: (value: unknown) => void;
-      apiGet.mockImplementationOnce(() => new Promise((resolve) => { resolveDomain = resolve; }));
+      callApi.mockImplementationOnce(() => new Promise((resolve) => { resolveDomain = resolve; }));
       renderWithQueryClient(<Page />);
       const emails = () => screen.getByRole('textbox', { name: 'Notification emails' }) as HTMLInputElement;
-      await waitFor(() => expect(apiGet).toHaveBeenCalledWith('/api/serp/domain?domain=example.com'));
+      await waitFor(() => expect(callApi).toHaveBeenCalledWith('domains.get', { query: { domain: 'example.com' } }));
       await act(async () => resolveDomain({ domain: { ...domain } }));
       expect(emails().value).toBe('saved@example.com');
 
@@ -57,6 +54,6 @@ describe('DomainSettingsDialog', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Update Settings' }));
 
       expect(await screen.findByRole('alert')).toHaveTextContent('Invalid Email');
-      expect(apiPut).not.toHaveBeenCalled();
+      expect(callApi).not.toHaveBeenCalledWith('domains.update', expect.anything());
    });
 });

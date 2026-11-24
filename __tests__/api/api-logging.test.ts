@@ -171,6 +171,133 @@ describe('api logging', () => {
       resetLoginThrottle();
       delete process.env.TRUST_PROXY;
     });
+
+    describe('cross-site writes', () => {
+      const write = (method: string, headers: Record<string, string>) => request({ method, headers });
+
+      it.each(['POST', 'PUT', 'DELETE'])('refuses a cookie-authenticated %s that the browser reports as cross-site before the handler runs', async (method) => {
+        const { createRoute } = await import('../../utils/apiLogging');
+        const handler = jest.fn(ok);
+        const route = createRoute({ name: 'test', auth: false, POST: handler, PUT: handler, DELETE: handler });
+        const entry = route[method as 'POST' | 'PUT' | 'DELETE'];
+
+        const crossSiteHeaders: Record<string, string>[] = [
+          { 'sec-fetch-site': 'cross-site', cookie: 'token=abc' },
+          { 'sec-fetch-site': 'same-site', cookie: 'token=abc' },
+          { origin: 'https://evil.example', cookie: 'token=abc' },
+        ];
+        for (const headers of crossSiteHeaders) {
+          const response = await entry(write(method, headers));
+          expect(response.status).toBe(403);
+          expect(await response.json()).toMatchObject({ error: { code: 'FORBIDDEN' } });
+        }
+        expect(handler).not.toHaveBeenCalled();
+      });
+
+      it('logs the origin the browser sent and the origins the app expects when it refuses a write', async () => {
+        const { createRoute } = await import('../../utils/apiLogging');
+        const { POST } = createRoute({ name: 'test', auth: false, POST: ok });
+
+        const response = await POST(write('POST', { origin: 'https://public.example', host: 'internal:3000', cookie: 'token=abc' }));
+
+        expect(response.status).toBe(403);
+        expect(logger.warn).toHaveBeenCalledWith(
+          expect.stringContaining('403 (cross-site write)'),
+          expect.objectContaining({
+            origin: 'https://public.example',
+            expectedOrigins: expect.arrayContaining(['http://localhost:3000']),
+            hint: expect.stringContaining('NEXT_PUBLIC_APP_URL'),
+          }),
+        );
+      });
+
+      it('lets same-origin writes and writes that report neither header through', async () => {
+        const { createRoute } = await import('../../utils/apiLogging');
+        const { POST } = createRoute({ name: 'test', auth: false, POST: ok });
+
+        expect((await POST(write('POST', { 'sec-fetch-site': 'same-origin', origin: 'http://localhost:3000' }))).status).toBe(200);
+        expect((await POST(write('POST', { origin: 'http://localhost:3000' }))).status).toBe(200);
+        expect((await POST(write('POST', {}))).status).toBe(200);
+      });
+
+      it('does not check reads', async () => {
+        const { createRoute } = await import('../../utils/apiLogging');
+        const { GET } = createRoute({ name: 'test', auth: false, GET: ok });
+
+        expect((await GET(request({ headers: { 'sec-fetch-site': 'cross-site' } }))).status).toBe(200);
+      });
+
+      it('lets Bearer requests through from any origin', async () => {
+        const { createRoute } = await import('../../utils/apiLogging');
+        const { POST } = createRoute({ name: 'test', auth: false, POST: ok });
+
+        const response = await POST(write('POST', { authorization: 'Bearer some-key', 'sec-fetch-site': 'cross-site', origin: 'https://other.example' }));
+
+        expect(response.status).toBe(200);
+      });
+
+      it('leaves oauthProtocol routes and the MCP endpoint alone', async () => {
+        process.env.MCP_OAUTH = 'true';
+        const { createRoute } = await import('../../utils/apiLogging');
+        const oauth = createRoute({ name: 'oauth/token', auth: false, oauthProtocol: true, POST: ok });
+        const mcp = createRoute({ name: 'mcp', auth: false, POST: ok });
+
+        expect((await oauth.POST(write('POST', { 'sec-fetch-site': 'cross-site', origin: 'https://client.example' }))).status).toBe(200);
+        expect((await mcp.POST(request({ method: 'POST', url: 'http://localhost:3000/api/mcp', headers: { 'sec-fetch-site': 'cross-site' } }))).status).toBe(200);
+      });
+    });
+
+    describe('requests built by the MCP route', () => {
+      const build = (method: string, path: string, headers: Record<string, string> = {}) => request({ method, url: `http://localhost:3000${path}`, headers });
+
+      it('authorizes a registered request only for the operations its scope allows', async () => {
+        const { createRoute } = await import('../../utils/apiLogging');
+        const { registerInternalRequest } = await import('../../utils/mcpInternalAuth');
+        process.env.SECRET = 'secret';
+        const handler = jest.fn(ok);
+        const route = createRoute({ name: 'test', GET: handler, POST: handler, PUT: handler });
+
+        const readGet = build('GET', '/api/serp/keywords?domain=example.com');
+        registerInternalRequest(readGet, 'mcp:read');
+        expect((await route.GET(readGet)).status).toBe(200);
+
+        const readWrite = build('POST', '/api/serp/keywords');
+        registerInternalRequest(readWrite, 'mcp:read');
+        expect((await route.POST(readWrite)).status).toBe(401);
+
+        const fullWrite = build('POST', '/api/serp/keywords');
+        registerInternalRequest(fullWrite, 'mcp:full');
+        expect((await route.POST(fullWrite)).status).toBe(200);
+
+        const fullSettings = build('PUT', '/api/app/settings');
+        registerInternalRequest(fullSettings, 'mcp:full');
+        expect((await route.PUT(fullSettings)).status).toBe(401);
+        expect(handler).toHaveBeenCalledTimes(2);
+      });
+
+      it('cannot be claimed by a network request, whatever it sends', async () => {
+        const { createRoute } = await import('../../utils/apiLogging');
+        process.env.SECRET = 'secret';
+        process.env.APIKEY = 'real-key';
+        process.env.MCP_APIKEY = 'mcp-key';
+        const handler = jest.fn(ok);
+        const route = createRoute({ name: 'test', POST: handler, DELETE: handler });
+
+        const forgedHeaders: Record<string, string>[] = [
+          { authorization: 'Bearer mcp-key' },
+          { authorization: 'Bearer mcpa_made-up-token' },
+          { authorization: 'Bearer wrong-key' },
+          { 'x-mcp-scope': 'mcp:full', 'x-internal-request': '1', authorization: 'Bearer mcp:full' },
+        ];
+        for (const headers of forgedHeaders) {
+          expect((await route.POST(build('POST', '/api/serp/keywords', headers))).status).toBe(401);
+          expect((await route.DELETE(build('DELETE', '/api/serp/keywords', headers))).status).toBe(401);
+        }
+        // APIKEY keeps working only for its own allowlist, which has no keyword writes
+        expect((await route.POST(build('POST', '/api/serp/keywords', { authorization: 'Bearer real-key' }))).status).toBe(401);
+        expect(handler).not.toHaveBeenCalled();
+      });
+    });
   });
 
   describe('redactSecrets', () => {

@@ -1,6 +1,7 @@
 import type { NextApiRequest } from 'next';
 import Cryptr from 'cryptr';
 import { createMockResponse } from '../../__helpers__';
+import { DomainDTO } from '../../../utils/api/contracts/dto';
 
 describe('domains route', () => {
   let handler: any;
@@ -110,10 +111,10 @@ describe('domains route', () => {
     });
 
     it.each([
-      [null, 'Request body must be a JSON object.'],
-      [[], 'Request body must be a JSON object.'],
-      [{}, 'Domain is Required!'],
-      [{ scrapeEnabled: true }, 'Domain is Required!'],
+      [null, 'Invalid request'],
+      [[], 'Invalid request'],
+      [{}, 'Invalid request: domain'],
+      [{ scrapeEnabled: true }, 'Invalid request: domain'],
     ])('requires a JSON body containing the domain (%p)', async (body, message) => {
       const req = { method: 'PUT', query: { domain: 'example.com' }, body, headers: {} } as unknown as NextApiRequest;
       const res = createMockResponse();
@@ -121,7 +122,7 @@ describe('domains route', () => {
       await handler(req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ message }) }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ message: expect.stringContaining(message) }) }));
       expect(DomainMock.findOne).not.toHaveBeenCalled();
     });
 
@@ -199,7 +200,7 @@ describe('domains route', () => {
         scraping_api: cryptr.encrypt('my-api-key'),
       });
       (domainState as any).search_console = JSON.stringify({
-        client_email: cryptr.encrypt('svc@project.iam.gserviceaccount.com'),
+        client_email: 'svc@project.iam.gserviceaccount.com',
         private_key: cryptr.encrypt('-----BEGIN PRIVATE KEY-----\n...'),
         property_url: 'https://example.com',
       });
@@ -221,9 +222,9 @@ describe('domains route', () => {
       // scraper_settings should be masked: no raw API key, has_api_key flag instead
       expect(returned.scraper_settings).toEqual({ scraper_type: 'serpapi', has_api_key: true });
 
-      // search_console should be safe: sensitive fields replaced with 'true' sentinel
+      // search_console should be safe: the key is replaced with the 'true' sentinel, the client email is not hidden
       const sc = JSON.parse(returned.search_console);
-      expect(sc.client_email).toBe('true');
+      expect(sc.client_email).toBe('svc@project.iam.gserviceaccount.com');
       expect(sc.private_key).toBe('true');
       expect(sc.property_url).toBe('https://example.com');
     });
@@ -245,6 +246,25 @@ describe('domains route', () => {
       expect(res.status).toHaveBeenCalledWith(200);
       const { domain: returned } = (res.json as jest.Mock).mock.calls[0][0];
       expect(returned.search_console).toBe(JSON.stringify({}));
+    });
+
+    it('answers a save with empty database columns in the shape the contract expects', async () => {
+      // A domain row whose text columns were never filled in
+      Object.assign(domainState, { ID: 1 });
+      const req = {
+        method: 'PUT',
+        query: {},
+        body: { domain: domainState.domain, scrapeEnabled: true },
+        headers: {},
+      } as unknown as NextApiRequest;
+      const res = createMockResponse();
+
+      await handler(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      const { domain: returned } = (res.json as jest.Mock).mock.calls[0][0];
+      expect(returned).toEqual(expect.objectContaining({ notification_emails: '', lastUpdated: '', added: '', scrape_strategy: '' }));
+      expect(DomainDTO.safeParse(returned).success).toBe(true);
     });
 
     it('persists scraper override selections with encrypted API keys', async () => {
@@ -327,11 +347,25 @@ describe('domains route', () => {
       expect(bothUpdate.scraper_settings).toEqual(expect.any(String));
     });
 
+    it('rejects a pagination limit that is not a number', async () => {
+      const req = {
+        method: 'PUT',
+        query: {},
+        body: { domain: domainState.domain, scrape_strategy: 'basic', scrape_pagination_limit: '5' },
+        headers: {},
+      } as unknown as NextApiRequest;
+      const res = createMockResponse();
+
+      await handler(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(domainInstance.save).not.toHaveBeenCalled();
+    });
+
     it.each([
       ['custom', 5, 'custom', 5, true],
       ['unknown', 99, '', 10, true],
       ['', -3, '', 0, true],
-      ['basic', '5', 'basic', undefined, false],
     ])('normalizes scrape strategy and pagination options (%p, %p)', async (strategy, limit, expectedStrategy, expectedLimit, writesLimit) => {
       const req = {
         method: 'PUT',
@@ -518,7 +552,7 @@ describe('Search Console credentials stay on the server', () => {
         isoCheckMock = require('../../../utils/searchConsole').checkSearchConsoleIntegration;
       });
       cryptr = new Cryptr('test-secret-for-sc');
-      savedClientEmail = cryptr.encrypt('svc@project.iam.gserviceaccount.com');
+      savedClientEmail = 'svc@project.iam.gserviceaccount.com';
       savedPrivateKey = cryptr.encrypt('-----BEGIN PRIVATE KEY-----\nsecret\n-----END PRIVATE KEY-----');
     });
 
@@ -561,7 +595,7 @@ describe('Search Console credentials stay on the server', () => {
         expect(res.status).toHaveBeenCalledWith(500);
       });
 
-      it('masks saved credentials instead of returning the decrypted key', async () => {
+      it('returns the saved client email in plain text and masks only the private key', async () => {
         const stored = {
           domain: 'example.com',
           search_console: JSON.stringify({
@@ -580,11 +614,10 @@ describe('Search Console credentials stay on the server', () => {
 
         const body = (res.json as jest.Mock).mock.calls[0][0];
         const sc = JSON.parse(body.domain.search_console);
-        expect(sc.client_email).toBe('true');
+        expect(sc.client_email).toBe('svc@project.iam.gserviceaccount.com');
         expect(sc.private_key).toBe('true');
         expect(sc.property_type).toBe('domain');
         expect(JSON.stringify(body)).not.toContain('BEGIN PRIVATE KEY');
-        expect(JSON.stringify(body)).not.toContain('svc@project');
       });
     });
 
@@ -631,6 +664,26 @@ describe('Search Console credentials stay on the server', () => {
         expect(stored.private_key).toBe(savedPrivateKey);
         expect(stored.property_type).toBe('url');
         expect(stored.url).toBe('https://example.com/');
+      });
+
+      it('keeps the stored credentials when the form sends the saved email in plain text with the marker key', async () => {
+        const { instance, current } = buildInstance();
+        isoDomainModel.findOne.mockResolvedValue(instance);
+        const req = {
+          method: 'PUT',
+          query: {},
+          body: { domain: 'example.com', search_console: { property_type: 'domain', url: '', client_email: 'svc@project.iam.gserviceaccount.com', private_key: 'true' } },
+          headers: {},
+        } as unknown as NextApiRequest;
+        const res = createMockResponse();
+
+        await isoUpdateDomain(req, res);
+
+        expect(isoCheckMock).not.toHaveBeenCalled();
+        expect(res.status).toHaveBeenCalledWith(200);
+        const stored = JSON.parse(current.search_console);
+        expect(stored.client_email).toBe(savedClientEmail);
+        expect(stored.private_key).toBe(savedPrivateKey);
       });
 
       it('rejects a save that sends only one of the two credentials as the marker', async () => {

@@ -2,6 +2,7 @@
 import type { NextApiRequest } from 'next';
 import verifyUser, { checkApiKey } from '../../utils/verifyUser';
 import { buildRequest } from '../__helpers__/routeAdapter';
+import { registerInternalRequest } from '../../utils/mcpInternalAuth';
 import jwt from 'jsonwebtoken';
 import { getApiKeyAttemptKeys } from '../../utils/apiKeyThrottle';
 import { clearLoginFailures, isLoginLocked, recordLoginFailure, resetLoginThrottle } from '../../utils/loginThrottle';
@@ -233,6 +234,66 @@ describe('verifyUser, login throttle, session store', () => {
              const result = verifyUser(buildRequest(req));
 
              expect(result).toBe('This Route cannot be accessed with API.');
+          });
+
+          it('does not allow APIKEY to write keywords or toggle idea favorites, which only the in-process MCP full scope can do', () => {
+             process.env.APIKEY = 'test-api-key';
+             const attempts: Array<[string, string]> = [['POST', '/api/serp/keywords'], ['PUT', '/api/serp/keywords'], ['DELETE', '/api/serp/keywords'], ['PUT', '/api/google/ideas']];
+
+             attempts.forEach(([method, url]) => {
+                const result = verifyUser(buildRequest({ method, url, headers: { authorization: 'Bearer test-api-key' } }));
+
+                expect(result).toBe('This Route cannot be accessed with API.');
+             });
+          });
+       });
+
+       describe('requests built in process by the MCP route', () => {
+          const READ_OPERATIONS: Array<[string, string]> = [
+             ['GET', '/api/serp/keyword'], ['GET', '/api/serp/keywords'], ['GET', '/api/serp/domains'], ['GET', '/api/google/searchconsole'],
+             ['GET', '/api/google/insight'], ['GET', '/api/google/ideas'], ['POST', '/api/google/ideas'],
+          ];
+          const FULL_OPERATIONS: Array<[string, string]> = [
+             ['PUT', '/api/google/ideas'], ['POST', '/api/serp/keywords'], ['PUT', '/api/serp/keywords'], ['DELETE', '/api/serp/keywords'], ['POST', '/api/serp/refresh'],
+          ];
+          const registered = (method: string, url: string, scope: 'mcp:read' | 'mcp:full' | string, headers: Record<string, string> = {}) => {
+             const request = buildRequest({ method, url, headers });
+             registerInternalRequest(request, scope as 'mcp:read');
+             return request;
+          };
+
+          it.each(READ_OPERATIONS)('allows %s %s for the read and full scopes', (method, url) => {
+             expect(verifyUser(registered(method, url, 'mcp:read'))).toBe('authorized');
+             expect(verifyUser(registered(method, url, 'mcp:full'))).toBe('authorized');
+          });
+
+          it.each(FULL_OPERATIONS)('allows %s %s for the full scope only', (method, url) => {
+             expect(verifyUser(registered(method, url, 'mcp:full'))).toBe('authorized');
+             expect(verifyUser(registered(method, url, 'mcp:read'))).not.toBe('authorized');
+          });
+
+          it('allows nothing for an unknown scope, and nothing outside the listed operations for any scope', () => {
+             [...READ_OPERATIONS, ...FULL_OPERATIONS].forEach(([method, url]) => {
+                expect(verifyUser(registered(method, url, 'mcp:admin'))).not.toBe('authorized');
+             });
+             [['PUT', '/api/app/settings'], ['DELETE', '/api/serp/domains'], ['POST', '/api/app/email'], ['POST', '/api/serp/clearfailed']].forEach(([method, url]) => {
+                expect(verifyUser(registered(method, url, 'mcp:full'))).not.toBe('authorized');
+             });
+          });
+
+          it('does not treat a network request as registered, whatever headers it sends', () => {
+             process.env.APIKEY = 'test-api-key';
+             process.env.MCP_APIKEY = 'mcp-key';
+             const forged = buildRequest({
+                method: 'POST', url: '/api/serp/keywords',
+                headers: { authorization: 'Bearer mcp-key', 'x-mcp-scope': 'mcp:full', 'x-internal-request': 'true' },
+             });
+
+             expect(verifyUser(forged)).not.toBe('authorized');
+             // A copy of a registered request is a different object and is not registered
+             const original = registered('POST', '/api/serp/keywords', 'mcp:full');
+             expect(verifyUser(original)).toBe('authorized');
+             expect(verifyUser(original.clone())).not.toBe('authorized');
           });
        });
     });

@@ -6,7 +6,7 @@ import { useMutation } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, ButtonLabel } from 'components/ui/button';
-import { apiGet, apiPut } from 'utils/client/apiClient';
+import { callApi } from 'utils/client/apiClient';
 import { useShell } from '../../_components/shell-context';
 import { DomainCard } from './domain-card';
 import { DomainsSidebar } from './domains-sidebar';
@@ -50,8 +50,7 @@ export function DomainsView({ scraperConfigured, searchConsoleIntegrated, showMa
       setStatsStatus((current) => ({ ...current, ...Object.fromEntries(batch.map((domain) => [domain, 'loading' as const])) }));
 
       try {
-         const query = new URLSearchParams({ withstats: 'true', domains: batch.join(',') });
-         const { domains: result } = await apiGet<{ domains: DomainType[] }>(`/api/serp/domains?${query}`);
+         const { domains: result } = await callApi('domains.list', { query: { withstats: true, domains: batch } });
          const mapped = result.map(toDomainCardData);
          const received = new Set(mapped.map((domain) => domain.domain));
          mapped.forEach((domain) => { statsRef.current[domain.domain] = domain; });
@@ -89,7 +88,7 @@ export function DomainsView({ scraperConfigured, searchConsoleIntegrated, showMa
 
    const toggleActive = useMutation({
       mutationFn: ({ domain, scrapeEnabled }: { domain: string; scrapeEnabled: boolean }) => (
-         apiPut('/api/serp/domains', { domain, scrapeEnabled })
+         callApi('domains.update', { body: { domain, scrapeEnabled } })
       ),
       onMutate: ({ domain, scrapeEnabled }) => {
          setActiveOverrides((current) => ({ ...current, [domain]: scrapeEnabled }));

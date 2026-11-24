@@ -18,6 +18,10 @@ A required variable is missing inside the container. The log says which one:
 
 Set `USER_NAME`, `PASSWORD` and `SECRET` in the `environment:` section of `docker-compose.yml`, then run `docker compose up -d` to recreate the container.
 
+## "Requests that change data must be made from this site" (403)
+
+Login or saving fails behind a reverse proxy. SerpBear only accepts changes sent from its own address, and the proxy is hiding that address from it. The log line `403 (cross-site write)` shows the `origin` the browser sent and the `expectedOrigins` the app accepts. Set `NEXT_PUBLIC_APP_URL` to the public address (for example `https://serpbear.yourdomain.com`), or make the proxy pass the `Host` and `X-Forwarded-Proto` headers, then restart the app. See [Reverse Proxy and SSL](Reverse-Proxy-and-SSL).
+
 ## Scheduled scrapes do not run
 
 - Check that `APIKEY` is set. When it is unset, scheduled jobs are skipped with a warning.
@@ -28,7 +32,6 @@ Set `USER_NAME`, `PASSWORD` and `SECRET` in the `environment:` section of `docke
 ## MCP reports a server configuration error
 
 - OAuth approval uses `USER_NAME` (or `USER`) and `PASSWORD`, or an existing valid login cookie. `MCP_APIKEY` is optional and only used for direct MCP bearer access.
-- Keep `APIKEY` set as well; MCP uses it internally to call SerpBear's existing REST routes.
 - Set `NEXT_PUBLIC_APP_URL` to the public HTTPS origin used to build OAuth issuer, discovery and redirect URLs, then restart the app.
 - Check that `MCP_OAUTH=true` and `MCP_ENABLED=true`; discovery is disabled when either is false. OAuth clients may use CIMD or the existing dynamic registration flow.
 

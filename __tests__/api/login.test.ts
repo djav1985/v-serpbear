@@ -117,6 +117,7 @@ describe('Authentication cookie handling', () => {
             'x-forwarded-for': '127.0.0.1',
             'user-agent': 'test-user-agent'
          },
+         body: {},
       } as Partial<NextApiRequest>;
 
       const res = createMockResponse();
@@ -141,7 +142,7 @@ describe('Authentication cookie handling', () => {
       process.env.SECRET = 'logout-test-secret';
       const jwt = require('jsonwebtoken');
       const token = jwt.sign({ user: 'alice' }, process.env.SECRET);
-      const req = { method: 'POST', headers: { 'user-agent': 'logout-test-agent' }, cookies: { token } } as Partial<NextApiRequest>;
+      const req = { method: 'POST', headers: { 'user-agent': 'logout-test-agent' }, body: {}, cookies: { token } } as Partial<NextApiRequest>;
       const res = createMockResponse();
 
       try {
@@ -161,7 +162,7 @@ describe('Authentication cookie handling', () => {
       const originalSecret = process.env.SECRET;
       const tempData = createTempAppDataDir('serpbear-logout-invalid-token-');
       process.env.SECRET = 'logout-test-secret';
-      const req = { method: 'POST', headers: {}, cookies: { token: 'not-a-jwt' } } as Partial<NextApiRequest>;
+      const req = { method: 'POST', headers: {}, body: {}, cookies: { token: 'not-a-jwt' } } as Partial<NextApiRequest>;
       const res = createMockResponse();
 
       try {
@@ -180,7 +181,7 @@ describe('Authentication cookie handling', () => {
       const originalSecret = process.env.SECRET;
       const tempData = createTempAppDataDir('serpbear-logout-no-secret-');
       delete process.env.SECRET;
-      const req = { method: 'POST', headers: {}, cookies: { token: 'old-token' } } as Partial<NextApiRequest>;
+      const req = { method: 'POST', headers: {}, body: {}, cookies: { token: 'old-token' } } as Partial<NextApiRequest>;
       const res = createMockResponse();
 
       try {
@@ -222,6 +223,7 @@ describe('Authentication cookie handling', () => {
             'user-agent': 'secure-test-agent',
             'x-forwarded-proto': 'https',
          },
+         body: {},
       } as Partial<NextApiRequest>;
 
       const logoutRes = createMockResponse();

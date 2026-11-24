@@ -9,14 +9,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from 'components/ui/tabs';
 import { IntegrationsTab } from './integrations-tab';
 import { NotificationTab } from './notification-tab';
 import { ScraperTab } from './scraper-tab';
-import { useAppSettings, useSaveSettings } from './settings-queries';
+import { SECRET_MARKER, SECRET_SETTINGS_FIELDS } from 'utils/settingsSecrets';
+import { usePrivateSettings, useSaveSettings } from './settings-queries';
 
 export type SettingsError = { type: string; msg: string };
 const ERROR_VISIBLE_MS = 3000;
 
 export type SettingsTabProps = {
    settings: SettingsType;
-   update: (key: string, value: string | number | boolean) => void;
+   update: (key: string, value: string | number | boolean | null) => void;
    error: SettingsError | null;
    platformName: string;
    /** Saves the current form. Resolves false when validation or the save failed. */
@@ -37,7 +38,7 @@ const createDefaults = (platformName: string): SettingsType => ({
    scrape_retry: false,
    notification_interval: 'daily',
    smtp_server: '',
-   smtp_port: '',
+   smtp_port: null,
    smtp_tls_servername: '',
    smtp_username: '',
    smtp_password: '',
@@ -51,7 +52,7 @@ const createDefaults = (platformName: string): SettingsType => ({
 /** The three settings tabs and the Update button. Mounted only while the sheet is open, so it always starts from the stored settings. */
 export function SettingsForm({ platformName }: { platformName: string }) {
    const router = useRouter();
-   const { data: stored, isLoading, isError } = useAppSettings(true, true, true);
+   const { data: stored, isLoading, isError } = usePrivateSettings(true, true);
    const { mutateAsync: saveSettings, isPending } = useSaveSettings();
    const [settings, setSettings] = useState<SettingsType>(() => createDefaults(platformName));
    const [error, setError] = useState<SettingsError | null>(null);
@@ -73,7 +74,7 @@ export function SettingsForm({ platformName }: { platformName: string }) {
 
    useEffect(() => () => { if (errorTimer.current) { clearTimeout(errorTimer.current); } }, []);
 
-   const update = (key: string, value: string | number | boolean) => setSettings((current) => ({ ...current, [key]: value }));
+   const update = (key: string, value: string | number | boolean | null) => setSettings((current) => ({ ...current, [key]: value }));
 
    const save = async (): Promise<boolean> => {
       const clean: SettingsType = { ...settings };
@@ -102,6 +103,8 @@ export function SettingsForm({ platformName }: { platformName: string }) {
       // The refresh token is written by the Google callback on the server. Sending this copy back could overwrite a newer
       // token (for example right after re-authorising) with a stale one, so it is left out and the server keeps the stored one.
       const { adwords_refresh_token: _storedToken, ...toSave } = clean;
+      // The server only sends a marker for a stored secret. Send a secret only when it was changed, so the stored value is kept.
+      SECRET_SETTINGS_FIELDS.forEach((field) => { if ((toSave as Record<string, unknown>)[field] === SECRET_MARKER) { delete (toSave as Record<string, unknown>)[field]; } });
       try {
          await saveSettings(toSave as SettingsType);
       } catch (_saveError) {

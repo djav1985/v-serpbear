@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { readFile, writeFile } from 'fs/promises';
 import { type KeywordIdeasDatabase, getLocalKeywordIdeas, updateLocalKeywordIdeas } from '../../../utils/adwords';
+import { IdeasDatabaseDTO } from '../../../utils/api/contracts';
 jest.mock('../../../utils/searchConsole');
 jest.mock('../../../database/models/domain', () => ({
   __esModule: true,
@@ -42,12 +43,12 @@ describe('adwords ideasPath', () => {
       });
 
       it('reads the ideas file of a hyphenated domain under its real name', async () => {
-        readMock.mockResolvedValue(JSON.stringify({ keywords: [{ uid: 'k1' }] }));
+        readMock.mockResolvedValue(JSON.stringify({ keywords: [{ uid: 'k1', competition: 'LOW' }] }));
 
         const result = await getLocalKeywordIdeas('my-site.com');
 
         expect(readMock).toHaveBeenCalledWith(expect.stringMatching(/IDEAS_my-site\.com\.json$/), expect.anything());
-        expect(result).toEqual({ keywords: [{ uid: 'k1' }] });
+        expect(result).toEqual({ keywords: [{ uid: 'k1', competition: 'LOW' }] });
       });
     });
   });
@@ -139,14 +140,27 @@ describe('ideas route', () => {
     });
 
     it('loads the research ideas list when no domain is provided', async () => {
-      const saved = { keywords: [{ uid: 'idea-1', keyword: 'shoes' }], favorites: [] };
+      const saved = { keywords: [{ uid: 'idea-1', keyword: 'shoes', competition: 'LOW' }], favorites: [] };
       (readFile as jest.Mock).mockResolvedValue(JSON.stringify(saved));
 
       const res = await get();
 
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({ data: saved });
+      expect(res.json).toHaveBeenCalledWith({ ideas: saved });
       expect(readFile).toHaveBeenCalledWith(expect.stringMatching(/IDEAS_research\.json$/), { encoding: 'utf-8' });
+    });
+
+    it('returns an empty favorites list for a file written by a first generation', async () => {
+      const idea = { uid: 'idea-1', keyword: 'shoes', competition: 'LOW', country: 'US', domain: '', competitionIndex: 12, monthlySearchVolumes: { '2026-1': '100' }, avgMonthlySearches: 100, added: 1, updated: 1, position: 0 };
+      const saved = { keywords: [idea], settings: { country: 'US', seedType: 'custom' }, updated: 1 };
+      (readFile as jest.Mock).mockResolvedValue(JSON.stringify(saved));
+
+      const res = await get();
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({ ideas: { ...saved, favorites: [] } });
+      // The browser client accepts it too
+      expect(IdeasDatabaseDTO.safeParse(saved).success).toBe(true);
     });
 
     it('rejects an invalid domain before reading the ideas file', async () => {
@@ -230,7 +244,7 @@ describe('ideas route', () => {
     });
 
     it.each([
-      [{ ...valid, seedType: undefined }, 'Missing seedType'],
+      [{ ...valid, seedType: undefined }, 'Invalid request: seedType'],
       [{ ...valid, seedType: 'unsupported' }, 'Invalid seedType'],
       [{ ...valid, seedType: 'custom', keywords: [] }, 'Please Provide one of these'],
     ])('rejects a missing, unsupported or empty custom seed (%p)', async (body, message) => {
@@ -304,7 +318,7 @@ describe('ideas route', () => {
         await handler(req, res);
 
         expect(res.status).toHaveBeenCalledWith(200);
-        expect(res.json).toHaveBeenCalledWith({ keywords: [], error: '' });
+        expect(res.json).toHaveBeenCalledWith({ favorites: [] });
         expect(writeFile).toHaveBeenCalledTimes(1);
 
         const [, contents] = (writeFile as jest.Mock).mock.calls[0];
@@ -313,7 +327,7 @@ describe('ideas route', () => {
      });
 
      it('adds a matching idea to favorites and leaves saved ideas intact', async () => {
-        const keyword = { uid: 'kw-2', keyword: 'coffee beans' } as any;
+        const keyword = { uid: 'kw-2', keyword: 'coffee beans', competition: 'LOW' } as any;
         const storedDatabase = { keywords: [keyword], favorites: [], settings: { seedType: 'custom' }, updated: Date.now() } as KeywordIdeasDatabase;
         (readFile as jest.Mock).mockResolvedValue(JSON.stringify(storedDatabase));
         const req = createMockRequest({ method: 'PUT', body: { keywordID: 'kw-2', domain: 'example.com' } });
@@ -322,7 +336,7 @@ describe('ideas route', () => {
         await handler(req as unknown as NextApiRequest, res as unknown as NextApiResponse);
 
         expect(res.status).toHaveBeenCalledWith(200);
-        expect(res.json).toHaveBeenCalledWith({ keywords: [keyword], error: '' });
+        expect(res.json).toHaveBeenCalledWith({ favorites: [keyword] });
         const [, contents] = (writeFile as jest.Mock).mock.calls[0];
         expect((JSON.parse(contents as string) as KeywordIdeasDatabase).keywords).toEqual([keyword]);
         expect((JSON.parse(contents as string) as KeywordIdeasDatabase).favorites).toEqual([keyword]);

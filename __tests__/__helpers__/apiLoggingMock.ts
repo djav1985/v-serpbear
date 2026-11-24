@@ -34,7 +34,7 @@ export const apiLoggingMock = () => {
             const allowed = HTTP_METHODS.filter((m) => def[m]).join(', ');
             response = http.fail(405, 'METHOD_NOT_ALLOWED', 'Method not allowed', ctx, undefined, { Allow: allowed });
           } else {
-            response = await handler(req, ctx);
+            response = await http.runWithApiContext(ctx, () => handler(req, ctx));
           }
         }
       } catch (error: any) {

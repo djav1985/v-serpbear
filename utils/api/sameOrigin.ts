@@ -2,7 +2,7 @@
  * The origins this app is served from: the request's own URL, the Host the client used (through a proxy, the
  * forwarded host and protocol), and NEXT_PUBLIC_APP_URL.
  */
-const ownOrigins = (req: Request): string[] => {
+export const ownOrigins = (req: Request): string[] => {
    const origins = new Set<string>();
    let protocol = 'http';
    try {

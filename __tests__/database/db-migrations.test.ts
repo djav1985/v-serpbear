@@ -1022,6 +1022,77 @@ describe('replace smart strategy', () => {
   });
 });
 
+describe('decrypt-search-console-client-email.migration', () => {
+  const Cryptr = require('cryptr');
+  const emailMigration = require('../../database/migrations/1790000000003-decrypt-search-console-client-email.js');
+  const EMAIL = 'svc@project.iam.gserviceaccount.com';
+  const originalSecret = process.env.SECRET;
+  let tempData: ReturnType<typeof createTempAppDataDir>;
+  let cryptr: InstanceType<typeof Cryptr>;
+
+  const settingsFile = () => path.join(tempData.dir, 'data', 'settings.json');
+  const readSettings = () => JSON.parse(readFileSync(settingsFile(), 'utf-8'));
+
+  beforeEach(() => {
+    process.env.SECRET = 'migration-secret';
+    cryptr = new Cryptr(process.env.SECRET);
+    tempData = createTempAppDataDir('sc-email-');
+  });
+
+  afterEach(() => {
+    tempData.cleanup();
+    if (originalSecret === undefined) { delete process.env.SECRET; } else { process.env.SECRET = originalSecret; }
+  });
+
+  it('decrypts an encrypted global email and leaves the private key encrypted', async () => {
+    const encryptedKey = cryptr.encrypt('-----BEGIN PRIVATE KEY-----');
+    writeFileSync(settingsFile(), JSON.stringify({ search_console_client_email: cryptr.encrypt(EMAIL), search_console_private_key: encryptedKey, smtp_server: 'smtp.example.com' }), 'utf-8');
+
+    await emailMigration.up();
+
+    expect(readSettings()).toEqual({ search_console_client_email: EMAIL, search_console_private_key: encryptedKey, smtp_server: 'smtp.example.com' });
+    expect(readdirSync(path.join(tempData.dir, 'data'))).toEqual(['settings.json']);
+  });
+
+  it('is safe to run twice and leaves a plain, empty or undecryptable email alone', async () => {
+    writeFileSync(settingsFile(), JSON.stringify({ search_console_client_email: cryptr.encrypt(EMAIL) }), 'utf-8');
+    await emailMigration.up();
+    await emailMigration.up();
+    expect(readSettings().search_console_client_email).toBe(EMAIL);
+
+    writeFileSync(settingsFile(), JSON.stringify({ search_console_client_email: '' }), 'utf-8');
+    await emailMigration.up();
+    expect(readSettings().search_console_client_email).toBe('');
+
+    writeFileSync(settingsFile(), JSON.stringify({ search_console_client_email: 'not-a-valid-ciphertext' }), 'utf-8');
+    await emailMigration.up();
+    expect(readSettings().search_console_client_email).toBe('not-a-valid-ciphertext');
+  });
+
+  it('does nothing without SECRET and copes with a missing settings file', async () => {
+    writeFileSync(settingsFile(), JSON.stringify({ search_console_client_email: cryptr.encrypt(EMAIL) }), 'utf-8');
+    delete process.env.SECRET;
+    await emailMigration.up();
+    expect(readSettings().search_console_client_email).not.toBe(EMAIL);
+
+    process.env.SECRET = 'migration-secret';
+    rmSync(settingsFile());
+    await expect(emailMigration.up()).resolves.toBeUndefined();
+  });
+
+  it('decrypts the email in a domain search_console value and keeps its other fields', () => {
+    const encryptedKey = cryptr.encrypt('key');
+    const raw = JSON.stringify({ property_type: 'url', url: 'https://example.com/', client_email: cryptr.encrypt(EMAIL), private_key: encryptedKey });
+
+    expect(JSON.parse(emailMigration.decryptDomainEmail(raw, cryptr))).toEqual({ property_type: 'url', url: 'https://example.com/', client_email: EMAIL, private_key: encryptedKey });
+    // Nothing to change: plain email, empty email, no value, invalid JSON
+    expect(emailMigration.decryptDomainEmail(JSON.stringify({ client_email: EMAIL, private_key: encryptedKey }), cryptr)).toBeNull();
+    expect(emailMigration.decryptDomainEmail(JSON.stringify({ client_email: '', private_key: '' }), cryptr)).toBeNull();
+    expect(emailMigration.decryptDomainEmail(null, cryptr)).toBeNull();
+    expect(emailMigration.decryptDomainEmail('{not json', cryptr)).toBeNull();
+  });
+});
+
 describe('keyword volume integer', () => {
   const ROOT = path.resolve(__dirname, '../..');
   const MIGRATION = path.join(ROOT, 'database/migrations/1780000000000-keyword-volume-integer-country-default.js');

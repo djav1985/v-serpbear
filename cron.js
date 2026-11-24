@@ -112,6 +112,9 @@ const NOTIFICATION_SCHEDULE_MAP = {
 const SETTINGS_FILE_NAME = 'settings.json';
 const SETTINGS_WATCH_DEBOUNCE_MS = 1000;
 
+/** How much of a response that is not in the expected format is written to the log. */
+const UNEXPECTED_BODY_LOG_CHARS = 500;
+
 /** Slow safety re-check of settings (every 30 minutes, at second 0). Covers missed file events and watcher failures. */
 const SETTINGS_SAFETY_CHECK_SCHEDULE = '0 */30 * * * *';
 
@@ -119,7 +122,6 @@ const DEFAULT_APP_SETTINGS = {
    scraper_type: 'none',
    notification_interval: 'never',
    smtp_server: '',
-   smtp_port: '',
    smtp_username: '',
    smtp_password: '',
    scrape_interval: '',
@@ -208,14 +210,20 @@ const makeCronApiCall = (apiKey, baseUrl, endpoint, successMessage, body) => {
          
          const contentType = res.headers.get('content-type');
          if (contentType && contentType.includes('application/json')) {
-            return res.json().then(data => {
-               logger.info(successMessage, { endpoint, status: res.status, data });
+            return res.json().then((envelope) => {
+               // Every app route answers { data, error, requestId }; log the data and keep the request id for support
+               const isEnvelope = envelope && typeof envelope === 'object' && 'data' in envelope && 'error' in envelope && envelope.error === null;
+               if (isEnvelope) {
+                  logger.info(successMessage, { endpoint, status: res.status, data: envelope.data, ...(envelope.requestId ? { requestId: envelope.requestId } : {}) });
+               } else {
+                  // The app only answers a success in the envelope, so anything else is a bug or a version mismatch
+                  logger.warn(`${successMessage} - unexpected response format`, { endpoint, status: res.status, response: JSON.stringify(envelope).slice(0, UNEXPECTED_BODY_LOG_CHARS) });
+               }
             });
          } else {
-            // Non-JSON response or empty body
             return res.text().then(text => {
                if (text) {
-                  logger.info(successMessage, { endpoint, status: res.status, response: text });
+                  logger.warn(`${successMessage} - unexpected response format`, { endpoint, status: res.status, response: text.slice(0, UNEXPECTED_BODY_LOG_CHARS) });
                } else {
                   logger.info(successMessage, { endpoint, status: res.status });
                }
@@ -391,7 +399,7 @@ const runAppCronJobs = () => {
    const searchConsoleCRONTime = CRON_INTERVAL_MAP.daily;
    scheduleJob('search console', searchConsoleCRONTime, () => {
       logger.info('[CRON] Running Google Search Console Scraper.');
-      makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/google/searchconsole', '[CRON] Search Console Scraper Result');
+      makeCronApiCall(process.env.APIKEY, internalApiUrl, '/api/google/searchconsole', '[CRON] Search Console Scraper Result', {});
    }, cronOptions);
    
    logger.debug('[CRON] All cron jobs initialized successfully.');

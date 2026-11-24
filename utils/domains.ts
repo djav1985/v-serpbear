@@ -75,7 +75,13 @@ const getdomainStats = async (domains:DomainType[]): Promise<DomainType[]> => {
 
       // Derive keywordsUpdated from MAX(lastUpdated) in the aggregate; fall back to domain.lastUpdated
       const maxTs = stats.maxLastUpdated ? new Date(stats.maxLastUpdated).getTime() : 0;
-      domainWithStat.keywordsUpdated = new Date(maxTs || new Date(domain.lastUpdated).getTime()).toJSON();
+      // A domain with no keywords and no valid lastUpdated has no update time: the field is left out, not sent as null
+      const keywordsUpdated = new Date(maxTs || new Date(domain.lastUpdated).getTime());
+      if (Number.isNaN(keywordsUpdated.getTime())) {
+         delete domainWithStat.keywordsUpdated;
+      } else {
+         domainWithStat.keywordsUpdated = keywordsUpdated.toJSON();
+      }
 
       // Then Load the SC File and read the stats and calculate the Last 7 days stats
       const localSCData = scDataByDomain[index];

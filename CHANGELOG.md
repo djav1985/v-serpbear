@@ -6,12 +6,57 @@ All notable changes to this project will be documented in this file. Releases no
 
 ### Fixed
 
+- The OAuth approval page now resolves clients that identify themselves with a metadata URL (CIMD), so those connections show the approval form instead of "Connection request expired".
+- `generate_keyword_ideas` is now a full-scope MCP tool. It saves the fetched ideas over the stored list, so it is no longer offered to `MCP_APIKEY` or OAuth `mcp:read` callers.
+- The migration type declarations moved out of `database/migrations`, so the container's migration glob no longer loads them as a migration.
+- The settings form no longer shows the word `true` in secret fields. A stored secret (scraper key, SMTP password, Search Console private key, Google Ads fields) is shown as an empty box with the hint "Saved. Type to replace."; typing replaces it and leaving it alone keeps the stored value.
+- Saving a domain (`PUT /api/serp/domains`) and adding domains (`POST /api/serp/domains`) now answer with the same record as the domain list, with empty text columns sent as empty text. A domain with empty database columns no longer saves successfully and then shows a "did not match the expected shape" error.
+- Keyword ideas whose Google Ads response has no competition level, or one this app does not know, are saved with `UNSPECIFIED`. Saved ideas and favorites are corrected as they are read, so an ideas file written by an earlier release can no longer make the ideas page fail.
+- A refused cross-site write (`403 Requests that change data must be made from this site.`) now logs the `origin` the browser sent and the `expectedOrigins` the app accepts. The Reverse Proxy and Troubleshooting docs explain the fix: set `NEXT_PUBLIC_APP_URL`, or make the proxy pass `Host` and `X-Forwarded-Proto`.
+- Docs: removed the Troubleshooting line saying MCP uses `APIKEY` internally (it runs the route handlers in process) and the Coolify sentence saying the OAuth discovery routes do not exist.
+- The Search Console client email is a service account address, not a secret, so it is no longer encrypted or masked. It is stored as plain text (in `data/settings.json` and in each domain's `search_console` value), returned as it is by `GET /api/app/settings?includePrivate=true`, the settings save response and the domain responses, and shown in the settings and domain forms. The private key stays encrypted and masked. A domain save that sends the saved email back with the key marker keeps the stored credentials; a different email still needs a new key.
+- Migration `1790000000003-decrypt-search-console-client-email` decrypts the email already stored encrypted by earlier releases, in `settings.json` and in domain rows. It needs `SECRET`, leaves values that are already plain text alone, backs up the database before changing a domain row, and is safe to run twice.
+
+## [6.5.0] (2026-11-22)
+
+### Breaking: REST API contract (external API-key clients must update)
+
+- Every app REST response is now `{ data, error, requestId }` (failure: `{ data: null, error: { code, message, details? }, requestId }`). The envelope is built in one place, `json()`/`fail()`. OAuth, MCP, the Google Ads callback and the image routes are unchanged.
+- Shared Zod contracts in `utils/api/contracts` describe every app endpoint, and the browser uses one typed client, `callApi`, built on them. It checks the request, decodes the envelope and validates `data`. The old `apiGet`/`apiPost`/`apiPut`/`apiDelete`/`apiFetch` helpers and the legacy string-error handling are removed.
+- No more 200 with an error string. `GET /api/google/ideas` returns `ideas`; `PUT /api/google/ideas` returns `favorites`; Search Console and insight return `searchConsole`/`insight` plus `integrationStatus` (`not-integrated` is a normal result, also for the MCP tools); `POST /api/google/searchconsole` takes a `{}` body and returns `updatedCount`/`failedCount`; refresh answers "nothing eligible" and "no domains enabled" with typed `reason` values.
+- `PUT /api/serp/keywords` requires exactly one of `sticky`, `tags` or `location`, and `tags` keys must match `ids`. `POST /api/app/email` reads `type` and `domain` from the JSON body only and drops the `success`/`error` fields.
+- MCP tools receive the `data` of a response, or `{ code, message, details }` as a tool error, never the envelope. `cron.js` sends `{}` to the Search Console route and logs the envelope's data and request id.
+- Every app route now checks its query and JSON body against the same contract schemas the browser client uses (`utils/api/validate`). A request that does not match answers `400 BAD_REQUEST` with a message that names the field and the schema issues in `error.details`, before any handler logic runs. Wrong types the old checks let through are refused: for example a string `scrape_pagination_limit`, a `volume` `keywords` list of strings, or a non-boolean `includePrivate`. Login still answers a missing username or password with `401 MISSING_CREDENTIALS`. Error text for malformed requests changed from the old hand-written messages to `Invalid request: <field>: <issue>`.
+- `smtp_port` is now a number (1 to 65535), or `null` until one is set, in the settings type, the API contract, the settings form, the mailer and `cron.js`. A port stored as text in `data/settings.json` (`'587'`) is read as a number and an empty one as `null`, so existing installs keep working; a `PUT /api/app/settings` that sends the port as text is refused with 400. Settings read from the file also fall back to the default for an unknown `scrape_strategy`, so a hand-edited file cannot break the settings page.
+- A signed-out `GET /api/app/settings?includePrivate=…` now answers `401` before its query is checked, so a malformed value no longer gets a `400`. `cron.js` and the MCP tools no longer accept a success response that is not in the envelope: `cron.js` logs a warning with a trimmed copy of the body, and an MCP tool returns an `INVALID_RESPONSE` error instead of passing the body on.
+- - `PUT /api/app/settings` now answers with the whole private settings view, the same masked view as `GET /api/app/settings?includePrivate=true` (read back after the save), instead of only the fields that were sent. `POST /api/auth/logout` and `PUT /api/serp/clearfailed` now require a JSON body (`{}`) like the other writes. A test checks that the request each MCP tool builds is accepted by the contract of the endpoint it calls.
+`GET /api/serp/domain` now builds its record with the same mapper as the domain list and the domain page, so a domain with empty columns (no notification emails, never updated) no longer fails the browser's response check. New tests run the real GET routes and the page loaders (`loadDomainKeywords`, `loadDomainBySlug`) with awkward database rows and check what they return against the endpoint schemas.
+- Responses are now described field by field, not as "some object". `utils/api/contracts/dto.ts` has an exact schema for domains, keywords, settings (public view, private view and the save echo), Search Console data, insight and keyword ideas. Each is tied to its TypeScript type at compile time, and `__tests__/api/contract-dto.test.ts` parses what the real mappers return for rows with empty columns. Where the server's output differed from its own types, the output was fixed: a keyword's `history7d` is left out instead of `null`; keyword `lastUpdated`, `url`, `device`, `country` and domain `lastUpdated`, `added`, `notification_emails` are empty or default text instead of `null`; a domain's `keywordsTracked`, `avgPosition`, `mapPackKeywords`, `scrape_pagination_limit` and `keywordsUpdated` are left out when there is no value instead of `null`; `scrape_strategy` is `basic`, `custom` or an empty string.
+- The last loose request and response parts are exact: the `volumes` map (keyword id to number), a location change's `skipped` list (keyword names), the `PUT /api/app/settings` body (the known settings, each with its type), and the keywords of `POST /api/app/email` `type: ideas` (1 to 1000 ideas, each with a `keyword`).
+- `GET /api/app/settings` has two contract entries because its two views differ: `settings.public` (no query: scraper, scraper list, branding, version) and `settings.private` (`includePrivate=true`: every setting, secrets masked). `useAppSettings` returns the public view; the settings form uses the new `usePrivateSettings`. `includePrivate` accepts only `true` (or `false`).
+- The keyword ideas response's `settings` is the saved run options (`seedType`, `domain`, `city`, ...), not the domain ideas settings it was wrongly typed as.
+- The Google Ads OAuth callback (`GET /api/adwords?code=...`) and the start of the integration are not part of this and behave as before; only `POST /api/adwords` (test) uses the contract.
+- Migration table and examples are in `docs/API-and-MCP.md`.
+
+### Security
+
+- MCP tools now run the app's route handlers in process with the caller's scope instead of calling them over loopback with `APIKEY`. Full-scope write tools work without widening the `APIKEY` allowlist, and `APIKEY` is no longer required for MCP.
+- An OAuth credential with no or an unknown scope now gets no MCP access (including after a refresh-token exchange) instead of full access.
+- `GET`/`PUT /api/app/settings` never return a decrypted secret: a stored secret is the marker `"true"`, an unset one is `""`. A secret that is omitted or sent as the marker keeps its stored value. The settings form sends only changed secrets, and the Google Ads test accepts the marker.
+- `GET /api/app/settings` returns the public subset to everyone unless `includePrivate=true` is passed, which requires a login session.
+- Writes (`POST`, `PUT`, `DELETE`) without a Bearer key that a browser reports as cross-site are refused with `403` in one place, `createRoute`, including `POST /api/auth/login`. OAuth protocol routes and `/api/mcp` are exempt; the separate check in `POST /api/serp/refresh` was removed.
+
+### Fixed
+
+- `GET /api/google/ideas` returns `favorites: []` for an ideas file written by a first generation, so the browser client accepts freshly generated ideas.
+- Correct `docs/API-and-MCP.md` and `README.md` to match the `APIKEY` route allowlist: update/delete keywords and domains, ideas favorites, clear failed and the retry status are login-session only.
 - Prevent long page URLs in the final Search Console email table from expanding the table beyond the email width, including on mobile.
 
 ## [6.1.0]
 
 ### Added
 
+- Document the unified in-place REST and MCP internal-call plan.
 - Add CIMD client identification alongside MCP OAuth dynamic client registration, with standard discovery metadata and validated HTTPS client metadata documents.
 - Expose Google Ads keyword idea generation as a full-access MCP tool.
 - Keep `MCP_APIKEY` access read-only and expose keyword editing and refresh tools to OAuth `mcp:full` clients.

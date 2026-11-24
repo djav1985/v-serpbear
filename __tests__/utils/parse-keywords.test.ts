@@ -43,11 +43,11 @@ describe('parseKeywords', () => {
         expect(keyword.lastUpdateError).toEqual({ code: 'SCRAPE_FAILED', message: 'Provider unavailable' });
      });
 
-     it('leaves a null history7d as null (not backfilled) and omits history7d when the field is missing', () => {
+     it('omits history7d when it is null or missing, so it is never sent as null', () => {
         const [withNull] = parseKeywords([
            buildKeywordRow({ history7d: null }) as any,
         ]);
-        expect(withNull.history7d).toBeNull();
+        expect(Object.prototype.hasOwnProperty.call(withNull, 'history7d')).toBe(false);
 
         const base = buildKeywordRow() as any;
         delete base.history7d;

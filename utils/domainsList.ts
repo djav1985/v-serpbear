@@ -18,14 +18,22 @@ import { getUnknownErrorMessage } from './errorSerialization';
  * Shared by the API handler and by server components so both see identical data.
  * Pass `withStats` to attach keyword counts and Search Console totals.
  */
-const formatDomainPlain = (domainPlain: Record<string, unknown>): DomainType => {
+export const formatDomainPlain = (domainPlain: Record<string, unknown>): DomainType => {
    const searchConsoleData = maskSearchConsole(domainPlain?.search_console, String(domainPlain?.domain ?? domainPlain?.ID ?? ''));
    const persistedScraperSettings = parseDomainScraperSettings(domainPlain?.scraper_settings);
    const maskedDomain = {
       ...domainPlain,
+      // Text columns that may be empty in the database are sent as empty text; counters that were never set are left out
+      notification_emails: typeof domainPlain.notification_emails === 'string' ? domainPlain.notification_emails : '',
+      lastUpdated: typeof domainPlain.lastUpdated === 'string' ? domainPlain.lastUpdated : '',
+      added: typeof domainPlain.added === 'string' ? domainPlain.added : '',
+      scrape_strategy: domainPlain.scrape_strategy === 'basic' || domainPlain.scrape_strategy === 'custom' ? domainPlain.scrape_strategy : '',
       search_console: JSON.stringify(searchConsoleData),
       scraper_settings: maskDomainScraperSettings(persistedScraperSettings),
    } as DomainType;
+   (['keywordsTracked', 'avgPosition', 'mapPackKeywords', 'scrape_pagination_limit'] as const).forEach((counter) => {
+      if (typeof maskedDomain[counter] !== 'number') { delete maskedDomain[counter]; }
+   });
    return normalizeDomainBooleans(maskedDomain);
 };
 

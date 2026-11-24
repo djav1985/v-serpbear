@@ -66,6 +66,7 @@ describe('searchconsole', () => {
         mockGetSearchConsoleApiInfo.mockReset();
         req = {
           method: 'POST',
+          body: {},
           headers: {
             authorization: 'Bearer test-api-key',
           },
@@ -163,7 +164,7 @@ describe('searchconsole', () => {
         );
 
         expect(res.status).toHaveBeenCalledWith(200);
-        expect(res.json).toHaveBeenCalledWith({ status: 'completed' });
+        expect(res.json).toHaveBeenCalledWith({ updatedCount: 2, failedCount: 0 });
       });
 
       it('should skip domains without search console API credentials', async () => {
@@ -189,7 +190,7 @@ describe('searchconsole', () => {
         // Verify that fetchDomainSCData was not called for domains without credentials
         expect(mockFetchDomainSCData).not.toHaveBeenCalled();
         expect(res.status).toHaveBeenCalledWith(200);
-        expect(res.json).toHaveBeenCalledWith({ status: 'completed' });
+        expect(res.json).toHaveBeenCalledWith({ updatedCount: 0, failedCount: 0 });
       });
 
       it('should handle errors gracefully and continue processing other domains', async () => {
@@ -238,11 +239,21 @@ describe('searchconsole', () => {
         // Verify both domains were processed despite the error
         expect(mockFetchDomainSCData).toHaveBeenCalledTimes(2);
         expect(res.status).toHaveBeenCalledWith(200);
-        expect(res.json).toHaveBeenCalledWith({ status: 'completed' });
+        expect(res.json).toHaveBeenCalledWith({ updatedCount: 1, failedCount: 1 });
       });
     });
 
     describe('/api/google/searchconsole - CRON failure reporting', () => {
+      it('requires a JSON object body, like every write ({} when there is nothing to send)', async () => {
+        const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+        (verifyUser as jest.Mock).mockReturnValue('authorized');
+
+        await handler({ method: 'POST', headers: {}, query: {} } as unknown as NextApiRequest, res as unknown as NextApiResponse);
+
+        expect(res.status).toHaveBeenCalledWith(400);
+        expect(mockDomainFindAll).not.toHaveBeenCalled();
+      });
+
       it('answers 502 when every domain fails to update', async () => {
         mockDomainFindAll.mockResolvedValue([
           { get: () => ({ domain: 'a.com', search_console: JSON.stringify({ client_email: 'a@x.com', private_key: 'k' }) }) },
@@ -250,7 +261,7 @@ describe('searchconsole', () => {
         mockGetSearchConsoleApiInfo.mockResolvedValue({ client_email: 'a@x.com', private_key: 'k' });
         mockFetchDomainSCData.mockRejectedValue(new Error('Google down'));
         const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
-        const req = { method: 'POST', headers: {}, query: {} };
+        const req = { method: 'POST', body: {}, headers: {}, query: {} };
         (verifyUser as jest.Mock).mockReturnValue('authorized');
 
         await handler(req as unknown as NextApiRequest, res as unknown as NextApiResponse);
@@ -308,7 +319,7 @@ describe('searchconsole', () => {
 
         expect(mockFetchDomainSCData).not.toHaveBeenCalled();
         expect(res.status).toHaveBeenCalledWith(200);
-        expect(res.json).toHaveBeenCalledWith({ data: cachedData });
+        expect(res.json).toHaveBeenCalledWith({ searchConsole: cachedData, integrationStatus: 'integrated' });
       });
 
       it('fetches stale Search Console data using the domain credentials', async () => {
@@ -325,7 +336,7 @@ describe('searchconsole', () => {
 
         expect(mockFetchDomainSCData).toHaveBeenCalledWith(domain, { client_email: 'site@example.com', private_key: 'site-key' }, { client_email: '', private_key: '' });
         expect(res.status).toHaveBeenCalledWith(200);
-        expect(res.json).toHaveBeenCalledWith({ data: fetchedData });
+        expect(res.json).toHaveBeenCalledWith({ searchConsole: fetchedData, integrationStatus: 'integrated' });
       });
 
       it('uses global credentials when local Search Console credentials are absent', async () => {
@@ -340,7 +351,7 @@ describe('searchconsole', () => {
         expect(mockGetSearchConsoleApiInfo).toHaveBeenCalledWith({});
         expect(mockFetchDomainSCData).toHaveBeenCalledWith(domain, { client_email: '', private_key: '' }, { client_email: 'global@example.com', private_key: 'global-key' });
         expect(res.status).toHaveBeenCalledWith(200);
-        expect(res.json).toHaveBeenCalledWith({ data: fetchedData });
+        expect(res.json).toHaveBeenCalledWith({ searchConsole: fetchedData, integrationStatus: 'integrated' });
       });
 
       it('keeps the route successful when Search Console is not integrated', async () => {
@@ -351,7 +362,7 @@ describe('searchconsole', () => {
 
         expect(mockFetchDomainSCData).not.toHaveBeenCalled();
         expect(res.status).toHaveBeenCalledWith(200);
-        expect(res.json).toHaveBeenCalledWith({ data: null, error: 'Google Search Console is not Integrated.' });
+        expect(res.json).toHaveBeenCalledWith({ searchConsole: null, integrationStatus: 'not-integrated' });
       });
 
       it('returns a gateway error when a successful Search Console request has no 30-day rows', async () => {
@@ -459,7 +470,7 @@ describe('searchconsole', () => {
         expect(mockGetSearchConsoleApiInfo).not.toHaveBeenCalled();
         expect(mockFetchDomainSCData).not.toHaveBeenCalled();
         expect(res.status).toHaveBeenCalledWith(200);
-        expect(res.json).toHaveBeenCalledWith({ data: expect.objectContaining({ stats: cachedData.stats, keywords: expect.any(Array), pages: expect.any(Array), countries: expect.any(Array) }) });
+        expect(res.json).toHaveBeenCalledWith({ insight: expect.objectContaining({ stats: cachedData.stats, keywords: expect.any(Array), pages: expect.any(Array), countries: expect.any(Array) }), integrationStatus: 'integrated' });
       });
 
       it('uses global Search Console credentials when the local snapshot is stale and the domain has no credentials', async () => {
@@ -480,7 +491,7 @@ describe('searchconsole', () => {
         expect(mockGetSearchConsoleApiInfo).toHaveBeenCalledWith({});
         expect(mockFetchDomainSCData).toHaveBeenCalledWith(domain, { client_email: '', private_key: '' }, { client_email: 'global@example.com', private_key: 'global-key' });
         expect(res.status).toHaveBeenCalledWith(200);
-        expect(res.json).toHaveBeenCalledWith({ data: expect.objectContaining({ stats: [], keywords: expect.any(Array) }) });
+        expect(res.json).toHaveBeenCalledWith({ insight: expect.objectContaining({ stats: [], keywords: expect.any(Array) }), integrationStatus: 'integrated' });
       });
 
       it('returns a normal not-integrated response when neither domain nor global credentials are configured', async () => {
@@ -491,7 +502,7 @@ describe('searchconsole', () => {
 
         expect(mockFetchDomainSCData).not.toHaveBeenCalled();
         expect(res.status).toHaveBeenCalledWith(200);
-        expect(res.json).toHaveBeenCalledWith({ data: null, error: 'Google Search Console is not Integrated.' });
+        expect(res.json).toHaveBeenCalledWith({ insight: null, integrationStatus: 'not-integrated' });
       });
 
       it('reports an upstream failure when Google returns no 30-day insight rows', async () => {

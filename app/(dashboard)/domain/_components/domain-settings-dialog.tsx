@@ -239,8 +239,8 @@ function DomainSettingsForm({ open, onOpenChange, domain, availableScrapers = []
                      <Field label="Search Console client email" htmlFor="ds-sc-email">
                         <Input
                            id="ds-sc-email"
-                           placeholder={isSavedCredential(sc.client_email) ? SAVED_CREDENTIAL_PLACEHOLDER : 'myapp@appspot.gserviceaccount.com'}
-                           value={isSavedCredential(sc.client_email) ? '' : (sc.client_email || '')}
+                           placeholder="myapp@appspot.gserviceaccount.com"
+                           value={sc.client_email || ''}
                            onChange={(event) => setSettings({ ...settings, search_console: { ...sc, client_email: event.target.value } })}
                         />
                      </Field>

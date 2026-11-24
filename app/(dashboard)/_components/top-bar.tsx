@@ -12,7 +12,7 @@ import {
 } from 'components/ui/dropdown-menu';
 import { cn } from 'lib/utils';
 import type { BrandingConfig } from 'utils/branding';
-import { apiPost, ApiError } from 'utils/client/apiClient';
+import { callApi, ApiError } from 'utils/client/apiClient';
 import { useShell } from './shell-context';
 
 const DOCS_URL = 'https://github.com/djav1985/v-serpbear/wiki';
@@ -32,7 +32,7 @@ export function TopBar({ branding }: { branding: BrandingConfig }) {
 
    const logout = async () => {
       try {
-         await apiPost('/api/auth/logout', {});
+         await callApi('auth.logout', { body: {} });
          // Drop all cached server state so nothing from the previous session survives.
          queryClient.clear();
          router.push('/login');

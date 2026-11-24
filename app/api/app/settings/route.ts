@@ -1,8 +1,8 @@
 import Cryptr from 'cryptr';
 import { logger } from '../../../../utils/logger';
-import { verifySessionToken } from '../../../../utils/verifyUser';
-import { getCookie } from '../../../../utils/api/cookies';
-import { createRoute, fail, json, readJson, requireAuth, type ApiContext } from '../../../../utils/apiLogging';
+import { maskSecretSettings, SECRET_MARKER } from '../../../../utils/settingsSecrets';
+import { createRoute, fail, json, requireAuth, type ApiContext } from '../../../../utils/apiLogging';
+import { parseBody, parseQuery } from '../../../../utils/api/validate';
 import { trimStringProperties } from '../../../../utils/security';
 import { getBranding } from '../../../../utils/branding';
 import { getAppSettings, normalizeLegacySettings, readStoredSettingsFile } from '../../../../utils/appSettings';
@@ -12,48 +12,46 @@ import { withSettingsLock, withoutRemovedSettingsKeys } from '../../../../utils/
 import { APP_TIMEZONE } from '../../../../utils/timezone';
 import { DERIVED_SETTINGS_FIELDS, PERSISTED_SETTINGS_FIELDS, SECRET_SETTINGS_FIELDS, validateSettingsPayload } from '../../../../utils/settingsPayload';
 
+/** The full settings view, as `GET ?includePrivate=true` and a save both answer it: secrets masked, plus the read-only version, timezone and branding. */
+const privateView = (settings: SettingsType) => ({
+   ...maskSecretSettings(settings as unknown as Record<string, unknown>),
+   version: packageJson.version,
+   timezone: APP_TIMEZONE,
+   branding: getBranding(),
+});
+
 const getSettings = async (req: Request, ctx: ApiContext) => {
+   // includePrivate=true asks for the full view (the contract refuses any other value); without it, or with false, the public one
+   const includePrivateParam = new URL(req.url).searchParams.get('includePrivate');
+   const includePrivate = includePrivateParam !== null && includePrivateParam !== 'false';
    try {
       // The settings editor must never mistake the public, branding-only response for
-      // the complete settings object. Opt-in full reads are explicitly authenticated.
-      const includePrivate = new URL(req.url).searchParams.get('includePrivate') === 'true';
+      // the complete settings object. Opt-in full reads are explicitly authenticated, and the login is checked
+      // before the query, so a signed-out caller always gets 401 whatever they send.
       if (includePrivate) {
          const denied = requireAuth(req, ctx);
          if (denied) { return denied; }
+         parseQuery(req, 'settings.private');
       }
 
-      // Silently check if user is authenticated without logging auth failures for anonymous GETs
-      let isAuthenticated = false;
-      try {
-         const token = getCookie(req, 'token');
-         // Same check as verifyUser, including the session version, so a token revoked by logout is rejected here too
-         if (token) {
-            verifySessionToken(token);
-            isAuthenticated = true;
-         }
-      } catch (_) { /* not authenticated — silent for public endpoint */ }
-      
       const settings = await getAppSettings();
       if (!settings) {
          return fail(500, 'INTERNAL_SERVER_ERROR', 'Settings could not be loaded.', ctx);
       }
       
-      const version = packageJson.version;
-      // Read-only and public: the name and logo are shown on the login page before anyone signs in.
-      const branding = getBranding();
-      
-      if (isAuthenticated || includePrivate) {
-         // Return full settings for authenticated users
-         return json({ settings: { ...settings, version, timezone: APP_TIMEZONE, branding } });
+      if (includePrivate) {
+         // The full view needs a session (checked above). Secrets are never returned: a stored one is the marker, an unset one is empty.
+         return json({ settings: privateView(settings) });
       } else {
-         // Return only safe, public settings for unauthenticated users
+         // Everyone, signed in or not, gets the public subset unless includePrivate=true is asked for
          const publicSettings = {
             scraper_type: settings.scraper_type || 'none',
             available_scapers: settings.available_scapers || [],
             search_console_integrated: settings.search_console_integrated || false,
-            version,
+            version: packageJson.version,
             timezone: APP_TIMEZONE,
-            branding,
+            // Read-only and public: the name and logo are shown on the login page before anyone signs in.
+            branding: getBranding(),
          };
          return json({ settings: publicSettings });
       }
@@ -66,11 +64,8 @@ const getSettings = async (req: Request, ctx: ApiContext) => {
 const updateSettings = async (req: Request, ctx: ApiContext) => {
    const denied = requireAuth(req, ctx);
    if (denied) { return denied; }
-   const { settings } = ((await readJson(req)) || {}) as { settings?: Record<string, unknown> };
-   if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
-      return fail(400, 'BAD_REQUEST', 'Settings payload is required.', ctx);
-   }
-   
+   const { settings } = await parseBody(req, 'settings.save');
+
    if (!process.env.SECRET) {
       return fail(500, 'INTERNAL_SERVER_ERROR', 'Server configuration error', ctx);
    }
@@ -101,15 +96,18 @@ const updateSettings = async (req: Request, ctx: ApiContext) => {
 
          const merged: Record<string, unknown> = { ...existingSettings, ...normalizedSettings };
          SECRET_SETTINGS_FIELDS.forEach((key) => {
-            merged[key] = key in normalizedSettings
-               ? encrypt(normalizedSettings[key] as string)
-               : ((existingSettings[key] as string | undefined) ?? '');
+            // Omitted or the marker: keep the stored value. Anything else replaces it, and an empty value clears it.
+            const keepsStored = !(key in normalizedSettings) || normalizedSettings[key] === SECRET_MARKER;
+            merged[key] = keepsStored
+               ? ((existingSettings[key] as string | undefined) ?? '')
+               : encrypt(normalizedSettings[key] as string);
          });
          DERIVED_SETTINGS_FIELDS.forEach((field) => { delete merged[field]; });
 
          await atomicWriteFile(`${process.cwd()}/data/settings.json`, JSON.stringify(withoutRemovedSettingsKeys(merged)), 'utf-8');
       });
-      return json({ settings: normalizedSettings });
+      // Answer with the settings as they are now, read back from the file: the same masked view as the GET, never what was submitted
+      return json({ settings: privateView(await getAppSettings()) });
    } catch (error) {
       logger.error('Error updating app settings', error instanceof Error ? error : new Error(String(error)));
       return fail(500, 'INTERNAL_SERVER_ERROR', 'Failed to update settings.', ctx);

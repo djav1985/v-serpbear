@@ -299,7 +299,8 @@ export const getSearchConsoleApiInfo = async (domain: DomainType): Promise<SCAPI
       if (!domainSCSettings.private_key.includes('BEGIN PRIVATE KEY')) {
          try {
             const cryptr = new Cryptr(process.env.SECRET as string);
-            scAPIData.client_email = domainSCSettings.client_email ? cryptr.decrypt(domainSCSettings.client_email) : '';
+            // The client email is stored as plain text; only the private key is encrypted
+            scAPIData.client_email = domainSCSettings.client_email ?? '';
             scAPIData.private_key = domainSCSettings.private_key ? cryptr.decrypt(domainSCSettings.private_key) : '';
          } catch (error) {
             logger.warn('Failed to decrypt domain-level Search Console credentials, falling back to global credentials', {
@@ -318,7 +319,7 @@ export const getSearchConsoleApiInfo = async (domain: DomainType): Promise<SCAPI
       try {
          const settings = await readSettingsFile();
          const cryptr = new Cryptr(process.env.SECRET as string);
-         scAPIData.client_email = settings.search_console_client_email ? cryptr.decrypt(settings.search_console_client_email) : '';
+         scAPIData.client_email = settings.search_console_client_email ?? '';
          scAPIData.private_key = settings.search_console_private_key ? cryptr.decrypt(settings.search_console_private_key) : '';
       } catch (error) {
          logger.error('Unable to read app settings for Search Console credentials', undefined, { error: error instanceof Error ? error.message : String(error) });

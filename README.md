@@ -144,7 +144,7 @@ Behaviour is controlled by environment variables inside docker compose as well a
 | `USER_NAME` | — | No | Takes precedence over `USER` when set. |
 | `PASSWORD` | — | Yes | Dashboard password. Replace the `change-me` placeholder. |
 | `SECRET` | — | Yes | Signs the session JWT stored in the `token` cookie and encrypts stored keys. Login returns 500 when it is unset. Changing it signs everyone out and makes stored encrypted keys unreadable, so they must be re-entered. Use a unique value per deployment (`openssl rand -hex 32`). |
-| `APIKEY` | — | Yes | Key for REST clients and cron worker calls; MCP uses it internally for REST calls. Use `openssl rand -hex 32`. |
+| `APIKEY` | — | Yes | Key for REST clients and cron worker calls. MCP does not use it. Use `openssl rand -hex 32`. |
 | `MCP_APIKEY` | — | For direct MCP access | Optional key for direct `Authorization: Bearer` access to `/api/mcp`. OAuth approval uses the configured SerpBear username and password, or an existing login cookie. Keep this key separate from `APIKEY`. |
 | `MCP_ENABLED` | `true` | No | Master switch for MCP. Set to `false` to disable the MCP endpoint and OAuth protocol handlers. Also accepts `0`, `no` or `off`. |
 | `MCP_OAUTH` | `false` | No | Set to `true` to enable OAuth registration, authorization, token and revocation handlers while MCP is enabled. Standard root and MCP-path-scoped discovery routes are served when `NEXT_PUBLIC_APP_URL` is configured. When false, direct MCP API-key access remains available. Also accepts `1`, `yes` or `on`. |
@@ -183,8 +183,8 @@ Manage these in the Settings UI or at `/api/app/settings`.
 | `scrape_delay` | Milliseconds between requests to one domain. The server caps it at 30,000 (30 s). |
 | `notification_interval` | `never` (default), `daily`, `weekly` or `monthly`. |
 | `notification_email_from`, `notification_email_from_name` | Sender address (default `no-reply@serpbear.com`) and display name (default the platform name). |
-| `smtp_server`, `smtp_port`, `smtp_username`, `smtp_password`, `smtp_tls_servername` | SMTP connection. The port is required. |
-| `search_console_client_email`, `search_console_private_key` | Search Console service account, used when the domain has none of its own. |
+| `smtp_server`, `smtp_port`, `smtp_username`, `smtp_password`, `smtp_tls_servername` | SMTP connection. The port is required and is a whole number from 1 to 65535. |
+| `search_console_client_email`, `search_console_private_key` | Search Console service account, used when the domain has none of its own. The email is stored as plain text; the private key is encrypted. |
 | `adwords_*` | Google Ads credentials for keyword ideas. |
 | `keywordsColumns` | Columns shown in the keyword table. |
 
@@ -331,7 +331,7 @@ A [Model Context Protocol](https://modelcontextprotocol.io) server for AI assist
 | `get_searchconsole` | Read | Raw Search Console rows for a `domain` (3, 7 and 30 days) |
 | `get_insight` | Read | Top pages, keywords and countries for a `domain` |
 | `get_keyword_ideas` | Read | Saved ideas and favourites for a `domain`, or the research list when omitted |
-| `generate_keyword_ideas` | Read | Fetch new ideas from Google Ads; this uses Google Ads quota |
+| `generate_keyword_ideas` | Full | Fetch new ideas from Google Ads; this uses Google Ads quota |
 | `favorite_keyword_idea` | Full | Toggle a saved idea in or out of favorites |
 | `add_keywords` | Full | Add tracked keywords to a domain |
 | `update_keywords` | Full | Change keyword sticky status, tags, or location |
@@ -359,21 +359,51 @@ The example uses port 3000 (Node.js). Docker Compose serves the app on port 3030
 | GET | `/api/serp/keyword?id=` | One keyword with its position history |
 | GET | `/api/serp/keywords?domain=` | All tracked keywords of a domain |
 | GET | `/api/serp/domains` | All tracked domains (`withstats=true` adds keyword statistics) |
-| POST | `/api/serp/refresh` | JSON body `{ ids }` refreshes selected keywords; `{ scope: "domain", domain }` refreshes one domain; `{ scope: "enabled-domains" }` runs the scheduled refresh; `{ keyword, country, device }` runs a one-off keyword search (login session only, not an API key). Requests from a login session must come from this site |
-| GET | `/api/serp/refresh?status=retry&id=…` | Read which keywords are still updating (read-only) |
-| PUT | `/api/serp/keywords` | Update keywords: JSON body `ids` plus `sticky` (boolean), `tags` (ID-to-tag-list object), or `location` (string; include `country` if the location does not name one) |
-| DELETE | `/api/serp/keywords` | Delete keywords: JSON body `ids` array |
-| PUT | `/api/serp/domains` | Update a domain: JSON body `domain` plus any of `notification_emails`, `search_console`, `scrapeEnabled`, `scraper_settings`, `business_name`, `scrape_strategy`, or `scrape_pagination_limit` |
-| DELETE | `/api/serp/domains` | Delete a domain: JSON body `domain` |
-| PUT | `/api/app/settings` | Save app settings: JSON body `settings` object (login session required) |
-| PUT | `/api/google/ideas` | Toggle an idea favorite: JSON body `keywordID`, optional `domain` |
-| PUT | `/api/serp/clearfailed` | Clear the failed retry queue; no arguments |
-| POST | `/api/app/email` | JSON body `{ type: "digest", domain? }` sends the digest for one domain or all; `{ type: "ideas", domain, keywords }` emails selected keyword ideas |
-| GET | `/api/google/searchconsole?domain=` | Search Console data of a domain |
-| POST | `/api/google/searchconsole` | Refresh Search Console data for all domains |
-| GET | `/api/google/insight?domain=` | Search Console insight: top pages, keywords, countries and stats |
-| GET | `/api/google/ideas` | Saved keyword ideas and favourites (`domain=` optional) |
+| POST | `/api/serp/refresh` | JSON body `{ ids }` refreshes selected keywords; `{ scope: "domain", domain }` refreshes one domain; `{ scope: "enabled-domains" }` runs the scheduled refresh; `{ keyword, country, device }` runs a one-off keyword search (login session only, not an API key) |
+| POST | `/api/app/email` | JSON body `{ type: "digest", domain? }` sends the digest for one domain or all (`{ type: "ideas", domain, keywords }` needs a login session) |
+| GET | `/api/google/searchconsole?domain=` | Search Console data of a domain: `searchConsole` and `integrationStatus` |
+| POST | `/api/google/searchconsole` | Refresh Search Console data for all domains: JSON body `{}`; returns `updatedCount` and `failedCount` |
+| GET | `/api/google/insight?domain=` | Search Console insight (`insight`: top pages, keywords, countries and stats) and `integrationStatus` |
+| GET | `/api/google/ideas` | Saved keyword ideas and favourites as `ideas` (`domain=` optional) |
 | POST | `/api/google/ideas` | Fetch new ideas from Google Ads: body `seedType` (`auto`, `custom`, `tracking` or `searchconsole`), `domain`, `keywords`, `country`, `language` |
+
+Every other route needs a login session; an API key is refused with `401`. That includes updating or deleting keywords and domains (`PUT`/`DELETE /api/serp/keywords` and `/api/serp/domains`), `PUT /api/app/settings`, `PUT /api/google/ideas`, `PUT /api/serp/clearfailed` and `GET /api/serp/refresh?status=retry`.
+
+A request that changes data (`POST`, `PUT`, `DELETE`) and carries no `Authorization: Bearer` header is refused with `403` when a browser reports that it came from another site. Scripts that send a Bearer key, `curl` and the cron worker are not affected.
+
+### Response format
+
+Every app REST response is JSON in one envelope. The HTTP status carries the outcome; `X-Request-Id` repeats `requestId`.
+
+```json
+{ "data": { "keywords": [] }, "error": null, "requestId": "1769000000000-ab12cd3" }
+{ "data": null, "error": { "code": "NOT_FOUND", "message": "Domain not found" }, "requestId": "1769000000000-ab12cd3" }
+```
+
+A success never carries an `error` string. Reads take filters in the query string (`GET`); writes (`POST`, `PUT`, `DELETE`) take a JSON object body, `{}` when there is nothing to send. The OAuth routes, `/api/mcp`, the Google Ads callback and the image routes keep their own formats.
+
+### Migrating from 6.1
+
+| Endpoint | Before | Now |
+| --- | --- | --- |
+| Every app route | Top-level fields, for example `{ "domains": [] }` | `{ "data": { "domains": [] }, "error": null, "requestId": "…" }` |
+| `GET /api/google/ideas` | `{ "data": { keywords, favorites, settings } }` | `data: { "ideas": { keywords, favorites, settings, updated } }` |
+| `PUT /api/google/ideas` | `{ "keywords": [], "error": "" }` | `data: { "favorites": [] }` |
+| `GET /api/google/searchconsole` | `{ "data": … }`, or `200 { "data": null, "error": "…not Integrated." }` | `data: { "searchConsole": … \| null, "integrationStatus": "integrated" \| "not-integrated" }` |
+| `GET /api/google/insight` | same as above | `data: { "insight": … \| null, "integrationStatus": … }` |
+| `POST /api/google/searchconsole` | no body, `{ "status": "completed" }` | body `{}`, `data: { "updatedCount", "failedCount" }` |
+| `POST /api/serp/refresh` (nothing eligible) | `200 { "keywords": [] }` | `data: { "message", "keywordCount": 0, "skipped", "reason": "no-eligible-keywords" }` |
+| `POST /api/serp/refresh` (`enabled-domains`, none enabled) | `200 { "started": false, "error": "…" }` | `data: { "started": false, "reason": "no-enabled-domains" }` |
+| `PUT /api/serp/keywords` | first of `sticky`, `tags`, `location` wins; tag keys need not match `ids` | exactly one of them, and the `tags` keys must be the same keywords as `ids` |
+| `POST /api/app/email` | `type` or `domain` also in the query string; `success`/`error` fields | JSON body only; digest `data: { sent, skipped, message? }`, ideas `data: { success: true }` |
+
+Old and new clients cannot share an endpoint: update scripts together with the upgrade. For example, reading keywords:
+
+```bash
+# 6.1:  jq '.keywords[].keyword'
+curl -s -H "Authorization: Bearer $APIKEY" "http://localhost:3030/api/serp/keywords?domain=example.com" | jq '.data.keywords[].keyword'
+```
+
 
 <br><br>
 

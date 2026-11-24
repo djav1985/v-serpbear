@@ -107,26 +107,11 @@ describe('refresh route', () => {
       (refreshKeywordsByIds as jest.Mock).mockResolvedValue([]);
     });
 
-    it('refuses a refresh started from another site', async () => {
+    // The cross-site check for every write now lives in createRoute (see api-logging.test.ts); this is the shared check it uses
+    it('recognises requests from this site, including behind a proxy, and refuses other sites', () => {
       expect(isSameOriginRequest(new Request('https://app.example/api/serp/refresh', { headers: { origin: 'https://app.example', 'sec-fetch-site': 'same-origin' } }))).toBe(true);
       expect(isSameOriginRequest(new Request('http://internal/api/serp/refresh', { headers: { origin: 'https://public.example', 'x-forwarded-host': 'public.example', 'x-forwarded-proto': 'https' } }))).toBe(true);
-
-      jest.clearAllMocks();
-      const crossSiteReq = {
-        method: 'POST',
-        body: { ids: [11] },
-        headers: { origin: 'https://evil.example', 'sec-fetch-site': 'cross-site' },
-      } as unknown as NextApiRequest;
-      const crossSiteRes = {
-        status: jest.fn().mockReturnThis(),
-        json: jest.fn(),
-      } as unknown as NextApiResponse;
-
-      await handler(crossSiteReq, crossSiteRes);
-
-      expect(crossSiteRes.status).toHaveBeenCalledWith(403);
-      expect(Keyword.findAll).not.toHaveBeenCalled();
-      expect(refreshKeywordsByIds).not.toHaveBeenCalled();
+      expect(isSameOriginRequest(new Request('https://app.example/api/serp/refresh', { headers: { origin: 'https://evil.example', 'sec-fetch-site': 'cross-site' } }))).toBe(false);
     });
 
     it('refuses a keyword search that uses an API key instead of a login session', async () => {
@@ -201,7 +186,7 @@ describe('refresh route', () => {
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-        error: expect.objectContaining({ message: 'No valid keyword IDs provided' }),
+        error: expect.objectContaining({ message: expect.stringContaining('Invalid request') }),
       }));
       expect(Keyword.findAll).not.toHaveBeenCalled();
     });
@@ -216,7 +201,7 @@ describe('refresh route', () => {
       await handler(malformedReq, malformedRes);
 
       expect(malformedRes.status).toHaveBeenCalledWith(400);
-      expect(malformedRes.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ message: 'No valid keyword IDs provided' }) }));
+      expect(malformedRes.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ message: expect.stringContaining('Invalid request') }) }));
       expect(Keyword.findAll).not.toHaveBeenCalled();
     });
 
@@ -779,9 +764,9 @@ describe('refresh route', () => {
       expect(keywordRecord1.update).toHaveBeenCalledTimes(1);
       expect(keywordRecord2.update).toHaveBeenCalledTimes(1);
 
-      // Should return empty keywords array
+      // Nothing eligible: the normal start result with no keywords, not an ambiguous empty list
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({ keywords: [] });
+      expect(res.json).toHaveBeenCalledWith({ message: 'Refresh started', keywordCount: 0, skipped: { domains: [], keywordIds: [] }, reason: 'no-eligible-keywords' });
 
       // refreshKeywordsByIds should not be called
       expect(refreshKeywordsByIds).not.toHaveBeenCalled();
@@ -871,7 +856,7 @@ describe('POST /api/serp/refresh enabled-domains scope', () => {
     expect(Keyword.findAll).not.toHaveBeenCalled();
     expect(refreshAndUpdateKeywords).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ started: false, error: 'No domains have scraping enabled.' });
+    expect(res.json).toHaveBeenCalledWith({ started: false, reason: 'no-enabled-domains' });
   });
 
   it('leaves keywords alone when a live refresh already owns them', async () => {

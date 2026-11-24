@@ -1,12 +1,16 @@
 import { logger } from './logger';
 import { ensureDatabase } from '../database/init';
-import { ApiError, fail, getQuery, readTextUpTo, type ApiContext } from './api/http';
+import { ApiError, fail, getQuery, readTextUpTo, runWithApiContext, type ApiContext } from './api/http';
 import { redactSecrets, redactUrl } from './logRedaction';
 import { getClientIp } from './api/clientIp';
+import { isSameOriginRequest, ownOrigins } from './api/sameOrigin';
+import { getInternalRequestScope } from './mcpInternalAuth';
 import { isLoginLocked } from './loginThrottle';
 import { getApiKeyAttemptKeys } from './apiKeyThrottle';
 import { isMcpOAuthEnabled, oauthDisabledResponse } from './mcpOAuth';
 import verifyUser, { hasValidApiKey, hasValidSessionCookie, isBearerAuthorization } from './verifyUser';
+
+const WRITE_METHODS = ['POST', 'PUT', 'DELETE'];
 
 // Debug logging shows the body of small requests only. Larger ones are never read for the log.
 const DEBUG_BODY_LOG_MAX_BYTES = 16 * 1024;
@@ -92,6 +96,23 @@ const run = async (handler: ApiHandler | undefined, def: RouteDefinition, req: R
       return withRequestId(fail(429, 'TOO_MANY_ATTEMPTS', 'Too many failed API key attempts. Try again in 15 minutes.', ctx, undefined, { 'Retry-After': '900' }), requestId);
    }
 
+   // A browser can send a cookie-authenticated write from another site (SameSite=Lax does not stop a sibling subdomain).
+   // Writes must come from this site. Exempt: Bearer requests (a page on another site cannot add that header without a
+   // CORS preflight, and these routes send no CORS headers), OAuth protocol routes (MCP clients call them from other
+   // origins), the MCP endpoint (Bearer only, never cookies) and requests the MCP route built in process.
+   if (WRITE_METHODS.includes(req.method) && !def.oauthProtocol && !isMcpEndpoint && !getInternalRequestScope(req)
+      && !isBearerAuthorization(req.headers.get('authorization') ?? undefined) && !isSameOriginRequest(req)) {
+      // Behind a proxy that rewrites Host or drops X-Forwarded-Proto, the site's own address does not match the Origin the
+      // browser sends. The log names both, so the fix (NEXT_PUBLIC_APP_URL or the proxy headers) is clear.
+      logger.warn(`${label} - 403 (cross-site write)`, {
+         origin: req.headers.get('origin'),
+         secFetchSite: req.headers.get('sec-fetch-site'),
+         expectedOrigins: ownOrigins(req),
+         hint: 'Set NEXT_PUBLIC_APP_URL to this site\'s public address, or make the proxy pass Host and X-Forwarded-Proto.',
+      });
+      return withRequestId(fail(403, 'FORBIDDEN', 'Requests that change data must be made from this site.', ctx), requestId);
+   }
+
    let response: Response;
    try {
       // Fallback for when the instrumentation hook did not run (Docker, standalone). After the first call this is a boolean check.
@@ -111,13 +132,13 @@ const run = async (handler: ApiHandler | undefined, def: RouteDefinition, req: R
             ? Response.json({ error: 'invalid_request' }, { status: 405, headers: { Allow: allowed, 'Cache-Control': 'no-store' } })
             : fail(405, 'METHOD_NOT_ALLOWED', 'Method not allowed', ctx, undefined, { Allow: allowed });
       } else {
-         response = await handler(req, ctx);
+         response = await runWithApiContext(ctx, () => handler(req, ctx));
       }
    } catch (error) {
       if (error instanceof ApiError) {
          response = def.oauthProtocol
             ? Response.json({ error: error.status >= 500 ? 'server_error' : 'invalid_request' }, { status: error.status, headers: { 'Cache-Control': 'no-store' } })
-            : fail(error.status, error.code, error.message, ctx);
+            : fail(error.status, error.code, error.message, ctx, error.details);
       } else {
          if (def.oauthProtocol || def.omitResponseMetadata) {
             logger.debug(`${label} - Exception`, {
