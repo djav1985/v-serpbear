@@ -83,7 +83,7 @@ const decryptDomainEmail = (raw, cryptr) => {
 
 module.exports = {
    /**
-    * @param {import('./migrationTypes').MigrationParams} [params={}]
+    * @param {import('../migrationTypes').MigrationParams} [params={}]
     * @param {typeof import('sequelize')} [legacySequelize]
     */
    up: async function up(params = {}, legacySequelize) {
@@ -97,7 +97,7 @@ module.exports = {
          logger.info('[MIGRATION] Stored the global Search Console client email as plain text.');
       }
 
-      const queryInterface = /** @type {import('./migrationTypes').MigrationQueryInterface} */ (params.context ?? params);
+      const queryInterface = /** @type {import('../migrationTypes').MigrationQueryInterface} */ (params.context ?? params);
       if (!queryInterface?.sequelize) {
          return;
       }

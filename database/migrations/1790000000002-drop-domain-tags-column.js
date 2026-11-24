@@ -11,11 +11,11 @@ const { backupDatabaseFile } = require('../backupDatabase');
 
 module.exports = {
    /**
-    * @param {import('./migrationTypes').MigrationParams} [params={}]
+    * @param {import('../migrationTypes').MigrationParams} [params={}]
     * @param {typeof import('sequelize')} [_legacySequelize]
     */
    up: async function up(params = {}, _legacySequelize) {
-      const queryInterface = /** @type {import('./migrationTypes').MigrationQueryInterface} */ (params.context ?? params);
+      const queryInterface = /** @type {import('../migrationTypes').MigrationQueryInterface} */ (params.context ?? params);
 
       return queryInterface.sequelize.transaction(async (transaction) => {
          let domainTableDefinition;
@@ -40,11 +40,11 @@ module.exports = {
    },
 
    /**
-    * @param {import('./migrationTypes').MigrationParams} [params={}]
+    * @param {import('../migrationTypes').MigrationParams} [params={}]
     * @param {typeof import('sequelize')} [legacySequelize]
     */
    down: async function down(params = {}, legacySequelize) {
-      const queryInterface = /** @type {import('./migrationTypes').MigrationQueryInterface} */ (params.context ?? params);
+      const queryInterface = /** @type {import('../migrationTypes').MigrationQueryInterface} */ (params.context ?? params);
       const SequelizeLib = /** @type {typeof import('sequelize')} */ (/** @type {unknown} */ (params.Sequelize
          ?? legacySequelize
          ?? queryInterface?.sequelize?.constructor

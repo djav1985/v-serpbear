@@ -174,7 +174,8 @@ describe('MCP route', () => {
       try {
         const res = await call('POST');
         expect(res.status).toHaveBeenCalledWith(200);
-        expect(mockToolHandlers.size).toBe(7);
+        expect(mockToolHandlers.size).toBe(6);
+        expect(mockToolHandlers.has('generate_keyword_ideas')).toBe(false);
         expect(mockToolHandlers.has('favorite_keyword_idea')).toBe(false);
         expect(mockToolHandlers.has('add_keywords')).toBe(false);
         expect(mockToolHandlers.has('update_keywords')).toBe(false);
@@ -187,11 +188,6 @@ describe('MCP route', () => {
         await mockToolHandlers.get('get_insight')!({ domain: 'example.com' });
         await mockToolHandlers.get('get_keyword_ideas')!({ domain: 'example.com' });
         await mockToolHandlers.get('get_keyword_ideas')!({});
-        const ideaRequest = {
-          keywords: ['compress'], country: 'US', language: '1000', domain: 'example.com',
-          seedSCKeywords: false, seedCurrentKeywords: false, seedType: 'custom',
-        };
-        await mockToolHandlers.get('generate_keyword_ideas')!(ideaRequest);
 
         const urls = mockRouteCalls.map(({ request }) => { const u = new URL(request.url); return `${request.method} ${u.pathname}${u.search}`; });
         expect(urls).toEqual([
@@ -202,14 +198,11 @@ describe('MCP route', () => {
           'GET /api/google/insight?domain=example.com',
           'GET /api/google/ideas?domain=example.com',
           'GET /api/google/ideas',
-          'POST /api/google/ideas',
         ]);
         // No network call and no key: each Request is registered with the caller's scope instead
         expect(global.fetch).not.toHaveBeenCalled();
         expect(mockRouteCalls.every(({ request }) => request.headers.get('authorization') === null)).toBe(true);
         expect(mockRouteCalls.every(({ request }) => getInternalRequestScope(request) === 'mcp:read')).toBe(true);
-        expect(await mockRouteCalls[7].request.json()).toEqual(ideaRequest);
-        expect(mockRouteCalls[7].request.headers.get('content-type')).toBe('application/json');
         expect(reply).toEqual({ isError: false, content: [{ type: 'text', text: '{\n  "keywords": [\n    {\n      "ID": 7\n    }\n  ]\n}' }] });
         expect(mockServerConnect).toHaveBeenCalledTimes(1);
         await Promise.resolve();
@@ -345,8 +338,8 @@ describe('MCP route', () => {
 
       await call('POST', { authorization: 'Bearer oauth-read-token' });
 
-      expect(mockToolHandlers.size).toBe(7);
-      expect(mockToolHandlers.has('generate_keyword_ideas')).toBe(true);
+      expect(mockToolHandlers.size).toBe(6);
+      expect(mockToolHandlers.has('generate_keyword_ideas')).toBe(false);
       expect(mockToolHandlers.has('favorite_keyword_idea')).toBe(false);
       expect(mockToolHandlers.has('add_keywords')).toBe(false);
       expect(mockToolHandlers.has('update_keywords')).toBe(false);

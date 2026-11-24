@@ -27,7 +27,7 @@ Set `MCP_ENABLED=false` to disable the MCP endpoint and OAuth protocol handlers.
 | `get_searchconsole` | Read | Raw Search Console rows for a `domain` (3, 7 and 30 days) |
 | `get_insight` | Read | Top pages, keywords and countries for a `domain` |
 | `get_keyword_ideas` | Read | Saved ideas and favourites for a `domain`, or the research list when omitted |
-| `generate_keyword_ideas` | Read | Fetch new ideas from Google Ads; this uses Google Ads quota |
+| `generate_keyword_ideas` | Full | Fetch new ideas from Google Ads; this uses Google Ads quota |
 | `favorite_keyword_idea` | Full | Toggle a saved idea in or out of favorites |
 | `add_keywords` | Full | Add tracked keywords to a domain |
 | `update_keywords` | Full | Change keyword sticky status, tags, or location |

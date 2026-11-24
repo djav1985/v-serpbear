@@ -6,6 +6,9 @@ All notable changes to this project will be documented in this file. Releases no
 
 ### Fixed
 
+- The OAuth approval page now resolves clients that identify themselves with a metadata URL (CIMD), so those connections show the approval form instead of "Connection request expired".
+- `generate_keyword_ideas` is now a full-scope MCP tool. It saves the fetched ideas over the stored list, so it is no longer offered to `MCP_APIKEY` or OAuth `mcp:read` callers.
+- The migration type declarations moved out of `database/migrations`, so the container's migration glob no longer loads them as a migration.
 - The settings form no longer shows the word `true` in secret fields. A stored secret (scraper key, SMTP password, Search Console private key, Google Ads fields) is shown as an empty box with the hint "Saved. Type to replace."; typing replaces it and leaving it alone keeps the stored value.
 - Saving a domain (`PUT /api/serp/domains`) and adding domains (`POST /api/serp/domains`) now answer with the same record as the domain list, with empty text columns sent as empty text. A domain with empty database columns no longer saves successfully and then shows a "did not match the expected shape" error.
 - Keyword ideas whose Google Ads response has no competition level, or one this app does not know, are saved with `UNSPECIFIED`. Saved ideas and favorites are corrected as they are read, so an ideas file written by an earlier release can no longer make the ideas page fail.

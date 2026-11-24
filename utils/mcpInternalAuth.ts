@@ -22,13 +22,13 @@ const READ_OPERATIONS: readonly Operation[] = [
    'GET:/api/google/searchconsole',
    'GET:/api/google/insight',
    'GET:/api/google/ideas',
-   // Fetches ideas from Google Ads and changes nothing in the app, so it is a read tool
-   'POST:/api/google/ideas',
 ];
 
 /** Write operations: the documented full tools, available to the mcp:full scope only. */
 const FULL_OPERATIONS: readonly Operation[] = [
    'PUT:/api/google/ideas',
+   // Saves the fetched ideas over the stored list, so it is a write
+   'POST:/api/google/ideas',
    'POST:/api/serp/keywords',
    'PUT:/api/serp/keywords',
    'DELETE:/api/serp/keywords',

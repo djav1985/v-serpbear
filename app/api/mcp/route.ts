@@ -110,7 +110,7 @@ const buildServer = (call: ApiCall, scope: McpOAuthScope): McpServer => {
    register('get_keyword_ideas', true, 'Get the saved keyword ideas and favourites of a domain. Leave domain out for the research list.',
       { domain: domainField.optional() }, async ({ domain }) => reply(await call('GET', '/api/google/ideas', domain ? { domain } : {})));
 
-   register('generate_keyword_ideas', true, 'Fetch keyword ideas from Google Ads. Choose a seedType; custom seeds can use keywords, Search Console keywords, or tracked keywords.',
+   register('generate_keyword_ideas', false, 'Fetch keyword ideas from Google Ads. Choose a seedType; custom seeds can use keywords, Search Console keywords, or tracked keywords.',
       {
          keywords: z.array(z.string()).max(1000).optional().describe('Seed keywords for custom ideas.'),
          country: z.string().regex(/^[A-Za-z]{2}$/).optional().describe('Two-letter country code; defaults to US.'),

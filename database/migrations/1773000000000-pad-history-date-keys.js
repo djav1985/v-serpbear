@@ -56,11 +56,11 @@ const rewriteRow = (raw) => {
 
 module.exports = {
    /**
-    * @param {import('./migrationTypes').MigrationParams} [params={}]
+    * @param {import('../migrationTypes').MigrationParams} [params={}]
     * @param {typeof import('sequelize')} [legacySequelize]
     */
    up: async function up(params = {}, legacySequelize) {
-      const queryInterface = /** @type {import('./migrationTypes').MigrationQueryInterface} */ (params.context ?? params);
+      const queryInterface = /** @type {import('../migrationTypes').MigrationQueryInterface} */ (params.context ?? params);
       const SequelizeLib = /** @type {typeof import('sequelize')} */ (/** @type {unknown} */ (params.Sequelize
          ?? legacySequelize
          ?? queryInterface?.sequelize?.constructor
