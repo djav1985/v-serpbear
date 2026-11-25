@@ -10,6 +10,11 @@ import { POST as revoke } from '../../app/api/oauth/revoke/route';
 
 jest.mock('../../utils/apiLogging', () => require('../__helpers__/apiLoggingMock').apiLoggingMock());
 jest.mock('dns/promises', () => ({ lookup: jest.fn() }));
+// The CIMD download uses undici's fetch; send it through global.fetch so a test can replace it
+jest.mock('undici', () => ({
+   ...jest.requireActual('undici'),
+   fetch: (...args: Parameters<typeof fetch>) => global.fetch(...args),
+}));
 jest.mock('../../utils/logger', () => ({
    __esModule: true,
    logger: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
@@ -159,6 +164,8 @@ describe('OAuth routes', () => {
          const authorization = await authorize(new Request(`${appUrl}/api/oauth/authorize?${query}`));
          expect(authorization.status).toBe(303);
          const requestId = new URL(authorization.headers.get('location')!).searchParams.get('request')!;
+         // The document host goes down after the request started: the approval must not need it again
+         global.fetch = jest.fn().mockRejectedValue(new TypeError('fetch failed')) as unknown as typeof fetch;
          const approved = await consent(formRequest(`${appUrl}/api/oauth/authorize`, {
             request: requestId, username: 'admin', password: 'oauth-test-password', decision: 'approve', read_only: '1',
          }));
@@ -169,6 +176,38 @@ describe('OAuth routes', () => {
 
          expect(exchanged.status).toBe(200);
          await expect(exchanged.json()).resolves.toMatchObject({ token_type: 'Bearer', scope: 'mcp:read' });
+      } finally {
+         global.fetch = previousFetch;
+      }
+   });
+
+   it('sends a native CIMD client back to the random loopback port it asked for', async () => {
+      const clientId = 'https://claude.ai/oauth/claude-code-client-metadata';
+      const loopback = 'http://localhost:54321/callback';
+      const verifier = randomBytes(32).toString('base64url');
+      const previousFetch = global.fetch;
+      global.fetch = jest.fn().mockImplementation(async () => new Response(JSON.stringify({
+         client_id: clientId, client_name: 'Claude Code', token_endpoint_auth_method: 'none',
+         redirect_uris: ['http://localhost/callback', 'http://127.0.0.1/callback'],
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } })) as unknown as typeof fetch;
+
+      try {
+         const query = new URLSearchParams({
+            client_id: clientId, redirect_uri: loopback, response_type: 'code', code_challenge_method: 'S256',
+            code_challenge: createHash('sha256').update(verifier).digest('base64url'),
+         });
+         const authorization = await authorize(new Request(`${appUrl}/api/oauth/authorize?${query}`));
+         expect(authorization.status).toBe(303);
+         const requestId = new URL(authorization.headers.get('location')!).searchParams.get('request')!;
+         const approved = await consent(formRequest(`${appUrl}/api/oauth/authorize`, {
+            request: requestId, username: 'admin', password: 'oauth-test-password', decision: 'approve',
+         }));
+         const callback = new URL(approved.headers.get('location')!);
+         expect(callback.origin + callback.pathname).toBe(loopback);
+         const exchanged = await token(formRequest(`${appUrl}/api/oauth/token`, {
+            grant_type: 'authorization_code', client_id: clientId, code: callback.searchParams.get('code')!, redirect_uri: loopback, code_verifier: verifier,
+         }));
+         expect(exchanged.status).toBe(200);
       } finally {
          global.fetch = previousFetch;
       }

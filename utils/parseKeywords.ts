@@ -2,7 +2,7 @@ import Keyword from '../database/models/keyword';
 import { normalizeToBoolean } from './dbBooleans';
 import { safeJsonParse } from './safeJsonParse';
 import { normalizeHistoryDateKey } from './historyDateKey';
-import { isRecord } from './typeGuards';
+import { asRecordArray, isRecord } from './typeGuards';
 
 export const normaliseHistory = (rawHistory: unknown): KeywordHistory => {
    if (!rawHistory || typeof rawHistory !== 'object' || Array.isArray(rawHistory)) {
@@ -24,6 +24,26 @@ export const normaliseHistory = (rawHistory: unknown): KeywordHistory => {
       return acc;
    }, {});
 };
+
+/** Stored results as the type describes them: a missing or wrong position, URL or title gets a plain default. */
+const normaliseLastResult = (stored: unknown): KeywordLastResult[] => asRecordArray(stored).map((item) => ({
+   ...item,
+   position: typeof item.position === 'number' ? item.position : (Number(item.position) || 0),
+   url: typeof item.url === 'string' ? item.url : '',
+   title: typeof item.title === 'string' ? item.title : '',
+}));
+
+/** Stored map pack entries: a wrong position becomes the place in the list, and other fields of the wrong type are left out. */
+const normaliseLocalResults = (stored: unknown): KeywordLocalResult[] => asRecordArray(stored).map((item, index) => {
+   const { url, title, isOwn, ...rest } = item;
+   return {
+      ...rest,
+      position: typeof item.position === 'number' ? item.position : (Number(item.position) || index + 1),
+      ...(typeof title === 'string' ? { title } : {}),
+      ...(typeof url === 'string' ? { url } : {}),
+      ...(typeof isOwn === 'boolean' ? { isOwn } : {}),
+   };
+});
 
 /**
  * Parses the SQL Keyword Model object to frontend cosumable object.
@@ -48,17 +68,18 @@ const parseKeywords = (allKeywords: Keyword[]) : KeywordType[] => {
          )
          : undefined;
 
-      const tags = typeof keywordData.tags === 'string'
-         ? safeJsonParse<string[]>(keywordData.tags, [], { context: `tags of keyword ${keywordData.ID}` })
-         : (Array.isArray(keywordData.tags) ? keywordData.tags : []);
+      const storedTags = typeof keywordData.tags === 'string'
+         ? safeJsonParse<unknown>(keywordData.tags, [], { context: `tags of keyword ${keywordData.ID}` })
+         : keywordData.tags;
+      const tags = Array.isArray(storedTags) ? storedTags.filter((tag): tag is string => typeof tag === 'string') : [];
 
-      const lastResult = typeof keywordData.lastResult === 'string'
-         ? safeJsonParse<KeywordLastResult[]>(keywordData.lastResult, [], { context: `last result of keyword ${keywordData.ID}` })
-         : (Array.isArray(keywordData.lastResult) ? keywordData.lastResult : []);
+      const lastResult = normaliseLastResult(typeof keywordData.lastResult === 'string'
+         ? safeJsonParse<unknown>(keywordData.lastResult, [], { context: `last result of keyword ${keywordData.ID}` })
+         : keywordData.lastResult);
 
-      const localResults = typeof keywordData.localResults === 'string'
-         ? safeJsonParse<KeywordLocalResult[]>(keywordData.localResults, [], { context: `local results of keyword ${keywordData.ID}` })
-         : (Array.isArray(keywordData.localResults) ? keywordData.localResults : []);
+      const localResults = normaliseLocalResults(typeof keywordData.localResults === 'string'
+         ? safeJsonParse<unknown>(keywordData.localResults, [], { context: `local results of keyword ${keywordData.ID}` })
+         : keywordData.localResults);
 
       let lastUpdateError: KeywordType['lastUpdateError'] = false;
       if (typeof keywordData.lastUpdateError === 'string' && keywordData.lastUpdateError !== 'false' && keywordData.lastUpdateError.includes('{')) {

@@ -49,6 +49,10 @@ Check `CRON_TIMEZONE`. It sets both the schedule and the container clock. Withou
 
 Set `SERPER_API_KEY` to a free Serper key. See [Scrapers](Scrapers).
 
+## Going back to a release older than 6.5
+
+Those releases expect the Search Console client email to be encrypted. Before going back, run `npm run db:revert` with the same `SECRET` while the current release is still installed. Without it the older release reads every global secret (scraper key, SMTP password, Google Ads) as empty, and saving the settings there would erase them. If that happened before a save, restore `data/settings.json.bak-<date>`, which the upgrade made when it changed the file.
+
 ## Search Console or Google Ads errors
 
 See [Google Integrations](Google-Integrations) for the common errors ("Forbidden", `redirect_uri_mismatch`, `DEVELOPER_TOKEN_NOT_APPROVED`).

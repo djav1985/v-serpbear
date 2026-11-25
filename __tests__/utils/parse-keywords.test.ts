@@ -55,6 +55,18 @@ describe('parseKeywords', () => {
         expect(Object.prototype.hasOwnProperty.call(withoutField, 'history7d')).toBe(false);
      });
 
+     it('repairs stored tags and results of the wrong type', () => {
+        const [bad] = parseKeywords([buildKeywordRow({
+           tags: 'null',
+           lastResult: JSON.stringify([null, { position: '4', url: null, title: null }]),
+           localResults: JSON.stringify([null, { position: null, title: null, url: null, isOwn: 'yes' }, { position: 2, title: 'Ok' }]),
+        }) as any]);
+        expect(bad.tags).toEqual([]);
+        expect(bad.lastResult).toEqual([{ position: 4, url: '', title: '' }]);
+        expect(bad.localResults).toEqual([{ position: 1 }, { position: 2, title: 'Ok' }]);
+        expect(parseKeywords([buildKeywordRow({ tags: JSON.stringify(['a', null, 1]) }) as any])[0].tags).toEqual(['a']);
+     });
+
      it('falls back to an empty KeywordHistory when history7d contains invalid JSON', () => {
         const [keyword] = parseKeywords([
            buildKeywordRow({ history7d: 'not-valid-json' }) as any,

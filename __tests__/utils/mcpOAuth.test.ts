@@ -1,10 +1,17 @@
 import { createTempAppDataDir } from '../__helpers__/tempAppDataDir';
+import { logger } from '../../utils/logger';
+import { resetRateLimits } from '../../utils/rateLimit';
 import {
-   createClient, getAuthorizationServerMetadata, getProtectedResourceMetadata, getScopeFromRequest, hashSecret,
-   parseRedirectUris, revokeOAuthGrantFromToken, withOAuthStore,
+   clearCimdCache, createClient, getAuthorizationServerMetadata, getProtectedResourceMetadata, getScopeFromRequest, hashSecret, isRegisteredRedirectUri,
+   parseRedirectUris, resolveOAuthClient, resolvePendingClient, revokeOAuthGrantFromToken, withOAuthStore,
 } from '../../utils/mcpOAuth';
 
 jest.mock('dns/promises', () => ({ lookup: jest.fn() }));
+// The CIMD download uses undici's fetch; send it through global.fetch so a test can replace it
+jest.mock('undici', () => ({
+   ...jest.requireActual('undici'),
+   fetch: (...args: Parameters<typeof fetch>) => global.fetch(...args),
+}));
 
 const lookupMock = (require('dns/promises') as { lookup: jest.Mock }).lookup;
 const getCimdResolver = () => (require('../../utils/mcpOAuth') as {
@@ -21,6 +28,8 @@ describe('MCP OAuth compatibility', () => {
 
    beforeEach(() => {
       tempData = createTempAppDataDir('serpbear-mcp-oauth-');
+      clearCimdCache();
+      resetRateLimits();
       process.env.NEXT_PUBLIC_APP_URL = 'https://serpbear.example';
       process.env.MCP_OAUTH = 'true';
       lookupMock.mockResolvedValue([{ address: '8.8.8.8', family: 4 }]);
@@ -192,6 +201,100 @@ describe('MCP OAuth compatibility', () => {
       } finally {
          global.fetch = previousFetch;
       }
+   });
+
+   it.each([
+      ['http://localhost:54321/callback', true],
+      ['http://127.0.0.1:3118/callback', true],
+      ['http://localhost/callback', true],
+      ['https://client.example/callback', true],
+      ['http://localhost:54321/other', false],
+      ['http://localhost:54321/callback?x=1', false],
+      ['http://localhost:54321/callback#x', false],
+      ['http://[::1]:54321/callback', false],
+      ['https://localhost:54321/callback', false],
+      ['http://localhost:54321@evil.example/callback', false],
+      ['http://user@localhost:54321/callback', false],
+      ['http://localhost.evil.example:54321/callback', false],
+      ['https://client.example:8443/callback', false],
+      ['not a url', false],
+   ])('ignores only the port of a registered loopback redirect: %s is %s', (redirectUri, expected) => {
+      const client = {
+         clientId: 'native', clientName: null, createdAt: 1,
+         redirectUris: ['http://localhost/callback', 'http://127.0.0.1/callback', 'https://client.example/callback'],
+      };
+      expect(isRegisteredRedirectUri(client, redirectUri)).toBe(expected);
+   });
+
+   describe('CIMD downloads', () => {
+      const clientId = 'https://chatgpt.com/oauth/client.json?token=private';
+      const redirectUri = 'https://chatgpt.com/oauth/callback';
+      const previousFetch = global.fetch;
+      const answer = (id: string) => new Response(JSON.stringify({
+         client_id: id, client_name: 'ChatGPT', redirect_uris: [redirectUri], token_endpoint_auth_method: 'none',
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      let fetchMock: jest.Mock;
+      let warn: jest.SpyInstance;
+
+      beforeEach(() => {
+         fetchMock = jest.fn().mockImplementation(async (id: string) => answer(id));
+         global.fetch = fetchMock as unknown as typeof fetch;
+         warn = jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
+      });
+      afterEach(() => {
+         global.fetch = previousFetch;
+         warn.mockRestore();
+      });
+
+      it.each([
+         ['192.0.78.24', true], ['192.0.1.1', true], ['192.0.0.8', false], ['192.0.2.10', false], ['192.168.1.1', false],
+      ])('treats a document host at %s as public: %s', async (address, isPublic) => {
+         lookupMock.mockResolvedValue([{ address, family: 4 }]);
+         expect((await resolveOAuthClient(clientId)) !== null).toBe(isPublic);
+         expect(fetchMock).toHaveBeenCalledTimes(isPublic ? 1 : 0);
+      });
+
+      it('caches a valid document but not a failure, and logs the reason without the query string', async () => {
+         fetchMock.mockRejectedValueOnce(Object.assign(new TypeError('fetch failed'), { cause: Object.assign(new Error('refused'), { code: 'ECONNREFUSED' }) }));
+         await expect(resolveOAuthClient(clientId)).resolves.toBeNull();
+         await expect(resolveOAuthClient(clientId)).resolves.toMatchObject({ clientName: 'ChatGPT' });
+         await expect(resolveOAuthClient(clientId)).resolves.toMatchObject({ clientName: 'ChatGPT' });
+         expect(fetchMock).toHaveBeenCalledTimes(2);
+         expect(warn).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ document: 'chatgpt.com/oauth/client.json', reason: 'ECONNREFUSED: refused' }));
+      });
+
+      it('logs the DNS failure', async () => {
+         lookupMock.mockRejectedValue(Object.assign(new Error('getaddrinfo ENOTFOUND chatgpt.com'), { code: 'ENOTFOUND' }));
+         await expect(resolveOAuthClient(clientId)).resolves.toBeNull();
+         expect(warn).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ reason: expect.stringContaining('ENOTFOUND') }));
+      });
+
+      it('gives up on a DNS lookup that never answers', async () => {
+         const controller = new AbortController();
+         const timeout = jest.spyOn(AbortSignal, 'timeout').mockReturnValue(controller.signal);
+         lookupMock.mockReturnValue(new Promise(() => undefined));
+         try {
+            const result = resolveOAuthClient(clientId);
+            setTimeout(() => controller.abort(), 50);
+            await expect(result).resolves.toBeNull();
+            expect(warn).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ reason: 'timed out' }));
+         } finally {
+            timeout.mockRestore();
+         }
+      });
+
+      it('limits downloads per client address', async () => {
+         for (let index = 0; index < 31; index += 1) { await resolveOAuthClient(`https://chatgpt.com/${index}.json`, '203.0.113.5'); }
+         expect(fetchMock).toHaveBeenCalledTimes(30);
+         await expect(resolveOAuthClient(clientId, '203.0.113.6')).resolves.not.toBeNull();
+      });
+
+      it('resolves a pending CIMD request without fetching, and refuses a removed DCR client', async () => {
+         const pending = { tokenHash: 'hash', kind: 'authorization_request' as const, clientName: 'ChatGPT', redirectUri, expiresAt: Date.now() + 1000, createdAt: Date.now() };
+         await expect(resolvePendingClient({ ...pending, clientId })).resolves.toMatchObject({ clientName: 'ChatGPT', redirectUris: [redirectUri] });
+         await expect(resolvePendingClient({ ...pending, clientId: 'removed-client' })).resolves.toBeNull();
+         expect(fetchMock).not.toHaveBeenCalled();
+      });
    });
 
    it('keeps registered DCR clients local without fetching metadata documents', async () => {

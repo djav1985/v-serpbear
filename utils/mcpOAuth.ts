@@ -1,13 +1,16 @@
 import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 import { lookup } from 'dns/promises';
 import { isIP } from 'net';
-import { Agent } from 'undici';
+import { Agent, fetch as undiciFetch } from 'undici';
 /* eslint-disable security/detect-non-literal-fs-filename -- the path is fixed to the app's data directory, not user input. */
 import { mkdir, readFile } from 'fs/promises';
 import { dirname, join } from 'path';
 import { atomicWriteFile } from './atomicWrite';
 import { readTextUpTo } from './api/http';
+import { getUnknownErrorCode, getUnknownErrorMessage, getUnknownProperty } from './errorSerialization';
 import { withFileLock } from './fileLock';
+import { logger } from './logger';
+import { takeRateLimitToken } from './rateLimit';
 
 export const OAUTH_CODE_TTL_MS = 5 * 60 * 1000;
 export const OAUTH_ACCESS_TTL_SECONDS = 24 * 60 * 60;
@@ -25,6 +28,9 @@ const MAX_OAUTH_CLIENTS = 500;
 const UNUSED_CLIENT_TTL_MS = 24 * 60 * 60 * 1000;
 const CIMD_MAX_BYTES = 5 * 1024;
 const CIMD_FETCH_TIMEOUT_MS = 5_000;
+const CIMD_CACHE_TTL_MS = 5 * 60 * 1000;
+const CIMD_CACHE_MAX_ENTRIES = 100;
+const CIMD_FETCHES_PER_MINUTE = 30;
 
 /** The whole MCP integration can be disabled independently of direct/OAuth auth modes. */
 export const isMcpEnabled = (): boolean => !/^(0|false|no|off)$/i.test(process.env.MCP_ENABLED?.trim() ?? '');
@@ -49,6 +55,8 @@ export type OAuthCredential = {
    tokenHash: string;
    kind: OAuthCredentialKind;
    clientId: string;
+   /** Authorization requests only: the name shown on the approval page. */
+   clientName?: string | null;
    grantId?: string | null;
    redirectUri?: string | null;
    codeChallenge?: string | null;
@@ -308,8 +316,8 @@ const isPublicIpv4 = (address: string): boolean => {
       (a === 100 && b >= 64 && b <= 127) ||
       (a === 169 && b === 254) ||
       (a === 172 && b >= 16 && b <= 31) ||
-      (a === 192 && (b === 0 || b === 168)) ||
-      (a === 192 && b === 0 && c === 2) ||
+      (a === 192 && b === 168) ||
+      (a === 192 && b === 0 && (c === 0 || c === 2)) ||
       (a === 198 && (b === 18 || b === 19 || (b === 51 && c === 100))) ||
       (a === 203 && b === 0 && c === 113)
    );
@@ -368,66 +376,156 @@ const isJsonMediaType = (contentType: string | null): boolean => {
    return mediaType === 'application/json' || /^application\/[a-z0-9.+-]+\+json$/.test(mediaType);
 };
 
-const fetchCimdClient = async (clientId: string): Promise<OAuthClient | null> => {
+/** Why a client metadata document was refused. Written to the log only: the browser gets one general message. */
+class CimdError extends Error {}
+
+/** The promise's result, or a rejection as soon as the signal aborts. For work that takes no signal itself, such as a DNS lookup. */
+const withSignal = <T>(promise: Promise<T>, signal: AbortSignal): Promise<T> => new Promise<T>((resolve, reject) => {
+   const onAbort = () => reject(new CimdError('timed out'));
+   signal.addEventListener('abort', onAbort, { once: true });
+   promise.then(resolve, reject).finally(() => signal.removeEventListener('abort', onAbort));
+});
+
+const parseCimdDocument = (clientId: string, body: string): OAuthClient => {
+   let metadata: unknown;
+   try { metadata = JSON.parse(body); }
+   catch (_error) { throw new CimdError('the document is not valid JSON'); }
+   if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) { throw new CimdError('the document is not a JSON object'); }
+   const document = metadata as Record<string, unknown>;
+   if (document.client_id !== clientId) { throw new CimdError('client_id in the document is not its own URL'); }
+   const redirectUris = parseRedirectUris(document.redirect_uris);
+   if (!redirectUris) { throw new CimdError('redirect_uris is missing or not allowed'); }
+   const methods = document.token_endpoint_auth_methods_supported;
+   const supportsNone = Array.isArray(methods)
+      ? methods.includes('none')
+      : document.token_endpoint_auth_method === 'none';
+   if (!supportsNone) { throw new CimdError('the client does not support the token auth method "none"'); }
+   return {
+      clientId,
+      clientName: typeof document.client_name === 'string' ? document.client_name.slice(0, 80) : null,
+      redirectUris,
+      createdAt: Date.now(),
+   };
+};
+
+/** Downloads and checks a client metadata document. One deadline covers the DNS lookup, the request and the body. */
+const fetchCimdClient = async (clientId: string, url: URL): Promise<OAuthClient> => {
+   const signal = AbortSignal.timeout(CIMD_FETCH_TIMEOUT_MS);
+   const addresses = await withSignal(lookup(url.hostname.replace(/^\[|\]$/g, ''), { all: true, verbatim: true }), signal);
+   if (!addresses.length || addresses.some(({ address, family }) => !isPublicAddress(address, family))) {
+      throw new CimdError('the host does not resolve to public addresses only');
+   }
+   const pinnedAddress = addresses[0];
+   const agent = new Agent({
+      connect: {
+         lookup: ((_hostname: string, options: { all?: boolean }, callback: (...args: unknown[]) => void) => {
+            if (options?.all) { callback(null, [pinnedAddress]); }
+            else { callback(null, pinnedAddress.address, pinnedAddress.family); }
+         }) as never,
+      },
+   });
+   try {
+      // undici's own fetch, so that it always matches the Agent: Node's built-in fetch may be an older undici
+      const response = await undiciFetch(clientId, { redirect: 'error', signal, dispatcher: agent });
+      if (response.status !== 200) { throw new CimdError(`the host answered with status ${response.status}`); }
+      if (!isJsonMediaType(response.headers.get('content-type'))) { throw new CimdError('the content type is not JSON'); }
+      const length = Number(response.headers.get('content-length'));
+      const body = Number.isFinite(length) && length > CIMD_MAX_BYTES
+         ? null
+         : await readTextUpTo(response.body as unknown as ReadableStream<Uint8Array> | null, CIMD_MAX_BYTES);
+      if (body === null) { throw new CimdError(`the document is larger than ${CIMD_MAX_BYTES} bytes`); }
+      return parseCimdDocument(clientId, body);
+   } finally {
+      // Not close(): that would wait for a response whose body was deliberately not read
+      await agent.destroy();
+   }
+};
+
+/** The cause of a failed fetch. A network error hides it in `cause`, whose code (ENOTFOUND, ECONNREFUSED) says the most. */
+const cimdFailureReason = (error: unknown): string => {
+   if (error instanceof CimdError) { return error.message; }
+   const cause = getUnknownProperty(error, 'cause');
+   const code = getUnknownErrorCode(cause) ?? getUnknownErrorCode(error);
+   const message = getUnknownErrorMessage(cause) ?? getUnknownErrorMessage(error) ?? 'unknown error';
+   return typeof code === 'string' ? `${code}: ${message}` : message;
+};
+
+const cimdCache = new Map<string, { client: OAuthClient, expiresAt: number }>();
+export const clearCimdCache = (): void => cimdCache.clear();
+
+const cacheCimdClient = (client: OAuthClient): void => {
+   cimdCache.delete(client.clientId);
+   if (cimdCache.size >= CIMD_CACHE_MAX_ENTRIES) {
+      const oldest = cimdCache.keys().next().value;
+      if (oldest !== undefined) { cimdCache.delete(oldest); }
+   }
+   cimdCache.set(client.clientId, { client, expiresAt: Date.now() + CIMD_CACHE_TTL_MS });
+};
+
+/**
+ * Resolves existing DCR clients first, then validates CIMD URLs as HTTPS-hosted metadata documents. A valid document is
+ * kept for a few minutes, and each client address may start a limited number of downloads, because anyone can call this.
+ */
+export const resolveOAuthClient = async (clientId: string, clientIp = 'unknown'): Promise<OAuthClient | null> => {
+   const registered = await readClient(clientId);
+   if (registered) { return registered; }
    const url = parseCimdUrl(clientId);
    if (!url) { return null; }
+   const cached = cimdCache.get(clientId);
+   if (cached && cached.expiresAt > Date.now()) { return cached.client; }
+   // Host and path only: a query string could carry something private
+   const meta = { operation: 'client_metadata', document: `${url.host}${url.pathname}` };
+   if (!takeRateLimitToken(`cimd-fetch:${clientIp}`, CIMD_FETCHES_PER_MINUTE, 60_000)) {
+      logger.debug('[OAuth] Client metadata document not fetched.', { ...meta, reason: 'too many documents requested from this address' });
+      return null;
+   }
    try {
-      const addresses = await lookup(url.hostname.replace(/^\[|\]$/g, ''), { all: true, verbatim: true });
-      if (!addresses.length || addresses.some(({ address, family }) => !isPublicAddress(address, family))) { return null; }
-      const pinnedAddress = addresses[0];
-      const agent = new Agent({
-         connect: {
-            lookup: ((_hostname: string, options: { all?: boolean }, callback: (...args: unknown[]) => void) => {
-               if (options?.all) { callback(null, [pinnedAddress]); }
-               else { callback(null, pinnedAddress.address, pinnedAddress.family); }
-            }) as never,
-         },
-      });
-      try {
-         const response = await fetch(clientId, {
-            redirect: 'error',
-            signal: AbortSignal.timeout(CIMD_FETCH_TIMEOUT_MS),
-            dispatcher: agent,
-         } as RequestInit & { dispatcher: Agent });
-         if (response.status !== 200 || !isJsonMediaType(response.headers.get('content-type'))) { return null; }
-         const length = Number(response.headers.get('content-length'));
-         if (Number.isFinite(length) && length > CIMD_MAX_BYTES) { return null; }
-         const body = await readTextUpTo(response.body, CIMD_MAX_BYTES);
-         if (body === null) { return null; }
-         let metadata: unknown;
-         try { metadata = JSON.parse(body); }
-         catch (_error) { return null; }
-         if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) { return null; }
-         const document = metadata as Record<string, unknown>;
-         if (document.client_id !== clientId) { return null; }
-         const redirectUris = parseRedirectUris(document.redirect_uris);
-         if (!redirectUris) { return null; }
-         const methods = document.token_endpoint_auth_methods_supported;
-         const supportsNone = Array.isArray(methods)
-            ? methods.includes('none')
-            : document.token_endpoint_auth_method === 'none';
-         if (!supportsNone) { return null; }
-         return {
-            clientId,
-            clientName: typeof document.client_name === 'string' ? document.client_name.slice(0, 80) : null,
-            redirectUris,
-            createdAt: Date.now(),
-         };
-      } finally {
-         await agent.close();
-      }
+      const client = await fetchCimdClient(clientId, url);
+      cacheCimdClient(client);
+      return client;
+   } catch (error) {
+      logger.warn('[OAuth] Client metadata document could not be used.', { ...meta, reason: cimdFailureReason(error).slice(0, 300) });
+      return null;
+   }
+};
+
+/**
+ * The client of a pending authorization request. A CIMD client was checked when the request was made, and its name and
+ * redirect URI were stored with it, so the document is not fetched again. A DCR client must still be registered.
+ */
+export const resolvePendingClient = async (pending: OAuthCredential): Promise<OAuthClient | null> => {
+   const registered = await readClient(pending.clientId);
+   if (registered) { return registered; }
+   if (!pending.redirectUri || !parseCimdUrl(pending.clientId)) { return null; }
+   return { clientId: pending.clientId, clientName: pending.clientName ?? null, redirectUris: [pending.redirectUri], createdAt: pending.createdAt };
+};
+
+/** The URL when it is an http loopback redirect without credentials or a fragment, otherwise null. */
+const parseLoopbackRedirect = (uri: string): URL | null => {
+   if (uri.includes('#')) { return null; }
+   try {
+      const url = new URL(uri);
+      const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+      return url.protocol === 'http:' && loopback && !url.username && !url.password ? url : null;
    } catch (_error) {
       return null;
    }
 };
 
-/** Resolves existing DCR clients first, then validates CIMD URLs as HTTPS-hosted metadata documents. */
-export const resolveOAuthClient = async (clientId: string): Promise<OAuthClient | null> => {
-   const registered = await readClient(clientId);
-   return registered ?? fetchCimdClient(clientId);
+/**
+ * True when the client registered this redirect URI. It must match exactly, except that the port of an http loopback
+ * address is ignored (RFC 8252 section 7.3): native apps register http://localhost/callback and listen on a random port.
+ */
+export const isRegisteredRedirectUri = (client: OAuthClient, redirectUri: string): boolean => {
+   if (client.redirectUris.includes(redirectUri)) { return true; }
+   const requested = parseLoopbackRedirect(redirectUri);
+   if (!requested) { return false; }
+   return client.redirectUris.some((uri) => {
+      const registered = parseLoopbackRedirect(uri);
+      return !!registered && registered.hostname === requested.hostname
+         && registered.pathname === requested.pathname && registered.search === requested.search;
+   });
 };
-
-export const getClientRedirectUris = (client: OAuthClient): string[] => client.redirectUris;
 
 export type OAuthCredentialInput = Omit<OAuthCredential, 'createdAt'> & { createdAt?: number };
 

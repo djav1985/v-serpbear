@@ -1051,7 +1051,27 @@ describe('decrypt-search-console-client-email.migration', () => {
     await emailMigration.up();
 
     expect(readSettings()).toEqual({ search_console_client_email: EMAIL, search_console_private_key: encryptedKey, smtp_server: 'smtp.example.com' });
-    expect(readdirSync(path.join(tempData.dir, 'data'))).toEqual(['settings.json']);
+    const files = readdirSync(path.join(tempData.dir, 'data')).sort();
+    expect(files).toEqual(['settings.json', expect.stringMatching(/^settings\.json\.bak-\d{4}-\d{2}-\d{2}$/)]);
+    // The backup still has the encrypted email
+    expect(cryptr.decrypt(JSON.parse(readFileSync(path.join(tempData.dir, 'data', files[1]), 'utf-8')).search_console_client_email)).toBe(EMAIL);
+  });
+
+  it('encrypts the emails again on down, and refuses to without SECRET', async () => {
+    writeFileSync(settingsFile(), JSON.stringify({ search_console_client_email: EMAIL }), 'utf-8');
+    await emailMigration.down();
+    const encrypted = readSettings().search_console_client_email;
+    expect(cryptr.decrypt(encrypted)).toBe(EMAIL);
+    await emailMigration.down();
+    expect(readSettings().search_console_client_email).toBe(encrypted);
+
+    const row = JSON.parse(emailMigration.encryptDomainEmail(JSON.stringify({ client_email: EMAIL, private_key: 'k' }), cryptr));
+    expect(cryptr.decrypt(row.client_email)).toBe(EMAIL);
+    expect(row.private_key).toBe('k');
+    expect(emailMigration.encryptDomainEmail(JSON.stringify(row), cryptr)).toBeNull();
+
+    delete process.env.SECRET;
+    await expect(emailMigration.down()).rejects.toThrow('SECRET');
   });
 
   it('is safe to run twice and leaves a plain, empty or undecryptable email alone', async () => {

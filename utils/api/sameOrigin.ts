@@ -30,13 +30,15 @@ export const ownOrigins = (req: Request): string[] => {
 
 /**
  * True when a request was made by this site's own pages. Used for requests that a logged-in browser can send and
- * that start paid work: a page on another site cannot make the browser send them. Browsers report the origin of a
- * request (Origin, Sec-Fetch-Site); a request that reports neither is from a non-browser client, which is not a
- * cross-site browser request.
+ * that start paid work: a page on another site cannot make the browser send them. Sec-Fetch-Site is the browser's own
+ * verdict and no page script can set it, so it decides when it is sent. That also holds behind a proxy that hides the
+ * public address from the app. Without it the Origin is compared. A request that reports neither is from a non-browser
+ * client, which is not a cross-site browser request.
  */
 export const isSameOriginRequest = (req: Request): boolean => {
    const fetchSite = req.headers.get('sec-fetch-site');
-   if (fetchSite && fetchSite !== 'same-origin' && fetchSite !== 'none') { return false; }
+   if (fetchSite === 'same-origin') { return true; }
+   if (fetchSite && fetchSite !== 'none') { return false; }
    const origin = req.headers.get('origin');
    if (!origin) { return true; }
    return ownOrigins(req).includes(origin);

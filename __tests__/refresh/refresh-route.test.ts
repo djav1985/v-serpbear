@@ -112,6 +112,8 @@ describe('refresh route', () => {
       expect(isSameOriginRequest(new Request('https://app.example/api/serp/refresh', { headers: { origin: 'https://app.example', 'sec-fetch-site': 'same-origin' } }))).toBe(true);
       expect(isSameOriginRequest(new Request('http://internal/api/serp/refresh', { headers: { origin: 'https://public.example', 'x-forwarded-host': 'public.example', 'x-forwarded-proto': 'https' } }))).toBe(true);
       expect(isSameOriginRequest(new Request('https://app.example/api/serp/refresh', { headers: { origin: 'https://evil.example', 'sec-fetch-site': 'cross-site' } }))).toBe(false);
+      // A proxy that hides the public address: the browser's own verdict is enough
+      expect(isSameOriginRequest(new Request('http://internal/api/serp/refresh', { headers: { origin: 'https://public.example', 'sec-fetch-site': 'same-origin' } }))).toBe(true);
     });
 
     it('refuses a keyword search that uses an API key instead of a login session', async () => {

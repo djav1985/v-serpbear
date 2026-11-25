@@ -11,7 +11,7 @@ import countries from './countries';
 import { readLocalSCData } from './searchConsole';
 import { logger } from './logger';
 import { getUnknownErrorCode, getUnknownErrorMessage } from './errorSerialization';
-import { asRecord } from './typeGuards';
+import { asRecord, isRecord } from './typeGuards';
 import { RESEARCH_IDEAS_KEY, getIdeasFilePath } from './domainIdeasFile';
 import { atomicWriteFile } from './atomicWrite';
 
@@ -782,6 +782,27 @@ const normalizeIdeaList = (ideas: unknown): IdeaKeyword[] => (
    Array.isArray(ideas) ? ideas.map((idea: IdeaKeyword) => ({ ...idea, competition: normalizeIdeaCompetition(idea?.competition) })) : []
 );
 
+const IDEA_SEED_TYPES: readonly IdeaSettings['seedType'][] = ['auto', 'custom', 'tracking', 'searchconsole'];
+const SEED_FLAGS = ['seedSCKeywords', 'seedCurrentKeywords'] as const;
+const TEXT_SETTINGS = ['country', 'city', 'state', 'domain'] as const;
+
+/**
+ * The saved run options with the types the app expects. Older files may have no seedType (it becomes 'auto', the form's
+ * default), a numeric language or comma-separated keywords. Fields of any other wrong type are left out.
+ */
+const normalizeIdeaSettings = (stored: Record<string, unknown>): IdeaSettings => {
+   const settings: Record<string, unknown> = { ...stored };
+   settings.seedType = IDEA_SEED_TYPES.find((type) => type === stored.seedType) ?? 'auto';
+   if (typeof stored.language === 'number') { settings.language = String(stored.language); }
+   else if (typeof stored.language !== 'string') { delete settings.language; }
+   const keywords = typeof stored.keywords === 'string' ? stored.keywords.split(',').map((keyword) => keyword.trim()).filter(Boolean) : stored.keywords;
+   if (Array.isArray(keywords)) { settings.keywords = keywords.filter((keyword) => typeof keyword === 'string'); }
+   else { delete settings.keywords; }
+   TEXT_SETTINGS.forEach((key) => { if (typeof settings[key] !== 'string') { delete settings[key]; } });
+   SEED_FLAGS.forEach((key) => { if (typeof settings[key] !== 'boolean') { delete settings[key]; } });
+   return settings as IdeaSettings;
+};
+
 /**
  * The function `getLocalKeywordIdeas` reads keyword ideas data from a local JSON file based on a domain slug and returns it as a Promise.
  * @param {string} domain - The `domain` parameter is the domain slug for which the keyword Ideas are fetched.
@@ -800,11 +821,14 @@ export const getLocalKeywordIdeas = async (domain: string): Promise<false | Keyw
       const keywordIdeasData = JSON.parse(keywordIdeasRaw) as KeywordIdeasDatabase;
       if (keywordIdeasData.keywords) {
          // Saved ideas may have no competition level or an unknown one; fix them as they are read
+         const { favorites, settings, updated, ...rest } = keywordIdeasData;
          return {
-            ...keywordIdeasData,
+            ...rest,
             keywords: normalizeIdeaList(keywordIdeasData.keywords),
-            ...(Array.isArray(keywordIdeasData.favorites) ? { favorites: normalizeIdeaList(keywordIdeasData.favorites) } : {}),
-         };
+            ...(Array.isArray(favorites) ? { favorites: normalizeIdeaList(favorites) } : {}),
+            ...(isRecord(settings) ? { settings: normalizeIdeaSettings(settings) } : {}),
+            ...(typeof updated === 'number' ? { updated } : {}),
+         } as KeywordIdeasDatabase;
       }
       return false;
    } catch (error) {

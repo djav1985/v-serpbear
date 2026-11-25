@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { getBranding } from 'utils/branding';
 import { logger } from 'utils/logger';
 import { getSessionUser } from 'utils/serverSession';
-import { findActiveAuthorizationRequest, MCP_SCOPE_READ, resolveOAuthClient } from 'utils/mcpOAuth';
+import { findActiveAuthorizationRequest, MCP_SCOPE_READ, resolvePendingClient } from 'utils/mcpOAuth';
 import { Brand } from 'app/_components/brand';
 import { OAuthApprovalForm } from './_components/oauth-approval-form';
 
@@ -30,7 +30,7 @@ export default async function OAuthApprovalPage({ searchParams }: PageProps) {
       try {
          const pending = await findActiveAuthorizationRequest(request);
          if (pending && pending.redirectUri) {
-            const client = await resolveOAuthClient(pending.clientId);
+            const client = await resolvePendingClient(pending);
             try {
                callbackHost = new URL(pending.redirectUri).host;
                clientName = client?.clientName || 'MCP client';

@@ -251,10 +251,10 @@ describe('verifyUser, login throttle, session store', () => {
        describe('requests built in process by the MCP route', () => {
           const READ_OPERATIONS: Array<[string, string]> = [
              ['GET', '/api/serp/keyword'], ['GET', '/api/serp/keywords'], ['GET', '/api/serp/domains'], ['GET', '/api/google/searchconsole'],
-             ['GET', '/api/google/insight'], ['GET', '/api/google/ideas'], ['POST', '/api/google/ideas'],
+             ['GET', '/api/google/insight'], ['GET', '/api/google/ideas'],
           ];
           const FULL_OPERATIONS: Array<[string, string]> = [
-             ['PUT', '/api/google/ideas'], ['POST', '/api/serp/keywords'], ['PUT', '/api/serp/keywords'], ['DELETE', '/api/serp/keywords'], ['POST', '/api/serp/refresh'],
+             ['PUT', '/api/google/ideas'], ['POST', '/api/google/ideas'], ['POST', '/api/serp/keywords'], ['PUT', '/api/serp/keywords'], ['DELETE', '/api/serp/keywords'], ['POST', '/api/serp/refresh'],
           ];
           const registered = (method: string, url: string, scope: 'mcp:read' | 'mcp:full' | string, headers: Record<string, string> = {}) => {
              const request = buildRequest({ method, url, headers });

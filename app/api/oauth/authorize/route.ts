@@ -3,9 +3,10 @@ import { hasValidSessionCookie } from '../../../../utils/verifyUser';
 import { getClientIp } from '../../../../utils/api/clientIp';
 import { logger } from '../../../../utils/logger';
 import {
-   constantTimeEqual, findCredential, getAuthorizationServerMetadata, getClientRedirectUris, getOAuthBaseUrl, hashSecret,
+   constantTimeEqual, findCredential, getAuthorizationServerMetadata, isRegisteredRedirectUri, getOAuthBaseUrl, hashSecret,
    getScopeFromRequest, parseMcpScope, MCP_SCOPE_READ, OAUTH_CODE_PREFIX, OAUTH_CODE_TTL_MS, oauthCorsHeaders, oauthError, oauthHtmlError,
-   isMcpOAuthEnabled, oauthDisabledResponse, oauthOptionsWhenEnabled, pruneExpiredOAuthCredentials, randomSecret, resolveOAuthClient, readOAuthForm, saveCredential, withOAuthStore,
+   isMcpOAuthEnabled, oauthDisabledResponse, oauthOptionsWhenEnabled, pruneExpiredOAuthCredentials, randomSecret,
+   resolveOAuthClient, resolvePendingClient, readOAuthForm, saveCredential, withOAuthStore,
 } from '../../../../utils/mcpOAuth';
 
 const MAX_APPROVAL_FAILURES = 10;
@@ -72,13 +73,15 @@ const authorize = async (req: Request): Promise<Response> => {
    const challenge = params.get('code_challenge') ?? '';
    const challengeMethod = params.get('code_challenge_method');
    const scope = getScopeFromRequest(params.get('scope'));
-   const client = clientId ? await resolveOAuthClient(clientId) : null;
-   const knownRedirect = !!client && getClientRedirectUris(client).includes(redirectUri);
+   const client = clientId ? await resolveOAuthClient(clientId, getClientIp(req)) : null;
+   const knownRedirect = !!client && isRegisteredRedirectUri(client, redirectUri);
    if (!client || !knownRedirect) {
       logger.debug('[OAuth] Authorization request rejected.', { operation: 'authorization', reason: !client ? 'unknown_client' : 'unregistered_redirect_uri' });
       return oauthHtmlError(
          !client ? 'Unknown client' : 'Redirect URI mismatch',
-         !client ? 'This client_id is not registered on this server. Remove the connector and add it again so it can register.'
+         !client ? (clientId.startsWith('https://')
+            ? 'The metadata document of this client could not be loaded or is not valid. Try again in a minute; the server log has the reason.'
+            : 'This client_id is not registered on this server. Remove the connector and add it again so it can register.')
             : `The client asked to come back to ${redirectUri || 'nothing'}, which it did not register.`,
       );
    }
@@ -103,7 +106,7 @@ const authorize = async (req: Request): Promise<Response> => {
    const requestId = randomSecret();
    await pruneExpiredOAuthCredentials();
    await saveCredential({
-      tokenHash: hashSecret(requestId), kind: 'authorization_request', clientId, redirectUri, codeChallenge: challenge,
+      tokenHash: hashSecret(requestId), kind: 'authorization_request', clientId, clientName: client.clientName, redirectUri, codeChallenge: challenge,
       state: state ?? null, scope, expiresAt: Date.now() + 10 * 60 * 1000,
    });
    logger.debug('[OAuth] Authorization request is ready for operator approval.', { operation: 'authorization_request' });
@@ -123,8 +126,8 @@ const submitConsent = async (req: Request): Promise<Response> => {
       logger.debug('[OAuth] Approval form rejected.', { operation: 'authorization_consent', reason: 'missing_or_expired_request' });
       return oauthHtmlError('This page expired', 'Approval pages are valid for ten minutes. Start the connection again from your client.');
    }
-   const client = await resolveOAuthClient(pending.clientId);
-   if (!client || !getClientRedirectUris(client).includes(pending.redirectUri)) {
+   const client = await resolvePendingClient(pending);
+   if (!client || !isRegisteredRedirectUri(client, pending.redirectUri)) {
       logger.debug('[OAuth] Approval form rejected.', { operation: 'authorization_consent', reason: 'client_registration_missing' });
       return oauthHtmlError('Unknown client', 'The client was removed while this page was open. Add the connector again.');
    }

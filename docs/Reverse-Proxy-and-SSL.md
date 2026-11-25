@@ -10,7 +10,7 @@ Whichever proxy you use:
 2. Set `TRUST_PROXY` to the number of proxies in front of the app, usually `1`. Without it every visitor shares one address, so a few wrong logins from anyone lock the real user out. See [Security](Security).
 3. Make sure the proxy forwards the `Host`, `X-Forwarded-For` and `X-Forwarded-Proto` headers, as in the examples below.
 
-SerpBear refuses any change (login, saving settings, adding keywords) that a browser sends from a different address than the one the app is served from. If your proxy rewrites `Host` or drops `X-Forwarded-Proto`, and `NEXT_PUBLIC_APP_URL` is not set, every login and save fails with `403 Requests that change data must be made from this site.` The log line `403 (cross-site write)` shows the `origin` the browser sent and the `expectedOrigins` the app accepts. Set `NEXT_PUBLIC_APP_URL` to the public address, or make the proxy pass `Host` and `X-Forwarded-Proto`.
+SerpBear refuses any change (login, saving settings, adding keywords) that a browser sends from a different address than the one the app is served from. Current browsers report this themselves over HTTPS (`Sec-Fetch-Site`). For a browser that does not, or over plain HTTP, the address is compared: if your proxy rewrites `Host` or drops `X-Forwarded-Proto`, and `NEXT_PUBLIC_APP_URL` is not the public address, every login and save fails with `403 Requests that change data must be made from this site.` The log line `403 (cross-site write)` shows the `origin` the browser sent and the `expectedOrigins` the app accepts. Set `NEXT_PUBLIC_APP_URL` to the public address, or make the proxy pass `Host` and `X-Forwarded-Proto`.
 
 ## Option A: Nginx
 

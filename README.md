@@ -173,7 +173,7 @@ Behaviour is controlled by environment variables inside docker compose as well a
 Manage these in the Settings UI or at `/api/app/settings`.
 
 | Key | Values and default |
-| --- | --- | --- |
+| --- | --- |
 | `scraper_type` | Global provider: `none` (default) or a provider ID from the [providers table](#supported-serp-data-providers). |
 | `scraping_api` | Global provider API key (encrypted). |
 | `scrape_interval` | `daily` when blank, `other_day`, `weekly`, `monthly` or `never`. See [Scheduling](#scheduling). |
@@ -324,7 +324,7 @@ A [Model Context Protocol](https://modelcontextprotocol.io) server for AI assist
 - **OAuth:** set `MCP_OAUTH=true`; the approval page is `/api/oauth/approve`, while the authorization handler is `/api/oauth/authorize`. Approve with the configured `USER_NAME` (or `USER`) and `PASSWORD`, or use an existing valid login cookie. Cookie-based approval accepts only same-origin form submissions. Entering credentials approves this request without creating a login cookie. Read-only access can be selected. Incorrect credentials are limited to 10 attempts per detected IP per 15 minutes; when the IP is unknown, failed attempts share a fallback bucket, but correct credentials remain accepted after the limit is reached. OAuth client and token state is stored in `data/mcp_oauth.json`. OAuth supports both CIMD client metadata URLs and dynamic client registration; the OAuth client chooses the method during setup. Both use the same PKCE approval and token flow. When OAuth is enabled and `NEXT_PUBLIC_APP_URL` is configured, authorization-server metadata is served at `/.well-known/oauth-authorization-server` and `/.well-known/oauth-authorization-server/api/mcp`; protected-resource metadata is served at `/.well-known/oauth-protected-resource` and `/.well-known/oauth-protected-resource/api/mcp`. When `MCP_OAUTH` is unset or false, OAuth endpoints return 404 and the MCP challenge is `WWW-Authenticate: Bearer`. Set `MCP_ENABLED=false` to return 404 from direct MCP access and OAuth endpoints.
 
 | Tool | Access | What it does |
-| --- | --- |
+| --- | --- | --- |
 | `get_keyword` | Read | One keyword by `id`, with position history |
 | `list_keywords` | Read | All keywords of a `domain` |
 | `list_domains` | Read | All domains, optionally with `withstats` |

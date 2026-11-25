@@ -69,6 +69,29 @@ export const normalizeLegacySettings = (settings: Partial<SettingsType>): Partia
    return normalizedSettings;
 };
 
+/**
+ * Replaces stored values the settings page cannot show (a hand-edited or older file) with a value of the right type:
+ * a number or true/false written as text is converted, and anything else gets the default.
+ */
+const cleanStoredTypes = (settings: SettingsType, defaults: SettingsType): SettingsType => {
+   const cleaned = { ...settings } as Record<string, unknown>;
+   Object.entries(defaults).forEach(([key, fallback]) => {
+      const value = cleaned[key];
+      if (typeof fallback === 'string' && typeof value !== 'string') {
+         cleaned[key] = typeof value === 'number' ? String(value) : fallback;
+      } else if (typeof fallback === 'boolean' && typeof value !== 'boolean') {
+         cleaned[key] = value === 'true' || (value !== 'false' && fallback);
+      }
+   });
+   const limit = typeof cleaned.scrape_pagination_limit === 'string' ? Number(cleaned.scrape_pagination_limit) : cleaned.scrape_pagination_limit;
+   cleaned.scrape_pagination_limit = typeof limit === 'number' && Number.isInteger(limit) && limit >= 1 ? limit : defaults.scrape_pagination_limit;
+   const columns = cleaned.keywordsColumns;
+   cleaned.keywordsColumns = Array.isArray(columns) ? columns.filter((column) => typeof column === 'string') : defaults.keywordsColumns;
+   if (typeof cleaned.smtp_port !== 'number' || !Number.isInteger(cleaned.smtp_port)) { cleaned.smtp_port = null; }
+   if (cleaned.scrape_strategy !== 'basic' && cleaned.scrape_strategy !== 'custom') { cleaned.scrape_strategy = defaults.scrape_strategy; }
+   return cleaned as unknown as SettingsType;
+};
+
 /** Reads data/settings.json as stored (secrets still encrypted), upgrading legacy field names and dropping removed keys. */
 export const readStoredSettingsFile = async (settingsPath: string): Promise<Partial<SettingsType>> => (
    withoutRemovedSettingsKeys(normalizeLegacySettings(await readSettingsFile(settingsPath)))
@@ -90,10 +113,7 @@ export const getAppSettings = async () : Promise<SettingsType> => {
    try {
       const settings = await readStoredSettingsFile(settingsPath);
       const defaults = buildSettingsDefaults();
-      const baseSettings: SettingsType = { ...defaults, ...settings };
-      // A value the settings page cannot show (a hand-edited file) falls back to the default instead of breaking the page
-      if (typeof baseSettings.smtp_port !== 'number' || !Number.isInteger(baseSettings.smtp_port)) { baseSettings.smtp_port = null; }
-      if (baseSettings.scrape_strategy !== 'basic' && baseSettings.scrape_strategy !== 'custom') { baseSettings.scrape_strategy = defaults.scrape_strategy; }
+      const baseSettings = cleanStoredTypes({ ...defaults, ...settings }, defaults);
       let decryptedSettings: SettingsType = baseSettings;
 
       if (!process.env.SECRET) {

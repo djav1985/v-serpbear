@@ -12,6 +12,7 @@ type KeywordRowFixture = {
   history: string;
   history7d?: string | null;
   lastResult: string;
+  localResults?: string;
   url: string;
   tags: string;
   updating: number | string;

@@ -349,6 +349,11 @@ describe('GET /api/app/settings and configuration requirements', () => {
     expect(await read({ smtp_port: 'abc' })).toMatchObject({ smtp_port: null });
     expect(await read({ scrape_strategy: '' })).toMatchObject({ scrape_strategy: 'basic' });
     expect(await read({ scrape_strategy: 'custom' })).toMatchObject({ scrape_strategy: 'custom' });
+    expect(await read({ scrape_pagination_limit: '7' })).toMatchObject({ scrape_pagination_limit: 7 });
+    expect(await read({ scrape_pagination_limit: null })).toMatchObject({ scrape_pagination_limit: 5 });
+    expect(await read({ smtp_server: null, scrape_delay: 5000, scrape_retry: 'true', notification_interval: null, keywordsColumns: null })).toMatchObject({
+      smtp_server: '', scrape_delay: '5000', scrape_retry: true, notification_interval: 'never', keywordsColumns: ['Best', 'History', 'Volume', 'Search Console'],
+    });
   });
 
   it('treats a missing, empty or whitespace-only settings.json as defaults without logging errors or rewriting the file', async () => {

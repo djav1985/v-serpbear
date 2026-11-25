@@ -334,13 +334,15 @@ describe('idea competition level', () => {
       mkdirSync(path.join(dir, 'data'));
       const idea = (keyword: string, competition?: string) => ({ uid: `us:${keyword}`, keyword, ...(competition ? { competition } : {}), country: 'US', domain: 'example.com', competitionIndex: 1, monthlySearchVolumes: {}, avgMonthlySearches: 10, added: 1, updated: 1, position: 999 });
       // eslint-disable-next-line security/detect-non-literal-fs-filename -- writes only inside the temp directory created above
-      writeFileSync(path.join(dir, 'data', 'IDEAS_example.com.json'), JSON.stringify({ keywords: [idea('a'), idea('b', 'LOW'), idea('c', 'EXTREME')], favorites: [idea('d')], settings: {}, updated: 1 }));
+      writeFileSync(path.join(dir, 'data', 'IDEAS_example.com.json'), JSON.stringify({ keywords: [idea('a'), idea('b', 'LOW'), idea('c', 'EXTREME')], favorites: [idea('d')], settings: { domainSlug: 'example-com', language: 1000, keywords: 'a, b', domain: null }, updated: 1 }));
       const cwd = jest.spyOn(process, 'cwd').mockReturnValue(dir);
       try {
         const db = await adwordsUtils.getLocalKeywordIdeas('example.com');
         if (!db) { throw new Error('expected the saved ideas to be read'); }
         expect(db.keywords.map((item) => item.competition)).toEqual(['UNSPECIFIED', 'LOW', 'UNSPECIFIED']);
         expect(db.favorites.map((item) => item.competition)).toEqual(['UNSPECIFIED']);
+        // A file from an older release: no seedType, a numeric language and comma-separated keywords
+        expect(db.settings).toEqual({ domainSlug: 'example-com', seedType: 'auto', language: '1000', keywords: ['a', 'b'] });
       } finally {
         cwd.mockRestore();
         rmSync(dir, { recursive: true, force: true });
